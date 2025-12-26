@@ -1377,6 +1377,60 @@ export async function loadPendingPlayerConfirmations(userId) {
 }
 
 /**
+ * Load pending doubles match confirmations for current player
+ */
+export async function loadPendingDoublesConfirmations(userId) {
+    const supabase = getSupabase();
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('doubles_match_requests')
+            .select(`
+                *,
+                sports(id, display_name)
+            `)
+            .eq('status', 'pending_opponent')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Filter for requests where user is in team_b
+        const filtered = (requests || []).filter(req => {
+            const teamB = req.team_b || {};
+            return teamB.player1_id === userId || teamB.player2_id === userId;
+        });
+
+        console.log('[Matches] Loaded pending doubles confirmations:', filtered.length);
+        return filtered.map(req => ({
+            ...req,
+            isDoubles: true  // Mark as doubles for rendering
+        }));
+    } catch (error) {
+        console.error('[Matches] Error loading pending doubles confirmations:', error);
+        return [];
+    }
+}
+
+/**
+ * Load all pending confirmations (singles + doubles)
+ */
+export async function loadAllPendingConfirmations(userId) {
+    const [singlesRequests, doublesRequests] = await Promise.all([
+        loadPendingPlayerConfirmations(userId),
+        loadPendingDoublesConfirmations(userId)
+    ]);
+
+    // Combine and sort by created_at
+    const allRequests = [...singlesRequests, ...doublesRequests]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    console.log('[Matches] Total pending confirmations:', allRequests.length,
+        `(${singlesRequests.length} singles, ${doublesRequests.length} doubles)`);
+
+    return allRequests;
+}
+
+/**
  * Show bottom sheet with pending match confirmations
  */
 export function showMatchConfirmationBottomSheet(requests) {
@@ -1387,28 +1441,71 @@ export function showMatchConfirmationBottomSheet(requests) {
     const renderBottomSheet = (index) => {
         const request = requests[index];
 
-        const playerA = request.player_a?.display_name ||
-                       `${request.player_a?.first_name || ''} ${request.player_a?.last_name || ''}`.trim() ||
-                       'Spieler A';
-        const playerB = request.player_b?.display_name ||
-                       `${request.player_b?.first_name || ''} ${request.player_b?.last_name || ''}`.trim() ||
-                       'Du';
+        let playerA, playerB, winnerName, setsA, setsB, playerAElo, playerBElo;
 
-        const winnerId = request.winner_id;
-        const winnerName = winnerId === request.player_a_id ? playerA : playerB;
-        const setsA = request.player_a_sets_won || 0;
-        const setsB = request.player_b_sets_won || 0;
+        if (request.isDoubles) {
+            // Doubles match
+            const teamA = request.team_a || {};
+            const teamB = request.team_b || {};
+
+            playerA = 'Team A';  // We'd need to fetch player names from profiles
+            playerB = 'Team B (Du)';
+
+            // For doubles, we'd need to fetch player profiles
+            // For now, show team IDs as placeholder
+            winnerName = request.winning_team === 'A' ? 'Team A' : 'Team B';
+
+            // Calculate sets won from sets array for doubles
+            setsA = 0;
+            setsB = 0;
+            if (request.sets && request.sets.length > 0) {
+                request.sets.forEach(set => {
+                    const teamAScore = set.teamA || set.team_a || set.a || 0;
+                    const teamBScore = set.teamB || set.team_b || set.b || 0;
+                    if (teamAScore > teamBScore) setsA++;
+                    else if (teamBScore > teamAScore) setsB++;
+                });
+            }
+
+            playerAElo = '-';
+            playerBElo = '-';
+        } else {
+            // Singles match
+            playerA = request.player_a?.display_name ||
+                           `${request.player_a?.first_name || ''} ${request.player_a?.last_name || ''}`.trim() ||
+                           'Spieler A';
+            playerB = request.player_b?.display_name ||
+                           `${request.player_b?.first_name || ''} ${request.player_b?.last_name || ''}`.trim() ||
+                           'Du';
+
+            const winnerId = request.winner_id;
+            winnerName = winnerId === request.player_a_id ? playerA : playerB;
+            setsA = request.player_a_sets_won || 0;
+            setsB = request.player_b_sets_won || 0;
+
+            playerAElo = request.player_a?.elo_rating || 800;
+            playerBElo = request.player_b?.elo_rating || 800;
+        }
 
         // Handle different possible set data formats
         let setsDetails = 'Keine Details';
         if (request.sets && request.sets.length > 0) {
-            // Try different possible property names
+            // Try different possible property names (singles and doubles)
             setsDetails = request.sets.map(s => {
+                // Singles formats
                 if (s.playerA !== undefined && s.playerB !== undefined) {
                     return `${s.playerA}:${s.playerB}`;
                 } else if (s.player_a !== undefined && s.player_b !== undefined) {
                     return `${s.player_a}:${s.player_b}`;
-                } else if (s.a !== undefined && s.b !== undefined) {
+                }
+                // Doubles formats
+                else if (s.teamA !== undefined && s.teamB !== undefined) {
+                    return `${s.teamA}:${s.teamB}`;
+                } else if (s.team_a !== undefined && s.team_b !== undefined) {
+                    return `${s.team_a}:${s.team_b}`;
+                }
+                // Generic formats
+                else if (s.a !== undefined && s.b !== undefined) {
                     return `${s.a}:${s.b}`;
                 } else if (Array.isArray(s) && s.length === 2) {
                     return `${s[0]}:${s[1]}`;
@@ -1464,14 +1561,14 @@ export function showMatchConfirmationBottomSheet(requests) {
                             <div class="flex items-center justify-between mb-3">
                                 <div class="text-center flex-1">
                                     <div class="font-semibold text-gray-800">${playerA}</div>
-                                    <div class="text-xs text-gray-500">Elo: ${request.player_a?.elo_rating || 800}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${playerAElo}</div>
                                 </div>
                                 <div class="px-4">
                                     <div class="text-2xl font-bold text-gray-700">${setsA} : ${setsB}</div>
                                 </div>
                                 <div class="text-center flex-1">
                                     <div class="font-semibold text-gray-800">${playerB}</div>
-                                    <div class="text-xs text-gray-500">Elo: ${request.player_b?.elo_rating || 800}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${playerBElo}</div>
                                 </div>
                             </div>
                             <div class="flex items-center justify-center gap-2 bg-white rounded-lg py-2 px-3">
@@ -1579,7 +1676,7 @@ export function showMatchConfirmationBottomSheet(requests) {
         });
 
         acceptBtn?.addEventListener('click', async () => {
-            await handlePlayerConfirmation(requests[currentIndex].id, true);
+            await handlePlayerConfirmation(requests[currentIndex].id, true, null, requests[currentIndex].isDoubles);
             requests.splice(currentIndex, 1);
             if (requests.length > 0) {
                 if (currentIndex >= requests.length) currentIndex = requests.length - 1;
@@ -1592,7 +1689,7 @@ export function showMatchConfirmationBottomSheet(requests) {
 
         declineBtn?.addEventListener('click', async () => {
             const reason = prompt('Warum möchtest du dieses Ergebnis ablehnen? (Optional)');
-            await handlePlayerConfirmation(requests[currentIndex].id, false, reason);
+            await handlePlayerConfirmation(requests[currentIndex].id, false, reason, requests[currentIndex].isDoubles);
             requests.splice(currentIndex, 1);
             if (requests.length > 0) {
                 if (currentIndex >= requests.length) currentIndex = requests.length - 1;
@@ -1626,72 +1723,116 @@ export function showMatchConfirmationBottomSheet(requests) {
 /**
  * Handle player confirmation (accept/decline)
  */
-async function handlePlayerConfirmation(requestId, approved, declineReason = null) {
+async function handlePlayerConfirmation(requestId, approved, declineReason = null, isDoubles = false) {
     const supabase = getSupabase();
 
     try {
         if (approved) {
-            // Get the request details
-            const { data: request } = await supabase
-                .from('match_requests')
-                .select('*')
-                .eq('id', requestId)
-                .single();
+            if (isDoubles) {
+                // Handle doubles match confirmation
+                const { data: request } = await supabase
+                    .from('doubles_match_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
 
-            if (!request) throw new Error('Match request not found');
+                if (!request) throw new Error('Doubles match request not found');
 
-            // Create the match (without tournament_match_id - that's in tournament_matches table)
-            const { data: match, error: matchError } = await supabase
-                .from('matches')
-                .insert({
-                    player_a_id: request.player_a_id,
-                    player_b_id: request.player_b_id,
-                    winner_id: request.winner_id,
-                    loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
-                    player_a_sets_won: request.player_a_sets_won,
-                    player_b_sets_won: request.player_b_sets_won,
-                    sets: request.sets || [],
-                    club_id: request.club_id,
-                    created_by: request.created_by,
-                    sport_id: request.sport_id,
-                    match_mode: request.match_mode || 'best-of-5',
-                    handicap_used: request.handicap_used || false,
-                    played_at: request.played_at || new Date().toISOString()
-                })
-                .select()
-                .single();
+                // Create the doubles match
+                const { data: match, error: matchError } = await supabase
+                    .from('doubles_matches')
+                    .insert({
+                        team_a: request.team_a,
+                        team_b: request.team_b,
+                        winning_team: request.winning_team,
+                        sets: request.sets || [],
+                        club_id: request.club_id,
+                        initiated_by: request.initiated_by,
+                        sport_id: request.sport_id,
+                        match_mode: request.match_mode || 'best-of-5',
+                        handicap_used: request.handicap_used || false,
+                        played_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
 
-            if (matchError) {
-                console.error('[Matches] Match creation error:', matchError);
-                console.error('[Matches] Request data:', request);
-                throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
+                if (matchError) {
+                    console.error('[Matches] Doubles match creation error:', matchError);
+                    throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message || matchError.code}`);
+                }
+
+                // Update request status
+                await supabase
+                    .from('doubles_match_requests')
+                    .update({ status: 'approved' })
+                    .eq('id', requestId);
+
+                console.log('[Matches] Doubles match confirmed and created');
+                showToast('Doppel-Match bestätigt!', 'success');
+            } else {
+                // Handle singles match confirmation
+                const { data: request } = await supabase
+                    .from('match_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
+
+                if (!request) throw new Error('Match request not found');
+
+                // Create the match (without tournament_match_id - that's in tournament_matches table)
+                const { data: match, error: matchError } = await supabase
+                    .from('matches')
+                    .insert({
+                        player_a_id: request.player_a_id,
+                        player_b_id: request.player_b_id,
+                        winner_id: request.winner_id,
+                        loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
+                        player_a_sets_won: request.player_a_sets_won,
+                        player_b_sets_won: request.player_b_sets_won,
+                        sets: request.sets || [],
+                        club_id: request.club_id,
+                        created_by: request.created_by,
+                        sport_id: request.sport_id,
+                        match_mode: request.match_mode || 'best-of-5',
+                        handicap_used: request.handicap_used || false,
+                        played_at: request.played_at || new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (matchError) {
+                    console.error('[Matches] Match creation error:', matchError);
+                    console.error('[Matches] Request data:', request);
+                    throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
+                }
+
+                // Update request status
+                await supabase
+                    .from('match_requests')
+                    .update({ status: 'approved' })
+                    .eq('id', requestId);
+
+                // If linked to tournament, update tournament match
+                if (request.tournament_match_id && match) {
+                    const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
+                    await recordTournamentMatchResult(request.tournament_match_id, match.id);
+                }
+
+                console.log('[Matches] Match confirmed and created');
+                showToast('Match bestätigt!', 'success');
             }
-
-            // Update request status
-            await supabase
-                .from('match_requests')
-                .update({ status: 'approved' })
-                .eq('id', requestId);
-
-            // If linked to tournament, update tournament match
-            if (request.tournament_match_id && match) {
-                const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
-                await recordTournamentMatchResult(request.tournament_match_id, match.id);
-            }
-
-            console.log('[Matches] Match confirmed and created');
-            showToast('Match bestätigt!', 'success');
         } else {
             // Decline the match
+            const table = isDoubles ? 'doubles_match_requests' : 'match_requests';
             await supabase
-                .from('match_requests')
+                .from(table)
                 .update({
                     status: 'rejected',
                     decline_reason: declineReason
                 })
                 .eq('id', requestId);
 
-            console.log('[Matches] Match declined');
+            console.log(`[Matches] ${isDoubles ? 'Doubles ' : ''}Match declined`);
             showToast('Match abgelehnt', 'info');
         }
     } catch (error) {
