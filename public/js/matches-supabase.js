@@ -1670,7 +1670,11 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 .select()
                 .single();
 
-            if (matchError) throw matchError;
+            if (matchError) {
+                console.error('[Matches] Match creation error:', matchError);
+                console.error('[Matches] Request data:', request);
+                throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
+            }
 
             // Update request status
             await supabase
