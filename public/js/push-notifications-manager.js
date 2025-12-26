@@ -11,6 +11,7 @@ import {
     optOutOneSignal,
     logoutOneSignal
 } from './onesignal-init.js';
+import { escapeHtml } from './utils/security.js';
 
 let currentUserId = null;
 let tokenSaveTimeout = null;
@@ -310,16 +311,6 @@ function showInAppNotification(notification) {
 
         toast.remove();
     });
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

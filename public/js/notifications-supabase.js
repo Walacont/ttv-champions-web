@@ -3,6 +3,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './utils/security.js';
 
 let notificationSubscription = null;
 let matchRequestSubscription = null;
@@ -1698,15 +1699,6 @@ function formatTimeAgo(dateString) {
     if (diffHours < 24) return `vor ${diffHours} Std.`;
     if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
     return date.toLocaleDateString('de-DE');
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

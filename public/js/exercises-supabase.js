@@ -3,6 +3,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { renderTableForDisplay } from './tableEditor.js';
+import { escapeHtml } from './utils/security.js';
 
 /**
  * Exercises Module
@@ -974,12 +975,6 @@ export async function openExerciseModal(
     }
 
     modal.classList.remove('hidden');
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

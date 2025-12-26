@@ -4,6 +4,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 
@@ -982,16 +983,6 @@ function setupEventSubscription() {
     if (!window.playerEventsUnsubscribes) window.playerEventsUnsubscribes = [];
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Export

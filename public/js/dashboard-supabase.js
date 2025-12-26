@@ -13,6 +13,7 @@ import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { escapeHtml } from './utils/security.js';
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
@@ -2752,13 +2753,6 @@ function showError(message) {
             </div>
         `;
     }
-}
-
-// --- Helper: Escape HTML ---
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // --- Helper: Render Table for Display ---

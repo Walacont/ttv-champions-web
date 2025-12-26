@@ -5,6 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -356,15 +357,6 @@ function getTimeAgo(date) {
     if (seconds < 604800) return `vor ${Math.floor(seconds / 86400)} Tag(en)`;
 
     return date.toLocaleDateString('de-DE');
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Make functions available globally

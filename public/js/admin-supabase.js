@@ -25,6 +25,7 @@ import {
     initializeExercisePartnerSystem,
     getExercisePartnerSettings,
 } from './milestone-management.js';
+import { escapeHtml } from './utils/security.js';
 
 // Supabase client
 const supabase = getSupabase();
@@ -898,12 +899,6 @@ function openExerciseModal(dataset) {
     }
 
     exerciseModal.classList.remove('hidden');
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function openEditExerciseModal(dataset) {
