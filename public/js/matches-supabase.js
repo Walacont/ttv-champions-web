@@ -1399,9 +1399,25 @@ export function showMatchConfirmationBottomSheet(requests) {
         const setsA = request.player_a_sets_won || 0;
         const setsB = request.player_b_sets_won || 0;
 
-        const setsDetails = request.sets && request.sets.length > 0
-            ? request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ')
-            : 'Keine Details';
+        // Handle different possible set data formats
+        let setsDetails = 'Keine Details';
+        if (request.sets && request.sets.length > 0) {
+            // Try different possible property names
+            setsDetails = request.sets.map(s => {
+                if (s.playerA !== undefined && s.playerB !== undefined) {
+                    return `${s.playerA}:${s.playerB}`;
+                } else if (s.player_a !== undefined && s.player_b !== undefined) {
+                    return `${s.player_a}:${s.player_b}`;
+                } else if (s.a !== undefined && s.b !== undefined) {
+                    return `${s.a}:${s.b}`;
+                } else if (Array.isArray(s) && s.length === 2) {
+                    return `${s[0]}:${s[1]}`;
+                }
+                return JSON.stringify(s);
+            }).join(', ');
+        }
+
+        console.log('[Matches] Sets data:', request.sets, '→', setsDetails);
 
         const handicapText = request.handicap_used
             ? '✓ Verwendet'
