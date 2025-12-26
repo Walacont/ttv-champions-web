@@ -1358,8 +1358,8 @@ export async function loadPendingPlayerConfirmations(userId) {
             .from('match_requests')
             .select(`
                 *,
-                player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name, display_name, elo_rating),
-                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, display_name, elo_rating),
+                player_a:player_a_id(id, first_name, last_name, display_name, elo_rating),
+                player_b:player_b_id(id, first_name, last_name, display_name, elo_rating),
                 sports(id, display_name)
             `)
             .eq('status', 'pending_player')
