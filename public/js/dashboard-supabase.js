@@ -14,11 +14,13 @@ import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { escapeHtml } from './utils/security.js';
+import { suppressConsoleLogs } from './utils/logger.js';
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
 import { initPlayerEvents } from './player-events-supabase.js';
 import { initComments } from './activity-comments.js';
+
 import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
 
@@ -37,6 +39,9 @@ import {
     formatSetsDisplay,
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
+
+// Suppress debug logs in production
+suppressConsoleLogs();
 
 // Notifications loaded dynamically - not critical for main functionality
 let notificationsModule = null;
