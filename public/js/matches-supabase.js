@@ -1360,8 +1360,7 @@ export async function loadPendingPlayerConfirmations(userId) {
                 *,
                 player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name, display_name, elo_rating),
                 player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, display_name, elo_rating),
-                sports(id, display_name),
-                created_by_profile:profiles!match_requests_created_by_fkey(id, first_name, last_name, display_name)
+                sports(id, display_name)
             `)
             .eq('status', 'pending_player')
             .or(`player_b_id.eq.${userId}`)
@@ -1413,9 +1412,8 @@ export function showMatchConfirmationBottomSheet(requests) {
                            matchMode === 'best-of-3' ? 'Best of 3' :
                            matchMode === 'best-of-7' ? 'Best of 7' : matchMode;
 
-        const createdBy = request.created_by_profile?.display_name ||
-                         `${request.created_by_profile?.first_name || ''} ${request.created_by_profile?.last_name || ''}`.trim() ||
-                         'Unbekannt';
+        // Usually player A creates the request, so show their name
+        const createdBy = playerA;
 
         const createdAt = request.created_at ? new Date(request.created_at).toLocaleString('de-DE', {
             day: '2-digit',
