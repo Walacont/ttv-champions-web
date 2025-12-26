@@ -9,6 +9,7 @@ import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
 import { loadMatchMedia } from './match-media.js';
 import { initComments, openComments } from './activity-comments.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -2090,10 +2091,11 @@ function getDisplayName(profile) {
  */
 function renderClubJoinCard(activity) {
     const eventData = activity.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const clubName = eventData.club_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
-    const rankName = eventData.rank_name || 'Rekrut';
+    const displayName = escapeHtml(eventData.display_name || 'Spieler');
+    const clubName = escapeHtml(eventData.club_name || 'Unbekannt');
+    const avatarUrl = escapeHtml(eventData.avatar_url || DEFAULT_AVATAR);
+    const rankName = escapeHtml(eventData.rank_name || 'Rekrut');
+    const safeUserId = encodeURIComponent(activity.user_id);
 
     const eventDate = new Date(activity.created_at);
     const dateStr = formatRelativeDate(eventDate);
@@ -2102,7 +2104,7 @@ function renderClubJoinCard(activity) {
     return `
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-blue-100">
             <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0">
                     <img src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-blue-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
@@ -2111,7 +2113,7 @@ function renderClubJoinCard(activity) {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <i class="fas fa-building text-blue-600"></i>
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                        <a href="/profile.html?id=${safeUserId}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
                         <span class="text-gray-600 text-sm">ist dem Verein beigetreten</span>
@@ -2152,9 +2154,10 @@ function renderClubJoinCard(activity) {
  */
 function renderClubLeaveCard(activity) {
     const eventData = activity.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const clubName = eventData.club_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const displayName = escapeHtml(eventData.display_name || 'Spieler');
+    const clubName = escapeHtml(eventData.club_name || 'Unbekannt');
+    const avatarUrl = escapeHtml(eventData.avatar_url || DEFAULT_AVATAR);
+    const safeUserId = encodeURIComponent(activity.user_id);
 
     const eventDate = new Date(activity.created_at);
     const dateStr = formatRelativeDate(eventDate);
@@ -2163,7 +2166,7 @@ function renderClubLeaveCard(activity) {
     return `
         <div class="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-200">
             <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0">
                     <img src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-gray-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
@@ -2172,7 +2175,7 @@ function renderClubLeaveCard(activity) {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <i class="fas fa-door-open text-gray-500"></i>
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                        <a href="/profile.html?id=${safeUserId}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
                         <span class="text-gray-600 text-sm">hat den Verein verlassen</span>
@@ -2193,17 +2196,19 @@ function renderClubLeaveCard(activity) {
  */
 function renderRankUpCard(activity) {
     const eventData = activity.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const rankName = eventData.rank_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const displayName = escapeHtml(eventData.display_name || 'Spieler');
+    const rankName = escapeHtml(eventData.rank_name || 'Unbekannt');
+    const avatarUrl = escapeHtml(eventData.avatar_url || DEFAULT_AVATAR);
     const eloRating = eventData.elo_rating || 0;
     const xp = eventData.xp || 0;
+    const safeUserId = encodeURIComponent(activity.user_id);
 
     const eventDate = new Date(activity.created_at);
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Get rank color based on rank name
+    // Get rank color based on rank name (use raw value for color lookup)
+    const rawRankName = eventData.rank_name || 'Unbekannt';
     const rankColors = {
         'Rekrut': 'gray',
         'Bronze': 'amber',
@@ -2212,12 +2217,12 @@ function renderRankUpCard(activity) {
         'Platin': 'cyan',
         'Champion': 'purple'
     };
-    const colorScheme = rankColors[rankName] || 'indigo';
+    const colorScheme = rankColors[rawRankName] || 'indigo';
 
     return `
         <div class="bg-gradient-to-r from-${colorScheme}-50 to-${colorScheme}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colorScheme}-200">
             <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
+                <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0 relative">
                     <img src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-${colorScheme}-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
@@ -2229,7 +2234,7 @@ function renderRankUpCard(activity) {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <i class="fas fa-trophy text-${colorScheme}-600"></i>
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                        <a href="/profile.html?id=${safeUserId}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
                         <span class="text-gray-600 text-sm">erreichte</span>
