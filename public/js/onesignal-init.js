@@ -13,6 +13,11 @@
 // Replace with your OneSignal App ID from the dashboard
 const ONESIGNAL_APP_ID = 'YOUR_ONESIGNAL_APP_ID';
 
+// Check if AppID is configured (not a placeholder)
+const isAppIdConfigured = ONESIGNAL_APP_ID &&
+    ONESIGNAL_APP_ID !== 'YOUR_ONESIGNAL_APP_ID' &&
+    ONESIGNAL_APP_ID.length > 10;
+
 let isOneSignalInitialized = false;
 
 /**
@@ -22,6 +27,12 @@ let isOneSignalInitialized = false;
 export async function initOneSignal() {
     if (isOneSignalInitialized) return;
     if (typeof window === 'undefined') return;
+
+    // Don't init if AppID is not configured
+    if (!isAppIdConfigured) {
+        console.log('[OneSignal] Skipping - AppID not configured');
+        return;
+    }
 
     // Don't init on native apps (they use FCM directly)
     if (window.CapacitorUtils?.isNative()) {
