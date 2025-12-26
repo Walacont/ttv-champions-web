@@ -407,7 +407,14 @@ function renderTournamentDetails(tournament, participating) {
             <!-- Matches (if generated) -->
             ${tournament.tournament_matches && tournament.tournament_matches.length > 0 ? `
                 <div>
-                    <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
+                        ${tournament.status === 'in_progress' ? `
+                            <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
+                                <i class="fas fa-bolt mr-1"></i>Match eintragen
+                            </button>
+                        ` : ''}
+                    </div>
                     ${renderMatches(tournament.tournament_matches || [])}
                 </div>
             ` : ''}
@@ -782,6 +789,14 @@ function setupDetailEventListeners(tournament, participating) {
             }
         });
     }
+
+    // Quick match entry button
+    const quickMatchBtn = document.getElementById('quick-match-entry-btn');
+    if (quickMatchBtn) {
+        quickMatchBtn.addEventListener('click', () => {
+            openQuickMatchEntryModal(tournament);
+        });
+    }
 }
 
 /**
@@ -851,6 +866,203 @@ async function handleJoinWithCode() {
     } catch (error) {
         // Error already shown
     }
+}
+
+/**
+ * Open quick match entry modal for tournament matches
+ */
+function openQuickMatchEntryModal(tournament) {
+    // Get pending matches
+    const pendingMatches = (tournament.tournament_matches || []).filter(m => m.status === 'pending');
+
+    if (pendingMatches.length === 0) {
+        showToast('Keine offenen Matches verfügbar', 'info');
+        return;
+    }
+
+    // Create modal HTML
+    const modalHTML = `
+        <div id="quick-match-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-bolt text-indigo-600 mr-2"></i>Match eintragen
+                        </h3>
+                        <button id="close-quick-match-modal" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Match auswählen</label>
+                        <select id="quick-match-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="">-- Bitte wählen --</option>
+                            ${pendingMatches.map(m => {
+                                const playerA = m.player_a?.display_name ||
+                                              `${m.player_a?.first_name || ''} ${m.player_a?.last_name || ''}`.trim() ||
+                                              'Spieler A';
+                                const playerB = m.player_b?.display_name ||
+                                              `${m.player_b?.first_name || ''} ${m.player_b?.last_name || ''}`.trim() ||
+                                              'Freilos';
+                                return `<option value="${m.id}" data-player-a-id="${m.player_a_id}" data-player-b-id="${m.player_b_id || ''}">
+                                    Runde ${m.round_number}: ${playerA} vs ${playerB}
+                                </option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+
+                    <div id="quick-match-form" class="hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ergebnis (Sätze)</label>
+                            <div class="grid grid-cols-3 gap-2 items-center">
+                                <div>
+                                    <input type="number" id="quick-sets-a" min="0" max="5"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center"
+                                           placeholder="0">
+                                    <div id="quick-player-a-name" class="text-xs text-gray-600 mt-1 text-center"></div>
+                                </div>
+                                <div class="text-center text-gray-400 font-bold">:</div>
+                                <div>
+                                    <input type="number" id="quick-sets-b" min="0" max="5"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center"
+                                           placeholder="0">
+                                    <div id="quick-player-b-name" class="text-xs text-gray-600 mt-1 text-center"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button id="cancel-quick-match" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">
+                                Abbrechen
+                            </button>
+                            <button id="submit-quick-match" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">
+                                Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Insert modal into DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Setup event listeners
+    const modal = document.getElementById('quick-match-modal');
+    const matchSelect = document.getElementById('quick-match-select');
+    const matchForm = document.getElementById('quick-match-form');
+    const closeBtn = document.getElementById('close-quick-match-modal');
+    const cancelBtn = document.getElementById('cancel-quick-match');
+    const submitBtn = document.getElementById('submit-quick-match');
+    const setsAInput = document.getElementById('quick-sets-a');
+    const setsBInput = document.getElementById('quick-sets-b');
+    const playerAName = document.getElementById('quick-player-a-name');
+    const playerBName = document.getElementById('quick-player-b-name');
+
+    let selectedMatch = null;
+
+    // Match selection
+    matchSelect.addEventListener('change', () => {
+        const matchId = matchSelect.value;
+        if (matchId) {
+            selectedMatch = pendingMatches.find(m => m.id === matchId);
+            const option = matchSelect.selectedOptions[0];
+
+            const playerA = selectedMatch.player_a?.display_name ||
+                          `${selectedMatch.player_a?.first_name || ''} ${selectedMatch.player_a?.last_name || ''}`.trim();
+            const playerB = selectedMatch.player_b?.display_name ||
+                          `${selectedMatch.player_b?.first_name || ''} ${selectedMatch.player_b?.last_name || ''}`.trim() ||
+                          'Freilos';
+
+            playerAName.textContent = playerA;
+            playerBName.textContent = playerB;
+
+            matchForm.classList.remove('hidden');
+        } else {
+            matchForm.classList.add('hidden');
+        }
+    });
+
+    // Close modal
+    const closeModal = () => {
+        modal.remove();
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Submit match
+    submitBtn.addEventListener('click', async () => {
+        if (!selectedMatch) return;
+
+        const setsA = parseInt(setsAInput.value) || 0;
+        const setsB = parseInt(setsBInput.value) || 0;
+
+        if (setsA === 0 && setsB === 0) {
+            showToast('Bitte Satzergebnis eingeben', 'error');
+            return;
+        }
+
+        if (setsA === setsB) {
+            showToast('Unentschieden nicht möglich', 'error');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Speichere...';
+
+        try {
+            const winnerId = setsA > setsB ? selectedMatch.player_a_id : selectedMatch.player_b_id;
+            const loserId = setsA > setsB ? selectedMatch.player_b_id : selectedMatch.player_a_id;
+
+            // Import recordTournamentMatchResult dynamically
+            const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
+            const { getSupabase } = await import('./supabase-init.js');
+            const supabase = getSupabase();
+
+            // Create match in matches table
+            const { data: match, error: matchError } = await supabase
+                .from('matches')
+                .insert({
+                    player_a_id: selectedMatch.player_a_id,
+                    player_b_id: selectedMatch.player_b_id,
+                    winner_id: winnerId,
+                    loser_id: loserId,
+                    player_a_sets_won: setsA,
+                    player_b_sets_won: setsB,
+                    sets: [], // Simplified - no detailed set scores
+                    club_id: tournament.club_id,
+                    created_by: getCurrentUserId(),
+                    sport_id: tournament.sport_id,
+                    played_at: new Date().toISOString(),
+                    match_mode: 'best-of-5',
+                    handicap_used: false
+                })
+                .select()
+                .single();
+
+            if (matchError) throw matchError;
+
+            // Link to tournament match
+            await recordTournamentMatchResult(selectedMatch.id, match.id);
+
+            showToast('Match erfolgreich eingetragen!', 'success');
+            closeModal();
+
+            // Reload tournament details
+            await openTournamentDetails(tournament.id);
+        } catch (error) {
+            console.error('[Tournaments UI] Error saving quick match:', error);
+            showToast('Fehler beim Speichern: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Speichern';
+        }
+    });
 }
 
 /**

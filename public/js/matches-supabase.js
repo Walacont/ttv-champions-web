@@ -586,17 +586,43 @@ export async function getHeadToHead(playerAId, playerBId) {
 /**
  * Updates the match form UI based on selected players
  */
-export function updateMatchUI(clubPlayers) {
+export async function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select')?.value;
     const playerBId = document.getElementById('player-b-select')?.value;
     const handicapContainer = document.getElementById('handicap-suggestion');
     const handicapToggleContainer = document.getElementById('handicap-toggle-container');
     const handicapToggle = document.getElementById('handicap-toggle');
+    const tournamentMatchInfo = document.getElementById('tournament-match-info');
 
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
 
     if (playerA && playerB && playerAId !== playerBId) {
+        // Check for pending tournament match
+        if (tournamentMatchInfo) {
+            try {
+                const tournamentMatch = await getPendingTournamentMatch(playerAId, playerBId);
+                if (tournamentMatch) {
+                    const tournamentName = tournamentMatch.tournament?.name || 'Turnier';
+                    const roundNumber = tournamentMatch.round_number || '?';
+                    tournamentMatchInfo.innerHTML = `
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-2xl">🏆</span>
+                            <div>
+                                <div class="font-semibold text-indigo-700">Turnier-Match erkannt!</div>
+                                <div class="text-gray-600">${tournamentName} - Runde ${roundNumber}</div>
+                            </div>
+                        </div>
+                    `;
+                    tournamentMatchInfo.classList.remove('hidden');
+                } else {
+                    tournamentMatchInfo.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('[Matches] Error checking tournament match:', error);
+                tournamentMatchInfo.classList.add('hidden');
+            }
+        }
         const handicap = calculateHandicap(playerA, playerB, currentSportName);
 
         if (handicap && handicap.points > 0) {
