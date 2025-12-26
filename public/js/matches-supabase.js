@@ -18,7 +18,7 @@ import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput 
 import { getSportContext } from './sport-context-supabase.js';
 import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
-import { recordTournamentMatchResult } from './tournaments-supabase.js';
+import { recordTournamentMatchResult, getPendingTournamentMatch } from './tournaments-supabase.js';
 
 /**
  * Matches Module - Supabase Version
@@ -385,6 +385,12 @@ export async function saveMatchResult(matchData, currentUserData) {
             else if (set.playerB > set.playerA) playerBSetsWon++;
         });
 
+        // Check for pending tournament match
+        const tournamentMatch = await getPendingTournamentMatch(playerAId, playerBId);
+        if (tournamentMatch) {
+            console.log('[Matches] Found tournament match:', tournamentMatch.id);
+        }
+
         // Insert match - ELO trigger will calculate ratings automatically
         const { data, error } = await supabase
             .from('matches')
@@ -409,6 +415,18 @@ export async function saveMatchResult(matchData, currentUserData) {
         if (error) throw error;
 
         console.log('[Matches] Match saved successfully:', data.id);
+
+        // Link to tournament match if found
+        if (tournamentMatch) {
+            try {
+                await recordTournamentMatchResult(tournamentMatch.id, data.id);
+                console.log('[Matches] Tournament match linked successfully');
+            } catch (tournamentError) {
+                console.error('[Matches] Error linking tournament match:', tournamentError);
+                // Don't fail the whole operation if tournament linking fails
+            }
+        }
+
         return { success: true, match: data };
 
     } catch (error) {
@@ -744,6 +762,12 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
+        // Check for pending tournament match
+        const tournamentMatch = await getPendingTournamentMatch(playerAId, playerBId);
+        if (tournamentMatch) {
+            console.log('[Matches] Found tournament match:', tournamentMatch.id);
+        }
+
         // Prepare match data
         const matchData = {
             player_a_id: playerAId,
@@ -781,6 +805,17 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 code: matchError.code
             });
             throw matchError;
+        }
+
+        // Link to tournament match if found
+        if (tournamentMatch) {
+            try {
+                await recordTournamentMatchResult(tournamentMatch.id, match.id);
+                console.log('[Matches] Tournament match linked successfully');
+            } catch (tournamentError) {
+                console.error('[Matches] Error linking tournament match:', tournamentError);
+                // Don't fail the whole operation if tournament linking fails
+            }
         }
 
         if (feedbackEl) {
