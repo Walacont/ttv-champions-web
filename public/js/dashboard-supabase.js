@@ -23,6 +23,7 @@ import { initComments } from './activity-comments.js';
 
 import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
+import { loadAllPendingConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -2503,13 +2504,23 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_b_id=eq.${currentUser.id}`
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Match request update (player_b):', payload.eventType);
             loadMatchRequests();
             loadPendingRequests();
             // Show notification for new incoming requests
             if (payload.eventType === 'INSERT') {
                 showNewRequestNotification();
+
+                // Show bottom sheet for pending_player confirmations in real-time
+                if (payload.new && payload.new.status === 'pending_player') {
+                    console.log('[Realtime] New pending_player confirmation - showing bottom sheet');
+                    // Load all pending confirmations (singles + doubles) and show bottom sheet
+                    const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                    if (pendingConfirmations && pendingConfirmations.length > 0) {
+                        showMatchConfirmationBottomSheet(pendingConfirmations);
+                    }
+                }
             }
         })
         .subscribe((status) => {
@@ -2547,7 +2558,7 @@ function setupRealtimeSubscriptions() {
             event: '*',
             schema: 'public',
             table: 'doubles_match_requests'
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Doubles match request update:', payload.eventType, payload);
             // Reload match requests for all doubles request changes
             loadMatchRequests();
@@ -2558,6 +2569,16 @@ function setupRealtimeSubscriptions() {
                 const teamB = payload.new?.team_b || {};
                 if (teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id) {
                     showNewRequestNotification();
+
+                    // Show bottom sheet for pending_opponent confirmations in real-time
+                    if (payload.new && payload.new.status === 'pending_opponent') {
+                        console.log('[Realtime] New pending_opponent doubles confirmation - showing bottom sheet');
+                        // Load all pending confirmations (singles + doubles) and show bottom sheet
+                        const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                        if (pendingConfirmations && pendingConfirmations.length > 0) {
+                            showMatchConfirmationBottomSheet(pendingConfirmations);
+                        }
+                    }
                 }
             }
         })
@@ -3555,6 +3576,23 @@ async function loadPendingRequests() {
     } catch (error) {
         console.error('Error loading pending requests:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Check for pending match confirmations and show bottom sheet
+ */
+async function checkPendingMatchConfirmations(userId) {
+    try {
+        const pendingConfirmations = await loadAllPendingConfirmations(userId);
+        if (pendingConfirmations && pendingConfirmations.length > 0) {
+            // Small delay to ensure page is fully loaded
+            setTimeout(() => {
+                showMatchConfirmationBottomSheet(pendingConfirmations);
+            }, 1000);
+        }
+    } catch (error) {
+        console.error('[Dashboard] Error checking pending confirmations:', error);
     }
 }
 
