@@ -1444,8 +1444,7 @@ export function showMatchConfirmationBottomSheet(requests) {
                     <div class="p-6">
                         <!-- Header -->
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <span class="text-2xl">🏓</span>
+                            <h3 class="text-xl font-bold text-gray-800">
                                 Match-Ergebnis bestätigen
                             </h3>
                             <button id="close-bottomsheet" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
@@ -1476,7 +1475,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                                 </div>
                             </div>
                             <div class="flex items-center justify-center gap-2 bg-white rounded-lg py-2 px-3">
-                                <span class="text-xl">🏆</span>
                                 <span class="font-semibold text-indigo-700">${winnerName} gewinnt</span>
                             </div>
                         </div>
@@ -1484,28 +1482,24 @@ export function showMatchConfirmationBottomSheet(requests) {
                         <!-- Match Details -->
                         <div class="space-y-3 mb-6">
                             <div class="flex items-start gap-3">
-                                <span class="text-gray-400">📊</span>
                                 <div class="flex-1">
                                     <div class="text-sm font-medium text-gray-700">Sätze:</div>
                                     <div class="text-sm text-gray-600">${setsDetails}</div>
                                 </div>
                             </div>
                             <div class="flex items-start gap-3">
-                                <span class="text-gray-400">⚖️</span>
                                 <div class="flex-1">
                                     <div class="text-sm font-medium text-gray-700">Handicap:</div>
                                     <div class="text-sm text-gray-600">${handicapText}</div>
                                 </div>
                             </div>
                             <div class="flex items-start gap-3">
-                                <span class="text-gray-400">🎮</span>
                                 <div class="flex-1">
                                     <div class="text-sm font-medium text-gray-700">Modus:</div>
                                     <div class="text-sm text-gray-600">${modeDisplay}</div>
                                 </div>
                             </div>
                             <div class="flex items-start gap-3">
-                                <span class="text-gray-400">📅</span>
                                 <div class="flex-1">
                                     <div class="text-sm font-medium text-gray-700">Gespielt:</div>
                                     <div class="text-sm text-gray-600">${createdAt}</div>
@@ -1516,11 +1510,9 @@ export function showMatchConfirmationBottomSheet(requests) {
                         <!-- Action Buttons -->
                         <div class="flex gap-3 mb-4">
                             <button id="confirm-accept" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
-                                <span class="text-xl">✓</span>
                                 <span>Bestätigen</span>
                             </button>
                             <button id="confirm-decline" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
-                                <span class="text-xl">✗</span>
                                 <span>Ablehnen</span>
                             </button>
                         </div>
