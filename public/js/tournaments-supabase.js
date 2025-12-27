@@ -481,7 +481,7 @@ async function generateRoundRobinMatches(tournamentId) {
     try {
         console.log('[Tournaments] Generating Round Robin matches...');
 
-        // Get all participants
+        // Get all participants sorted by seed (1 = highest Elo)
         const { data: participants, error } = await supabase
             .from('tournament_participants')
             .select('player_id, seed')
@@ -494,58 +494,66 @@ async function generateRoundRobinMatches(tournamentId) {
         const n = playerIds.length;
         const matches = [];
 
-        // Round-Robin with rotation algorithm (supports odd/even number of players)
+        // Round-Robin with correct rotation algorithm
         // For odd number of players, one player gets a "bye" each round
         const hasOddPlayers = n % 2 === 1;
-        const totalPlayers = hasOddPlayers ? n + 1 : n; // Add dummy player for odd numbers
+        const totalPlayers = hasOddPlayers ? n + 1 : n;
         const numRounds = totalPlayers - 1;
-        const matchesPerRound = totalPlayers / 2;
 
-        // Create array of player indices (0 to n-1, and null for dummy if odd)
-        const players = [...Array(n).keys()];
+        // Create array representing current positions
+        // For even: [0, 1, 2, 3, 4, 5] means players 0-5
+        // For odd: [0, 1, 2, 3, 4, null] means players 0-4 plus a bye
+        const positions = [];
+        for (let i = 0; i < n; i++) {
+            positions.push(i);
+        }
         if (hasOddPlayers) {
-            players.push(null); // null represents the "bye" (Freilos)
+            positions.push(null); // null = bye
         }
 
-        // Round-robin rotation algorithm
-        // Player at index 0 stays fixed, others rotate
+        console.log(`[Tournaments] Setting up ${n} players, ${numRounds} rounds, ${totalPlayers/2} matches per round`);
+
+        // Generate matches for each round
         for (let round = 0; round < numRounds; round++) {
-            // Generate pairings for this round
-            for (let match = 0; match < matchesPerRound; match++) {
-                const home = match === 0 ? 0 : round - match + 1;
-                const away = round + match + 1;
+            // In each round, pair up players
+            // First half plays against second half (reversed)
+            const halfSize = totalPlayers / 2;
 
-                const homeIdx = home % totalPlayers;
-                const awayIdx = away % totalPlayers;
+            for (let i = 0; i < halfSize; i++) {
+                const pos1 = i;
+                const pos2 = totalPlayers - 1 - i;
 
-                const playerA = players[homeIdx];
-                const playerB = players[awayIdx];
+                const player1 = positions[pos1];
+                const player2 = positions[pos2];
 
-                // Skip if either player is the "bye" (null)
-                if (playerA !== null && playerB !== null) {
+                // Skip if either is a bye
+                if (player1 !== null && player2 !== null) {
                     matches.push({
                         tournament_id: tournamentId,
                         round_number: round + 1,
                         match_number: matches.length + 1,
-                        player_a_id: playerIds[playerA],
-                        player_b_id: playerIds[playerB],
+                        player_a_id: playerIds[player1],
+                        player_b_id: playerIds[player2],
                         status: 'pending'
                     });
                 } else {
-                    // Log which player has a bye this round
-                    const playerWithBye = playerA === null ? playerB : playerA;
+                    // One player has a bye
+                    const playerWithBye = player1 !== null ? player1 : player2;
                     if (playerWithBye !== null) {
-                        console.log(`[Tournaments] Round ${round + 1}: Player ${playerIds[playerWithBye]} has a bye (Freilos)`);
+                        console.log(`[Tournaments] Round ${round + 1}: Player ${playerWithBye + 1} (seed ${playerWithBye + 1}) has bye`);
                     }
                 }
             }
 
-            // Rotate players (except first one which stays fixed)
-            const temp = players[players.length - 1];
-            for (let i = players.length - 1; i > 1; i--) {
-                players[i] = players[i - 1];
+            // Rotate all players except the first one (position 0 stays fixed)
+            // This is the standard round-robin rotation
+            if (round < numRounds - 1) {
+                const last = positions[positions.length - 1];
+                for (let i = positions.length - 1; i > 1; i--) {
+                    positions[i] = positions[i - 1];
+                }
+                positions[1] = last;
             }
-            players[1] = temp;
         }
 
         // Insert all matches
