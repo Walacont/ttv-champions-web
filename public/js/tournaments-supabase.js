@@ -526,8 +526,9 @@ async function generateRoundRobinMatches(tournamentId) {
                 const player1 = positions[pos1];
                 const player2 = positions[pos2];
 
-                // Skip if either is a bye
+                // Create match entry for all pairings (including byes)
                 if (player1 !== null && player2 !== null) {
+                    // Normal match - both players
                     matches.push({
                         tournament_id: tournamentId,
                         round_number: round + 1,
@@ -537,9 +538,17 @@ async function generateRoundRobinMatches(tournamentId) {
                         status: 'pending'
                     });
                 } else {
-                    // One player has a bye
+                    // One player has a bye - store it as a match with null opponent
                     const playerWithBye = player1 !== null ? player1 : player2;
                     if (playerWithBye !== null) {
+                        matches.push({
+                            tournament_id: tournamentId,
+                            round_number: round + 1,
+                            match_number: matches.length + 1,
+                            player_a_id: playerIds[playerWithBye],
+                            player_b_id: null, // Bye = no opponent
+                            status: 'bye' // Special status for bye matches
+                        });
                         console.log(`[Tournaments] Round ${round + 1}: Player ${playerWithBye + 1} (seed ${playerWithBye + 1}) has bye`);
                     }
                 }
@@ -664,13 +673,14 @@ async function checkAndCompleteTournament(tournamentId) {
 
         if (matchesError) throw matchesError;
 
-        // Check if all matches are completed
+        // Check if all matches are completed (including byes)
         const totalMatches = allMatches.length;
-        const completedMatches = allMatches.filter(m => m.status === 'completed').length;
+        const completedMatches = allMatches.filter(m => m.status === 'completed' || m.status === 'bye').length;
 
         console.log('[Tournaments] Match status:', {
             total: totalMatches,
-            completed: completedMatches
+            completed: completedMatches,
+            byes: allMatches.filter(m => m.status === 'bye').length
         });
 
         if (totalMatches > 0 && completedMatches === totalMatches) {

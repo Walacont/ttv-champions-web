@@ -760,9 +760,16 @@ function renderMatches(matches) {
         return '<p class="text-gray-400 text-sm">Noch keine Spiele generiert</p>';
     }
 
+    // Filter out bye matches - they are shown in the pairing table only
+    const actualMatches = matches.filter(m => m.status !== 'bye');
+
+    if (actualMatches.length === 0) {
+        return '<p class="text-gray-400 text-sm">Keine zu spielenden Matches</p>';
+    }
+
     // Group matches by round number
     const matchesByRound = {};
-    matches.forEach(match => {
+    actualMatches.forEach(match => {
         const round = match.round_number || 1;
         if (!matchesByRound[round]) {
             matchesByRound[round] = [];
