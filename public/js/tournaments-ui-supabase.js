@@ -154,11 +154,12 @@ async function loadTournaments() {
             const allTournaments = await getTournaments('registration');
             tournaments = allTournaments.filter(t => t.is_open);
         } else if (currentFilter === 'my') {
-            // Show tournaments the user is participating in
+            // Show tournaments the user is participating in (exclude completed)
             const allTournaments = await getTournaments();
             const myTournaments = [];
             for (const tournament of allTournaments) {
-                if (await isParticipating(tournament.id)) {
+                // Exclude completed tournaments from "My Tournaments"
+                if (tournament.status !== 'completed' && await isParticipating(tournament.id)) {
                     myTournaments.push(tournament);
                 }
             }
@@ -340,6 +341,14 @@ function renderTournamentDetails(tournament, participating) {
 
     let html = `
         <div class="space-y-6">
+            <!-- Winner Podium (only for completed tournaments) -->
+            ${tournament.status === 'completed' && tournament.tournament_standings && tournament.tournament_standings.length > 0 ? `
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-3 text-xl">🎉 Turnier Abgeschlossen!</h4>
+                    ${renderWinnerPodium(tournament.tournament_standings)}
+                </div>
+            ` : ''}
+
             <!-- Tournament Info -->
             <div class="bg-gray-50 rounded-lg p-4">
                 <h4 class="font-bold text-gray-800 text-lg mb-3">${escapeHtml(tournament.name)}</h4>
@@ -636,6 +645,71 @@ function renderStandings(standings) {
                     }).join('')}
                 </tbody>
             </table>
+        </div>
+    `;
+}
+
+/**
+ * Render winner podium for completed tournaments
+ */
+function renderWinnerPodium(standings) {
+    if (!standings || standings.length === 0) {
+        return '<p class="text-gray-400 text-sm">Keine Ergebnisse verfügbar</p>';
+    }
+
+    // Get top 3
+    const top3 = standings.filter(s => s.rank && s.rank <= 3).sort((a, b) => a.rank - b.rank);
+
+    if (top3.length === 0) {
+        return '<p class="text-gray-400 text-sm">Keine Ergebnisse verfügbar</p>';
+    }
+
+    const winner = top3[0];
+    const second = top3[1];
+    const third = top3[2];
+
+    const getPlayerName = (s) => {
+        return s?.profile?.display_name ||
+               `${s?.profile?.first_name || ''} ${s?.profile?.last_name || ''}`.trim() ||
+               'Unbekannt';
+    };
+
+    return `
+        <div class="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6">
+            <!-- Winner -->
+            <div class="text-center mb-6">
+                <div class="inline-block">
+                    <div class="text-6xl mb-2">🏆</div>
+                    <h3 class="text-2xl font-bold text-yellow-700 mb-1">Gewinner</h3>
+                    <p class="text-3xl font-black text-gray-800">${getPlayerName(winner)}</p>
+                    <p class="text-sm text-gray-600 mt-1">
+                        ${winner.matches_won || 0} Siege • ${winner.tournament_points || 0} Punkte
+                    </p>
+                </div>
+            </div>
+
+            <!-- Top 3 Podium -->
+            ${top3.length > 1 ? `
+                <div class="grid grid-cols-${top3.length === 3 ? '3' : '2'} gap-4">
+                    ${second ? `
+                        <div class="text-center bg-white bg-opacity-50 rounded-lg p-4 ${top3.length === 3 ? 'order-1' : ''}">
+                            <div class="text-4xl mb-2">🥈</div>
+                            <p class="text-xs text-gray-600 font-semibold">2. Platz</p>
+                            <p class="font-bold text-gray-800">${getPlayerName(second)}</p>
+                            <p class="text-xs text-gray-600">${second.tournament_points || 0} Pkt</p>
+                        </div>
+                    ` : ''}
+
+                    ${third ? `
+                        <div class="text-center bg-white bg-opacity-50 rounded-lg p-4 order-3">
+                            <div class="text-4xl mb-2">🥉</div>
+                            <p class="text-xs text-gray-600 font-semibold">3. Platz</p>
+                            <p class="font-bold text-gray-800">${getPlayerName(third)}</p>
+                            <p class="text-xs text-gray-600">${third.tournament_points || 0} Pkt</p>
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
         </div>
     `;
 }
