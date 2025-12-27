@@ -393,7 +393,7 @@ export async function startTournament(tournamentId) {
         // Get tournament details
         const { data: tournament, error: tournamentError } = await supabase
             .from('tournaments')
-            .select('*, tournament_participants(*)')
+            .select('*, tournament_participants(id, player_id, seed, elo_at_registration)')
             .eq('id', tournamentId)
             .single();
 
@@ -455,7 +455,7 @@ export async function regeneratePairings(tournamentId) {
         // Get tournament details
         const { data: tournament, error: tournamentError } = await supabase
             .from('tournaments')
-            .select('*, tournament_participants(*)')
+            .select('*, tournament_participants(id, player_id, seed, elo_at_registration)')
             .eq('id', tournamentId)
             .single();
 
@@ -959,18 +959,24 @@ export async function getTournamentDetails(tournamentId) {
                 *,
                 created_by_profile:profiles!tournaments_created_by_fkey(id, display_name, first_name, last_name),
                 tournament_participants(
-                    *,
+                    id, tournament_id, player_id, seed, elo_at_registration, matches_played,
+                    matches_won, matches_lost, sets_won, sets_lost, points, final_rank,
+                    is_active, joined_at,
                     profile:profiles(id, display_name, first_name, last_name, elo_rating, avatar_url)
                 ),
                 tournament_matches(
-                    *,
+                    id, tournament_id, round_id, match_number, round_number,
+                    player_a_id, player_b_id, match_id, scheduled_for, deadline,
+                    status, winner_id, player_a_sets_won, player_b_sets_won,
+                    is_walkover, created_at, completed_at,
                     player_a:profiles!tournament_matches_player_a_id_fkey(id, display_name, first_name, last_name),
                     player_b:profiles!tournament_matches_player_b_id_fkey(id, display_name, first_name, last_name),
-                    winner:profiles!tournament_matches_winner_id_fkey(id, display_name, first_name, last_name),
-                    match:matches(*)
+                    winner:profiles!tournament_matches_winner_id_fkey(id, display_name, first_name, last_name)
                 ),
                 tournament_standings(
-                    *,
+                    id, tournament_id, player_id, matches_played, matches_won,
+                    matches_lost, matches_drawn, sets_won, sets_lost, sets_difference,
+                    points_scored, points_against, points_difference, tournament_points, rank,
                     profile:profiles(id, display_name, first_name, last_name, avatar_url)
                 )
             `)
