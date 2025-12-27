@@ -566,12 +566,61 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
             match.player_b_sets_won
         );
 
+        // Check if tournament is complete
+        await checkAndCompleteTournament(tournamentMatch.tournament_id);
+
         console.log('[Tournaments] Match result recorded successfully');
         showToast('Turnier-Match Ergebnis gespeichert!', 'success');
     } catch (error) {
         console.error('[Tournaments] Error recording match result:', error);
         showToast('Fehler beim Speichern: ' + error.message, 'error');
         throw error;
+    }
+}
+
+/**
+ * Check if all tournament matches are completed and mark tournament as finished
+ * @param {string} tournamentId - Tournament ID
+ */
+async function checkAndCompleteTournament(tournamentId) {
+    try {
+        console.log('[Tournaments] Checking if tournament is complete:', tournamentId);
+
+        // Get all matches for this tournament
+        const { data: allMatches, error: matchesError } = await supabase
+            .from('tournament_matches')
+            .select('id, status')
+            .eq('tournament_id', tournamentId);
+
+        if (matchesError) throw matchesError;
+
+        // Check if all matches are completed
+        const totalMatches = allMatches.length;
+        const completedMatches = allMatches.filter(m => m.status === 'completed').length;
+
+        console.log('[Tournaments] Match status:', {
+            total: totalMatches,
+            completed: completedMatches
+        });
+
+        if (totalMatches > 0 && completedMatches === totalMatches) {
+            // All matches completed - finish the tournament
+            const { error: updateError } = await supabase
+                .from('tournaments')
+                .update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString()
+                })
+                .eq('id', tournamentId);
+
+            if (updateError) throw updateError;
+
+            console.log('[Tournaments] Tournament completed!');
+            showToast('Turnier abgeschlossen! Alle Spiele wurden gespielt.', 'success');
+        }
+    } catch (error) {
+        console.error('[Tournaments] Error checking tournament completion:', error);
+        // Don't throw - this is not critical, just log the error
     }
 }
 
