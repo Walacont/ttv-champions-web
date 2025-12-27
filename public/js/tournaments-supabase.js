@@ -642,14 +642,19 @@ async function generateRoundRobinMatches(tournamentId) {
         if (insertError) throw insertError;
 
         // Initialize standings for all participants
+        // Use upsert to prevent duplicates
         const standings = participants.map(p => ({
             tournament_id: tournamentId,
+            round_id: null, // NULL for overall standings (not round-specific)
             player_id: p.player_id
         }));
 
         const { error: standingsError } = await supabase
             .from('tournament_standings')
-            .insert(standings);
+            .upsert(standings, {
+                onConflict: 'tournament_id,round_id,player_id',
+                ignoreDuplicates: false
+            });
 
         if (standingsError) throw standingsError;
 
