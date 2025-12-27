@@ -8,6 +8,7 @@ import {
     leaveTournament,
     deleteTournament,
     startTournament,
+    regeneratePairings,
     getTournaments,
     getTournamentDetails,
     isParticipating,
@@ -503,6 +504,15 @@ function renderActionButtons(tournament, participating) {
         }
     }
 
+    // Regenerate pairings button for creator during in_progress (for testing)
+    if (tournament.status === 'in_progress' && isCreator) {
+        buttons.push(`
+            <button id="regenerate-pairings-btn" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium">
+                <i class="fas fa-sync-alt mr-2"></i>Paarungen neu generieren (Test)
+            </button>
+        `);
+    }
+
     return buttons.join('');
 }
 
@@ -901,6 +911,22 @@ function setupDetailEventListeners(tournament, participating) {
                 try {
                     await deleteTournament(tournament.id);
                     closeTournamentDetailsModal();
+                    await loadTournaments(); // Refresh list
+                } catch (error) {
+                    // Error already shown
+                }
+            }
+        });
+    }
+
+    // Regenerate pairings button (for testing)
+    const regenerateBtn = document.getElementById('regenerate-pairings-btn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', async () => {
+            if (confirm('Paarungen neu generieren? Alle bisherigen Matches und Ergebnisse werden gelöscht!')) {
+                try {
+                    await regeneratePairings(tournament.id);
+                    await openTournamentDetails(tournament.id); // Reload
                     await loadTournaments(); // Refresh list
                 } catch (error) {
                     // Error already shown

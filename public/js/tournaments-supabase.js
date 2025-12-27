@@ -444,6 +444,74 @@ export async function startTournament(tournamentId) {
 }
 
 /**
+ * Regenerate tournament pairings (for testing)
+ * Deletes all matches and standings, then regenerates them
+ * @param {string} tournamentId - Tournament ID
+ */
+export async function regeneratePairings(tournamentId) {
+    try {
+        console.log('[Tournaments] Regenerating pairings for tournament:', tournamentId);
+
+        // Get tournament details
+        const { data: tournament, error: tournamentError } = await supabase
+            .from('tournaments')
+            .select('*, tournament_participants(*)')
+            .eq('id', tournamentId)
+            .single();
+
+        if (tournamentError) throw tournamentError;
+        if (!tournament) throw new Error('Turnier nicht gefunden');
+
+        // Check if user is creator
+        if (tournament.created_by !== currentUserId) {
+            throw new Error('Nur der Turnier-Ersteller kann die Paarungen neu generieren');
+        }
+
+        // Check tournament is started
+        if (tournament.status !== 'in_progress') {
+            throw new Error('Turnier muss gestartet sein, um Paarungen neu zu generieren');
+        }
+
+        // Delete all existing matches
+        const { error: deleteMatchesError } = await supabase
+            .from('tournament_matches')
+            .delete()
+            .eq('tournament_id', tournamentId);
+
+        if (deleteMatchesError) throw deleteMatchesError;
+
+        // Delete all existing standings
+        const { error: deleteStandingsError } = await supabase
+            .from('tournament_standings')
+            .delete()
+            .eq('tournament_id', tournamentId);
+
+        if (deleteStandingsError) throw deleteStandingsError;
+
+        console.log('[Tournaments] Deleted old matches and standings');
+
+        // Re-assign seeds (in case Elo changed)
+        await assignSeeds(tournamentId);
+
+        // Regenerate matches
+        if (tournament.format === 'round_robin') {
+            await generateRoundRobinMatches(tournamentId);
+        } else {
+            throw new Error(`Format ${tournament.format} wird noch nicht unterstützt`);
+        }
+
+        console.log('[Tournaments] Pairings regenerated successfully');
+        showToast('Paarungen erfolgreich neu generiert!', 'success');
+
+        return true;
+    } catch (error) {
+        console.error('[Tournaments] Error regenerating pairings:', error);
+        showToast('Fehler beim Neu-Generieren: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+/**
  * Assign seeds to participants based on Elo rating
  * @param {string} tournamentId - Tournament ID
  */
