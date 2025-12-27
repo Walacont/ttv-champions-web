@@ -198,7 +198,8 @@ async function loadTournaments() {
  * Render tournament card HTML
  */
 function renderTournamentCard(tournament) {
-    const participantCount = tournament.participant_count || 0;
+    // Calculate actual participant count from the aggregated count or from participant_count field
+    const participantCount = tournament.tournament_participants?.[0]?.count ?? tournament.participant_count ?? 0;
     const maxParticipants = tournament.max_participants;
     const percentFull = (participantCount / maxParticipants) * 100;
     const statusBadge = getStatusBadge(tournament.status);
@@ -217,11 +218,7 @@ function renderTournamentCard(tournament) {
                 ${statusBadge}
             </div>
 
-            ${tournament.description ? `
-                <p class="text-sm text-gray-600 mb-3">${escapeHtml(tournament.description)}</p>
-            ` : ''}
-
-            <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center justify-between text-xs mt-3">
                 <div class="flex items-center gap-3">
                     <span class="text-gray-700">
                         <i class="fas fa-users mr-1"></i>${participantCount}/${maxParticipants}
