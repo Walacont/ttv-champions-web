@@ -11,7 +11,7 @@
  */
 
 // Replace with your OneSignal App ID from the dashboard
-const ONESIGNAL_APP_ID = 'YOUR_ONESIGNAL_APP_ID';
+const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
 
 // Check if AppID is configured (not a placeholder)
 const isAppIdConfigured = ONESIGNAL_APP_ID &&
