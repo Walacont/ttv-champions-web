@@ -567,17 +567,18 @@ function renderPairingTable(participants, matches) {
         return '<p class="text-gray-400 text-sm">Keine Paarungen verfügbar</p>';
     }
 
-    // Sort participants by seed
-    const sortedParticipants = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
-
     // Get number of rounds
     const maxRound = Math.max(...matches.map(m => m.round_number || 1));
     const rounds = Array.from({ length: maxRound }, (_, i) => i + 1);
 
     // Create a lookup: participantId -> round -> opponentName
+    // Also track which round each player has a bye
     const pairings = {};
-    sortedParticipants.forEach(p => {
+    const byeRounds = {}; // playerId -> round number where they have bye
+
+    participants.forEach(p => {
         pairings[p.player_id] = {};
+        byeRounds[p.player_id] = null;
     });
 
     matches.forEach(match => {
@@ -597,6 +598,7 @@ function renderPairingTable(participants, matches) {
         if (!playerBId) {
             if (pairings[playerAId]) {
                 pairings[playerAId][round] = 'Freilos';
+                byeRounds[playerAId] = round; // Track bye round for sorting
             }
         } else {
             // Normal match - both players face each other
@@ -607,6 +609,25 @@ function renderPairingTable(participants, matches) {
                 pairings[playerBId][round] = playerAName;
             }
         }
+    });
+
+    // Sort participants by their bye round (for diagonal display)
+    // If no bye, sort by seed
+    const sortedParticipants = [...participants].sort((a, b) => {
+        const byeA = byeRounds[a.player_id];
+        const byeB = byeRounds[b.player_id];
+
+        // If both have byes, sort by bye round (diagonal effect)
+        if (byeA !== null && byeB !== null) {
+            return byeA - byeB;
+        }
+
+        // If only one has bye, that one comes first
+        if (byeA !== null) return -1;
+        if (byeB !== null) return 1;
+
+        // If neither has bye, sort by seed
+        return (a.seed || 999) - (b.seed || 999);
     });
 
     return `
