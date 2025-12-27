@@ -791,16 +791,9 @@ function renderMatches(matches) {
         return '<p class="text-gray-400 text-sm">Noch keine Spiele generiert</p>';
     }
 
-    // Filter out bye matches (player_b_id is null) - they are shown in the pairing table only
-    const actualMatches = matches.filter(m => m.player_b_id !== null);
-
-    if (actualMatches.length === 0) {
-        return '<p class="text-gray-400 text-sm">Keine zu spielenden Matches</p>';
-    }
-
-    // Group matches by round number
+    // Group ALL matches by round number (including byes)
     const matchesByRound = {};
-    actualMatches.forEach(match => {
+    matches.forEach(match => {
         const round = match.round_number || 1;
         if (!matchesByRound[round]) {
             matchesByRound[round] = [];
@@ -814,9 +807,13 @@ function renderMatches(matches) {
 
     rounds.forEach(round => {
         const roundMatches = matchesByRound[round];
-        const pending = roundMatches.filter(m => m.status === 'pending');
-        const completed = roundMatches.filter(m => m.status === 'completed');
-        const total = roundMatches.length;
+        // Separate actual matches from byes
+        const actualMatches = roundMatches.filter(m => m.player_b_id !== null);
+        const byeMatches = roundMatches.filter(m => m.player_b_id === null);
+
+        const pending = actualMatches.filter(m => m.status === 'pending');
+        const completed = actualMatches.filter(m => m.status === 'completed');
+        const total = actualMatches.length;
 
         html += `
             <div class="mb-4">
@@ -827,7 +824,8 @@ function renderMatches(matches) {
                     <span class="text-xs text-gray-500">${completed.length}/${total} abgeschlossen</span>
                 </div>
                 <div class="space-y-2">
-                    ${roundMatches.map(m => renderMatchCard(m)).join('')}
+                    ${actualMatches.map(m => renderMatchCard(m)).join('')}
+                    ${byeMatches.map(m => renderByeCard(m)).join('')}
                 </div>
             </div>
         `;
@@ -869,6 +867,27 @@ function renderMatchCard(match) {
                     '<span class="text-xs text-gray-500"><i class="fas fa-check text-green-500 mr-1"></i>Gespielt</span>' :
                     '<span class="text-xs text-gray-500"><i class="fas fa-clock text-yellow-500 mr-1"></i>Ausstehend</span>'
                 }
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render bye card (player has a bye this round)
+ */
+function renderByeCard(match) {
+    const player = match.player_a?.display_name ||
+                  `${match.player_a?.first_name || ''} ${match.player_a?.last_name || ''}`.trim() ||
+                  'Unbekannt';
+
+    return `
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-coffee text-gray-400"></i>
+                    <span class="text-gray-700">${player}</span>
+                </div>
+                <span class="text-xs text-gray-500 italic">Freilos</span>
             </div>
         </div>
     `;
