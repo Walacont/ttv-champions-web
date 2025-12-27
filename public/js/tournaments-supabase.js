@@ -44,11 +44,73 @@ let currentSportId = null;
  * @param {string} clubId - Current club ID
  * @param {string} sportId - Current sport ID (table_tennis)
  */
+let tournamentSubscriptions = [];
+
 export function initTournaments(userId, clubId, sportId) {
     console.log('[Tournaments] Initializing...', { userId, clubId, sportId });
     currentUserId = userId;
     currentClubId = clubId;
     currentSportId = sportId;
+
+    // Set up real-time subscriptions
+    setupRealtimeSubscriptions();
+}
+
+/**
+ * Set up real-time subscriptions for tournaments
+ */
+function setupRealtimeSubscriptions() {
+    // Clean up existing subscriptions
+    tournamentSubscriptions.forEach(sub => {
+        supabase.removeChannel(sub);
+    });
+    tournamentSubscriptions = [];
+
+    console.log('[Tournaments] Setting up real-time subscriptions');
+
+    // Subscribe to tournament changes
+    const tournamentsChannel = supabase
+        .channel('tournaments_changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'tournaments'
+        }, (payload) => {
+            console.log('[Tournaments Realtime] Tournament changed:', payload.eventType);
+            // Trigger UI refresh in tournaments-ui-supabase.js
+            if (window.tournamentUIRefresh) {
+                window.tournamentUIRefresh();
+            }
+        })
+        .subscribe((status) => {
+            console.log('[Tournaments Realtime] Tournaments subscription status:', status);
+        });
+
+    // Subscribe to tournament_participants changes
+    const participantsChannel = supabase
+        .channel('tournament_participants_changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'tournament_participants'
+        }, (payload) => {
+            console.log('[Tournaments Realtime] Participant changed:', payload.eventType, payload);
+            // Trigger UI refresh
+            if (window.tournamentUIRefresh) {
+                window.tournamentUIRefresh();
+            }
+            // Also refresh details if currently viewing a tournament
+            if (window.currentTournamentDetailsId) {
+                if (window.refreshTournamentDetails) {
+                    window.refreshTournamentDetails(window.currentTournamentDetailsId);
+                }
+            }
+        })
+        .subscribe((status) => {
+            console.log('[Tournaments Realtime] Participants subscription status:', status);
+        });
+
+    tournamentSubscriptions.push(tournamentsChannel, participantsChannel);
 }
 
 /**

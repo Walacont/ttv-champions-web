@@ -71,6 +71,10 @@ export async function initTournamentsUI(userId, clubId, sportId) {
     // Load initial tournaments
     await loadTournaments();
 
+    // Expose refresh functions for real-time updates
+    window.tournamentUIRefresh = loadTournaments;
+    window.refreshTournamentDetails = refreshTournamentDetailsView;
+
     console.log('[Tournaments UI] Initialized');
 }
 
@@ -297,6 +301,8 @@ function closeJoinCodeModal() {
  */
 async function openTournamentDetails(tournamentId) {
     selectedTournamentId = tournamentId;
+    window.currentTournamentDetailsId = tournamentId; // Track for real-time updates
+
     const modal = document.getElementById('tournament-details-modal');
     const content = document.getElementById('tournament-details-content');
 
@@ -328,6 +334,31 @@ function closeTournamentDetailsModal() {
         modal.classList.add('hidden');
     }
     selectedTournamentId = null;
+    window.currentTournamentDetailsId = null; // Clear real-time tracking
+}
+
+/**
+ * Refresh tournament details view (for real-time updates)
+ */
+async function refreshTournamentDetailsView(tournamentId) {
+    if (!tournamentId || tournamentId !== window.currentTournamentDetailsId) return;
+
+    console.log('[Tournaments UI] Refreshing tournament details:', tournamentId);
+
+    const content = document.getElementById('tournament-details-content');
+    if (!content) return;
+
+    try {
+        const tournament = await getTournamentDetails(tournamentId);
+        const participating = await isParticipating(tournamentId);
+
+        content.innerHTML = renderTournamentDetails(tournament, participating);
+
+        // Re-setup event listeners
+        setupDetailEventListeners(tournament, participating);
+    } catch (error) {
+        console.error('[Tournaments UI] Error refreshing details:', error);
+    }
 }
 
 /**
