@@ -770,8 +770,8 @@ function renderMatches(matches) {
         return '<p class="text-gray-400 text-sm">Noch keine Spiele generiert</p>';
     }
 
-    // Filter out bye matches - they are shown in the pairing table only
-    const actualMatches = matches.filter(m => m.status !== 'bye');
+    // Filter out bye matches (player_b_id is null) - they are shown in the pairing table only
+    const actualMatches = matches.filter(m => m.player_b_id !== null);
 
     if (actualMatches.length === 0) {
         return '<p class="text-gray-400 text-sm">Keine zu spielenden Matches</p>';

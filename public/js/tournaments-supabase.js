@@ -615,7 +615,8 @@ async function generateRoundRobinMatches(tournamentId) {
                             match_number: matches.length + 1,
                             player_a_id: playerIds[playerWithBye],
                             player_b_id: null, // Bye = no opponent
-                            status: 'bye' // Special status for bye matches
+                            status: 'completed', // Byes are automatically "completed"
+                            winner_id: playerIds[playerWithBye] // Player with bye automatically wins
                         });
                         console.log(`[Tournaments] Round ${round + 1}: Player ${playerWithBye + 1} (seed ${playerWithBye + 1}) has bye`);
                     }
@@ -736,19 +737,20 @@ async function checkAndCompleteTournament(tournamentId) {
         // Get all matches for this tournament
         const { data: allMatches, error: matchesError } = await supabase
             .from('tournament_matches')
-            .select('id, status')
+            .select('id, status, player_b_id')
             .eq('tournament_id', tournamentId);
 
         if (matchesError) throw matchesError;
 
-        // Check if all matches are completed (including byes)
+        // Check if all matches are completed (byes have status='completed' and player_b_id=null)
         const totalMatches = allMatches.length;
-        const completedMatches = allMatches.filter(m => m.status === 'completed' || m.status === 'bye').length;
+        const completedMatches = allMatches.filter(m => m.status === 'completed').length;
+        const byeMatches = allMatches.filter(m => m.player_b_id === null).length;
 
         console.log('[Tournaments] Match status:', {
             total: totalMatches,
             completed: completedMatches,
-            byes: allMatches.filter(m => m.status === 'bye').length
+            byes: byeMatches
         });
 
         if (totalMatches > 0 && completedMatches === totalMatches) {
