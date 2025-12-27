@@ -396,7 +396,7 @@ function renderTournamentDetails(tournament, participating) {
                     </div>
                     <div>
                         <span class="text-gray-600">Teilnehmer:</span>
-                        <span class="font-medium ml-2">${tournament.participant_count}/${tournament.max_participants}</span>
+                        <span class="font-medium ml-2">${tournament.tournament_participants?.length || 0}/${tournament.max_participants}</span>
                     </div>
                     <div>
                         <span class="text-gray-600">Erstellt von:</span>
@@ -487,7 +487,8 @@ function renderActionButtons(tournament, participating) {
             `);
         }
 
-        if (isCreator && tournament.participant_count >= 2) {
+        const actualParticipantCount = tournament.tournament_participants?.length || 0;
+        if (isCreator && actualParticipantCount >= 2) {
             buttons.push(`
                 <button id="start-tournament-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">
                     <i class="fas fa-play mr-2"></i>Turnier starten
@@ -516,8 +517,17 @@ function renderParticipants(participants) {
         return '<p class="text-gray-400 text-sm">Noch keine Teilnehmer</p>';
     }
 
-    // Sort by seed
-    const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
+    // Sort by seed if available, otherwise by ELO
+    const sorted = [...participants].sort((a, b) => {
+        // If both have seeds, sort by seed
+        if (a.seed && b.seed) {
+            return a.seed - b.seed;
+        }
+        // If no seeds, sort by ELO (highest first)
+        const eloA = a.elo_at_registration || a.profile?.elo_rating || 800;
+        const eloB = b.elo_at_registration || b.profile?.elo_rating || 800;
+        return eloB - eloA; // Descending (highest ELO first)
+    });
 
     return `
         <div class="space-y-2">
