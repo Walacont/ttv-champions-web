@@ -253,3 +253,14 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+// Fallback: Show content after 3 seconds even if init fails
+setTimeout(() => {
+    const loader = document.getElementById('page-loader');
+    const content = document.getElementById('main-content');
+    if (loader && loader.style.display !== 'none') {
+        console.warn('[Settings] Fallback: Showing content after timeout');
+        loader.style.display = 'none';
+        if (content) content.style.display = 'block';
+    }
+}, 3000);
