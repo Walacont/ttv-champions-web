@@ -14,22 +14,7 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
-        <script>
-            // Redirect to settings page if not on native app or PWA
-            // Push notifications are available on native apps AND PWA (via OneSignal)
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(function() {
-                    const isNative = window.CapacitorUtils?.isNative();
-                    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                                  window.navigator.standalone === true;
-
-                    // Only allow access from native apps or PWA
-                    if (!isNative && !isPWA) {
-                        window.location.href = '/settings.html';
-                    }
-                }, 100);
-            });
-        </script>
+        <!-- Removed redirect - allow access from any context for now -->
         <title>Benachrichtigungen - SC Champions</title>
 
         <!-- Favicon -->
@@ -59,6 +44,14 @@
             body {
                 font-family: 'Inter', sans-serif;
             }
+
+            /* PWA Standalone Mode - Safe Area for Status Bar */
+            @media all and (display-mode: standalone) {
+                body {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
             #page-loader {
                 display: flex;
                 justify-content: center;

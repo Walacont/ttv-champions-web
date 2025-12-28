@@ -51,6 +51,26 @@
             body {
                 font-family: 'Inter', sans-serif;
             }
+
+            /* PWA Standalone Mode - Safe Area for Status Bar */
+            @media all and (display-mode: standalone) {
+                body {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+                #main-content {
+                    padding-top: env(safe-area-inset-top, 20px);
+                }
+            }
+
+            /* iOS Safari PWA detection */
+            @supports (-webkit-touch-callout: none) {
+                @media all and (display-mode: standalone) {
+                    body {
+                        padding-top: env(safe-area-inset-top, 0);
+                    }
+                }
+            }
+
             #page-loader {
                 display: flex;
                 justify-content: center;
