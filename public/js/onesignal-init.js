@@ -10,7 +10,7 @@
  *    - Default icon: /icons/icon-192x192.png
  */
 
-// Your OneSignal App ID
+// Replace with your OneSignal App ID from the dashboard
 const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
 
 let isOneSignalInitialized = false;
@@ -137,12 +137,10 @@ export async function requestOneSignalPermission() {
         // Use native browser API directly to avoid any OneSignal UI
         if ('Notification' in window) {
             const permission = await Notification.requestPermission();
-            console.log('[OneSignal] Permission result:', permission);
 
             if (permission === 'granted') {
                 // Tell OneSignal to register now that we have permission
                 await window.OneSignal.User.PushSubscription.optIn();
-                console.log('[OneSignal] Opted in successfully');
                 return true;
             }
             return false;

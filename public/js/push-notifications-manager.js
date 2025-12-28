@@ -9,10 +9,8 @@ import {
     requestOneSignalPermission,
     isOneSignalEnabled,
     optOutOneSignal,
-    logoutOneSignal,
-    getOneSignalPermissionStatus
+    logoutOneSignal
 } from './onesignal-init.js';
-import { escapeHtml } from './utils/security.js';
 
 let currentUserId = null;
 let tokenSaveTimeout = null;
@@ -152,29 +150,6 @@ export async function isPushEnabled() {
 
     // For PWA/Web, check OneSignal
     return await isOneSignalEnabled();
-}
-
-/**
- * Get push permission status
- * @returns {Promise<string>} - 'granted', 'denied', 'default', or 'unsupported'
- */
-export async function getPermissionStatus() {
-    // For native apps
-    if (window.CapacitorUtils?.isNative()) {
-        const enabled = await window.CapacitorUtils?.isPushEnabled();
-        return enabled ? 'granted' : 'default';
-    }
-
-    // For PWA/Web, use OneSignal's status
-    const oneSignalStatus = await getOneSignalPermissionStatus();
-    console.log('[Push] OneSignal permission status:', oneSignalStatus);
-
-    // If OneSignal returns unsupported, fall back to browser API
-    if (oneSignalStatus === 'unsupported' && 'Notification' in window) {
-        return Notification.permission;
-    }
-
-    return oneSignalStatus;
 }
 
 /**
@@ -338,6 +313,16 @@ function showInAppNotification(notification) {
 }
 
 /**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
  * Show push notification permission prompt
  * @returns {Promise<boolean>} - Whether user enabled notifications
  */
@@ -414,16 +399,7 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
-    const isNative = window.CapacitorUtils?.isNative();
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                  window.navigator.standalone === true;
-
-    // Only show push prompt on native apps or PWA, not on regular web browser
-    if (!isNative && !isPWA) {
-        return false;
-    }
-
-    // Don't show if already have a token
+    // Don't show if already have a token (native)
     if (window.pushToken) return false;
 
     // Check if user permanently dismissed (clicked "Später" 3 times or "Nicht mehr fragen")
@@ -447,15 +423,15 @@ export async function shouldShowPushPrompt() {
     }
 
     // For native apps, check if push is already enabled
-    if (isNative) {
+    if (window.CapacitorUtils?.isNative()) {
         try {
             const isEnabled = await window.CapacitorUtils.isPushEnabled();
             if (isEnabled) return false;
         } catch (e) {
             // Continue to show prompt if check fails
         }
-    } else if (isPWA) {
-        // For PWA - check OneSignal status
+    } else {
+        // For PWA/Web - check OneSignal status
         const isEnabled = await isOneSignalEnabled();
         if (isEnabled) return false;
 

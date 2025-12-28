@@ -7,7 +7,6 @@ import {
     initPushNotifications,
     requestPushPermission,
     isPushEnabled,
-    getPermissionStatus,
     getNotificationPreferences,
     updateNotificationPreferences,
     disablePushNotifications
@@ -43,26 +42,14 @@ async function init() {
 
     currentUserId = session.user.id;
 
-    // Initialize push notifications for this user (with error handling)
-    try {
-        await initPushNotifications(currentUserId);
-    } catch (e) {
-        console.error('[Settings] Error initializing push notifications:', e);
-    }
+    // Initialize push notifications for this user
+    await initPushNotifications(currentUserId);
 
-    // Update push permission status (with error handling)
-    try {
-        await updatePushStatus();
-    } catch (e) {
-        console.error('[Settings] Error updating push status:', e);
-    }
+    // Update push permission status
+    await updatePushStatus();
 
-    // Load notification preferences (with error handling)
-    try {
-        await loadPreferences();
-    } catch (e) {
-        console.error('[Settings] Error loading preferences:', e);
-    }
+    // Load notification preferences
+    await loadPreferences();
 
     // Setup event listeners
     setupEventListeners();
@@ -90,15 +77,6 @@ async function updatePushStatus() {
         console.error('Error checking push status:', e);
     }
 
-    // Check permission status via OneSignal (more reliable than browser API on iOS)
-    let permissionStatus = 'default';
-    try {
-        permissionStatus = await getPermissionStatus();
-    } catch (e) {
-        console.error('[Settings] Error getting permission status:', e);
-    }
-    console.log('[Settings] Push enabled:', enabled, 'Permission status:', permissionStatus);
-
     if (enabled) {
         // Push is enabled
         statusIcon.className = 'w-10 h-10 bg-green-100 rounded-full flex items-center justify-center';
@@ -112,26 +90,21 @@ async function updatePushStatus() {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) toggle.disabled = false;
         });
-    } else if (permissionStatus === 'denied') {
-        // Permission explicitly denied - show blocked message
-        statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
-        statusIcon.innerHTML = '<i class="fas fa-ban text-red-600"></i>';
-        statusText.textContent = 'Push-Benachrichtigungen wurden blockiert. Bitte aktiviere sie in den Geräteeinstellungen.';
-        statusText.className = 'text-sm text-red-600';
-        enableBtn.classList.add('hidden');
-
-        // Disable preference toggles
-        PREFERENCE_KEYS.forEach(key => {
-            const toggle = document.getElementById(`pref-${key}`);
-            if (toggle) toggle.disabled = true;
-        });
     } else {
-        // Push not enabled yet - show enable button
+        // Push is not enabled
         statusIcon.className = 'w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center';
         statusIcon.innerHTML = '<i class="fas fa-bell-slash text-gray-400"></i>';
-        statusText.textContent = 'Push-Benachrichtigungen sind noch nicht aktiviert';
-        statusText.className = 'text-sm text-gray-500';
-        enableBtn.classList.remove('hidden');
+
+        // Check if it's denied or just not requested
+        if (!isNative && 'Notification' in window && Notification.permission === 'denied') {
+            statusText.textContent = 'Push-Benachrichtigungen wurden blockiert. Bitte aktiviere sie in den Geräteeinstellungen.';
+            statusText.className = 'text-sm text-red-600';
+            enableBtn.classList.add('hidden');
+        } else {
+            statusText.textContent = 'Push-Benachrichtigungen sind deaktiviert';
+            statusText.className = 'text-sm text-gray-500';
+            enableBtn.classList.remove('hidden');
+        }
 
         // Disable preference toggles when push is not enabled
         PREFERENCE_KEYS.forEach(key => {
@@ -253,14 +226,3 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
-
-// Fallback: Show content after 3 seconds even if init fails
-setTimeout(() => {
-    const loader = document.getElementById('page-loader');
-    const content = document.getElementById('main-content');
-    if (loader && loader.style.display !== 'none') {
-        console.warn('[Settings] Fallback: Showing content after timeout');
-        loader.style.display = 'none';
-        if (content) content.style.display = 'block';
-    }
-}, 3000);
