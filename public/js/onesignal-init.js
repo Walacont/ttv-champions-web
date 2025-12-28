@@ -10,32 +10,18 @@
  *    - Default icon: /icons/icon-192x192.png
  */
 
-// Replace with your OneSignal App ID from the dashboard
+// Your OneSignal App ID
 const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
 
-// Check if AppID is configured (not a placeholder)
-const isAppIdConfigured = ONESIGNAL_APP_ID &&
-    ONESIGNAL_APP_ID !== 'YOUR_ONESIGNAL_APP_ID' &&
-    ONESIGNAL_APP_ID.length > 10;
-
 let isOneSignalInitialized = false;
-let oneSignalInitPromise = null;
 
 /**
  * Initialize OneSignal
  * Call this early in your app initialization
  */
 export async function initOneSignal() {
-    // Return existing promise if already initializing
-    if (oneSignalInitPromise) return oneSignalInitPromise;
-    if (isOneSignalInitialized) return Promise.resolve();
+    if (isOneSignalInitialized) return;
     if (typeof window === 'undefined') return;
-
-    // Don't init if AppID is not configured
-    if (!isAppIdConfigured) {
-        console.log('[OneSignal] Skipping - AppID not configured');
-        return;
-    }
 
     // Don't init on native apps (they use FCM directly)
     if (window.CapacitorUtils?.isNative()) {
@@ -49,64 +35,51 @@ export async function initOneSignal() {
         return;
     }
 
-    // Create a promise that resolves when OneSignal is ready
-    oneSignalInitPromise = new Promise((resolve, reject) => {
-        try {
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            window.OneSignalDeferred.push(async function(OneSignal) {
-                try {
-                    await OneSignal.init({
-                        appId: ONESIGNAL_APP_ID,
-                        // Safari web push requires this
-                        safari_web_id: undefined,
-                        // Auto resubscribe returning users
-                        autoResubscribe: true,
-                        // DISABLE all automatic prompts - we use our own UI
-                        autoRegister: false,
-                        notifyButton: {
-                            enable: false
-                        },
-                        promptOptions: {
-                            autoPrompt: false,
-                            slidedown: {
-                                enabled: false,
-                                autoPrompt: false
-                            }
-                        },
-                        // Welcome notification after opt-in
-                        welcomeNotification: {
-                            disable: true
-                        },
-                        // Service worker settings
-                        serviceWorkerPath: '/OneSignalSDKWorker.js',
-                        serviceWorkerParam: { scope: '/' }
-                    });
+    try {
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+                appId: ONESIGNAL_APP_ID,
+                // Safari web push requires this
+                safari_web_id: undefined,
+                // Auto resubscribe returning users
+                autoResubscribe: true,
+                // DISABLE all automatic prompts - we use our own UI
+                autoRegister: false,
+                notifyButton: {
+                    enable: false
+                },
+                promptOptions: {
+                    autoPrompt: false,
+                    slidedown: {
+                        enabled: false,
+                        autoPrompt: false
+                    }
+                },
+                // Welcome notification after opt-in
+                welcomeNotification: {
+                    disable: true
+                },
+                // Service worker settings
+                serviceWorkerPath: '/OneSignalSDKWorker.js',
+                serviceWorkerParam: { scope: '/' }
+            });
 
-                    isOneSignalInitialized = true;
-                    console.log('[OneSignal] Initialized successfully');
+            isOneSignalInitialized = true;
+            console.log('[OneSignal] Initialized successfully');
 
-                    // Listen for subscription changes
-                    OneSignal.User.PushSubscription.addEventListener('change', (event) => {
-                        console.log('[OneSignal] Subscription changed:', event.current);
-                        if (event.current.optedIn) {
-                            // User opted in - save external ID
-                            syncUserWithOneSignal();
-                        }
-                    });
-
-                    resolve();
-                } catch (initError) {
-                    console.error('[OneSignal] Init inside deferred error:', initError);
-                    reject(initError);
+            // Listen for subscription changes
+            OneSignal.User.PushSubscription.addEventListener('change', (event) => {
+                console.log('[OneSignal] Subscription changed:', event.current);
+                if (event.current.optedIn) {
+                    // User opted in - save external ID
+                    syncUserWithOneSignal();
                 }
             });
-        } catch (error) {
-            console.error('[OneSignal] Initialization error:', error);
-            reject(error);
-        }
-    });
-
-    return oneSignalInitPromise;
+        });
+    } catch (error) {
+        console.error('[OneSignal] Initialization error:', error);
+    }
 }
 
 /**
@@ -155,41 +128,25 @@ export async function logoutOneSignal() {
  * Uses native browser permission API directly to avoid OneSignal UI
  */
 export async function requestOneSignalPermission() {
-    // Wait for initialization if pending
-    if (oneSignalInitPromise && !isOneSignalInitialized) {
-        console.log('[OneSignal] Waiting for initialization...');
-        try {
-            await oneSignalInitPromise;
-        } catch (e) {
-            console.error('[OneSignal] Init failed while waiting:', e);
-            return false;
-        }
-    }
-
     if (!isOneSignalInitialized || !window.OneSignal) {
-        console.warn('[OneSignal] Not initialized, cannot request permission');
+        console.warn('[OneSignal] Not initialized');
         return false;
     }
 
     try {
-        console.log('[OneSignal] Requesting permission via native API...');
-
         // Use native browser API directly to avoid any OneSignal UI
         if ('Notification' in window) {
             const permission = await Notification.requestPermission();
-            console.log('[OneSignal] Native permission result:', permission);
+            console.log('[OneSignal] Permission result:', permission);
 
             if (permission === 'granted') {
                 // Tell OneSignal to register now that we have permission
-                console.log('[OneSignal] Opting in to push subscription...');
                 await window.OneSignal.User.PushSubscription.optIn();
-                console.log('[OneSignal] Successfully opted in');
+                console.log('[OneSignal] Opted in successfully');
                 return true;
             }
             return false;
         }
-
-        console.warn('[OneSignal] Notification API not available');
         return false;
     } catch (error) {
         console.error('[OneSignal] Error requesting permission:', error);
