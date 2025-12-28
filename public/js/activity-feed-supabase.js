@@ -526,7 +526,7 @@ function setupPullToRefresh() {
     let startY = 0;
     let currentY = 0;
     let isPulling = false;
-    let isRefreshing = false;
+    // Use module-level isRefreshing variable (declared at top of file)
     const pullThreshold = 80; // px needed to trigger refresh
     const maxPull = 120; // max pull distance
 
