@@ -390,8 +390,12 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
-    // Only show push prompt on native apps (Android/iOS), not on web
-    if (!window.CapacitorUtils?.isNative()) {
+    const isNative = window.CapacitorUtils?.isNative();
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  window.navigator.standalone === true;
+
+    // Only show push prompt on native apps or PWA, not on regular web browser
+    if (!isNative && !isPWA) {
         return false;
     }
 
@@ -419,15 +423,15 @@ export async function shouldShowPushPrompt() {
     }
 
     // For native apps, check if push is already enabled
-    if (window.CapacitorUtils?.isNative()) {
+    if (isNative) {
         try {
             const isEnabled = await window.CapacitorUtils.isPushEnabled();
             if (isEnabled) return false;
         } catch (e) {
             // Continue to show prompt if check fails
         }
-    } else {
-        // For PWA/Web - check OneSignal status
+    } else if (isPWA) {
+        // For PWA - check OneSignal status
         const isEnabled = await isOneSignalEnabled();
         if (isEnabled) return false;
 
