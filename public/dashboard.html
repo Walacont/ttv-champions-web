@@ -1715,8 +1715,8 @@
                     bottomNav.style.zIndex = '99999';
                     bottomNav.style.background = 'white';
                     bottomNav.style.borderTop = '1px solid #e5e7eb';
-                    // Add safe area padding for iPhone home indicator
-                    bottomNav.style.paddingBottom = 'env(safe-area-inset-bottom, 34px)';
+                    // Add safe area padding for iPhone home indicator (34px for Face ID devices)
+                    bottomNav.style.paddingBottom = '34px';
                 }
 
                 // Same for top nav - move to beginning of body
