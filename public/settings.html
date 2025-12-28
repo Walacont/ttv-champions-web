@@ -118,11 +118,10 @@
                     </div>
                 </a>
 
-                <!-- Benachrichtigungen (nur auf Android/iOS anzeigen) -->
+                <!-- Benachrichtigungen -->
                 <a
-                    id="push-settings-link"
                     href="/settings-notifications.html"
-                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
                 >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -329,20 +328,6 @@
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
-
-                // Show push notification settings on native apps AND PWA (OneSignal supports both)
-                const pushSettingsLink = document.getElementById('push-settings-link');
-                if (pushSettingsLink) {
-                    // Show for native apps
-                    if (window.CapacitorUtils?.isNative()) {
-                        pushSettingsLink.classList.remove('hidden');
-                    }
-                    // Show for PWA (standalone mode) - OneSignal supports web push
-                    else if (window.matchMedia('(display-mode: standalone)').matches ||
-                             window.navigator.standalone === true) {
-                        pushSettingsLink.classList.remove('hidden');
-                    }
-                }
 
                 // Language selection modal
                 const languageCard = document.getElementById('language-card');
