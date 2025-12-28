@@ -87,6 +87,8 @@
                 right: 0 !important;
                 -webkit-transform: translateZ(0);
                 transform: translateZ(0);
+                /* Extend background into safe area */
+                padding-bottom: env(safe-area-inset-bottom, 0);
             }
             /* PWA standalone styles are in mobile-fixes.css */
 

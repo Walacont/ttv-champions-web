@@ -440,10 +440,10 @@ html body:not([style*="overflow: hidden"]) {
 
 /* PWA Standalone Mode - Bottom Navigation Fix */
 @media all and (display-mode: standalone) {
-    /* Bottom navigation bar - only add safe area padding, no extra */
+    /* Bottom navigation - sits at very bottom, extends into safe area */
     #bottom-nav {
+        bottom: 0 !important;
         padding-bottom: env(safe-area-inset-bottom, 0) !important;
-        height: auto !important;
     }
 
     /* The inner flex container maintains its height */
@@ -455,7 +455,7 @@ html body:not([style*="overflow: hidden"]) {
     main,
     #main-content,
     .min-h-screen {
-        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0)) !important;
+        padding-bottom: calc(48px + env(safe-area-inset-bottom, 0)) !important;
     }
 
     /* Top header also needs safe area for status bar */
@@ -463,35 +463,15 @@ html body:not([style*="overflow: hidden"]) {
         padding-top: env(safe-area-inset-top, 0) !important;
     }
 
-    /* Adjust main content top padding for taller header */
-    #main-content {
-        padding-top: calc(56px + env(safe-area-inset-top, 0)) !important;
-    }
-
     /* Profile and other pages with sticky headers */
     .sticky.top-0 {
         padding-top: env(safe-area-inset-top, 0) !important;
     }
 
-    /* Body safe area */
+    /* Body safe area - no padding at bottom, nav handles it */
     body {
         padding-left: env(safe-area-inset-left, 0);
         padding-right: env(safe-area-inset-right, 0);
-    }
-}
-
-/* iOS Safari PWA - only apply if actually on iOS with home indicator */
-@supports (-webkit-touch-callout: none) {
-    @media all and (display-mode: standalone) {
-        /* iOS devices report safe-area-inset-bottom for home indicator */
-        #bottom-nav {
-            padding-bottom: env(safe-area-inset-bottom, 0) !important;
-        }
-
-        /* Ensure enough space at bottom of scrollable content */
-        main,
-        #main-content {
-            padding-bottom: calc(56px + env(safe-area-inset-bottom, 0)) !important;
-        }
+        padding-bottom: 0 !important;
     }
 }

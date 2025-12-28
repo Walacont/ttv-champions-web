@@ -89,6 +89,10 @@ async function updatePushStatus() {
         console.error('Error checking push status:', e);
     }
 
+    // Check browser permission status (for PWA)
+    const browserPermission = 'Notification' in window ? Notification.permission : 'default';
+    console.log('[Settings] Push enabled:', enabled, 'Browser permission:', browserPermission);
+
     if (enabled) {
         // Push is enabled
         statusIcon.className = 'w-10 h-10 bg-green-100 rounded-full flex items-center justify-center';
@@ -102,21 +106,26 @@ async function updatePushStatus() {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) toggle.disabled = false;
         });
+    } else if (!isNative && browserPermission === 'denied') {
+        // Browser permission explicitly denied - show blocked message
+        statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
+        statusIcon.innerHTML = '<i class="fas fa-ban text-red-600"></i>';
+        statusText.textContent = 'Push-Benachrichtigungen wurden im Browser blockiert. Bitte aktiviere sie in den Browser-/Geräteeinstellungen.';
+        statusText.className = 'text-sm text-red-600';
+        enableBtn.classList.add('hidden');
+
+        // Disable preference toggles
+        PREFERENCE_KEYS.forEach(key => {
+            const toggle = document.getElementById(`pref-${key}`);
+            if (toggle) toggle.disabled = true;
+        });
     } else {
-        // Push is not enabled
+        // Push not enabled yet - show enable button
         statusIcon.className = 'w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center';
         statusIcon.innerHTML = '<i class="fas fa-bell-slash text-gray-400"></i>';
-
-        // Check if it's denied or just not requested
-        if (!isNative && 'Notification' in window && Notification.permission === 'denied') {
-            statusText.textContent = 'Push-Benachrichtigungen wurden blockiert. Bitte aktiviere sie in den Geräteeinstellungen.';
-            statusText.className = 'text-sm text-red-600';
-            enableBtn.classList.add('hidden');
-        } else {
-            statusText.textContent = 'Push-Benachrichtigungen sind deaktiviert';
-            statusText.className = 'text-sm text-gray-500';
-            enableBtn.classList.remove('hidden');
-        }
+        statusText.textContent = 'Push-Benachrichtigungen sind noch nicht aktiviert';
+        statusText.className = 'text-sm text-gray-500';
+        enableBtn.classList.remove('hidden');
 
         // Disable preference toggles when push is not enabled
         PREFERENCE_KEYS.forEach(key => {
