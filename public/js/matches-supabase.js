@@ -1399,8 +1399,24 @@ export function showMatchConfirmationBottomSheet(requests) {
 
             const winnerId = request.winner_id;
             winnerName = winnerId === request.player_a_id ? playerA : playerB;
-            setsA = request.player_a_sets_won || 0;
-            setsB = request.player_b_sets_won || 0;
+
+            // Calculate sets won from sets array (more reliable than stored values)
+            setsA = 0;
+            setsB = 0;
+            if (request.sets && request.sets.length > 0) {
+                request.sets.forEach(set => {
+                    // Handle different property name formats
+                    const scoreA = set.playerA ?? set.player_a ?? set.a ?? 0;
+                    const scoreB = set.playerB ?? set.player_b ?? set.b ?? 0;
+                    if (scoreA > scoreB) setsA++;
+                    else if (scoreB > scoreA) setsB++;
+                });
+            }
+            // Fallback to stored values if sets array didn't yield results
+            if (setsA === 0 && setsB === 0) {
+                setsA = request.player_a_sets_won || 0;
+                setsB = request.player_b_sets_won || 0;
+            }
 
             playerAElo = request.player_a?.elo_rating || 800;
             playerBElo = request.player_b?.elo_rating || 800;
