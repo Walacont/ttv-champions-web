@@ -17,7 +17,7 @@ let updateBannerShown = false;
 const CHECK_INTERVAL = 5 * 60 * 1000;
 
 // Version of this update checker logic - increment to force reset
-const UPDATE_CHECKER_VERSION = 5;
+const UPDATE_CHECKER_VERSION = 6;
 
 /**
  * Initialize update checker
@@ -31,6 +31,15 @@ async function initializeUpdateChecker() {
             localStorage.removeItem('app_version');
             localStorage.removeItem('dismissed_version');
             localStorage.setItem('update_checker_version', String(UPDATE_CHECKER_VERSION));
+            // Don't show banner immediately after reset - wait for next page load
+            localStorage.setItem('update_checker_just_reset', 'true');
+            return;
+        }
+
+        // Skip banner check if we just reset
+        if (localStorage.getItem('update_checker_just_reset') === 'true') {
+            localStorage.removeItem('update_checker_just_reset');
+            console.log('[UpdateChecker] Skipping check after reset');
         }
 
         // Get current version from server (with aggressive cache busting)
