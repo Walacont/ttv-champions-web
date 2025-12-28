@@ -6,6 +6,7 @@
 import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
 import { getRankProgress, RANKS } from './ranks.js';
+import { escapeHtml } from './utils/security.js';
 
 let currentUser = null;
 let profileUser = null;
@@ -2204,16 +2205,6 @@ function showError(message) {
             </div>
         </div>
     `;
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Initialize when DOM is ready - handle both cases where DOM might already be loaded

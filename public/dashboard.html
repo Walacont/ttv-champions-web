@@ -8,6 +8,13 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+
+        <!-- OneSignal SDK for PWA Push Notifications -->
+        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+        <script>
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+        </script>
+
         <title>Mein Dashboard - SC Champions</title>
 
         <!-- Favicon -->
@@ -72,7 +79,7 @@
                 background-color: #eef2ff; /* indigo-50 */
             }
 
-            /* Bottom navigation - explicit fixed positioning for Safari iOS */
+            /* Bottom navigation - explicit fixed positioning for Safari iOS PWA */
             #bottom-nav {
                 position: fixed !important;
                 bottom: 0 !important;
@@ -80,12 +87,10 @@
                 right: 0 !important;
                 -webkit-transform: translateZ(0);
                 transform: translateZ(0);
-            }
-
-            /* Bottom navigation safe area for iPhones */
-            .safe-area-bottom {
+                /* Extend background into safe area */
                 padding-bottom: env(safe-area-inset-bottom, 0);
             }
+            /* PWA standalone styles are in mobile-fixes.css */
 
             /* Top safe area for PWA/standalone mode (status bar) */
             .safe-area-top {
@@ -1611,7 +1616,7 @@
         </footer>
 
         <!-- Bottom Navigation Bar (like Instagram) -->
-        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;" class="safe-area-bottom">
+        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;">
             <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
                 <button
                     class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"

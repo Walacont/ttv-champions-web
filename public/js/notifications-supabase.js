@@ -3,6 +3,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './utils/security.js';
 
 let notificationSubscription = null;
 let matchRequestSubscription = null;
@@ -561,7 +562,7 @@ async function showNotificationModal(userId) {
     // Create modal
     const modal = document.createElement('div');
     modal.id = 'notification-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-16 sm:pt-20';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-start justify-center pt-16 sm:pt-20';
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[70vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center">
@@ -1698,15 +1699,6 @@ function formatTimeAgo(dateString) {
     if (diffHours < 24) return `vor ${diffHours} Std.`;
     if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
     return date.toLocaleDateString('de-DE');
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

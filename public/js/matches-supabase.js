@@ -1264,3 +1264,686 @@ export async function loadSavedPairings(supabaseClient, clubId) {
     // Return empty array as there's no dedicated pairings table
     return [];
 }
+
+/**
+ * Load pending match confirmations for current player
+ * Shows matches that need player B's confirmation
+ */
+export async function loadPendingPlayerConfirmations(userId) {
+    const supabase = getSupabase();
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('match_requests')
+            .select(`
+                *,
+                player_a:player_a_id(id, first_name, last_name, display_name, elo_rating),
+                player_b:player_b_id(id, first_name, last_name, display_name, elo_rating),
+                sports(id, display_name)
+            `)
+            .eq('status', 'pending_player')
+            .or(`player_b_id.eq.${userId}`)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('[Matches] Loaded pending player confirmations:', requests?.length || 0);
+        return requests || [];
+    } catch (error) {
+        console.error('[Matches] Error loading pending confirmations:', error);
+        return [];
+    }
+}
+
+/**
+ * Load pending doubles match confirmations for current player
+ */
+export async function loadPendingDoublesConfirmations(userId) {
+    const supabase = getSupabase();
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('doubles_match_requests')
+            .select(`
+                *,
+                sports(id, display_name)
+            `)
+            .eq('status', 'pending_opponent')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Filter for requests where user is in team_b
+        const filtered = (requests || []).filter(req => {
+            const teamB = req.team_b || {};
+            return teamB.player1_id === userId || teamB.player2_id === userId;
+        });
+
+        console.log('[Matches] Loaded pending doubles confirmations:', filtered.length);
+        return filtered.map(req => ({
+            ...req,
+            isDoubles: true  // Mark as doubles for rendering
+        }));
+    } catch (error) {
+        console.error('[Matches] Error loading pending doubles confirmations:', error);
+        return [];
+    }
+}
+
+/**
+ * Load all pending confirmations (singles + doubles)
+ */
+export async function loadAllPendingConfirmations(userId) {
+    const [singlesRequests, doublesRequests] = await Promise.all([
+        loadPendingPlayerConfirmations(userId),
+        loadPendingDoublesConfirmations(userId)
+    ]);
+
+    // Combine and sort by created_at
+    const allRequests = [...singlesRequests, ...doublesRequests]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    console.log('[Matches] Total pending confirmations:', allRequests.length,
+        `(${singlesRequests.length} singles, ${doublesRequests.length} doubles)`);
+
+    return allRequests;
+}
+
+// Store active subscriptions for cleanup
+let bottomSheetSubscriptions = [];
+
+/**
+ * Show bottom sheet with pending match confirmations
+ */
+export function showMatchConfirmationBottomSheet(requests) {
+    if (!requests || requests.length === 0) return;
+
+    const supabase = getSupabase();
+    let currentIndex = 0;
+
+    // Cleanup any existing subscriptions
+    cleanupBottomSheetSubscriptions();
+
+    // Setup real-time subscriptions for request changes
+    setupBottomSheetRealtimeSubscriptions(requests, () => currentIndex);
+
+    const renderBottomSheet = (index) => {
+        const request = requests[index];
+
+        let playerA, playerB, winnerName, setsA, setsB, playerAElo, playerBElo;
+
+        if (request.isDoubles) {
+            // Doubles match
+            const teamA = request.team_a || {};
+            const teamB = request.team_b || {};
+
+            playerA = 'Team A';  // We'd need to fetch player names from profiles
+            playerB = 'Team B (Du)';
+
+            // For doubles, we'd need to fetch player profiles
+            // For now, show team IDs as placeholder
+            winnerName = request.winning_team === 'A' ? 'Team A' : 'Team B';
+
+            // Calculate sets won from sets array for doubles
+            setsA = 0;
+            setsB = 0;
+            if (request.sets && request.sets.length > 0) {
+                request.sets.forEach(set => {
+                    const teamAScore = set.teamA || set.team_a || set.a || 0;
+                    const teamBScore = set.teamB || set.team_b || set.b || 0;
+                    if (teamAScore > teamBScore) setsA++;
+                    else if (teamBScore > teamAScore) setsB++;
+                });
+            }
+
+            playerAElo = '-';
+            playerBElo = '-';
+        } else {
+            // Singles match
+            playerA = request.player_a?.display_name ||
+                           `${request.player_a?.first_name || ''} ${request.player_a?.last_name || ''}`.trim() ||
+                           'Spieler A';
+            playerB = request.player_b?.display_name ||
+                           `${request.player_b?.first_name || ''} ${request.player_b?.last_name || ''}`.trim() ||
+                           'Du';
+
+            const winnerId = request.winner_id;
+            winnerName = winnerId === request.player_a_id ? playerA : playerB;
+
+            // Calculate sets won from sets array (more reliable than stored values)
+            setsA = 0;
+            setsB = 0;
+            if (request.sets && request.sets.length > 0) {
+                request.sets.forEach(set => {
+                    // Handle different property name formats
+                    const scoreA = set.playerA ?? set.player_a ?? set.a ?? 0;
+                    const scoreB = set.playerB ?? set.player_b ?? set.b ?? 0;
+                    if (scoreA > scoreB) setsA++;
+                    else if (scoreB > scoreA) setsB++;
+                });
+            }
+            // Fallback to stored values if sets array didn't yield results
+            if (setsA === 0 && setsB === 0) {
+                setsA = request.player_a_sets_won || 0;
+                setsB = request.player_b_sets_won || 0;
+            }
+
+            playerAElo = request.player_a?.elo_rating || 800;
+            playerBElo = request.player_b?.elo_rating || 800;
+        }
+
+        // Handle different possible set data formats
+        let setsDetails = 'Keine Details';
+        if (request.sets && request.sets.length > 0) {
+            // Try different possible property names (singles and doubles)
+            setsDetails = request.sets.map(s => {
+                // Singles formats
+                if (s.playerA !== undefined && s.playerB !== undefined) {
+                    return `${s.playerA}:${s.playerB}`;
+                } else if (s.player_a !== undefined && s.player_b !== undefined) {
+                    return `${s.player_a}:${s.player_b}`;
+                }
+                // Doubles formats
+                else if (s.teamA !== undefined && s.teamB !== undefined) {
+                    return `${s.teamA}:${s.teamB}`;
+                } else if (s.team_a !== undefined && s.team_b !== undefined) {
+                    return `${s.team_a}:${s.team_b}`;
+                }
+                // Generic formats
+                else if (s.a !== undefined && s.b !== undefined) {
+                    return `${s.a}:${s.b}`;
+                } else if (Array.isArray(s) && s.length === 2) {
+                    return `${s[0]}:${s[1]}`;
+                }
+                return JSON.stringify(s);
+            }).join(', ');
+        }
+
+        console.log('[Matches] Sets data:', request.sets, '→', setsDetails);
+
+        const handicapText = request.handicap_used
+            ? '✓ Verwendet'
+            : '✗ Nicht verwendet';
+
+        const matchMode = request.match_mode || 'best-of-5';
+        const modeDisplay = matchMode === 'best-of-5' ? 'Best of 5' :
+                           matchMode === 'best-of-3' ? 'Best of 3' :
+                           matchMode === 'best-of-7' ? 'Best of 7' : matchMode;
+
+        // Usually player A creates the request, so show their name
+        const createdBy = playerA;
+
+        const createdAt = request.created_at ? new Date(request.created_at).toLocaleString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : 'Unbekannt';
+
+        const modalHTML = `
+            <div id="match-confirmation-bottomsheet" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 animate-fade-in" style="animation: fadeIn 0.2s ease-out; padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));">
+                <div class="bg-white rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto animate-slide-up" style="animation: slideUp 0.3s ease-out;">
+                    <div class="p-6 pb-4">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">
+                                Match-Ergebnis bestätigen
+                            </h3>
+                            <button id="close-bottomsheet" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+                                ×
+                            </button>
+                        </div>
+
+                        ${requests.length > 1 ? `
+                            <div class="text-sm text-gray-500 text-center mb-4">
+                                ${index + 1} von ${requests.length} Einträgen
+                            </div>
+                        ` : ''}
+
+                        <!-- Match Info -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-4 mb-4 border border-indigo-100">
+                            <div class="text-sm text-gray-600 mb-2">Spieler:</div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="text-center flex-1">
+                                    <div class="font-semibold text-gray-800">${playerA}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${playerAElo}</div>
+                                </div>
+                                <div class="px-4">
+                                    <div class="text-2xl font-bold text-gray-700">${setsA} : ${setsB}</div>
+                                </div>
+                                <div class="text-center flex-1">
+                                    <div class="font-semibold text-gray-800">${playerB}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${playerBElo}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-center gap-2 bg-white rounded-lg py-2 px-3">
+                                <span class="font-semibold text-indigo-700">${winnerName} gewinnt</span>
+                            </div>
+                        </div>
+
+                        <!-- Match Details -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Sätze:</div>
+                                    <div class="text-sm text-gray-600">${setsDetails}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Handicap:</div>
+                                    <div class="text-sm text-gray-600">${handicapText}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Modus:</div>
+                                    <div class="text-sm text-gray-600">${modeDisplay}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Gespielt:</div>
+                                    <div class="text-sm text-gray-600">${createdAt}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-3 mb-4">
+                            <button id="confirm-accept" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                                <span>Bestätigen</span>
+                            </button>
+                            <button id="confirm-decline" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                                <span>Ablehnen</span>
+                            </button>
+                        </div>
+
+                        <!-- Navigation for multiple requests -->
+                        ${requests.length > 1 ? `
+                            <div class="flex items-center justify-center gap-4 pt-2">
+                                <button id="prev-request" class="text-indigo-600 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed" ${index === 0 ? 'disabled' : ''}>
+                                    <i class="fas fa-chevron-left"></i> Vorherige
+                                </button>
+                                <button id="next-request" class="text-indigo-600 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed" ${index === requests.length - 1 ? 'disabled' : ''}>
+                                    Nächste <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+
+                        <!-- Created By -->
+                        <div class="text-xs text-center text-gray-400 mt-4">
+                            Eingetragen von: ${createdBy}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+            </style>
+        `;
+
+        return modalHTML;
+    };
+
+    // Insert bottom sheet into DOM
+    const existingSheet = document.getElementById('match-confirmation-bottomsheet');
+    if (existingSheet) {
+        existingSheet.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', renderBottomSheet(currentIndex));
+
+    // Setup event listeners
+    const setupListeners = () => {
+        const modal = document.getElementById('match-confirmation-bottomsheet');
+        const closeBtn = document.getElementById('close-bottomsheet');
+        const acceptBtn = document.getElementById('confirm-accept');
+        const declineBtn = document.getElementById('confirm-decline');
+        const prevBtn = document.getElementById('prev-request');
+        const nextBtn = document.getElementById('next-request');
+
+        const closeModal = () => {
+            cleanupBottomSheetSubscriptions();
+            modal?.remove();
+        };
+
+        closeBtn?.addEventListener('click', closeModal);
+        modal?.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Listen for real-time request removal
+        modal?.addEventListener('requestRemoved', (e) => {
+            const newIndex = e.detail?.newIndex ?? 0;
+            currentIndex = newIndex;
+            modal.outerHTML = renderBottomSheet(currentIndex);
+            setupListeners();
+        });
+
+        acceptBtn?.addEventListener('click', async () => {
+            await handlePlayerConfirmation(requests[currentIndex].id, true, null, requests[currentIndex].isDoubles);
+            requests.splice(currentIndex, 1);
+            if (requests.length > 0) {
+                if (currentIndex >= requests.length) currentIndex = requests.length - 1;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            } else {
+                closeModal();
+            }
+        });
+
+        declineBtn?.addEventListener('click', async () => {
+            const reason = prompt('Warum möchtest du dieses Ergebnis ablehnen? (Optional)');
+            await handlePlayerConfirmation(requests[currentIndex].id, false, reason, requests[currentIndex].isDoubles);
+            requests.splice(currentIndex, 1);
+            if (requests.length > 0) {
+                if (currentIndex >= requests.length) currentIndex = requests.length - 1;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            } else {
+                closeModal();
+            }
+        });
+
+        prevBtn?.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            }
+        });
+
+        nextBtn?.addEventListener('click', () => {
+            if (currentIndex < requests.length - 1) {
+                currentIndex++;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            }
+        });
+    };
+
+    setupListeners();
+}
+
+/**
+ * Setup real-time subscriptions for bottom sheet
+ * Listens for request deletions or status changes
+ */
+function setupBottomSheetRealtimeSubscriptions(requests, getCurrentIndex) {
+    const supabase = getSupabase();
+
+    // Get all request IDs separated by type
+    const singlesIds = requests.filter(r => !r.isDoubles).map(r => r.id);
+    const doublesIds = requests.filter(r => r.isDoubles).map(r => r.id);
+
+    // Subscribe to singles match_requests changes
+    if (singlesIds.length > 0) {
+        const singlesChannel = supabase
+            .channel('bottomsheet-singles-' + Date.now())
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'match_requests',
+                    filter: `id=in.(${singlesIds.join(',')})`
+                },
+                (payload) => {
+                    console.log('[BottomSheet] Singles request change:', payload.eventType, payload);
+                    handleRequestChange(payload, requests, getCurrentIndex, false);
+                }
+            )
+            .subscribe();
+
+        bottomSheetSubscriptions.push(singlesChannel);
+    }
+
+    // Subscribe to doubles match_requests changes
+    if (doublesIds.length > 0) {
+        const doublesChannel = supabase
+            .channel('bottomsheet-doubles-' + Date.now())
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'doubles_match_requests',
+                    filter: `id=in.(${doublesIds.join(',')})`
+                },
+                (payload) => {
+                    console.log('[BottomSheet] Doubles request change:', payload.eventType, payload);
+                    handleRequestChange(payload, requests, getCurrentIndex, true);
+                }
+            )
+            .subscribe();
+
+        bottomSheetSubscriptions.push(doublesChannel);
+    }
+
+    console.log('[BottomSheet] Real-time subscriptions active for', singlesIds.length, 'singles,', doublesIds.length, 'doubles');
+}
+
+/**
+ * Handle real-time request changes
+ */
+function handleRequestChange(payload, requests, getCurrentIndex, isDoubles) {
+    const { eventType, old: oldRecord, new: newRecord } = payload;
+
+    // Find the request in our list
+    const requestId = oldRecord?.id || newRecord?.id;
+    const requestIndex = requests.findIndex(r => r.id === requestId && r.isDoubles === isDoubles);
+
+    if (requestIndex === -1) return;
+
+    let shouldRemove = false;
+    let toastMessage = '';
+
+    if (eventType === 'DELETE') {
+        shouldRemove = true;
+        toastMessage = 'Anfrage wurde zurückgezogen';
+    } else if (eventType === 'UPDATE') {
+        const newStatus = newRecord?.status;
+        // Remove if status changed from pending
+        if (newStatus && newStatus !== 'pending_player' && newStatus !== 'pending_opponent') {
+            shouldRemove = true;
+            if (newStatus === 'withdrawn' || newStatus === 'cancelled') {
+                toastMessage = 'Anfrage wurde zurückgezogen';
+            }
+        }
+    }
+
+    if (shouldRemove) {
+        // Remove from requests array
+        requests.splice(requestIndex, 1);
+
+        // Show toast
+        if (toastMessage) {
+            showToast(toastMessage, 'info');
+        }
+
+        // Update UI
+        const modal = document.getElementById('match-confirmation-bottomsheet');
+        if (!modal) return;
+
+        if (requests.length === 0) {
+            // No more requests - close bottom sheet
+            cleanupBottomSheetSubscriptions();
+            modal.remove();
+        } else {
+            // Re-render with updated list
+            let currentIndex = getCurrentIndex();
+            if (currentIndex >= requests.length) {
+                currentIndex = requests.length - 1;
+            }
+            // Trigger re-render by dispatching custom event
+            modal.dispatchEvent(new CustomEvent('requestRemoved', { detail: { newIndex: currentIndex } }));
+        }
+    }
+}
+
+/**
+ * Cleanup bottom sheet subscriptions
+ */
+function cleanupBottomSheetSubscriptions() {
+    const supabase = getSupabase();
+    bottomSheetSubscriptions.forEach(channel => {
+        try {
+            supabase.removeChannel(channel);
+        } catch (e) {
+            console.warn('[BottomSheet] Error removing channel:', e);
+        }
+    });
+    bottomSheetSubscriptions = [];
+    console.log('[BottomSheet] Subscriptions cleaned up');
+}
+
+/**
+ * Handle player confirmation (accept/decline)
+ */
+async function handlePlayerConfirmation(requestId, approved, declineReason = null, isDoubles = false) {
+    const supabase = getSupabase();
+
+    try {
+        if (approved) {
+            if (isDoubles) {
+                // Handle doubles match confirmation
+                const { data: request } = await supabase
+                    .from('doubles_match_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
+
+                if (!request) throw new Error('Doubles match request not found');
+
+                // Create the doubles match
+                const { data: match, error: matchError } = await supabase
+                    .from('doubles_matches')
+                    .insert({
+                        team_a: request.team_a,
+                        team_b: request.team_b,
+                        winning_team: request.winning_team,
+                        sets: request.sets || [],
+                        club_id: request.club_id,
+                        initiated_by: request.initiated_by,
+                        sport_id: request.sport_id,
+                        match_mode: request.match_mode || 'best-of-5',
+                        handicap_used: request.handicap_used || false,
+                        played_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (matchError) {
+                    console.error('[Matches] Doubles match creation error:', matchError);
+                    throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message || matchError.code}`);
+                }
+
+                // Update request status
+                await supabase
+                    .from('doubles_match_requests')
+                    .update({ status: 'approved' })
+                    .eq('id', requestId);
+
+                console.log('[Matches] Doubles match confirmed and created');
+                showToast('Doppel-Match bestätigt!', 'success');
+            } else {
+                // Handle singles match confirmation
+                const { data: request } = await supabase
+                    .from('match_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
+
+                if (!request) throw new Error('Match request not found');
+
+                // Create the match (without tournament_match_id - that's in tournament_matches table)
+                const { data: match, error: matchError } = await supabase
+                    .from('matches')
+                    .insert({
+                        player_a_id: request.player_a_id,
+                        player_b_id: request.player_b_id,
+                        winner_id: request.winner_id,
+                        loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
+                        player_a_sets_won: request.player_a_sets_won,
+                        player_b_sets_won: request.player_b_sets_won,
+                        sets: request.sets || [],
+                        club_id: request.club_id,
+                        created_by: request.created_by,
+                        sport_id: request.sport_id,
+                        match_mode: request.match_mode || 'best-of-5',
+                        handicap_used: request.handicap_used || false,
+                        played_at: request.played_at || new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (matchError) {
+                    console.error('[Matches] Match creation error:', matchError);
+                    console.error('[Matches] Request data:', request);
+                    throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
+                }
+
+                // Update request status
+                await supabase
+                    .from('match_requests')
+                    .update({ status: 'approved' })
+                    .eq('id', requestId);
+
+                // If linked to tournament, update tournament match
+                if (request.tournament_match_id && match) {
+                    const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
+                    await recordTournamentMatchResult(request.tournament_match_id, match.id);
+                }
+
+                console.log('[Matches] Match confirmed and created');
+                showToast('Match bestätigt!', 'success');
+            }
+        } else {
+            // Decline the match
+            const table = isDoubles ? 'doubles_match_requests' : 'match_requests';
+            await supabase
+                .from(table)
+                .update({
+                    status: 'rejected',
+                    decline_reason: declineReason
+                })
+                .eq('id', requestId);
+
+            console.log(`[Matches] ${isDoubles ? 'Doubles ' : ''}Match declined`);
+            showToast('Match abgelehnt', 'info');
+        }
+    } catch (error) {
+        console.error('[Matches] Error handling confirmation:', error);
+        showToast('Fehler: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    const colors = {
+        info: 'bg-indigo-600',
+        success: 'bg-green-600',
+        error: 'bg-red-600'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-20 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}

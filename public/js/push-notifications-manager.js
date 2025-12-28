@@ -1,7 +1,16 @@
 // Push Notifications Manager
 // Handles FCM token registration with Supabase and notification preferences
+// Uses OneSignal for PWA push notifications
 
 import { getSupabase } from './supabase-init.js';
+import {
+    initOneSignal,
+    syncUserWithOneSignal,
+    requestOneSignalPermission,
+    isOneSignalEnabled,
+    optOutOneSignal,
+    logoutOneSignal
+} from './onesignal-init.js';
 
 let currentUserId = null;
 let tokenSaveTimeout = null;
@@ -14,28 +23,50 @@ export async function initPushNotifications(userId) {
     if (!userId) return;
     currentUserId = userId;
 
-    // Check if we already have a token waiting
-    if (window.pushToken) {
-        await savePushToken(window.pushToken);
-    }
-
-    // Listen for new tokens
-    window.addEventListener('push-token-received', async (event) => {
-        const token = event.detail?.token;
-        if (token && currentUserId) {
-            await savePushToken(token);
+    // For native apps, use FCM
+    if (window.CapacitorUtils?.isNative()) {
+        // Check if we already have a token waiting
+        if (window.pushToken) {
+            await savePushToken(window.pushToken);
         }
-    });
 
-    // Listen for push notifications in foreground
-    window.addEventListener('push-notification-received', (event) => {
-        const notification = event.detail;
-        showInAppNotification(notification);
-    });
+        // Listen for new tokens
+        window.addEventListener('push-token-received', async (event) => {
+            const token = event.detail?.token;
+            if (token && currentUserId) {
+                await savePushToken(token);
+            }
+        });
+
+        // Listen for push notifications in foreground
+        window.addEventListener('push-notification-received', (event) => {
+            const notification = event.detail;
+            showInAppNotification(notification);
+        });
+    } else {
+        // For PWA/Web, use OneSignal
+        await initOneSignal();
+
+        // Sync user with OneSignal
+        const db = getSupabase();
+        if (db) {
+            const { data: profile } = await db
+                .from('profiles')
+                .select('display_name, email')
+                .eq('id', userId)
+                .single();
+
+            if (profile) {
+                await syncUserWithOneSignal(userId, profile.email, profile.display_name);
+            } else {
+                await syncUserWithOneSignal(userId);
+            }
+        }
+    }
 }
 
 /**
- * Save push token to Supabase
+ * Save push token to Supabase (for native apps)
  * @param {string} token - The FCM/APNs token
  */
 async function savePushToken(token) {
@@ -82,20 +113,24 @@ export async function requestPushPermission() {
     console.log('[Push] requestPushPermission called');
 
     try {
-        if (!window.CapacitorUtils) {
-            console.error('[Push] CapacitorUtils not available');
-            return false;
+        // For native apps, use Capacitor
+        if (window.CapacitorUtils?.isNative()) {
+            console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
+            const granted = await window.CapacitorUtils.requestPushPermission();
+            console.log('[Push] Permission result:', granted);
+
+            if (granted && currentUserId) {
+                // Token will be received via the event listener
+                console.log('[Push] Permission granted, waiting for token...');
+            }
+
+            return granted;
         }
 
-        console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
-        const granted = await window.CapacitorUtils.requestPushPermission();
-        console.log('[Push] Permission result:', granted);
-
-        if (granted && currentUserId) {
-            // Token will be received via the event listener
-            console.log('[Push] Permission granted, waiting for token...');
-        }
-
+        // For PWA/Web, use OneSignal
+        console.log('[Push] Using OneSignal for PWA...');
+        const granted = await requestOneSignalPermission();
+        console.log('[Push] OneSignal permission result:', granted);
         return granted;
     } catch (e) {
         console.error('[Push] Error in requestPushPermission:', e);
@@ -108,7 +143,13 @@ export async function requestPushPermission() {
  * @returns {Promise<boolean>}
  */
 export async function isPushEnabled() {
-    return await window.CapacitorUtils?.isPushEnabled() || false;
+    // For native apps, use Capacitor
+    if (window.CapacitorUtils?.isNative()) {
+        return await window.CapacitorUtils?.isPushEnabled() || false;
+    }
+
+    // For PWA/Web, check OneSignal
+    return await isOneSignalEnabled();
 }
 
 /**
@@ -121,13 +162,19 @@ export async function disablePushNotifications() {
         const db = getSupabase();
         if (!db) return;
 
-        await db
-            .from('profiles')
-            .update({
-                fcm_token: null,
-                notifications_enabled: false
-            })
-            .eq('id', currentUserId);
+        // For native apps
+        if (window.CapacitorUtils?.isNative()) {
+            await db
+                .from('profiles')
+                .update({
+                    fcm_token: null,
+                    notifications_enabled: false
+                })
+                .eq('id', currentUserId);
+        } else {
+            // For PWA - use OneSignal opt out
+            await optOutOneSignal();
+        }
 
         console.log('[Push] Notifications disabled');
     } catch (e) {
@@ -352,12 +399,7 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
-    // Only show push prompt on native apps (Android/iOS), not on web
-    if (!window.CapacitorUtils?.isNative()) {
-        return false;
-    }
-
-    // Don't show if already have a token
+    // Don't show if already have a token (native)
     if (window.pushToken) return false;
 
     // Check if user permanently dismissed (clicked "Später" 3 times or "Nicht mehr fragen")
@@ -388,13 +430,28 @@ export async function shouldShowPushPrompt() {
         } catch (e) {
             // Continue to show prompt if check fails
         }
-    }
+    } else {
+        // For PWA/Web - check OneSignal status
+        const isEnabled = await isOneSignalEnabled();
+        if (isEnabled) return false;
 
-    // Check if permission was already denied or granted (web only)
-    if (!window.CapacitorUtils?.isNative() && 'Notification' in window) {
-        if (Notification.permission === 'denied') return false;
-        if (Notification.permission === 'granted') return false;
+        // Check if permission was already denied
+        if ('Notification' in window && Notification.permission === 'denied') {
+            return false;
+        }
     }
 
     return true;
+}
+
+/**
+ * Logout from push notifications (call when user logs out)
+ */
+export async function logoutPushNotifications() {
+    currentUserId = null;
+
+    // For PWA, logout from OneSignal
+    if (!window.CapacitorUtils?.isNative()) {
+        await logoutOneSignal();
+    }
 }

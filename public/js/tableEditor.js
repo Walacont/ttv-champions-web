@@ -3,6 +3,8 @@
  * Handles creation and editing of tables in exercise descriptions
  */
 
+import { escapeHtml } from './utils/security.js';
+
 /**
  * Creates a table editor interface
  * @param {string} containerId - ID of the container element
@@ -179,17 +181,6 @@ export function renderTableForDisplay(tableData) {
     html += '</tbody></table>';
 
     return html;
-}
-
-/**
- * Escapes HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

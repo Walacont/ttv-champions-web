@@ -13,13 +13,17 @@ import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { escapeHtml } from './utils/security.js';
+import { suppressConsoleLogs } from './utils/logger.js';
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
 import { initPlayerEvents } from './player-events-supabase.js';
 import { initComments } from './activity-comments.js';
+
 import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
+import { loadAllPendingConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -37,6 +41,9 @@ import {
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
 
+// Suppress debug logs in production
+suppressConsoleLogs();
+
 // Notifications loaded dynamically - not critical for main functionality
 let notificationsModule = null;
 
@@ -50,6 +57,8 @@ let currentUserData = null;
 let currentClubData = null;
 let currentSportContext = null; // Multi-sport: stores sportId, clubId, role for active sport
 let realtimeSubscriptions = [];
+let isReconnecting = false;
+let reconnectTimeout = null;
 let currentSubgroupFilter = 'global'; // Will be set properly in populatePlayerSubgroupFilter
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
@@ -381,6 +390,9 @@ async function initializeDashboard() {
 
     // Load activity feed (shows matches from club + followed users)
     loadActivityFeed();
+
+    // Check for pending match confirmations and show bottom sheet
+    checkPendingMatchConfirmations(currentUser.id);
 
     // Setup match form (from extracted module)
     setupMatchForm({
@@ -2344,8 +2356,102 @@ async function updateSeasonCountdown() {
 }
 
 // --- Realtime Subscriptions ---
+
+/**
+ * Handle realtime subscription status changes
+ * Auto-reconnect on CHANNEL_ERROR
+ */
+function handleSubscriptionStatus(channelName, status) {
+    console.log(`[Realtime] ${channelName} subscription status:`, status);
+
+    if (status === 'CHANNEL_ERROR' && !isReconnecting) {
+        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR, scheduling reconnect...`);
+        scheduleReconnect();
+    }
+}
+
+/**
+ * Schedule a reconnection attempt
+ */
+function scheduleReconnect() {
+    if (isReconnecting || reconnectTimeout) return;
+
+    console.log('[Realtime] Scheduling reconnect in 3 seconds...');
+    reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        reconnectRealtime();
+    }, 3000);
+}
+
+/**
+ * Reconnect all realtime subscriptions
+ */
+async function reconnectRealtime() {
+    if (isReconnecting) return;
+    isReconnecting = true;
+
+    console.log('[Realtime] Reconnecting...');
+
+    try {
+        // Unsubscribe all existing subscriptions
+        for (const sub of realtimeSubscriptions) {
+            try {
+                await supabase.removeChannel(sub);
+            } catch (e) {
+                console.warn('[Realtime] Error removing channel:', e);
+            }
+        }
+        realtimeSubscriptions = [];
+
+        // Wait a moment before reconnecting
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Re-setup subscriptions
+        setupRealtimeSubscriptions();
+        console.log('[Realtime] Reconnection complete');
+    } catch (e) {
+        console.error('[Realtime] Reconnection failed:', e);
+    } finally {
+        isReconnecting = false;
+    }
+}
+
+/**
+ * Setup visibility change handler for reconnection
+ */
+function setupVisibilityChangeHandler() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser) {
+            console.log('[Realtime] App became visible, checking connections...');
+            // Check if any subscriptions are in error state
+            const hasError = realtimeSubscriptions.some(sub =>
+                sub.state === 'errored' || sub.state === 'closed'
+            );
+            if (hasError || realtimeSubscriptions.length === 0) {
+                console.log('[Realtime] Detected disconnected state, reconnecting...');
+                reconnectRealtime();
+            }
+        }
+    });
+
+    // Also handle online/offline events
+    window.addEventListener('online', () => {
+        console.log('[Realtime] Network came online, reconnecting...');
+        setTimeout(() => reconnectRealtime(), 1000);
+    });
+}
+
+// Initialize visibility handler once
+let visibilityHandlerInitialized = false;
+
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
+
+    // Setup visibility change handler (only once)
+    if (!visibilityHandlerInitialized) {
+        setupVisibilityChangeHandler();
+        visibilityHandlerInitialized = true;
+    }
 
     // Listen for custom matchRequestUpdated events (from notifications, etc.)
     window.addEventListener('matchRequestUpdated', (event) => {
@@ -2369,7 +2475,7 @@ function setupRealtimeSubscriptions() {
             updateRankDisplay();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Profile subscription status:', status);
+            handleSubscriptionStatus('Profile', status);
         });
 
     realtimeSubscriptions.push(profileSub);
@@ -2388,7 +2494,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request (player_a) subscription status:', status);
+            handleSubscriptionStatus('Match request (player_a)', status);
         });
 
     realtimeSubscriptions.push(matchRequestSubA);
@@ -2401,17 +2507,27 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_b_id=eq.${currentUser.id}`
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Match request update (player_b):', payload.eventType);
             loadMatchRequests();
             loadPendingRequests();
             // Show notification for new incoming requests
             if (payload.eventType === 'INSERT') {
                 showNewRequestNotification();
+
+                // Show bottom sheet for pending_player confirmations in real-time
+                if (payload.new && payload.new.status === 'pending_player') {
+                    console.log('[Realtime] New pending_player confirmation - showing bottom sheet');
+                    // Load all pending confirmations (singles + doubles) and show bottom sheet
+                    const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                    if (pendingConfirmations && pendingConfirmations.length > 0) {
+                        showMatchConfirmationBottomSheet(pendingConfirmations);
+                    }
+                }
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request (player_b) subscription status:', status);
+            handleSubscriptionStatus('Match request (player_b)', status);
         });
 
     realtimeSubscriptions.push(matchRequestSubB);
@@ -2432,7 +2548,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request DELETE subscription status:', status);
+            handleSubscriptionStatus('Match request DELETE', status);
         });
 
     realtimeSubscriptions.push(matchRequestDeleteSub);
@@ -2445,7 +2561,7 @@ function setupRealtimeSubscriptions() {
             event: '*',
             schema: 'public',
             table: 'doubles_match_requests'
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Doubles match request update:', payload.eventType, payload);
             // Reload match requests for all doubles request changes
             loadMatchRequests();
@@ -2456,11 +2572,21 @@ function setupRealtimeSubscriptions() {
                 const teamB = payload.new?.team_b || {};
                 if (teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id) {
                     showNewRequestNotification();
+
+                    // Show bottom sheet for pending_opponent confirmations in real-time
+                    if (payload.new && payload.new.status === 'pending_opponent') {
+                        console.log('[Realtime] New pending_opponent doubles confirmation - showing bottom sheet');
+                        // Load all pending confirmations (singles + doubles) and show bottom sheet
+                        const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                        if (pendingConfirmations && pendingConfirmations.length > 0) {
+                            showMatchConfirmationBottomSheet(pendingConfirmations);
+                        }
+                    }
                 }
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles match requests subscription status:', status);
+            handleSubscriptionStatus('Doubles match requests', status);
         });
 
     realtimeSubscriptions.push(doublesRequestSub);
@@ -2480,7 +2606,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles match request DELETE subscription status:', status);
+            handleSubscriptionStatus('Doubles match request DELETE', status);
         });
 
     realtimeSubscriptions.push(doublesRequestDeleteSub);
@@ -2512,7 +2638,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Matches subscription status:', status);
+            handleSubscriptionStatus('Matches', status);
         });
 
     realtimeSubscriptions.push(matchesSub);
@@ -2539,7 +2665,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles matches subscription status:', status);
+            handleSubscriptionStatus('Doubles matches', status);
         });
 
     realtimeSubscriptions.push(doublesMatchesSub);
@@ -2561,7 +2687,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Leaderboard subscription status:', status);
+            handleSubscriptionStatus('Leaderboard', status);
         });
 
     realtimeSubscriptions.push(leaderboardSub);
@@ -2656,13 +2782,6 @@ function showError(message) {
             </div>
         `;
     }
-}
-
-// --- Helper: Escape HTML ---
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // --- Helper: Render Table for Display ---
@@ -3460,6 +3579,23 @@ async function loadPendingRequests() {
     } catch (error) {
         console.error('Error loading pending requests:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Check for pending match confirmations and show bottom sheet
+ */
+async function checkPendingMatchConfirmations(userId) {
+    try {
+        const pendingConfirmations = await loadAllPendingConfirmations(userId);
+        if (pendingConfirmations && pendingConfirmations.length > 0) {
+            // Small delay to ensure page is fully loaded
+            setTimeout(() => {
+                showMatchConfirmationBottomSheet(pendingConfirmations);
+            }, 1000);
+        }
+    } catch (error) {
+        console.error('[Dashboard] Error checking pending confirmations:', error);
     }
 }
 

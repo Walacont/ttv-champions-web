@@ -5,6 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification } from './notifications-supabase.js';
+import { escapeHtml } from './utils/security.js';
 
 let currentUser = null;
 let currentUserData = null;
@@ -826,16 +827,6 @@ function setupFriendshipSubscription() {
         .subscribe();
 
     console.log('[Community] Real-time subscription setup complete');
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Export for use in other modules

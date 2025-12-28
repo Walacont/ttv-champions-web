@@ -5,6 +5,10 @@
 
 import { router, viewLoader } from './router.js';
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { suppressConsoleLogs } from './utils/logger.js';
+
+// Suppress debug logs in production
+suppressConsoleLogs();
 
 // Initialize Supabase
 const supabase = getSupabase();

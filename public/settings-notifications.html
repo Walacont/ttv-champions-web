@@ -8,17 +8,13 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+
+        <!-- OneSignal SDK for PWA Push Notifications -->
+        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
         <script>
-            // Redirect to settings page if not on native app (Android/iOS)
-            // Push notifications are only available on native apps
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(function() {
-                    if (!window.CapacitorUtils?.isNative()) {
-                        window.location.href = '/settings.html';
-                    }
-                }, 100);
-            });
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
         </script>
+
         <title>Benachrichtigungen - SC Champions</title>
 
         <!-- Favicon -->

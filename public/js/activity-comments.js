@@ -5,6 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -231,19 +232,20 @@ function renderComment(comment) {
     const createdAt = new Date(comment.created_at);
     const isEdited = comment.updated_at && comment.updated_at !== comment.created_at;
     const timeAgo = getTimeAgo(createdAt);
+    const safeUserName = escapeHtml(comment.user_name || 'Unbekannt');
 
     return `
-        <div class="flex gap-3" data-comment-id="${comment.id}">
-            <a href="/profile.html?id=${comment.user_id}" class="flex-shrink-0">
-                <img src="${comment.user_avatar_url || DEFAULT_AVATAR}" alt="${comment.user_name}"
+        <div class="flex gap-3" data-comment-id="${escapeHtml(comment.id)}">
+            <a href="/profile.html?id=${encodeURIComponent(comment.user_id)}" class="flex-shrink-0">
+                <img src="${escapeHtml(comment.user_avatar_url || DEFAULT_AVATAR)}" alt="${safeUserName}"
                      class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                      onerror="this.src='${DEFAULT_AVATAR}'">
             </a>
             <div class="flex-1">
                 <div class="bg-gray-100 rounded-lg px-3 py-2">
                     <div class="flex items-center gap-2 mb-1">
-                        <a href="/profile.html?id=${comment.user_id}" class="font-semibold text-sm text-gray-900 hover:text-indigo-600">
-                            ${comment.user_name}
+                        <a href="/profile.html?id=${encodeURIComponent(comment.user_id)}" class="font-semibold text-sm text-gray-900 hover:text-indigo-600">
+                            ${safeUserName}
                         </a>
                         ${isEdited ? '<span class="text-xs text-gray-400">(bearbeitet)</span>' : ''}
                     </div>
@@ -355,15 +357,6 @@ function getTimeAgo(date) {
     if (seconds < 604800) return `vor ${Math.floor(seconds / 86400)} Tag(en)`;
 
     return date.toLocaleDateString('de-DE');
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Make functions available globally

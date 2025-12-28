@@ -9,10 +9,23 @@
 -- UPDATE CONSTRAINT: Add event types
 -- ============================================
 
+-- First, delete any old podium_change events that might exist
+DELETE FROM activity_events WHERE event_type = 'podium_change';
+
+-- Delete old ranking change events that were calculated without sport filtering
+-- These have incorrect position data because they compared players across all sports
+DELETE FROM activity_events
+WHERE event_type IN ('club_ranking_change', 'global_ranking_change')
+  AND (event_data->>'sport_id') IS NULL;
+
 -- Drop and recreate the constraint to include new event types
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
-    CHECK (event_type IN ('club_join', 'club_leave', 'rank_up', 'milestone', 'achievement', 'club_ranking_change', 'global_ranking_change'));
+    CHECK (event_type IN (
+        'club_join', 'club_leave', 'rank_up', 'milestone', 'achievement',
+        'club_ranking_change', 'global_ranking_change',
+        'club_doubles_ranking_change', 'global_doubles_ranking_change'
+    ));
 
 -- ============================================
 -- HELPER FUNCTION: Get club ranking position (filtered by sport)
@@ -352,6 +365,5 @@ CREATE POLICY "Users can view activity events based on type and privacy"
     );
 
 -- ============================================
--- CLEANUP: Remove old podium_change events if any exist
+-- CLEANUP: Old podium_change events are now deleted at the beginning of this file
 -- ============================================
--- DELETE FROM activity_events WHERE event_type = 'podium_change';

@@ -16,6 +16,7 @@ import {
     getDownloadURL,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
 import { renderTableForDisplay } from './tableEditor.js';
+import { escapeHtml } from './utils/security.js';
 
 /**
  * Exercises Module
@@ -996,12 +997,6 @@ export async function openExerciseModal(
     }
 
     modal.classList.remove('hidden');
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /**

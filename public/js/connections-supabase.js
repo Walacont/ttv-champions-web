@@ -4,6 +4,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { escapeHtml } from './utils/security.js';
 
 let currentUser = null;
 let profileUserId = null;
@@ -394,16 +395,6 @@ function showError(message) {
             <p class="text-gray-700">${escapeHtml(message)}</p>
         </div>
     `;
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Initialize when DOM is ready
