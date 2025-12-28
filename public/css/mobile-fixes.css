@@ -440,9 +440,9 @@ html body:not([style*="overflow: hidden"]) {
 
 /* PWA Standalone Mode - Bottom Navigation Fix */
 @media all and (display-mode: standalone) {
-    /* Bottom navigation bar needs safe area padding */
+    /* Bottom navigation bar - only add safe area padding, no extra */
     #bottom-nav {
-        padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px) !important;
+        padding-bottom: env(safe-area-inset-bottom, 0) !important;
         height: auto !important;
     }
 
@@ -451,26 +451,26 @@ html body:not([style*="overflow: hidden"]) {
         height: 48px;
     }
 
-    /* Main content needs extra bottom padding for taller nav */
+    /* Main content needs bottom padding for nav + safe area */
     main,
     #main-content,
     .min-h-screen {
-        padding-bottom: calc(64px + max(env(safe-area-inset-bottom, 20px), 20px)) !important;
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0)) !important;
     }
 
     /* Top header also needs safe area for status bar */
     #top-nav {
-        padding-top: max(env(safe-area-inset-top, 20px), 20px) !important;
+        padding-top: env(safe-area-inset-top, 0) !important;
     }
 
     /* Adjust main content top padding for taller header */
     #main-content {
-        padding-top: calc(56px + max(env(safe-area-inset-top, 20px), 20px)) !important;
+        padding-top: calc(56px + env(safe-area-inset-top, 0)) !important;
     }
 
     /* Profile and other pages with sticky headers */
     .sticky.top-0 {
-        padding-top: max(env(safe-area-inset-top, 20px), 20px) !important;
+        padding-top: env(safe-area-inset-top, 0) !important;
     }
 
     /* Body safe area */
@@ -480,18 +480,18 @@ html body:not([style*="overflow: hidden"]) {
     }
 }
 
-/* iOS Safari PWA - additional fixes using -webkit-touch-callout detection */
+/* iOS Safari PWA - only apply if actually on iOS with home indicator */
 @supports (-webkit-touch-callout: none) {
     @media all and (display-mode: standalone) {
-        /* Extra specific fix for iOS home indicator area */
+        /* iOS devices report safe-area-inset-bottom for home indicator */
         #bottom-nav {
-            padding-bottom: max(env(safe-area-inset-bottom, 34px), 34px) !important;
+            padding-bottom: env(safe-area-inset-bottom, 0) !important;
         }
 
         /* Ensure enough space at bottom of scrollable content */
         main,
         #main-content {
-            padding-bottom: calc(64px + max(env(safe-area-inset-bottom, 34px), 34px)) !important;
+            padding-bottom: calc(56px + env(safe-area-inset-bottom, 0)) !important;
         }
     }
 }

@@ -42,14 +42,26 @@ async function init() {
 
     currentUserId = session.user.id;
 
-    // Initialize push notifications for this user
-    await initPushNotifications(currentUserId);
+    // Initialize push notifications for this user (with error handling)
+    try {
+        await initPushNotifications(currentUserId);
+    } catch (e) {
+        console.error('[Settings] Error initializing push notifications:', e);
+    }
 
-    // Update push permission status
-    await updatePushStatus();
+    // Update push permission status (with error handling)
+    try {
+        await updatePushStatus();
+    } catch (e) {
+        console.error('[Settings] Error updating push status:', e);
+    }
 
-    // Load notification preferences
-    await loadPreferences();
+    // Load notification preferences (with error handling)
+    try {
+        await loadPreferences();
+    } catch (e) {
+        console.error('[Settings] Error loading preferences:', e);
+    }
 
     // Setup event listeners
     setupEventListeners();
