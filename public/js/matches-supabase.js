@@ -1481,9 +1481,9 @@ export function showMatchConfirmationBottomSheet(requests) {
         }) : 'Unbekannt';
 
         const modalHTML = `
-            <div id="match-confirmation-bottomsheet" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 animate-fade-in" style="animation: fadeIn 0.2s ease-out;">
-                <div class="bg-white rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-slide-up" style="animation: slideUp 0.3s ease-out;">
-                    <div class="p-6">
+            <div id="match-confirmation-bottomsheet" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 animate-fade-in" style="animation: fadeIn 0.2s ease-out; padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));">
+                <div class="bg-white rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto animate-slide-up" style="animation: slideUp 0.3s ease-out;">
+                    <div class="p-6 pb-4">
                         <!-- Header -->
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-xl font-bold text-gray-800">
