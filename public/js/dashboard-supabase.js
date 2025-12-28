@@ -391,6 +391,9 @@ async function initializeDashboard() {
     // Load activity feed (shows matches from club + followed users)
     loadActivityFeed();
 
+    // Check for pending match confirmations and show bottom sheet
+    checkPendingMatchConfirmations(currentUser.id);
+
     // Setup match form (from extracted module)
     setupMatchForm({
         onSuccess: () => {
