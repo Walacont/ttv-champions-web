@@ -9,11 +9,16 @@
 
         <script src="/js/capacitor-init.js"></script>
         <script>
-            // Redirect to settings page if not on native app (Android/iOS)
-            // Push notifications are only available on native apps
+            // Redirect to settings page if not on native app or PWA
+            // Push notifications are available on native apps AND PWA (via OneSignal)
             document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(function() {
-                    if (!window.CapacitorUtils?.isNative()) {
+                    const isNative = window.CapacitorUtils?.isNative();
+                    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                                  window.navigator.standalone === true;
+
+                    // Only allow access from native apps or PWA
+                    if (!isNative && !isPWA) {
                         window.location.href = '/settings.html';
                     }
                 }, 100);

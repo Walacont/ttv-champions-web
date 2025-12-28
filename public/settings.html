@@ -330,10 +330,18 @@
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
 
-                // Show push notification settings only on native apps (Android/iOS)
+                // Show push notification settings on native apps AND PWA (OneSignal supports both)
                 const pushSettingsLink = document.getElementById('push-settings-link');
-                if (pushSettingsLink && window.CapacitorUtils?.isNative()) {
-                    pushSettingsLink.classList.remove('hidden');
+                if (pushSettingsLink) {
+                    // Show for native apps
+                    if (window.CapacitorUtils?.isNative()) {
+                        pushSettingsLink.classList.remove('hidden');
+                    }
+                    // Show for PWA (standalone mode) - OneSignal supports web push
+                    else if (window.matchMedia('(display-mode: standalone)').matches ||
+                             window.navigator.standalone === true) {
+                        pushSettingsLink.classList.remove('hidden');
+                    }
                 }
 
                 // Language selection modal
