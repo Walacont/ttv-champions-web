@@ -87,21 +87,6 @@
                 padding-bottom: env(safe-area-inset-bottom, 0);
             }
 
-            /* Force safe area padding for iOS PWA/standalone mode (Face ID iPhones) */
-            @media all and (display-mode: standalone) {
-                .safe-area-bottom {
-                    padding-bottom: env(safe-area-inset-bottom, 34px);
-                }
-            }
-
-            /* iOS Safari PWA detection - adds safe area for home indicator */
-            @supports (-webkit-touch-callout: none) {
-                body.standalone-mode .safe-area-bottom,
-                body.standalone-mode #bottom-nav {
-                    padding-bottom: env(safe-area-inset-bottom, 34px);
-                }
-            }
-
             /* Top safe area for PWA/standalone mode (status bar) */
             .safe-area-top {
                 padding-top: env(safe-area-inset-top, 0);
@@ -1725,10 +1710,6 @@
                     bottomNav.style.zIndex = '99999';
                     bottomNav.style.background = 'white';
                     bottomNav.style.borderTop = '1px solid #e5e7eb';
-                    // Add safe area padding for iPhone home indicator in PWA mode
-                    if (document.body.classList.contains('standalone-mode')) {
-                        bottomNav.style.paddingBottom = 'env(safe-area-inset-bottom, 34px)';
-                    }
                 }
 
                 // Same for top nav - move to beginning of body
