@@ -26,6 +26,18 @@ let followedClubsCache = null;
 let currentFilter = 'all'; // 'all', 'following', 'my-activities', or club id
 const ACTIVITIES_PER_PAGE = 8;
 
+// Cache for activities that were fetched but not displayed due to pagination
+// This prevents losing activities when different activity types have different densities
+let pendingActivitiesCache = [];
+// Track offsets separately per activity type to avoid skipping items
+let typeOffsets = {
+    singles: 0,
+    doubles: 0,
+    events: 0,
+    posts: 0,
+    polls: 0
+};
+
 /**
  * Update carousel counter on scroll
  */
@@ -107,6 +119,8 @@ export function initActivityFeedModule(user, userData) {
     followingIdsCache = null;
     followedClubsCache = null;
     currentFilter = 'all';
+    pendingActivitiesCache = [];
+    typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 };
 
     // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
@@ -630,6 +644,8 @@ export async function loadActivityFeed() {
     activityOffset = 0;
     hasMoreActivities = false;  // Disable infinite scroll during load
     followingIdsCache = null;   // Clear old cache
+    pendingActivitiesCache = []; // Clear cached activities
+    typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 }; // Reset type-specific offsets
 
     // Show loading
     container.innerHTML = `
@@ -679,9 +695,8 @@ export async function loadActivityFeed() {
         // Load match media for all rendered matches
         loadMatchMediaForActivities(activities);
 
-        // Update offset for next load
-        activityOffset += activities.length;
-        hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
+        // Check if we have more activities: either in cache or potentially in database
+        hasMoreActivities = pendingActivitiesCache.length > 0 || activities.length >= ACTIVITIES_PER_PAGE;
 
     } catch (error) {
         console.error('[ActivityFeed] Error loading activities:', error);
@@ -775,7 +790,8 @@ function getEmptyMessage() {
 }
 
 /**
- * Fetch activities with current offset
+ * Fetch activities with separate offsets per type
+ * This prevents losing activities when different types have different densities
  */
 async function fetchActivities(userIds) {
     if (!userIds || userIds.length === 0) {
@@ -784,72 +800,102 @@ async function fetchActivities(userIds) {
 
     console.log('[ActivityFeed] Fetching activities for filter:', currentFilter);
     console.log('[ActivityFeed] UserIds count:', userIds.length);
-    console.log('[ActivityFeed] UserIds includes currentUser:', userIds.includes(currentUser.id));
+    console.log('[ActivityFeed] Type offsets:', JSON.stringify(typeOffsets));
+    console.log('[ActivityFeed] Pending cache size:', pendingActivitiesCache.length);
 
-    // Load recent singles matches
-    const { data: singlesMatches, error: singlesError } = await supabase
-        .from('matches')
-        .select('*')
-        .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
-        .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE * 2 - 1);
+    // Start with any cached activities from previous fetches
+    let allActivities = [...pendingActivitiesCache];
+    pendingActivitiesCache = []; // Clear the cache
 
-    if (singlesError) throw singlesError;
-    console.log('[ActivityFeed] Singles matches found:', singlesMatches?.length || 0);
+    // Only fetch more if we need more activities
+    const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
-    // Load recent doubles matches
-    const { data: doublesMatches, error: doublesError } = await supabase
-        .from('doubles_matches')
-        .select('*')
-        .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
-        .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+    if (needToFetch) {
+        // Load recent singles matches using type-specific offset
+        const { data: singlesMatches, error: singlesError } = await supabase
+            .from('matches')
+            .select('*')
+            .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
+            .order('created_at', { ascending: false })
+            .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1);
 
-    if (doublesError) console.warn('Error fetching doubles:', doublesError);
+        if (singlesError) throw singlesError;
+        console.log('[ActivityFeed] Singles matches found:', singlesMatches?.length || 0);
 
-    // Load activity events (club joins, rank ups, etc.)
-    const { data: activityEvents, error: eventsError } = await supabase
-        .from('activity_events')
-        .select('*')
-        .in('user_id', userIds)
-        .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+        // Load recent doubles matches using type-specific offset
+        const { data: doublesMatches, error: doublesError } = await supabase
+            .from('doubles_matches')
+            .select('*')
+            .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
+            .order('created_at', { ascending: false })
+            .range(typeOffsets.doubles, typeOffsets.doubles + ACTIVITIES_PER_PAGE - 1);
 
-    if (eventsError) console.warn('Error fetching activity events:', eventsError);
+        if (doublesError) console.warn('Error fetching doubles:', doublesError);
+        console.log('[ActivityFeed] Doubles matches found:', doublesMatches?.length || 0);
 
-    // Load community posts
-    const { data: communityPosts, error: postsError } = await supabase
-        .from('community_posts')
-        .select('*')
-        .is('deleted_at', null)
-        .in('user_id', userIds)
-        .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+        // Load activity events using type-specific offset
+        const { data: activityEvents, error: eventsError } = await supabase
+            .from('activity_events')
+            .select('*')
+            .in('user_id', userIds)
+            .order('created_at', { ascending: false })
+            .range(typeOffsets.events, typeOffsets.events + ACTIVITIES_PER_PAGE - 1);
 
-    if (postsError) console.warn('Error fetching community posts:', postsError);
+        if (eventsError) console.warn('Error fetching activity events:', eventsError);
 
-    // Load community polls
-    const { data: communityPolls, error: pollsError } = await supabase
-        .from('community_polls')
-        .select('*')
-        .is('deleted_at', null)
-        .in('user_id', userIds)
-        .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+        // Load community posts using type-specific offset
+        const { data: communityPosts, error: postsError } = await supabase
+            .from('community_posts')
+            .select('*')
+            .is('deleted_at', null)
+            .in('user_id', userIds)
+            .order('created_at', { ascending: false })
+            .range(typeOffsets.posts, typeOffsets.posts + ACTIVITIES_PER_PAGE - 1);
 
-    if (pollsError) console.warn('Error fetching community polls:', pollsError);
+        if (postsError) console.warn('Error fetching community posts:', postsError);
 
-    // Combine and normalize all activities
-    const allActivities = [
-        ...(singlesMatches || []).map(m => ({ ...m, activityType: 'singles' })),
-        ...(doublesMatches || []).map(m => ({ ...m, activityType: 'doubles' })),
-        ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type })),
-        ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
-        ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
-    ];
+        // Load community polls using type-specific offset
+        const { data: communityPolls, error: pollsError } = await supabase
+            .from('community_polls')
+            .select('*')
+            .is('deleted_at', null)
+            .in('user_id', userIds)
+            .order('created_at', { ascending: false })
+            .range(typeOffsets.polls, typeOffsets.polls + ACTIVITIES_PER_PAGE - 1);
+
+        if (pollsError) console.warn('Error fetching community polls:', pollsError);
+
+        // Update type offsets based on what was fetched
+        typeOffsets.singles += (singlesMatches || []).length;
+        typeOffsets.doubles += (doublesMatches || []).length;
+        typeOffsets.events += (activityEvents || []).length;
+        typeOffsets.posts += (communityPosts || []).length;
+        typeOffsets.polls += (communityPolls || []).length;
+
+        // Combine new activities with any cached ones
+        allActivities = [
+            ...allActivities,
+            ...(singlesMatches || []).map(m => ({ ...m, activityType: 'singles' })),
+            ...(doublesMatches || []).map(m => ({ ...m, activityType: 'doubles' })),
+            ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type })),
+            ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
+            ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
+        ];
+    }
 
     // Sort by date descending
     allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // Deduplicate by ID to avoid showing the same activity twice
+    const seenIds = new Set();
+    allActivities = allActivities.filter(activity => {
+        const key = `${activity.activityType}-${activity.id}`;
+        if (seenIds.has(key)) {
+            return false;
+        }
+        seenIds.add(key);
+        return true;
+    });
 
     // Deduplicate doubles ranking events (one event per pairing, not per player)
     const seenPairingEvents = new Set();
@@ -868,14 +914,13 @@ async function fetchActivities(userIds) {
     });
 
     console.log('[ActivityFeed] Total activities after combine:', deduplicatedActivities.length);
-    console.log('[ActivityFeed] First 3 activities:', deduplicatedActivities.slice(0, 3).map(a => ({
-        type: a.activityType,
-        created_at: a.created_at,
-        id: a.id
-    })));
 
-    // Take page size
+    // Take page size for display
     const activities = deduplicatedActivities.slice(0, ACTIVITIES_PER_PAGE);
+
+    // Cache remaining activities for next load (prevents losing activities)
+    pendingActivitiesCache = deduplicatedActivities.slice(ACTIVITIES_PER_PAGE);
+    console.log('[ActivityFeed] Cached for next load:', pendingActivitiesCache.length);
 
     if (activities.length === 0) {
         return [];
@@ -1034,8 +1079,9 @@ async function loadMoreActivities() {
             loadMatchMediaForActivities(activities);
         }
 
-        activityOffset += activities.length;
-        hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
+        // Check if we have more activities: either in cache or potentially in database
+        // We have more if the cache has items OR if we returned a full page (meaning DB might have more)
+        hasMoreActivities = pendingActivitiesCache.length > 0 || activities.length >= ACTIVITIES_PER_PAGE;
 
     } catch (error) {
         console.error('[ActivityFeed] Error loading more activities:', error);
