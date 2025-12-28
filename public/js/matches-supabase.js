@@ -1349,13 +1349,23 @@ export async function loadAllPendingConfirmations(userId) {
     return allRequests;
 }
 
+// Store active subscriptions for cleanup
+let bottomSheetSubscriptions = [];
+
 /**
  * Show bottom sheet with pending match confirmations
  */
 export function showMatchConfirmationBottomSheet(requests) {
     if (!requests || requests.length === 0) return;
 
+    const supabase = getSupabase();
     let currentIndex = 0;
+
+    // Cleanup any existing subscriptions
+    cleanupBottomSheetSubscriptions();
+
+    // Setup real-time subscriptions for request changes
+    setupBottomSheetRealtimeSubscriptions(requests, () => currentIndex);
 
     const renderBottomSheet = (index) => {
         const request = requests[index];
@@ -1602,12 +1612,21 @@ export function showMatchConfirmationBottomSheet(requests) {
         const nextBtn = document.getElementById('next-request');
 
         const closeModal = () => {
+            cleanupBottomSheetSubscriptions();
             modal?.remove();
         };
 
         closeBtn?.addEventListener('click', closeModal);
         modal?.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
+        });
+
+        // Listen for real-time request removal
+        modal?.addEventListener('requestRemoved', (e) => {
+            const newIndex = e.detail?.newIndex ?? 0;
+            currentIndex = newIndex;
+            modal.outerHTML = renderBottomSheet(currentIndex);
+            setupListeners();
         });
 
         acceptBtn?.addEventListener('click', async () => {
@@ -1653,6 +1672,138 @@ export function showMatchConfirmationBottomSheet(requests) {
     };
 
     setupListeners();
+}
+
+/**
+ * Setup real-time subscriptions for bottom sheet
+ * Listens for request deletions or status changes
+ */
+function setupBottomSheetRealtimeSubscriptions(requests, getCurrentIndex) {
+    const supabase = getSupabase();
+
+    // Get all request IDs separated by type
+    const singlesIds = requests.filter(r => !r.isDoubles).map(r => r.id);
+    const doublesIds = requests.filter(r => r.isDoubles).map(r => r.id);
+
+    // Subscribe to singles match_requests changes
+    if (singlesIds.length > 0) {
+        const singlesChannel = supabase
+            .channel('bottomsheet-singles-' + Date.now())
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'match_requests',
+                    filter: `id=in.(${singlesIds.join(',')})`
+                },
+                (payload) => {
+                    console.log('[BottomSheet] Singles request change:', payload.eventType, payload);
+                    handleRequestChange(payload, requests, getCurrentIndex, false);
+                }
+            )
+            .subscribe();
+
+        bottomSheetSubscriptions.push(singlesChannel);
+    }
+
+    // Subscribe to doubles match_requests changes
+    if (doublesIds.length > 0) {
+        const doublesChannel = supabase
+            .channel('bottomsheet-doubles-' + Date.now())
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'doubles_match_requests',
+                    filter: `id=in.(${doublesIds.join(',')})`
+                },
+                (payload) => {
+                    console.log('[BottomSheet] Doubles request change:', payload.eventType, payload);
+                    handleRequestChange(payload, requests, getCurrentIndex, true);
+                }
+            )
+            .subscribe();
+
+        bottomSheetSubscriptions.push(doublesChannel);
+    }
+
+    console.log('[BottomSheet] Real-time subscriptions active for', singlesIds.length, 'singles,', doublesIds.length, 'doubles');
+}
+
+/**
+ * Handle real-time request changes
+ */
+function handleRequestChange(payload, requests, getCurrentIndex, isDoubles) {
+    const { eventType, old: oldRecord, new: newRecord } = payload;
+
+    // Find the request in our list
+    const requestId = oldRecord?.id || newRecord?.id;
+    const requestIndex = requests.findIndex(r => r.id === requestId && r.isDoubles === isDoubles);
+
+    if (requestIndex === -1) return;
+
+    let shouldRemove = false;
+    let toastMessage = '';
+
+    if (eventType === 'DELETE') {
+        shouldRemove = true;
+        toastMessage = 'Anfrage wurde zurückgezogen';
+    } else if (eventType === 'UPDATE') {
+        const newStatus = newRecord?.status;
+        // Remove if status changed from pending
+        if (newStatus && newStatus !== 'pending_player' && newStatus !== 'pending_opponent') {
+            shouldRemove = true;
+            if (newStatus === 'withdrawn' || newStatus === 'cancelled') {
+                toastMessage = 'Anfrage wurde zurückgezogen';
+            }
+        }
+    }
+
+    if (shouldRemove) {
+        // Remove from requests array
+        requests.splice(requestIndex, 1);
+
+        // Show toast
+        if (toastMessage) {
+            showToast(toastMessage, 'info');
+        }
+
+        // Update UI
+        const modal = document.getElementById('match-confirmation-bottomsheet');
+        if (!modal) return;
+
+        if (requests.length === 0) {
+            // No more requests - close bottom sheet
+            cleanupBottomSheetSubscriptions();
+            modal.remove();
+        } else {
+            // Re-render with updated list
+            let currentIndex = getCurrentIndex();
+            if (currentIndex >= requests.length) {
+                currentIndex = requests.length - 1;
+            }
+            // Trigger re-render by dispatching custom event
+            modal.dispatchEvent(new CustomEvent('requestRemoved', { detail: { newIndex: currentIndex } }));
+        }
+    }
+}
+
+/**
+ * Cleanup bottom sheet subscriptions
+ */
+function cleanupBottomSheetSubscriptions() {
+    const supabase = getSupabase();
+    bottomSheetSubscriptions.forEach(channel => {
+        try {
+            supabase.removeChannel(channel);
+        } catch (e) {
+            console.warn('[BottomSheet] Error removing channel:', e);
+        }
+    });
+    bottomSheetSubscriptions = [];
+    console.log('[BottomSheet] Subscriptions cleaned up');
 }
 
 /**
