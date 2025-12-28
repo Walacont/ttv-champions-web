@@ -3,6 +3,12 @@
  * Checks for new app versions and notifies users
  */
 
+// Guard against re-execution (SPA navigation)
+if (window._updateCheckerInitialized) {
+    // Already initialized, skip
+} else {
+window._updateCheckerInitialized = true;
+
 let currentVersion = null;
 let updateCheckInterval = null;
 let updateBannerShown = false;
@@ -224,3 +230,5 @@ if (document.readyState === 'loading') {
 
 // Export for manual checks if needed
 window.checkForUpdates = checkForUpdates;
+
+} // End of guard block
