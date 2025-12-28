@@ -17,7 +17,7 @@ let updateBannerShown = false;
 const CHECK_INTERVAL = 5 * 60 * 1000;
 
 // Version of this update checker logic - increment to force reset
-const UPDATE_CHECKER_VERSION = 4;
+const UPDATE_CHECKER_VERSION = 5;
 
 /**
  * Initialize update checker
