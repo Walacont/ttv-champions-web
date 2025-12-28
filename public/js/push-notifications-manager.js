@@ -9,7 +9,8 @@ import {
     requestOneSignalPermission,
     isOneSignalEnabled,
     optOutOneSignal,
-    logoutOneSignal
+    logoutOneSignal,
+    getOneSignalPermissionStatus
 } from './onesignal-init.js';
 import { escapeHtml } from './utils/security.js';
 
@@ -151,6 +152,29 @@ export async function isPushEnabled() {
 
     // For PWA/Web, check OneSignal
     return await isOneSignalEnabled();
+}
+
+/**
+ * Get push permission status
+ * @returns {Promise<string>} - 'granted', 'denied', 'default', or 'unsupported'
+ */
+export async function getPermissionStatus() {
+    // For native apps
+    if (window.CapacitorUtils?.isNative()) {
+        const enabled = await window.CapacitorUtils?.isPushEnabled();
+        return enabled ? 'granted' : 'default';
+    }
+
+    // For PWA/Web, use OneSignal's status
+    const oneSignalStatus = await getOneSignalPermissionStatus();
+    console.log('[Push] OneSignal permission status:', oneSignalStatus);
+
+    // If OneSignal returns unsupported, fall back to browser API
+    if (oneSignalStatus === 'unsupported' && 'Notification' in window) {
+        return Notification.permission;
+    }
+
+    return oneSignalStatus;
 }
 
 /**

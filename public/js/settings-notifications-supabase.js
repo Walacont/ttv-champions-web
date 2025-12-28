@@ -7,6 +7,7 @@ import {
     initPushNotifications,
     requestPushPermission,
     isPushEnabled,
+    getPermissionStatus,
     getNotificationPreferences,
     updateNotificationPreferences,
     disablePushNotifications
@@ -89,9 +90,14 @@ async function updatePushStatus() {
         console.error('Error checking push status:', e);
     }
 
-    // Check browser permission status (for PWA)
-    const browserPermission = 'Notification' in window ? Notification.permission : 'default';
-    console.log('[Settings] Push enabled:', enabled, 'Browser permission:', browserPermission);
+    // Check permission status via OneSignal (more reliable than browser API on iOS)
+    let permissionStatus = 'default';
+    try {
+        permissionStatus = await getPermissionStatus();
+    } catch (e) {
+        console.error('[Settings] Error getting permission status:', e);
+    }
+    console.log('[Settings] Push enabled:', enabled, 'Permission status:', permissionStatus);
 
     if (enabled) {
         // Push is enabled
@@ -106,11 +112,11 @@ async function updatePushStatus() {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) toggle.disabled = false;
         });
-    } else if (!isNative && browserPermission === 'denied') {
-        // Browser permission explicitly denied - show blocked message
+    } else if (permissionStatus === 'denied') {
+        // Permission explicitly denied - show blocked message
         statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
         statusIcon.innerHTML = '<i class="fas fa-ban text-red-600"></i>';
-        statusText.textContent = 'Push-Benachrichtigungen wurden im Browser blockiert. Bitte aktiviere sie in den Browser-/Geräteeinstellungen.';
+        statusText.textContent = 'Push-Benachrichtigungen wurden blockiert. Bitte aktiviere sie in den Geräteeinstellungen.';
         statusText.className = 'text-sm text-red-600';
         enableBtn.classList.add('hidden');
 
