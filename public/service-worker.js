@@ -1,7 +1,7 @@
 // TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v5';
-const STATIC_CACHE = 'ttv-static-v5';
-const DYNAMIC_CACHE = 'ttv-dynamic-v5';
+const CACHE_NAME = 'ttv-champions-v6';
+const STATIC_CACHE = 'ttv-static-v6';
+const DYNAMIC_CACHE = 'ttv-dynamic-v6';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -16,25 +16,18 @@ const STATIC_ASSETS = [
     '/faq.html',
     '/404.html',
     '/css/spa-enhancements.css',
+    '/css/mobile-fixes.css',
     '/css/tutorial.css',
-    '/js/app.js',
-    '/js/router.js',
     '/js/spa-enhancer.js',
-    '/js/firebase-init.js',
-    '/js/firebase-config.js',
+    '/js/supabase-init.js',
     '/js/ui-utils.js',
-    '/js/state-manager.js',
-    '/js/dashboard.js',
-    '/js/matches.js',
-    '/js/player-matches.js',
+    '/js/dashboard-supabase.js',
+    '/js/coach-supabase.js',
+    '/js/admin-supabase.js',
     '/js/exercises.js',
-    '/js/attendance.js',
-    '/js/challenges.js',
     '/js/leaderboard.js',
-    '/js/profile.js',
-    '/js/settings.js',
-    '/js/coach.js',
-    '/js/admin.js',
+    '/js/onesignal-init.js',
+    '/js/push-notifications-manager.js',
     '/manifest.json'
 ];
 
