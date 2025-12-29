@@ -591,20 +591,19 @@ async function checkHandicap() {
             const h2h = h2hData[0];
 
             if (h2h.suggested_handicap > 0 && h2h.streak_winner_id) {
-                const wins = h2h.consecutive_wins;
                 h2hStreakWinnerId = h2h.streak_winner_id;
 
                 if (h2h.streak_winner_id === selectedOpponent.id) {
                     handicapSuggestions.push({
                         type: 'h2h',
                         value: h2h.suggested_handicap,
-                        text: `${selectedOpponent.name} hat ${wins}x in Folge gegen dich gewonnen. Du startest mit +${h2h.suggested_handicap} ${unitText}`
+                        text: `H2H-Vorteil: ${selectedOpponent.name} gewinnt öfter. Du startest mit +${h2h.suggested_handicap} ${unitText}`
                     });
                 } else if (h2h.streak_winner_id === currentUser.id) {
                     handicapSuggestions.push({
                         type: 'h2h',
                         value: h2h.suggested_handicap,
-                        text: `Du hast ${wins}x in Folge gegen ${selectedOpponent.name} gewonnen. ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
+                        text: `H2H-Vorteil: Du gewinnst öfter. ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
                     });
                 }
             }
