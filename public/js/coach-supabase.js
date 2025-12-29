@@ -486,6 +486,15 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
+    // Listen for event creation to reload calendar
+    window.addEventListener('event-created', () => {
+        console.log('[Coach] Event created, reloading calendar...');
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
+    });
+
     // Listen for player subgroup changes to reload clubPlayers and refresh filtered views
     window.addEventListener('playerSubgroupsChanged', () => {
         console.log('[Coach] Player subgroups changed, reloading clubPlayers...');

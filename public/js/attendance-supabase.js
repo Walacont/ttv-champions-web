@@ -821,23 +821,31 @@ async function awardAttendancePoints(
     }
 
     // Update streak
-    await supabase.from('streaks').upsert({
+    const { error: streakError } = await supabase.from('streaks').upsert({
         user_id: playerId,
         subgroup_id: subgroupId,
         current_streak: newStreak,
         last_attendance_date: date,
         updated_at: new Date().toISOString()
-    });
+    }, { onConflict: 'user_id,subgroup_id' });
+
+    if (streakError) {
+        console.warn('[Attendance] Error updating streak:', streakError);
+    }
 
     // Update player points and XP
-    await supabase.rpc('add_player_points', {
+    const { error: rpcError } = await supabase.rpc('add_player_points', {
         p_user_id: playerId,
         p_points: pointsToAdd,
         p_xp: pointsToAdd
     });
 
+    if (rpcError) {
+        console.warn('[Attendance] Error adding points:', rpcError);
+    }
+
     // Create points history entry
-    await supabase.from('points_history').insert({
+    const { error: pointsError } = await supabase.from('points_history').insert({
         user_id: playerId,
         points: pointsToAdd,
         xp: pointsToAdd,
@@ -849,8 +857,12 @@ async function awardAttendancePoints(
         awarded_by: 'System (Anwesenheit)',
     });
 
+    if (pointsError) {
+        console.warn('[Attendance] Error creating points history:', pointsError);
+    }
+
     // Create XP history entry
-    await supabase.from('xp_history').insert({
+    const { error: xpError } = await supabase.from('xp_history').insert({
         user_id: playerId,
         xp: pointsToAdd,
         reason,
@@ -859,6 +871,10 @@ async function awardAttendancePoints(
         created_at: new Date().toISOString(),
         source: 'System (Anwesenheit)',
     });
+
+    if (xpError) {
+        console.warn('[Attendance] Error creating XP history:', xpError);
+    }
 
     // Send notification to player
     let notificationTitle = 'Anwesenheit eingetragen';

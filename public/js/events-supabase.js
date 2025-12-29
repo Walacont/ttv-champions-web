@@ -1388,7 +1388,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     }
 
     // Update streak
-    await supabase.from('streaks').upsert({
+    const { error: streakError } = await supabase.from('streaks').upsert({
         user_id: playerId,
         subgroup_id: primarySubgroupId || event.club_id,
         current_streak: newStreak,
@@ -1398,15 +1398,23 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         onConflict: 'user_id,subgroup_id'
     });
 
+    if (streakError) {
+        console.warn('[Events] Error updating streak:', streakError);
+    }
+
     // Update player points and XP
-    await supabase.rpc('add_player_points', {
+    const { error: rpcError } = await supabase.rpc('add_player_points', {
         p_user_id: playerId,
         p_points: totalPoints,
         p_xp: totalPoints
     });
 
+    if (rpcError) {
+        console.warn('[Events] Error adding points:', rpcError);
+    }
+
     // Create points history entry
-    await supabase.from('points_history').insert({
+    const { error: pointsError } = await supabase.from('points_history').insert({
         user_id: playerId,
         points: totalPoints,
         xp: totalPoints,
@@ -1418,8 +1426,12 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         awarded_by: 'System (Veranstaltung)',
     });
 
+    if (pointsError) {
+        console.warn('[Events] Error creating points history:', pointsError);
+    }
+
     // Create XP history entry
-    await supabase.from('xp_history').insert({
+    const { error: xpError } = await supabase.from('xp_history').insert({
         user_id: playerId,
         xp: totalPoints,
         reason,
@@ -1428,6 +1440,10 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         created_at: new Date().toISOString(),
         source: 'System (Veranstaltung)',
     });
+
+    if (xpError) {
+        console.warn('[Events] Error creating XP history:', xpError);
+    }
 
     // Send notification to player
     let notificationTitle = 'Anwesenheit eingetragen';
