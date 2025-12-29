@@ -599,6 +599,7 @@ function openEventFormModal() {
 async function submitEvent() {
     const title = document.getElementById('event-title')?.value?.trim();
     const description = document.getElementById('event-description')?.value?.trim();
+    const eventCategory = document.getElementById('event-type')?.value || 'other';
     const startDate = document.getElementById('event-start-date')?.value;
     const startTime = document.getElementById('event-start-time')?.value;
     const meetingTime = document.getElementById('event-meeting-time')?.value;
@@ -682,6 +683,7 @@ async function submitEvent() {
         end_time: endTime || null,
         location: location || null,
         event_type: currentEventData.eventType,
+        event_category: eventCategory,
         target_type: currentEventData.targetType,
         target_subgroup_ids: currentEventData.targetType === 'subgroups' ? currentEventData.selectedSubgroups : [],
         max_participants: maxParticipants ? parseInt(maxParticipants) : null,
@@ -1294,9 +1296,10 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     const date = event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
     const subgroupIds = event.target_subgroup_ids || [];
+    const isTraining = event.event_category === 'training';
 
-    // Use first subgroup for streak tracking, or null for club-wide events
-    const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
+    // Use first subgroup for streak tracking (only for trainings)
+    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
 
     // Get subgroup name if available
     let subgroupName = '';
@@ -1305,33 +1308,37 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             .from('subgroups')
             .select('name')
             .eq('id', primarySubgroupId)
-            .single();
+            .maybeSingle();
         subgroupName = subgroup?.name || '';
     }
 
-    // Get previous event to determine streak continuation
-    const { data: previousEvents } = await supabase
-        .from('events')
-        .select('id, start_date')
-        .eq('club_id', event.club_id)
-        .lt('start_date', date)
-        .order('start_date', { ascending: false })
-        .limit(1);
-
+    // Streak logic only for trainings
     let wasPresentAtLastEvent = false;
-    if (previousEvents && previousEvents.length > 0) {
-        const { data: prevAttendance } = await supabase
-            .from('event_attendance')
-            .select('present_user_ids')
-            .eq('event_id', previousEvents[0].id)
-            .maybeSingle();
-
-        wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
-    }
-
-    // Get current streak (only if we have a valid subgroup_id)
     let currentStreak = 0;
-    if (primarySubgroupId) {
+    let newStreak = 1;
+
+    if (isTraining && primarySubgroupId) {
+        // Get previous training event to determine streak continuation
+        const { data: previousEvents } = await supabase
+            .from('events')
+            .select('id, start_date')
+            .eq('club_id', event.club_id)
+            .eq('event_category', 'training')
+            .lt('start_date', date)
+            .order('start_date', { ascending: false })
+            .limit(1);
+
+        if (previousEvents && previousEvents.length > 0) {
+            const { data: prevAttendance } = await supabase
+                .from('event_attendance')
+                .select('present_user_ids')
+                .eq('event_id', previousEvents[0].id)
+                .maybeSingle();
+
+            wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
+        }
+
+        // Get current streak
         const { data: streakData } = await supabase
             .from('streaks')
             .select('current_streak')
@@ -1339,8 +1346,8 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             .eq('subgroup_id', primarySubgroupId)
             .maybeSingle();
         currentStreak = streakData?.current_streak || 0;
+        newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
     }
-    const newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
 
     // Check for other events on same day
     const { data: otherEventsToday } = await supabase
@@ -1378,12 +1385,15 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let reason = `${eventTitle} am ${formattedDate}`;
     if (subgroupName) reason += ` - ${subgroupName}`;
 
-    if (newStreak >= 5) {
-        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
-        reason += ` (🔥 ${newStreak}x Streak!)`;
-    } else if (newStreak >= 3) {
-        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
-        reason += ` (⚡ ${newStreak}x Streak)`;
+    // Streak bonuses only for trainings
+    if (isTraining) {
+        if (newStreak >= 5) {
+            pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+            reason += ` (🔥 ${newStreak}x Streak!)`;
+        } else if (newStreak >= 3) {
+            pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+            reason += ` (⚡ ${newStreak}x Streak)`;
+        }
     }
 
     if (alreadyAttendedToday) {
@@ -1397,8 +1407,8 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         reason += ` (+${exercisePoints} Übungspunkte)`;
     }
 
-    // Update streak (only if we have a valid subgroup_id)
-    if (primarySubgroupId) {
+    // Update streak (only for trainings with valid subgroup_id)
+    if (isTraining && primarySubgroupId) {
         const { error: streakError } = await supabase.from('streaks').upsert({
             user_id: playerId,
             subgroup_id: primarySubgroupId,
