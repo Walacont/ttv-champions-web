@@ -877,6 +877,79 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             feedbackEl.classList.add('text-green-600');
         }
 
+        // Create points_history entries for both players
+        try {
+            const loserId = winnerId === playerAId ? playerBId : playerAId;
+
+            // Fetch player names for display
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .in('id', [playerAId, playerBId]);
+
+            const playerNameMap = {};
+            (playersData || []).forEach(p => {
+                playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
+            });
+
+            const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
+            const displayLoserName = playerNameMap[loserId] || 'Gegner';
+
+            // Calculate ELO changes from the returned match data
+            const winnerEloChange = winnerId === playerAId
+                ? (match.player_a_elo_after - match.player_a_elo_before)
+                : (match.player_b_elo_after - match.player_b_elo_before);
+            const loserEloChange = loserId === playerAId
+                ? (match.player_a_elo_after - match.player_a_elo_before)
+                : (match.player_b_elo_after - match.player_b_elo_before);
+
+            // Calculate points based on ELO change
+            const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
+            const loserPoints = 5;
+
+            const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
+            const setsDisplay = `${setsA}:${setsB}`;
+            const playedAt = match.played_at || new Date().toISOString();
+
+            // Winner points history entry
+            const { error: winnerHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: winnerId,
+                    points: winnerPoints,
+                    xp: winnerPoints,
+                    elo_change: winnerEloChange || 0,
+                    reason: `Sieg im ${matchType} gegen ${displayLoserName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+
+            if (winnerHistoryError) {
+                console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
+            }
+
+            // Loser points history entry
+            const { error: loserHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: loserId,
+                    points: loserPoints,
+                    xp: loserPoints,
+                    elo_change: loserEloChange || 0,
+                    reason: `Niederlage im ${matchType} gegen ${displayWinnerName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+
+            if (loserHistoryError) {
+                console.warn('[Matches] Error creating loser points history:', loserHistoryError);
+            }
+
+            console.log('[Matches] Points history entries created for match');
+        } catch (historyError) {
+            console.warn('[Matches] Error creating points history entries:', historyError);
+        }
+
         // Reset form
         document.getElementById('player-a-select').value = '';
         document.getElementById('player-b-select').value = '';
@@ -1227,7 +1300,7 @@ async function handleCoachApproval(requestId, approve, userData) {
         }
 
         // Create the match (first coach to approve releases it)
-        const { error: matchError } = await supabase
+        const { data: match, error: matchError } = await supabase
             .from('matches')
             .insert({
                 player_a_id: request.player_a_id,
@@ -1243,9 +1316,97 @@ async function handleCoachApproval(requestId, approve, userData) {
                 is_cross_club: request.is_cross_club,
                 match_request_id: request.id,
                 created_at: new Date().toISOString()
-            });
+            })
+            .select()
+            .single();
 
         if (matchError) throw matchError;
+
+        // Create points_history entries for both players
+        try {
+            const winnerId = request.winner_id;
+            const loserId = request.loser_id;
+            const playerAId = request.player_a_id;
+
+            // Fetch player names for display
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .in('id', [request.player_a_id, request.player_b_id]);
+
+            const playerNameMap = {};
+            (playersData || []).forEach(p => {
+                playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
+            });
+
+            const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
+            const displayLoserName = playerNameMap[loserId] || 'Gegner';
+
+            // Calculate ELO changes from the returned match data
+            const winnerEloChange = winnerId === playerAId
+                ? (match.player_a_elo_after - match.player_a_elo_before)
+                : (match.player_b_elo_after - match.player_b_elo_before);
+            const loserEloChange = loserId === playerAId
+                ? (match.player_a_elo_after - match.player_a_elo_before)
+                : (match.player_b_elo_after - match.player_b_elo_before);
+
+            // Calculate points based on ELO change
+            const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
+            const loserPoints = 5;
+
+            // Calculate sets won
+            let setsA = 0, setsB = 0;
+            if (request.sets && request.sets.length > 0) {
+                request.sets.forEach(set => {
+                    const scoreA = set.playerA ?? set.player_a ?? 0;
+                    const scoreB = set.playerB ?? set.player_b ?? 0;
+                    if (scoreA > scoreB) setsA++;
+                    else if (scoreB > scoreA) setsB++;
+                });
+            }
+
+            const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
+            const setsDisplay = `${setsA}:${setsB}`;
+            const playedAt = match.played_at || match.created_at || new Date().toISOString();
+
+            // Winner points history entry
+            const { error: winnerHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: winnerId,
+                    points: winnerPoints,
+                    xp: winnerPoints,
+                    elo_change: winnerEloChange || 0,
+                    reason: `Sieg im ${matchType} gegen ${displayLoserName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+
+            if (winnerHistoryError) {
+                console.warn('[Coach] Error creating winner points history:', winnerHistoryError);
+            }
+
+            // Loser points history entry
+            const { error: loserHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: loserId,
+                    points: loserPoints,
+                    xp: loserPoints,
+                    elo_change: loserEloChange || 0,
+                    reason: `Niederlage im ${matchType} gegen ${displayWinnerName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+
+            if (loserHistoryError) {
+                console.warn('[Coach] Error creating loser points history:', loserHistoryError);
+            }
+
+            console.log('[Coach] Points history entries created for approved match');
+        } catch (historyError) {
+            console.warn('[Coach] Error creating points history entries:', historyError);
+        }
 
         // Update the request status to approved
         const { error: updateError } = await supabase
@@ -1986,6 +2147,83 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     .from('match_requests')
                     .update({ status: 'approved' })
                     .eq('id', requestId);
+
+                // Create points_history entries for both players
+                try {
+                    const winnerId = request.winner_id;
+                    const loserId = winnerId === request.player_a_id ? request.player_b_id : request.player_a_id;
+                    const playerAId = request.player_a_id;
+
+                    // Fetch player names for display
+                    const { data: playersData } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name')
+                        .in('id', [request.player_a_id, request.player_b_id]);
+
+                    const playerNameMap = {};
+                    (playersData || []).forEach(p => {
+                        playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
+                    });
+
+                    const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
+                    const displayLoserName = playerNameMap[loserId] || 'Gegner';
+
+                    // Calculate ELO changes from the returned match data
+                    const winnerEloChange = winnerId === playerAId
+                        ? (match.player_a_elo_after - match.player_a_elo_before)
+                        : (match.player_b_elo_after - match.player_b_elo_before);
+                    const loserEloChange = loserId === playerAId
+                        ? (match.player_a_elo_after - match.player_a_elo_before)
+                        : (match.player_b_elo_after - match.player_b_elo_before);
+
+                    // Calculate points based on ELO change
+                    const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
+                    const loserPoints = 5;
+
+                    const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
+                    const setsA = request.player_a_sets_won || 0;
+                    const setsB = request.player_b_sets_won || 0;
+                    const setsDisplay = `${setsA}:${setsB}`;
+                    const playedAt = match.played_at || new Date().toISOString();
+
+                    // Winner points history entry
+                    const { error: winnerHistoryError } = await supabase
+                        .from('points_history')
+                        .insert({
+                            user_id: winnerId,
+                            points: winnerPoints,
+                            xp: winnerPoints,
+                            elo_change: winnerEloChange || 0,
+                            reason: `Sieg im ${matchType} gegen ${displayLoserName} (${setsDisplay})`,
+                            timestamp: playedAt,
+                            awarded_by: 'System (Wettkampf)'
+                        });
+
+                    if (winnerHistoryError) {
+                        console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
+                    }
+
+                    // Loser points history entry
+                    const { error: loserHistoryError } = await supabase
+                        .from('points_history')
+                        .insert({
+                            user_id: loserId,
+                            points: loserPoints,
+                            xp: loserPoints,
+                            elo_change: loserEloChange || 0,
+                            reason: `Niederlage im ${matchType} gegen ${displayWinnerName} (${setsDisplay})`,
+                            timestamp: playedAt,
+                            awarded_by: 'System (Wettkampf)'
+                        });
+
+                    if (loserHistoryError) {
+                        console.warn('[Matches] Error creating loser points history:', loserHistoryError);
+                    }
+
+                    console.log('[Matches] Points history entries created for confirmed match');
+                } catch (historyError) {
+                    console.warn('[Matches] Error creating points history entries:', historyError);
+                }
 
                 // If linked to tournament, update tournament match
                 if (request.tournament_match_id && match) {
