@@ -928,16 +928,20 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         let attendanceData = null;
         eventExercises = []; // Reset exercises
         if (isPastOrToday) {
-            const { data: attendance } = await supabase
+            const { data: attendance, error: attendanceError } = await supabase
                 .from('event_attendance')
                 .select('*')
                 .eq('event_id', eventId)
-                .single();
-            attendanceData = attendance;
+                .maybeSingle();
 
-            // Load existing exercises from attendance
-            if (attendance?.completed_exercises) {
-                eventExercises = attendance.completed_exercises;
+            if (attendanceError) {
+                console.warn('[Events] Could not load attendance:', attendanceError);
+            } else {
+                attendanceData = attendance;
+                // Load existing exercises from attendance
+                if (attendance?.completed_exercises) {
+                    eventExercises = attendance.completed_exercises;
+                }
             }
         }
 
