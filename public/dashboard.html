@@ -132,6 +132,12 @@
             }
             body.standalone-mode #main-content {
                 padding-top: calc(3.5rem + env(safe-area-inset-top, 0)) !important;
+                padding-bottom: calc(48px + env(safe-area-inset-bottom, 0)) !important;
+            }
+
+            /* Bottom nav safe area for iOS PWA (standalone mode) */
+            body.standalone-mode #bottom-nav {
+                padding-bottom: env(safe-area-inset-bottom, 0) !important;
             }
 
             /* Bottom nav button styles for mobile touch */

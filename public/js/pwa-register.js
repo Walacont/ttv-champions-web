@@ -120,6 +120,22 @@
         );
     };
 
+    // Add standalone-mode class to body for iOS PWA safe area CSS
+    // iOS Safari doesn't support display-mode: standalone media query,
+    // so we need to set this class via JavaScript
+    if (window.isPWAInstalled()) {
+        document.documentElement.classList.add('pwa-standalone');
+        if (document.body) {
+            document.body.classList.add('standalone-mode');
+        } else {
+            // Body not ready yet, wait for DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('standalone-mode');
+            });
+        }
+        console.log('[PWA] Running in standalone mode, added standalone-mode class');
+    }
+
     // Track app installed event
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] App installed');
