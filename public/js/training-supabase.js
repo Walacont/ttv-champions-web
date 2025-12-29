@@ -432,21 +432,17 @@ export async function cancelTrainingSession(sessionId) {
                         xp: -xpToDeduct,
                         elo_change: 0,
                         reason: `Training abgesagt am ${formattedDate} (${pointsToDeduct} Punkte zurueckgegeben) - ${subgroupName}`,
-                        date: date,
-                        subgroup_id: subgroup_id,
-                        created_at: new Date().toISOString(),
+                        timestamp: new Date().toISOString(),
                         awarded_by: 'System (Training abgesagt)',
                     });
 
                     // Create negative entry in XP history
                     await supabase.from('xp_history').insert({
-                        user_id: playerId,
+                        player_id: playerId,
                         xp: -xpToDeduct,
                         reason: `Training abgesagt am ${formattedDate} (${xpToDeduct} XP zurueckgegeben) - ${subgroupName}`,
-                        date: date,
-                        subgroup_id: subgroup_id,
-                        created_at: new Date().toISOString(),
-                        source: 'System (Training abgesagt)',
+                        timestamp: new Date().toISOString(),
+                        awarded_by: 'System (Training abgesagt)',
                     });
 
                     // Delete the original history entry
