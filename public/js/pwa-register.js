@@ -30,8 +30,8 @@
                             newWorker.state === 'installed' &&
                             navigator.serviceWorker.controller
                         ) {
-                            // New content is available
-                            showUpdateNotification();
+                            // New content is available - silently update without notification
+                            console.log('[PWA] New version available, will update on next reload');
                         }
                     });
                 });
@@ -46,36 +46,6 @@
         });
     }
 
-    // Show update notification to user
-    function showUpdateNotification() {
-        // Check if we have a UI notification system
-        if (typeof window.showToast === 'function') {
-            window.showToast('Neue Version verfügbar! Seite neu laden für Updates.', 'info', 10000);
-        } else {
-            // Create a simple notification banner
-            const banner = document.createElement('div');
-            banner.id = 'pwa-update-banner';
-            banner.innerHTML = `
-                <div style="position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-                            background: #4f46e5; color: white; padding: 12px 20px; border-radius: 8px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; display: flex;
-                            align-items: center; gap: 12px; font-family: 'Inter', sans-serif;">
-                    <span>Neue Version verfügbar!</span>
-                    <button onclick="window.location.reload()"
-                            style="background: white; color: #4f46e5; border: none; padding: 6px 12px;
-                                   border-radius: 4px; cursor: pointer; font-weight: 500;">
-                        Aktualisieren
-                    </button>
-                    <button onclick="this.parentElement.parentElement.remove()"
-                            style="background: transparent; color: white; border: none; cursor: pointer;
-                                   padding: 4px; font-size: 18px;">
-                        &times;
-                    </button>
-                </div>
-            `;
-            document.body.appendChild(banner);
-        }
-    }
 
     // Install prompt handling
     let deferredPrompt = null;
