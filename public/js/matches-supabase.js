@@ -437,7 +437,7 @@ export async function saveMatchResult(matchData, currentUserData) {
 
             // Calculate points based on ELO change (winner gets positive, loser gets participation)
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 5; // Participation points
+            const loserPoints = 0; // No points for losing
 
             const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
             const setsDisplay = `${playerASetsWon}:${playerBSetsWon}`;
@@ -905,7 +905,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
             // Calculate points based on ELO change
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 5;
+            const loserPoints = 0; // No points for losing
 
             const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
             const setsDisplay = `${setsA}:${setsB}`;
@@ -1352,7 +1352,7 @@ async function handleCoachApproval(requestId, approve, userData) {
 
             // Calculate points based on ELO change
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 5;
+            const loserPoints = 0; // No points for losing
 
             // Calculate sets won
             let setsA = 0, setsB = 0;
@@ -2178,7 +2178,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
                     // Calculate points based on ELO change
                     const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-                    const loserPoints = 5;
+                    const loserPoints = 0; // No points for losing
 
                     const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
                     const setsA = request.player_a_sets_won || 0;
