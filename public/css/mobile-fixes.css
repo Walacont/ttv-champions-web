@@ -439,6 +439,8 @@ html body:not([style*="overflow: hidden"]) {
 }
 
 /* PWA Standalone Mode - Bottom Navigation Fix */
+/* Note: iOS Safari doesn't support display-mode: standalone media query */
+/* So we also use body.standalone-mode class set via JavaScript */
 @media all and (display-mode: standalone) {
     /* Bottom navigation - sits at very bottom, extends into safe area */
     #bottom-nav {
@@ -474,4 +476,35 @@ html body:not([style*="overflow: hidden"]) {
         padding-right: env(safe-area-inset-right, 0);
         padding-bottom: 0 !important;
     }
+}
+
+/* iOS PWA Standalone Mode - uses body.standalone-mode class */
+/* This is needed because iOS Safari doesn't support display-mode media query */
+body.standalone-mode #bottom-nav {
+    bottom: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+}
+
+body.standalone-mode #bottom-nav > div {
+    height: 48px;
+}
+
+body.standalone-mode main,
+body.standalone-mode #main-content,
+body.standalone-mode .min-h-screen {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0)) !important;
+}
+
+body.standalone-mode #top-nav {
+    padding-top: env(safe-area-inset-top, 0) !important;
+}
+
+body.standalone-mode .sticky.top-0 {
+    padding-top: env(safe-area-inset-top, 0) !important;
+}
+
+body.standalone-mode {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+    padding-bottom: 0 !important;
 }
