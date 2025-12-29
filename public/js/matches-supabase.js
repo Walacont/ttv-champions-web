@@ -452,8 +452,7 @@ export async function saveMatchResult(matchData, currentUserData) {
                     elo_change: winnerEloChange || 0,
                     reason: `Sieg im ${matchType} gegen ${loserName} (${setsDisplay})`,
                     timestamp: playedAt,
-                    awarded_by: 'System (Wettkampf)',
-                    match_id: data.id
+                    awarded_by: 'System (Wettkampf)'
                 });
 
             if (winnerHistoryError) {
@@ -470,8 +469,7 @@ export async function saveMatchResult(matchData, currentUserData) {
                     elo_change: loserEloChange || 0,
                     reason: `Niederlage im ${matchType} gegen ${winnerName} (${setsDisplay})`,
                     timestamp: playedAt,
-                    awarded_by: 'System (Wettkampf)',
-                    match_id: data.id
+                    awarded_by: 'System (Wettkampf)'
                 });
 
             if (loserHistoryError) {

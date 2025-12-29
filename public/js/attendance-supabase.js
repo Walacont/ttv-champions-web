@@ -852,10 +852,7 @@ async function awardAttendancePoints(
         xp: pointsToAdd,
         elo_change: 0,
         reason,
-        date,
-        subgroup_id: subgroupId,
         timestamp: now,
-        created_at: now,
         awarded_by: 'System (Anwesenheit)',
     });
 
@@ -868,10 +865,8 @@ async function awardAttendancePoints(
         user_id: playerId,
         xp: pointsToAdd,
         reason,
-        date,
-        subgroup_id: subgroupId,
-        created_at: new Date().toISOString(),
-        source: 'System (Anwesenheit)',
+        timestamp: now,
+        awarded_by: 'System (Anwesenheit)',
     });
 
     if (xpError) {
@@ -953,10 +948,7 @@ async function deductAttendancePoints(
         xp: -pointsToDeduct,
         elo_change: 0,
         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
-        date,
-        subgroup_id: subgroupId,
         timestamp: correctionTime,
-        created_at: correctionTime,
         awarded_by: 'System (Anwesenheit)',
     });
 
@@ -965,10 +957,8 @@ async function deductAttendancePoints(
         user_id: playerId,
         xp: -pointsToDeduct,
         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
-        date,
-        subgroup_id: subgroupId,
-        created_at: new Date().toISOString(),
-        source: 'System (Anwesenheit)',
+        timestamp: correctionTime,
+        awarded_by: 'System (Anwesenheit)',
     });
 }
 

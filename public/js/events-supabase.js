@@ -1387,19 +1387,21 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         reason += ` (+${exercisePoints} Übungspunkte)`;
     }
 
-    // Update streak
-    const { error: streakError } = await supabase.from('streaks').upsert({
-        user_id: playerId,
-        subgroup_id: primarySubgroupId || event.club_id,
-        current_streak: newStreak,
-        last_attendance_date: date,
-        updated_at: new Date().toISOString()
-    }, {
-        onConflict: 'user_id,subgroup_id'
-    });
+    // Update streak (only if we have a valid subgroup_id)
+    if (primarySubgroupId) {
+        const { error: streakError } = await supabase.from('streaks').upsert({
+            user_id: playerId,
+            subgroup_id: primarySubgroupId,
+            current_streak: newStreak,
+            last_attendance_date: date,
+            updated_at: new Date().toISOString()
+        }, {
+            onConflict: 'user_id,subgroup_id'
+        });
 
-    if (streakError) {
-        console.warn('[Events] Error updating streak:', streakError);
+        if (streakError) {
+            console.warn('[Events] Error updating streak:', streakError);
+        }
     }
 
     // Update player points and XP
@@ -1421,10 +1423,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         xp: totalPoints,
         elo_change: 0,
         reason,
-        date,
-        subgroup_id: primarySubgroupId,
         timestamp: now,
-        created_at: now,
         awarded_by: 'System (Veranstaltung)',
     });
 
@@ -1437,10 +1436,8 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         user_id: playerId,
         xp: totalPoints,
         reason,
-        date,
-        subgroup_id: primarySubgroupId,
-        created_at: new Date().toISOString(),
-        source: 'System (Veranstaltung)',
+        timestamp: now,
+        awarded_by: 'System (Veranstaltung)',
     });
 
     if (xpError) {
@@ -1526,10 +1523,7 @@ async function deductEventAttendancePoints(playerId, event) {
         xp: -pointsToDeduct,
         elo_change: 0,
         reason,
-        date,
-        subgroup_id: primarySubgroupId,
         timestamp: correctionTime,
-        created_at: correctionTime,
         awarded_by: 'System (Veranstaltung)',
     });
 
@@ -1538,10 +1532,8 @@ async function deductEventAttendancePoints(playerId, event) {
         user_id: playerId,
         xp: -pointsToDeduct,
         reason,
-        date,
-        subgroup_id: primarySubgroupId,
-        created_at: new Date().toISOString(),
-        source: 'System (Veranstaltung)',
+        timestamp: correctionTime,
+        awarded_by: 'System (Veranstaltung)',
     });
 
     console.log(`[Events] Deducted ${pointsToDeduct} points from player ${playerId}`);

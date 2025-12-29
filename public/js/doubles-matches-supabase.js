@@ -222,8 +222,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
                     elo_change: 0,
                     reason: `Sieg im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
                     timestamp: playedAt,
-                    awarded_by: 'System (Wettkampf)',
-                    doubles_match_id: doublesMatch.id
+                    awarded_by: 'System (Wettkampf)'
                 });
 
             if (error) {
@@ -252,8 +251,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
                     elo_change: 0,
                     reason: `Niederlage im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
                     timestamp: playedAt,
-                    awarded_by: 'System (Wettkampf)',
-                    doubles_match_id: doublesMatch.id
+                    awarded_by: 'System (Wettkampf)'
                 });
 
             if (error) {
