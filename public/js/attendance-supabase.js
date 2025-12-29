@@ -772,15 +772,17 @@ async function awardAttendancePoints(
     previousTrainingPresentIds,
     sessionId
 ) {
-    // Get current streak
-    const { data: streakData } = await supabase
-        .from('streaks')
-        .select('current_streak')
-        .eq('user_id', playerId)
-        .eq('subgroup_id', subgroupId)
-        .single();
-
-    const currentStreak = streakData?.current_streak || 0;
+    // Get current streak (only if valid subgroupId)
+    let currentStreak = 0;
+    if (subgroupId) {
+        const { data: streakData } = await supabase
+            .from('streaks')
+            .select('current_streak')
+            .eq('user_id', playerId)
+            .eq('subgroup_id', subgroupId)
+            .maybeSingle();
+        currentStreak = streakData?.current_streak || 0;
+    }
     const wasPresentLastTraining = previousTrainingPresentIds.includes(playerId);
     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
@@ -820,17 +822,19 @@ async function awardAttendancePoints(
         reason += ` (2. Training heute)`;
     }
 
-    // Update streak
-    const { error: streakError } = await supabase.from('streaks').upsert({
-        user_id: playerId,
-        subgroup_id: subgroupId,
-        current_streak: newStreak,
-        last_attendance_date: date,
-        updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id,subgroup_id' });
+    // Update streak (only if valid subgroupId)
+    if (subgroupId) {
+        const { error: streakError } = await supabase.from('streaks').upsert({
+            user_id: playerId,
+            subgroup_id: subgroupId,
+            current_streak: newStreak,
+            last_attendance_date: date,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,subgroup_id' });
 
-    if (streakError) {
-        console.warn('[Attendance] Error updating streak:', streakError);
+        if (streakError) {
+            console.warn('[Attendance] Error updating streak:', streakError);
+        }
     }
 
     // Update player points and XP
