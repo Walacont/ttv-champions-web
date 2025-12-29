@@ -1622,7 +1622,7 @@
         </footer>
 
         <!-- Bottom Navigation Bar (like Instagram) -->
-        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: red; border-top: 1px solid #e5e7eb; padding-bottom: 50px;">
+        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;">
             <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
                 <button
                     class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
@@ -1719,10 +1719,8 @@
                     bottomNav.style.left = '0';
                     bottomNav.style.right = '0';
                     bottomNav.style.zIndex = '99999';
-                    bottomNav.style.background = 'red';
+                    bottomNav.style.background = 'white';
                     bottomNav.style.borderTop = '1px solid #e5e7eb';
-                    // Add safe area padding for iPhone home indicator
-                    bottomNav.style.paddingBottom = '50px';
                 }
 
                 // Same for top nav - move to beginning of body
