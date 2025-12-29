@@ -1206,11 +1206,15 @@ window.saveEventAttendance = async function(eventId) {
         const totalExercisePoints = exerciseData.reduce((sum, ex) => sum + (ex.points || 0), 0);
 
         // Check if attendance record exists and get previous attendees
-        const { data: existing } = await supabase
+        const { data: existing, error: existingError } = await supabase
             .from('event_attendance')
             .select('id, present_user_ids, points_awarded_to')
             .eq('event_id', eventId)
-            .single();
+            .maybeSingle();
+
+        if (existingError) {
+            console.warn('[Events] Could not load existing attendance:', existingError);
+        }
 
         const previouslyAwardedTo = existing?.points_awarded_to || [];
         const previousPresentIds = existing?.present_user_ids || [];
@@ -1320,20 +1324,22 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             .from('event_attendance')
             .select('present_user_ids')
             .eq('event_id', previousEvents[0].id)
-            .single();
+            .maybeSingle();
 
         wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
     }
 
-    // Get current streak (use event-specific streaks or fallback to subgroup streaks)
-    const { data: streakData } = await supabase
-        .from('streaks')
-        .select('current_streak')
-        .eq('user_id', playerId)
-        .eq('subgroup_id', primarySubgroupId || event.club_id)
-        .single();
-
-    const currentStreak = streakData?.current_streak || 0;
+    // Get current streak (only if we have a valid subgroup_id)
+    let currentStreak = 0;
+    if (primarySubgroupId) {
+        const { data: streakData } = await supabase
+            .from('streaks')
+            .select('current_streak')
+            .eq('user_id', playerId)
+            .eq('subgroup_id', primarySubgroupId)
+            .maybeSingle();
+        currentStreak = streakData?.current_streak || 0;
+    }
     const newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
 
     // Check for other events on same day
@@ -1351,7 +1357,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
                 .from('event_attendance')
                 .select('present_user_ids')
                 .eq('event_id', otherEvent.id)
-                .single();
+                .maybeSingle();
 
             if (otherAttendance?.present_user_ids?.includes(playerId)) {
                 alreadyAttendedToday = true;
@@ -1437,7 +1443,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 
     // Create XP history entry
     const { error: xpError } = await supabase.from('xp_history').insert({
-        user_id: playerId,
+        player_id: playerId,
         xp: totalPoints,
         reason,
         timestamp: now,
@@ -1533,7 +1539,7 @@ async function deductEventAttendancePoints(playerId, event) {
 
     // Create negative XP history entry
     await supabase.from('xp_history').insert({
-        user_id: playerId,
+        player_id: playerId,
         xp: -pointsToDeduct,
         reason,
         timestamp: correctionTime,

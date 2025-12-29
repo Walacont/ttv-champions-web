@@ -862,7 +862,7 @@ async function awardAttendancePoints(
 
     // Create XP history entry
     const { error: xpError } = await supabase.from('xp_history').insert({
-        user_id: playerId,
+        player_id: playerId,
         xp: pointsToAdd,
         reason,
         timestamp: now,
@@ -954,7 +954,7 @@ async function deductAttendancePoints(
 
     // Create negative XP history entry
     await supabase.from('xp_history').insert({
-        user_id: playerId,
+        player_id: playerId,
         xp: -pointsToDeduct,
         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
         timestamp: correctionTime,
