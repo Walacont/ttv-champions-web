@@ -116,7 +116,7 @@ async function loadWidgetSettings() {
             .from('user_preferences')
             .select('dashboard_widgets')
             .eq('user_id', currentUserId)
-            .single();
+            .maybeSingle();
 
         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
             console.warn('[Widget System] Supabase table not available, using localStorage:', error.message);
