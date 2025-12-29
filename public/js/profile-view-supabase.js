@@ -1439,7 +1439,7 @@ async function loadProfilePointsHistory() {
             .from('points_history')
             .select('*')
             .eq('user_id', profileId)
-            .order('created_at', { ascending: false })
+            .order('timestamp', { ascending: false })
             .limit(10);
 
         if (!history || history.length === 0) {
