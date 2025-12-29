@@ -169,6 +169,109 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
     if (insertError) throw insertError;
 
     console.log('Doubles match saved:', doublesMatch.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
+
+    // Create points_history entries for all 4 players
+    try {
+        // Fetch player names
+        const { data: playersData } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', allPlayerIds);
+
+        const playerNameMap = {};
+        (playersData || []).forEach(p => {
+            playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
+        });
+
+        // Determine winners and losers
+        const winningTeamIds = winningTeam === 'A'
+            ? [teamA_player1Id, teamA_player2Id]
+            : [teamB_player1Id, teamB_player2Id];
+        const losingTeamIds = winningTeam === 'A'
+            ? [teamB_player1Id, teamB_player2Id]
+            : [teamA_player1Id, teamA_player2Id];
+
+        // Calculate sets display
+        let teamASetsWon = 0;
+        let teamBSetsWon = 0;
+        (sets || []).forEach(set => {
+            if (set.teamA > set.teamB) teamASetsWon++;
+            else if (set.teamB > set.teamA) teamBSetsWon++;
+        });
+        const setsDisplay = winningTeam === 'A'
+            ? `${teamASetsWon}:${teamBSetsWon}`
+            : `${teamBSetsWon}:${teamASetsWon}`;
+
+        const winnerPoints = 15; // Points for winning doubles
+        const loserPoints = 5; // Participation points
+        const matchType = handicapUsed ? 'Handicap-Doppel' : 'Doppel';
+        const playedAt = doublesMatch.created_at || new Date().toISOString();
+
+        // Create entries for winning team
+        for (const winnerId of winningTeamIds) {
+            const partnerId = winningTeamIds.find(id => id !== winnerId);
+            const partnerName = playerNameMap[partnerId] || 'Partner';
+            const opponentNames = losingTeamIds.map(id => playerNameMap[id] || 'Gegner').join(' & ');
+
+            const { error } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: winnerId,
+                    points: winnerPoints,
+                    xp: winnerPoints,
+                    elo_change: 0,
+                    reason: `Sieg im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)',
+                    doubles_match_id: doublesMatch.id
+                });
+
+            if (error) {
+                console.warn('[DoublesMatches] Error creating winner points history:', error);
+            } else {
+                await supabase.rpc('add_player_points', {
+                    p_user_id: winnerId,
+                    p_points: winnerPoints,
+                    p_xp: winnerPoints
+                });
+            }
+        }
+
+        // Create entries for losing team
+        for (const loserId of losingTeamIds) {
+            const partnerId = losingTeamIds.find(id => id !== loserId);
+            const partnerName = playerNameMap[partnerId] || 'Partner';
+            const opponentNames = winningTeamIds.map(id => playerNameMap[id] || 'Gegner').join(' & ');
+
+            const { error } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: loserId,
+                    points: loserPoints,
+                    xp: loserPoints,
+                    elo_change: 0,
+                    reason: `Niederlage im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)',
+                    doubles_match_id: doublesMatch.id
+                });
+
+            if (error) {
+                console.warn('[DoublesMatches] Error creating loser points history:', error);
+            } else {
+                await supabase.rpc('add_player_points', {
+                    p_user_id: loserId,
+                    p_points: loserPoints,
+                    p_xp: loserPoints
+                });
+            }
+        }
+
+    } catch (historyError) {
+        console.warn('[DoublesMatches] Error creating points history entries:', historyError);
+        // Don't fail the match save if history creation fails
+    }
+
     return { success: true, matchId: doublesMatch.id, isCrossClub: matchClubId === null };
 }
 

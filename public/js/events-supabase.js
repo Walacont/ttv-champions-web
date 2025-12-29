@@ -1414,6 +1414,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     }
 
     // Create points history entry
+    const now = new Date().toISOString();
     const { error: pointsError } = await supabase.from('points_history').insert({
         user_id: playerId,
         points: totalPoints,
@@ -1422,7 +1423,8 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         reason,
         date,
         subgroup_id: primarySubgroupId,
-        created_at: new Date().toISOString(),
+        timestamp: now,
+        created_at: now,
         awarded_by: 'System (Veranstaltung)',
     });
 
@@ -1517,6 +1519,7 @@ async function deductEventAttendancePoints(playerId, event) {
     });
 
     // Create negative history entry
+    const correctionTime = new Date().toISOString();
     await supabase.from('points_history').insert({
         user_id: playerId,
         points: -pointsToDeduct,
@@ -1525,7 +1528,8 @@ async function deductEventAttendancePoints(playerId, event) {
         reason,
         date,
         subgroup_id: primarySubgroupId,
-        created_at: new Date().toISOString(),
+        timestamp: correctionTime,
+        created_at: correctionTime,
         awarded_by: 'System (Veranstaltung)',
     });
 

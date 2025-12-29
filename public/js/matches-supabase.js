@@ -384,6 +384,8 @@ export async function saveMatchResult(matchData, currentUserData) {
             else if (set.playerB > set.playerA) playerBSetsWon++;
         });
 
+        const playedAt = new Date().toISOString();
+
         // Insert match - ELO trigger will calculate ratings automatically
         const { data, error } = await supabase
             .from('matches')
@@ -397,7 +399,7 @@ export async function saveMatchResult(matchData, currentUserData) {
                 player_b_sets_won: playerBSetsWon,
                 club_id: currentUserData.clubId || currentUserData.club_id,
                 created_by: currentUserData.id,
-                played_at: new Date().toISOString(),
+                played_at: playedAt,
                 sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
                 handicap_used: handicapUsed || false,
                 match_mode: matchMode || 'best-of-5'
@@ -408,6 +410,95 @@ export async function saveMatchResult(matchData, currentUserData) {
         if (error) throw error;
 
         console.log('[Matches] Match saved successfully:', data.id);
+
+        // Create points_history entries for both players
+        try {
+            // Fetch player names
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .in('id', [playerAId, playerBId]);
+
+            const playerMap = {};
+            (playersData || []).forEach(p => {
+                playerMap[p.id] = `${p.first_name} ${p.last_name}`;
+            });
+
+            const winnerName = playerMap[winnerId] || 'Gegner';
+            const loserName = playerMap[loserId] || 'Gegner';
+
+            // Calculate ELO changes from the returned match data
+            const winnerEloChange = winnerId === playerAId
+                ? (data.player_a_elo_after - data.player_a_elo_before)
+                : (data.player_b_elo_after - data.player_b_elo_before);
+            const loserEloChange = loserId === playerAId
+                ? (data.player_a_elo_after - data.player_a_elo_before)
+                : (data.player_b_elo_after - data.player_b_elo_before);
+
+            // Calculate points based on ELO change (winner gets positive, loser gets participation)
+            const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
+            const loserPoints = 5; // Participation points
+
+            const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
+            const setsDisplay = `${playerASetsWon}:${playerBSetsWon}`;
+
+            // Winner points history entry
+            const { error: winnerHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: winnerId,
+                    points: winnerPoints,
+                    xp: winnerPoints,
+                    elo_change: winnerEloChange || 0,
+                    reason: `Sieg im ${matchType} gegen ${loserName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)',
+                    match_id: data.id
+                });
+
+            if (winnerHistoryError) {
+                console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
+            }
+
+            // Loser points history entry (participation)
+            const { error: loserHistoryError } = await supabase
+                .from('points_history')
+                .insert({
+                    user_id: loserId,
+                    points: loserPoints,
+                    xp: loserPoints,
+                    elo_change: loserEloChange || 0,
+                    reason: `Niederlage im ${matchType} gegen ${winnerName} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)',
+                    match_id: data.id
+                });
+
+            if (loserHistoryError) {
+                console.warn('[Matches] Error creating loser points history:', loserHistoryError);
+            }
+
+            // Update player points
+            if (!winnerHistoryError) {
+                await supabase.rpc('add_player_points', {
+                    p_user_id: winnerId,
+                    p_points: winnerPoints,
+                    p_xp: winnerPoints
+                });
+            }
+            if (!loserHistoryError) {
+                await supabase.rpc('add_player_points', {
+                    p_user_id: loserId,
+                    p_points: loserPoints,
+                    p_xp: loserPoints
+                });
+            }
+
+        } catch (historyError) {
+            console.warn('[Matches] Error creating points history entries:', historyError);
+            // Don't fail the match save if history creation fails
+        }
+
         return { success: true, match: data };
 
     } catch (error) {
