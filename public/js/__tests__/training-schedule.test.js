@@ -19,7 +19,7 @@ import {
     formatDate,
     getDayOfWeekName,
     formatTimeRange,
-} from '../training-schedule.js';
+} from '../training-schedule-utils.js';
 
 // ============================================================================
 // TIME FORMAT VALIDATION
