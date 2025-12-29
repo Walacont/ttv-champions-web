@@ -375,14 +375,18 @@ export async function saveMatchResult(matchData, currentUserData) {
     try {
         const { playerAId, playerBId, winnerId, loserId, sets, handicapUsed, matchMode } = matchData;
 
-        // Calculate sets won
+        // Calculate sets won (handle different set formats)
         let playerASetsWon = 0;
         let playerBSetsWon = 0;
 
-        sets.forEach(set => {
-            if (set.playerA > set.playerB) playerASetsWon++;
-            else if (set.playerB > set.playerA) playerBSetsWon++;
-        });
+        if (sets && sets.length > 0) {
+            sets.forEach(set => {
+                const scoreA = set.playerA ?? set.player_a ?? 0;
+                const scoreB = set.playerB ?? set.player_b ?? 0;
+                if (scoreA > scoreB) playerASetsWon++;
+                else if (scoreB > scoreA) playerBSetsWon++;
+            });
+        }
 
         const playedAt = new Date().toISOString();
 
@@ -803,13 +807,17 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
     const sets = coachSetScoreInput.getSets();
 
-    // Calculate sets won
+    // Calculate sets won (handle different set formats)
     let setsA = 0;
     let setsB = 0;
-    sets.forEach(set => {
-        if (set.playerA > set.playerB) setsA++;
-        else if (set.playerB > set.playerA) setsB++;
-    });
+    if (sets && sets.length > 0) {
+        sets.forEach(set => {
+            const scoreA = set.playerA ?? set.player_a ?? 0;
+            const scoreB = set.playerB ?? set.player_b ?? 0;
+            if (scoreA > scoreB) setsA++;
+            else if (scoreB > scoreA) setsB++;
+        });
+    }
 
     const winnerId = setsA > setsB ? playerAId : playerBId;
     const playerA = clubPlayers.find(p => p.id === playerAId);
@@ -2181,8 +2189,17 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     const loserPoints = 0; // No points for losing
 
                     const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
-                    const setsA = request.player_a_sets_won || 0;
-                    const setsB = request.player_b_sets_won || 0;
+
+                    // Calculate sets won from sets array
+                    let setsA = 0, setsB = 0;
+                    if (request.sets && request.sets.length > 0) {
+                        request.sets.forEach(set => {
+                            const scoreA = set.playerA ?? set.player_a ?? 0;
+                            const scoreB = set.playerB ?? set.player_b ?? 0;
+                            if (scoreA > scoreB) setsA++;
+                            else if (scoreB > scoreA) setsB++;
+                        });
+                    }
                     const setsDisplay = `${setsA}:${setsB}`;
                     const playedAt = match.played_at || new Date().toISOString();
 
