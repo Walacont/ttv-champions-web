@@ -1,3 +1,6 @@
+// Matches-Modul (Firebase-Version)
+// Match-Paarungen, Handicap-Berechnung und Match-Ergebnis-Meldung
+
 import {
     collection,
     addDoc,
@@ -15,26 +18,13 @@ import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
-/**
- * Matches Module
- * Handles match pairings, handicap calculation, and match result reporting
- */
-
-// Global variable to store set score input instance for coach match form
 let coachSetScoreInput = null;
-
-// Global variable to store current session for pairings
 let currentPairingsSession = null;
-
-// Global variables to track pairing being entered from saved pairings
 let currentPairingSessionId = null;
 let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 
-/**
- * Updates the coach match winner display based on current set scores
- * @param {Object} setScoreInput - Optional set score input instance (defaults to coachSetScoreInput)
- */
+/** Aktualisiert die Gewinner-Anzeige basierend auf Satzergebnissen */
 export function updateCoachWinnerDisplay(setScoreInput = null) {
     const matchWinnerInfo = document.getElementById('coach-match-winner-info');
     const matchWinnerText = document.getElementById('coach-match-winner-text');
@@ -45,8 +35,6 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
     const winnerData = inputInstance.getMatchWinner();
 
     if (winnerData && winnerData.winner) {
-        // We have a winner
-        // Get player names from the select elements
         const playerASelect = document.getElementById('player-a-select');
         const playerBSelect = document.getElementById('player-b-select');
 
@@ -60,19 +48,14 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
         matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
         matchWinnerInfo.classList.remove('hidden');
     } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
-        // Match in progress, show current score
         matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
         matchWinnerInfo.classList.remove('hidden');
     } else {
-        // No valid sets yet
         matchWinnerInfo.classList.add('hidden');
     }
 }
 
-/**
- * Initializes the set score input for coach match form
- * @returns {Object|null} The set score input instance
- */
+/** Initialisiert die Satzergebnis-Eingabe für Coach-Match-Formular */
 export function initializeCoachSetScoreInput() {
     const container = document.getElementById('coach-set-score-container');
     const matchModeSelect = document.getElementById('coach-match-mode-select');
@@ -80,7 +63,6 @@ export function initializeCoachSetScoreInput() {
 
     if (!container) return null;
 
-    // Function to update label text based on mode
     function updateSetScoreLabel(mode) {
         if (!setScoreLabel) return;
         switch (mode) {
@@ -101,20 +83,16 @@ export function initializeCoachSetScoreInput() {
         }
     }
 
-    // Initialize with current mode
     const currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
     coachSetScoreInput = createSetScoreInput(container, [], currentMode, updateCoachWinnerDisplay);
     updateSetScoreLabel(currentMode);
 
-    // Handle match mode changes
     if (matchModeSelect) {
         matchModeSelect.addEventListener('change', () => {
             const newMode = matchModeSelect.value;
-            // Recreate the set score input with new mode
             coachSetScoreInput = createSetScoreInput(container, [], newMode, updateCoachWinnerDisplay);
             updateSetScoreLabel(newMode);
 
-            // Update doubles reference if doubles-coach-ui is loaded
             if (window.setDoublesSetScoreInput) {
                 window.setDoublesSetScoreInput(coachSetScoreInput);
             }
@@ -124,20 +102,12 @@ export function initializeCoachSetScoreInput() {
     return coachSetScoreInput;
 }
 
-/**
- * Sets the current session for pairings generation
- * @param {string} sessionId - Session ID
- */
+/** Setzt die aktuelle Session für Paarungsgenerierung */
 export function setCurrentPairingsSession(sessionId) {
     currentPairingsSession = sessionId;
 }
 
-/**
- * Generates match pairings from present and match-ready players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- * @param {string} sessionId - Optional session ID for session-based pairings
- */
+/** Generiert Match-Paarungen aus anwesenden und match-bereiten Spielern */
 export function handleGeneratePairings(
     clubPlayers,
     currentSubgroupFilter = 'all',
@@ -150,7 +120,7 @@ export function handleGeneratePairings(
         '#attendance-player-list input:checked'
     );
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    // Only pair players who have completed Grundlagen (5 exercises)
+    // Nur Spieler paaren die Grundlagen abgeschlossen haben (5 Übungen)
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
         const grundlagen = player.grundlagenCompleted || 0;
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
@@ -202,11 +172,7 @@ export function handleGeneratePairings(
     renderPairingsInModal(finalPairings, leftoverPlayer);
 }
 
-/**
- * Renders generated pairings in the modal
- * @param {Object} pairings - Object containing groups and their pairings
- * @param {Object|null} leftoverPlayer - Player without a match, if any
- */
+/** Rendert generierte Paarungen im Modal */
 export function renderPairingsInModal(pairings, leftoverPlayer) {
     const modal = document.getElementById('pairings-modal');
     const container = document.getElementById('modal-pairings-content');
@@ -262,7 +228,6 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
         container.appendChild(leftoverEl);
     }
 
-    // Add save button if session-based pairings are enabled
     if (currentPairingsSession) {
         const saveButtonContainer = document.createElement('div');
         saveButtonContainer.className = 'mt-6 text-center';
@@ -281,11 +246,7 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
     modal.classList.remove('hidden');
 }
 
-/**
- * Saves match pairings to Firestore for a specific session
- * @param {Object} pairings - Pairings object
- * @param {Object|null} leftoverPlayer - Player without a match (no longer saved, parameter kept for compatibility)
- */
+/** Speichert Match-Paarungen in Firestore für eine Session */
 async function savePairings(pairings, leftoverPlayer) {
     if (!currentPairingsSession) {
         alert('Fehler: Keine Session ausgewählt');
@@ -299,7 +260,6 @@ async function savePairings(pairings, leftoverPlayer) {
     }
 
     try {
-        // Get session data from Firestore
         const { getFirestore } = await import(
             'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
         );
@@ -312,7 +272,6 @@ async function savePairings(pairings, leftoverPlayer) {
 
         const sessionData = sessionDoc.data();
 
-        // Transform pairings to saveable format
         const groups = {};
         for (const groupName in pairings) {
             groups[groupName] = pairings[groupName].map(pair => {
@@ -351,11 +310,9 @@ async function savePairings(pairings, leftoverPlayer) {
             startTime: sessionData.startTime,
             endTime: sessionData.endTime,
             groups: groups,
-            // leftoverPlayer should NOT be saved - only actual pairings
             createdAt: serverTimestamp(),
         };
 
-        // Save to trainingMatches collection with sessionId as document ID
         await setDoc(doc(db, 'trainingMatches', currentPairingsSession), pairingsData);
 
         if (saveButton) {
@@ -384,11 +341,7 @@ async function savePairings(pairings, leftoverPlayer) {
     }
 }
 
-/**
- * Loads match pairings for a specific session
- * @param {string} sessionId - Session ID
- * @returns {Promise<Object|null>} Pairings data or null
- */
+/** Lädt Match-Paarungen für eine Session */
 export async function loadSessionPairings(sessionId) {
     try {
         const { getFirestore } = await import(
@@ -409,18 +362,13 @@ export async function loadSessionPairings(sessionId) {
     }
 }
 
-/**
- * Updates the state of the pairings button based on eligible players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+/** Aktualisiert den Paarungs-Button basierend auf berechtigten Spielern */
 export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
     const pairingsButton = document.getElementById('generate-pairings-button');
     const presentPlayerCheckboxes = document.querySelectorAll(
         '#attendance-player-list input:checked'
     );
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    // Only count players who have completed Grundlagen (5 exercises)
     let eligiblePlayers = clubPlayers.filter(player => {
         const grundlagen = player.grundlagenCompleted || 0;
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
@@ -454,13 +402,7 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     }
 }
 
-/**
- * Handles match result submission
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data
- * @param {Array} clubPlayers - Array of all club players
- */
+/** Verarbeitet Match-Ergebnis-Eintragung */
 export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     e.preventDefault();
     const feedbackEl = document.getElementById('match-feedback');
@@ -474,7 +416,6 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         return;
     }
 
-    // Validate set scores
     if (!coachSetScoreInput) {
         feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
@@ -489,13 +430,10 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     }
 
     const sets = coachSetScoreInput.getSets();
-
-    // Determine winner automatically from set scores
     const winnerId = setValidation.winnerId === 'A' ? playerAId : playerBId;
     const loserId = winnerId === playerAId ? playerBId : playerAId;
     feedbackEl.textContent = 'Speichere Match-Ergebnis...';
 
-    // Get current match mode
     const matchModeSelect = document.getElementById('coach-match-mode-select');
     const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
 
@@ -503,7 +441,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         await addDoc(collection(db, 'matches'), {
             playerAId,
             playerBId,
-            playerIds: [playerAId, playerBId], // For match history queries
+            playerIds: [playerAId, playerBId],
             winnerId,
             loserId,
             handicapUsed: handicapUsed,
@@ -518,7 +456,6 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
 
-        // Reset match mode dropdown to default and recreate set score input
         const matchModeSelect = document.getElementById('coach-match-mode-select');
         const setScoreLabel = document.getElementById('coach-set-score-label');
         const container = document.getElementById('coach-set-score-container');
@@ -527,7 +464,6 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             matchModeSelect.value = 'best-of-5';
         }
 
-        // Recreate set score input with default mode to keep fields and dropdown in sync
         if (container) {
             coachSetScoreInput = createSetScoreInput(container, [], 'best-of-5', updateCoachWinnerDisplay);
             if (setScoreLabel) {
@@ -537,9 +473,8 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
         updateMatchUI(clubPlayers);
 
-        // If this match was entered from a saved pairing, remove that pairing
+        // Falls dieses Match von einer gespeicherten Paarung eingegeben wurde, diese entfernen
         if (currentPairingSessionId && currentPairingPlayerAId && currentPairingPlayerBId) {
-            // STEP 1: Immediately remove the pairing from DOM (optimistic update - instant visual feedback)
             removePairingFromDOM(
                 currentPairingSessionId,
                 currentPairingPlayerAId,
@@ -548,7 +483,6 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
             const userData = JSON.parse(localStorage.getItem('userData'));
 
-            // STEP 2: Remove from Firestore in the background
             try {
                 await removePairingFromSession(
                     currentPairingSessionId,
@@ -556,16 +490,12 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
                     currentPairingPlayerBId,
                     db
                 );
-                console.log('Pairing removed from Firestore');
 
-                // Reset tracking variables
                 currentPairingSessionId = null;
                 currentPairingPlayerAId = null;
                 currentPairingPlayerBId = null;
             } catch (error) {
                 console.error('Error removing pairing from Firestore:', error);
-                // Even if Firestore fails, the DOM update already happened
-                // Reload to show the correct state
                 if (userData && userData.clubId) {
                     setTimeout(async () => {
                         await loadSavedPairings(db, userData.clubId);
@@ -580,12 +510,9 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     }
 }
 
-// Store current handicap data globally for the toggle handler
 let currentHandicapData = null;
 
-/**
- * Initializes handicap toggle event listener
- */
+/** Initialisiert den Handicap-Toggle Event Listener */
 export function initializeHandicapToggle() {
     const handicapToggle = document.getElementById('handicap-toggle');
     if (!handicapToggle) return;
@@ -594,19 +521,14 @@ export function initializeHandicapToggle() {
         if (!coachSetScoreInput || !currentHandicapData) return;
 
         if (handicapToggle.checked) {
-            // Apply handicap
             coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
         } else {
-            // Clear handicap
             coachSetScoreInput.clearHandicap(currentHandicapData.player);
         }
     });
 }
 
-/**
- * Updates the match form UI based on selected players
- * @param {Array} clubPlayers - Array of all club players
- */
+/** Aktualisiert das Match-Formular UI basierend auf ausgewählten Spielern */
 export function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select').value;
     const playerBId = document.getElementById('player-b-select').value;
@@ -621,7 +543,6 @@ export function updateMatchUI(clubPlayers) {
         const handicap = calculateHandicap(playerA, playerB);
 
         if (handicap && handicap.points > 0) {
-            // Store handicap data for toggle handler
             currentHandicapData = {
                 player: handicap.player.id === playerAId ? 'A' : 'B',
                 points: handicap.points,
@@ -633,7 +554,6 @@ export function updateMatchUI(clubPlayers) {
             handicapToggleContainer.classList.remove('hidden');
             handicapToggleContainer.classList.add('flex');
 
-            // Apply handicap if toggle is checked
             if (handicapToggle && handicapToggle.checked && coachSetScoreInput) {
                 coachSetScoreInput.setHandicap(
                     currentHandicapData.player,
@@ -656,11 +576,7 @@ export function updateMatchUI(clubPlayers) {
     }
 }
 
-/**
- * Populates match dropdowns with match-ready players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+/** Befüllt Match-Dropdowns mit match-bereiten Spielern */
 export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
@@ -668,19 +584,16 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
-    // Filter by match-ready status (grundlagenCompleted >= 5)
     let matchReadyPlayers = clubPlayers.filter(p => {
         const grundlagen = p.grundlagenCompleted || 0;
         return grundlagen >= 5;
     });
 
-    // Count locked players for warning message
     const lockedPlayers = clubPlayers.filter(p => {
         const grundlagen = p.grundlagenCompleted || 0;
         return grundlagen < 5;
     });
 
-    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
@@ -693,7 +606,6 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         }
     }
 
-    // Show warning if not enough match-ready players
     const handicapSuggestion = document.getElementById('handicap-suggestion');
     if (handicapSuggestion) {
         if (matchReadyPlayers.length < 2) {
@@ -702,7 +614,6 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
                     ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
                     : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
 
-            // Add info about locked players
             if (lockedPlayers.length > 0) {
                 const lockedNames = lockedPlayers
                     .map(p => {
@@ -730,19 +641,12 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     });
 }
 
-/**
- * Loads pending match requests for coach approval
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+/** Lädt ausstehende Match-Anfragen für Coach-Genehmigung */
 export async function loadCoachMatchRequests(userData, db) {
     const container = document.getElementById('coach-pending-requests-list');
     const badge = document.getElementById('coach-match-request-badge');
     if (!container) return;
 
-    console.log('[COACH MATCH REQUESTS] Loading match requests for coach clubId:', userData.clubId);
-
-    // Query for SINGLES requests awaiting coach approval
     const singlesQuery = query(
         collection(db, 'matchRequests'),
         where('clubId', '==', userData.clubId),
@@ -750,24 +654,16 @@ export async function loadCoachMatchRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for ALL DOUBLES requests awaiting coach approval
-    // We load ALL pending_coach doubles and filter by club in code
     const doublesQuery = query(
         collection(db, 'doublesMatchRequests'),
         where('status', '==', 'pending_coach'),
         orderBy('createdAt', 'desc')
     );
 
-    // Listen to singles and doubles requests
     const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
         const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
-            console.log('[COACH MATCH REQUESTS] Snapshots received:');
-            console.log('  - Singles:', singlesSnapshot.docs.length);
-            console.log('  - Doubles (all pending_coach, before filtering):', doublesSnapshot.docs.length);
-
             const allRequests = [];
 
-            // Process singles requests
             for (const docSnap of singlesSnapshot.docs) {
                 const data = docSnap.data();
                 const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
@@ -782,13 +678,8 @@ export async function loadCoachMatchRequests(userData, db) {
                 });
             }
 
-            // Process ALL doubles requests and filter by coach's club
             for (const docSnap of doublesSnapshot.docs) {
                 const data = docSnap.data();
-                console.log('[DOUBLES] Processing request:', docSnap.id);
-                console.log('  - clubId:', data.clubId);
-                console.log('  - isCrossClub:', data.isCrossClub);
-                console.log('  - status:', data.status);
 
                 const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
@@ -802,7 +693,6 @@ export async function loadCoachMatchRequests(userData, db) {
                 const p3Data = p3Doc.exists() ? p3Doc.data() : null;
                 const p4Data = p4Doc.exists() ? p4Doc.data() : null;
 
-                // Check if at least one player is from the coach's club
                 const playerClubIds = [
                     p1Data?.clubId,
                     p2Data?.clubId,
@@ -810,11 +700,6 @@ export async function loadCoachMatchRequests(userData, db) {
                     p4Data?.clubId,
                 ];
 
-                console.log('  - Player club IDs:', playerClubIds);
-                console.log('  - Coach club ID:', userData.clubId);
-                console.log('  - Match:', playerClubIds.includes(userData.clubId) ? 'YES - Adding to requests' : 'NO - Skipping');
-
-                // Only show to coach if at least one player is from their club
                 if (playerClubIds.includes(userData.clubId)) {
                     allRequests.push({
                         id: docSnap.id,
@@ -828,17 +713,10 @@ export async function loadCoachMatchRequests(userData, db) {
                 }
             }
 
-            // Sort by createdAt
             allRequests.sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
                 return bTime - aTime;
-            });
-
-            console.log('[COACH MATCH REQUESTS] Total requests to display:', allRequests.length);
-            console.log('  - Breakdown by type:', {
-                singles: allRequests.filter(r => r.type === 'singles').length,
-                doubles: allRequests.filter(r => r.type === 'doubles').length
             });
 
             if (allRequests.length === 0) {
@@ -860,14 +738,11 @@ export async function loadCoachMatchRequests(userData, db) {
     return unsubscribe1;
 }
 
-/**
- * Loads and renders processed match requests for coach (approved/rejected)
- */
+/** Lädt bearbeitete Match-Anfragen (genehmigt/abgelehnt) */
 export async function loadCoachProcessedRequests(userData, db) {
     const container = document.getElementById('coach-processed-requests-list');
     if (!container) return;
 
-    // Query for all requests that are no longer pending_coach
     const requestsQuery = query(
         collection(db, 'matchRequests'),
         where('clubId', '==', userData.clubId),
@@ -879,9 +754,7 @@ export async function loadCoachProcessedRequests(userData, db) {
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Only include requests that coach has processed (approved or rejected)
             if (data.status === 'approved' || data.status === 'rejected') {
-                // Fetch player names
                 const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
                 const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
 
@@ -900,10 +773,8 @@ export async function loadCoachProcessedRequests(userData, db) {
     return unsubscribe;
 }
 
-/**
- * Renders processed match request cards for coach with "show more" functionality
- */
-let showAllCoachProcessed = false; // State for showing all or limited
+/** Rendert bearbeitete Match-Anfragen-Karten für Coach */
+let showAllCoachProcessed = false;
 
 function renderCoachProcessedCards(requests, db) {
     const container = document.getElementById('coach-processed-requests-list');
@@ -922,11 +793,9 @@ function renderCoachProcessedCards(requests, db) {
     const maxInitial = 3;
     const requestsToShow = showAllCoachProcessed ? requests : requests.slice(0, maxInitial);
 
-    // Render request cards
     requestsToShow.forEach(request => {
         const card = document.createElement('div');
 
-        // Different styling based on status
         let borderColor = 'border-gray-200';
         if (request.status === 'approved') {
             borderColor = 'border-green-200 bg-green-50';
@@ -942,8 +811,6 @@ function renderCoachProcessedCards(requests, db) {
         const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
 
         const createdDate = formatDate(request.createdAt) || 'Unbekannt';
-
-        // Get coach name who processed the request
         const coachName = request.approvals?.coach?.coachName || 'Ein Coach';
 
         const statusBadge =
@@ -1006,10 +873,8 @@ function renderCoachProcessedCards(requests, db) {
     }
 }
 
-/**
- * Renders match request cards for coach with "show more" functionality
- */
-let showAllCoachRequests = false; // State for showing all or limited
+/** Rendert ausstehende Match-Anfragen-Karten für Coach */
+let showAllCoachRequests = false;
 
 function renderCoachRequestCards(requests, db, userData) {
     const container = document.getElementById('coach-pending-requests-list');
@@ -1028,7 +893,6 @@ function renderCoachRequestCards(requests, db, userData) {
     const maxInitial = 3;
     const requestsToShow = showAllCoachRequests ? requests : requests.slice(0, maxInitial);
 
-    // Render request cards
     requestsToShow.forEach(request => {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
@@ -1038,7 +902,6 @@ function renderCoachRequestCards(requests, db, userData) {
         let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay, buttonsHtml;
 
         if (request.type === 'doubles') {
-            // Doubles match
             matchTypeTag =
                 '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-users mr-1"></i>Doppel</span>';
 
@@ -1073,7 +936,6 @@ function renderCoachRequestCards(requests, db, userData) {
                 </button>
             `;
         } else {
-            // Singles match
             matchTypeTag =
                 '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-user mr-1"></i>Einzel</span>';
 
@@ -1126,7 +988,6 @@ function renderCoachRequestCards(requests, db, userData) {
             </div>
         `;
 
-        // Add event listeners based on type
         if (request.type === 'doubles') {
             const approveBtn = card.querySelector('.doubles-approve-btn');
             const rejectBtn = card.querySelector('.doubles-reject-btn');
@@ -1176,9 +1037,7 @@ function renderCoachRequestCards(requests, db, userData) {
     }
 }
 
-/**
- * Formats sets display for coach
- */
+/** Formatiert Sätze für Coach-Anzeige */
 function formatSetsForCoach(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -1189,30 +1048,21 @@ function formatSetsForCoach(sets) {
     return `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 }
 
-/**
- * Gets winner name from set scores
- * Works for all match modes (Best of 3, 5, 7, single set)
- */
+/** Ermittelt Gewinnernamen aus Satzergebnissen */
 function getWinnerName(sets, playerA, playerB) {
     if (!sets || sets.length === 0) return 'Unbekannt';
 
     const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
     const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
 
-    // Determine winner by who won more sets (works for all match modes)
     if (winsA > winsB) return playerA?.firstName || 'Spieler A';
     if (winsB > winsA) return playerB?.firstName || 'Spieler B';
-
-    // If equal sets won, it's a draw (shouldn't happen in normal matches)
     return 'Unentschieden';
 }
 
-/**
- * Approves match request as coach
- */
+/** Genehmigt Match-Anfrage als Coach */
 async function approveCoachRequest(requestId, db, userData) {
     try {
-        // First, fetch the request to check its current status
         const requestRef = doc(db, 'matchRequests', requestId);
         const requestSnap = await getDoc(requestRef);
 
@@ -1223,11 +1073,8 @@ async function approveCoachRequest(requestId, db, userData) {
         }
 
         const requestData = requestSnap.data();
-        console.log('Current request status:', requestData.status);
-        console.log('Coach data:', userData);
 
         if (requestData.status !== 'pending_coach') {
-            console.error('Request status is not pending_coach:', requestData.status);
             alert(`Fehler: Anfrage hat den Status "${requestData.status}" statt "pending_coach"`);
             return;
         }
@@ -1250,14 +1097,11 @@ async function approveCoachRequest(requestId, db, userData) {
     }
 }
 
-/**
- * Rejects match request as coach
- */
+/** Lehnt Match-Anfrage als Coach ab */
 async function rejectCoachRequest(requestId, db, userData) {
     const reason = prompt('Grund für die Ablehnung (optional):');
 
     try {
-        // First, fetch the request to check its current status
         const requestRef = doc(db, 'matchRequests', requestId);
         const requestSnap = await getDoc(requestRef);
 
@@ -1268,10 +1112,8 @@ async function rejectCoachRequest(requestId, db, userData) {
         }
 
         const requestData = requestSnap.data();
-        console.log('Current request status:', requestData.status);
 
         if (requestData.status !== 'pending_coach') {
-            console.error('Request status is not pending_coach:', requestData.status);
             alert(`Fehler: Anfrage hat den Status "${requestData.status}" statt "pending_coach"`);
             return;
         }
@@ -1296,11 +1138,7 @@ async function rejectCoachRequest(requestId, db, userData) {
     }
 }
 
-/**
- * Loads and displays all saved pairings from trainingSessions
- * @param {Object} db - Firestore database instance
- * @param {string} clubId - Club ID
- */
+/** Lädt und zeigt alle gespeicherten Paarungen */
 export async function loadSavedPairings(db, clubId) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
@@ -1309,7 +1147,6 @@ export async function loadSavedPairings(db, clubId) {
         container.innerHTML =
             '<p class="text-center text-gray-500 py-8">Lade gespeicherte Paarungen...</p>';
 
-        // Get all trainingMatches for this club
         const { getDocs } = await import(
             'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
         );
@@ -1336,7 +1173,6 @@ export async function loadSavedPairings(db, clubId) {
             const groups = pairingData.groups || {};
             const date = pairingData.date || 'Unbekannt';
 
-            // Check if there are any pairings in this session
             let hasPairings = false;
             for (const groupName in groups) {
                 if (groups[groupName] && groups[groupName].length > 0) {
@@ -1345,12 +1181,10 @@ export async function loadSavedPairings(db, clubId) {
                 }
             }
 
-            // Skip this session if it has no pairings
             if (!hasPairings) {
                 continue;
             }
 
-            // Get session details
             let sessionInfo = '';
             try {
                 const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
@@ -1376,11 +1210,9 @@ export async function loadSavedPairings(db, clubId) {
                     <div class="space-y-2">
             `;
 
-            // Render all pairings
             for (const groupName in groups) {
                 const matches = groups[groupName];
 
-                // Skip empty groups
                 if (!matches || matches.length === 0) {
                     continue;
                 }
@@ -1417,15 +1249,12 @@ export async function loadSavedPairings(db, clubId) {
                 });
             }
 
-            // Leftover player is no longer displayed (only actual pairings are saved)
-
             html += `
                     </div>
                 </div>
             `;
         }
 
-        // If no pairings were added after filtering, show "no pairings" message
         if (html === '') {
             container.innerHTML =
                 '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
@@ -1439,17 +1268,13 @@ export async function loadSavedPairings(db, clubId) {
     }
 }
 
-/**
- * Formats date from YYYY-MM-DD to DD.MM.YYYY
- */
+/** Formatiert Datum von YYYY-MM-DD zu DD.MM.YYYY */
 function formatDateGerman(dateStr) {
     const [year, month, day] = dateStr.split('-');
     return `${day}.${month}.${year}`;
 }
 
-/**
- * Opens match form with pre-selected players
- */
+/** Öffnet Match-Formular mit vorausgewählten Spielern */
 window.handleEnterResultForPairing = function (
     sessionId,
     playerAId,
@@ -1459,23 +1284,19 @@ window.handleEnterResultForPairing = function (
     handicapPlayerId,
     handicapPoints
 ) {
-    // Store pairing information to delete after successful match save
     currentPairingSessionId = sessionId;
     currentPairingPlayerAId = playerAId;
     currentPairingPlayerBId = playerBId;
 
-    // Pre-select players in the form
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
 
     if (playerASelect) playerASelect.value = playerAId;
     if (playerBSelect) playerBSelect.value = playerBId;
 
-    // Trigger change events to update handicap
     if (playerASelect) playerASelect.dispatchEvent(new Event('change'));
     if (playerBSelect) playerBSelect.dispatchEvent(new Event('change'));
 
-    // If handicap was used, check the toggle
     if (handicapPlayerId && handicapPoints > 0) {
         const handicapToggle = document.getElementById('handicap-toggle');
         if (handicapToggle) {
@@ -1483,7 +1304,6 @@ window.handleEnterResultForPairing = function (
         }
     }
 
-    // Scroll to match form
     const matchForm = document.getElementById('match-form');
     if (matchForm) {
         matchForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1492,12 +1312,7 @@ window.handleEnterResultForPairing = function (
     alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
 };
 
-/**
- * Removes a specific pairing from the DOM immediately (optimistic update)
- * @param {string} sessionId - Session ID
- * @param {string} playerAId - Player A ID
- * @param {string} playerBId - Player B ID
- */
+/** Entfernt eine Paarung aus dem DOM (optimistisches Update) */
 function removePairingFromDOM(sessionId, playerAId, playerBId) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
@@ -1519,10 +1334,8 @@ function removePairingFromDOM(sessionId, playerAId, playerBId) {
                     onclickAttr.includes(playerAId) &&
                     onclickAttr.includes(playerBId)
                 ) {
-                    // Remove this match div
                     matchDiv.remove();
 
-                    // Check if this was the last pairing in the card
                     const remainingMatches = card.querySelectorAll(
                         '.bg-gray-50.border.border-gray-200.rounded'
                     );
@@ -1549,13 +1362,7 @@ function removePairingFromDOM(sessionId, playerAId, playerBId) {
     });
 }
 
-/**
- * Removes a specific pairing from a training session
- * @param {string} sessionId - Session ID
- * @param {string} playerAId - Player A ID
- * @param {string} playerBId - Player B ID
- * @param {Object} db - Firestore database instance
- */
+/** Entfernt eine Paarung aus einer Trainings-Session */
 async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
     try {
         const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
@@ -1568,7 +1375,6 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
         const groups = pairingData.groups || {};
         let pairingRemoved = false;
 
-        // Find and remove the matching pairing
         for (const groupName in groups) {
             const matches = groups[groupName];
             const matchIndex = matches.findIndex(
@@ -1581,7 +1387,6 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
                 matches.splice(matchIndex, 1);
                 pairingRemoved = true;
 
-                // If group is now empty, remove it
                 if (matches.length === 0) {
                     delete groups[groupName];
                 }
@@ -1590,7 +1395,6 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
         }
 
         if (pairingRemoved) {
-            // If no groups left, delete the entire document
             if (Object.keys(groups).length === 0 && !pairingData.leftoverPlayer) {
                 await updateDoc(doc(db, 'trainingMatches', sessionId), {
                     groups: {},
@@ -1607,38 +1411,28 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
     }
 }
 
-/**
- * Removes a discarded pairing from the DOM immediately
- * @param {string} sessionId - Session ID
- * @param {number} matchIndex - Match index in group
- * @param {string} groupName - Group name
- */
+/** Entfernt eine verworfene Paarung aus dem DOM */
 function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
 
-    // Find all pairing cards
     const pairingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
 
     pairingCards.forEach(card => {
-        // Find all match divs within this card
         const matchDivs = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
 
         matchDivs.forEach(matchDiv => {
             const discardButton = matchDiv.querySelector('button.bg-red-600');
             if (discardButton) {
                 const onclickAttr = discardButton.getAttribute('onclick');
-                // Check if this is the right pairing to remove
                 if (
                     onclickAttr &&
                     onclickAttr.includes(`'${sessionId}'`) &&
                     onclickAttr.includes(`${matchIndex},`) &&
                     onclickAttr.includes(`'${groupName}'`)
                 ) {
-                    // Remove this match div
                     matchDiv.remove();
 
-                    // Check if this was the last pairing in the card
                     const remainingMatches = card.querySelectorAll(
                         '.bg-gray-50.border.border-gray-200.rounded'
                     );
@@ -1665,25 +1459,20 @@ function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
     });
 }
 
-/**
- * Discards a pairing
- */
+/** Verwirft eine Paarung */
 window.handleDiscardPairing = async function (sessionId, matchIndex, groupName) {
     if (!confirm('Möchtest du diese Paarung wirklich verwerfen?')) {
         return;
     }
 
-    // STEP 1: Immediately remove from DOM (optimistic update - instant visual feedback)
     removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName);
 
-    // STEP 2: Remove from Firestore in background
     try {
         const { getFirestore } = await import(
             'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
         );
         const db = getFirestore();
 
-        // Get current pairings
         const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
 
         if (!pairingDoc.exists()) {
@@ -1694,27 +1483,21 @@ window.handleDiscardPairing = async function (sessionId, matchIndex, groupName) 
         const pairingData = pairingDoc.data();
         const groups = pairingData.groups || {};
 
-        // Remove the match from the group
         if (groups[groupName] && groups[groupName][matchIndex]) {
             groups[groupName].splice(matchIndex, 1);
 
-            // If group is now empty, remove it
             if (groups[groupName].length === 0) {
                 delete groups[groupName];
             }
 
-            // Update Firestore
             await updateDoc(doc(db, 'trainingMatches', sessionId), {
                 groups: groups,
             });
 
-            console.log('Pairing removed from Firestore');
             alert('Paarung wurde verworfen.');
         }
     } catch (error) {
         console.error('Error discarding pairing from Firestore:', error);
-        // Even if Firestore fails, the DOM update already happened
-        // Reload to show the correct state
         const userData = JSON.parse(localStorage.getItem('userData'));
         if (userData && userData.clubId) {
             const { getFirestore } = await import(
