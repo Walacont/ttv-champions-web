@@ -1,3 +1,5 @@
+// Kalender-Modul für Anwesenheitsdarstellung im Dashboard
+
 import {
     collection,
     doc,
@@ -9,20 +11,10 @@ import {
     orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Calendar Module
- * Handles calendar rendering and attendance tracking for dashboard
- */
-
-// Module state
-let subgroupsMap = new Map(); // Store subgroups with their colors
+let subgroupsMap = new Map();
 
 /**
- * Gets club attendance data for a specific period
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {number} daysToLookBack - Number of days to look back (default: 90)
- * @returns {Promise<Array>} Array of attendance records
+ * Lädt Anwesenheitsdaten für einen bestimmten Zeitraum
  */
 export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90) {
     const cutoffDate = new Date();
@@ -45,12 +37,7 @@ export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90
 }
 
 /**
- * Renders the attendance calendar for a player with real-time updates
- * @param {Date} date - Date to render
- * @param {Object} currentUserData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {string} subgroupFilter - Subgroup filter ('club', 'global', or subgroupId)
- * @returns {Function} Unsubscribe function for the listener
+ * Rendert den Anwesenheitskalender mit Echtzeit-Updates
  */
 export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club') {
     const calendarGrid = document.getElementById('calendar-grid');
@@ -69,7 +56,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
     calendarMonthYear.textContent = `${monthName} ${year}`;
     if (statsMonthName) statsMonthName.textContent = monthName;
 
-    // Setup real-time listener for attendance data
+    // Echtzeit-Listener für Anwesenheitsdaten
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
     const startString = cutoffDate.toISOString().split('T')[0];
@@ -81,13 +68,11 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         orderBy('date', 'desc')
     );
 
-    // NEW: Set up real-time listeners for both sessions and attendance
     let allSessionsCache = [];
     let allClubTrainingsCache = [];
     let unsubscribeAttendance = () => {};
     let unsubscribeSessions = () => {};
 
-    // Load subgroups for color mapping
     async function loadSubgroups() {
         try {
             const subgroupsSnapshot = await getDocs(
@@ -106,7 +91,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         }
     }
 
-    // Render calendar function that gets called when data changes
+    // Kalender-Grid rendern (wird bei Datenänderungen aufgerufen)
     function renderCalendarGrid() {
         const allClubTrainings = allClubTrainingsCache;
         // Filter trainings by subgroup if a specific subgroup is selected
@@ -185,8 +170,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             let sessionsOnDay = sessionsPerDay.get(dateString) || [];
 
-            // IMPORTANT: Apply the same filter to sessions as to trainings for consistency
-            // If subgroup filter is active, only show sessions for that subgroup
+            // Gleichen Filter auf Sessions wie auf Trainings anwenden
             if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
                 sessionsOnDay = sessionsOnDay.filter(
                     session => session.subgroupId === subgroupFilter
@@ -197,7 +181,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             dayCell.className =
                 'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';
 
-            // Make clickable if there are sessions
+            // Klickbar machen wenn Sessions vorhanden
             if (sessionsOnDay.length > 0) {
                 dayCell.classList.add('cursor-pointer', 'hover:bg-gray-50');
                 dayCell.addEventListener('click', () => {
@@ -210,7 +194,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 });
             }
 
-            // Day number with status indicator
+            // Tageszahl mit Status-Indikator
             const dayNumber = document.createElement('div');
             dayNumber.className = 'flex items-center justify-between mb-2';
 
@@ -219,12 +203,12 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             dayText.textContent = day;
             dayNumber.appendChild(dayText);
 
-            // Status indicator
+            // Status-Indikator
             if (sessionsOnDay.length > 0) {
                 const statusIcon = document.createElement('span');
                 statusIcon.className = 'text-xs';
 
-                // Count how many sessions on this day the player attended
+                // Zählen wie viele Sessions der Spieler besucht hat
                 const attendedCount = sessionsOnDay.filter(session => {
                     const attendance = filteredTrainings.find(
                         t =>
@@ -236,7 +220,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                     return attendance !== undefined;
                 }).length;
 
-                // Count how many sessions are completed
+                // Zählen wie viele Sessions abgeschlossen sind
                 const completedCount = sessionsOnDay.filter(
                     session => session.completed === true
                 ).length;
@@ -244,22 +228,21 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 const totalRelevantSessions = sessionsOnDay.length;
 
                 if (attendedCount === totalRelevantSessions && totalRelevantSessions > 0) {
-                    // Attended ALL sessions
+                    // Alle Sessions besucht
                     statusIcon.textContent = '✓';
                     statusIcon.classList.add('text-green-600', 'font-bold');
                 } else if (attendedCount === 0 && totalRelevantSessions > 0) {
-                    // No sessions attended
                     if (completedCount === totalRelevantSessions) {
-                        // All completed - truly missed
+                        // Wirklich verpasst
                         statusIcon.textContent = '✗';
                         statusIcon.classList.add('text-red-600', 'font-bold');
                     } else {
-                        // Some/all not completed yet - pending
+                        // Noch ausstehend
                         statusIcon.textContent = '○';
                         statusIcon.classList.add('text-gray-400', 'font-bold');
                     }
                 } else if (attendedCount > 0 && attendedCount < totalRelevantSessions) {
-                    // Attended SOME sessions (partial attendance)
+                    // Teilweise besucht
                     statusIcon.textContent = '◐';
                     statusIcon.classList.add('text-orange-600', 'font-bold');
                 }
@@ -267,14 +250,14 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 dayNumber.appendChild(statusIcon);
             }
 
-            // Today indicator
+            // Heute-Markierung
             if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
                 dayCell.classList.add('ring-2', 'ring-indigo-500');
             }
 
             dayCell.appendChild(dayNumber);
 
-            // Add colored dots for sessions
+            // Farbige Punkte für Sessions
             if (sessionsOnDay.length > 0) {
                 const dotsContainer = document.createElement('div');
                 dotsContainer.className = 'flex gap-1 flex-wrap';
@@ -306,9 +289,8 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         }
     }
 
-    // Load subgroups first, then set up real-time listeners
+    // Untergruppen laden, dann Echtzeit-Listener einrichten
     loadSubgroups().then(() => {
-        // Set up real-time listener for training sessions
         const startDate = new Date(year, month, 1).toISOString().split('T')[0];
         const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
@@ -323,13 +305,11 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         unsubscribeSessions = onSnapshot(
             sessionsQuery,
             sessionsSnapshot => {
-                console.log('[Calendar] Training sessions updated in real-time');
                 allSessionsCache = sessionsSnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
                 }));
 
-                // Re-render calendar with updated sessions
                 renderCalendarGrid();
             },
             error => {
@@ -337,11 +317,9 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             }
         );
 
-        // Set up real-time listener for attendance data
         unsubscribeAttendance = onSnapshot(
             q,
             querySnapshot => {
-                console.log('[Calendar] Attendance data updated in real-time');
                 allClubTrainingsCache = querySnapshot.docs.map(doc => doc.data());
                 renderCalendarGrid();
             },
@@ -353,7 +331,6 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         );
     });
 
-    // Return combined unsubscribe function
     return () => {
         unsubscribeAttendance();
         unsubscribeSessions();
@@ -361,10 +338,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 }
 
 /**
- * Loads today's matches and training sessions for the player
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
+ * Lädt heutige Matches und Trainingssessions für den Spieler
  */
 export function loadTodaysMatches(userData, db, unsubscribes) {
     const container = document.getElementById('todays-matches-container');
@@ -423,7 +397,6 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
                 `;
                 sessionsListEl.appendChild(sessionEl);
 
-                // Load pairings for this session
                 loadPairingsForSession(session.id, userData, db);
             }
         } else {
@@ -433,7 +406,6 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
 
     unsubscribes.push(sessionsListener);
 
-    // Keep existing match loading (will be updated later for session-based matches)
     const matchDocRef = doc(db, 'trainingMatches', `${userData.clubId}_${today}`);
 
     const matchListener = onSnapshot(matchDocRef, docSnap => {
@@ -503,10 +475,7 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
 }
 
 /**
- * Loads and displays match pairings for a specific session
- * @param {string} sessionId - Session ID
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
+ * Lädt und zeigt Match-Paarungen für eine bestimmte Session
  */
 async function loadPairingsForSession(sessionId, userData, db) {
     const container = document.getElementById(`pairings-${sessionId}`);
@@ -516,7 +485,6 @@ async function loadPairingsForSession(sessionId, userData, db) {
         const pairingsDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
 
         if (!pairingsDoc.exists()) {
-            // No pairings yet
             return;
         }
 
@@ -575,11 +543,7 @@ async function loadPairingsForSession(sessionId, userData, db) {
 }
 
 /**
- * Opens the training day modal with session details
- * @param {string} dateString - Date in YYYY-MM-DD format
- * @param {Array} sessions - Array of training sessions
- * @param {Array} allTrainings - All attendance records
- * @param {string} playerId - Player ID
+ * Öffnet das Modal mit Trainingsdetails für einen Tag
  */
 function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
     const modal = document.getElementById('training-day-modal');
@@ -600,10 +564,7 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
 
     modalTitle.textContent = `Training am ${formattedDate}`;
 
-    // Build content
     let html = '<div class="space-y-3">';
-
-    // Get attendance data for this date
     const attendanceForDate = allTrainings.filter(t => t.date === dateString);
 
     sessions.forEach(session => {
@@ -611,8 +572,7 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
         const subgroupColor = subgroup ? subgroup.color : '#6366f1';
 
-        // Check if player attended THIS SPECIFIC SESSION
-        // IMPORTANT: Must check sessionId to distinguish multiple trainings on same day
+        // Prüfen ob Spieler an dieser spezifischen Session teilgenommen hat
         const attendance = attendanceForDate.find(a => {
             return (
                 a.sessionId === session.id &&
@@ -624,7 +584,6 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         const attended = attendance !== undefined;
         const isCompleted = session.completed === true;
 
-        // Determine status and styling
         let statusText, statusColor, bgColor, borderColor, icon;
         if (attended) {
             statusText = 'Teilgenommen';
@@ -707,14 +666,9 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
     html += '</div>';
 
     modalContent.innerHTML = html;
-
-    // Show modal
     modal.classList.remove('hidden');
 }
 
-/**
- * Closes the training day modal
- */
 function closeTrainingDayModal() {
     const modal = document.getElementById('training-day-modal');
     if (modal) {
@@ -722,7 +676,7 @@ function closeTrainingDayModal() {
     }
 }
 
-// Setup modal close handlers
+// Modal-Schließen-Handler einrichten
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
         const closeBtn = document.getElementById('close-training-day-modal');
@@ -730,7 +684,6 @@ if (typeof window !== 'undefined') {
             closeBtn.addEventListener('click', closeTrainingDayModal);
         }
 
-        // Close modal when clicking outside
         const modal = document.getElementById('training-day-modal');
         if (modal) {
             modal.addEventListener('click', e => {

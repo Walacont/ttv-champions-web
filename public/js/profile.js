@@ -1,3 +1,5 @@
+// Profil-Modul: Übersichtsdaten, Rivalen und Statistiken
+
 import {
     collection,
     getDocs,
@@ -10,18 +12,7 @@ import {
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
- * Profile Module
- * Handles player overview data, rival information, and profile statistics
- */
-
-/**
- * Loads overview data for the player (points, rivals, challenges, rank)
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {Function|null} loadRivalDataCallback - Callback to load rival data (optional)
- * @param {Function|null} loadChallengesCallback - Callback to load challenges (optional)
- * @param {Function|null} loadPointsHistoryCallback - Callback to load points history (optional)
+ * Lädt Übersichtsdaten für den Spieler (Punkte, Rivalen, Challenges, Rang)
  */
 export function loadOverviewData(
     userData,
@@ -31,10 +22,7 @@ export function loadOverviewData(
     loadChallengesCallback,
     loadPointsHistoryCallback
 ) {
-    // ⚠️ WICHTIG: Wir setzen KEINEN Listener für das User-Dokument hier auf,
-    // da das bereits in dashboard.js passiert!
-    // Wir zeigen nur die initialen Werte an:
-
+    // Kein Listener hier - wird bereits in dashboard.js gesetzt
     const playerPointsEl = document.getElementById('player-points');
     const playerXpEl = document.getElementById('player-xp');
     const playerEloEl = document.getElementById('player-elo');
@@ -43,14 +31,8 @@ export function loadOverviewData(
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
-    // Display current rank (wird automatisch durch dashboard.js aktualisiert)
     updateRankDisplay(userData);
 
-    // Display Grundlagen progress (wird jetzt in updateRankDisplay behandelt)
-    // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
-
-    // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
-    // Check if callback is provided before calling (rival data is loaded separately in dashboard.js)
     if (typeof loadRivalDataCallback === 'function') {
         loadRivalDataCallback(userData, db, unsubscribes);
     }
@@ -65,9 +47,7 @@ export function loadOverviewData(
 }
 
 /**
- * Updates the rank display in the overview section
- * ⚠️ Diese Funktion wird von dashboard.js aufgerufen, wenn sich userData ändert!
- * @param {Object} userData - User data with eloRating and xp
+ * Aktualisiert die Rang-Anzeige
  */
 export function updateRankDisplay(userData) {
     const rankInfoEl = document.getElementById('rank-info');
@@ -76,7 +56,6 @@ export function updateRankDisplay(userData) {
 
     if (!rankInfoEl) return;
 
-    // Get Grundlagen count from user data (defaults to 0)
     const grundlagenCount = userData.grundlagenCompleted || 0;
 
     const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
@@ -156,21 +135,12 @@ export function updateRankDisplay(userData) {
         }
     `;
 
-    // Update Elo display if element exists
     if (eloDisplayEl) eloDisplayEl.textContent = userData.eloRating || 0;
-
-    // Update XP display if element exists
     if (xpDisplayEl) xpDisplayEl.textContent = userData.xp || 0;
 }
 
 /**
- * Zeigt die Rivalen-Information für einen bestimmten Metrik (Skill oder Effort) an.
- * @param {string} metric - 'Skill' or 'Fleiß'
- * @param {Array} ranking - Die sortierte Spielerliste
- * @param {number} myRankIndex - Der Index des aktuellen Spielers (0-basiert)
- * @param {HTMLElement} el - Das HTML-Element, das befüllt werden soll
- * @param {number} myValue - Der Wert des aktuellen Spielers (z.B. seine Elo-Zahl)
- * @param {string} unit - Die Einheit (z.B. "Elo" oder "XP")
+ * Zeigt Rivalen-Information für Skill oder Fleiß an
  */
 function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
     if (!el) return;
@@ -184,7 +154,6 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
             <p class="text-sm">Du bist auf dem 1. Platz in ${metric}!</p>
         `;
     } else if (myRankIndex > 0) {
-        // Spieler ist nicht auf Platz 1
         const rival = ranking[myRankIndex - 1];
         const rivalValue = (unit === 'Elo' ? rival.eloRating : rival.xp) || 0;
         const pointsDiff = rivalValue - myValue;
@@ -197,37 +166,27 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
             </p>
         `;
     } else {
-        // Spieler nicht gefunden (sollte nicht passieren)
         el.innerHTML = `<p>Keine Ranglistendaten gefunden.</p>`;
     }
 }
 
 /**
- * Lädt Rivalen-Daten für Skill (Elo) und Effort (XP)
- * *** JETZT MIT onSnapshot FÜR ECHTZEIT-UPDATES ***
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {string} currentSubgroupFilter - Current subgroup filter ("club", "global", or subgroupId)
- * @returns {Function} Unsubscribe function for the listener
+ * Lädt Rivalen-Daten für Skill (Elo) und Effort (XP) mit Echtzeit-Updates
  */
 export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     const rivalSkillEl = document.getElementById('rival-skill-info');
     const rivalEffortEl = document.getElementById('rival-effort-info');
 
-    // 1. Determine query based on filter
     let q;
     if (currentSubgroupFilter === 'club') {
-        // Show all players and coaches in club
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
             where('role', 'in', ['player', 'coach'])
         );
     } else if (currentSubgroupFilter === 'global') {
-        // Show all players and coaches globally
         q = query(collection(db, 'users'), where('role', 'in', ['player', 'coach']));
     } else {
-        // Show players and coaches in specific subgroup
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
@@ -236,16 +195,11 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         );
     }
 
-    // *** onSnapshot für Echtzeit-Updates ***
     const rivalListener = onSnapshot(q, querySnapshot => {
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // 2. Erstelle zwei separate Ranglisten
-
-        // Skill-Rangliste (sortiert nach eloRating)
+        // Skill-Rangliste (sortiert nach Elo)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
-
-        // Finde den aktuellen User in der Liste (für aktuelle Werte)
         const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
         displayRivalInfo(
@@ -257,7 +211,7 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
             'Elo'
         );
 
-        // Effort-Rangliste (sortiert nach xp)
+        // Fleiß-Rangliste (sortiert nach XP)
         const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
         const myEffortIndex = effortRanking.findIndex(p => p.id === userData.id);
         displayRivalInfo(
@@ -270,27 +224,22 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         );
     });
 
-    // Return the unsubscribe function so caller can manage it
     return rivalListener;
 }
 
 /**
- * Updates the Grundlagen progress display
- * ⚠️ DEPRECATED: Diese Funktion wird nicht mehr verwendet, da Grundlagen jetzt in updateRankDisplay() angezeigt werden
- * @param {Object} userData - User data with grundlagenCompleted
+ * @deprecated Grundlagen werden jetzt in updateRankDisplay() angezeigt
  */
 export function updateGrundlagenDisplay(userData) {
     const grundlagenCard = document.getElementById('grundlagen-card');
     const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
     const grundlagenStatus = document.getElementById('grundlagen-status');
 
-    // ⚠️ Die 'grundlagen-card' existiert nicht mehr im neuen Design
     if (!grundlagenCard) return;
 
     const grundlagenCount = userData.grundlagenCompleted || 0;
     const grundlagenRequired = 5;
 
-    // Only show card if player hasn't completed all Grundlagen
     if (grundlagenCount < grundlagenRequired) {
         grundlagenCard.classList.remove('hidden');
         const progress = (grundlagenCount / grundlagenRequired) * 100;
@@ -313,17 +262,11 @@ export function updateGrundlagenDisplay(userData) {
 }
 
 /**
- * Loads profile data (streaks with real-time updates and renders calendar)
- * @param {Object} userData - User data
- * @param {Function} renderCalendarCallback - Callback to render calendar
- * @param {Date} currentDisplayDate - Current display date for calendar
- * @param {Object} db - Firestore database instance
- * @returns {Function} Unsubscribe function for the streaks listener
+ * Lädt Profildaten (Streaks mit Echtzeit-Updates und rendert Kalender)
  */
 export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
 
-    // Setup real-time listener for all streaks from subcollection
     if (streakEl && userData.id && db) {
         const streaksQuery = collection(db, `users/${userData.id}/streaks`);
 
@@ -333,7 +276,6 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                 if (snapshot.empty) {
                     streakEl.innerHTML = `<p class="text-sm text-gray-400">Noch keine Streaks</p>`;
                 } else {
-                    // Get all streaks with subgroup names
                     const streaksWithNames = [];
 
                     for (const streakDoc of snapshot.docs) {
@@ -341,7 +283,6 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                         const subgroupId = streakDoc.id;
                         const count = streakData.count || 0;
 
-                        // Load subgroup name
                         let subgroupName = 'Unbekannte Gruppe';
                         try {
                             const subgroupDocRef = doc(db, 'subgroups', subgroupId);
@@ -360,10 +301,7 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                         });
                     }
 
-                    // Sort by count (highest first)
                     streaksWithNames.sort((a, b) => b.count - a.count);
-
-                    // Display all streaks
                     streakEl.innerHTML = streaksWithNames
                         .map(streak => {
                             const iconSize =
@@ -395,13 +333,11 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
         );
 
         renderCalendarCallback(currentDisplayDate);
-
         return streaksListener;
     } else if (streakEl) {
-        // Fallback if no db provided
         streakEl.innerHTML = `<p class="text-sm text-gray-400">Keine Daten verfügbar</p>`;
     }
 
     renderCalendarCallback(currentDisplayDate);
-    return () => {}; // Empty unsubscribe function
+    return () => {};
 }
