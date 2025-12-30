@@ -555,9 +555,10 @@ export function isInAgeGroup(age, ageGroupId) {
     return false;
 }
 
-/** Filtert Spieler nach Altersgruppe */
+/** Filtert Spieler nach Altersgruppe (schließt Spieler ohne Geburtsdatum aus) */
 export function filterPlayersByAgeGroup(players, ageGroupId) {
     return players.filter(player => {
+        if (!player.birthdate) return false;
         const age = calculateAge(player.birthdate);
         return isInAgeGroup(age, ageGroupId);
     });
@@ -579,12 +580,12 @@ export function isGenderFilter(filterValue) {
     return GENDER_GROUPS.some(g => g.id === filterValue);
 }
 
-/** Filtert Spieler nach Geschlecht */
+/** Filtert Spieler nach Geschlecht (schließt Spieler ohne Geschlecht aus) */
 export function filterPlayersByGender(players, genderId) {
-    if (genderId === 'gender_all') return players;
+    if (genderId === 'gender_all' || genderId === 'all') return players;
 
     const genderGroup = GENDER_GROUPS.find(g => g.id === genderId);
     if (!genderGroup || !genderGroup.value) return players;
 
-    return players.filter(player => player.gender === genderGroup.value);
+    return players.filter(player => player.gender && player.gender === genderGroup.value);
 }

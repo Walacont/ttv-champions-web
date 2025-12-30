@@ -725,9 +725,8 @@ function setupFilters() {
                 currentLeaderboardScope = 'global';
                 // Pre-load following IDs
                 await loadFollowingIds();
-            } else {
-                // For age groups and subgroups - use global if user has no club
-                // This allows users without clubs to filter by age across all players
+            } else if (currentSubgroupFilter.startsWith('subgroup:')) {
+                // Custom subgroups - use club scope
                 currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             }
             updateLeaderboardScope();
@@ -799,7 +798,7 @@ function calculateAge(birthdate) {
 function matchesAgeGroup(birthdate, ageGroupFilter) {
     if (ageGroupFilter === 'all') return true;
     const age = calculateAge(birthdate);
-    if (age === null) return true; // Include players without birthdate
+    if (age === null) return false; // Exclude players without birthdate when filter is active
 
     // Youth groups (under X years) - stichtag-basiert like table tennis rules
     // U11 means player turns 11 or younger in current year
@@ -1120,6 +1119,14 @@ async function loadLeaderboards() {
                     </select>
                 </div>
                 <div class="flex items-center gap-2 flex-1 sm:flex-none">
+                    <label for="player-age-group-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        Alter:
+                    </label>
+                    <select id="player-age-group-filter" class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
+                        <option value="all">Alle</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2 flex-1 sm:flex-none">
                     <label for="player-gender-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
                         Geschlecht:
                     </label>
@@ -1350,9 +1357,14 @@ function renderRanksList() {
         }
     }
 
-    // Apply gender filter
+    // Apply age group filter (exclude players without birthdate when filter is active)
+    if (currentAgeGroupFilter !== 'all') {
+        players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
+    }
+
+    // Apply gender filter (exclude players without gender when filter is active)
     if (currentGenderFilter !== 'all') {
-        players = players.filter(p => p.gender === currentGenderFilter);
+        players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
 
     if (players.length === 0) {
@@ -1499,10 +1511,8 @@ function renderLeaderboardList() {
 
     let players = leaderboardCache[currentLeaderboardScope] || [];
 
-    // Determine filter type from currentSubgroupFilter
-    // Values can be: 'club', 'global', age group IDs (u11, u13, adult, o40, etc.), or 'subgroup:xxx'
-    const ageGroupIds = ['u11', 'u13', 'u15', 'u17', 'u19', 'adult', 'o40', 'o45', 'o50', 'o55', 'o60', 'o65', 'o70', 'o75', 'o80', 'o85'];
-
+    // Apply scope/subgroup filter from Ansicht dropdown
+    // Values can be: 'club', 'global', 'following', or 'subgroup:xxx'
     if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
         // Apply custom subgroup filter
         const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
@@ -1515,15 +1525,17 @@ function renderLeaderboardList() {
             // No following users - show only current user
             players = players.filter(p => p.id === currentUser.id);
         }
-    } else if (currentSubgroupFilter && ageGroupIds.includes(currentSubgroupFilter)) {
-        // Apply age group filter from Ansicht dropdown
-        players = players.filter(p => matchesAgeGroup(p.birthdate, currentSubgroupFilter));
     }
     // 'club' and 'global' don't filter - they just set the scope (which is handled by leaderboardCache[currentLeaderboardScope])
 
-    // Apply gender filter
+    // Apply age group filter (exclude players without birthdate when filter is active)
+    if (currentAgeGroupFilter !== 'all') {
+        players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
+    }
+
+    // Apply gender filter (exclude players without gender when filter is active)
     if (currentGenderFilter !== 'all') {
-        players = players.filter(p => p.gender === currentGenderFilter);
+        players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
 
     // Filter out players from test clubs (unless current user is from a test club)
@@ -4017,7 +4029,8 @@ function setupLeaderboardPreferences() {
 // ========================================================================
 
 /**
- * Populate player subgroup filter dropdown with age groups and custom subgroups
+ * Populate player subgroup filter dropdown with scope options and custom subgroups
+ * Age groups are now in a separate dropdown (player-age-group-filter)
  * @param {Object} userData - Current user data
  */
 async function populatePlayerSubgroupFilter(userData) {
@@ -4043,33 +4056,6 @@ async function populatePlayerSubgroupFilter(userData) {
 
     // Global option always available
     dropdown.appendChild(createOption('global', 'Global'));
-
-    // Add Youth Age Groups (always show for all users)
-    const youthGroup = document.createElement('optgroup');
-    youthGroup.label = 'Jugend (nach Alter)';
-    AGE_GROUPS.youth.forEach(group => {
-        const option = createOption(group.id, group.label);
-        youthGroup.appendChild(option);
-    });
-    dropdown.appendChild(youthGroup);
-
-    // Add Adults Age Group (always show for all users)
-    const adultsGroup = document.createElement('optgroup');
-    adultsGroup.label = 'Erwachsene';
-    AGE_GROUPS.adults.forEach(group => {
-        const option = createOption(group.id, group.label);
-        adultsGroup.appendChild(option);
-    });
-    dropdown.appendChild(adultsGroup);
-
-    // Add Senior Age Groups (always show for all users)
-    const seniorGroup = document.createElement('optgroup');
-    seniorGroup.label = 'Senioren (nach Alter)';
-    AGE_GROUPS.seniors.forEach(group => {
-        const option = createOption(group.id, group.label);
-        seniorGroup.appendChild(option);
-    });
-    dropdown.appendChild(seniorGroup);
 
     // Load and add custom subgroups if user has any (only for users with club)
     if (hasClub && subgroupIDs.length > 0) {
