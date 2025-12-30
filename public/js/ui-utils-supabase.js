@@ -763,10 +763,12 @@ export function isInAgeGroup(age, ageGroupId) {
  * Filters players by age group
  * @param {Array} players - Array of player objects with birthdate field
  * @param {string} ageGroupId - Age group ID (e.g., 'u15', 'o40')
- * @returns {Array} Filtered players
+ * @returns {Array} Filtered players (excludes players with null/missing birthdate)
  */
 export function filterPlayersByAgeGroup(players, ageGroupId) {
     return players.filter(player => {
+        // Exclude players without birthdate when age filter is active
+        if (!player.birthdate) return false;
         const age = calculateAge(player.birthdate);
         return isInAgeGroup(age, ageGroupId);
     });
@@ -800,14 +802,15 @@ export function isGenderFilter(filterValue) {
  * Filters players by gender
  * @param {Array} players - Array of player objects with gender field
  * @param {string} genderId - Gender ID ('gender_all', 'male', 'female')
- * @returns {Array} Filtered players
+ * @returns {Array} Filtered players (excludes players with null/missing gender when filter is active)
  */
 export function filterPlayersByGender(players, genderId) {
-    // 'gender_all' returns all players (no filtering)
-    if (genderId === 'gender_all') return players;
+    // 'gender_all' or 'all' returns all players (no filtering)
+    if (genderId === 'gender_all' || genderId === 'all') return players;
 
     const genderGroup = GENDER_GROUPS.find(g => g.id === genderId);
     if (!genderGroup || !genderGroup.value) return players;
 
-    return players.filter(player => player.gender === genderGroup.value);
+    // Exclude players without gender when gender filter is active
+    return players.filter(player => player.gender && player.gender === genderGroup.value);
 }
