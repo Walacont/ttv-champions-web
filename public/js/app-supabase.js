@@ -1,43 +1,37 @@
 /**
- * SC Champions SPA - Main Application Entry Point (Supabase Version)
- * Initializes the router and defines all routes
+ * SC Champions SPA - Haupteinstiegspunkt (Supabase Version)
  */
 
 import { router, viewLoader } from './router.js';
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { suppressConsoleLogs } from './utils/logger.js';
 
-// Suppress debug logs in production
+// Debug-Logs in Produktion unterdrücken
 suppressConsoleLogs();
 
-// Initialize Supabase
 const supabase = getSupabase();
 
-// Track loaded modules to prevent re-initialization
+// Module-Cache verhindert erneute Initialisierung bei Navigation
 const loadedModules = new Map();
 let currentModuleCleanup = null;
 
 /**
- * Load and execute a JavaScript module for a page
- * @param {string} modulePath - Path to the module
+ * Lädt ein Seiten-Modul und führt dessen Init- und Cleanup-Funktionen aus
+ * @param {string} modulePath - Pfad zum Modul
  */
 async function loadPageModule(modulePath) {
     try {
-        // Clean up previous module if it has cleanup function
         if (currentModuleCleanup) {
             await currentModuleCleanup();
             currentModuleCleanup = null;
         }
 
-        // Import the module dynamically
         const module = await import(modulePath + '?t=' + Date.now());
 
-        // If module exports a cleanup function, store it
         if (module.cleanup) {
             currentModuleCleanup = module.cleanup;
         }
 
-        // If module exports an init function, call it
         if (module.init) {
             await module.init();
         }
@@ -49,16 +43,14 @@ async function loadPageModule(modulePath) {
 }
 
 /**
- * Load a page view with its content
- * @param {string} htmlPath - Path to HTML file
- * @param {string} jsPath - Path to JS module (optional)
+ * Lädt eine Seite inkl. HTML, Styles und JS-Modul
+ * @param {string} htmlPath - Pfad zur HTML-Datei
+ * @param {string} jsPath - Pfad zum JS-Modul (optional)
  */
 async function loadPage(htmlPath, jsPath = null) {
-    // Show loader
     showLoader();
 
     try {
-        // Load HTML content
         const response = await fetch(htmlPath);
         if (!response.ok) {
             throw new Error(`Failed to load ${htmlPath}`);
@@ -66,17 +58,14 @@ async function loadPage(htmlPath, jsPath = null) {
 
         const html = await response.text();
 
-        // Parse HTML and extract body content
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        // Extract and update title
         const title = doc.querySelector('title');
         if (title) {
             document.title = title.textContent;
         }
 
-        // Extract styles from the page
         const styles = doc.querySelectorAll('style');
         const existingStyles = document.querySelectorAll('style[data-page]');
         existingStyles.forEach(style => style.remove());
@@ -88,27 +77,21 @@ async function loadPage(htmlPath, jsPath = null) {
             document.head.appendChild(newStyle);
         });
 
-        // Get body content and class
         const bodyContent = doc.body.innerHTML;
         const bodyClass = doc.body.className;
 
-        // Update body class
         document.body.className = bodyClass;
 
-        // Load content into container
         viewLoader.loadHTML(bodyContent);
 
-        // Extract and execute inline script modules from the original page
         const scripts = doc.querySelectorAll('script[type="module"]');
         scripts.forEach(script => {
             const src = script.getAttribute('src');
             if (src && jsPath && src.includes(jsPath.replace('/js/', ''))) {
-                // Load the module
                 loadPageModule(src);
             }
         });
 
-        // If jsPath explicitly provided, load it
         if (
             jsPath &&
             !Array.from(scripts).find(s =>
@@ -118,7 +101,6 @@ async function loadPage(htmlPath, jsPath = null) {
             await loadPageModule(jsPath);
         }
 
-        // Hide loader
         hideLoader();
     } catch (error) {
         console.error('Failed to load page:', error);
@@ -127,9 +109,6 @@ async function loadPage(htmlPath, jsPath = null) {
     }
 }
 
-/**
- * Show loading indicator
- */
 function showLoader() {
     const loader = document.getElementById('spa-loader');
     if (loader) {
@@ -137,9 +116,6 @@ function showLoader() {
     }
 }
 
-/**
- * Hide loading indicator
- */
 function hideLoader() {
     const loader = document.getElementById('spa-loader');
     if (loader) {
@@ -148,7 +124,7 @@ function hideLoader() {
 }
 
 /**
- * Check if user is authenticated
+ * Prüft Authentifizierung und leitet bei Fehler um
  */
 function requireAuth(redirectTo = '/') {
     return new Promise(async (resolve, reject) => {
@@ -169,19 +145,17 @@ function requireAuth(redirectTo = '/') {
     });
 }
 
-// Define all routes
 router
-    // Public routes
+    // Öffentliche Routen
     .on('/', async () => {
-        // Redirect to landing page (index.html) - kept separate from SPA
+        // Landing Page bleibt außerhalb der SPA
         window.location.href = '/index.html';
     })
     .on('/faq', async () => {
-        // FAQ can be loaded dynamically or kept separate
         window.location.href = '/faq.html';
     })
 
-    // Authentication routes
+    // Authentifizierung
     .on('/register', async () => {
         window.location.href = '/register.html';
     })
@@ -194,7 +168,7 @@ router
         }
     })
 
-    // Protected routes - Player (SPA routes)
+    // Geschützte Routen - Spieler (SPA)
     .on('/dashboard', async () => {
         try {
             await requireAuth('/');
@@ -212,7 +186,7 @@ router
         }
     })
 
-    // Protected routes - Coach
+    // Geschützte Routen - Trainer
     .on('/coach', async () => {
         try {
             await requireAuth('/');
@@ -222,7 +196,7 @@ router
         }
     })
 
-    // Protected routes - Admin
+    // Geschützte Routen - Admin
     .on('/admin', async () => {
         try {
             await requireAuth('/');
@@ -232,28 +206,25 @@ router
         }
     })
 
-    // 404 page
     .on('/404', async () => {
         window.location.href = '/404.html';
     });
 
-// Navigation guards
 router.beforeNavigate(async path => {
     console.log('Navigating to:', path);
-    return true; // Allow navigation
+    return true;
 });
 
 router.afterNavigate(async path => {
-    // Scroll to top on navigation
+    // Bei Navigation nach oben scrollen für bessere UX
     window.scrollTo(0, 0);
     console.log('Navigation complete:', path);
 });
 
-// Initialize the app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('SC Champions SPA (Supabase) initialized');
     router.start();
 });
 
-// Export for global access if needed
+// Globaler Zugriff für andere Module
 export { router, supabase, requireAuth };

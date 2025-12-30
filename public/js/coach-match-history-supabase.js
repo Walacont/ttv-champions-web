@@ -1,19 +1,11 @@
 /**
- * Coach Match History Module (Supabase Version)
- * Displays competition history for selected player
+ * Coach Match History Module - Wettkampf-Historie für ausgewählten Spieler
  */
 
-// ========================================================================
-// ===== POPULATE PLAYER DROPDOWN =====
-// ========================================================================
-
-// Store the subscription for cleanup
 let coachMatchHistorySubscriptions = [];
 
 /**
- * Populate the player filter dropdown for match history
- * @param {Array} clubPlayers - Array of club players
- * @param {Object} supabase - Supabase client instance
+ * Befüllt das Spieler-Dropdown für die Match-Historie
  */
 export function populateMatchHistoryPlayerDropdown(clubPlayers, supabase) {
     const select = document.getElementById('match-history-player-filter');
@@ -28,7 +20,6 @@ export function populateMatchHistoryPlayerDropdown(clubPlayers, supabase) {
         select.appendChild(option);
     });
 
-    // Add event listener for when player is selected
     select.addEventListener('change', e => {
         const playerId = e.target.value;
         if (playerId) {
@@ -43,13 +34,6 @@ export function populateMatchHistoryPlayerDropdown(clubPlayers, supabase) {
     });
 }
 
-// ========================================================================
-// ===== LOAD AND DISPLAY PLAYER MATCH HISTORY =====
-// ========================================================================
-
-/**
- * Clean up subscriptions
- */
 function cleanupSubscriptions() {
     coachMatchHistorySubscriptions.forEach(sub => {
         if (sub && typeof sub.unsubscribe === 'function') {
@@ -59,9 +43,7 @@ function cleanupSubscriptions() {
     coachMatchHistorySubscriptions = [];
 }
 
-/**
- * Maps singles match from Supabase (snake_case) to app format (camelCase)
- */
+/** Konvertiert Supabase Singles Match (snake_case) zu App-Format (camelCase) */
 function mapSinglesMatchFromSupabase(match) {
     return {
         id: match.id,
@@ -82,9 +64,7 @@ function mapSinglesMatchFromSupabase(match) {
     };
 }
 
-/**
- * Maps doubles match from Supabase (snake_case) to app format (camelCase)
- */
+/** Konvertiert Supabase Doubles Match (snake_case) zu App-Format (camelCase) */
 function mapDoublesMatchFromSupabase(match) {
     return {
         id: match.id,
@@ -109,10 +89,8 @@ function mapDoublesMatchFromSupabase(match) {
 }
 
 /**
- * Load and display match history for a specific player with real-time updates
- * @param {string} playerId - Player ID to load history for
- * @param {Object} supabase - Supabase client instance
- * @returns {Function} Unsubscribe function to stop listening
+ * Lädt Match-Historie für einen Spieler mit Echtzeit-Updates
+ * @returns {Function} Cleanup-Funktion
  */
 export async function loadCoachMatchHistory(playerId, supabase) {
     const container = document.getElementById('coach-match-history-list');
@@ -121,14 +99,12 @@ export async function loadCoachMatchHistory(playerId, supabase) {
         return;
     }
 
-    // Clean up existing subscriptions
     cleanupSubscriptions();
 
     container.innerHTML =
         '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
     try {
-        // Get player data first
         const { data: playerDoc, error: playerError } = await supabase
             .from('profiles')
             .select('*')
@@ -157,10 +133,8 @@ export async function loadCoachMatchHistory(playerId, supabase) {
             playerData.clubId
         );
 
-        // Function to fetch and render matches
         async function fetchAndRenderMatches() {
             try {
-                // Fetch SINGLES matches for this club
                 const { data: singlesData, error: singlesError } = await supabase
                     .from('matches')
                     .select('*')
@@ -170,7 +144,6 @@ export async function loadCoachMatchHistory(playerId, supabase) {
 
                 if (singlesError) console.error('Error fetching singles:', singlesError);
 
-                // Fetch DOUBLES matches for this club
                 const { data: doublesData, error: doublesError } = await supabase
                     .from('doubles_matches')
                     .select('*')
@@ -186,7 +159,6 @@ export async function loadCoachMatchHistory(playerId, supabase) {
                     (doublesData || []).length, 'doubles'
                 );
 
-                // Filter singles matches where player is involved
                 const singlesMatches = (singlesData || [])
                     .map(m => mapSinglesMatchFromSupabase(m))
                     .filter(match => {
@@ -199,7 +171,6 @@ export async function loadCoachMatchHistory(playerId, supabase) {
                         );
                     });
 
-                // Filter doubles matches where player is involved
                 const doublesMatches = (doublesData || [])
                     .map(m => mapDoublesMatchFromSupabase(m))
                     .filter(match => {
@@ -211,7 +182,6 @@ export async function loadCoachMatchHistory(playerId, supabase) {
                         );
                     });
 
-                // Combine all matches
                 const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
 
                 console.log(
@@ -225,21 +195,18 @@ export async function loadCoachMatchHistory(playerId, supabase) {
                     return;
                 }
 
-                // Sort by timestamp descending
                 allMatches.sort((a, b) => {
                     const timeA = new Date(a.timestamp || a.createdAt || 0).getTime();
                     const timeB = new Date(b.timestamp || b.createdAt || 0).getTime();
                     return timeB - timeA;
                 });
 
-                // Get opponent names and points for all matches
                 const matchesWithDetails = await Promise.all(
                     allMatches.map(match =>
                         enrichCoachMatchData(supabase, match, playerId, playerData)
                     )
                 );
 
-                // Render matches
                 renderCoachMatchHistory(container, matchesWithDetails, playerName);
 
             } catch (error) {
@@ -249,10 +216,8 @@ export async function loadCoachMatchHistory(playerId, supabase) {
             }
         }
 
-        // Initial fetch
         await fetchAndRenderMatches();
 
-        // Set up real-time subscriptions
         const singlesSubscription = supabase
             .channel('coach-match-history-singles')
             .on(
@@ -289,7 +254,6 @@ export async function loadCoachMatchHistory(playerId, supabase) {
 
         coachMatchHistorySubscriptions.push(doublesSubscription);
 
-        // Return cleanup function
         return () => cleanupSubscriptions();
 
     } catch (error) {
@@ -299,31 +263,20 @@ export async function loadCoachMatchHistory(playerId, supabase) {
     }
 }
 
-/**
- * Enrich match data with opponent name and ELO changes
- * @param {Object} supabase - Supabase client instance
- * @param {Object} match - Match data
- * @param {string} playerId - The player we're viewing history for
- * @param {Object} playerData - Player data
- * @returns {Object} Enriched match data
- */
+/** Reichert Match-Daten mit Gegnernamen und ELO-Änderungen an */
 async function enrichCoachMatchData(supabase, match, playerId, playerData) {
     const enriched = { ...match };
 
     try {
-        // Handle DOUBLES matches differently
         if (match.type === 'doubles') {
-            // Determine user's team and opponent team
             const isTeamA =
                 match.teamA?.player1Id === playerId || match.teamA?.player2Id === playerId;
             const userTeam = isTeamA ? match.teamA : match.teamB;
             const opponentTeam = isTeamA ? match.teamB : match.teamA;
 
-            // Get partner ID (the other player on user's team)
             const partnerId =
                 userTeam.player1Id === playerId ? userTeam.player2Id : userTeam.player1Id;
 
-            // Fetch all player names
             try {
                 const playerIds = [partnerId, opponentTeam.player1Id, opponentTeam.player2Id].filter(Boolean);
 
@@ -349,18 +302,14 @@ async function enrichCoachMatchData(supabase, match, playerId, playerData) {
                 enriched.opponentName = 'Gegner-Team';
             }
 
-            // Determine if user's team won
             enriched.isWinner =
                 (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
 
-            // For doubles, isPlayerA means isTeamA (for set formatting)
+            // isPlayerA = isTeamA wird für die Satz-Formatierung benötigt
             enriched.isPlayerA = isTeamA;
         } else {
-            // Handle SINGLES matches
-            // Determine opponent ID
             const opponentId = match.winnerId === playerId ? match.loserId : match.winnerId;
 
-            // Get opponent data
             const { data: opponentData, error } = await supabase
                 .from('profiles')
                 .select('first_name, last_name')
@@ -375,14 +324,10 @@ async function enrichCoachMatchData(supabase, match, playerId, playerData) {
                 enriched.opponentName = 'Unbekannt';
             }
 
-            // Determine if this player won
             enriched.isWinner = match.winnerId === playerId;
-
-            // Determine if this player is playerA
             enriched.isPlayerA = match.playerAId === playerId;
         }
 
-        // Get ELO change from pointsHistory
         let eloChange = null;
         let pointsGained = null;
 
@@ -427,7 +372,7 @@ async function enrichCoachMatchData(supabase, match, playerId, playerData) {
             console.warn('Could not fetch points history:', historyError);
         }
 
-        // If we couldn't find it in history, estimate from match data
+        // Falls nicht in Historie gefunden, aus Match-Daten schätzen
         if (eloChange === null) {
             if (match.pointsExchanged !== undefined) {
                 if (enriched.isWinner) {
@@ -454,12 +399,7 @@ async function enrichCoachMatchData(supabase, match, playerId, playerData) {
     return enriched;
 }
 
-/**
- * Render match history in the container (coach view)
- * @param {HTMLElement} container - Container element
- * @param {Array} matches - Array of match data
- * @param {string} playerName - Name of the player whose history is being viewed
- */
+/** Rendert die Match-Historie im Container (Coach-Ansicht) */
 function renderCoachMatchHistory(container, matches, playerName) {
     container.innerHTML = '';
 
@@ -474,10 +414,8 @@ function renderCoachMatchHistory(container, matches, playerName) {
         const formattedTime = formatMatchTime(matchTime);
         const formattedDate = formatMatchDate(matchTime);
 
-        // Format sets from player's perspective
         const setsDisplay = formatCoachSets(match.sets, match.isPlayerA, isDoubles);
 
-        // ELO change display
         const eloChangeDisplay =
             match.eloChange !== null
                 ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO`
@@ -553,26 +491,17 @@ function renderCoachMatchHistory(container, matches, playerName) {
     });
 }
 
-/**
- * Format sets for display (coach view - from player's perspective)
- * @param {Array} sets - Array of set objects with playerA/playerB or teamA/teamB scores
- * @param {boolean} isPlayerA - Whether the viewed player is playerA (for singles) or teamA (for doubles)
- * @param {boolean} isDoubles - Whether this is a doubles match
- * @returns {string} Formatted sets string
- */
+/** Formatiert Sätze aus Spieler-Perspektive (Coach-Ansicht) */
 function formatCoachSets(sets, isPlayerA, isDoubles) {
     if (!sets || sets.length === 0) return 'N/A';
 
     return sets
         .map(set => {
-            // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
             if (isDoubles || (set.teamA !== undefined && set.teamB !== undefined)) {
-                // Doubles match
                 const myScore = isPlayerA ? set.teamA : set.teamB;
                 const oppScore = isPlayerA ? set.teamB : set.teamA;
                 return `${myScore}:${oppScore}`;
             } else {
-                // Singles match
                 const myScore = isPlayerA ? set.playerA : set.playerB;
                 const oppScore = isPlayerA ? set.playerB : set.playerA;
                 return `${myScore}:${oppScore}`;
@@ -581,28 +510,20 @@ function formatCoachSets(sets, isPlayerA, isDoubles) {
         .join(', ');
 }
 
-/**
- * Format match time (HH:MM)
- * @param {Date} date - Date object
- * @returns {string} Formatted time
- */
+/** Formatiert Match-Zeit (HH:MM) */
 function formatMatchTime(date) {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
 }
 
-/**
- * Format match date
- * @param {Date} date - Date object
- * @returns {string} Formatted date
- */
+/** Formatiert Match-Datum (Heute, Gestern oder DD.MM.YYYY) */
 function formatMatchDate(date) {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time parts for comparison
+    // Zeitteile für Vergleich zurücksetzen
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(

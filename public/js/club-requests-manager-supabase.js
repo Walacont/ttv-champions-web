@@ -1,5 +1,4 @@
-// ===== Club Requests Manager for Coaches (Supabase Version) =====
-// This module manages club join/leave requests for coaches
+// ===== Verein-Anfragen Manager für Trainer (Supabase Version) =====
 
 import { formatDate } from './ui-utils.js';
 
@@ -9,9 +8,7 @@ let subscriptions = [];
 let reloadJoinRequests = null;
 let reloadLeaveRequests = null;
 
-/**
- * Maps club request from Supabase (snake_case) to app format (camelCase)
- */
+/** Konvertiert Supabase Format (snake_case) zu App Format (camelCase) */
 function mapClubRequestFromSupabase(request) {
     const playerName = request.player
         ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
@@ -30,9 +27,7 @@ function mapClubRequestFromSupabase(request) {
     };
 }
 
-/**
- * Maps leave request from Supabase (snake_case) to app format (camelCase)
- */
+/** Konvertiert Austrittsanfrage von Supabase Format zu App Format */
 function mapLeaveRequestFromSupabase(request) {
     const playerName = request.player
         ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
@@ -54,17 +49,15 @@ function mapLeaveRequestFromSupabase(request) {
     };
 }
 
-// Initialize club requests manager
 export async function initClubRequestsManager(userData, supabase) {
     currentUserData = userData;
     supabaseClient = supabase;
 
-    // Only load for coaches/head_coaches/admins
+    // Nur für Trainer, Haupttrainer und Admins verfügbar
     if (!['coach', 'head_coach', 'admin'].includes(userData.role)) {
         return;
     }
 
-    // Setup event delegation for join requests
     const joinRequestsContainer = document.getElementById('club-join-requests-list');
     if (joinRequestsContainer) {
         console.log('[ClubRequests] Setting up event delegation for join requests container');
@@ -73,7 +66,6 @@ export async function initClubRequestsManager(userData, supabase) {
         console.error('[ClubRequests] Join requests container not found!');
     }
 
-    // Setup event delegation for leave requests
     const leaveRequestsContainer = document.getElementById('leave-requests-list');
     if (leaveRequestsContainer) {
         console.log('[ClubRequests] Setting up event delegation for leave requests container');
@@ -82,13 +74,10 @@ export async function initClubRequestsManager(userData, supabase) {
         console.error('[ClubRequests] Leave requests container not found!');
     }
 
-    // Load club join requests
     loadClubJoinRequests();
-    // Load leave requests
     loadLeaveRequests();
 }
 
-// Event delegation handler for join requests
 async function handleJoinRequestClick(e) {
     console.log('[ClubRequests] Click detected on container, target:', e.target.tagName, e.target.className);
 
@@ -110,7 +99,6 @@ async function handleJoinRequestClick(e) {
     }
 }
 
-// Event delegation handler for leave requests
 async function handleLeaveRequestClick(e) {
     console.log('[ClubRequests] Click detected on leave container, target:', e.target.tagName, e.target.className);
 
@@ -134,7 +122,6 @@ async function handleLeaveRequestClick(e) {
     }
 }
 
-// Clean up subscriptions
 export function cleanupClubRequestsManager() {
     subscriptions.forEach(sub => {
         if (sub && typeof sub.unsubscribe === 'function') {
@@ -144,7 +131,6 @@ export function cleanupClubRequestsManager() {
     subscriptions = [];
 }
 
-// Load pending club join requests
 async function loadClubJoinRequests() {
     if (!supabaseClient || !currentUserData) return;
 
@@ -161,7 +147,6 @@ async function loadClubJoinRequests() {
 
             console.log('[ClubRequests] Found', data?.length || 0, 'pending join requests');
 
-            // Fetch player data for each request
             const requestsWithPlayerData = await Promise.all(
                 (data || []).map(async (request) => {
                     const { data: playerData } = await supabaseClient
@@ -184,13 +169,11 @@ async function loadClubJoinRequests() {
         }
     }
 
-    // Store reference for manual reload
+    // Referenz für manuelles Neuladen speichern
     reloadJoinRequests = fetchRequests;
 
-    // Initial fetch
     fetchRequests();
 
-    // Real-time subscription
     const subscription = supabaseClient
         .channel('club-join-requests')
         .on(
@@ -210,7 +193,6 @@ async function loadClubJoinRequests() {
     subscriptions.push(subscription);
 }
 
-// Load pending leave requests
 async function loadLeaveRequests() {
     if (!supabaseClient || !currentUserData) return;
 
@@ -227,7 +209,7 @@ async function loadLeaveRequests() {
 
             console.log('[ClubRequests] Found', data?.length || 0, 'pending leave requests');
 
-            // Fetch player data for each request (including role)
+            // Spielerdaten inkl. Rolle für jede Anfrage laden
             const requestsWithPlayerData = await Promise.all(
                 (data || []).map(async (request) => {
                     const { data: playerData } = await supabaseClient
@@ -250,13 +232,11 @@ async function loadLeaveRequests() {
         }
     }
 
-    // Store reference for manual reload
+    // Referenz für manuelles Neuladen speichern
     reloadLeaveRequests = fetchRequests;
 
-    // Initial fetch
     fetchRequests();
 
-    // Real-time subscription
     const subscription = supabaseClient
         .channel('leave-club-requests')
         .on(
@@ -276,7 +256,6 @@ async function loadLeaveRequests() {
     subscriptions.push(subscription);
 }
 
-// Display club join requests
 function displayClubJoinRequests(requests) {
     const container = document.getElementById('club-join-requests-list');
     if (!container) return;
@@ -321,7 +300,6 @@ function displayClubJoinRequests(requests) {
         .join('');
 }
 
-// Display leave requests
 function displayLeaveRequests(requests) {
     const container = document.getElementById('leave-requests-list');
     if (!container) return;
@@ -334,7 +312,7 @@ function displayLeaveRequests(requests) {
     container.innerHTML = requests
         .map(
             request => {
-                // Show warning if the leaving player is a coach
+                // Warnung anzeigen, wenn der austretende Spieler ein Trainer ist
                 const coachWarning = request.isCoach ? `
                     <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -384,14 +362,13 @@ function displayLeaveRequests(requests) {
         .join('');
 }
 
-// Approve club join request
 async function approveClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich genehmigen?')) return;
 
     try {
         console.log('[ClubRequests] Approving join request via RPC:', requestId);
 
-        // First get the player_id from the request for notification
+        // Spieler-ID für Benachrichtigung abrufen
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('club_requests')
             .select('player_id')
@@ -402,7 +379,7 @@ async function approveClubRequest(requestId) {
             console.error('Error fetching request data:', fetchError);
         }
 
-        // Call RPC function that bypasses RLS
+        // RPC-Funktion aufrufen (umgeht RLS-Policies)
         const { data, error } = await supabaseClient.rpc('approve_club_join_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
@@ -419,16 +396,13 @@ async function approveClubRequest(requestId) {
             throw new Error(data.error || 'Unbekannter Fehler');
         }
 
-        // Notify the player that their request was approved
         if (requestData?.player_id) {
             await notifyPlayer(requestData.player_id, 'club_join_approved',
                 'Beitrittsanfrage genehmigt',
                 'Deine Beitrittsanfrage wurde genehmigt. Willkommen im Verein!');
-            // Mark coach notifications as read
             await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
         }
 
-        // Manually reload the requests list
         if (reloadJoinRequests) {
             console.log('[ClubRequests] Reloading join requests list...');
             await reloadJoinRequests();
@@ -441,14 +415,13 @@ async function approveClubRequest(requestId) {
     }
 }
 
-// Reject club join request
 async function rejectClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich ablehnen?')) return;
 
     try {
         console.log('[ClubRequests] Rejecting join request via RPC:', requestId);
 
-        // First get the player_id from the request for notification
+        // Spieler-ID für Benachrichtigung abrufen
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('club_requests')
             .select('player_id')
@@ -459,7 +432,7 @@ async function rejectClubRequest(requestId) {
             console.error('Error fetching request data:', fetchError);
         }
 
-        // Call RPC function that bypasses RLS
+        // RPC-Funktion aufrufen (umgeht RLS-Policies)
         const { data, error } = await supabaseClient.rpc('reject_club_join_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
@@ -476,16 +449,13 @@ async function rejectClubRequest(requestId) {
             throw new Error(data.error || 'Unbekannter Fehler');
         }
 
-        // Notify the player that their request was rejected
         if (requestData?.player_id) {
             await notifyPlayer(requestData.player_id, 'club_join_rejected',
                 'Beitrittsanfrage abgelehnt',
                 'Deine Beitrittsanfrage wurde leider abgelehnt.');
-            // Mark coach notifications as read
             await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
         }
 
-        // Manually reload the requests list
         if (reloadJoinRequests) {
             console.log('[ClubRequests] Reloading join requests list...');
             await reloadJoinRequests();
@@ -498,7 +468,6 @@ async function rejectClubRequest(requestId) {
     }
 }
 
-// Helper function to notify a player
 async function notifyPlayer(playerId, type, title, message) {
     try {
         const { error } = await supabaseClient
@@ -522,10 +491,9 @@ async function notifyPlayer(playerId, type, title, message) {
     }
 }
 
-// Helper function to mark coach notifications as read when request is processed
+// Trainer-Benachrichtigungen als gelesen markieren, wenn die Anfrage bearbeitet wurde
 async function markCoachNotificationsAsRead(playerId, notificationType) {
     try {
-        // Find and mark all notifications for this request type and player as read
         const { error } = await supabaseClient
             .from('notifications')
             .update({ is_read: true })
@@ -543,9 +511,8 @@ async function markCoachNotificationsAsRead(playerId, notificationType) {
     }
 }
 
-// Approve leave request
 async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spieler') {
-    // Special confirmation for coaches
+    // Spezielle Bestätigung für Trainer, da diese herabgestuft werden
     let confirmMessage = 'Möchtest du diese Austrittsanfrage wirklich genehmigen?';
     if (isCoach) {
         confirmMessage = `⚠️ ACHTUNG: ${playerName} ist ein Trainer!\n\n` +
@@ -560,7 +527,7 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
     try {
         console.log('[ClubRequests] Approving leave request via RPC:', requestId, 'isCoach:', isCoach);
 
-        // First get the player_id from the request for notification
+        // Spieler-ID für Benachrichtigung abrufen
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('leave_club_requests')
             .select('player_id')
@@ -571,7 +538,7 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
             console.error('Error fetching request data:', fetchError);
         }
 
-        // Call RPC function that bypasses RLS
+        // RPC-Funktion aufrufen (umgeht RLS-Policies)
         const { data, error } = await supabaseClient.rpc('approve_club_leave_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
@@ -588,22 +555,18 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
             throw new Error(data.error || 'Unbekannter Fehler');
         }
 
-        // Notify the player that their leave request was approved
         if (requestData?.player_id) {
             await notifyPlayer(requestData.player_id, 'club_leave_approved',
                 'Austrittsanfrage genehmigt',
                 'Deine Austrittsanfrage wurde genehmigt. Du hast den Verein verlassen.');
-            // Mark coach notifications as read
             await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
         }
 
-        // Manually reload the requests list
         if (reloadLeaveRequests) {
             console.log('[ClubRequests] Reloading leave requests list...');
             await reloadLeaveRequests();
         }
 
-        // Show appropriate message
         if (isCoach) {
             alert(`${playerName} hat den Verein verlassen und wurde zum Spieler herabgestuft.`);
         } else {
@@ -615,14 +578,13 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
     }
 }
 
-// Reject leave request
 async function rejectLeaveRequest(requestId) {
     if (!confirm('Möchtest du diese Austrittsanfrage wirklich ablehnen?')) return;
 
     try {
         console.log('[ClubRequests] Rejecting leave request via RPC:', requestId);
 
-        // First get the player_id from the request for notification
+        // Spieler-ID für Benachrichtigung abrufen
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('leave_club_requests')
             .select('player_id')
@@ -633,7 +595,7 @@ async function rejectLeaveRequest(requestId) {
             console.error('Error fetching request data:', fetchError);
         }
 
-        // Call RPC function that bypasses RLS
+        // RPC-Funktion aufrufen (umgeht RLS-Policies)
         const { data, error } = await supabaseClient.rpc('reject_club_leave_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
@@ -650,16 +612,13 @@ async function rejectLeaveRequest(requestId) {
             throw new Error(data.error || 'Unbekannter Fehler');
         }
 
-        // Notify the player that their leave request was rejected
         if (requestData?.player_id) {
             await notifyPlayer(requestData.player_id, 'club_leave_rejected',
                 'Austrittsanfrage abgelehnt',
                 'Deine Austrittsanfrage wurde abgelehnt. Du bleibst Mitglied im Verein.');
-            // Mark coach notifications as read
             await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
         }
 
-        // Manually reload the requests list
         if (reloadLeaveRequests) {
             console.log('[ClubRequests] Reloading leave requests list...');
             await reloadLeaveRequests();

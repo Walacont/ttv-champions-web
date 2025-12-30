@@ -8,7 +8,6 @@ const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy
 let setScoreHandler = null;
 let selectedOpponent = null;
 
-/** Match-Formular und Eventhandler einrichten */
 export async function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
     const form = document.getElementById('match-request-form');
     const opponentSearchInput = document.getElementById('opponent-search-input');
@@ -111,7 +110,6 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
     window.clearOpponentSelection = () => clearOpponentSelection(currentUserData);
 }
 
-/** Gegner im selben Verein suchen */
 async function searchOpponents(query, resultsContainer, currentUser, currentUserData) {
     if (!currentUserData.club_id) {
         resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Du musst einem Verein beitreten um Wettkämpfe zu melden.</p>';
@@ -176,7 +174,6 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
     }
 }
 
-/** Gegner aus Suchergebnissen auswählen */
 function selectOpponent(optionElement, currentUserData) {
     const id = optionElement.dataset.id;
     const name = optionElement.dataset.name;
@@ -201,7 +198,6 @@ function selectOpponent(optionElement, currentUserData) {
     checkHandicap(currentUserData);
 }
 
-/** Gegnerauswahl zurücksetzen */
 function clearOpponentSelection(currentUserData) {
     selectedOpponent = null;
     const opponentIdEl = document.getElementById('selected-opponent-id');
@@ -217,7 +213,6 @@ function clearOpponentSelection(currentUserData) {
     if (handicapInfo) handicapInfo.classList.add('hidden');
 }
 
-/** Handicap-Empfehlung prüfen und anzeigen */
 function checkHandicap(currentUserData) {
     const handicapInfo = document.getElementById('match-handicap-info');
     const handicapText = document.getElementById('match-handicap-text');
@@ -240,7 +235,6 @@ function checkHandicap(currentUserData) {
     }
 }
 
-/** Match-Anfrage erstellen */
 async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) {
     const feedbackEl = document.getElementById('match-request-feedback');
 
@@ -305,7 +299,7 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
                 status: 'pending_player',
                 is_cross_club: isCrossClub,
                 approvals: JSON.stringify({
-                    player_a: true, // Anfragender bestätigt automatisch
+                    player_a: true,  // Anfragender bestätigt automatisch
                     player_b: false,
                     coach_a: null,
                     coach_b: null
@@ -330,7 +324,6 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
     }
 }
 
-/** Feedback-Nachricht anzeigen */
 function showFeedback(element, message, type) {
     if (!element) return;
 
@@ -347,7 +340,6 @@ function showFeedback(element, message, type) {
     }, 5000);
 }
 
-/** Satz-Score-Eingabe erstellen (Tischtennis) */
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
     container.innerHTML = '';
 
@@ -461,7 +453,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
         }
 
-        // Check that no player has MORE than setsToWin (match should end when someone wins)
+        // Match muss enden, wenn jemand die erforderliche Anzahl Sätze gewonnen hat
         if (playerAWins > setsToWin || playerBWins > setsToWin) {
             return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
         }
@@ -541,7 +533,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     };
 }
 
-/** Satz-Score-Eingabe erstellen (Tennis/Padel) */
 export function createTennisScoreInput(container, existingSets = [], options = {}) {
     const { mode = 'best-of-3', goldenPoint = false, matchTieBreak = false } = options;
 
@@ -814,7 +805,7 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
         }
 
-        // Check that no player has MORE than setsToWin (match should end when someone wins)
+        // Match muss enden, wenn jemand die erforderliche Anzahl Sätze gewonnen hat
         if (playerAWins > setsToWin || playerBWins > setsToWin) {
             return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
         }
@@ -835,7 +826,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return null;
         }
 
-        // For timed/pro-set mode
         if (isTimedMode || isProSetMode) {
             const set = filledSets[0];
             if (set.playerA > set.playerB) {
@@ -847,7 +837,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return null;
         }
 
-        // Calculate wins
         let playerAWins = 0;
         let playerBWins = 0;
 
@@ -857,7 +846,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             if (winner === 'B') playerBWins++;
         });
 
-        // Check if someone has won
         if (playerAWins >= setsToWin) {
             return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
         }
@@ -865,7 +853,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
         }
 
-        // No winner yet, but return current score if there are any wins
         if (playerAWins > 0 || playerBWins > 0) {
             return { winner: null, setsA: playerAWins, setsB: playerBWins };
         }
@@ -880,23 +867,16 @@ export function createTennisScoreInput(container, existingSets = [], options = {
         refresh: renderSets,
         reset,
         getMatchWinner,
-        mode // Export mode for reference
+        mode
     };
 }
 
-/**
- * Creates a Badminton score input component
- * Badminton uses Rally-Point system: First to 21, must win by 2, maximum 30
- * @param {HTMLElement} container - Container element for the score inputs
- * @param {Array} existingSets - Existing set scores (optional)
- * @param {string} mode - Match mode (always 'best-of-3' for badminton)
- * @returns {Object} API for getting, validating sets
- */
+/** Badminton Score-Eingabe: Rally-Point bis 21, 2 Punkte Vorsprung, Maximum 30 */
 export function createBadmintonScoreInput(container, existingSets = [], mode = 'best-of-3') {
     container.innerHTML = '';
 
     let minSets, maxSets, setsToWin;
-    // Badminton is always Best of 3
+    // Badminton ist immer Best of 3
     minSets = 2;
     maxSets = 3;
     setsToWin = 2;
@@ -906,38 +886,27 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
         sets.push({ playerA: '', playerB: '' });
     }
 
-    /**
-     * Validates if a set score is valid according to badminton rules
-     * - Standard: First to 21 points, must win by 2
-     * - At 20:20: Continue until 2-point lead OR someone reaches 30
-     * - Maximum: 30:29 (the 30th point is the hard limit)
-     */
+    // Badminton-Regeln: 21 Punkte mit 2 Punkten Vorsprung, bei 20:20 bis 30 (Hardlimit)
     function isValidSet(scoreA, scoreB) {
         const a = parseInt(scoreA) || 0;
         const b = parseInt(scoreB) || 0;
 
-        // Empty set is not valid
         if (a === 0 && b === 0) return false;
-
-        // At least one player must reach 21 or higher
         if (a < 21 && b < 21) return false;
 
-        // Check for 2-point lead
         const diff = Math.abs(a - b);
 
-        // Normal win: 21+ with 2-point lead
         if (diff >= 2) {
-            // Maximum score is 30
+            // Maximum 30 Punkte
             if (a > 30 || b > 30) return false;
             return true;
         }
 
-        // Special case: 30:29 is valid (hard limit)
+        // Spezialfall: 30:29 ist gültig (Hardlimit)
         if ((a === 30 && b === 29) || (b === 30 && a === 29)) {
             return true;
         }
 
-        // Otherwise need 2-point lead
         return false;
     }
 
@@ -1028,7 +997,7 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
             return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
         }
 
-        // Check that no player has MORE than setsToWin (match should end when someone wins)
+        // Match muss enden, wenn jemand die erforderliche Anzahl Sätze gewonnen hat
         if (playerAWins > setsToWin || playerBWins > setsToWin) {
             return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
         }
@@ -1049,7 +1018,6 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
             return null;
         }
 
-        // Calculate wins
         let playerAWins = 0;
         let playerBWins = 0;
 
@@ -1059,7 +1027,6 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
             if (winner === 'B') playerBWins++;
         });
 
-        // Check if someone has won
         if (playerAWins >= setsToWin) {
             return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
         }
@@ -1067,7 +1034,6 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
             return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
         }
 
-        // No winner yet, but return current score if there are any wins
         if (playerAWins > 0 || playerBWins > 0) {
             return { winner: null, setsA: playerAWins, setsB: playerBWins };
         }
@@ -1085,9 +1051,6 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
     };
 }
 
-/**
- * Load pending match requests
- */
 export async function loadPendingRequests(currentUser) {
     const container = document.getElementById('pending-result-requests-list');
     if (!container) return;
@@ -1107,7 +1070,6 @@ export async function loadPendingRequests(currentUser) {
             return;
         }
 
-        // Get player profiles
         const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
         const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
         const profileMap = {};
@@ -1159,9 +1121,6 @@ export async function loadPendingRequests(currentUser) {
     }
 }
 
-/**
- * Load match history
- */
 export async function loadMatchHistory(currentUser) {
     const container = document.getElementById('match-history-list');
     if (!container) return;
@@ -1181,7 +1140,6 @@ export async function loadMatchHistory(currentUser) {
             return;
         }
 
-        // Get player profiles
         const userIds = [...new Set(matches.flatMap(m => [m.player_a_id, m.player_b_id]))];
         const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
         const profileMap = {};
@@ -1220,17 +1178,11 @@ export async function loadMatchHistory(currentUser) {
     }
 }
 
-/**
- * Format sets for display
- */
 export function formatSetsDisplay(sets) {
     if (!sets || sets.length === 0) return 'Keine Sätze';
     return sets.map((set) => `${set.playerA || set.teamA || 0}:${set.playerB || set.teamB || 0}`).join(', ');
 }
 
-/**
- * Respond to match request (accept/reject)
- */
 export async function respondToMatchRequest(requestId, accept, callbacks = {}) {
     try {
         const newStatus = accept ? 'pending_coach' : 'rejected';
@@ -1252,9 +1204,6 @@ export async function respondToMatchRequest(requestId, accept, callbacks = {}) {
     }
 }
 
-/**
- * Delete match request
- */
 export async function deleteMatchRequest(requestId, currentUser, callbacks = {}) {
     if (!confirm('Möchtest du diese Anfrage wirklich zurückziehen?')) return;
 
@@ -1277,9 +1226,6 @@ export async function deleteMatchRequest(requestId, currentUser, callbacks = {})
     }
 }
 
-/**
- * Setup match suggestions toggle
- */
 function setupMatchSuggestions(currentUser, currentUserData) {
     const toggleBtn = document.getElementById('toggle-match-suggestions');
     const content = document.getElementById('match-suggestions-content');
@@ -1298,9 +1244,6 @@ function setupMatchSuggestions(currentUser, currentUserData) {
     }
 }
 
-/**
- * Load match suggestions
- */
 export async function loadMatchSuggestions(currentUser, currentUserData) {
     const container = document.getElementById('match-suggestions-list');
     if (!container || !currentUserData.club_id) return;
@@ -1308,7 +1251,6 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
     container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
 
     try {
-        // Get club members
         const { data: clubMembers, error } = await supabase
             .from('profiles')
             .select('id, display_name, avatar_url, elo_rating')
@@ -1324,7 +1266,7 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
             return;
         }
 
-        // Get recent matches to exclude players we've played recently
+        // Kürzlich gespielte Matches laden, um diese Spieler zu deprioritisieren
         const { data: recentMatches } = await supabase
             .from('matches')
             .select('player_a_id, player_b_id')
@@ -1338,7 +1280,7 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
             else recentOpponents.add(m.player_a_id);
         });
 
-        // Prioritize players we haven't played recently
+        // Spieler priorisieren, die wir noch nicht kürzlich gespielt haben
         const suggestions = clubMembers
             .map(p => ({ ...p, playedRecently: recentOpponents.has(p.id) }))
             .sort((a, b) => (a.playedRecently ? 1 : 0) - (b.playedRecently ? 1 : 0))

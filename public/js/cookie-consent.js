@@ -1,25 +1,21 @@
 /**
- * Cookie Consent Manager
- * GDPR-compliant cookie consent for Google Analytics 4
+ * GDPR-konformes Cookie-Consent-Management für Google Analytics 4
  */
 
 (function() {
     'use strict';
 
     const CONSENT_KEY = 'cookie_consent';
-    const CONSENT_EXPIRY_DAYS = 365; // 1 Jahr
+    const CONSENT_EXPIRY_DAYS = 365; // Gültigkeit der Einwilligung
     const GA_MEASUREMENT_ID = 'G-Z3R3M51GJX';
 
-    /**
-     * Get stored consent
-     */
+    /** Gespeicherte Einwilligung aus localStorage abrufen */
     function getConsent() {
         try {
             const consent = localStorage.getItem(CONSENT_KEY);
             if (!consent) return null;
 
             const data = JSON.parse(consent);
-            // Check if expired
             if (data.expiry && new Date().getTime() > data.expiry) {
                 localStorage.removeItem(CONSENT_KEY);
                 return null;
@@ -30,9 +26,7 @@
         }
     }
 
-    /**
-     * Save consent
-     */
+    /** Einwilligung in localStorage speichern */
     function saveConsent(accepted) {
         const expiry = new Date().getTime() + (CONSENT_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         const data = {
@@ -43,20 +37,15 @@
         localStorage.setItem(CONSENT_KEY, JSON.stringify(data));
     }
 
-    /**
-     * Load Google Analytics 4
-     */
+    /** Google Analytics 4 laden */
     function loadGA4() {
-        // Check if already loaded
         if (window.gtag) return;
 
-        // Load gtag.js
         const script = document.createElement('script');
         script.async = true;
         script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
         document.head.appendChild(script);
 
-        // Initialize gtag
         window.dataLayer = window.dataLayer || [];
         window.gtag = function() { dataLayer.push(arguments); };
         gtag('js', new Date());
@@ -65,11 +54,8 @@
         console.log('[Cookie Consent] Google Analytics 4 loaded');
     }
 
-    /**
-     * Remove GA4 cookies (when rejected)
-     */
+    /** GA4-Cookies entfernen bei Ablehnung */
     function removeGA4Cookies() {
-        // Remove GA cookies
         const cookies = document.cookie.split(';');
         for (let cookie of cookies) {
             const name = cookie.split('=')[0].trim();
@@ -80,11 +66,8 @@
         }
     }
 
-    /**
-     * Create and show cookie banner
-     */
+    /** Cookie-Banner erstellen und anzeigen */
     function showBanner() {
-        // Don't show if already exists
         if (document.getElementById('cookie-banner')) return;
 
         const banner = document.createElement('div');
@@ -111,7 +94,6 @@
             </div>
         `;
 
-        // Add styles
         const styles = document.createElement('style');
         styles.textContent = `
             #cookie-banner {
@@ -201,7 +183,6 @@
         document.head.appendChild(styles);
         document.body.appendChild(banner);
 
-        // Event listeners
         document.getElementById('cookie-accept').addEventListener('click', function() {
             saveConsent(true);
             loadGA4();
@@ -215,9 +196,7 @@
         });
     }
 
-    /**
-     * Hide cookie banner
-     */
+    /** Cookie-Banner ausblenden */
     function hideBanner() {
         const banner = document.getElementById('cookie-banner');
         if (banner) {
@@ -228,43 +207,34 @@
         }
     }
 
-    /**
-     * Initialize consent manager
-     */
+    /** Consent-Manager initialisieren */
     function init() {
         const consent = getConsent();
 
         if (consent === null) {
-            // No consent yet - show banner
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', showBanner);
             } else {
                 showBanner();
             }
         } else if (consent.analytics === true) {
-            // User accepted - load GA4
             loadGA4();
         }
-        // If consent.analytics === false, do nothing (no GA4)
+        // Bei Ablehnung (false) wird GA4 nicht geladen
     }
 
-    /**
-     * Allow user to change consent (can be called from settings page)
-     */
+    /** Einwilligung zurücksetzen - kann von Einstellungsseite aufgerufen werden */
     window.resetCookieConsent = function() {
         localStorage.removeItem(CONSENT_KEY);
         removeGA4Cookies();
         showBanner();
     };
 
-    /**
-     * Check if analytics is enabled
-     */
+    /** Prüfen, ob Analytics aktiviert ist */
     window.isAnalyticsEnabled = function() {
         const consent = getConsent();
         return consent && consent.analytics === true;
     };
 
-    // Initialize
     init();
 })();

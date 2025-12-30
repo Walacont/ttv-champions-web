@@ -1,6 +1,4 @@
-// Push Notifications Manager
-// Handles FCM token registration with Supabase and notification preferences
-// Uses OneSignal for PWA push notifications
+// Push Notifications Manager - verwaltet FCM-Tokens und OneSignal für PWA
 
 import { getSupabase } from './supabase-init.js';
 import {
@@ -16,21 +14,19 @@ let currentUserId = null;
 let tokenSaveTimeout = null;
 
 /**
- * Initialize push notifications for a logged-in user
- * @param {string} userId - The user's ID
+ * Initialisiert Push-Benachrichtigungen für einen angemeldeten Benutzer
+ * @param {string} userId - Benutzer-ID
  */
 export async function initPushNotifications(userId) {
     if (!userId) return;
     currentUserId = userId;
 
-    // For native apps, use FCM
+    // Native Apps verwenden FCM, PWA verwendet OneSignal
     if (window.CapacitorUtils?.isNative()) {
-        // Check if we already have a token waiting
         if (window.pushToken) {
             await savePushToken(window.pushToken);
         }
 
-        // Listen for new tokens
         window.addEventListener('push-token-received', async (event) => {
             const token = event.detail?.token;
             if (token && currentUserId) {
@@ -38,16 +34,12 @@ export async function initPushNotifications(userId) {
             }
         });
 
-        // Listen for push notifications in foreground
         window.addEventListener('push-notification-received', (event) => {
             const notification = event.detail;
             showInAppNotification(notification);
         });
     } else {
-        // For PWA/Web, use OneSignal
         await initOneSignal();
-
-        // Sync user with OneSignal
         const db = getSupabase();
         if (db) {
             const { data: profile } = await db
@@ -66,13 +58,13 @@ export async function initPushNotifications(userId) {
 }
 
 /**
- * Save push token to Supabase (for native apps)
- * @param {string} token - The FCM/APNs token
+ * Speichert Push-Token in Supabase (nur für native Apps)
+ * @param {string} token - FCM/APNs Token
  */
 async function savePushToken(token) {
     if (!currentUserId || !token) return;
 
-    // Debounce token saves to avoid multiple updates
+    // Debouncing verhindert mehrfache Updates in kurzer Zeit
     if (tokenSaveTimeout) {
         clearTimeout(tokenSaveTimeout);
     }
@@ -106,28 +98,26 @@ async function savePushToken(token) {
 }
 
 /**
- * Request push notification permission and register
- * @returns {Promise<boolean>} - Whether permission was granted
+ * Fordert Berechtigung für Push-Benachrichtigungen an
+ * @returns {Promise<boolean>} - Ob die Berechtigung erteilt wurde
  */
 export async function requestPushPermission() {
     console.log('[Push] requestPushPermission called');
 
     try {
-        // For native apps, use Capacitor
         if (window.CapacitorUtils?.isNative()) {
             console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
             const granted = await window.CapacitorUtils.requestPushPermission();
             console.log('[Push] Permission result:', granted);
 
             if (granted && currentUserId) {
-                // Token will be received via the event listener
+                // Token wird über Event-Listener empfangen
                 console.log('[Push] Permission granted, waiting for token...');
             }
 
             return granted;
         }
 
-        // For PWA/Web, use OneSignal
         console.log('[Push] Using OneSignal for PWA...');
         const granted = await requestOneSignalPermission();
         console.log('[Push] OneSignal permission result:', granted);
@@ -139,21 +129,19 @@ export async function requestPushPermission() {
 }
 
 /**
- * Check if push notifications are enabled
+ * Prüft, ob Push-Benachrichtigungen aktiviert sind
  * @returns {Promise<boolean>}
  */
 export async function isPushEnabled() {
-    // For native apps, use Capacitor
     if (window.CapacitorUtils?.isNative()) {
         return await window.CapacitorUtils?.isPushEnabled() || false;
     }
 
-    // For PWA/Web, check OneSignal
     return await isOneSignalEnabled();
 }
 
 /**
- * Disable push notifications for this user
+ * Deaktiviert Push-Benachrichtigungen für den Benutzer
  */
 export async function disablePushNotifications() {
     if (!currentUserId) return;
@@ -162,7 +150,6 @@ export async function disablePushNotifications() {
         const db = getSupabase();
         if (!db) return;
 
-        // For native apps
         if (window.CapacitorUtils?.isNative()) {
             await db
                 .from('profiles')
@@ -172,7 +159,7 @@ export async function disablePushNotifications() {
                 })
                 .eq('id', currentUserId);
         } else {
-            // For PWA - use OneSignal opt out
+            // PWA verwendet OneSignal Opt-Out
             await optOutOneSignal();
         }
 
@@ -183,8 +170,8 @@ export async function disablePushNotifications() {
 }
 
 /**
- * Update notification preferences
- * @param {Object} preferences - Notification preferences object
+ * Aktualisiert Benachrichtigungseinstellungen
+ * @param {Object} preferences - Benachrichtigungseinstellungen
  */
 export async function updateNotificationPreferences(preferences) {
     if (!currentUserId) return;
@@ -208,7 +195,7 @@ export async function updateNotificationPreferences(preferences) {
 }
 
 /**
- * Get notification preferences
+ * Gibt die Benachrichtigungseinstellungen zurück
  * @returns {Promise<Object>}
  */
 export async function getNotificationPreferences() {
@@ -238,7 +225,7 @@ export async function getNotificationPreferences() {
 }
 
 /**
- * Get default notification preferences
+ * Gibt Standard-Benachrichtigungseinstellungen zurück
  */
 function getDefaultPreferences() {
     return {
@@ -254,14 +241,13 @@ function getDefaultPreferences() {
 }
 
 /**
- * Show in-app notification when a push is received in foreground
- * @param {Object} notification - The notification object
+ * Zeigt In-App-Benachrichtigung bei Push im Vordergrund
+ * @param {Object} notification - Benachrichtigungsobjekt
  */
 function showInAppNotification(notification) {
     const title = notification.title || 'SC Champions';
     const body = notification.body || '';
 
-    // Create toast notification
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 left-4 sm:left-auto sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-[9999] transform translate-y-0 opacity-100 transition-all duration-300';
     toast.innerHTML = `
@@ -281,23 +267,22 @@ function showInAppNotification(notification) {
         </div>
     `;
 
-    // Add safe area padding on native apps
+    // Safe Area Padding für native Apps (wegen Notch/Statusleiste)
     if (window.CapacitorUtils?.isNative()) {
         toast.style.marginTop = 'max(env(safe-area-inset-top, 16px), 16px)';
     }
 
     document.body.appendChild(toast);
 
-    // Auto-remove after 5 seconds
+    // Automatisches Entfernen nach 5 Sekunden
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(-20px)';
         setTimeout(() => toast.remove(), 300);
     }, 5000);
 
-    // Handle click to navigate
     toast.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return; // Don't navigate if clicking close button
+        if (e.target.closest('button')) return; // Nicht navigieren beim Schließen-Button
 
         const data = notification.data;
         if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
@@ -313,7 +298,7 @@ function showInAppNotification(notification) {
 }
 
 /**
- * Escape HTML to prevent XSS
+ * Escapet HTML zur XSS-Prävention
  */
 function escapeHtml(text) {
     if (!text) return '';
@@ -323,15 +308,12 @@ function escapeHtml(text) {
 }
 
 /**
- * Show push notification permission prompt
- * @returns {Promise<boolean>} - Whether user enabled notifications
+ * Zeigt Berechtigungsdialog für Push-Benachrichtigungen
+ * @returns {Promise<boolean>} - Ob Benachrichtigungen aktiviert wurden
  */
 export async function showPushPermissionPrompt() {
     return new Promise((resolve) => {
-        // Check if already enabled or denied
-        if (window.CapacitorUtils?.isNative()) {
-            // For native, we'll show the prompt
-        } else if ('Notification' in window) {
+        if (!window.CapacitorUtils?.isNative() && 'Notification' in window) {
             if (Notification.permission === 'granted') {
                 resolve(true);
                 return;
@@ -342,7 +324,6 @@ export async function showPushPermissionPrompt() {
             }
         }
 
-        // Create modal
         const modal = document.createElement('div');
         modal.id = 'push-permission-modal';
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4';
@@ -368,7 +349,6 @@ export async function showPushPermissionPrompt() {
 
         document.body.appendChild(modal);
 
-        // Handle enable button
         document.getElementById('enable-push-btn').addEventListener('click', async () => {
             console.log('[Push] Enable button clicked');
             modal.remove();
@@ -382,10 +362,9 @@ export async function showPushPermissionPrompt() {
             }
         });
 
-        // Handle skip button
         document.getElementById('skip-push-btn').addEventListener('click', () => {
             modal.remove();
-            // Store that user skipped, increment counter
+            // Speichern, dass Benutzer übersprungen hat (für verzögertes erneutes Fragen)
             localStorage.setItem('push_prompt_skipped', Date.now().toString());
             const currentCount = parseInt(localStorage.getItem('push_prompt_skip_count') || '0');
             localStorage.setItem('push_prompt_skip_count', (currentCount + 1).toString());
@@ -395,47 +374,43 @@ export async function showPushPermissionPrompt() {
 }
 
 /**
- * Check if we should show the push permission prompt
+ * Prüft, ob der Berechtigungsdialog angezeigt werden soll
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
-    // Don't show if already have a token (native)
+    // Nicht anzeigen, wenn bereits Token vorhanden (native)
     if (window.pushToken) return false;
 
-    // Check if user permanently dismissed (clicked "Später" 3 times or "Nicht mehr fragen")
+    // Nicht anzeigen, wenn dauerhaft abgelehnt (3x "Später" geklickt)
     const dismissedPermanently = localStorage.getItem('push_prompt_dismissed_permanently');
     if (dismissedPermanently === 'true') return false;
 
-    // Check if user recently skipped
     const skippedTime = localStorage.getItem('push_prompt_skipped');
     const skipCount = parseInt(localStorage.getItem('push_prompt_skip_count') || '0');
 
     if (skippedTime) {
         const daysSinceSkip = (Date.now() - parseInt(skippedTime)) / (1000 * 60 * 60 * 24);
-        // After 3 skips, don't ask again (user clearly doesn't want it)
+        // Nach 3x Überspringen nicht mehr fragen (Benutzer will es offensichtlich nicht)
         if (skipCount >= 3) {
             localStorage.setItem('push_prompt_dismissed_permanently', 'true');
             return false;
         }
-        // Wait longer each time (7 days, then 14, then 30)
+        // Wartezeit verlängert sich bei jedem Überspringen (7, 14, 30 Tage)
         const waitDays = skipCount === 0 ? 7 : skipCount === 1 ? 14 : 30;
         if (daysSinceSkip < waitDays) return false;
     }
 
-    // For native apps, check if push is already enabled
     if (window.CapacitorUtils?.isNative()) {
         try {
             const isEnabled = await window.CapacitorUtils.isPushEnabled();
             if (isEnabled) return false;
         } catch (e) {
-            // Continue to show prompt if check fails
+            // Bei Fehler trotzdem Dialog anzeigen
         }
     } else {
-        // For PWA/Web - check OneSignal status
         const isEnabled = await isOneSignalEnabled();
         if (isEnabled) return false;
 
-        // Check if permission was already denied
         if ('Notification' in window && Notification.permission === 'denied') {
             return false;
         }
@@ -445,12 +420,11 @@ export async function shouldShowPushPrompt() {
 }
 
 /**
- * Logout from push notifications (call when user logs out)
+ * Meldet Benutzer von Push-Benachrichtigungen ab
  */
 export async function logoutPushNotifications() {
     currentUserId = null;
 
-    // For PWA, logout from OneSignal
     if (!window.CapacitorUtils?.isNative()) {
         await logoutOneSignal();
     }

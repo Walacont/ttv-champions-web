@@ -1,5 +1,4 @@
-// SC Champions - Password Reset Page (Supabase Version)
-// Handles the password reset flow after user clicks the email link
+// SC Champions - Passwort-Reset-Seite (Supabase)
 
 import { getSupabase } from './supabase-init.js';
 
@@ -7,7 +6,6 @@ console.log('[RESET-PASSWORD] Script starting...');
 
 const supabase = getSupabase();
 
-// DOM Elements
 const loader = document.getElementById('loader');
 const resetFormContainer = document.getElementById('reset-form-container');
 const successContainer = document.getElementById('success-container');
@@ -17,24 +15,20 @@ const newPasswordForm = document.getElementById('new-password-form');
 const errorMessage = document.getElementById('error-message');
 const submitButton = document.getElementById('submit-button');
 
-// Resend form elements
 const resendForm = document.getElementById('resend-form');
 const resendButton = document.getElementById('resend-button');
 const resendButtonText = document.getElementById('resend-button-text');
 const resendMessage = document.getElementById('resend-message');
 const resendEmail = document.getElementById('resend-email');
 
-// Countdown state
 let countdownInterval = null;
 let canResend = true;
 
-// Initialize page
 async function initializePage() {
     console.log('[RESET-PASSWORD] Initializing...');
 
     try {
-        // Check if we have a valid session from the recovery link
-        // Supabase automatically handles the token exchange when the page loads
+        // Supabase verarbeitet automatisch den Token-Austausch beim Seitenaufruf
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         console.log('[RESET-PASSWORD] Session check:', {
@@ -42,29 +36,25 @@ async function initializePage() {
             error: sessionError?.message
         });
 
-        // Also listen for auth state changes (Supabase may still be processing the token)
+        // Auth-Änderungen beobachten, da Supabase möglicherweise noch den Token verarbeitet
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('[RESET-PASSWORD] Auth event:', event);
 
             if (event === 'PASSWORD_RECOVERY') {
-                // User clicked the recovery link - show the form
                 showResetForm();
             } else if (event === 'SIGNED_IN' && session) {
-                // Session established - show the form
                 showResetForm();
             }
         });
 
-        // Wait a bit for Supabase to process the URL tokens
+        // Kurz warten, damit Supabase die URL-Tokens verarbeiten kann
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Check session again after waiting
         const { data: { session: currentSession } } = await supabase.auth.getSession();
 
         if (currentSession) {
             showResetForm();
         } else {
-            // Check URL for error or if it's a valid recovery link
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             const urlParams = new URLSearchParams(window.location.search);
 
@@ -75,8 +65,7 @@ async function initializePage() {
                 console.log('[RESET-PASSWORD] Error in URL:', error, errorDesc);
                 showError(errorDesc || 'Der Link ist ungültig oder abgelaufen.');
             } else {
-                // No session and no error - might still be processing
-                // Wait a bit more and check again
+                // Noch keine Session und kein Fehler - Token wird möglicherweise noch verarbeitet
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
                 const { data: { session: finalSession } } = await supabase.auth.getSession();
@@ -119,29 +108,24 @@ function showError(message) {
     }
 }
 
-// Handle form submission
 newPasswordForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
 
-    // Clear previous errors
     errorMessage.textContent = '';
 
-    // Validate passwords match
     if (newPassword !== confirmPassword) {
         errorMessage.textContent = 'Die Passwörter stimmen nicht überein.';
         return;
     }
 
-    // Validate password length
     if (newPassword.length < 6) {
         errorMessage.textContent = 'Das Passwort muss mindestens 6 Zeichen haben.';
         return;
     }
 
-    // Disable button and show loading state
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird gespeichert...';
 
@@ -158,7 +142,7 @@ newPasswordForm?.addEventListener('submit', async (e) => {
 
         console.log('[RESET-PASSWORD] Password updated successfully');
 
-        // Sign out the user so they can log in with the new password
+        // Benutzer ausloggen, damit er sich mit dem neuen Passwort anmelden kann
         await supabase.auth.signOut();
 
         showSuccess();
@@ -180,7 +164,6 @@ newPasswordForm?.addEventListener('submit', async (e) => {
     }
 });
 
-// Handle resend form submission
 resendForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -189,7 +172,6 @@ resendForm?.addEventListener('submit', async (e) => {
     const email = resendEmail.value.trim();
     if (!email) return;
 
-    // Disable button and start countdown
     canResend = false;
     resendButton.disabled = true;
     resendMessage.textContent = '';
@@ -202,11 +184,9 @@ resendForm?.addEventListener('submit', async (e) => {
 
         if (error) throw error;
 
-        // Show success message
         resendMessage.textContent = 'Ein neuer Link wurde gesendet!';
         resendMessage.classList.add('text-green-600');
 
-        // Start 60 second countdown
         startCountdown(60);
 
     } catch (error) {
@@ -214,14 +194,12 @@ resendForm?.addEventListener('submit', async (e) => {
         resendMessage.textContent = 'Fehler beim Senden. Bitte versuche es erneut.';
         resendMessage.classList.add('text-red-600');
 
-        // Re-enable button after error
         canResend = true;
         resendButton.disabled = false;
         resendButtonText.textContent = 'Neuen Link senden';
     }
 });
 
-// Countdown function
 function startCountdown(seconds) {
     let remaining = seconds;
 
@@ -245,7 +223,6 @@ function updateCountdownDisplay(seconds) {
     resendButtonText.textContent = `Warten (${seconds}s)`;
 }
 
-// Start initialization
 initializePage();
 
 console.log('[RESET-PASSWORD] Setup complete');

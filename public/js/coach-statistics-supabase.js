@@ -1,29 +1,22 @@
 /**
- * Coach Statistics Module (Supabase Version)
- * Handles the Statistics tab for coaches with 3 main sections:
- * 1. Trainings-Analyse (Training Analysis)
- * 2. Team-Übersicht (Team Overview)
- * 3. Aktivitäts-Monitor (Activity Monitor)
+ * Statistik-Modul für Trainer
+ * Verwaltet 3 Bereiche: Trainings-Analyse, Team-Übersicht, Aktivitäts-Monitor
  */
 
 import { RANK_ORDER } from './ranks.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
-// Chart instances (global to allow cleanup)
+// Chart-Instanzen (global für Cleanup)
 let attendanceTrendChart = null;
 let ageDistributionChart = null;
 let genderDistributionChart = null;
 let rankDistributionChart = null;
 
 /**
- * Initialize the statistics tab
- * @param {Object} userData - Current coach user data
- * @param {Object} supabase - Supabase client instance
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
+ * Lädt alle Statistik-Bereiche
  */
 export async function loadStatistics(userData, supabase, currentSubgroupFilter = 'all') {
     try {
-        // Load all statistics sections
         await Promise.all([
             loadTrainingAnalysis(userData, supabase, currentSubgroupFilter),
             loadTeamOverview(userData, supabase, currentSubgroupFilter),
@@ -35,8 +28,7 @@ export async function loadStatistics(userData, supabase, currentSubgroupFilter =
 }
 
 /**
- * Section 1: Trainings-Analyse
- * Displays attendance statistics and trends
+ * Bereich 1: Trainings-Analyse
  */
 async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 'all') {
     try {
@@ -58,7 +50,6 @@ async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 
             count: record.present_player_ids ? record.present_player_ids.length : 0,
         }));
 
-        // Calculate statistics
         const now = new Date();
         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -76,7 +67,6 @@ async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 
                 : 0;
         const totalTrainings = attendanceData.length;
 
-        // Update UI
         const weekEl = document.getElementById('stats-attendance-week');
         const monthEl = document.getElementById('stats-attendance-month');
         const totalEl = document.getElementById('stats-total-trainings');
@@ -85,7 +75,6 @@ async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 
         if (monthEl) monthEl.textContent = avgMonth;
         if (totalEl) totalEl.textContent = totalTrainings;
 
-        // Create trend chart (last 12 weeks)
         const twelveWeeksAgo = new Date(now.getTime() - 84 * 24 * 60 * 60 * 1000);
         const last12Weeks = attendanceData.filter(a => a.date >= twelveWeeksAgo).reverse();
 
@@ -95,19 +84,15 @@ async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 
     }
 }
 
-/**
- * Render attendance trend chart using Chart.js
- */
 function renderAttendanceTrendChart(data) {
     const ctx = document.getElementById('attendance-trend-chart');
     if (!ctx) return;
 
-    // Destroy previous chart if exists
+    // Vorheriges Chart aufräumen um Memory Leaks zu vermeiden
     if (attendanceTrendChart) {
         attendanceTrendChart.destroy();
     }
 
-    // Group by week
     const weeklyData = groupByWeek(data);
 
     attendanceTrendChart = new Chart(ctx, {
@@ -145,9 +130,6 @@ function renderAttendanceTrendChart(data) {
     });
 }
 
-/**
- * Group attendance data by week
- */
 function groupByWeek(data) {
     const weekMap = {};
 
@@ -170,12 +152,9 @@ function groupByWeek(data) {
             week: week.week,
             avgCount: Math.round(week.counts.reduce((sum, c) => sum + c, 0) / week.counts.length),
         }))
-        .slice(-12); // Last 12 weeks
+        .slice(-12);
 }
 
-/**
- * Get ISO week number
- */
 function getWeekNumber(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
@@ -185,8 +164,7 @@ function getWeekNumber(date) {
 }
 
 /**
- * Section 2: Team-Übersicht
- * Displays team demographics and distribution charts
+ * Bereich 2: Team-Übersicht
  */
 async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all') {
     try {
@@ -212,7 +190,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
             grundlagenCompleted: p.grundlagen_completed,
         }));
 
-        // Filter by subgroup, age group, or gender
         if (currentSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentSubgroupFilter);
@@ -225,7 +202,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
             }
         }
 
-        // Calculate team statistics
         const teamSize = players.length;
         const avgAge = calculateAverageAge(players);
         const avgElo = teamSize > 0 ? Math.round(
@@ -233,7 +209,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
         ) : 0;
         const avgXp = teamSize > 0 ? Math.round(players.reduce((sum, p) => sum + (p.xp || 0), 0) / teamSize) : 0;
 
-        // Update UI
         const teamSizeEl = document.getElementById('stats-team-size');
         const avgAgeEl = document.getElementById('stats-avg-age');
         const avgEloEl = document.getElementById('stats-avg-elo');
@@ -244,7 +219,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
         if (avgEloEl) avgEloEl.textContent = avgElo;
         if (avgXpEl) avgXpEl.textContent = avgXp;
 
-        // Render charts
         renderAgeDistributionChart(players);
         renderGenderDistributionChart(players);
         renderRankDistributionChart(players);
@@ -253,9 +227,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
     }
 }
 
-/**
- * Calculate average age from birthdate
- */
 function calculateAverageAge(players) {
     const playersWithAge = players.filter(p => p.birthdate);
     if (playersWithAge.length === 0) return 0;
@@ -270,9 +241,6 @@ function calculateAverageAge(players) {
     return Math.round(totalAge / playersWithAge.length);
 }
 
-/**
- * Render age distribution chart
- */
 function renderAgeDistributionChart(players) {
     const ctx = document.getElementById('age-distribution-chart');
     if (!ctx) return;
@@ -281,7 +249,6 @@ function renderAgeDistributionChart(players) {
         ageDistributionChart.destroy();
     }
 
-    // Group by age ranges
     const ageRanges = {
         U10: 0,
         U13: 0,
@@ -332,9 +299,6 @@ function renderAgeDistributionChart(players) {
     });
 }
 
-/**
- * Render gender distribution chart
- */
 function renderGenderDistributionChart(players) {
     const ctx = document.getElementById('gender-distribution-chart');
     if (!ctx) return;
@@ -386,9 +350,6 @@ function renderGenderDistributionChart(players) {
     });
 }
 
-/**
- * Render rank distribution chart
- */
 function renderRankDistributionChart(players) {
     const ctx = document.getElementById('rank-distribution-chart');
     if (!ctx) return;
@@ -397,7 +358,6 @@ function renderRankDistributionChart(players) {
         rankDistributionChart.destroy();
     }
 
-    // Count players by rank
     const rankCounts = {};
     RANK_ORDER.forEach(rank => {
         rankCounts[rank.name] = 0;
@@ -445,12 +405,10 @@ function renderRankDistributionChart(players) {
 }
 
 /**
- * Section 3: Aktivitäts-Monitor
- * Displays player engagement metrics
+ * Bereich 3: Aktivitäts-Monitor
  */
 async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = 'all') {
     try {
-        // Get players and coaches
         const { data: playersData, error: playersError } = await supabase
             .from('profiles')
             .select('*')
@@ -469,14 +427,12 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
             rankName: p.rank_name,
         }));
 
-        // Filter by subgroup
         if (currentSubgroupFilter !== 'all') {
             players = players.filter(
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)
             );
         }
 
-        // Get attendance records
         let attendanceQuery = supabase
             .from('attendance')
             .select('*')
@@ -498,45 +454,35 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
             subgroupId: a.subgroup_id,
         }));
 
-        // Calculate top streaks
         const playerStreaks = calculateStreaks(players, attendanceRecords);
         renderTopStreaks(playerStreaks);
 
-        // Calculate inactive players
         const inactivePlayers = findInactivePlayers(players, attendanceRecords);
         renderInactivePlayers(inactivePlayers);
 
-        // Calculate match activity
         await loadMatchActivity(userData, supabase);
 
-        // Calculate Grundlagen rate
         calculateGrundlagenRate(players);
 
-        // Calculate team progress
         calculateTeamProgress(players);
     } catch (error) {
         console.error('Error loading activity monitor:', error);
     }
 }
 
-/**
- * Calculate attendance streaks for all players
- */
 function calculateStreaks(players, attendanceRecords) {
     const playerStreaks = players.map(player => {
         let currentStreak = 0;
 
-        // Sort attendance records by date (most recent first)
         const sortedRecords = [...attendanceRecords].sort((a, b) => {
             return new Date(b.date) - new Date(a.date);
         });
 
-        // Count consecutive attendance
         for (const record of sortedRecords) {
             if (record.presentPlayerIds && record.presentPlayerIds.includes(player.id)) {
                 currentStreak++;
             } else {
-                break; // Streak broken
+                break; // Streak unterbrochen
             }
         }
 
@@ -546,13 +492,9 @@ function calculateStreaks(players, attendanceRecords) {
         };
     });
 
-    // Sort by streak (descending) and take top 3
     return playerStreaks.sort((a, b) => b.streak - a.streak).slice(0, 3);
 }
 
-/**
- * Render top streaks
- */
 function renderTopStreaks(streaks) {
     const container = document.getElementById('stats-top-streaks');
     if (!container) return;
@@ -575,22 +517,18 @@ function renderTopStreaks(streaks) {
         .join('');
 }
 
-/**
- * Find players who haven't attended in over 2 weeks
- */
 function findInactivePlayers(players, attendanceRecords) {
     const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
 
     return players
         .filter(player => {
-            // Find most recent attendance for this player
             const lastAttendance = attendanceRecords
                 .filter(
                     record => record.presentPlayerIds && record.presentPlayerIds.includes(player.id)
                 )
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-            if (!lastAttendance) return true; // Never attended
+            if (!lastAttendance) return true; // Noch nie teilgenommen
 
             const lastDate = new Date(lastAttendance.date);
             return lastDate < twoWeeksAgo;
@@ -599,12 +537,9 @@ function findInactivePlayers(players, attendanceRecords) {
             name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email,
             lastSeen: getLastSeenText(p, attendanceRecords),
         }))
-        .slice(0, 5); // Top 5 most inactive
+        .slice(0, 5);
 }
 
-/**
- * Get last seen text for a player
- */
 function getLastSeenText(player, attendanceRecords) {
     const lastAttendance = attendanceRecords
         .filter(record => record.presentPlayerIds && record.presentPlayerIds.includes(player.id))
@@ -620,9 +555,6 @@ function getLastSeenText(player, attendanceRecords) {
     return `vor ${daysAgo} Tagen`;
 }
 
-/**
- * Render inactive players
- */
 function renderInactivePlayers(inactivePlayers) {
     const container = document.getElementById('stats-inactive-players');
     if (!container) return;
@@ -644,9 +576,6 @@ function renderInactivePlayers(inactivePlayers) {
         .join('');
 }
 
-/**
- * Load match activity statistics
- */
 async function loadMatchActivity(userData, supabase) {
     try {
         const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -670,9 +599,6 @@ async function loadMatchActivity(userData, supabase) {
     }
 }
 
-/**
- * Calculate match-ready rate (players who can participate in competitions)
- */
 function calculateGrundlagenRate(players) {
     const matchReadyPlayers = players.filter(p => p.isMatchReady === true || p.is_match_ready === true);
     const rate =
@@ -682,9 +608,6 @@ function calculateGrundlagenRate(players) {
     if (el) el.textContent = `${rate}%`;
 }
 
-/**
- * Calculate team progress (average rank index)
- */
 function calculateTeamProgress(players) {
     const el = document.getElementById('stats-team-progress');
     if (!el) return;
@@ -694,7 +617,6 @@ function calculateTeamProgress(players) {
         return;
     }
 
-    // Calculate average rank index
     const totalRankIndex = players.reduce((sum, p) => {
         const rankIndex = RANK_ORDER.findIndex(r => r.name === (p.rankName || 'Rekrut'));
         return sum + (rankIndex !== -1 ? rankIndex : 0);
@@ -707,7 +629,7 @@ function calculateTeamProgress(players) {
 }
 
 /**
- * Cleanup function to destroy all charts
+ * Räumt alle Charts auf
  */
 export function cleanupStatistics() {
     if (attendanceTrendChart) {

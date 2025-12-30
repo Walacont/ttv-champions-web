@@ -1,6 +1,5 @@
 /**
- * Community Module - Supabase Version
- * Handles community tabs, club search, and suggested users
+ * Community-Modul für Personensuche, Vereinssuche und Freundschaftsanfragen
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -10,12 +9,10 @@ import { escapeHtml } from './utils/security.js';
 let currentUser = null;
 let currentUserData = null;
 let clubSearchTimeout = null;
-let pendingRequestIds = new Set(); // Track pending outgoing follow requests
-let friendshipSubscription = null; // Real-time subscription
+let pendingRequestIds = new Set(); // Verhindert doppelte Anfragen und ermöglicht UI-Feedback
+let friendshipSubscription = null;
 
-/**
- * Initialize the community module
- */
+/** Initialisiert das Community-Modul */
 export async function initCommunity() {
     console.log('[Community] Initializing community module');
 
@@ -40,49 +37,34 @@ export async function initCommunity() {
         currentUserData = profile;
     }
 
-    // Setup event listeners
     setupEventListeners();
-
-    // Load initial data
     await loadPendingFollowRequests();
     await loadSuggestedUsers();
     await loadCurrentClubStatus();
-
-    // Setup real-time subscription for friendship changes
     setupFriendshipSubscription();
 
-    // Expose tab switch function globally
+    // Globale Funktionen für Event-Handler in HTML
     window.switchCommunityTab = switchCommunityTab;
-
-    // Expose withdraw function globally
     window.withdrawFollowRequest = withdrawFollowRequest;
 }
 
-/**
- * Setup event listeners
- */
 function setupEventListeners() {
-    // Club search input
     const clubSearchInput = document.getElementById('club-search-input');
     if (clubSearchInput) {
         clubSearchInput.addEventListener('input', handleClubSearch);
     }
 
-    // Follow all button
     const followAllBtn = document.getElementById('follow-all-btn');
     if (followAllBtn) {
         followAllBtn.addEventListener('click', followAllSuggested);
     }
 
-    // Open Community button (search icon in header)
     const openCommunityBtn = document.getElementById('open-community-btn');
     if (openCommunityBtn) {
         openCommunityBtn.addEventListener('click', () => {
-            // Show the community fullscreen overlay
             const communityFullscreen = document.getElementById('community-fullscreen');
             if (communityFullscreen) {
                 communityFullscreen.classList.remove('hidden');
-                // Focus search input
                 const searchInput = document.getElementById('player-search-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 100);
@@ -91,7 +73,6 @@ function setupEventListeners() {
         });
     }
 
-    // Close Community button (back arrow in community fullscreen)
     const closeCommunityBtn = document.getElementById('close-community-btn');
     if (closeCommunityBtn) {
         closeCommunityBtn.addEventListener('click', () => {
@@ -103,9 +84,7 @@ function setupEventListeners() {
     }
 }
 
-/**
- * Switch between community sub-tabs
- */
+/** Wechselt zwischen Personen- und Vereins-Tab */
 function switchCommunityTab(tab) {
     const personsTab = document.getElementById('community-tab-persons');
     const clubsTab = document.getElementById('community-tab-clubs');
@@ -113,7 +92,6 @@ function switchCommunityTab(tab) {
     const clubsContent = document.getElementById('community-content-clubs');
 
     if (tab === 'persons') {
-        // Activate persons tab
         personsTab.classList.add('border-indigo-600', 'text-indigo-600');
         personsTab.classList.remove('border-transparent', 'text-gray-500');
         clubsTab.classList.remove('border-indigo-600', 'text-indigo-600');
@@ -122,7 +100,6 @@ function switchCommunityTab(tab) {
         personsContent.classList.remove('hidden');
         clubsContent.classList.add('hidden');
     } else {
-        // Activate clubs tab
         clubsTab.classList.add('border-indigo-600', 'text-indigo-600');
         clubsTab.classList.remove('border-transparent', 'text-gray-500');
         personsTab.classList.remove('border-indigo-600', 'text-indigo-600');
@@ -131,14 +108,11 @@ function switchCommunityTab(tab) {
         clubsContent.classList.remove('hidden');
         personsContent.classList.add('hidden');
 
-        // Load club data when switching to clubs tab
         loadCurrentClubStatus();
     }
 }
 
-/**
- * Load pending outgoing follow requests
- */
+/** Lädt ausstehende ausgehende Freundschaftsanfragen */
 async function loadPendingFollowRequests() {
     const container = document.getElementById('pending-follow-requests-list');
     const section = document.getElementById('pending-follow-requests-section');
@@ -147,7 +121,6 @@ async function loadPendingFollowRequests() {
     try {
         const supabase = getSupabase();
 
-        // Get pending requests where current user is the requester
         const { data: pendingRequests, error } = await supabase
             .from('friendships')
             .select(`
@@ -164,7 +137,6 @@ async function loadPendingFollowRequests() {
             return;
         }
 
-        // Update pending request IDs set
         pendingRequestIds.clear();
         if (pendingRequests) {
             pendingRequests.forEach(r => pendingRequestIds.add(r.addressee_id));
@@ -216,9 +188,7 @@ async function loadPendingFollowRequests() {
     }
 }
 
-/**
- * Load suggested users (club members not yet followed)
- */
+/** Lädt Nutzervorschläge (Vereinsmitglieder und Nutzer mit ähnlichem ELO) */
 async function loadSuggestedUsers() {
     const container = document.getElementById('suggested-users-list');
     if (!container) return;
@@ -226,7 +196,7 @@ async function loadSuggestedUsers() {
     try {
         const supabase = getSupabase();
 
-        // Get all friendships (both accepted and pending) to filter out
+        // Bestehende Freundschaften ausschließen (akzeptiert und ausstehend)
         const { data: allFriendships } = await supabase
             .from('friendships')
             .select('requester_id, addressee_id, status')
@@ -245,7 +215,7 @@ async function loadSuggestedUsers() {
 
         let potentialUsers = [];
 
-        // If user has a club, first get club members
+        // Priorisiere Vereinsmitglieder, da diese häufiger zusammen spielen
         if (currentUserData?.club_id) {
             const { data: clubMembers } = await supabase
                 .from('profiles')
@@ -259,7 +229,7 @@ async function loadSuggestedUsers() {
             }
         }
 
-        // If we don't have enough suggestions, get users with similar ELO
+        // Fülle mit Nutzern ähnlicher Spielstärke auf, um ausreichend Vorschläge zu haben
         if (potentialUsers.length < 5) {
             const currentElo = currentUserData?.elo_rating || 1000;
             const { data: similarUsers } = await supabase
@@ -283,7 +253,7 @@ async function loadSuggestedUsers() {
             return;
         }
 
-        // Store for follow all (only users not already pending)
+        // Nur Nutzer ohne ausstehende Anfrage für "Allen folgen" speichern
         window._suggestedUserIds = potentialUsers.filter(u => !pendingRequestIds.has(u.id)).map(u => u.id);
 
         if (window._suggestedUserIds.length === 0) {
@@ -300,9 +270,6 @@ async function loadSuggestedUsers() {
     }
 }
 
-/**
- * Render suggested users list
- */
 function renderSuggestedUsers(users) {
     const container = document.getElementById('suggested-users-list');
     if (!container) return;
@@ -312,7 +279,7 @@ function renderSuggestedUsers(users) {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const clubName = user.clubs?.name || 'Kein Verein';
 
-        // Only show "Aus deinem Verein" if current user actually has a club AND they share the same club
+        // Zeige "Aus deinem Verein" nur wenn beide wirklich im gleichen Verein sind
         let subtitle;
         if (currentUserData?.club_id && currentUserData.club_id === user.club_id) {
             subtitle = 'Aus deinem Verein';
@@ -320,7 +287,6 @@ function renderSuggestedUsers(users) {
             subtitle = clubName;
         }
 
-        // Check if request is pending
         const isPending = pendingRequestIds.has(user.id);
 
         const buttonHtml = isPending
@@ -355,13 +321,10 @@ function renderSuggestedUsers(users) {
     container.innerHTML = html;
 }
 
-/**
- * Follow user from community tab
- */
+/** Sendet Freundschaftsanfrage vom Community-Tab aus */
 window.followUserFromCommunity = async function(userId) {
     if (!currentUser) return;
 
-    // Check if already pending
     if (pendingRequestIds.has(userId)) {
         console.log('[Community] Request already pending for user:', userId);
         return;
@@ -370,7 +333,6 @@ window.followUserFromCommunity = async function(userId) {
     try {
         const supabase = getSupabase();
 
-        // Check target user's privacy settings
         const { data: targetUser } = await supabase
             .from('profiles')
             .select('privacy_settings, first_name, last_name')
@@ -387,20 +349,19 @@ window.followUserFromCommunity = async function(userId) {
 
         if (error) throw error;
 
-        // Add to pending set immediately for UI feedback
+        // Sofortiges UI-Feedback durch Aktualisierung des Sets
         pendingRequestIds.add(userId);
 
-        // For non-public profiles, create a notification for the target user
+        // Benachrichtigung nur bei nicht-öffentlichen Profilen, da öffentliche automatisch akzeptieren
         if (!isPublicProfile) {
             const requesterName = `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Jemand';
             await createFollowRequestNotification(userId, currentUser.id, requesterName);
         }
 
-        // Reload suggested users and pending requests
         await loadPendingFollowRequests();
         await loadSuggestedUsers();
 
-        // Also reload friends list if the friends module is active
+        // Freundesliste aktualisieren falls das Modul geladen ist
         if (typeof window.reloadFriends === 'function') {
             window.reloadFriends();
         }
@@ -411,9 +372,7 @@ window.followUserFromCommunity = async function(userId) {
     }
 };
 
-/**
- * Follow all suggested users
- */
+/** Folgt allen vorgeschlagenen Nutzern */
 async function followAllSuggested() {
     const userIds = window._suggestedUserIds || [];
     if (userIds.length === 0) return;
@@ -440,14 +399,11 @@ async function followAllSuggested() {
     }
 }
 
-/**
- * Handle club search with debounce
- */
+/** Verarbeitet Vereinssuche mit Debouncing */
 function handleClubSearch(event) {
     const query = event.target.value.trim();
     const resultsContainer = document.getElementById('club-search-results');
 
-    // Clear existing timeout
     if (clubSearchTimeout) {
         clearTimeout(clubSearchTimeout);
     }
@@ -459,15 +415,12 @@ function handleClubSearch(event) {
 
     resultsContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Suche...</p>';
 
-    // Debounce search
     clubSearchTimeout = setTimeout(async () => {
         await searchClubs(query);
     }, 300);
 }
 
-/**
- * Search for clubs
- */
+/** Sucht nach Vereinen anhand des Namens */
 async function searchClubs(query) {
     const resultsContainer = document.getElementById('club-search-results');
 
@@ -492,7 +445,6 @@ async function searchClubs(query) {
             return;
         }
 
-        // Get member counts for each club
         for (const club of clubs) {
             const { count } = await supabase
                 .from('profiles')
@@ -509,9 +461,7 @@ async function searchClubs(query) {
     }
 }
 
-/**
- * Render club search results
- */
+/** Rendert Vereinssuchergebnisse */
 function renderClubSearchResults(clubs) {
     const resultsContainer = document.getElementById('club-search-results');
     const isInClub = !!currentUserData?.club_id;
@@ -562,9 +512,7 @@ function renderClubSearchResults(clubs) {
     resultsContainer.innerHTML = html;
 }
 
-/**
- * Request to join a club
- */
+/** Sendet Beitrittsanfrage an einen Verein */
 window.requestJoinClub = async function(clubId, clubName) {
     if (!currentUser) return;
 
@@ -575,7 +523,6 @@ window.requestJoinClub = async function(clubId, clubName) {
     try {
         const supabase = getSupabase();
 
-        // Check if already has pending request
         const { data: existingRequest } = await supabase
             .from('club_requests')
             .select('id')
@@ -601,7 +548,6 @@ window.requestJoinClub = async function(clubId, clubName) {
         alert(`Beitrittsanfrage an "${clubName}" gesendet!`);
         await loadCurrentClubStatus();
 
-        // Clear search
         const searchInput = document.getElementById('club-search-input');
         if (searchInput) searchInput.value = '';
         document.getElementById('club-search-results').innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Gib einen Namen ein, um nach Clubs zu suchen</p>';
@@ -612,9 +558,7 @@ window.requestJoinClub = async function(clubId, clubName) {
     }
 };
 
-/**
- * Load current club status
- */
+/** Lädt aktuellen Vereinsstatus des Benutzers */
 async function loadCurrentClubStatus() {
     const statusContainer = document.getElementById('current-club-status');
     const pendingSection = document.getElementById('pending-club-request-section');
@@ -624,7 +568,6 @@ async function loadCurrentClubStatus() {
     try {
         const supabase = getSupabase();
 
-        // Refresh user data
         const { data: profile } = await supabase
             .from('profiles')
             .select('*, clubs(id, name)')
@@ -635,7 +578,6 @@ async function loadCurrentClubStatus() {
             currentUserData = profile;
         }
 
-        // Check for pending club request
         const { data: pendingRequest } = await supabase
             .from('club_requests')
             .select('*, clubs(name)')
@@ -644,7 +586,6 @@ async function loadCurrentClubStatus() {
             .maybeSingle();
 
         if (currentUserData?.clubs) {
-            // User is in a club
             statusContainer.innerHTML = `
                 <div class="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
                     <div class="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -667,7 +608,6 @@ async function loadCurrentClubStatus() {
             `;
             pendingSection?.classList.add('hidden');
         } else if (pendingRequest) {
-            // User has pending request
             statusContainer.innerHTML = `
                 <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
                     <p class="text-gray-500 text-center">
@@ -698,7 +638,6 @@ async function loadCurrentClubStatus() {
                 </div>
             `;
         } else {
-            // No club, no pending request
             statusContainer.innerHTML = `
                 <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center">
                     <i class="fas fa-search text-3xl text-gray-400 mb-2"></i>
@@ -717,9 +656,7 @@ async function loadCurrentClubStatus() {
     }
 }
 
-/**
- * Withdraw club request
- */
+/** Zieht Vereinsbeitrittsanfrage zurück */
 window.withdrawClubRequest = async function(requestId) {
     if (!confirm('Möchtest du deine Beitrittsanfrage wirklich zurückziehen?')) {
         return;
@@ -743,9 +680,7 @@ window.withdrawClubRequest = async function(requestId) {
     }
 };
 
-/**
- * Withdraw a follow request
- */
+/** Zieht Freundschaftsanfrage zurück */
 async function withdrawFollowRequest(friendshipId, targetUserId) {
     if (!confirm('Möchtest du die Anfrage wirklich zurückziehen?')) {
         return;
@@ -761,10 +696,8 @@ async function withdrawFollowRequest(friendshipId, targetUserId) {
 
         if (error) throw error;
 
-        // Remove from pending set
         pendingRequestIds.delete(targetUserId);
 
-        // Reload lists
         await loadPendingFollowRequests();
         await loadSuggestedUsers();
 
@@ -774,12 +707,9 @@ async function withdrawFollowRequest(friendshipId, targetUserId) {
     }
 }
 
-/**
- * Setup real-time subscription for friendship changes
- */
+/** Richtet Echtzeit-Aktualisierung für Freundschaftsänderungen ein */
 function setupFriendshipSubscription() {
     if (friendshipSubscription) {
-        // Already subscribed
         return;
     }
 
@@ -798,11 +728,10 @@ function setupFriendshipSubscription() {
             async (payload) => {
                 console.log('[Community] Friendship change received:', payload);
 
-                // Reload data when something changes
                 await loadPendingFollowRequests();
                 await loadSuggestedUsers();
 
-                // Trigger notification reload if available
+                // Benachrichtigungen aktualisieren falls Modul verfügbar
                 if (typeof window.loadNotifications === 'function') {
                     window.loadNotifications();
                 }
@@ -819,7 +748,6 @@ function setupFriendshipSubscription() {
             async (payload) => {
                 console.log('[Community] Outgoing friendship change received:', payload);
 
-                // Reload data when something changes
                 await loadPendingFollowRequests();
                 await loadSuggestedUsers();
             }
@@ -829,5 +757,4 @@ function setupFriendshipSubscription() {
     console.log('[Community] Real-time subscription setup complete');
 }
 
-// Export for use in other modules
 export { loadSuggestedUsers, loadCurrentClubStatus, switchCommunityTab, loadPendingFollowRequests };

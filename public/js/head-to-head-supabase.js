@@ -1,29 +1,27 @@
 /**
- * Head-to-Head Statistics Module (Supabase Version)
- * Shows match history and win/loss statistics between two players
+ * Head-to-Head Statistiken für zwei Spieler
  */
 
 // ========================================================================
-// ===== MODAL MANAGEMENT =====
+// ===== MODAL-VERWALTUNG =====
 // ========================================================================
 
 let currentModal = null;
 
 /**
- * Show head-to-head statistics modal for two players
- * @param {Object} supabase - Supabase client instance
- * @param {string} currentUserId - Current user's ID
- * @param {string} opponentId - Opponent player's ID
+ * Zeigt Head-to-Head Statistik-Modal
+ * @param {Object} supabase - Supabase Client
+ * @param {string} currentUserId - Aktuelle User-ID
+ * @param {string} opponentId - Gegner-ID
  */
 export async function showHeadToHeadModal(supabase, currentUserId, opponentId) {
-    // Close existing modal if any
     closeHeadToHeadModal();
 
-    // Create modal container
     const modal = document.createElement('div');
     modal.id = 'head-to-head-modal';
     modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
-    modal.style.cssText = 'z-index: 100001;'; // Higher than header (9999) and bottom nav (99999)
+    // Höher als Header (9999) und Bottom Nav (99999)
+    modal.style.cssText = 'z-index: 100001;';
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto" style="max-height: calc(100vh - 140px); margin-top: 60px; margin-bottom: 80px;">
             <div class="p-6">
@@ -43,22 +41,19 @@ export async function showHeadToHeadModal(supabase, currentUserId, opponentId) {
     document.body.appendChild(modal);
     currentModal = modal;
 
-    // Close on background click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             closeHeadToHeadModal();
         }
     });
 
-    // Close button
     document.getElementById('close-h2h-modal').addEventListener('click', closeHeadToHeadModal);
 
-    // Load and display statistics
     await loadHeadToHeadStats(supabase, currentUserId, opponentId);
 }
 
 /**
- * Close the head-to-head modal
+ * Schließt das Head-to-Head Modal
  */
 export function closeHeadToHeadModal() {
     if (currentModal) {
@@ -68,20 +63,19 @@ export function closeHeadToHeadModal() {
 }
 
 // ========================================================================
-// ===== STATISTICS LOADING =====
+// ===== STATISTIKEN LADEN =====
 // ========================================================================
 
 /**
- * Load and display head-to-head statistics
- * @param {Object} supabase - Supabase client instance
- * @param {string} currentUserId - Current user's ID
- * @param {string} opponentId - Opponent player's ID
+ * Lädt und zeigt Head-to-Head Statistiken
+ * @param {Object} supabase - Supabase Client
+ * @param {string} currentUserId - Aktuelle User-ID
+ * @param {string} opponentId - Gegner-ID
  */
 async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
     const contentEl = document.getElementById('h2h-content');
 
     try {
-        // Fetch opponent data
         const { data: opponentDoc, error: opponentError } = await supabase
             .from('profiles')
             .select('*')
@@ -102,7 +96,6 @@ async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
         };
         const opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim();
 
-        // Fetch opponent's club info if they have a club
         let opponentClubName = null;
         if (opponentData.clubId) {
             try {
@@ -118,57 +111,50 @@ async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
                     opponentClubName = opponentData.clubId;
                 }
             } catch (error) {
-                console.warn('Could not fetch club info:', error);
+                console.warn('Verein konnte nicht geladen werden:', error);
                 opponentClubName = opponentData.clubId;
             }
         }
 
-        // Query all matches between these two players
-        // Query where current user is playerA and opponent is playerB
         const { data: matchesAB, error: errorAB } = await supabase
             .from('matches')
             .select('*')
             .eq('player_a_id', currentUserId)
             .eq('player_b_id', opponentId);
 
-        if (errorAB) console.error('Error fetching matches AB:', errorAB);
+        if (errorAB) console.error('Fehler beim Laden der Matches AB:', errorAB);
 
-        // Query where opponent is playerA and current user is playerB
         const { data: matchesBA, error: errorBA } = await supabase
             .from('matches')
             .select('*')
             .eq('player_a_id', opponentId)
             .eq('player_b_id', currentUserId);
 
-        if (errorBA) console.error('Error fetching matches BA:', errorBA);
+        if (errorBA) console.error('Fehler beim Laden der Matches BA:', errorBA);
 
-        // Combine all matches and map to app format
         const allMatches = [
             ...(matchesAB || []).map(m => mapMatchFromSupabase(m)),
             ...(matchesBA || []).map(m => mapMatchFromSupabase(m)),
         ];
 
-        // Sort by timestamp descending
         allMatches.sort((a, b) => {
             const timeA = new Date(a.timestamp || a.createdAt || 0).getTime();
             const timeB = new Date(b.timestamp || b.createdAt || 0).getTime();
             return timeB - timeA;
         });
 
-        // Calculate statistics
         const stats = calculateStats(allMatches, currentUserId);
 
-        // Render the modal content
         renderHeadToHeadContent(contentEl, opponentData, opponentName, opponentClubName, stats, allMatches, currentUserId);
 
     } catch (error) {
-        console.error('Error loading head-to-head stats:', error);
+        console.error('Fehler beim Laden der Head-to-Head Statistiken:', error);
         contentEl.innerHTML = '<p class="text-red-500">Fehler beim Laden der Statistiken.</p>';
     }
 }
 
 /**
- * Maps match from Supabase (snake_case) to app format (camelCase)
+ * Konvertiert Match von Supabase (snake_case) zu App-Format (camelCase)
  */
 function mapMatchFromSupabase(match) {
     return {
@@ -185,10 +171,10 @@ function mapMatchFromSupabase(match) {
 }
 
 /**
- * Calculate win/loss statistics
- * @param {Array} matches - Array of match objects
- * @param {string} currentUserId - Current user's ID
- * @returns {Object} Statistics object
+ * Berechnet Sieg/Niederlage Statistiken
+ * @param {Array} matches - Match-Array
+ * @param {string} currentUserId - Aktuelle User-ID
+ * @returns {Object} Statistik-Objekt
  */
 function calculateStats(matches, currentUserId) {
     let wins = 0;
@@ -205,10 +191,9 @@ function calculateStats(matches, currentUserId) {
         const handicapUsed = match.handicapUsed || match.handicap_used || false;
         const isPlayerA = match.playerAId === currentUserId || match.player_a_id === currentUserId;
 
-        // Count sets won and lost
         if (match.sets && Array.isArray(match.sets)) {
             match.sets.forEach(set => {
-                // Handle both camelCase and snake_case
+                // Unterstützt sowohl camelCase (App) als auch snake_case (Supabase)
                 const playerAScore = parseInt(set.playerA ?? set.player_a) || 0;
                 const playerBScore = parseInt(set.playerB ?? set.player_b) || 0;
                 const myScore = isPlayerA ? playerAScore : playerBScore;
@@ -271,20 +256,19 @@ function calculateStats(matches, currentUserId) {
 }
 
 /**
- * Render the head-to-head modal content
- * @param {HTMLElement} container - Container element
- * @param {Object} opponentData - Opponent's user data
- * @param {string} opponentName - Opponent's display name
- * @param {string} opponentClubName - Opponent's club name (or null)
- * @param {Object} stats - Statistics object
- * @param {Array} matches - Array of matches
- * @param {string} currentUserId - Current user's ID
+ * Rendert den Head-to-Head Modal-Inhalt
+ * @param {HTMLElement} container - Container-Element
+ * @param {Object} opponentData - Gegner-Daten
+ * @param {string} opponentName - Gegner-Name
+ * @param {string} opponentClubName - Vereinsname des Gegners (oder null)
+ * @param {Object} stats - Statistiken
+ * @param {Array} matches - Matches
+ * @param {string} currentUserId - Aktuelle User-ID
  */
 function renderHeadToHeadContent(container, opponentData, opponentName, opponentClubName, stats, matches, currentUserId) {
     const initials = `${opponentData.firstName?.[0] || ''}${opponentData.lastName?.[0] || ''}` || 'U';
     const avatarSrc = opponentData.photoURL || `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
 
-    // Determine win rate color
     let winRateColor = 'text-gray-600';
     if (stats.winRate >= 60) {
         winRateColor = 'text-green-600';
@@ -293,7 +277,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
     }
 
     container.innerHTML = `
-        <!-- Opponent Info -->
         <div class="text-center mb-6">
             <img src="${avatarSrc}" alt="${opponentName}"
                  class="h-20 w-20 rounded-full object-cover border-4 border-indigo-200 shadow-md mx-auto mb-3">
@@ -303,12 +286,10 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
         </div>
 
         ${stats.totalMatches === 0 ? `
-            <!-- No Matches Yet -->
             <div class="bg-gray-50 rounded-lg p-6 text-center">
                 <p class="text-gray-500">Noch keine Matches gegen ${opponentName.split(' ')[0]} gespielt.</p>
             </div>
         ` : `
-            <!-- Statistics -->
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 mb-6">
                 <h4 class="text-lg font-semibold text-gray-900 mb-4 text-center">Deine Bilanz</h4>
 
@@ -330,11 +311,9 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
             </div>
 
             ${(stats.handicap.total > 0 || stats.regular.total > 0) ? `
-                <!-- Handicap Split -->
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-900 mb-3 text-center">Handicap-Split</h4>
                     <div class="grid grid-cols-2 gap-4">
-                        <!-- Regular Matches -->
                         <div class="bg-gray-50 rounded-lg p-4 border-2 ${stats.regular.total > 0 ? 'border-gray-300' : 'border-gray-200 opacity-60'}">
                             <div class="text-center mb-2">
                                 <p class="text-xs font-semibold text-gray-700 uppercase">Normal</p>
@@ -354,7 +333,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
                             `}
                         </div>
 
-                        <!-- Handicap Matches -->
                         <div class="bg-blue-50 rounded-lg p-4 border-2 ${stats.handicap.total > 0 ? 'border-blue-300' : 'border-blue-200 opacity-60'}">
                             <div class="text-center mb-2">
                                 <p class="text-xs font-semibold text-blue-700 uppercase">Handicap</p>
@@ -377,7 +355,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
                 </div>
             ` : ''}
 
-            <!-- Match History -->
             <div class="mb-4">
                 <h4 class="text-lg font-semibold text-gray-900 mb-3">Match-Historie</h4>
                 <div id="h2h-match-list" class="space-y-2">
@@ -394,7 +371,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
         `}
     `;
 
-    // Add toggle functionality for match history
     if (matches.length > 3) {
         let showingAll = false;
         const toggleBtn = document.getElementById('h2h-toggle-btn');
@@ -416,10 +392,10 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
 }
 
 /**
- * Render match history list
- * @param {Array} matches - Array of matches (max 10)
- * @param {string} currentUserId - Current user's ID
- * @returns {string} HTML string
+ * Rendert Match-Historie Liste
+ * @param {Array} matches - Match-Array
+ * @param {string} currentUserId - Aktuelle User-ID
+ * @returns {string} HTML-String
  */
 function renderMatchHistory(matches, currentUserId) {
     if (matches.length === 0) {
@@ -431,7 +407,6 @@ function renderMatchHistory(matches, currentUserId) {
         const matchDate = new Date(match.timestamp || match.createdAt || Date.now());
         const formattedDate = formatMatchDate(matchDate);
 
-        // Format sets
         const isPlayerA = match.playerAId === currentUserId;
         const setsDisplay = formatSets(match.sets, isPlayerA);
 
@@ -455,10 +430,10 @@ function renderMatchHistory(matches, currentUserId) {
 }
 
 /**
- * Format sets for display
- * @param {Array} sets - Array of set objects with playerA/playerB scores
- * @param {boolean} isPlayerA - Whether current user is playerA
- * @returns {string} Formatted sets string
+ * Formatiert Sätze für die Anzeige
+ * @param {Array} sets - Satz-Array
+ * @param {boolean} isPlayerA - Ob aktueller User playerA ist
+ * @returns {string} Formatierter Satz-String
  */
 function formatSets(sets, isPlayerA) {
     if (!sets || sets.length === 0) return 'N/A';
@@ -473,16 +448,16 @@ function formatSets(sets, isPlayerA) {
 }
 
 /**
- * Format match date
- * @param {Date} date - Date object
- * @returns {string} Formatted date
+ * Formatiert Match-Datum
+ * @param {Date} date - Datum
+ * @returns {string} Formatiertes Datum
  */
 function formatMatchDate(date) {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time parts for comparison
+    // Zeitkomponenten auf 0 setzen für sauberen Datumsvergleich
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(

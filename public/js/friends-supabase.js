@@ -1,7 +1,4 @@
-/**
- * Friends Module - Supabase Version
- * Handles player search, follow requests, and followers list
- */
+/** Freunde-Modul mit Spielersuche und Folge-Anfragen */
 
 import { getSupabase } from './supabase-init.js';
 
@@ -11,9 +8,7 @@ let currentUserData = null;
 let friendshipsSubscription = null;
 let notificationsSubscription = null;
 
-/**
- * Initialize the friends module
- */
+/** Initialisiert das Freunde-Modul */
 export async function initFriends() {
     console.log('[Friends] Initializing friends module');
 
@@ -27,7 +22,6 @@ export async function initFriends() {
 
     currentUser = session.user;
 
-    // Get user profile
     const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -36,29 +30,22 @@ export async function initFriends() {
 
     currentUserData = profile;
 
-    // Setup event listeners
     setupEventListeners();
-
-    // Setup realtime subscriptions
     setupRealtimeSubscriptions();
 
-    // Load initial data
     await loadFriendRequests();
     await loadFriends();
 }
 
-/**
- * Setup realtime subscriptions for friendships
- */
+/** Richtet Realtime-Subscriptions für Freundschafts-Änderungen ein */
 function setupRealtimeSubscriptions() {
     const supabase = getSupabase();
 
-    // Cleanup existing subscription
     if (friendshipsSubscription) {
         friendshipsSubscription.unsubscribe();
     }
 
-    // Subscribe to friendships changes (only for current user)
+    // Filter nur für aktuellen Benutzer, um unnötige Updates zu vermeiden
     friendshipsSubscription = supabase
         .channel('friendships-changes')
         .on(
@@ -79,32 +66,24 @@ function setupRealtimeSubscriptions() {
     console.log('[Friends] Realtime subscriptions setup complete');
 }
 
-/**
- * Handle friendship changes from realtime
- */
+/** Verarbeitet Freundschafts-Änderungen aus Realtime-Updates */
 async function handleFriendshipChange(payload) {
     const { eventType, new: newRecord, old: oldRecord } = payload;
 
     console.log(`[Friends] Friendship ${eventType}:`, newRecord || oldRecord);
 
-    // Reload data based on event type
     if (eventType === 'INSERT') {
-        // New friend request received or sent
         await loadFriendRequests();
     } else if (eventType === 'UPDATE') {
-        // Friend request accepted or status changed
         await loadFriendRequests();
         await loadFriends();
     } else if (eventType === 'DELETE') {
-        // Friend request declined or friendship removed
         await loadFriendRequests();
         await loadFriends();
     }
 }
 
-/**
- * Cleanup subscriptions
- */
+/** Bereinigt Subscriptions beim Cleanup */
 export function cleanupFriendsSubscriptions() {
     if (friendshipsSubscription) {
         friendshipsSubscription.unsubscribe();
@@ -112,29 +91,22 @@ export function cleanupFriendsSubscriptions() {
     }
 }
 
-/**
- * Setup event listeners
- */
+/** Richtet Event-Listener ein */
 function setupEventListeners() {
-    // Player search input
     const searchInput = document.getElementById('player-search-input');
     if (searchInput) {
         searchInput.addEventListener('input', handlePlayerSearch);
     }
 }
 
-/**
- * Handle player search with debounce
- */
+/** Verarbeitet Spielersuche mit Debouncing */
 function handlePlayerSearch(event) {
     const query = event.target.value.trim();
 
-    // Clear existing timeout
     if (searchTimeout) {
         clearTimeout(searchTimeout);
     }
 
-    // Show loading state
     const resultsContainer = document.getElementById('player-search-results');
     if (query.length < 2) {
         resultsContainer.classList.add('hidden');
@@ -145,15 +117,13 @@ function handlePlayerSearch(event) {
     resultsContainer.classList.remove('hidden');
     resultsContainer.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-md"><p class="text-gray-400 text-center py-4 text-sm">Suche...</p></div>';
 
-    // Debounce search
+    // 300ms Verzögerung, um API-Aufrufe zu reduzieren
     searchTimeout = setTimeout(async () => {
         await searchPlayers(query);
     }, 300);
 }
 
-/**
- * Search for players
- */
+/** Sucht nach Spielern */
 async function searchPlayers(query) {
     const resultsContainer = document.getElementById('player-search-results');
 
@@ -178,7 +148,6 @@ async function searchPlayers(query) {
             return;
         }
 
-        // Render search results
         renderSearchResults(data);
 
     } catch (error) {
@@ -187,9 +156,7 @@ async function searchPlayers(query) {
     }
 }
 
-/**
- * Render search results
- */
+/** Rendert Suchergebnisse */
 function renderSearchResults(players) {
     const resultsContainer = document.getElementById('player-search-results');
 
@@ -199,7 +166,6 @@ function renderSearchResults(players) {
         const clubName = player.club_name || 'Kein Verein';
         const elo = player.elo_rating || 800;
 
-        // Determine button state
         let button = '';
         if (player.friendship_status === 'accepted') {
             button = `
@@ -211,7 +177,6 @@ function renderSearchResults(players) {
                 </button>
             `;
         } else if (player.friendship_status === 'pending') {
-            // Check if current user sent the request (can cancel) or received it
             button = `
                 <button
                     onclick="event.preventDefault(); window.cancelFollowRequest('${player.id}')"
@@ -260,9 +225,7 @@ function renderSearchResults(players) {
     `;
 }
 
-/**
- * Send friend request
- */
+/** Sendet eine Freundschaftsanfrage */
 export async function sendFriendRequest(targetUserId) {
     try {
         const supabase = getSupabase();
@@ -286,11 +249,10 @@ export async function sendFriendRequest(targetUserId) {
                 ? 'Ihr seid jetzt Freunde!'
                 : 'Freundschaftsanfrage gesendet!');
 
-            // Reload data
             await loadFriendRequests();
             await loadFriends();
 
-            // Re-trigger search to update button states
+            // Aktualisiert Button-Zustände in der Suche
             const searchInput = document.getElementById('player-search-input');
             if (searchInput && searchInput.value) {
                 await searchPlayers(searchInput.value);
@@ -305,9 +267,7 @@ export async function sendFriendRequest(targetUserId) {
     }
 }
 
-/**
- * Accept friend request
- */
+/** Akzeptiert eine Freundschaftsanfrage */
 export async function acceptFriendRequest(friendshipId) {
     try {
         const supabase = getSupabase();
@@ -329,7 +289,6 @@ export async function acceptFriendRequest(friendshipId) {
         if (result.success) {
             alert('Freundschaftsanfrage akzeptiert!');
 
-            // Reload data
             await loadFriendRequests();
             await loadFriends();
         } else {
@@ -342,9 +301,7 @@ export async function acceptFriendRequest(friendshipId) {
     }
 }
 
-/**
- * Decline friend request
- */
+/** Lehnt eine Freundschaftsanfrage ab */
 export async function declineFriendRequest(friendshipId) {
     try {
         const supabase = getSupabase();
@@ -364,7 +321,6 @@ export async function declineFriendRequest(friendshipId) {
         const result = typeof data === 'string' ? JSON.parse(data) : data;
 
         if (result.success) {
-            // Reload data
             await loadFriendRequests();
         } else {
             alert(result.error || 'Fehler beim Ablehnen');
@@ -376,9 +332,7 @@ export async function declineFriendRequest(friendshipId) {
     }
 }
 
-/**
- * Remove friend (unfollow)
- */
+/** Entfernt einen Freund (Entfolgen) */
 export async function removeFriend(friendId) {
     if (!confirm('Möchtest du dieser Person nicht mehr folgen?')) {
         return;
@@ -402,10 +356,9 @@ export async function removeFriend(friendId) {
         const result = typeof data === 'string' ? JSON.parse(data) : data;
 
         if (result.success) {
-            // Reload data
             await loadFriends();
 
-            // Re-trigger search to update button states
+            // Aktualisiert Button-Zustände in der Suche
             const searchInput = document.getElementById('player-search-input');
             if (searchInput && searchInput.value) {
                 await searchPlayers(searchInput.value);
@@ -420,9 +373,7 @@ export async function removeFriend(friendId) {
     }
 }
 
-/**
- * Cancel a pending follow request
- */
+/** Zieht eine ausstehende Folge-Anfrage zurück */
 export async function cancelFollowRequest(targetUserId) {
     try {
         const supabase = getSupabase();
@@ -442,10 +393,9 @@ export async function cancelFollowRequest(targetUserId) {
         const result = typeof data === 'string' ? JSON.parse(data) : data;
 
         if (result.success) {
-            // Reload data
             await loadFriendRequests();
 
-            // Re-trigger search to update button states
+            // Aktualisiert Button-Zustände in der Suche
             const searchInput = document.getElementById('player-search-input');
             if (searchInput && searchInput.value) {
                 await searchPlayers(searchInput.value);
@@ -460,14 +410,11 @@ export async function cancelFollowRequest(targetUserId) {
     }
 }
 
-/**
- * Load friend requests
- */
+/** Lädt Freundschaftsanfragen */
 async function loadFriendRequests() {
     try {
         const supabase = getSupabase();
 
-        // Load received requests
         const { data: receivedRequests, error: receivedError } = await supabase
             .rpc('get_pending_friend_requests', {
                 current_user_id: currentUser.id
@@ -479,7 +426,6 @@ async function loadFriendRequests() {
             renderReceivedRequests(receivedRequests || []);
         }
 
-        // Load sent requests
         const { data: sentRequests, error: sentError } = await supabase
             .rpc('get_sent_friend_requests', {
                 current_user_id: currentUser.id
@@ -496,14 +442,12 @@ async function loadFriendRequests() {
     }
 }
 
-/**
- * Render received friend requests
- */
+/** Rendert empfangene Freundschaftsanfragen */
 function renderReceivedRequests(requests) {
     const container = document.getElementById('received-friend-requests-list');
     const countBadge = document.getElementById('received-requests-count');
 
-    // Container may not exist in new Community Tab design
+    // Container existiert möglicherweise nicht im neuen Community Tab Design
     if (!container) {
         console.log('[Friends] Received requests container not found (expected in new design)');
         return;
@@ -567,13 +511,11 @@ function renderReceivedRequests(requests) {
     container.innerHTML = html;
 }
 
-/**
- * Render sent friend requests
- */
+/** Rendert gesendete Freundschaftsanfragen */
 function renderSentRequests(requests) {
     const container = document.getElementById('sent-friend-requests-list');
 
-    // Container may not exist in new Community Tab design
+    // Container existiert möglicherweise nicht im neuen Community Tab Design
     if (!container) {
         console.log('[Friends] Sent requests container not found (expected in new design)');
         return;
@@ -621,9 +563,7 @@ function renderSentRequests(requests) {
     container.innerHTML = html;
 }
 
-/**
- * Load friends list
- */
+/** Lädt die Freundesliste */
 async function loadFriends() {
     try {
         const supabase = getSupabase();
@@ -645,14 +585,12 @@ async function loadFriends() {
     }
 }
 
-/**
- * Render friends list
- */
+/** Rendert die Freundesliste */
 function renderFriendsList(friends) {
     const container = document.getElementById('friends-list');
     const countDisplay = document.getElementById('friends-count');
 
-    // Check if container exists (might be on a different page)
+    // Container existiert möglicherweise nicht auf dieser Seite
     if (!container) {
         return;
     }
@@ -697,12 +635,10 @@ function renderFriendsList(friends) {
     container.innerHTML = html;
 }
 
-// Expose reload function for community module
+// Wird vom Community-Modul verwendet
 window.reloadFriends = loadFriends;
 
-/**
- * Helper function to get time ago string
- */
+/** Hilfsfunktion zur Berechnung der verstrichenen Zeit */
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - date) / 1000);
 
@@ -725,7 +661,7 @@ function getTimeAgo(date) {
     return 'gerade eben';
 }
 
-// Expose functions to window for onclick handlers
+// Funktionen für onclick-Handler im HTML verfügbar machen
 window.sendFriendRequest = sendFriendRequest;
 window.acceptFriendRequest = acceptFriendRequest;
 window.declineFriendRequest = declineFriendRequest;

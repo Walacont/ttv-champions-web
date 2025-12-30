@@ -18,7 +18,6 @@ let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
 
-// Initialize date select fields
 function initializeDateSelects() {
     const daySelect = document.getElementById('birthdate-day');
     const monthSelect = document.getElementById('birthdate-month');
@@ -26,7 +25,6 @@ function initializeDateSelects() {
 
     if (!daySelect || !monthSelect || !yearSelect) return;
 
-    // Fill days (1-31)
     for (let i = 1; i <= 31; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -34,7 +32,6 @@ function initializeDateSelects() {
         daySelect.appendChild(option);
     }
 
-    // Fill months (1-12)
     for (let i = 1; i <= 12; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -42,7 +39,6 @@ function initializeDateSelects() {
         monthSelect.appendChild(option);
     }
 
-    // Fill years (1900 to current year)
     const currentYear = new Date().getFullYear();
     for (let i = currentYear; i >= 1900; i--) {
         const option = document.createElement('option');
@@ -52,11 +48,12 @@ function initializeDateSelects() {
     }
 }
 
-// Initialize the date selects when the page loads
 initializeDateSelects();
 
-// Load available sports for dropdown
-// If preAssignedSportId is set, the sport was assigned by invitation code and cannot be changed
+/**
+ * Lädt verfügbare Sportarten ins Dropdown
+ * @param {string|null} preAssignedSportId - Falls gesetzt: Sportart wurde per Einladungscode zugewiesen und kann nicht geändert werden
+ */
 async function loadSports(preAssignedSportId = null) {
     try {
         const { data: sports, error } = await supabase
@@ -67,11 +64,9 @@ async function loadSports(preAssignedSportId = null) {
         if (error) throw error;
 
         if (sportSelect && sports) {
-            // Check if sport was pre-assigned by invitation code
             if (preAssignedSportId) {
                 const assignedSport = sports.find(s => s.id === preAssignedSportId);
                 if (assignedSport) {
-                    // Sport was assigned - show only this option and disable dropdown
                     sportSelect.innerHTML = '';
                     const option = document.createElement('option');
                     option.value = assignedSport.id;
@@ -80,7 +75,6 @@ async function loadSports(preAssignedSportId = null) {
                     sportSelect.appendChild(option);
                     sportSelect.disabled = true;
 
-                    // Add info message below dropdown
                     const sportLabel = document.querySelector('label[for="sport-select"]');
                     if (sportLabel) {
                         const infoText = document.createElement('p');
@@ -94,7 +88,6 @@ async function loadSports(preAssignedSportId = null) {
                 }
             }
 
-            // Normal case - allow sport selection
             sportSelect.innerHTML = '<option value="">Sportart wählen...</option>';
             sports.forEach(sport => {
                 const option = document.createElement('option');
@@ -103,7 +96,7 @@ async function loadSports(preAssignedSportId = null) {
                 sportSelect.appendChild(option);
             });
 
-            // Auto-select first sport if only one exists
+            // Automatisch auswählen wenn nur eine Sportart existiert
             if (sports.length === 1) {
                 sportSelect.value = sports[0].id;
             }
@@ -116,7 +109,6 @@ async function loadSports(preAssignedSportId = null) {
     }
 }
 
-// Check auth state on load
 async function checkAuthState() {
     const { data: { session } } = await supabase.auth.getSession();
 
@@ -129,7 +121,6 @@ async function checkAuthState() {
     currentUser = session.user;
     console.log('[ONBOARDING-SUPABASE] User:', currentUser.email);
 
-    // Get user profile from database
     const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -145,39 +136,38 @@ async function checkAuthState() {
     currentUserData = profile;
     console.log('[ONBOARDING-SUPABASE] Profile:', { role: profile.role, onboarding: profile.onboarding_complete });
 
-    // If onboarding already complete, redirect to dashboard
+    // Wenn Onboarding bereits abgeschlossen, direkt zum Dashboard weiterleiten
     if (profile.onboarding_complete) {
         console.log('[ONBOARDING-SUPABASE] Onboarding already complete, redirecting');
         redirectToDashboard(profile.role);
         return;
     }
 
-    // Check for pending invitation data from registration
+    // Prüfe auf Einladungsdaten aus der Registrierung
     let invitationData = null;
     try {
         const storedData = localStorage.getItem('pendingInvitationData');
         if (storedData) {
             invitationData = JSON.parse(storedData);
             console.log('[ONBOARDING-SUPABASE] Found invitation data:', invitationData);
-            // Clear it after reading (one-time use)
+            // Nach dem Lesen entfernen (einmalige Verwendung)
             localStorage.removeItem('pendingInvitationData');
         }
     } catch (e) {
         console.warn('[ONBOARDING-SUPABASE] Error reading invitation data:', e);
     }
 
-    // Fill form with existing data - prioritize invitation data over profile data
+    // Formular mit existierenden Daten füllen - Einladungsdaten haben Priorität über Profildaten
     const firstNameInput = document.getElementById('firstName');
     const lastNameInput = document.getElementById('lastName');
 
-    // Use invitation data first, then profile data, then empty
     const firstName = invitationData?.firstName || profile.first_name || '';
     const lastName = invitationData?.lastName || profile.last_name || '';
 
     if (firstNameInput) firstNameInput.value = firstName;
     if (lastNameInput) lastNameInput.value = lastName;
 
-    // Fill birthdate selects - prioritize invitation data
+    // Geburtsdatum-Selects füllen - Einladungsdaten haben Priorität
     const birthdate = invitationData?.birthdate || profile.birthdate;
     if (birthdate) {
         const dateParts = birthdate.split('-');
@@ -191,22 +181,21 @@ async function checkAuthState() {
         }
     }
 
-    // Fill gender select - prioritize invitation data
+    // Geschlecht-Select füllen - Einladungsdaten haben Priorität
     const gender = invitationData?.gender || profile.gender;
     if (gender) {
         const genderSelect = document.getElementById('gender');
         if (genderSelect) genderSelect.value = gender;
     }
 
-    // Load sports dropdown and check if sport is pre-assigned
-    // Use invitation sportId first, then profile active_sport_id
+    // Sportart laden - zuerst Einladungs-sportId, dann active_sport_id aus Profil
     const sportId = invitationData?.sportId || profile.active_sport_id;
     await loadSports(sportId);
 }
 
 checkAuthState();
 
-// Listen for auth state changes - only redirect on explicit sign out
+// Nur bei explizitem Logout weiterleiten, nicht bei anderen Auth-Events
 onAuthStateChange((event, session) => {
     console.log('[ONBOARDING-SUPABASE] Auth state changed:', event);
 
@@ -215,7 +204,6 @@ onAuthStateChange((event, session) => {
     }
 });
 
-// Photo upload preview
 photoUpload?.addEventListener('change', e => {
     selectedFile = e.target.files[0];
     if (selectedFile) {
@@ -227,7 +215,6 @@ photoUpload?.addEventListener('change', e => {
     }
 });
 
-// Form submission
 onboardingForm?.addEventListener('submit', async e => {
     e.preventDefault();
     submitButton.disabled = true;
@@ -241,7 +228,6 @@ onboardingForm?.addEventListener('submit', async e => {
 
         let photoURL = currentUserData.avatar_url || null;
 
-        // Upload photo to Supabase Storage if selected
         if (selectedFile) {
             const fileExt = selectedFile.name.split('.').pop();
             const fileName = `${currentUser.id}/profile.${fileExt}`;
@@ -252,7 +238,7 @@ onboardingForm?.addEventListener('submit', async e => {
 
             if (uploadError) {
                 console.error('Upload error:', uploadError);
-                // Continue without photo if upload fails
+                // Ohne Foto fortfahren falls Upload fehlschlägt
             } else {
                 const { data: urlData } = supabase.storage
                     .from('profile-pictures')
@@ -261,7 +247,6 @@ onboardingForm?.addEventListener('submit', async e => {
             }
         }
 
-        // Combine the three date select values into YYYY-MM-DD format
         const day = document.getElementById('birthdate-day')?.value || '01';
         const month = document.getElementById('birthdate-month')?.value || '01';
         const year = document.getElementById('birthdate-year')?.value || '2000';
@@ -270,13 +255,12 @@ onboardingForm?.addEventListener('submit', async e => {
         const paddedMonth = month.toString().padStart(2, '0');
         const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
 
-        // Get selected sport
         const selectedSportId = sportSelect?.value;
         if (!selectedSportId) {
             throw new Error('Bitte wähle eine Sportart aus.');
         }
 
-        // Default privacy settings - all global so users are findable immediately
+        // Standardmäßig global sichtbar, damit Benutzer sofort auffindbar sind
         const defaultPrivacySettings = {
             profile_visibility: 'global',
             searchable: 'global',
@@ -300,11 +284,10 @@ onboardingForm?.addEventListener('submit', async e => {
             updated_at: new Date().toISOString()
         };
 
-        // Check if we need to grant 50 XP for completing onboarding
-        // This applies to:
-        // 1. Self-registration (no code) - is_match_ready should be true
-        // 2. head_coach registration with admin code - is_match_ready should be true
-        // 3. Offline player migration where coach set them as match-ready
+        // 50 XP für Onboarding-Abschluss vergeben wenn:
+        // 1. Selbstregistrierung (ohne Code) - is_match_ready sollte true sein
+        // 2. head_coach Registrierung mit Admin-Code - is_match_ready sollte true sein
+        // 3. Offline-Spieler-Migration wo Coach sie als match-ready gesetzt hat
         const currentXP = currentUserData.xp || 0;
         const isMatchReady = currentUserData.is_match_ready === true;
         const shouldGrantXP = isMatchReady && currentXP === 0;
@@ -316,7 +299,6 @@ onboardingForm?.addEventListener('submit', async e => {
             console.log('[ONBOARDING-SUPABASE] Granting 50 XP for completing onboarding');
         }
 
-        // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
             .update(dataToUpdate)
@@ -328,7 +310,6 @@ onboardingForm?.addEventListener('submit', async e => {
 
         console.log('[ONBOARDING-SUPABASE] Profile updated successfully');
 
-        // Create user_sport_stats record for the selected sport
         const { error: statsError } = await supabase
             .from('user_sport_stats')
             .insert({
@@ -337,13 +318,12 @@ onboardingForm?.addEventListener('submit', async e => {
             });
 
         if (statsError) {
-            // Log but don't fail - stats table might not exist yet
+            // Nur loggen, nicht fehlschlagen - Stats-Tabelle existiert möglicherweise noch nicht
             console.warn('[ONBOARDING-SUPABASE] Could not create sport stats:', statsError);
         }
 
         console.log('[ONBOARDING-SUPABASE] Sport stats created for:', selectedSportId);
 
-        // Redirect directly to dashboard
         redirectToDashboard(currentUserData.role);
 
     } catch (error) {

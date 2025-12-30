@@ -1,45 +1,36 @@
 /**
- * OneSignal Push Notifications Integration
+ * OneSignal Push-Benachrichtigungen Integration
  *
- * Setup:
- * 1. Create account at https://onesignal.com
- * 2. Create new Web Push app
- * 3. Replace YOUR_ONESIGNAL_APP_ID below with your App ID
- * 4. In OneSignal dashboard, set:
- *    - Site URL: https://sc-champions.de
- *    - Default icon: /icons/icon-192x192.png
+ * Setup im OneSignal Dashboard:
+ * - Site URL: https://sc-champions.de
+ * - Standard-Icon: /icons/icon-192x192.png
  */
 
-// Replace with your OneSignal App ID from the dashboard
 const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
 
 let isOneSignalInitialized = false;
 let initPromise = null;
 
 /**
- * Initialize OneSignal
- * Call this early in your app initialization
- * Returns a promise that resolves when initialization is complete
+ * OneSignal initialisieren - früh beim App-Start aufrufen
  */
 export async function initOneSignal() {
-    // Return existing promise if already initializing
+    // Verhindert mehrfache gleichzeitige Initialisierung
     if (initPromise) return initPromise;
     if (isOneSignalInitialized) return Promise.resolve();
     if (typeof window === 'undefined') return Promise.resolve();
 
-    // Don't init on native apps (they use FCM directly)
+    // Native Apps verwenden FCM direkt statt OneSignal Web SDK
     if (window.CapacitorUtils?.isNative()) {
         console.log('[OneSignal] Skipping - running in native app');
         return Promise.resolve();
     }
 
-    // Check if OneSignal SDK is loaded
     if (!window.OneSignalDeferred) {
         console.warn('[OneSignal] SDK not loaded - OneSignalDeferred missing');
         return Promise.resolve();
     }
 
-    // Create a promise that resolves when initialization is complete
     initPromise = new Promise((resolve, reject) => {
         try {
             console.log('[OneSignal] Starting initialization...');
@@ -48,11 +39,9 @@ export async function initOneSignal() {
                     console.log('[OneSignal] SDK loaded, calling init...');
                     await OneSignal.init({
                         appId: ONESIGNAL_APP_ID,
-                        // Safari web push requires this
                         safari_web_id: undefined,
-                        // Auto resubscribe returning users
                         autoResubscribe: true,
-                        // DISABLE all automatic prompts - we use our own UI
+                        // Alle automatischen Prompts deaktiviert - wir verwenden eigene UI
                         autoRegister: false,
                         notifyButton: {
                             enable: false
@@ -64,11 +53,9 @@ export async function initOneSignal() {
                                 autoPrompt: false
                             }
                         },
-                        // Welcome notification after opt-in
                         welcomeNotification: {
                             disable: true
                         },
-                        // Service worker settings
                         serviceWorkerPath: '/OneSignalSDKWorker.js',
                         serviceWorkerParam: { scope: '/' }
                     });
@@ -76,11 +63,9 @@ export async function initOneSignal() {
                     isOneSignalInitialized = true;
                     console.log('[OneSignal] Initialized successfully');
 
-                    // Listen for subscription changes
                     OneSignal.User.PushSubscription.addEventListener('change', (event) => {
                         console.log('[OneSignal] Subscription changed:', event.current);
                         if (event.current.optedIn) {
-                            // User opted in - save external ID
                             syncUserWithOneSignal();
                         }
                     });
@@ -97,7 +82,7 @@ export async function initOneSignal() {
         }
     });
 
-    // Add a timeout in case OneSignal SDK never calls our callback
+    // Timeout verhindert endloses Warten falls SDK nicht lädt
     const timeoutPromise = new Promise((resolve) => {
         setTimeout(() => {
             if (!isOneSignalInitialized) {
@@ -107,25 +92,22 @@ export async function initOneSignal() {
         }, 10000);
     });
 
-    // Wait for either initialization or timeout
     return Promise.race([initPromise, timeoutPromise]);
 }
 
 /**
- * Sync the current user with OneSignal
- * Call this after user logs in
+ * Benutzer mit OneSignal synchronisieren - nach Login aufrufen
  */
 export async function syncUserWithOneSignal(userId, userEmail = null, userName = null) {
     if (!isOneSignalInitialized || !window.OneSignal) return;
 
     try {
-        // Set external user ID (your Supabase user ID)
+        // Verknüpft OneSignal-Subscription mit Supabase User-ID
         if (userId) {
             await window.OneSignal.login(userId);
             console.log('[OneSignal] User logged in:', userId);
         }
 
-        // Set user tags for segmentation
         if (userEmail || userName) {
             await window.OneSignal.User.addTags({
                 email: userEmail || '',
@@ -138,8 +120,7 @@ export async function syncUserWithOneSignal(userId, userEmail = null, userName =
 }
 
 /**
- * Logout user from OneSignal
- * Call this when user logs out
+ * Benutzer von OneSignal abmelden - bei Logout aufrufen
  */
 export async function logoutOneSignal() {
     if (!isOneSignalInitialized || !window.OneSignal) return;
@@ -153,11 +134,10 @@ export async function logoutOneSignal() {
 }
 
 /**
- * Request push notification permission
- * Uses native browser permission API directly to avoid OneSignal UI
+ * Push-Benachrichtigungs-Berechtigung anfordern
+ * Verwendet native Browser-API um OneSignal UI zu umgehen
  */
 export async function requestOneSignalPermission() {
-    // Wait for initialization if not ready
     if (!isOneSignalInitialized) {
         console.log('[OneSignal] Waiting for initialization before requesting permission...');
         await initOneSignal();
@@ -171,14 +151,14 @@ export async function requestOneSignalPermission() {
     try {
         console.log('[OneSignal] Requesting permission...');
 
-        // Use native browser API directly to avoid any OneSignal UI
+        // Native Browser-API vermeidet OneSignal's eigene Permission-Dialoge
         if ('Notification' in window) {
             console.log('[OneSignal] Current permission:', Notification.permission);
             const permission = await Notification.requestPermission();
             console.log('[OneSignal] Permission result:', permission);
 
             if (permission === 'granted') {
-                // Tell OneSignal to register now that we have permission
+                // OneSignal über erteilte Berechtigung informieren und registrieren
                 console.log('[OneSignal] Opting in to push subscription...');
                 await window.OneSignal.User.PushSubscription.optIn();
                 console.log('[OneSignal] Opted in successfully');
@@ -195,10 +175,9 @@ export async function requestOneSignalPermission() {
 }
 
 /**
- * Check if push notifications are enabled
+ * Prüft ob Push-Benachrichtigungen aktiviert sind
  */
 export async function isOneSignalEnabled() {
-    // Wait for initialization if not ready
     if (!isOneSignalInitialized && initPromise) {
         await initPromise;
     }
@@ -217,8 +196,8 @@ export async function isOneSignalEnabled() {
 }
 
 /**
- * Get the current permission status
- * Returns: 'granted', 'denied', 'default', or 'unsupported'
+ * Gibt den aktuellen Berechtigungsstatus zurück
+ * @returns {string} 'granted', 'denied', 'default' oder 'unsupported'
  */
 export async function getOneSignalPermissionStatus() {
     if (!window.OneSignal) {
@@ -233,7 +212,7 @@ export async function getOneSignalPermissionStatus() {
 }
 
 /**
- * Opt out of push notifications
+ * Push-Benachrichtigungen deaktivieren
  */
 export async function optOutOneSignal() {
     if (!isOneSignalInitialized || !window.OneSignal) return;
@@ -247,8 +226,8 @@ export async function optOutOneSignal() {
 }
 
 /**
- * Set notification tags for targeting
- * @param {Object} tags - Key-value pairs for targeting
+ * Benachrichtigungs-Tags für Targeting setzen
+ * @param {Object} tags - Key-Value-Paare für Segmentierung
  */
 export async function setOneSignalTags(tags) {
     if (!isOneSignalInitialized || !window.OneSignal) return;
@@ -261,7 +240,6 @@ export async function setOneSignalTags(tags) {
     }
 }
 
-// Export a simple API
 export default {
     init: initOneSignal,
     syncUser: syncUserWithOneSignal,

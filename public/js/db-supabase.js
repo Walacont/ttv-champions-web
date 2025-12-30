@@ -1,15 +1,14 @@
-// Database Abstraction Layer for Supabase
-// Provides Firebase-like API for easier migration
-// SC Champions - Supabase Version
+// Datenbank-Abstraktionsschicht für Supabase
+// Bietet Firebase-ähnliche API für einfachere Migration
 
 import { getSupabase } from './supabase-init.js';
 
 // ============================================
-// FIELD NAME MAPPING (camelCase → snake_case)
+// FELDNAMEN-MAPPING (camelCase → snake_case)
 // ============================================
 
 const fieldMappings = {
-    // User/Profile fields (1:1 Firebase mapping)
+    // User/Profile Felder (1:1 Firebase Mapping)
     firstName: 'first_name',
     lastName: 'last_name',
     photoURL: 'avatar_url',
@@ -19,34 +18,34 @@ const fieldMappings = {
     highestElo: 'highest_elo',
     league: 'league',
 
-    // Doubles Stats
+    // Doppel-Statistiken
     doublesEloRating: 'doubles_elo_rating',
     highestDoublesElo: 'highest_doubles_elo',
     doublesMatchesPlayed: 'doubles_matches_played',
     doublesMatchesWon: 'doubles_matches_won',
     doublesMatchesLost: 'doubles_matches_lost',
 
-    // Training/Stats
+    // Training/Statistiken
     qttrPoints: 'qttr_points',
     grundlagenCompleted: 'grundlagen_completed',
 
-    // Status Flags
+    // Status-Flags
     isOffline: 'is_offline',
     isMatchReady: 'is_match_ready',
     onboardingComplete: 'onboarding_complete',
 
-    // Push Notifications
+    // Push-Benachrichtigungen
     fcmToken: 'fcm_token',
     fcmTokenUpdatedAt: 'fcm_token_updated_at',
     notificationsEnabled: 'notifications_enabled',
     notificationPreferences: 'notification_preferences',
     notificationPreferencesUpdatedAt: 'notification_preferences_updated_at',
 
-    // Preferences & Privacy
+    // Einstellungen & Datenschutz
     leaderboardPreferences: 'leaderboard_preferences',
     privacySettings: 'privacy_settings',
 
-    // Season Tracking
+    // Saison-Tracking
     lastSeasonReset: 'last_season_reset',
     lastXPUpdate: 'last_xp_update',
 
@@ -57,11 +56,11 @@ const fieldMappings = {
     migratedAt: 'migrated_at',
     migratedFrom: 'migrated_from',
 
-    // Timestamps
+    // Zeitstempel
     createdAt: 'created_at',
     updatedAt: 'updated_at',
 
-    // Match fields
+    // Match-Felder
     playerAId: 'player_a_id',
     playerBId: 'player_b_id',
     winnerId: 'winner_id',
@@ -77,22 +76,22 @@ const fieldMappings = {
     createdBy: 'created_by',
     sportId: 'sport_id',
 
-    // Subgroup fields
+    // Subgroup-Felder
     trainingDays: 'training_days',
     isDefault: 'is_default',
 
-    // Attendance fields
+    // Anwesenheits-Felder
     subgroupId: 'subgroup_id',
     userId: 'user_id',
     xpAwarded: 'xp_awarded',
     recordedBy: 'recorded_by',
     sessionId: 'session_id',
 
-    // Challenge fields
+    // Challenge-Felder
     xpReward: 'xp_reward',
     isActive: 'is_active',
 
-    // Exercise fields
+    // Übungs-Felder
     recordCount: 'record_count',
     recordHolderId: 'record_holder_id',
     recordHolderName: 'record_holder_name',
@@ -100,16 +99,16 @@ const fieldMappings = {
     recordHolderClubId: 'record_holder_club_id',
     recordUpdatedAt: 'record_updated_at',
 
-    // Invitation code fields
+    // Einladungscode-Felder
     maxUses: 'max_uses',
     useCount: 'use_count',
     expiresAt: 'expires_at',
 
-    // Training session fields
+    // Trainingssession-Felder
     startTime: 'start_time',
     endTime: 'end_time',
 
-    // Doubles match fields
+    // Doppel-Match-Felder
     teamASetsWon: 'team_a_sets_won',
     teamBSetsWon: 'team_b_sets_won',
     winningTeam: 'winning_team',
@@ -119,16 +118,16 @@ const fieldMappings = {
     teamBPlayer1Id: 'team_b_player1_id',
     teamBPlayer2Id: 'team_b_player2_id',
 
-    // General
+    // Allgemein
     logoUrl: 'logo_url'
 };
 
-// Reverse mapping for reading data
+// Umgekehrtes Mapping für Lesevorgänge
 const reverseFieldMappings = Object.fromEntries(
     Object.entries(fieldMappings).map(([k, v]) => [v, k])
 );
 
-// Collection name mappings (Firestore → Supabase tables)
+// Collection-Namen-Mapping (Firestore → Supabase Tabellen)
 const collectionMappings = {
     users: 'profiles',
     clubs: 'clubs',
@@ -156,7 +155,7 @@ const collectionMappings = {
 };
 
 /**
- * Convert camelCase field names to snake_case for Supabase
+ * Konvertiert camelCase zu snake_case für Supabase
  */
 function toSnakeCase(obj) {
     if (!obj || typeof obj !== 'object') return obj;
@@ -173,7 +172,7 @@ function toSnakeCase(obj) {
 }
 
 /**
- * Convert snake_case field names to camelCase for compatibility
+ * Konvertiert snake_case zu camelCase für Kompatibilität
  */
 function toCamelCase(obj) {
     if (!obj || typeof obj !== 'object') return obj;
@@ -190,18 +189,18 @@ function toCamelCase(obj) {
 }
 
 /**
- * Get table name from collection name
+ * Gibt Tabellenname von Collection-Name zurück
  */
 function getTableName(collectionName) {
     return collectionMappings[collectionName] || collectionName;
 }
 
 // ============================================
-// DOCUMENT REFERENCE (Firebase-like API)
+// DOKUMENT-REFERENZ (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Creates a document reference (like Firestore doc())
+ * Erstellt eine Dokumentreferenz (wie Firestore doc())
  */
 export function doc(collectionName, docId) {
     return {
@@ -212,7 +211,7 @@ export function doc(collectionName, docId) {
 }
 
 /**
- * Gets a single document (like Firestore getDoc())
+ * Holt ein einzelnes Dokument (wie Firestore getDoc())
  */
 export async function getDoc(docRef) {
     const supabase = getSupabase();
@@ -223,7 +222,7 @@ export async function getDoc(docRef) {
         .eq('id', docRef.id)
         .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+    if (error && error.code !== 'PGRST116') { // PGRST116 = keine Zeilen gefunden
         console.error('getDoc error:', error);
     }
 
@@ -235,12 +234,11 @@ export async function getDoc(docRef) {
 }
 
 /**
- * Updates a document (like Firestore updateDoc())
+ * Aktualisiert ein Dokument (wie Firestore updateDoc())
  */
 export async function updateDoc(docRef, updates) {
     const supabase = getSupabase();
 
-    // Handle serverTimestamp
     const processedUpdates = processUpdates(updates);
     const snakeCaseUpdates = toSnakeCase(processedUpdates);
 
@@ -256,7 +254,7 @@ export async function updateDoc(docRef, updates) {
 }
 
 /**
- * Sets a document (like Firestore setDoc())
+ * Setzt ein Dokument (wie Firestore setDoc())
  */
 export async function setDoc(docRef, data, options = {}) {
     const supabase = getSupabase();
@@ -280,7 +278,7 @@ export async function setDoc(docRef, data, options = {}) {
 }
 
 /**
- * Deletes a document (like Firestore deleteDoc())
+ * Löscht ein Dokument (wie Firestore deleteDoc())
  */
 export async function deleteDoc(docRef) {
     const supabase = getSupabase();
@@ -294,11 +292,11 @@ export async function deleteDoc(docRef) {
 }
 
 // ============================================
-// COLLECTION REFERENCE (Firebase-like API)
+// COLLECTION-REFERENZ (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Creates a collection reference (like Firestore collection())
+ * Erstellt eine Collection-Referenz (wie Firestore collection())
  */
 export function collection(collectionName) {
     return {
@@ -308,7 +306,7 @@ export function collection(collectionName) {
 }
 
 /**
- * Adds a document to collection (like Firestore addDoc())
+ * Fügt ein Dokument zur Collection hinzu (wie Firestore addDoc())
  */
 export async function addDoc(collectionRef, data) {
     const supabase = getSupabase();
@@ -331,13 +329,12 @@ export async function addDoc(collectionRef, data) {
 }
 
 /**
- * Gets all documents from collection (like Firestore getDocs())
+ * Holt alle Dokumente aus Collection (wie Firestore getDocs())
  */
 export async function getDocs(queryObj) {
     const supabase = getSupabase();
     let query = supabase.from(queryObj._collection || queryObj.name).select('*');
 
-    // Apply filters
     if (queryObj._filters) {
         for (const filter of queryObj._filters) {
             if (filter.op === '==') {
@@ -360,14 +357,12 @@ export async function getDocs(queryObj) {
         }
     }
 
-    // Apply ordering
     if (queryObj._orderBy) {
         for (const order of queryObj._orderBy) {
             query = query.order(order.field, { ascending: order.direction !== 'desc' });
         }
     }
 
-    // Apply limit
     if (queryObj._limit) {
         query = query.limit(queryObj._limit);
     }
@@ -391,11 +386,11 @@ export async function getDocs(queryObj) {
 }
 
 // ============================================
-// QUERY BUILDERS (Firebase-like API)
+// QUERY BUILDER (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Creates a query (like Firestore query())
+ * Erstellt eine Query (wie Firestore query())
  */
 export function query(collectionRef, ...constraints) {
     const queryObj = {
@@ -420,7 +415,7 @@ export function query(collectionRef, ...constraints) {
 }
 
 /**
- * Creates a where constraint (like Firestore where())
+ * Erstellt eine Where-Bedingung (wie Firestore where())
  */
 export function where(field, op, value) {
     const snakeField = fieldMappings[field] || field.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -433,7 +428,7 @@ export function where(field, op, value) {
 }
 
 /**
- * Creates an orderBy constraint (like Firestore orderBy())
+ * Erstellt eine OrderBy-Bedingung (wie Firestore orderBy())
  */
 export function orderBy(field, direction = 'asc') {
     const snakeField = fieldMappings[field] || field.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -445,7 +440,7 @@ export function orderBy(field, direction = 'asc') {
 }
 
 /**
- * Creates a limit constraint (like Firestore limit())
+ * Erstellt eine Limit-Bedingung (wie Firestore limit())
  */
 export function limit(n) {
     return {
@@ -455,17 +450,16 @@ export function limit(n) {
 }
 
 // ============================================
-// REAL-TIME LISTENERS (Firebase-like API)
+// ECHTZEIT-LISTENER (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Sets up a real-time listener (like Firestore onSnapshot())
+ * Richtet einen Echtzeit-Listener ein (wie Firestore onSnapshot())
  */
 export function onSnapshot(target, callback, errorCallback) {
     const supabase = getSupabase();
 
     if (target._type === 'doc_ref') {
-        // Document listener
         const channel = supabase
             .channel(`doc_${target.collection}_${target.id}`)
             .on(
@@ -495,14 +489,11 @@ export function onSnapshot(target, callback, errorCallback) {
             )
             .subscribe();
 
-        // Initial fetch
         getDoc(target).then(callback).catch(errorCallback);
 
-        // Return unsubscribe function
         return () => supabase.removeChannel(channel);
 
     } else if (target._type === 'query' || target._type === 'collection_ref') {
-        // Query/Collection listener
         const tableName = target._collection || target.name;
         const channelName = `query_${tableName}_${Date.now()}`;
 
@@ -516,7 +507,7 @@ export function onSnapshot(target, callback, errorCallback) {
                     table: tableName
                 },
                 async () => {
-                    // Re-fetch on any change
+                    // Bei jeder Änderung neu abrufen
                     try {
                         const result = await getDocs(target);
                         callback(result);
@@ -527,10 +518,8 @@ export function onSnapshot(target, callback, errorCallback) {
             )
             .subscribe();
 
-        // Initial fetch
         getDocs(target).then(callback).catch(errorCallback);
 
-        // Return unsubscribe function
         return () => supabase.removeChannel(channel);
     }
 
@@ -539,11 +528,11 @@ export function onSnapshot(target, callback, errorCallback) {
 }
 
 // ============================================
-// BATCH WRITES (Firebase-like API)
+// BATCH-SCHREIBVORGÄNGE (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Creates a write batch (like Firestore writeBatch())
+ * Erstellt einen Schreibstapel (wie Firestore writeBatch())
  */
 export function writeBatch() {
     const operations = [];
@@ -591,39 +580,39 @@ export function writeBatch() {
 }
 
 // ============================================
-// SPECIAL VALUES (Firebase-like API)
+// SPEZIELLE WERTE (Firebase-ähnliche API)
 // ============================================
 
 /**
- * Server timestamp placeholder (like Firestore serverTimestamp())
+ * Server-Zeitstempel-Platzhalter (wie Firestore serverTimestamp())
  */
 export function serverTimestamp() {
     return { _type: 'serverTimestamp' };
 }
 
 /**
- * Increment value (like Firestore increment())
+ * Inkrementierungswert (wie Firestore increment())
  */
 export function increment(n) {
     return { _type: 'increment', value: n };
 }
 
 /**
- * Array union (like Firestore arrayUnion())
+ * Array-Union (wie Firestore arrayUnion())
  */
 export function arrayUnion(...elements) {
     return { _type: 'arrayUnion', elements };
 }
 
 /**
- * Array remove (like Firestore arrayRemove())
+ * Array-Remove (wie Firestore arrayRemove())
  */
 export function arrayRemove(...elements) {
     return { _type: 'arrayRemove', elements };
 }
 
 /**
- * Process special values in updates
+ * Verarbeitet spezielle Werte in Updates
  */
 function processUpdates(obj) {
     if (!obj || typeof obj !== 'object') return obj;
@@ -633,8 +622,8 @@ function processUpdates(obj) {
         if (value && value._type === 'serverTimestamp') {
             result[key] = new Date().toISOString();
         } else if (value && value._type === 'increment') {
-            // Note: Increment needs special handling with Supabase RPC
-            // For now, just set the value (caller should handle increment separately)
+            // Hinweis: Increment benötigt spezielle Behandlung mit Supabase RPC
+            // Vorerst wird nur der Wert gesetzt (Aufrufer muss Increment separat behandeln)
             result[key] = value.value;
         } else if (value && value._type === 'arrayUnion') {
             result[key] = value.elements;
@@ -650,7 +639,7 @@ function processUpdates(obj) {
 }
 
 // ============================================
-// HELPER EXPORTS
+// HILFS-EXPORTS
 // ============================================
 
 export { toSnakeCase, toCamelCase, getTableName };

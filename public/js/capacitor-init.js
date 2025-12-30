@@ -1,13 +1,10 @@
-// Capacitor Native Integration
-// This file initializes Capacitor plugins when running as a native app
+// Capacitor-Integration für native Apps
 
 (function () {
     'use strict';
 
-    // Check if running in Capacitor
     const isCapacitor = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
 
-    // Add platform classes to HTML element immediately
     if (isCapacitor) {
         const platform = window.Capacitor.getPlatform();
         document.documentElement.classList.add('plt-capacitor');
@@ -19,7 +16,6 @@
         return;
     }
 
-    // Helper function to get plugins safely
     function getPlugins() {
         try {
             return window.Capacitor?.Plugins || {};
@@ -29,7 +25,6 @@
         }
     }
 
-    // Wait for Capacitor plugins to be ready
     document.addEventListener('DOMContentLoaded', async () => {
         try {
             await initializeNativeFeatures();
@@ -42,7 +37,6 @@
         const Plugins = getPlugins();
         const { SplashScreen, StatusBar, App, Keyboard } = Plugins;
 
-        // Configure Status Bar
         if (StatusBar) {
             try {
                 await StatusBar.setBackgroundColor({ color: '#1e3a5f' });
@@ -53,7 +47,6 @@
             }
         }
 
-        // Handle keyboard events
         if (Keyboard) {
             try {
                 Keyboard.addListener('keyboardWillShow', (info) => {
@@ -71,35 +64,31 @@
             }
         }
 
-        // Handle app state changes
         if (App) {
             try {
                 App.addListener('appStateChange', ({ isActive }) => {
                     console.log('[Capacitor] App state changed, active:', isActive);
                     if (isActive) {
-                        // App came to foreground - refresh data if needed
+                        // Event für Datenaktualisierung nach App-Resume
                         window.dispatchEvent(new CustomEvent('app-resumed'));
                     }
                 });
 
-                // Handle back button (Android)
+                // Android-spezifisch: Hardware-Zurück-Button
                 App.addListener('backButton', ({ canGoBack }) => {
                     if (canGoBack) {
                         window.history.back();
                     } else {
-                        // Ask user if they want to exit
                         if (confirm('App beenden?')) {
                             App.exitApp();
                         }
                     }
                 });
 
-                // Handle deep links
                 App.addListener('appUrlOpen', (event) => {
                     console.log('[Capacitor] Deep link opened:', event.url);
                     try {
                         const url = new URL(event.url);
-                        // Handle the deep link - navigate to the appropriate page
                         if (url.pathname) {
                             window.location.href = url.pathname;
                         }
@@ -112,7 +101,6 @@
             }
         }
 
-        // Hide splash screen after content is ready
         if (SplashScreen) {
             setTimeout(async () => {
                 try {
@@ -126,7 +114,7 @@
             }, 500);
         }
 
-        // Initialize Push Notifications (delayed to ensure everything is ready)
+        // Verzögert initialisieren, damit alle anderen Features bereit sind
         setTimeout(() => {
             initializePushNotifications().catch(e => {
                 console.error('[Push] Failed to initialize:', e);
@@ -134,9 +122,7 @@
         }, 1000);
     }
 
-    /**
-     * Initialize Push Notifications for native apps
-     */
+    /** Initialisiert Push-Benachrichtigungen für native Apps */
     async function initializePushNotifications() {
         console.log('[Push] Initializing push notifications...');
 
@@ -151,7 +137,6 @@
         try {
             console.log('[Push] PushNotifications plugin loaded');
 
-            // Check current permission status
             let permStatus;
             try {
                 permStatus = await PushNotifications.checkPermissions();
@@ -161,13 +146,12 @@
                 return;
             }
 
-            // Listen for registration success
             try {
                 await PushNotifications.addListener('registration', (token) => {
                     console.log('[Push] Registration successful!');
                     const tokenValue = token?.value || '';
                     console.log('[Push] Token received:', tokenValue ? tokenValue.substring(0, 30) + '...' : 'empty');
-                    // Store token for later use - will be saved to Supabase when user logs in
+                    // Token wird beim Login in Supabase gespeichert
                     window.pushToken = tokenValue;
                     try {
                         window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: tokenValue } }));
@@ -179,7 +163,6 @@
                 console.error('[Push] Error adding registration listener:', e);
             }
 
-            // Listen for registration errors
             try {
                 await PushNotifications.addListener('registrationError', (error) => {
                     console.error('[Push] Registration error:', JSON.stringify(error));
@@ -188,11 +171,9 @@
                 console.error('[Push] Error adding registrationError listener:', e);
             }
 
-            // Listen for push notifications received while app is in foreground
             try {
                 await PushNotifications.addListener('pushNotificationReceived', (notification) => {
                     console.log('[Push] Notification received in foreground:', JSON.stringify(notification));
-                    // Show in-app notification toast
                     try {
                         window.dispatchEvent(new CustomEvent('push-notification-received', {
                             detail: notification
@@ -205,31 +186,26 @@
                 console.error('[Push] Error adding pushNotificationReceived listener:', e);
             }
 
-            // Listen for notification actions (when user taps on notification)
             try {
                 await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
                     console.log('[Push] Notification action performed:', JSON.stringify(action));
                     const data = action?.notification?.data;
 
-                    // Handle navigation based on notification type
-                    // Always redirect to player dashboard (not coach dashboard)
+                    // Immer zum Spieler-Dashboard (nicht Coach-Dashboard), außer bei Club-Anfragen
                     if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
-                        // Navigate to dashboard, matches tab, scroll to pending requests
                         window.location.href = '/dashboard.html?tab=matches&scrollTo=pending-requests-section';
                     } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
                         if (data?.requester_id) {
                             window.location.href = `/profile.html?id=${data.requester_id}`;
                         } else {
-                            // Fallback: go to dashboard overview with friend requests
                             window.location.href = '/dashboard.html?scrollTo=pending-follow-requests-section';
                         }
                     } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
-                        // Club requests still go to coach dashboard
+                        // Club-Anfragen weiterhin zum Coach-Dashboard
                         window.location.href = '/coach.html?tab=club&scrollTo=club-join-requests-list';
                     } else if (data?.url) {
                         window.location.href = data.url;
                     } else {
-                        // Default: go to dashboard matches tab
                         window.location.href = '/dashboard.html?tab=matches';
                     }
                 });
@@ -239,7 +215,7 @@
 
             console.log('[Push] All listeners registered');
 
-            // If permission is already granted, register immediately to get token
+            // Sofort registrieren wenn Berechtigung bereits erteilt, um Token zu erhalten
             if (permStatus && permStatus.receive === 'granted') {
                 console.log('[Push] Permission already granted, registering to get token...');
                 try {
@@ -258,12 +234,11 @@
         }
     }
 
-    // Expose utility functions
     window.CapacitorUtils = {
         isNative: () => isCapacitor,
         getPlatform: () => (isCapacitor ? window.Capacitor.getPlatform() : 'web'),
 
-        // Request push notification permission
+        /** Fordert Push-Benachrichtigungs-Berechtigung an */
         async requestPushPermission() {
             console.log('[Push] requestPushPermission called, isCapacitor:', isCapacitor);
 
@@ -283,19 +258,16 @@
             try {
                 console.log('[Push] PushNotifications module loaded');
 
-                // Check current permission status
                 const permStatus = await PushNotifications.checkPermissions();
                 console.log('[Push] Current permission status:', JSON.stringify(permStatus));
 
-                // If already granted, just register
                 if (permStatus.receive === 'granted') {
                     console.log('[Push] Already granted, registering...');
                     await PushNotifications.register();
                     return true;
                 }
 
-                // For any other status (prompt, denied, or unknown), try to request permission
-                // On Android 13+, this will show the system permission dialog
+                // Ab Android 13+ wird der System-Dialog angezeigt
                 console.log('[Push] Requesting permission...');
                 const result = await PushNotifications.requestPermissions();
                 console.log('[Push] Permission request result:', JSON.stringify(result));
@@ -314,12 +286,12 @@
             }
         },
 
-        // Get current push token
+        /** Gibt das aktuelle Push-Token zurück */
         getPushToken() {
             return window.pushToken || null;
         },
 
-        // Check if push notifications are enabled
+        /** Prüft ob Push-Benachrichtigungen aktiviert sind */
         async isPushEnabled() {
             if (!isCapacitor) {
                 return 'Notification' in window && Notification.permission === 'granted';
@@ -337,7 +309,7 @@
             }
         },
 
-        // Haptic feedback
+        /** Haptisches Feedback (Vibration) */
         async vibrate(style = 'medium') {
             if (!isCapacitor) return;
 
@@ -358,7 +330,7 @@
             }
         },
 
-        // Store/retrieve data
+        /** Daten speichern (Preferences API oder localStorage als Fallback) */
         async setItem(key, value) {
             if (!isCapacitor) {
                 localStorage.setItem(key, JSON.stringify(value));
@@ -379,6 +351,7 @@
             }
         },
 
+        /** Daten abrufen (Preferences API oder localStorage als Fallback) */
         async getItem(key) {
             if (!isCapacitor) {
                 const item = localStorage.getItem(key);
@@ -402,9 +375,7 @@
         }
     };
 
-    /**
-     * Request web push notification permission (for PWA/browser)
-     */
+    /** Fordert Web-Push-Berechtigung an (für PWA/Browser) */
     async function requestWebPushPermission() {
         if (!('Notification' in window)) {
             console.log('[Push] Web notifications not supported');

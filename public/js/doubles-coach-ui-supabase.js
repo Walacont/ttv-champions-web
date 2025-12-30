@@ -5,29 +5,28 @@ import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayer
 import { calculateDoublesHandicap } from './validation-utils.js';
 
 /**
- * Doubles Coach UI Module (Supabase Version)
- * Handles coach interface for doubles matches
+ * Doppel-Coach UI Modul
  */
 
-let currentMatchType = 'singles'; // 'singles' or 'doubles'
+let currentMatchType = 'singles';
 let doublesSetScoreInput = null;
 let currentUserId = null;
-let currentCoachDoublesHandicapDetails = null; // Stores current handicap suggestion details for coach doubles
+let currentCoachDoublesHandicapDetails = null;
 
 // ========================================================================
 // ===== HELPER FUNCTIONS =====
 // ========================================================================
 
 /**
- * Creates sport-specific score input for doubles matches
- * @param {HTMLElement} container - Container element
- * @param {Array} sets - Existing sets
- * @param {string} mode - Match mode
- * @returns {Object} Score input instance
+ * Erstellt sportartspezifisches Score-Input für Doppel-Matches
+ * @param {HTMLElement} container - Container-Element
+ * @param {Array} sets - Bestehende Sätze
+ * @param {string} mode - Match-Modus
+ * @returns {Object} Score-Input-Instanz
  */
 async function createDoublesScoreInput(container, sets = [], mode = 'best-of-5') {
     if (!currentUserId) {
-        // Fallback to table tennis if no user ID
+        // Fallback auf Tischtennis wenn keine User-ID vorhanden
         return createSetScoreInput(container, sets, mode);
     }
 
@@ -47,7 +46,6 @@ async function createDoublesScoreInput(container, sets = [], mode = 'best-of-5')
     } else if (sportName === 'badminton') {
         return createBadmintonScoreInput(container, sets, 'best-of-3');
     } else {
-        // Table tennis (default)
         return createSetScoreInput(container, sets, mode || 'best-of-5');
     }
 }
@@ -57,10 +55,9 @@ async function createDoublesScoreInput(container, sets = [], mode = 'best-of-5')
 // ========================================================================
 
 /**
- * Initializes the doubles match UI for coach
+ * Initialisiert die Doppel-Match UI für Trainer
  */
 export function initializeDoublesCoachUI() {
-    // Set up toggle buttons
     const singlesToggle = document.getElementById('singles-toggle');
     const doublesToggle = document.getElementById('doubles-toggle');
 
@@ -72,13 +69,12 @@ export function initializeDoublesCoachUI() {
     singlesToggle.addEventListener('click', () => switchMatchType('singles'));
     doublesToggle.addEventListener('click', () => switchMatchType('doubles'));
 
-    // Initialize with singles
     switchMatchType('singles');
 }
 
 /**
- * Switches between singles and doubles match type
- * @param {string} type - 'singles' or 'doubles'
+ * Wechselt zwischen Einzel- und Doppel-Match-Typ
+ * @param {string} type - 'singles' oder 'doubles'
  */
 function switchMatchType(type) {
     currentMatchType = type;
@@ -89,33 +85,27 @@ function switchMatchType(type) {
     const doublesContainer = document.getElementById('doubles-players-container');
 
     if (type === 'singles') {
-        // Update toggle buttons
         singlesToggle.classList.add('active', 'bg-indigo-600', 'text-white');
         singlesToggle.classList.remove('text-gray-700');
         doublesToggle.classList.remove('active', 'bg-indigo-600', 'text-white');
         doublesToggle.classList.add('text-gray-700');
 
-        // Show singles, hide doubles
         singlesContainer.classList.remove('hidden');
         doublesContainer.classList.add('hidden');
 
-        // Clear doubles selections
         clearDoublesSelections();
     } else {
-        // Update toggle buttons
         doublesToggle.classList.add('active', 'bg-indigo-600', 'text-white');
         doublesToggle.classList.remove('text-gray-700');
         singlesToggle.classList.remove('active', 'bg-indigo-600', 'text-white');
         singlesToggle.classList.add('text-gray-700');
 
-        // Show doubles, hide singles
         doublesContainer.classList.remove('hidden');
         singlesContainer.classList.add('hidden');
 
-        // Clear singles selections
         clearSinglesSelections();
 
-        // Hide handicap suggestion when switching to doubles
+        // Handicap-Vorschlag beim Wechsel zu Doppel verbergen
         const handicapSuggestion = document.getElementById('handicap-suggestion');
         const handicapToggleContainer = document.getElementById('handicap-toggle-container');
         if (handicapSuggestion) {
@@ -130,7 +120,7 @@ function switchMatchType(type) {
 }
 
 /**
- * Clears singles player selections
+ * Löscht Einzel-Spielerauswahl
  */
 function clearSinglesSelections() {
     const playerASelect = document.getElementById('player-a-select');
@@ -141,10 +131,9 @@ function clearSinglesSelections() {
 }
 
 /**
- * Clears doubles player selections
+ * Löscht Doppel-Spielerauswahl
  */
 function clearDoublesSelections() {
-    // Clear handicap details
     currentCoachDoublesHandicapDetails = null;
 
     const selects = [
@@ -165,20 +154,19 @@ function clearDoublesSelections() {
 // ========================================================================
 
 /**
- * Populates all doubles dropdowns with match-ready players
- * @param {Array} clubPlayers - Array of club players
- * @param {string} currentSubgroupFilter - Current subgroup filter
- * @param {string} excludePlayerId - Player ID to exclude (e.g., coach)
- * @param {string} currentGenderFilter - Current gender filter
+ * Befüllt alle Doppel-Dropdowns mit spielbereiten Spielern
+ * @param {Array} clubPlayers - Vereinsspieler
+ * @param {string} currentSubgroupFilter - Aktueller Untergruppen-Filter
+ * @param {string} excludePlayerId - Auszuschließende Spieler-ID (z.B. Trainer)
+ * @param {string} currentGenderFilter - Aktueller Geschlechter-Filter
  */
 export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
-    // Filter match-ready players (only check isMatchReady flag)
+    // Nur spielbereite Spieler filtern
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
         return isMatchReady;
     });
 
-    // Debug logging for filters
     console.log('[Doubles] populateDoublesDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
@@ -187,14 +175,12 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
         excludePlayerId
     });
 
-    // Apply subgroup/age filter first
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             console.log('[Doubles] Filtering by age group:', currentSubgroupFilter);
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
             console.log('[Doubles] After age filter:', matchReadyPlayers.length);
         } else if (!isGenderFilter(currentSubgroupFilter)) {
-            // Custom subgroup filter (not gender - gender is handled separately)
             console.log('[Doubles] Filtering by custom subgroup:', currentSubgroupFilter);
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
@@ -203,20 +189,18 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
         }
     }
 
-    // Apply gender filter separately (can be combined with age/subgroup filter)
+    // Geschlechter-Filter separat anwenden (kann mit Alters-/Untergruppen-Filter kombiniert werden)
     if (currentGenderFilter && currentGenderFilter !== 'all' && currentGenderFilter !== 'gender_all') {
         console.log('[Doubles] Filtering by gender:', currentGenderFilter);
         matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentGenderFilter);
         console.log('[Doubles] After gender filter:', matchReadyPlayers.length);
     }
 
-    // Exclude the specified player (e.g., coach) from the dropdowns
     if (excludePlayerId) {
         matchReadyPlayers = matchReadyPlayers.filter(p => p.id !== excludePlayerId);
         console.log('[Doubles] After excluding player:', matchReadyPlayers.length);
     }
 
-    // Populate all 4 dropdowns
     const dropdownIds = [
         'doubles-team-a-player1-select',
         'doubles-team-a-player2-select',
@@ -246,30 +230,27 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
 // ========================================================================
 
 /**
- * Handles doubles match form submission
- * @param {Event} e - Form submit event
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data
+ * Verarbeitet die Formularabsendung für Doppel-Matches
+ * @param {Event} e - Form-Submit-Event
+ * @param {Object} supabase - Supabase-Client
+ * @param {Object} currentUserData - Aktuelle Benutzerdaten
  */
 export async function handleDoublesMatchSave(e, supabase, currentUserData) {
     e.preventDefault();
 
     const feedbackEl = document.getElementById('match-feedback');
 
-    // Get player selections
     const teamAPlayer1Id = document.getElementById('doubles-team-a-player1-select').value;
     const teamAPlayer2Id = document.getElementById('doubles-team-a-player2-select').value;
     const teamBPlayer1Id = document.getElementById('doubles-team-b-player1-select').value;
     const teamBPlayer2Id = document.getElementById('doubles-team-b-player2-select').value;
 
-    // Validate all players are selected
     if (!teamAPlayer1Id || !teamAPlayer2Id || !teamBPlayer1Id || !teamBPlayer2Id) {
         feedbackEl.textContent = 'Bitte alle 4 Spieler auswählen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
 
-    // Validate all players are different
     const allPlayerIds = [teamAPlayer1Id, teamAPlayer2Id, teamBPlayer1Id, teamBPlayer2Id];
     if (new Set(allPlayerIds).size !== 4) {
         feedbackEl.textContent = 'Alle 4 Spieler müssen unterschiedlich sein!';
@@ -277,7 +258,6 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
         return;
     }
 
-    // Validate set scores
     if (!doublesSetScoreInput) {
         feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
@@ -294,7 +274,7 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
     const sets = doublesSetScoreInput.getSets();
     const winningTeam = setValidation.winnerId; // 'A' or 'B'
 
-    // Convert set field names from playerA/playerB to teamA/teamB for doubles
+    // Feld-Namen von playerA/playerB zu teamA/teamB für Doppel konvertieren
     const doublesSets = sets.map(set => ({
         teamA: set.playerA,
         teamB: set.playerB,
@@ -302,7 +282,6 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
 
     const handicapUsed = document.getElementById('handicap-toggle')?.checked || false;
 
-    // Get match mode from dropdown
     const matchModeSelect = document.getElementById('coach-match-mode-select');
     const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
 
@@ -310,7 +289,6 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
     feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
 
     try {
-        // Build handicap object if handicap is used
         const handicapData = handicapUsed && currentCoachDoublesHandicapDetails ? {
             team: currentCoachDoublesHandicapDetails.team,
             team_name: currentCoachDoublesHandicapDetails.team_name,
@@ -335,10 +313,8 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
             feedbackEl.textContent = 'Doppel-Match gemeldet! Punkte werden in Kürze aktualisiert.';
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
-            // Reset form
             e.target.reset();
 
-            // Reset match mode dropdown to default and recreate set score input
             const matchModeSelect = document.getElementById('coach-match-mode-select');
             const setScoreLabel = document.getElementById('coach-set-score-label');
             const container = document.getElementById('coach-set-score-container');
@@ -347,11 +323,9 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
                 matchModeSelect.value = 'best-of-5';
             }
 
-            // Recreate doubles set score input with default mode (sport-specific)
             if (container) {
                 doublesSetScoreInput = await createDoublesScoreInput(container, [], 'best-of-5');
                 if (setScoreLabel) {
-                    // Label will be updated based on sport
                     const sportContext = currentUserId ? await getSportContext(currentUserId) : null;
                     const sportName = sportContext?.sportName;
                     if (sportName === 'tennis' || sportName === 'padel') {
@@ -374,30 +348,30 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
 }
 
 /**
- * Returns the current match type
- * @returns {string} 'singles' or 'doubles'
+ * Gibt den aktuellen Match-Typ zurück
+ * @returns {string} 'singles' oder 'doubles'
  */
 export function getCurrentMatchType() {
     return currentMatchType;
 }
 
 /**
- * Sets the current user ID for sport context
- * @param {string} userId - User ID
+ * Setzt die aktuelle User-ID für den Sportart-Kontext
+ * @param {string} userId - User-ID
  */
 export function setDoublesUserId(userId) {
     currentUserId = userId;
 }
 
 /**
- * Sets the doubles set score input instance
- * @param {Object} inputInstance - Set score input instance
+ * Setzt die Doppel-Set-Score-Input-Instanz
+ * @param {Object} inputInstance - Set-Score-Input-Instanz
  */
 export function setDoublesSetScoreInput(inputInstance) {
     doublesSetScoreInput = inputInstance;
 }
 
-// Make functions available globally
+// Funktionen global verfügbar machen
 window.setDoublesSetScoreInput = setDoublesSetScoreInput;
 window.setDoublesUserId = setDoublesUserId;
 
@@ -406,8 +380,8 @@ window.setDoublesUserId = setDoublesUserId;
 // ========================================================================
 
 /**
- * Sets up handicap calculation for doubles matches
- * @param {Array} clubPlayers - Array of club players for lookup
+ * Richtet Handicap-Berechnung für Doppel-Matches ein
+ * @param {Array} clubPlayers - Vereinsspieler für Lookup
  */
 export function setupDoublesHandicap(clubPlayers) {
     const teamAPlayer1Select = document.getElementById('doubles-team-a-player1-select');
@@ -423,7 +397,6 @@ export function setupDoublesHandicap(clubPlayers) {
         return;
     }
 
-    // Create player lookup map
     const playersMap = new Map();
     clubPlayers.forEach(player => {
         playersMap.set(player.id, player);
@@ -435,9 +408,7 @@ export function setupDoublesHandicap(clubPlayers) {
         const teamBPlayer1Id = teamBPlayer1Select.value;
         const teamBPlayer2Id = teamBPlayer2Select.value;
 
-        // Check if all players are selected
         if (!teamAPlayer1Id || !teamAPlayer2Id || !teamBPlayer1Id || !teamBPlayer2Id) {
-            // Hide handicap if not all players selected
             if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
             if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
             return;
@@ -454,7 +425,7 @@ export function setupDoublesHandicap(clubPlayers) {
             return;
         }
 
-        // Calculate handicap using doubles Elo - handle both snake_case and camelCase
+        // Doppel-Elo verwenden - sowohl snake_case als auch camelCase unterstützen
         const teamA = {
             player1: { eloRating: teamAPlayer1.doubles_elo_rating || teamAPlayer1.doublesEloRating || 800 },
             player2: { eloRating: teamAPlayer2.doubles_elo_rating || teamAPlayer2.doublesEloRating || 800 }
@@ -468,7 +439,6 @@ export function setupDoublesHandicap(clubPlayers) {
         const handicapResult = calculateDoublesHandicap(teamA, teamB);
 
         if (handicapResult && handicapText) {
-            // Get first names - handle both formats
             const p1FirstName = teamAPlayer1.first_name || teamAPlayer1.firstName || '';
             const p2FirstName = teamAPlayer2.first_name || teamAPlayer2.firstName || '';
             const p3FirstName = teamBPlayer1.first_name || teamBPlayer1.firstName || '';
@@ -478,7 +448,7 @@ export function setupDoublesHandicap(clubPlayers) {
                 ? `Team A (${p1FirstName} & ${p2FirstName})`
                 : `Team B (${p3FirstName} & ${p4FirstName})`;
 
-            // Store handicap details for later use when saving match
+            // Handicap-Details für spätere Verwendung beim Speichern speichern
             currentCoachDoublesHandicapDetails = {
                 team: handicapResult.team,
                 team_name: weakerTeamName,
@@ -491,19 +461,16 @@ export function setupDoublesHandicap(clubPlayers) {
             handicapSuggestion.classList.remove('hidden');
             handicapToggleContainer.classList.remove('hidden');
 
-            // Uncheck toggle by default
             if (handicapToggle) {
                 handicapToggle.checked = false;
             }
         } else {
-            // No handicap needed
             currentCoachDoublesHandicapDetails = null;
             if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
             if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
         }
     }
 
-    // Add event listeners to all dropdowns
     [teamAPlayer1Select, teamAPlayer2Select, teamBPlayer1Select, teamBPlayer2Select].forEach(select => {
         select.addEventListener('change', calculateAndDisplayHandicap);
     });

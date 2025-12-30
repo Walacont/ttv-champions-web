@@ -5,12 +5,6 @@ import { getSupabase } from './supabase-init.js';
 import { renderTableForDisplay } from './tableEditor.js';
 import { escapeHtml } from './utils/security.js';
 
-/**
- * Exercises Module
- * Handles exercise display, creation, and management for both dashboard and coach
- */
-
-// Module-level context for player progress
 let exerciseContext = {
     db: null,
     userId: null,
@@ -20,12 +14,7 @@ let exerciseContext = {
 };
 
 /**
- * Sets the context for exercise progress tracking
- * @param {Object} db - Supabase client instance
- * @param {string} userId - Current user ID
- * @param {string} userRole - Current user role (player, coach, admin)
- * @param {string} clubId - Current user's club ID (optional)
- * @param {string} sportId - Current user's active sport ID (optional)
+ * Setzt den Kontext für Übungs-Fortschrittsverfolgung
  */
 export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null) {
     exerciseContext.db = db;
@@ -36,21 +25,16 @@ export function setExerciseContext(db, userId, userRole, clubId = null, sportId 
 }
 
 /**
- * Loads exercises for the dashboard with tag filtering
- * @param {Object} db - Supabase client instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
+ * Lädt Übungen für das Dashboard mit Tag-Filterung
  */
 export async function loadExercises(db, unsubscribes) {
     const exercisesListEl = document.getElementById('exercises-list');
     if (!exercisesListEl) return;
 
-    // Store exercises data for real-time updates
     let exercisesData = [];
 
-    // Initial load
     await loadExercisesList();
 
-    // Set up real-time subscription
     const subscription = db
         .channel('exercises-changes')
         .on('postgres_changes', {
@@ -67,16 +51,14 @@ export async function loadExercises(db, unsubscribes) {
     }
 
     async function loadExercisesList() {
-        // Build query with optional sport filter
         let query = db
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
 
-        // Filter by active sport if set
         const activeSportId = exerciseContext.sportId;
         if (activeSportId) {
-            // Show exercises that match the sport OR have no sport (global exercises)
+            // Zeige Übungen für die aktive Sportart ODER globale Übungen (ohne Sportart)
             query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
         }
 
@@ -92,7 +74,6 @@ export async function loadExercises(db, unsubscribes) {
         const exercises = [];
         exercisesData = [];
 
-        // Filter by visibility
         const userClubId = exerciseContext.clubId;
         const visibleDocs = exercisesRaw.filter(exercise => {
             if (!exercise.visibility || exercise.visibility === 'global') {
@@ -109,14 +90,13 @@ export async function loadExercises(db, unsubscribes) {
             return;
         }
 
-        // Process each visible exercise
         for (const exerciseRow of visibleDocs) {
             const exercise = mapExerciseFromSupabase(exerciseRow);
             const exerciseId = exerciseRow.id;
 
             exercisesData.push({ exercise, exerciseId });
 
-            // Create exercise card (progress is now only shown in modal, not on cards)
+            // Fortschritt wird nur im Modal angezeigt, nicht auf Karten
             const card = createExerciseCard({ id: exerciseId }, exercise);
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
@@ -128,16 +108,15 @@ export async function loadExercises(db, unsubscribes) {
         renderTagFilters(allTags, exercises);
     }
 
-    // Note: Progress is no longer shown on cards, only in the modal
-    // Real-time updates for card progress have been removed
+    // Hinweis: Echtzeit-Updates für Karten-Fortschritt wurden entfernt
 }
 
 /**
- * Maps Supabase exercise row to expected format
- * Note: Database uses 'name' but app uses 'title' - we map both for compatibility
+ * Konvertiert Supabase-Übungszeile ins erwartete Format
+ * Hinweis: DB verwendet 'name', App erwartet 'title' - wir mappen beide für Kompatibilität
  */
 function mapExerciseFromSupabase(row) {
-    // Ensure description_content is always a string (JSONB from DB can be object or string)
+    // JSONB aus DB kann Objekt oder String sein, stelle sicher dass es ein String ist
     let descriptionContent = row.description_content;
     if (descriptionContent && typeof descriptionContent === 'object') {
         descriptionContent = JSON.stringify(descriptionContent);
@@ -145,15 +124,15 @@ function mapExerciseFromSupabase(row) {
 
     return {
         id: row.id,
-        title: row.name || row.title, // DB uses 'name', app expects 'title'
+        title: row.name || row.title,
         name: row.name,
         description: row.description,
         descriptionContent: descriptionContent,
         imageUrl: row.image_url,
-        points: row.xp_reward || row.points || 10, // DB uses 'xp_reward'
+        points: row.xp_reward || row.points || 10,
         level: row.difficulty || row.level,
         difficulty: row.difficulty,
-        tags: row.category ? [row.category] : (row.tags || []), // DB uses 'category'
+        tags: row.category ? [row.category] : (row.tags || []),
         visibility: row.visibility || 'global',
         clubId: row.club_id,
         createdBy: row.created_by,
@@ -163,12 +142,12 @@ function mapExerciseFromSupabase(row) {
         recordHolderName: row.record_holder_name,
         recordHolderClub: row.record_holder_club,
         recordCount: row.record_count,
-        procedure: row.procedure, // Array of steps for the exercise
+        procedure: row.procedure,
     };
 }
 
 /**
- * Creates the HTML for an exercise card
+ * Erstellt HTML für eine Übungskarte
  */
 function createExerciseCard(docSnap, exercise) {
     const card = document.createElement('div');
@@ -178,7 +157,7 @@ function createExerciseCard(docSnap, exercise) {
     card.dataset.title = exercise.title;
 
     if (exercise.descriptionContent) {
-        // Ensure descriptionContent is always a JSON string, not an object
+        // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
         card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
             ? exercise.descriptionContent
             : JSON.stringify(exercise.descriptionContent);
@@ -208,19 +187,10 @@ function createExerciseCard(docSnap, exercise) {
 
     card.innerHTML = `
         <div class="p-5 flex flex-col flex-grow relative">
-            <!-- XP Badge in top-right corner -->
             <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">${exercise.points} XP</span>
-
-            <!-- Title -->
             <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20">${exercise.title}</h3>
-
-            <!-- Tags -->
             <div class="mb-3">${tagsHtml}</div>
-
-            <!-- Description -->
             <p class="text-sm text-gray-600 mb-4 flex-grow">${exercise.description || ''}</p>
-
-            <!-- Footer -->
             <div class="flex items-center text-xs text-gray-500">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
@@ -234,7 +204,7 @@ function createExerciseCard(docSnap, exercise) {
 }
 
 /**
- * Renders tag filter buttons for the exercise list
+ * Rendert Tag-Filter-Buttons für die Übungsliste
  */
 export function renderTagFilters(tags, exercises) {
     const filterContainer = document.getElementById('tags-filter-container');
@@ -284,16 +254,14 @@ export function renderTagFilters(tags, exercises) {
 }
 
 /**
- * Loads all exercises for coach view
+ * Lädt alle Übungen für Coach-Ansicht
  */
 export function loadAllExercises(db) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
 
-    // Initial load
     loadCoachExercisesList();
 
-    // Real-time subscription
     db.channel('coach-exercises-changes')
         .on('postgres_changes', {
             event: '*',
@@ -305,16 +273,14 @@ export function loadAllExercises(db) {
         .subscribe();
 
     async function loadCoachExercisesList() {
-        // Build query with optional sport filter
         let query = db
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
 
-        // Filter by active sport if set
         const activeSportId = exerciseContext.sportId;
         if (activeSportId) {
-            // Show exercises that match the sport OR have no sport (global exercises)
+            // Zeige Übungen für die aktive Sportart ODER globale Übungen (ohne Sportart)
             query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
         }
 
@@ -354,7 +320,7 @@ export function loadAllExercises(db) {
 }
 
 /**
- * Renders tag filter buttons for the coach exercise list
+ * Rendert Tag-Filter-Buttons für Coach-Übungsliste
  */
 function renderTagFiltersCoach(tags, exercises) {
     const filterContainer = document.getElementById('tags-filter-container-coach');
@@ -398,7 +364,7 @@ function renderTagFiltersCoach(tags, exercises) {
 }
 
 /**
- * Sets up toggle functionality for tag filter section
+ * Richtet Toggle-Funktionalität für Tag-Filter ein
  */
 function setupTagFilterToggle(context) {
     const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
@@ -424,7 +390,7 @@ function setupTagFilterToggle(context) {
 }
 
 /**
- * Sets up search functionality for tag filter
+ * Richtet Suchfunktionalität für Tag-Filter ein
  */
 function setupTagSearch(context) {
     const searchInput = document.getElementById(`tag-search-${context}`);
@@ -451,7 +417,7 @@ function setupTagSearch(context) {
 }
 
 /**
- * Renders coach exercise cards with optional tag filtering
+ * Rendert Coach-Übungskarten mit optionaler Tag-Filterung
  */
 function renderCoachExercises(exercises, filterTag) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
@@ -477,7 +443,7 @@ function renderCoachExercises(exercises, filterTag) {
         card.dataset.id = exercise.id;
         card.dataset.title = exercise.title;
         if (exercise.descriptionContent) {
-            // Ensure descriptionContent is always a JSON string, not an object
+            // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
             card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
                 ? exercise.descriptionContent
                 : JSON.stringify(exercise.descriptionContent);
@@ -521,25 +487,14 @@ function renderCoachExercises(exercises, filterTag) {
 
         card.innerHTML = `
             <div class="p-5 flex flex-col flex-grow relative">
-                <!-- XP Badge in top-right corner -->
                 <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold pointer-events-none">${exercise.points} XP</span>
-
-                <!-- Title -->
                 <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20 pointer-events-none">${exercise.title}</h3>
-
-                <!-- Visibility & Creator Info -->
                 <div class="flex items-center gap-2 mb-3 pointer-events-none">
                     ${visibilityBadge}
                     <span class="text-xs text-gray-600">${coachBadge}</span>
                 </div>
-
-                <!-- Tags -->
                 <div class="mb-3 pointer-events-none">${tagsHtml}</div>
-
-                <!-- Description -->
                 <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
-
-                <!-- Delete Button (only if can edit) -->
                 ${canEdit ? `
                 <div class="mt-auto pointer-events-auto">
                     <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
@@ -553,16 +508,14 @@ function renderCoachExercises(exercises, filterTag) {
 }
 
 /**
- * Loads exercises into a dropdown for points awarding
+ * Lädt Übungen in ein Dropdown für Punktevergabe
  */
 export function loadExercisesForDropdown(db) {
     const select = document.getElementById('exercise-select');
     if (!select) return;
 
-    // Initial load
     loadDropdown();
 
-    // Real-time subscription
     db.channel('exercises-dropdown-changes')
         .on('postgres_changes', {
             event: '*',
@@ -612,7 +565,7 @@ export function loadExercisesForDropdown(db) {
 }
 
 /**
- * Handles exercise click event (for dashboard)
+ * Behandelt Übungs-Klick-Event (für Dashboard)
  */
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
@@ -624,7 +577,7 @@ export function handleExerciseClick(event) {
 }
 
 /**
- * Opens the exercise modal with exercise details
+ * Öffnet das Übungs-Modal mit Übungsdetails
  */
 export async function openExerciseModal(
     exerciseId,
@@ -649,7 +602,7 @@ export async function openExerciseModal(
         modalImage.style.display = 'none';
     }
 
-    // Load exercise data FIRST (needed for procedure and records)
+    // Lade Übungsdaten ZUERST (benötigt für Ablauf und Rekorde)
     let exerciseData = null;
     if (exerciseContext.db && exerciseId) {
         try {
@@ -688,7 +641,6 @@ export async function openExerciseModal(
         modalDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    // Display procedure/steps if available
     const procedureContainer = document.getElementById('modal-exercise-procedure');
     if (procedureContainer && exerciseData?.procedure) {
         try {
@@ -734,7 +686,6 @@ export async function openExerciseModal(
             tieredPointsData = JSON.parse(tieredPoints);
         }
     } catch (e) {
-        // Invalid JSON, ignore
     }
 
     const pointsContainer = document.getElementById('modal-exercise-points');
@@ -742,7 +693,7 @@ export async function openExerciseModal(
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
-    // Load player progress for ALL exercises (not just tiered ones)
+    // Lade Spieler-Fortschritt für ALLE Übungen (nicht nur Meilenstein-Übungen)
     let playerProgress = null;
     if (
         exerciseContext.userRole === 'player' &&
@@ -752,7 +703,7 @@ export async function openExerciseModal(
     ) {
         try {
             if (hasTieredPoints) {
-                // For milestone exercises, use exercise_milestones
+                // Für Meilenstein-Übungen: Verwende exercise_milestones
                 const { data } = await exerciseContext.db
                     .from('exercise_milestones')
                     .select('*')
@@ -764,7 +715,7 @@ export async function openExerciseModal(
                     playerProgress = { currentCount: data.current_count || 0 };
                 }
             } else {
-                // For regular exercises, use completed_exercises
+                // Für normale Übungen: Verwende completed_exercises
                 const { data } = await exerciseContext.db
                     .from('completed_exercises')
                     .select('*')
@@ -785,8 +736,6 @@ export async function openExerciseModal(
     }
 
     const currentCount = playerProgress?.currentCount || 0;
-
-    // exerciseData is already loaded at the beginning of this function
 
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
@@ -905,13 +854,12 @@ export async function openExerciseModal(
             milestonesContainer.classList.remove('hidden');
         }
     } else {
-        // Regular exercise (no milestones) - but still show records!
+        // Normale Übung (keine Meilensteine) - aber zeige trotzdem Rekorde!
         pointsContainer.textContent = `+${points} P.`;
         if (milestonesContainer) {
             let recordsHtml = '';
 
             if (exerciseContext.userRole === 'player') {
-                // Show global record holder
                 let globalRecordHtml = '';
                 if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
                     const clubInfo = exerciseData.recordHolderClub ? ` (${exerciseData.recordHolderClub})` : '';
@@ -928,7 +876,6 @@ export async function openExerciseModal(
                     `;
                 }
 
-                // Show personal record
                 let personalRecordHtml = '';
                 if (currentCount > 0) {
                     personalRecordHtml = `
@@ -978,7 +925,7 @@ export async function openExerciseModal(
 }
 
 /**
- * Opens the exercise modal from dataset (for coach)
+ * Öffnet das Übungs-Modal aus Dataset (für Coach)
  */
 export function openExerciseModalFromDataset(dataset) {
     const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
@@ -986,7 +933,7 @@ export function openExerciseModalFromDataset(dataset) {
 }
 
 /**
- * Closes the exercise modal
+ * Schließt das Übungs-Modal
  */
 export function closeExerciseModal() {
     const modal = document.getElementById('exercise-modal');
@@ -994,7 +941,7 @@ export function closeExerciseModal() {
 }
 
 /**
- * Calculates exercise points based on level and difficulty
+ * Berechnet Übungspunkte basierend auf Level und Schwierigkeit
  */
 export function calculateExercisePoints(level, difficulty) {
     const pointsMatrix = {
@@ -1011,7 +958,7 @@ export function calculateExercisePoints(level, difficulty) {
 }
 
 /**
- * Updates exercise points field when level or difficulty changes
+ * Aktualisiert Übungspunkte-Feld bei Änderung von Level oder Schwierigkeit
  */
 export function setupExercisePointsCalculation() {
     const levelSelect = document.getElementById('exercise-level-form');
@@ -1046,7 +993,7 @@ export function setupExercisePointsCalculation() {
 }
 
 /**
- * Sets up milestone system for exercises
+ * Richtet Meilenstein-System für Übungen ein
  */
 export function setupExerciseMilestones() {
     const milestonesEnabled = document.getElementById('exercise-milestones-enabled');
@@ -1093,7 +1040,7 @@ export function setupExerciseMilestones() {
 }
 
 /**
- * Adds a new milestone input row for exercises
+ * Fügt neue Meilenstein-Eingabezeile hinzu
  */
 function addExerciseMilestone() {
     const list = document.getElementById('exercise-milestones-list');
@@ -1133,7 +1080,7 @@ function addExerciseMilestone() {
 }
 
 /**
- * Gets all milestones from the form
+ * Holt alle Meilensteine aus dem Formular
  */
 function getExerciseMilestones() {
     const list = document.getElementById('exercise-milestones-list');
@@ -1153,7 +1100,7 @@ function getExerciseMilestones() {
 }
 
 /**
- * Updates the total milestone points display
+ * Aktualisiert Anzeige der Gesamt-Meilenstein-Punkte
  */
 function updateExerciseTotalPoints() {
     const milestones = getExerciseMilestones();
@@ -1165,7 +1112,7 @@ function updateExerciseTotalPoints() {
 }
 
 /**
- * Handles exercise creation form submission (for coach)
+ * Behandelt Übungserstellungs-Formular-Submit (für Coach)
  */
 export async function handleCreateExercise(e, db, storage, descriptionEditor = null, userData = null) {
     e.preventDefault();
@@ -1231,7 +1178,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     try {
         let imageUrl = null;
 
-        // Upload image only if provided (using Supabase Storage)
+        // Bild hochladen nur wenn vorhanden (nutzt Supabase Storage)
         if (file) {
             const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
             if (!allowedTypes.includes(file.type)) {
@@ -1266,14 +1213,11 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         }
 
         const exerciseData = {
-            name: title,  // DB column is 'name', not 'title'
+            name: title,  // DB-Spalte ist 'name', nicht 'title'
             description_content: JSON.stringify(descriptionContent),
-            // Store level text in 'category' column (level/difficulty are INTEGER in DB)
-            category: level,
-            // Store difficulty text in description or skip it
-            // difficulty is INTEGER in DB, so we can't use text values
+            category: level,  // Speichere Level-Text in 'category' (level/difficulty sind INTEGER in DB)
             points,
-            xp_reward: points,  // Also set xp_reward for compatibility
+            xp_reward: points,  // Setze auch xp_reward für Kompatibilität
             tags,
             visibility,
             tiered_points: milestonesEnabled && milestones
@@ -1288,7 +1232,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             if (visibility === 'club' && userData?.clubId) {
                 exerciseData.club_id = userData.clubId;
             }
-            // Set sport_id from context (user's active sport)
+            // Setze sport_id aus Kontext (aktive Sportart des Users)
             if (exerciseContext.sportId) {
                 exerciseData.sport_id = exerciseContext.sportId;
             }
@@ -1346,7 +1290,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
 }
 
 /**
- * Deletes an exercise (only by creator)
+ * Löscht eine Übung (nur vom Ersteller)
  */
 window.deleteExercise = async function(exerciseId) {
     if (!exerciseContext.db) {
@@ -1372,7 +1316,7 @@ window.deleteExercise = async function(exerciseId) {
 };
 
 /**
- * Edits an exercise (only by creator)
+ * Bearbeitet eine Übung (nur vom Ersteller)
  */
 window.editExercise = async function(exerciseId) {
     if (!exerciseContext.db) {

@@ -1,6 +1,5 @@
 /**
- * Activity Comments Module
- * Handles comments for all activity types (matches, posts, polls, events)
+ * Kommentar-Modul für alle Aktivitätstypen
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -14,25 +13,17 @@ let currentUser = null;
 let currentActivityId = null;
 let currentActivityType = null;
 
-/**
- * Initialize comments module with current user
- */
 export function initComments(user) {
     currentUser = user;
     setupCommentsModal();
 }
 
-/**
- * Setup the comments modal HTML
- */
 function setupCommentsModal() {
-    // Check if modal already exists
     if (document.getElementById('comments-modal')) return;
 
     const modalHTML = `
         <div id="comments-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-                <!-- Modal Header -->
                 <div class="flex items-center justify-between p-4 border-b border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-900">
                         <i class="far fa-comment mr-2"></i>
@@ -43,7 +34,6 @@ function setupCommentsModal() {
                     </button>
                 </div>
 
-                <!-- Comments List -->
                 <div id="comments-list" class="flex-1 overflow-y-auto p-4 space-y-4">
                     <div class="text-center text-gray-400 py-8">
                         <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
@@ -51,7 +41,6 @@ function setupCommentsModal() {
                     </div>
                 </div>
 
-                <!-- Add Comment Form -->
                 <div class="p-4 border-t border-gray-200">
                     <div class="flex gap-3">
                         <img id="comment-user-avatar" src="${DEFAULT_AVATAR}" alt="You"
@@ -85,7 +74,6 @@ function setupCommentsModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Setup event listeners
     const commentInput = document.getElementById('comment-input');
     const submitBtn = document.getElementById('submit-comment-btn');
     const charCount = document.getElementById('comment-char-count');
@@ -105,7 +93,6 @@ function setupCommentsModal() {
         }
     });
 
-    // Close modal when clicking outside
     document.getElementById('comments-modal').addEventListener('click', (e) => {
         if (e.target.id === 'comments-modal') {
             window.closeComments();
@@ -113,11 +100,8 @@ function setupCommentsModal() {
     });
 }
 
-/**
- * Open comments modal for an activity
- */
 export async function openComments(activityId, activityType) {
-    // Convert legacy match types
+    // Legacy Match-Typen werden konvertiert
     if (activityType === 'singles') activityType = 'singles_match';
     if (activityType === 'doubles') activityType = 'doubles_match';
 
@@ -130,14 +114,11 @@ export async function openComments(activityId, activityType) {
         return;
     }
 
-    // Show modal
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
-    // Load comments
     await loadComments();
 
-    // Set user avatar
     if (currentUser) {
         const userAvatar = document.getElementById('comment-user-avatar');
         if (userAvatar && currentUser.avatar_url) {
@@ -145,13 +126,9 @@ export async function openComments(activityId, activityType) {
         }
     }
 
-    // Focus input
     document.getElementById('comment-input').focus();
 }
 
-/**
- * Close comments modal
- */
 export function closeComments() {
     const modal = document.getElementById('comments-modal');
     if (modal) {
@@ -159,7 +136,6 @@ export function closeComments() {
         document.body.style.overflow = '';
     }
 
-    // Reset
     currentActivityId = null;
     currentActivityType = null;
     document.getElementById('comment-input').value = '';
@@ -167,14 +143,10 @@ export function closeComments() {
     document.getElementById('comment-char-count').textContent = '0 / 2000';
 }
 
-/**
- * Load comments for current activity
- */
 async function loadComments() {
     const commentsList = document.getElementById('comments-list');
     if (!commentsList) return;
 
-    // Show loading
     commentsList.innerHTML = `
         <div class="text-center text-gray-400 py-8">
             <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
@@ -211,7 +183,6 @@ async function loadComments() {
             return;
         }
 
-        // Render comments
         commentsList.innerHTML = data.map(comment => renderComment(comment)).join('');
 
     } catch (error) {
@@ -225,9 +196,6 @@ async function loadComments() {
     }
 }
 
-/**
- * Render a single comment
- */
 function renderComment(comment) {
     const createdAt = new Date(comment.created_at);
     const isEdited = comment.updated_at && comment.updated_at !== comment.created_at;
@@ -267,9 +235,6 @@ function renderComment(comment) {
     `;
 }
 
-/**
- * Submit a new comment
- */
 export async function submitComment() {
     const input = document.getElementById('comment-input');
     const submitBtn = document.getElementById('submit-comment-btn');
@@ -277,7 +242,6 @@ export async function submitComment() {
 
     if (!content || content.length > 2000) return;
 
-    // Disable button
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Posting...';
 
@@ -290,14 +254,12 @@ export async function submitComment() {
 
         if (error) throw error;
 
-        // Clear input
         input.value = '';
         document.getElementById('comment-char-count').textContent = '0 / 2000';
 
-        // Reload comments
         await loadComments();
 
-        // Update comment count in feed
+        // Feed-Zähler aktualisieren für UI-Synchronisierung
         if (data && data.comment_count !== undefined) {
             const countEl = document.querySelector(`[data-comment-count="${currentActivityType}-${currentActivityId}"]`);
             if (countEl) {
@@ -314,9 +276,6 @@ export async function submitComment() {
     }
 }
 
-/**
- * Delete a comment
- */
 export async function deleteComment(commentId) {
     if (!confirm(t('dashboard.activityFeed.comments.deleteConfirm'))) return;
 
@@ -327,10 +286,9 @@ export async function deleteComment(commentId) {
 
         if (error) throw error;
 
-        // Reload comments
         await loadComments();
 
-        // Update comment count in feed
+        // Feed-Zähler aktualisieren für UI-Synchronisierung
         if (data && data.comment_count !== undefined) {
             const countEl = document.querySelector(`[data-comment-count="${currentActivityType}-${currentActivityId}"]`);
             if (countEl) {
@@ -344,9 +302,6 @@ export async function deleteComment(commentId) {
     }
 }
 
-/**
- * Get time ago string
- */
 function getTimeAgo(date) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -359,7 +314,7 @@ function getTimeAgo(date) {
     return date.toLocaleDateString('de-DE');
 }
 
-// Make functions available globally
+// Funktionen global verfügbar machen für onclick-Handler im HTML
 window.openComments = openComments;
 window.closeComments = closeComments;
 window.submitComment = submitComment;

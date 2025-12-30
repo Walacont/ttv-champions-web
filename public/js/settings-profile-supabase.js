@@ -1,4 +1,4 @@
-// Settings Profile Page - Supabase Version
+// Einstellungs-Seite für Benutzerprofil - Supabase Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
@@ -22,13 +22,11 @@ const newEmailInput = document.getElementById('new-email');
 const currentPasswordInput = document.getElementById('current-password');
 const emailFeedback = document.getElementById('email-feedback');
 
-// Personal Data Elements
 const updatePersonalDataForm = document.getElementById('update-personal-data-form');
 const genderInput = document.getElementById('gender');
 const birthdateInput = document.getElementById('birthdate');
 const personalDataFeedback = document.getElementById('personal-data-feedback');
 
-// Password Change Elements
 const updatePasswordForm = document.getElementById('update-password-form');
 const oldPasswordInput = document.getElementById('old-password');
 const newPasswordInput = document.getElementById('new-password');
@@ -38,15 +36,12 @@ const passwordFeedback = document.getElementById('password-feedback');
 let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
-
-// Check auth state on load
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -70,12 +65,10 @@ async function initializeAuth() {
             firstNameInput.value = currentUserData.firstName || '';
             lastNameInput.value = currentUserData.lastName || '';
 
-            // Load personal data
             genderInput.value = currentUserData.gender || '';
             birthdateInput.value = currentUserData.birthdate || '';
         }
 
-        // Email-Adresse anzeigen und Verifizierungs-Status
         currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
         updateEmailVerificationStatus(currentUser.email_confirmed_at != null);
 
@@ -86,21 +79,20 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+// Initialisierung sofort oder bei DOMContentLoaded für SPA-Navigation
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
     initializeAuth();
 }
 
-// Listen for auth state changes - only redirect on explicit sign out
+// Redirect nur bei explizitem Sign-Out, nicht bei anderen Auth-Änderungen
 onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
     }
 });
 
-// Zeigt den Email-Verifizierungs-Status an
 function updateEmailVerificationStatus(isVerified) {
     if (isVerified) {
         emailVerificationStatus.innerHTML = `
@@ -128,7 +120,6 @@ function updateEmailVerificationStatus(isVerified) {
     }
 }
 
-// Sendet eine Email-Verifikation
 async function sendVerificationEmail() {
     try {
         const { error } = await supabase.auth.resend({
@@ -152,7 +143,6 @@ async function sendVerificationEmail() {
     }
 }
 
-// Photo upload
 photoUpload.addEventListener('change', e => {
     selectedFile = e.target.files[0];
     if (selectedFile) {
@@ -176,7 +166,6 @@ uploadPhotoForm.addEventListener('submit', async e => {
     uploadFeedback.className = 'mt-2 text-sm';
 
     try {
-        // Upload to Supabase Storage
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${currentUser.id}/profile.${fileExt}`;
 
@@ -186,14 +175,12 @@ uploadPhotoForm.addEventListener('submit', async e => {
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: urlData } = supabase.storage
             .from('profile-pictures')
             .getPublicUrl(fileName);
 
         const photoURL = urlData.publicUrl;
 
-        // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ avatar_url: photoURL })
@@ -215,7 +202,6 @@ uploadPhotoForm.addEventListener('submit', async e => {
     }
 });
 
-// Update name
 updateNameForm.addEventListener('submit', async e => {
     e.preventDefault();
     const firstName = firstNameInput.value;
@@ -242,7 +228,6 @@ updateNameForm.addEventListener('submit', async e => {
     }
 });
 
-// Email-Änderung mit Re-Authentication
 updateEmailForm.addEventListener('submit', async e => {
     e.preventDefault();
     const newEmail = newEmailInput.value.trim();
@@ -251,7 +236,6 @@ updateEmailForm.addEventListener('submit', async e => {
     emailFeedback.textContent = '';
     emailFeedback.className = 'text-sm';
 
-    // Validierung
     if (newEmail === currentUser.email) {
         emailFeedback.textContent = 'Die neue Email-Adresse ist identisch mit der aktuellen.';
         emailFeedback.className = 'text-sm text-amber-600';
@@ -259,7 +243,7 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 
     try {
-        // Schritt 1: Re-Authentication (verify current password)
+        // Re-Authentication zur Sicherheit vor sensiblen Änderungen
         const { error: signInError } = await supabase.auth.signInWithPassword({
             email: currentUser.email,
             password: password
@@ -267,14 +251,13 @@ updateEmailForm.addEventListener('submit', async e => {
 
         if (signInError) throw signInError;
 
-        // Schritt 2: Update email (Supabase sends verification automatically)
+        // Supabase sendet automatisch eine Verifizierungs-Email an die neue Adresse
         const { error: updateError } = await supabase.auth.updateUser({
             email: newEmail
         });
 
         if (updateError) throw updateError;
 
-        // Erfolg!
         emailFeedback.innerHTML = `
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div class="flex items-start">
@@ -295,7 +278,6 @@ updateEmailForm.addEventListener('submit', async e => {
             </div>
         `;
 
-        // Formular zurücksetzen
         newEmailInput.value = '';
         currentPasswordInput.value = '';
     } catch (error) {
@@ -303,7 +285,6 @@ updateEmailForm.addEventListener('submit', async e => {
 
         let errorMessage = 'Ein unbekannter Fehler ist aufgetreten.';
 
-        // Spezifische Fehlermeldungen
         if (error.message?.includes('Invalid login credentials')) {
             errorMessage = 'Das eingegebene Passwort ist falsch.';
         } else if (error.message?.includes('already registered')) {
@@ -328,7 +309,6 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 });
 
-// Update personal data (gender, birthdate)
 updatePersonalDataForm.addEventListener('submit', async e => {
     e.preventDefault();
     const gender = genderInput.value;
@@ -355,7 +335,6 @@ updatePersonalDataForm.addEventListener('submit', async e => {
     }
 });
 
-// Update password
 updatePasswordForm.addEventListener('submit', async e => {
     e.preventDefault();
     const oldPassword = oldPasswordInput.value;
@@ -365,7 +344,6 @@ updatePasswordForm.addEventListener('submit', async e => {
     passwordFeedback.textContent = '';
     passwordFeedback.className = 'mt-2 text-sm';
 
-    // Validierung
     if (newPassword !== confirmPassword) {
         passwordFeedback.textContent = 'Die neuen Passwörter stimmen nicht überein.';
         passwordFeedback.classList.add('text-red-600');
@@ -379,7 +357,7 @@ updatePasswordForm.addEventListener('submit', async e => {
     }
 
     try {
-        // Schritt 1: Re-Authentication (verify current password)
+        // Re-Authentication zur Sicherheit vor sensiblen Änderungen
         const { error: signInError } = await supabase.auth.signInWithPassword({
             email: currentUser.email,
             password: oldPassword
@@ -387,18 +365,15 @@ updatePasswordForm.addEventListener('submit', async e => {
 
         if (signInError) throw signInError;
 
-        // Schritt 2: Update password
         const { error: updateError } = await supabase.auth.updateUser({
             password: newPassword
         });
 
         if (updateError) throw updateError;
 
-        // Erfolg!
         passwordFeedback.textContent = '✓ Passwort erfolgreich geändert!';
         passwordFeedback.classList.add('text-green-600');
 
-        // Formular zurücksetzen
         oldPasswordInput.value = '';
         newPasswordInput.value = '';
         confirmPasswordInput.value = '';

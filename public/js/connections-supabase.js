@@ -1,6 +1,5 @@
 /**
- * Connections Page - Supabase Version
- * Shows followers and following lists for a user
+ * Verbindungen-Seite: Anzeige von Abonnenten und gefolgten Sportlern
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -10,14 +9,12 @@ let currentUser = null;
 let profileUserId = null;
 let profileUserName = '';
 let isOwnProfile = false;
-let currentTab = 'following'; // 'following' or 'followers'
+let currentTab = 'following';
 let friendshipSubscription = null;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
-/**
- * Initialize the connections page
- */
+/** Initialisiert die Verbindungen-Seite */
 async function initConnections() {
     console.log('[Connections] Initializing connections page');
 
@@ -29,16 +26,13 @@ async function initConnections() {
             return;
         }
 
-        // Get current user
         const { data: { session } } = await supabase.auth.getSession();
         currentUser = session?.user || null;
 
-        // Get profile ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         profileUserId = urlParams.get('id');
         const initialTab = urlParams.get('tab');
 
-        // If no ID provided, use current user
         if (!profileUserId && currentUser) {
             profileUserId = currentUser.id;
         }
@@ -50,7 +44,6 @@ async function initConnections() {
 
         isOwnProfile = currentUser && currentUser.id === profileUserId;
 
-        // Load profile user's name
         const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name')
@@ -61,19 +54,15 @@ async function initConnections() {
             profileUserName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
         }
 
-        // Set initial tab from URL if provided
         if (initialTab === 'followers' || initialTab === 'following') {
             currentTab = initialTab;
             updateTabUI();
         }
 
-        // Load connections
         await loadConnections();
 
-        // Setup real-time subscription
         setupRealtimeSubscription(supabase);
 
-        // Show main content
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
 
@@ -83,9 +72,7 @@ async function initConnections() {
     }
 }
 
-/**
- * Switch between tabs
- */
+/** Wechselt zwischen den Tabs */
 window.switchConnectionsTab = function(tab) {
     if (tab === currentTab) return;
 
@@ -94,9 +81,7 @@ window.switchConnectionsTab = function(tab) {
     loadConnections();
 };
 
-/**
- * Update tab UI
- */
+/** Aktualisiert die Tab-Anzeige */
 function updateTabUI() {
     const followingTab = document.getElementById('tab-following');
     const followersTab = document.getElementById('tab-followers');
@@ -110,17 +95,13 @@ function updateTabUI() {
     }
 }
 
-/**
- * Load connections based on current tab
- * Uses RPC functions to respect privacy settings
- */
+/** Lädt Verbindungen für den aktuellen Tab - nutzt RPC-Funktionen um Privatsphäre-Einstellungen zu respektieren */
 async function loadConnections() {
     const container = document.getElementById('connections-list');
     const emptyState = document.getElementById('empty-state');
     const sectionHeader = document.getElementById('section-header');
     const emptyMessage = document.getElementById('empty-message');
 
-    // Show loading
     container.innerHTML = `
         <div class="p-8 text-center text-gray-400">
             <i class="fas fa-spinner fa-spin text-2xl"></i>
@@ -135,11 +116,9 @@ async function loadConnections() {
         let accessDenied = false;
         let privacyMessage = '';
 
-        // Use RPC functions to respect privacy settings
         const viewerId = currentUser?.id || null;
 
         if (currentTab === 'following') {
-            // Get users that this profile follows
             const { data, error } = await supabase.rpc('get_user_following', {
                 p_profile_id: profileUserId,
                 p_viewer_id: viewerId
@@ -147,9 +126,8 @@ async function loadConnections() {
 
             if (error) {
                 console.error('[Connections] RPC error:', error);
-                // Fallback to empty if RPC doesn't exist yet
+                // Fallback falls RPC-Funktion noch nicht existiert
                 if (error.code === '42883') {
-                    // Function doesn't exist, show access denied
                     accessDenied = true;
                     privacyMessage = 'Verbindungsliste nicht verfügbar';
                 } else {
@@ -162,7 +140,6 @@ async function loadConnections() {
                 users = data.following || [];
             }
 
-            // Update header
             if (isOwnProfile) {
                 sectionHeader.textContent = 'Sportler, denen du folgst';
                 emptyMessage.textContent = 'Du folgst noch niemandem';
@@ -172,7 +149,6 @@ async function loadConnections() {
             }
 
         } else {
-            // Get users that follow this profile
             const { data, error } = await supabase.rpc('get_user_followers', {
                 p_profile_id: profileUserId,
                 p_viewer_id: viewerId
@@ -193,7 +169,6 @@ async function loadConnections() {
                 users = data.followers || [];
             }
 
-            // Update header
             if (isOwnProfile) {
                 sectionHeader.textContent = 'Deine Abonnenten';
                 emptyMessage.textContent = 'Du hast noch keine Abonnenten';
@@ -203,7 +178,6 @@ async function loadConnections() {
             }
         }
 
-        // Handle access denied
         if (accessDenied) {
             container.innerHTML = `
                 <div class="p-8 text-center">
@@ -221,7 +195,6 @@ async function loadConnections() {
             return;
         }
 
-        // Get current user's follow status for each user
         let followStatuses = {};
         if (currentUser) {
             const userIds = users.map(u => u.id).filter(id => id !== currentUser.id);
@@ -238,7 +211,6 @@ async function loadConnections() {
             }
         }
 
-        // Render users
         renderUsers(users, followStatuses);
 
     } catch (error) {
@@ -252,19 +224,17 @@ async function loadConnections() {
     }
 }
 
-/**
- * Render user list
- */
+/** Rendert die Benutzerliste */
 function renderUsers(users, followStatuses) {
     const container = document.getElementById('connections-list');
 
     const html = users.map(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const avatar = user.avatar_url || DEFAULT_AVATAR;
-        // Support both RPC format (club_name) and direct query format (clubs.name)
+        // Unterstützt RPC-Format (club_name) und direktes Query-Format (clubs.name)
         const clubName = user.club_name || user.clubs?.name || '';
         const isMe = currentUser && user.id === currentUser.id;
-        const followStatus = followStatuses[user.id]; // 'accepted', 'pending', or undefined
+        const followStatus = followStatuses[user.id];
 
         let buttonHtml = '';
         if (!isMe && currentUser) {
@@ -314,9 +284,7 @@ function renderUsers(users, followStatuses) {
     container.innerHTML = html;
 }
 
-/**
- * Follow a user
- */
+/** Folgt einem Benutzer */
 window.followUser = async function(userId) {
     if (!currentUser) return;
 
@@ -331,7 +299,6 @@ window.followUser = async function(userId) {
 
         if (error) throw error;
 
-        // Reload connections to update UI
         await loadConnections();
 
     } catch (error) {
@@ -340,9 +307,7 @@ window.followUser = async function(userId) {
     }
 };
 
-/**
- * Setup real-time subscription for friendship changes
- */
+/** Richtet Echtzeit-Abonnement für Verbindungsänderungen ein */
 function setupRealtimeSubscription(supabase) {
     if (!currentUser) return;
 
@@ -356,7 +321,7 @@ function setupRealtimeSubscription(supabase) {
                 table: 'friendships'
             },
             async (payload) => {
-                // Reload if the change involves the profile user or current user
+                // Lädt neu wenn die Änderung den Profil-Benutzer oder aktuellen Benutzer betrifft
                 const involvesCurrent = payload.new?.requester_id === currentUser.id ||
                                        payload.new?.addressee_id === currentUser.id ||
                                        payload.old?.requester_id === currentUser.id ||
@@ -375,7 +340,6 @@ function setupRealtimeSubscription(supabase) {
         )
         .subscribe();
 
-    // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
         if (friendshipSubscription) {
             supabase.removeChannel(friendshipSubscription);
@@ -383,9 +347,7 @@ function setupRealtimeSubscription(supabase) {
     });
 }
 
-/**
- * Show error message
- */
+/** Zeigt eine Fehlermeldung an */
 function showError(message) {
     document.getElementById('page-loader').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
@@ -397,7 +359,6 @@ function showError(message) {
     `;
 }
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initConnections);
 } else {

@@ -1,45 +1,33 @@
-// Sport Context Helper - Supabase Version
-// Provides centralized sport context management (single sport per user)
+// Sport-Kontext-Verwaltung - ein Sport pro Benutzer
 
 import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 
-// Cache for sport context
 let cachedSportContext = null;
 let cachedUserId = null;
 
 /**
- * Sport context object structure:
- * {
- *   sportId: UUID,
- *   sportName: string,
- *   displayName: string,
- *   config: object (scoring rules, icon, etc.),
- *   clubId: UUID,
- *   clubName: string,
- *   role: 'player' | 'coach' | 'head_coach'
- * }
+ * Sport-Kontext Struktur:
+ * { sportId, sportName, displayName, config, clubId, clubName, role }
  */
 
 /**
- * Get the full sport context for the current user.
- * Simplified: Each user has one sport, one club, one role (stored directly in profiles).
+ * Lädt den Sport-Kontext für einen Benutzer.
+ * Vereinfacht: Jeder Benutzer hat einen Sport, einen Verein und eine Rolle (direkt in profiles gespeichert).
  *
- * @param {string} userId - The user's ID
- * @param {boolean} forceRefresh - Force refresh the cache
- * @returns {Promise<Object|null>} Sport context or null if not found
+ * @param {string} userId - Benutzer-ID
+ * @param {boolean} forceRefresh - Cache-Aktualisierung erzwingen
+ * @returns {Promise<Object|null>}
  */
 export async function getSportContext(userId, forceRefresh = false) {
     if (!userId) return null;
 
-    // Return cached context if available and not forcing refresh
     if (!forceRefresh && cachedSportContext && cachedUserId === userId) {
         return cachedSportContext;
     }
 
     try {
-        // Direct query from profiles with sport and club joins
         const { data: profile, error } = await supabase
             .from('profiles')
             .select(`
@@ -82,9 +70,6 @@ export async function getSportContext(userId, forceRefresh = false) {
     }
 }
 
-/**
- * Clear the cached sport context
- */
 export function clearSportContextCache() {
     cachedSportContext = null;
     cachedUserId = null;
@@ -92,12 +77,11 @@ export function clearSportContextCache() {
 }
 
 /**
- * Get all users in the same sport (for leaderboards, match suggestions, etc.)
- * Simplified: Uses profiles.active_sport_id directly
+ * Gibt alle Benutzer in einer Sportart zurück (für Bestenlisten, Match-Vorschläge, etc.).
  *
- * @param {string} sportId - The sport ID to filter by
- * @param {string} clubId - Optional club ID to filter within a club
- * @returns {Promise<string[]>} Array of user IDs in the sport
+ * @param {string} sportId - Sport-ID
+ * @param {string} clubId - Optional: Vereins-ID zum Filtern
+ * @returns {Promise<string[]>}
  */
 export async function getUsersInSport(sportId, clubId = null) {
     if (!sportId) return [];
@@ -128,10 +112,10 @@ export async function getUsersInSport(sportId, clubId = null) {
 }
 
 /**
- * Get all user IDs with their club for a specific sport
- * Useful for leaderboards that need to show club names
+ * Gibt alle Benutzer mit ihren Vereinen für eine Sportart zurück.
+ * Nützlich für Bestenlisten, die Vereinsnamen anzeigen müssen.
  *
- * @param {string} sportId - The sport ID to filter by
+ * @param {string} sportId - Sport-ID
  * @returns {Promise<Array<{userId: string, clubId: string}>>}
  */
 export async function getUsersWithClubsInSport(sportId) {
@@ -160,11 +144,10 @@ export async function getUsersWithClubsInSport(sportId) {
 }
 
 /**
- * Check if user is coach in their sport
- * Simplified: Just checks profiles.role
+ * Prüft, ob ein Benutzer Trainer ist.
  *
- * @param {string} userId - The user ID
- * @param {string} sportId - Ignored (kept for API compatibility)
+ * @param {string} userId - Benutzer-ID
+ * @param {string} sportId - Wird ignoriert (für API-Kompatibilität beibehalten)
  * @returns {Promise<boolean>}
  */
 export async function isCoachInSport(userId, sportId = null) {
@@ -187,12 +170,11 @@ export async function isCoachInSport(userId, sportId = null) {
 }
 
 /**
- * Get the club ID for a user
- * Simplified: Just returns profiles.club_id
+ * Gibt die Vereins-ID eines Benutzers zurück.
  *
- * @param {string} userId - The user ID
- * @param {string} sportId - Ignored (kept for API compatibility)
- * @returns {Promise<string|null>} Club ID or null
+ * @param {string} userId - Benutzer-ID
+ * @param {string} sportId - Wird ignoriert (für API-Kompatibilität beibehalten)
+ * @returns {Promise<string|null>}
  */
 export async function getClubIdForSport(userId, sportId) {
     if (!userId) return null;
@@ -214,10 +196,10 @@ export async function getClubIdForSport(userId, sportId) {
 }
 
 /**
- * Reload sport context
+ * Lädt den Sport-Kontext neu.
  *
- * @param {string} userId - The user ID
- * @returns {Promise<Object|null>} New sport context
+ * @param {string} userId - Benutzer-ID
+ * @returns {Promise<Object|null>}
  */
 export async function reloadSportContext(userId) {
     clearSportContextCache();
