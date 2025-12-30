@@ -1,4 +1,5 @@
-// Settings Legal Page - Supabase Version
+// Einstellungen - Rechtliches (Supabase-Version)
+// DSGVO-Datenexport und Account-Löschung
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
@@ -10,14 +11,12 @@ const mainContent = document.getElementById('main-content');
 let currentUser = null;
 let currentUserData = null;
 
-// Check auth state on load
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -42,23 +41,19 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
     initializeAuth();
 }
 
-// Listen for auth state changes - only redirect on explicit sign out
 onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
     }
 });
 
-/**
- * Export all user data as JSON file (GDPR Art. 20)
- */
+/** Exportiert alle Nutzerdaten als JSON (DSGVO Art. 20) */
 document.getElementById('export-data-btn')?.addEventListener('click', async () => {
     const exportBtn = document.getElementById('export-data-btn');
     const feedbackEl = document.getElementById('export-feedback');
@@ -74,7 +69,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
         feedbackEl.textContent = '';
 
-        // Get user data from profiles
         const { data: userData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -83,7 +77,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
 
         if (profileError) throw profileError;
 
-        // Get all matches (singles)
         const { data: matches, error: matchesError } = await supabase
             .from('matches')
             .select('*')
@@ -91,7 +84,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
 
         if (matchesError) console.error('Error fetching matches:', matchesError);
 
-        // Get all doubles matches
         let doublesMatches = [];
         if (userData?.club_id) {
             const { data: doublesData, error: doublesError } = await supabase
@@ -103,7 +95,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             if (!doublesError) doublesMatches = doublesData || [];
         }
 
-        // Get attendance records
         let attendance = [];
         if (userData?.role === 'player') {
             const { data: attendanceData, error: attendanceError } = await supabase
@@ -121,7 +112,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             if (!attendanceError) attendance = attendanceData || [];
         }
 
-        // Compile all data
         const exportData = {
             exportDate: new Date().toISOString(),
             profile: {
@@ -150,7 +140,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             attendance: attendance,
         };
 
-        // Create and download JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
@@ -173,16 +162,13 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/**
- * Delete account with anonymization
- */
+/** Löscht den Account mit Anonymisierung */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
         return;
     }
 
-    // Show confirmation dialog
     const confirmed = confirm(
         '⚠️ WARNUNG: Account-Löschung\n\n' +
         'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
@@ -198,7 +184,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     if (!confirmed) return;
 
-    // Second confirmation
     const doubleConfirm = prompt(
         'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
     );
@@ -214,7 +199,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
         deleteBtn.disabled = true;
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
 
-        // Call Supabase RPC function to anonymize account
         const { data, error } = await supabase.rpc('anonymize_account', {
             p_user_id: currentUser.id
         });
@@ -226,7 +210,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
             'Du wirst jetzt abgemeldet.'
         );
 
-        // Sign out user
         await supabase.auth.signOut();
         window.location.href = '/index.html';
     } catch (error) {

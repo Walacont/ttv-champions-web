@@ -1,10 +1,8 @@
-// Points Management Module - Supabase Version
-// 1:1 Migration von points-management.js - Firebase → Supabase
+// Punkteverwaltung (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
 import { formatDate } from './ui-utils.js';
 
-// Notifications module - loaded dynamically when needed
 let notificationsModule = null;
 let notificationsLoaded = false;
 
@@ -20,11 +18,7 @@ async function getNotificationsModule() {
     }
 }
 
-/**
- * Gets the current season key from Supabase config table
- * @param {Object} supabase - Supabase client instance
- * @returns {Promise<string>} Season key (e.g., "11-2025")
- */
+/** Holt den aktuellen Saison-Schlüssel */
 async function getCurrentSeasonKey(supabase) {
     try {
         const { data, error } = await supabase
@@ -39,7 +33,6 @@ async function getCurrentSeasonKey(supabase) {
             const lastResetDate = new Date(data.value.lastResetDate);
             return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
         } else {
-            // Fallback: Use current month/year
             const now = new Date();
             return `${now.getMonth() + 1}-${now.getFullYear()}`;
         }
@@ -50,25 +43,13 @@ async function getCurrentSeasonKey(supabase) {
     }
 }
 
-/**
- * Points Management Module
- * Handles points awarding, points history display for both players and coaches
- */
-
-/**
- * Loads points history for a player (dashboard view)
- * @param {Object} userData - User data with id
- * @param {Object} db - Supabase client instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+/** Lädt die Punktehistorie eines Spielers (Dashboard-Ansicht) */
 export function loadPointsHistory(userData, db, unsubscribes) {
     const pointsHistoryEl = document.getElementById('points-history');
     if (!pointsHistoryEl) return;
 
-    // Initial load
     loadHistory();
 
-    // Real-time subscription
     const subscription = db
         .channel('points-history-changes')
         .on('postgres_changes', {
@@ -150,9 +131,7 @@ export function loadPointsHistory(userData, db, unsubscribes) {
     }
 }
 
-/**
- * Loads points history for a specific player (coach view)
- */
+/** Lädt Punktehistorie für einen bestimmten Spieler (Trainer-Ansicht) */
 export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
     const historyListEl = document.getElementById('coach-points-history-list');
     if (!historyListEl) return;
@@ -164,10 +143,8 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
 
     historyListEl.innerHTML = '<li class="text-center text-gray-500 py-4">Lade Historie...</li>';
 
-    // Initial load
     loadHistory();
 
-    // Real-time subscription
     const subscription = db
         .channel(`coach-points-history-${playerId}`)
         .on('postgres_changes', {
@@ -243,9 +220,7 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
     }
 }
 
-/**
- * Populates the player filter dropdown for points history
- */
+/** Befüllt das Spieler-Dropdown für die Punkte-Historie */
 export function populateHistoryFilterDropdown(clubPlayers) {
     const select = document.getElementById('history-player-filter');
     if (!select) return;
@@ -259,9 +234,7 @@ export function populateHistoryFilterDropdown(clubPlayers) {
     });
 }
 
-/**
- * Handles points form submission (coach awarding points)
- */
+/** Verarbeitet das Punkteformular (Trainer vergibt Punkte) */
 export async function handlePointsFormSubmit(e, db, currentUserData, handleReasonChangeCallback) {
     e.preventDefault();
     const feedbackEl = document.getElementById('points-feedback');
@@ -370,13 +343,12 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
             case 'manual':
                 points = parseInt(document.getElementById('manual-points').value);
-                xpChange = points; // XP is always equal to points for manual awards
+                xpChange = points;
                 reason = document.getElementById('manual-reason').value;
                 if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte müssen angegeben werden.');
                 break;
         }
 
-        // Check for partner system
         let partnerId = null;
         let partnerPercentage = 0;
         let hasPartnerSystem = false;
@@ -408,7 +380,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        // Get player data
         const { data: playerData, error: playerError } = await db
             .from('profiles')
             .select('*')
@@ -419,7 +390,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             throw new Error('Spieler nicht gefunden.');
         }
 
-        // Validate challenge subgroup membership
         if (challengeId && challengeSubgroupId && challengeSubgroupId !== 'all') {
             const playerSubgroups = playerData.subgroup_ids || [];
 
@@ -439,7 +409,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        // Check challenge repeatable status
         if (challengeId) {
             const { data: challengeData } = await db
                 .from('challenges')
@@ -479,7 +448,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let grundlagenCount = playerData.grundlagen_completed || 0;
         let isGrundlagenExercise = false;
 
-        // Check for Grundlagen exercise
         if (exerciseId) {
             const { data: exerciseData } = await db
                 .from('exercises')
@@ -488,7 +456,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 .single();
 
             if (exerciseData) {
-                // DB uses 'category' instead of 'tags'
                 const category = exerciseData.category || '';
                 isGrundlagenExercise = category.toLowerCase().includes('grundlage');
             }
@@ -497,13 +464,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
         }
 
-        // Calculate actual changes
         const currentPoints = playerData.points || 0;
         const currentXP = playerData.xp || 0;
         const actualPointsChange = Math.max(-currentPoints, points);
         const actualXPChange = Math.max(-currentXP, xpChange);
 
-        // Update player profile
         const updateData = {
             points: currentPoints + actualPointsChange,
             xp: currentXP + actualXPChange,
@@ -525,7 +490,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
         await db.from('profiles').update(updateData).eq('id', playerId);
 
-        // Add points history entry
         const historyEntry = {
             user_id: playerId,
             points: actualPointsChange,
@@ -536,10 +500,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             awarded_by: `${currentUserData.firstName} ${currentUserData.lastName}`,
         };
 
-        // Get current season key
         const currentSeasonKey = await getCurrentSeasonKey(db);
 
-        // Mark exercise as completed
         if (exerciseId) {
             await db.from('completed_exercises').upsert({
                 user_id: playerId,
@@ -548,7 +510,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 season_key: currentSeasonKey,
             });
 
-            // Update milestone progress if applicable
             const eOption = document.getElementById('exercise-select').options[document.getElementById('exercise-select').selectedIndex];
             if (eOption?.dataset.hasMilestones === 'true') {
                 const milestoneCountInput = document.getElementById('milestone-count-input');
@@ -563,7 +524,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         last_season_updated: currentSeasonKey,
                     });
 
-                    // Update global record holder
                     const { data: exerciseData } = await db
                         .from('exercises')
                         .select('record_count, record_holder_name')
@@ -595,7 +555,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        // Mark challenge as completed
         if (challengeId) {
             await db.from('completed_challenges').upsert({
                 user_id: playerId,
@@ -604,7 +563,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 season_key: currentSeasonKey,
             });
 
-            // Update milestone progress if applicable
             const cOption = document.getElementById('challenge-select').options[document.getElementById('challenge-select').selectedIndex];
             if (cOption?.dataset.hasMilestones === 'true') {
                 const milestoneCountInput = document.getElementById('milestone-count-input');
@@ -622,7 +580,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        // Handle partner system
         let partnerName = '';
         let actualPartnerPointsChange = 0;
         let actualPartnerXPChange = 0;
@@ -645,14 +602,12 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 actualPartnerXPChange = Math.max(-currentPartnerXP, partnerXP);
                 partnerName = `${partnerData.first_name} ${partnerData.last_name}`;
 
-                // Update partner profile
                 await db.from('profiles').update({
                     points: currentPartnerPoints + actualPartnerPointsChange,
                     xp: currentPartnerXP + actualPartnerXPChange,
                     last_xp_update: new Date().toISOString(),
                 }).eq('id', partnerId);
 
-                // Partner points history
                 const activePlayerName = `${playerData.first_name} ${playerData.last_name}`;
                 const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
 
@@ -668,17 +623,14 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     partner_id: playerId,
                 });
 
-                // Update active player's history entry with partner info
                 historyEntry.reason = `💪 ${reason} (Partner: ${partnerName})`;
                 historyEntry.is_active_player = true;
                 historyEntry.partner_id = partnerId;
             }
         }
 
-        // Insert points history entry
         await db.from('points_history').insert(historyEntry);
 
-        // Create notification for the player (if notifications are available)
         const notifMod = await getNotificationsModule();
         if (notifMod && notifMod.createPointsNotification) {
             try {
@@ -686,12 +638,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     playerId,
                     actualPointsChange,
                     actualXPChange,
-                    0, // elo change
+                    0,
                     reason,
                     `${currentUserData.firstName} ${currentUserData.lastName}`
                 );
 
-                // Also create notification for partner if applicable
                 if (hasPartnerSystem && partnerId && partnerName) {
                     const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
                     await notifMod.createPointsNotification(
@@ -708,7 +659,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        // Build feedback message
         const sign = actualPointsChange >= 0 ? '+' : '';
         let feedbackText = `Erfolgreich ${sign}${actualPointsChange} Punkte vergeben!`;
 
@@ -734,7 +684,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             : 'mt-3 text-sm font-medium text-center text-orange-600';
         e.target.reset();
 
-        // Reset manual partner system
         const manualToggle = document.getElementById('manual-partner-toggle');
         const manualContainer = document.getElementById('manual-partner-container');
         const manualPercentage = document.getElementById('manual-partner-percentage');
@@ -754,9 +703,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     }, 4000);
 }
 
-/**
- * Handles reason selection change in points form
- */
+/** Verarbeitet Änderungen der Grundauswahl im Punkteformular */
 export function handleReasonChange() {
     const value = document.getElementById('reason-select').value;
     const challengeContainer = document.getElementById('challenge-select-container');
@@ -800,9 +747,7 @@ export function handleReasonChange() {
     }
 }
 
-/**
- * Sets up milestone selector logic for points awarding
- */
+/** Initialisiert die Meilenstein-Auswahl-Logik */
 export function setupMilestoneSelectors(db) {
     const exerciseSelect = document.getElementById('exercise-select');
     const challengeSelect = document.getElementById('challenge-select');
@@ -850,9 +795,7 @@ export function setupMilestoneSelectors(db) {
     }
 }
 
-/**
- * Handles exercise/challenge selection change to show milestones if applicable
- */
+/** Verarbeitet Übungs-/Challenge-Auswahl und zeigt Meilensteine */
 async function handleExerciseChallengeChange(db, type) {
     const select = document.getElementById(`${type}-select`);
     const milestoneContainer = document.getElementById('milestone-select-container');
@@ -900,7 +843,6 @@ async function handleExerciseChallengeChange(db, type) {
         setupMilestoneCountInputListener(milestones, currentCount);
     }
 
-    // Handle partner system
     const partnerContainer = document.getElementById('partner-select-container');
     if (!partnerContainer) return;
 
@@ -930,9 +872,7 @@ async function handleExerciseChallengeChange(db, type) {
     await populatePartnerDropdown(db, playerId);
 }
 
-/**
- * Gets a player's milestone progress
- */
+/** Lädt den Meilenstein-Fortschritt eines Spielers */
 async function getMilestoneProgress(db, playerId, tableName, itemId, type) {
     try {
         const idColumn = type === 'exercise' ? 'exercise_id' : 'challenge_id';
@@ -957,9 +897,7 @@ async function getMilestoneProgress(db, playerId, tableName, itemId, type) {
     return { currentCount: 0, completedMilestones: [], lastSeasonUpdated: '' };
 }
 
-/**
- * Sets up input listener for milestone count
- */
+/** Initialisiert den Meilenstein-Eingabe-Listener */
 function setupMilestoneCountInputListener(milestones, currentCount) {
     const milestoneCountInput = document.getElementById('milestone-count-input');
     const progressText = document.getElementById('milestone-progress-text');
@@ -1001,9 +939,7 @@ function setupMilestoneCountInputListener(milestones, currentCount) {
     });
 }
 
-/**
- * Updates the milestone progress display
- */
+/** Aktualisiert die Meilenstein-Fortschrittsanzeige */
 async function updateMilestoneProgressDisplay(progress, milestones, db) {
     const progressText = document.getElementById('milestone-progress-text');
 
@@ -1028,9 +964,7 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
     }
 }
 
-/**
- * Populates the partner dropdown
- */
+/** Befüllt das Partner-Dropdown */
 async function populatePartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('partner-select');
     if (!partnerSelect) return;
@@ -1070,9 +1004,7 @@ async function populatePartnerDropdown(db, activePlayerId) {
     }
 }
 
-/**
- * Populates the manual partner dropdown
- */
+/** Befüllt das manuelle Partner-Dropdown */
 async function populateManualPartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('manual-partner-select');
     if (!partnerSelect) return;
@@ -1112,9 +1044,7 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
     }
 }
 
-/**
- * Initialize manual partner system toggle and dropdown
- */
+/** Initialisiert das manuelle Partner-System */
 export function setupManualPartnerSystem(db) {
     const toggle = document.getElementById('manual-partner-toggle');
     const container = document.getElementById('manual-partner-container');
@@ -1143,9 +1073,7 @@ export function setupManualPartnerSystem(db) {
     }
 }
 
-/**
- * Shows completion status for exercises/challenges without milestones
- */
+/** Zeigt Abschlussstatus für Übungen/Challenges ohne Meilensteine */
 async function showCompletionStatus(db, type, itemId, playerId) {
     const container = document.getElementById('completion-status-container');
     const statusText = document.getElementById('completion-status-text');
@@ -1212,9 +1140,7 @@ async function showCompletionStatus(db, type, itemId, playerId) {
     }
 }
 
-/**
- * Hides the completion status container
- */
+/** Versteckt den Abschlussstatus-Container */
 function hideCompletionStatus() {
     const container = document.getElementById('completion-status-container');
     if (container) {

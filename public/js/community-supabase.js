@@ -26,7 +26,6 @@ export async function initCommunity() {
 
     currentUser = session.user;
 
-    // Load user profile data
     const { data: profile } = await supabase
         .from('profiles')
         .select('*, clubs(id, name)')
