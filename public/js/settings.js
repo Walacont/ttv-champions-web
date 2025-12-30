@@ -1,4 +1,5 @@
-// NEU: Zusätzliche Imports für die Emulatoren
+// Einstellungen-Modul (Firebase-Version)
+
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -67,7 +68,6 @@ const newEmailInput = document.getElementById('new-email');
 const currentPasswordInput = document.getElementById('current-password');
 const emailFeedback = document.getElementById('email-feedback');
 
-// Privacy Settings Elements
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
 const showInLeaderboards = document.getElementById('show-in-leaderboards');
@@ -314,11 +314,7 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== TUTORIAL FUNCTIONS =====
-
-/**
- * Tutorial-Status anzeigen
- */
+/** Tutorial-Status anzeigen */
 function updateTutorialStatus(userData) {
     const role = userData?.role;
     const tutorialSection = document.getElementById('tutorial-section');
@@ -383,9 +379,6 @@ function updateTutorialStatus(userData) {
     }
 }
 
-/**
- * Coach-Tutorial starten
- */
 document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', () => {
     // Zur Coach-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('coach.html')) {
@@ -400,9 +393,6 @@ document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', (
     }
 });
 
-/**
- * Player-Tutorial starten
- */
 document.getElementById('start-player-tutorial-btn')?.addEventListener('click', () => {
     // Zur Dashboard-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('dashboard.html')) {
@@ -417,15 +407,7 @@ document.getElementById('start-player-tutorial-btn')?.addEventListener('click', 
     }
 });
 
-/**
- * ===============================================
- * GDPR DATA EXPORT & ACCOUNT DELETION
- * ===============================================
- */
-
-/**
- * Export all user data as JSON file (GDPR Art. 20)
- */
+/** Export alle Benutzerdaten als JSON-Datei (DSGVO Art. 20) */
 document.getElementById('export-data-btn')?.addEventListener('click', async () => {
     const exportBtn = document.getElementById('export-data-btn');
     const feedbackEl = document.getElementById('export-feedback');
@@ -441,12 +423,10 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
         feedbackEl.textContent = '';
 
-        // Get user data
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDoc = await getDoc(userDocRef);
         const userData = userDoc.exists() ? userDoc.data() : {};
 
-        // Get all matches (singles)
         const matchesQuery = query(
             collection(db, 'matches'),
             where('playerIds', 'array-contains', currentUser.uid)
@@ -457,7 +437,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             matches.push({ id: doc.id, ...doc.data() });
         });
 
-        // Get all doubles matches (requires clubId filter for security rules)
         const doublesMatches = [];
         if (userData.clubId) {
             const doublesQuery = query(
@@ -471,10 +450,8 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             });
         }
 
-        // Get attendance records (role-aware)
         let attendance = [];
         if (userData.role === 'player') {
-            // Players: query by their presence in attendance
             const attendanceQuery = query(
                 collection(db, 'attendance'),
                 where('presentPlayerIds', 'array-contains', currentUser.uid)
@@ -484,7 +461,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 attendance.push({ id: doc.id, ...doc.data() });
             });
         } else if (userData.role === 'coach' && userData.clubId) {
-            // Coaches: query by club (they can see all club attendance)
             const attendanceQuery = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', userData.clubId)
@@ -495,7 +471,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             });
         }
 
-        // Compile all data
         const exportData = {
             exportDate: new Date().toISOString(),
             profile: {
@@ -524,7 +499,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             attendance: attendance,
         };
 
-        // Create and download JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
@@ -547,16 +521,13 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/**
- * Delete account with anonymization
- */
+/** Account löschen mit Anonymisierung */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
         return;
     }
 
-    // Show confirmation dialog
     const confirmed = confirm(
         '⚠️ WARNUNG: Account-Löschung\n\n' +
         'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
@@ -572,7 +543,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     if (!confirmed) return;
 
-    // Second confirmation
     const doubleConfirm = prompt(
         'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
     );
@@ -588,7 +558,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
         deleteBtn.disabled = true;
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
 
-        // Call Cloud Function to anonymize account
         const anonymizeAccount = httpsCallable(functions, 'anonymizeAccount');
         const result = await anonymizeAccount({ userId: currentUser.uid });
 
@@ -598,7 +567,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
                 'Du wirst jetzt abgemeldet.'
             );
 
-            // Sign out user
             await auth.signOut();
             window.location.href = '/index.html';
         } else {
@@ -612,19 +580,10 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
     }
 });
 
-/**
- * ===============================================
- * PRIVACY SETTINGS
- * ===============================================
- */
-
-/**
- * Load privacy settings from user data
- */
+/** Lädt Datenschutzeinstellungen aus den Benutzerdaten */
 function loadPrivacySettings(userData) {
     if (!userData) return;
 
-    // Load searchable setting (default: 'global')
     const searchable = userData.privacySettings?.searchable || 'global';
     if (searchable === 'global') {
         searchableGlobal.checked = true;
@@ -632,21 +591,15 @@ function loadPrivacySettings(userData) {
         searchableClubOnly.checked = true;
     }
 
-    // Load showInLeaderboards setting (default: true)
     const showInLeaderboardsSetting = userData.privacySettings?.showInLeaderboards !== false;
     showInLeaderboards.checked = showInLeaderboardsSetting;
 
-    // Show warning if user has no club and selects club_only
     updateNoClubWarning(userData.clubId);
 
-    // Add listeners to radio buttons to show/hide warning
     searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
 }
 
-/**
- * Show/hide warning if user has no club
- */
 function updateNoClubWarning(clubId) {
     if (!clubId && searchableClubOnly.checked) {
         noClubWarning.classList.remove('hidden');
@@ -655,9 +608,6 @@ function updateNoClubWarning(clubId) {
     }
 }
 
-/**
- * Save privacy settings
- */
 savePrivacySettingsBtn?.addEventListener('click', async () => {
     if (!currentUser || !currentUserData) {
         privacyFeedback.textContent = 'Fehler: Nicht angemeldet';
@@ -670,18 +620,15 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
         privacyFeedback.textContent = '';
 
-        // Get selected values
         const searchable = searchableGlobal.checked ? 'global' : 'club_only';
         const showInLeaderboardsValue = showInLeaderboards.checked;
 
-        // Update Firestore
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, {
             'privacySettings.searchable': searchable,
             'privacySettings.showInLeaderboards': showInLeaderboardsValue,
         });
 
-        // Update local data
         if (!currentUserData.privacySettings) {
             currentUserData.privacySettings = {};
         }
@@ -703,13 +650,6 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
     }
 });
 
-/**
- * ===============================================
- * CLUB MANAGEMENT
- * ===============================================
- */
-
-// Get DOM elements
 const currentClubStatus = document.getElementById('current-club-status');
 const pendingRequestStatus = document.getElementById('pending-request-status');
 const clubSearchSection = document.getElementById('club-search-section');
@@ -723,29 +663,19 @@ const clubManagementFeedback = document.getElementById('club-management-feedback
 let clubRequestsUnsubscribe = null;
 let leaveRequestsUnsubscribe = null;
 
-/**
- * Initialize club management UI
- */
+/** Initialisiert die Vereinsverwaltungs-UI */
 async function initializeClubManagement() {
     if (!currentUser || !currentUserData) return;
 
-    // Listen for club requests
     listenToClubRequests();
-
-    // Listen for leave requests
     listenToLeaveRequests();
-
-    // Update UI based on current state
     await updateClubManagementUI();
 }
 
-/**
- * Show rejection notification and delete the rejected request
- */
+/** Zeigt Ablehnungs-Benachrichtigung und löscht die abgelehnte Anfrage */
 async function showRejectionNotification(type, requestDoc) {
     const requestData = requestDoc.data();
 
-    // Load club name
     let clubName = requestData.clubId;
     try {
         const clubDoc = await getDoc(doc(db, 'clubs', requestData.clubId));
@@ -783,18 +713,14 @@ async function showRejectionNotification(type, requestDoc) {
         </div>
     `;
 
-    // Delete the rejected request after showing notification
     try {
         const collectionName = type === 'join' ? 'clubRequests' : 'leaveClubRequests';
         await deleteDoc(doc(db, collectionName, requestDoc.id));
     } catch (error) {
-        console.error('Error deleting rejected request:', error);
+        console.error('Fehler beim Löschen der abgelehnten Anfrage:', error);
     }
 }
 
-/**
- * Listen to club join requests in real-time
- */
 function listenToClubRequests() {
     if (clubRequestsUnsubscribe) {
         clubRequestsUnsubscribe();
@@ -806,7 +732,6 @@ function listenToClubRequests() {
     );
 
     clubRequestsUnsubscribe = onSnapshot(q, async snapshot => {
-        // Check for rejected requests and show notification
         const rejectedRequests = snapshot.docs.filter(doc => doc.data().status === 'rejected');
         if (rejectedRequests.length > 0) {
             for (const doc of rejectedRequests) {
@@ -831,7 +756,6 @@ function listenToLeaveRequests() {
     );
 
     leaveRequestsUnsubscribe = onSnapshot(q, async snapshot => {
-        // Check for rejected requests and show notification
         const rejectedRequests = snapshot.docs.filter(doc => doc.data().status === 'rejected');
         if (rejectedRequests.length > 0) {
             for (const doc of rejectedRequests) {

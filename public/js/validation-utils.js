@@ -1,17 +1,6 @@
-/**
- * Validierungs-Utilities für Match-Daten (ohne Firebase-Abhängigkeiten)
- */
+// Validierungs-Utilities für Match-Daten (ohne Firebase-Abhängigkeiten)
 
-// ========================================================================
-// ===== SET SCORE VALIDATION =====
-// ========================================================================
-
-/**
- * Validiert einen Satz nach offiziellen Tischtennis-Regeln
- * @param {number} scoreA - Punktzahl Spieler A
- * @param {number} scoreB - Punktzahl Spieler B
- * @returns {boolean} True wenn der Satz gültig ist
- */
+/** Validiert einen Satz nach offiziellen Tischtennis-Regeln */
 export function isValidSet(scoreA, scoreB) {
     const a = parseInt(scoreA) || 0;
     const b = parseInt(scoreB) || 0;
@@ -29,12 +18,7 @@ export function isValidSet(scoreA, scoreB) {
     return (a >= 11 && a > b) || (b >= 11 && b > a);
 }
 
-/**
- * Ermittelt den Gewinner eines Satzes
- * @param {number} scoreA - Punktzahl Spieler A
- * @param {number} scoreB - Punktzahl Spieler B
- * @returns {'A'|'B'|null} Gewinner des Satzes oder null
- */
+/** Ermittelt den Gewinner eines Satzes */
 export function getSetWinner(scoreA, scoreB) {
     if (!isValidSet(scoreA, scoreB)) return null;
 
@@ -46,11 +30,7 @@ export function getSetWinner(scoreA, scoreB) {
     return null;
 }
 
-/**
- * Validiert ein vollständiges Match (alle Sätze)
- * @param {Array<{playerA: number, playerB: number}>} sets - Array mit Satzergebnissen
- * @returns {{valid: boolean, error?: string, winner?: 'A'|'B'}} Validierungsergebnis
- */
+/** Validiert ein vollständiges Match (alle Sätze) */
 export function validateMatch(sets) {
     const minSets = 3;
 
@@ -105,17 +85,7 @@ export function validateMatch(sets) {
     return { valid: true, winner };
 }
 
-// ========================================================================
-// ===== HANDICAP CALCULATION =====
-// ========================================================================
-
-/**
- * Handicap-Konfiguration pro Sportart
- * - threshold: minimaler Elo-Unterschied für Handicap
- * - pointsPer: Elo-Unterschied für 1 Punkt/Game Vorteil
- * - maxPoints: maximale Handicap-Punkte/Games
- * - unit: Einheit für Anzeige
- */
+// Handicap-Konfiguration pro Sportart
 const HANDICAP_CONFIG = {
     'table_tennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
     'tischtennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
@@ -125,13 +95,7 @@ const HANDICAP_CONFIG = {
     'default': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' }
 };
 
-/**
- * Berechnet Handicap-Punkte basierend auf Elo-Unterschied und Sportart
- * @param {Object} playerA - Spieler A mit eloRating
- * @param {Object} playerB - Spieler B mit eloRating
- * @param {string} sportName - Sportart
- * @returns {{player: Object, points: number, unit: string}|null} Handicap-Info oder null
- */
+/** Berechnet Handicap-Punkte basierend auf Elo-Unterschied und Sportart */
 export function calculateHandicap(playerA, playerB, sportName = 'table_tennis') {
     const eloA = playerA.eloRating || playerA.elo_rating || 0;
     const eloB = playerB.eloRating || playerB.elo_rating || 0;
@@ -162,13 +126,7 @@ export function calculateHandicap(playerA, playerB, sportName = 'table_tennis') 
     };
 }
 
-/**
- * Berechnet Handicap-Punkte für Doppel basierend auf durchschnittlichem Team-Elo
- * @param {Object} teamA - Team A mit player1 und player2
- * @param {Object} teamB - Team B mit player1 und player2
- * @param {string} sportName - Sportart
- * @returns {{team: 'A'|'B', averageEloA: number, averageEloB: number, points: number, unit: string}|null} Handicap-Info oder null
- */
+/** Berechnet Handicap-Punkte für Doppel basierend auf durchschnittlichem Team-Elo */
 export function calculateDoublesHandicap(teamA, teamB, sportName = 'table_tennis') {
     const eloA1 = teamA.player1?.eloRating || teamA.player1?.elo_rating || 0;
     const eloA2 = teamA.player2?.eloRating || teamA.player2?.elo_rating || 0;
