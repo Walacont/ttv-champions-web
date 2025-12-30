@@ -1,3 +1,5 @@
+// Doppel-Matches Modul (Firebase-Version)
+
 import {
     collection,
     addDoc,
@@ -15,59 +17,24 @@ import {
 import { formatDate } from './ui-utils.js';
 import { showDoublesHeadToHeadModal } from './doubles-head-to-head.js';
 
-/**
- * Doubles Matches Module
- * Handles doubles match functionality, pairing management, and rankings
- */
-
-// ========================================================================
-// ===== HELPER FUNCTIONS =====
-// ========================================================================
-
-/**
- * Checks if a player has no club
- * @param {string|null|undefined} clubId - The club ID to check
- * @returns {boolean} True if player has no club (null, undefined, or empty string)
- */
 function hasNoClub(clubId) {
     return !clubId || clubId === '';
 }
 
-/**
- * Creates a sorted pairing ID from two player IDs
- * Ensures that playerA + playerB = playerB + playerA
- * @param {string} player1Id - First player ID
- * @param {string} player2Id - Second player ID
- * @returns {string} Sorted pairing ID (e.g., "abc123_xyz789")
- */
+/** Erzeugt sortierte Pairing-ID aus zwei Spieler-IDs */
 export function createPairingId(player1Id, player2Id) {
     const ids = [player1Id, player2Id].sort();
     return `${ids[0]}_${ids[1]}`;
 }
 
-/**
- * Calculates team Elo as average of both players' doubles Elo
- * @param {Object} player1 - First player object with doublesEloRating
- * @param {Object} player2 - Second player object with doublesEloRating
- * @returns {number} Team Elo (average)
- */
+/** Berechnet Team-Elo als Durchschnitt beider Spieler */
 export function calculateTeamElo(player1, player2) {
     const elo1 = player1.doublesEloRating || 800;
     const elo2 = player2.doublesEloRating || 800;
     return Math.round((elo1 + elo2) / 2);
 }
 
-// ========================================================================
-// ===== COACH: DOUBLES MATCH SAVE =====
-// ========================================================================
-
-/**
- * Saves a doubles match result (Coach only)
- * @param {Object} matchData - Match data object
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data
- * @returns {Promise<Object>} Result object with success status
- */
+/** Speichert ein Doppel-Match-Ergebnis (nur Coach) */
 export async function saveDoublesMatch(matchData, db, currentUserData) {
     const {
         teamA_player1Id,
@@ -80,13 +47,11 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         matchMode = 'best-of-5',
     } = matchData;
 
-    // Validate all players are different
     const allPlayerIds = [teamA_player1Id, teamA_player2Id, teamB_player1Id, teamB_player2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
-    // Load all 4 players to check their clubIds
     const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
         getDoc(doc(db, 'users', teamA_player1Id)),
         getDoc(doc(db, 'users', teamA_player2Id)),
@@ -99,7 +64,7 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
     const player3ClubId = player3Doc.exists() ? player3Doc.data().clubId : null;
     const player4ClubId = player4Doc.exists() ? player4Doc.data().clubId : null;
 
-    // Determine clubId: Only set if all 4 players are from the same club
+    // clubId nur setzen wenn alle 4 Spieler vom selben Verein sind
     let matchClubId = null;
     if (
         player1ClubId &&
@@ -110,11 +75,9 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         matchClubId = player1ClubId;
     }
 
-    // Create pairing IDs
     const teamAPairingId = createPairingId(teamA_player1Id, teamA_player2Id);
     const teamBPairingId = createPairingId(teamB_player1Id, teamB_player2Id);
 
-    // Create match document
     const doublesMatchRef = await addDoc(collection(db, 'doublesMatches'), {
         teamA: {
             player1Id: teamA_player1Id,
@@ -140,21 +103,10 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         source: 'coach',
     });
 
-    console.log('Doubles match saved:', doublesMatchRef.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
     return { success: true, matchId: doublesMatchRef.id, isCrossClub: matchClubId === null };
 }
 
-// ========================================================================
-// ===== PLAYER: DOUBLES MATCH REQUEST =====
-// ========================================================================
-
-/**
- * Creates a doubles match request (Player initiated)
- * @param {Object} requestData - Request data object
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data
- * @returns {Promise<Object>} Result object with success status
- */
+/** Erstellt eine Doppel-Match-Anfrage (vom Spieler initiiert) */
 export async function createDoublesMatchRequest(requestData, db, currentUserData) {
     const {
         partnerId,
@@ -167,13 +119,11 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
 
     const initiatorId = currentUserData.id;
 
-    // Validate all players are different
     const allPlayerIds = [initiatorId, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
-    // Load all 4 players to check their clubIds
     const [initiatorDoc, partnerDoc, opponent1Doc, opponent2Doc] = await Promise.all([
         getDoc(doc(db, 'users', initiatorId)),
         getDoc(doc(db, 'users', partnerId)),
@@ -186,7 +136,6 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const opponent1ClubId = opponent1Doc.exists() ? opponent1Doc.data().clubId : null;
     const opponent2ClubId = opponent2Doc.exists() ? opponent2Doc.data().clubId : null;
 
-    // Determine clubId: Only set if all 4 players are from the same club
     let matchClubId = null;
     if (
         initiatorClubId &&
@@ -197,7 +146,6 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         matchClubId = initiatorClubId;
     }
 
-    // Determine required sets to win based on match mode
     let setsToWin;
     switch (matchMode) {
         case 'single-set':
@@ -216,27 +164,22 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
             setsToWin = 3;
     }
 
-    // Determine winner
     const setsWonByInitiatorTeam = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
     const setsWonByOpponentTeam = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
     let winningTeam;
     if (setsWonByInitiatorTeam >= setsToWin) {
-        winningTeam = 'A'; // Initiator's team won
+        winningTeam = 'A';
     } else if (setsWonByOpponentTeam >= setsToWin) {
-        winningTeam = 'B'; // Opponent team won
+        winningTeam = 'B';
     } else {
         throw new Error(`Ungültiges Ergebnis: Kein Team hat ${setsToWin} Sätze gewonnen`);
     }
 
-    // Create pairing IDs
     const initiatorPairingId = createPairingId(initiatorId, partnerId);
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
-
-    // Get player names from requestData if provided, otherwise use userData
     const playerNames = requestData.playerNames || {};
 
-    // Build the request document data
     const doublesRequestData = {
         teamA: {
             player1Id: initiatorId,
@@ -261,39 +204,21 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         matchMode: matchMode,
         initiatedBy: initiatorId,
         confirmations: {
-            [partnerId]: false, // Partner notified
-            [opponent1Id]: false, // Needs confirmation
-            [opponent2Id]: false, // Needs confirmation
+            [partnerId]: false,
+            [opponent1Id]: false,
+            [opponent2Id]: false,
         },
-        status: 'pending_opponent', // pending_opponent → pending_coach → approved
-        clubId: matchClubId, // null if players are from different clubs
-        isCrossClub: matchClubId === null, // Flag to indicate cross-club team
-        createdAt: serverTimestamp(),
-    };
-
-    console.log('📤 Creating doubles match request:', {
-        initiator: initiatorId,
-        partner: partnerId,
-        opponents: [opponent1Id, opponent2Id],
-        winningTeam,
         status: 'pending_opponent',
         clubId: matchClubId,
         isCrossClub: matchClubId === null,
-    });
+        createdAt: serverTimestamp(),
+    };
 
     const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), doublesRequestData);
-
-    console.log('✅ Doubles match request created successfully! ID:', requestRef.id);
     return { success: true, requestId: requestRef.id };
 }
 
-/**
- * Confirms a doubles match request (Opponent acceptance)
- * @param {string} requestId - Request document ID
- * @param {string} playerId - Player ID who is confirming
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Object>} Result object with success status
- */
+/** Bestätigt eine Doppel-Match-Anfrage (Gegner-Bestätigung) */
 export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     const requestRef = doc(db, 'doublesMatchRequests', requestId);
     const requestDoc = await getDoc(requestRef);
@@ -304,14 +229,12 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
 
     const requestData = requestDoc.data();
 
-    // Check if player is one of the opponents
     const isOpponent =
         requestData.teamB.player1Id === playerId || requestData.teamB.player2Id === playerId;
     if (!isOpponent) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
 
-    // Load all 4 players to check club status
     const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
         getDoc(doc(db, 'users', requestData.teamA.player1Id)),
         getDoc(doc(db, 'users', requestData.teamA.player2Id)),
@@ -324,7 +247,7 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     const player3Data = player3Doc.data();
     const player4Data = player4Doc.data();
 
-    // Check if at least one team has no club → auto-approve
+    // Auto-Genehmigung wenn mindestens ein Team keinen Verein hat
     const teamANoClub = hasNoClub(player1Data?.clubId) && hasNoClub(player2Data?.clubId);
     const teamBNoClub = hasNoClub(player3Data?.clubId) && hasNoClub(player4Data?.clubId);
     const shouldAutoApprove = teamANoClub || teamBNoClub;
@@ -336,7 +259,6 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     };
 
     if (shouldAutoApprove) {
-        // Auto-approve if at least one team has no club
         updateData.status = 'approved';
         updateData.approvedBy = 'auto_approved';
         updateData.approvedAt = serverTimestamp();
@@ -344,23 +266,14 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
             ? 'Both teams have no club'
             : 'One team has no club';
     } else {
-        // Move to coach approval
         updateData.status = 'pending_coach';
     }
 
     await updateDoc(requestRef, updateData);
-
-    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', shouldAutoApprove);
     return { success: true, autoApproved: shouldAutoApprove };
 }
 
-/**
- * Approves a doubles match request (Coach only)
- * @param {string} requestId - Request document ID
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Coach user data
- * @returns {Promise<Object>} Result object with success status
- */
+/** Genehmigt eine Doppel-Match-Anfrage (nur Coach) */
 export async function approveDoublesMatchRequest(requestId, db, currentUserData) {
     const requestRef = doc(db, 'doublesMatchRequests', requestId);
 
@@ -369,19 +282,10 @@ export async function approveDoublesMatchRequest(requestId, db, currentUserData)
         approvedBy: currentUserData.id,
         approvedAt: serverTimestamp(),
     });
-
-    console.log('Doubles match request approved by coach');
     return { success: true };
 }
 
-/**
- * Rejects a doubles match request (Coach only)
- * @param {string} requestId - Request document ID
- * @param {string} reason - Rejection reason
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Coach user data
- * @returns {Promise<Object>} Result object with success status
- */
+/** Lehnt eine Doppel-Match-Anfrage ab (nur Coach) */
 export async function rejectDoublesMatchRequest(requestId, reason, db, currentUserData) {
     const requestRef = doc(db, 'doublesMatchRequests', requestId);
 
@@ -391,37 +295,20 @@ export async function rejectDoublesMatchRequest(requestId, reason, db, currentUs
         rejectionReason: reason || 'Keine Angabe',
         rejectedAt: serverTimestamp(),
     });
-
-    console.log('Doubles match request rejected by coach');
     return { success: true };
 }
 
-// ========================================================================
-// ===== DOUBLES LEADERBOARD =====
-// ========================================================================
-
-/**
- * Loads doubles pairings leaderboard with real-time updates
- * @param {string} clubId - Club ID (null for global leaderboard)
- * @param {Object} db - Firestore database instance
- * @param {HTMLElement} container - Container element to render leaderboard
- * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
- * @param {string} currentUserId - Current user's ID (for privacy filtering)
- * @param {boolean} isGlobal - Whether this is the global leaderboard (default: false)
- */
+/** Lädt die Doppel-Rangliste mit Echtzeit-Updates */
 export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, currentUserId, isGlobal = false) {
     if (!container) return;
 
-    // Build query based on whether it's global or club-specific
     let pairingsQuery;
     if (isGlobal || clubId === null) {
-        // Global leaderboard: no clubId filter
         pairingsQuery = query(
             collection(db, 'doublesPairings'),
             orderBy('matchesWon', 'desc')
         );
     } else {
-        // Club leaderboard: filter by clubId
         pairingsQuery = query(
             collection(db, 'doublesPairings'),
             where('clubId', '==', clubId),
@@ -432,7 +319,6 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
     const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
 
-        // Load clubs map (needed for test club filtering and global leaderboard)
         let clubsMap = new Map();
         try {
             const clubsSnapshot = await getDocs(collection(db, 'clubs'));
@@ -443,7 +329,6 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             console.error('Error loading clubs:', error);
         }
 
-        // Load current user data (for test club filtering)
         let currentUserData = null;
         if (currentUserId) {
             try {
@@ -456,16 +341,12 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             }
         }
 
-        // Check if current user is from a test club
         const currentUserClub = currentUserData ? clubsMap.get(currentUserData.clubId) : null;
         const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
         const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'admin');
 
-        // Fetch player data for each pairing
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
-
-            // Try to fetch player data for profile pictures and privacy settings
             let player1Data = null;
             let player2Data = null;
 
@@ -477,7 +358,6 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                     }
                 }
             } catch (error) {
-                // Silently handle permission errors
                 if (error.code !== 'permission-denied') {
                     console.warn('Could not fetch player1 data:', error);
                 }
@@ -491,47 +371,37 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                     }
                 }
             } catch (error) {
-                // Silently handle permission errors
                 if (error.code !== 'permission-denied') {
                     console.warn('Could not fetch player2 data:', error);
                 }
             }
 
-            // Privacy filtering: Check if either player has disabled leaderboard visibility
-            // If current user is one of the players, always show the team
+            // Datenschutz-Filterung
             const isCurrentUserInTeam = (currentUserId && (data.player1Id === currentUserId || data.player2Id === currentUserId));
 
             if (!isCurrentUserInTeam) {
-                // Check privacy settings for both players
                 const player1ShowInLeaderboards = player1Data?.privacySettings?.showInLeaderboards !== false;
                 const player2ShowInLeaderboards = player2Data?.privacySettings?.showInLeaderboards !== false;
 
-                // If either player has disabled leaderboard visibility, skip this pairing
                 if (!player1ShowInLeaderboards || !player2ShowInLeaderboards) {
                     continue;
                 }
 
-                // For global leaderboard: Check if either player has searchable: club_only
-                // These players should only appear in their club leaderboard, not globally
                 if (isGlobal) {
                     const player1Searchable = player1Data?.privacySettings?.searchable || 'global';
                     const player2Searchable = player2Data?.privacySettings?.searchable || 'global';
 
-                    // If either player is club_only, skip this team in global leaderboard
                     if (player1Searchable === 'club_only' || player2Searchable === 'club_only') {
                         continue;
                     }
                 }
             }
 
-            // Test club filtering: Hide test club teams from non-test club users
-            // Coaches/admins see their own test club teams, but not other test clubs
+            // Test-Club-Filterung
             if (!isCurrentUserInTeam) {
-                // Check if this team's club is a test club
                 if (data.clubId) {
                     const teamClub = clubsMap.get(data.clubId);
                     if (teamClub && teamClub.isTestClub) {
-                        // If user is NOT from a test club, or is a coach/admin from a different club, hide this team
                         if (!isCurrentUserFromTestClub || (isCoachOrAdmin && data.clubId !== currentUserData.clubId)) {
                             continue;
                         }
@@ -539,16 +409,13 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 }
             }
 
-            // Check if players are deleted
             const player1Deleted = player1Data?.deleted || !player1Data?.firstName || !player1Data?.lastName;
             const player2Deleted = player2Data?.deleted || !player2Data?.firstName || !player2Data?.lastName;
 
-            // Determine club display (3 states for global leaderboard)
             let clubDisplay = 'Kein Verein';
-            let clubType = 'none'; // 'none', 'same', 'mix'
+            let clubType = 'none';
 
             if (isGlobal) {
-                // Use stored clubIds from match time if available, otherwise fall back to current clubIds
                 const p1ClubId = data.player1ClubIdAtMatch !== undefined
                     ? data.player1ClubIdAtMatch
                     : player1Data?.clubId;
@@ -556,19 +423,15 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                     ? data.player2ClubIdAtMatch
                     : player2Data?.clubId;
 
-                // Check if both have the same club
                 if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
-                    // Both in the SAME club
                     clubType = 'same';
                     clubDisplay = clubsMap.has(p1ClubId)
                         ? clubsMap.get(p1ClubId).name
                         : p1ClubId;
                 } else if (!p1ClubId && !p2ClubId) {
-                    // Both have NO club
                     clubType = 'none';
                     clubDisplay = 'Kein Verein';
                 } else {
-                    // Mixed team (club & no-club OR different clubs)
                     clubType = 'mix';
                     clubDisplay = 'Mix';
                 }
@@ -596,25 +459,19 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 player2LastName: player2Deleted
                     ? ''
                     : (player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N'),
-                clubDisplay: clubDisplay, // New: 3-state club display
-                clubType: clubType, // New: type for styling
+                clubDisplay: clubDisplay,
+                clubType: clubType,
                 ...data,
             });
         }
 
-        // Render the leaderboard with updated data
         renderDoublesLeaderboard(pairings, container, isGlobal, db, currentUserId);
     });
 
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Renders the doubles leaderboard in the UI
- * @param {Array} pairings - Array of pairing objects
- * @param {HTMLElement} container - Container element
- * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
- */
+/** Rendert die Doppel-Rangliste */
 export function renderDoublesLeaderboard(pairings, container, isGlobal = false, db = null, currentUserId = null) {
     if (!container) return;
 
@@ -624,9 +481,7 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
         return;
     }
 
-    // Desktop: Table view, Mobile: Card view
     let html = `
-        <!-- Desktop Table View (hidden on mobile) -->
         <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
                 <thead class="bg-gray-100">
@@ -650,19 +505,16 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
                 ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
                 : 0;
 
-        // Generate initials for player 1
         const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
         const p1Avatar =
             pairing.player1PhotoURL ||
             `https://placehold.co/40x40/e2e8f0/64748b?text=${p1Initials}`;
 
-        // Generate initials for player 2
         const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
         const p2Avatar =
             pairing.player2PhotoURL ||
             `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
 
-        // Desktop Table Row
         html += `
             <tr class="hover:bg-gray-100 ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? 'cursor-pointer' : ''}"
                 ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? `data-doubles-team='${JSON.stringify({player1Id: pairing.player1Id, player2Id: pairing.player2Id, player1Name: pairing.player1Name, player2Name: pairing.player2Name})}'` : ''}>
@@ -701,11 +553,9 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
             </table>
         </div>
 
-        <!-- Mobile Card View (shown only on mobile) -->
         <div class="md:hidden space-y-3">
     `;
 
-    // Mobile Cards
     pairings.forEach((pairing, index) => {
         const rank = index + 1;
         const winRate =
@@ -713,7 +563,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
                 ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
                 : 0;
 
-        // Generate initials and avatars
         const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
         const p1Avatar =
             pairing.player1PhotoURL ||
@@ -729,21 +578,17 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
         html += `
             <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? 'cursor-pointer hover:bg-gray-50' : ''}"
                  ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? `data-doubles-team='${JSON.stringify({player1Id: pairing.player1Id, player2Id: pairing.player2Id, player1Name: pairing.player1Name, player2Name: pairing.player2Name})}'` : ''}>
-                <!-- Rank Badge -->
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-lg font-bold text-gray-900">${rankDisplay}</span>
                     <span class="text-sm font-bold text-indigo-600">${Math.round(pairing.currentEloRating)} Elo</span>
                 </div>
 
-                <!-- Team Players -->
                 <div class="mb-3">
-                    <!-- Player 1 -->
                     <div class="flex items-center gap-2 mb-2">
                         <img src="${p1Avatar}" alt="${pairing.player1Name}"
                              class="h-8 w-8 rounded-full object-cover border-2 border-indigo-200 shadow-sm flex-shrink-0">
                         <span class="font-semibold text-indigo-700 text-sm">${pairing.player1Name}</span>
                     </div>
-                    <!-- Player 2 -->
                     <div class="flex items-center gap-2">
                         <img src="${p2Avatar}" alt="${pairing.player2Name}"
                              class="h-8 w-8 rounded-full object-cover border-2 border-indigo-200 shadow-sm flex-shrink-0">
@@ -752,7 +597,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
                 </div>
 
                 ${isGlobal ? `
-                <!-- Club Info -->
                 <div class="mb-3 text-xs ${
                     pairing.clubType === 'same' ? 'text-gray-500' :
                     pairing.clubType === 'none' ? 'text-amber-600 font-medium' :
@@ -766,7 +610,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
                 </div>
                 ` : ''}
 
-                <!-- Stats Grid -->
                 <div class="grid grid-cols-3 gap-2 text-center pt-3 border-t border-gray-200">
                     <div>
                         <div class="text-xs text-gray-500">Siege</div>
@@ -791,7 +634,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
 
     container.innerHTML = html;
 
-    // Add click handlers for head-to-head modal (only if db and currentUserId are provided)
     if (db && currentUserId) {
         const clickableElements = container.querySelectorAll('[data-doubles-team]');
         clickableElements.forEach(el => {
@@ -803,17 +645,7 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
     }
 }
 
-// ========================================================================
-// ===== LOAD COACH DOUBLES MATCH REQUESTS =====
-// ========================================================================
-
-/**
- * Loads pending doubles match requests for coach approval
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {HTMLElement} container - Container element for rendering
- * @returns {Function} Unsubscribe function
- */
+/** Lädt ausstehende Doppel-Match-Anfragen für Coach-Genehmigung */
 export async function loadCoachDoublesMatchRequests(userData, db, container) {
     if (!container) return;
 
@@ -836,7 +668,6 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
             const data = docSnap.data();
 
             try {
-                // Fetch all 4 player names
                 const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
                     getDoc(doc(db, 'users', data.teamA.player2Id)),
@@ -853,9 +684,7 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
                     teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
                 });
             } catch (error) {
-                // Handle permission errors for migrated offline players
                 console.error(`Error loading players for doubles request ${docSnap.id}:`, error);
-                // Still add the request but with null player data
                 requests.push({
                     id: docSnap.id,
                     ...data,
@@ -873,9 +702,7 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
     return unsubscribe;
 }
 
-/**
- * Renders doubles match request cards for coach
- */
+/** Rendert Doppel-Match-Anfragen für Coach */
 function renderCoachDoublesRequestCards(requests, db, userData, container) {
     if (!container) return;
 
@@ -961,9 +788,7 @@ function renderCoachDoublesRequestCards(requests, db, userData, container) {
     });
 }
 
-/**
- * Formats sets display for doubles matches
- */
+/** Formatiert Sätze für Doppel-Matches */
 function formatDoublesSets(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -974,16 +799,7 @@ function formatDoublesSets(sets) {
     return `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 }
 
-// ========================================================================
-// ===== OPPONENT CONFIRMATION WORKFLOW =====
-// ========================================================================
-
-/**
- * Loads pending doubles match requests where current user is an opponent
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {HTMLElement} container - Container element to render requests
- */
+/** Lädt ausstehende Doppel-Anfragen wo aktueller Nutzer Gegner ist */
 export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
     const q = query(
         collection(db, 'doublesMatchRequests'),
@@ -1003,10 +819,8 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Check if current user is one of the opponents (teamB)
             if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
                 try {
-                    // Fetch player names
                     const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] =
                         await Promise.all([
                             getDoc(doc(db, 'users', data.teamA.player1Id)),
@@ -1028,7 +842,6 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
                         `Error loading players for doubles opponent request ${docSnap.id}:`,
                         error
                     );
-                    // Still add request with null player data
                     requests.push({
                         id: docSnap.id,
                         ...data,
@@ -1051,13 +864,7 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
     });
 }
 
-/**
- * Renders pending doubles requests cards for opponent confirmation
- * @param {Array} requests - Array of request objects
- * @param {HTMLElement} container - Container element
- * @param {Object} db - Firestore database instance
- * @param {Object} userData - Current user data
- */
+/** Rendert ausstehende Doppel-Anfragen für Gegner-Bestätigung */
 function renderPendingDoublesRequestsForOpponent(requests, container, db, userData) {
     container.innerHTML = '';
 
@@ -1122,7 +929,6 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
             </div>
         `;
 
-        // Add event listeners
         const confirmBtn = card.querySelector('.confirm-doubles-btn');
         const rejectBtn = card.querySelector('.reject-doubles-btn');
 

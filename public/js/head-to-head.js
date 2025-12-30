@@ -1,3 +1,5 @@
+// Head-to-Head Statistik-Modul (Firebase-Version)
+
 import {
     collection,
     query,
@@ -7,25 +9,10 @@ import {
     getDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Head-to-Head Statistics Module
- * Shows match history and win/loss statistics between two players
- */
-
-// ========================================================================
-// ===== MODAL MANAGEMENT =====
-// ========================================================================
-
 let currentModal = null;
 
-/**
- * Show head-to-head statistics modal for two players
- * @param {Object} db - Firestore database instance
- * @param {string} currentUserId - Current user's ID
- * @param {string} opponentId - Opponent player's ID
- */
+/** Zeigt Head-to-Head Statistiken für zwei Spieler */
 export async function showHeadToHeadModal(db, currentUserId, opponentId) {
-    // Close existing modal if any
     closeHeadToHeadModal();
 
     // Create modal container
@@ -51,23 +38,18 @@ export async function showHeadToHeadModal(db, currentUserId, opponentId) {
     document.body.appendChild(modal);
     currentModal = modal;
 
-    // Close on background click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             closeHeadToHeadModal();
         }
     });
 
-    // Close button
     document.getElementById('close-h2h-modal').addEventListener('click', closeHeadToHeadModal);
 
-    // Load and display statistics
     await loadHeadToHeadStats(db, currentUserId, opponentId);
 }
 
-/**
- * Close the head-to-head modal
- */
+/** Schließt das Head-to-Head Modal */
 export function closeHeadToHeadModal() {
     if (currentModal) {
         currentModal.remove();
@@ -75,16 +57,7 @@ export function closeHeadToHeadModal() {
     }
 }
 
-// ========================================================================
-// ===== STATISTICS LOADING =====
-// ========================================================================
-
-/**
- * Load and display head-to-head statistics
- * @param {Object} db - Firestore database instance
- * @param {string} currentUserId - Current user's ID
- * @param {string} opponentId - Opponent player's ID
- */
+/** Lädt und zeigt Head-to-Head Statistiken */
 async function loadHeadToHeadStats(db, currentUserId, opponentId) {
     const contentEl = document.getElementById('h2h-content');
 
@@ -99,7 +72,6 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
         const opponentData = opponentDoc.data();
         const opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim();
 
-        // Fetch opponent's club info if they have a club
         let opponentClubName = null;
         if (opponentData.clubId) {
             try {
@@ -115,10 +87,8 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
             }
         }
 
-        // Query all matches between these two players
         const matchesRef = collection(db, 'matches');
 
-        // Query where current user is playerA and opponent is playerB
         const queryAB = query(
             matchesRef,
             where('playerAId', '==', currentUserId),
@@ -126,7 +96,6 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
             where('processed', '==', true)
         );
 
-        // Query where opponent is playerA and current user is playerB
         const queryBA = query(
             matchesRef,
             where('playerAId', '==', opponentId),
@@ -134,29 +103,23 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
             where('processed', '==', true)
         );
 
-        // Execute both queries
         const [snapshotAB, snapshotBA] = await Promise.all([
             getDocs(queryAB),
             getDocs(queryBA),
         ]);
 
-        // Combine all matches
         const allMatches = [
             ...snapshotAB.docs.map(doc => ({ id: doc.id, ...doc.data() })),
             ...snapshotBA.docs.map(doc => ({ id: doc.id, ...doc.data() })),
         ];
 
-        // Sort by timestamp descending
         allMatches.sort((a, b) => {
             const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
             const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
             return timeB - timeA;
         });
 
-        // Calculate statistics
         const stats = calculateStats(allMatches, currentUserId);
-
-        // Render the modal content
         renderHeadToHeadContent(contentEl, opponentData, opponentName, opponentClubName, stats, allMatches, currentUserId);
 
     } catch (error) {
@@ -165,12 +128,7 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
     }
 }
 
-/**
- * Calculate win/loss statistics
- * @param {Array} matches - Array of match objects
- * @param {string} currentUserId - Current user's ID
- * @returns {Object} Statistics object
- */
+/** Berechnet Sieg/Niederlage-Statistiken */
 function calculateStats(matches, currentUserId) {
     let wins = 0;
     let losses = 0;
@@ -186,7 +144,6 @@ function calculateStats(matches, currentUserId) {
         const handicapUsed = match.handicapUsed || false;
         const isPlayerA = match.playerAId === currentUserId;
 
-        // Count sets won and lost
         if (match.sets && Array.isArray(match.sets)) {
             match.sets.forEach(set => {
                 const myScore = isPlayerA ? parseInt(set.playerA) || 0 : parseInt(set.playerB) || 0;
@@ -248,21 +205,11 @@ function calculateStats(matches, currentUserId) {
     };
 }
 
-/**
- * Render the head-to-head modal content
- * @param {HTMLElement} container - Container element
- * @param {Object} opponentData - Opponent's user data
- * @param {string} opponentName - Opponent's display name
- * @param {string} opponentClubName - Opponent's club name (or null)
- * @param {Object} stats - Statistics object
- * @param {Array} matches - Array of matches
- * @param {string} currentUserId - Current user's ID
- */
+/** Rendert den Inhalt des Head-to-Head Modals */
 function renderHeadToHeadContent(container, opponentData, opponentName, opponentClubName, stats, matches, currentUserId) {
     const initials = `${opponentData.firstName?.[0] || ''}${opponentData.lastName?.[0] || ''}` || 'U';
     const avatarSrc = opponentData.photoURL || `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
 
-    // Determine win rate color
     let winRateColor = 'text-gray-600';
     if (stats.winRate >= 60) {
         winRateColor = 'text-green-600';
@@ -281,12 +228,10 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
         </div>
 
         ${stats.totalMatches === 0 ? `
-            <!-- No Matches Yet -->
             <div class="bg-gray-50 rounded-lg p-6 text-center">
                 <p class="text-gray-500">Noch keine Matches gegen ${opponentName.split(' ')[0]} gespielt.</p>
             </div>
         ` : `
-            <!-- Statistics -->
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 mb-6">
                 <h4 class="text-lg font-semibold text-gray-900 mb-4 text-center">Deine Bilanz</h4>
 
@@ -307,7 +252,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
                 </div>
             </div>
 
-            <!-- Sets Ratio -->
             <div class="bg-white rounded-lg p-4 text-center shadow mb-6">
                 <div class="flex items-center justify-center gap-2">
                     <p class="text-3xl font-bold text-indigo-600">${stats.setsWon}</p>
@@ -318,7 +262,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
             </div>
 
             ${(stats.handicap.total > 0 || stats.regular.total > 0) ? `
-                <!-- Handicap Split -->
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-900 mb-3 text-center">Handicap-Split</h4>
                     <div class="grid grid-cols-2 gap-4">
@@ -365,7 +308,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
                 </div>
             ` : ''}
 
-            <!-- Match History -->
             <div class="mb-4">
                 <h4 class="text-lg font-semibold text-gray-900 mb-3">Match-Historie</h4>
                 <div id="h2h-match-list" class="space-y-2">
@@ -382,7 +324,6 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
         `}
     `;
 
-    // Add toggle functionality for match history
     if (matches.length > 3) {
         let showingAll = false;
         const toggleBtn = document.getElementById('h2h-toggle-btn');
@@ -403,12 +344,7 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
     }
 }
 
-/**
- * Render match history list
- * @param {Array} matches - Array of matches (max 10)
- * @param {string} currentUserId - Current user's ID
- * @returns {string} HTML string
- */
+/** Rendert die Match-Historie */
 function renderMatchHistory(matches, currentUserId) {
     if (matches.length === 0) {
         return '<p class="text-gray-400 text-center py-4">Keine Matches gefunden</p>';
@@ -419,7 +355,6 @@ function renderMatchHistory(matches, currentUserId) {
         const matchDate = match.timestamp?.toDate() || match.createdAt?.toDate() || new Date();
         const formattedDate = formatMatchDate(matchDate);
 
-        // Format sets
         const isPlayerA = match.playerAId === currentUserId;
         const setsDisplay = formatSets(match.sets, isPlayerA);
 
@@ -442,12 +377,7 @@ function renderMatchHistory(matches, currentUserId) {
     }).join('');
 }
 
-/**
- * Format sets for display
- * @param {Array} sets - Array of set objects with playerA/playerB scores
- * @param {boolean} isPlayerA - Whether current user is playerA
- * @returns {string} Formatted sets string
- */
+/** Formatiert Sätze für die Anzeige */
 function formatSets(sets, isPlayerA) {
     if (!sets || sets.length === 0) return 'N/A';
 
@@ -460,17 +390,12 @@ function formatSets(sets, isPlayerA) {
         .join(', ');
 }
 
-/**
- * Format match date
- * @param {Date} date - Date object
- * @returns {string} Formatted date
- */
+/** Formatiert Match-Datum */
 function formatMatchDate(date) {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time parts for comparison
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(
