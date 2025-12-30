@@ -14,19 +14,9 @@ import {
     setDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Attendance Module
- * Handles calendar rendering and attendance tracking for coaches
- * Now also tracks XP (Experience Points) for the new rank system
- * Updated to support subgroups with separate streaks per subgroup
- */
+// Anwesenheits-Modul - Kalender und Trainings-Tracking für Trainer
 
-/**
- * Calculates the duration in hours between two time strings
- * @param {string} startTime - Start time in HH:MM format (e.g., "18:00")
- * @param {string} endTime - End time in HH:MM format (e.g., "20:00")
- * @returns {number} Duration in hours (e.g., 2.0)
- */
+/** Berechnet die Trainingsdauer in Stunden zwischen Start- und Endzeit */
 function calculateTrainingDuration(startTime, endTime) {
     try {
         const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -38,49 +28,35 @@ function calculateTrainingDuration(startTime, endTime) {
         const durationMinutes = endTotalMinutes - startTotalMinutes;
         const durationHours = durationMinutes / 60;
 
-        // Round to 1 decimal place
         return Math.round(durationHours * 10) / 10;
     } catch (error) {
         console.error('Error calculating training duration:', error);
-        return 2.0; // Default to 2 hours
+        return 2.0;
     }
 }
 
-// Module state
 let monthlyAttendance = new Map();
-let monthlySessions = new Map(); // NEW: Store sessions by date
-let subgroupsMap = new Map(); // Store subgroups with their colors
-let currentSubgroupFilter = 'all'; // Current active subgroup filter
-let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
-let currentSessionId = null; // NEW: Track current session being edited
+let monthlySessions = new Map();
+let subgroupsMap = new Map();
+let currentSubgroupFilter = 'all';
+let isRenderingAttendance = false;
+let currentSessionId = null;
 
-// Store callbacks for current session
 let currentClubPlayers = [];
 let currentUpdateAttendanceCount = null;
 let currentUpdatePairingsButtonState = null;
 
-/**
- * Sets the current subgroup filter for attendance operations
- * @param {string} subgroupId - Subgroup ID or 'all' for all subgroups
- */
+/** Setzt den aktuellen Subgruppen-Filter */
 export function setAttendanceSubgroupFilter(subgroupId) {
     currentSubgroupFilter = subgroupId || 'all';
 }
 
-/**
- * Gets the current session ID being edited
- * @returns {string|null} Current session ID or null
- */
+/** Gibt die aktuelle Session-ID zurück */
 export function getCurrentSessionId() {
     return currentSessionId;
 }
 
-/**
- * Renders the calendar for a given month and year
- * @param {Date} date - The date to render the calendar for
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user's data
- */
+/** Rendert den Kalender für einen bestimmten Monat */
 export async function renderCalendar(date, db, currentUserData) {
     const calendarGrid = document.getElementById('calendar-grid');
     if (!calendarGrid) return;
@@ -112,7 +88,6 @@ export async function renderCalendar(date, db, currentUserData) {
         const dayCell = document.createElement('div');
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-        // Base styling
         dayCell.className =
             'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
 
@@ -123,18 +98,14 @@ export async function renderCalendar(date, db, currentUserData) {
 
         dayCell.dataset.date = dateString;
 
-        // NEW: Check for sessions on this day
         const sessionsOnDay = monthlySessions.get(dateString) || [];
 
         if (sessionsOnDay.length > 0) {
-            // Add subtle border to indicate sessions exist
             dayCell.classList.add('border-indigo-300');
 
-            // Add indicator dots for sessions
             const dotsContainer = document.createElement('div');
             dotsContainer.className = 'flex gap-1 justify-center mt-1';
 
-            // Show up to 3 dots, or a "3+" indicator
             const dotsToShow = Math.min(sessionsOnDay.length, 3);
             for (let i = 0; i < dotsToShow; i++) {
                 const session = sessionsOnDay[i];
@@ -157,33 +128,21 @@ export async function renderCalendar(date, db, currentUserData) {
             dayCell.appendChild(dotsContainer);
         }
 
-        // Remove the green background - we only show colored dots now
-        // monthlyAttendance is no longer used for background color
-
         calendarGrid.appendChild(dayCell);
     }
 
-    // Return a no-op unsubscribe function for compatibility with coach.js
-    // (attendance.js doesn't use real-time listeners, so no cleanup needed)
     return () => {};
 }
 
-/**
- * Fetches attendance data and training sessions for a specific month
- * @param {number} year - Year
- * @param {number} month - Month (0-11)
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user's data
- */
+/** Lädt Anwesenheitsdaten und Trainingseinheiten für einen Monat */
 export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     monthlyAttendance.clear();
-    monthlySessions.clear(); // NEW: Clear sessions
+    monthlySessions.clear();
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
     try {
         console.log('[fetchMonthlyAttendance] Loading subgroups...');
-        // Load subgroups for color mapping
         const subgroupsSnapshot = await getDocs(
             query(collection(db, 'subgroups'), where('clubId', '==', currentUserData.clubId))
         );
@@ -192,7 +151,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
             const data = doc.data();
             subgroupsMap.set(doc.id, {
                 name: data.name,
-                color: data.color || '#6366f1', // Default to indigo if no color set
+                color: data.color || '#6366f1',
             });
         });
         console.log(`[fetchMonthlyAttendance] Loaded ${subgroupsMap.size} subgroups`);
@@ -201,7 +160,6 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
         throw error;
     }
 
-    // NEW: Fetch training sessions for the month
     try {
         console.log('[fetchMonthlyAttendance] Loading training sessions...');
         let sessionsQuery;
@@ -246,12 +204,10 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
         throw error;
     }
 
-    // Build query based on subgroup filter
     try {
         console.log('[fetchMonthlyAttendance] Loading attendance records...');
         let q;
         if (currentSubgroupFilter === 'all') {
-            // Show all attendance events for the club
             q = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', currentUserData.clubId),
@@ -271,19 +227,15 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 
         const querySnapshot = await getDocs(q);
 
-        // When filter is "all", we might have multiple events per day (different subgroups)
-        // We'll mark a day as present if ANY subgroup had a training that day
         querySnapshot.forEach(doc => {
             const data = doc.data();
             const dateKey = data.date;
 
             if (currentSubgroupFilter === 'all') {
-                // For "all" view, just mark the day - don't store specific event data
                 if (!monthlyAttendance.has(dateKey)) {
                     monthlyAttendance.set(dateKey, { id: doc.id, ...data });
                 }
             } else {
-                // For specific subgroup, store the event data
                 monthlyAttendance.set(dateKey, { id: doc.id, ...data });
             }
         });
@@ -301,23 +253,13 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     }
 }
 
-/**
- * Finds the original attendance points awarded to a player on a specific date
- * Simple approach: Load recent history and sum all POSITIVE attendance entries for this date
- * @param {string} playerId - Player ID
- * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} subgroupName - Subgroup name to match in history (for logging only)
- * @param {Object} db - Firestore database instance
- * @param {string} subgroupId - Subgroup ID for precise matching
- * @returns {Promise<number>} Points to deduct (defaults to 10 if not found)
- */
+/** Findet die ursprünglich vergebenen Anwesenheitspunkte für einen Spieler */
 async function findOriginalAttendancePoints(playerId, date, subgroupName, db, subgroupId) {
     try {
         console.log(
             `[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`
         );
 
-        // Load recent history entries (no complex query to avoid index issues)
         const historyQuery = query(
             collection(db, `users/${playerId}/pointsHistory`),
             orderBy('timestamp', 'desc'),
@@ -332,11 +274,9 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
         let totalPositivePoints = 0;
         let foundEntries = 0;
 
-        // Find all POSITIVE attendance entries for this date and subgroup
         historySnapshot.forEach(historyDoc => {
             const historyData = historyDoc.data();
 
-            // Check if this is a positive attendance entry (not a correction)
             if (
                 historyData.points > 0 &&
                 historyData.reason &&
@@ -345,7 +285,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
                 let matchesDate = false;
                 let matchesSubgroup = false;
 
-                // Check if date matches (try stored field first, then extract from timestamp)
                 if (historyData.date === date) {
                     matchesDate = true;
                 } else if (historyData.timestamp) {
@@ -358,8 +297,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
                         matchesDate = true;
                     }
                 }
-
-                // Check if subgroup matches (try stored field first, then name in reason)
                 if (historyData.subgroupId === subgroupId) {
                     matchesSubgroup = true;
                 } else if (historyData.reason.includes(subgroupName)) {
@@ -383,7 +320,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
             return totalPositivePoints;
         }
 
-        // If not found, return base points
         console.warn(
             `[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`
         );
@@ -394,17 +330,7 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
     }
 }
 
-/**
- * Recalculates all subsequent training days after a removal
- * This is necessary because removing a day affects the streak count of all future days
- * @param {string} playerId - Player ID
- * @param {string} removedDate - Date that was removed (YYYY-MM-DD)
- * @param {string} subgroupId - Subgroup ID
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {Object} batch - Firestore batch
- * @param {string} subgroupName - Subgroup name for history entries
- */
+/** Berechnet alle nachfolgenden Trainingstage nach einer Entfernung neu */
 async function recalculateSubsequentDays(
     playerId,
     removedDate,
@@ -414,10 +340,9 @@ async function recalculateSubsequentDays(
     batch,
     subgroupName
 ) {
-    const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
+    const ATTENDANCE_POINTS_BASE = 3;
 
     try {
-        // Find all training days AFTER the removed date for this subgroup
         const subsequentTrainingsQuery = query(
             collection(db, 'attendance'),
             where('clubId', '==', clubId),
@@ -431,7 +356,6 @@ async function recalculateSubsequentDays(
             `[recalculateSubsequentDays] Found ${subsequentSnapshot.size} training days after ${removedDate}`
         );
 
-        // Filter to only days where this player was present
         const playerPresentDays = [];
         subsequentSnapshot.forEach(trainingDoc => {
             const trainingData = trainingDoc.data();
@@ -449,7 +373,6 @@ async function recalculateSubsequentDays(
             return;
         }
 
-        // Get all trainings in chronological order (to calculate streaks correctly)
         const allTrainingsQuery = query(
             collection(db, 'attendance'),
             where('clubId', '==', clubId),
@@ -471,29 +394,21 @@ async function recalculateSubsequentDays(
             `[recalculateSubsequentDays] All training dates (player present): ${allTrainingDates.join(', ')}`
         );
 
-        // Get ALL trainings for this subgroup (to check for gaps)
         const allSubgroupTrainings = allTrainingsSnapshot.docs
             .map(doc => ({ date: doc.data().date, presentPlayerIds: doc.data().presentPlayerIds }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // For each subsequent day where player was present, recalculate
         for (const currentDate of playerPresentDays) {
-            // Calculate what the streak SHOULD be for this date
-            // We need to count backwards from currentDate and check for consecutive attendance
             let newStreak = 1;
 
-            // Find index of current date in ALL trainings (not just player's)
             const currentIndex = allSubgroupTrainings.findIndex(t => t.date === currentDate);
 
-            // Count backwards - player must have been present at EVERY previous training
             for (let i = currentIndex - 1; i >= 0; i--) {
                 const training = allSubgroupTrainings[i];
 
                 if (training.presentPlayerIds && training.presentPlayerIds.includes(playerId)) {
-                    // Player was present - streak continues
                     newStreak++;
                 } else {
-                    // Player was NOT present - streak is broken
                     break;
                 }
             }
@@ -502,7 +417,6 @@ async function recalculateSubsequentDays(
                 `[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`
             );
 
-            // Calculate NEW points based on new streak (New System)
             let newPoints = ATTENDANCE_POINTS_BASE; // 3 points default
             if (newStreak >= 5) {
                 newPoints = 6; // 3 base + 3 bonus
