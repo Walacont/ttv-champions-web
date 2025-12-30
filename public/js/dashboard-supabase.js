@@ -799,7 +799,7 @@ function calculateAge(birthdate) {
 function matchesAgeGroup(birthdate, ageGroupFilter) {
     if (ageGroupFilter === 'all') return true;
     const age = calculateAge(birthdate);
-    if (age === null) return true; // Include players without birthdate
+    if (age === null) return false; // Exclude players without birthdate when filter is active
 
     // Youth groups (under X years) - stichtag-basiert like table tennis rules
     // U11 means player turns 11 or younger in current year
@@ -1350,9 +1350,9 @@ function renderRanksList() {
         }
     }
 
-    // Apply gender filter
+    // Apply gender filter (exclude players without gender when filter is active)
     if (currentGenderFilter !== 'all') {
-        players = players.filter(p => p.gender === currentGenderFilter);
+        players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
 
     if (players.length === 0) {
@@ -1521,9 +1521,9 @@ function renderLeaderboardList() {
     }
     // 'club' and 'global' don't filter - they just set the scope (which is handled by leaderboardCache[currentLeaderboardScope])
 
-    // Apply gender filter
+    // Apply gender filter (exclude players without gender when filter is active)
     if (currentGenderFilter !== 'all') {
-        players = players.filter(p => p.gender === currentGenderFilter);
+        players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
 
     // Filter out players from test clubs (unless current user is from a test club)
