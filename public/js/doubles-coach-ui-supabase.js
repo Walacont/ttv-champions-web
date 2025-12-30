@@ -1,7 +1,7 @@
 import { saveDoublesMatch } from './doubles-matches-supabase.js';
 import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 import { calculateDoublesHandicap } from './validation-utils.js';
 
 /**

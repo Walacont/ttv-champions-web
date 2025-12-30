@@ -3,7 +3,7 @@
  * Zeigt monatliche Wettkampfaktivität mit Trainer/Spieler-Filter
  */
 
-import { isAgeGroupFilter, calculateAge, isInAgeGroup, isGenderFilter } from './ui-utils.js';
+import { isAgeGroupFilter, calculateAge, isInAgeGroup, isGenderFilter } from './ui-utils-supabase.js';
 
 // Chart-Instanz (global für Cleanup-Zugriff)
 let competitionActivityChart = null;

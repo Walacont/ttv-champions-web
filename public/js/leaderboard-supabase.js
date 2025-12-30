@@ -2,7 +2,7 @@
 // Verwaltet Ranglisten: Skill (ELO), Fleiß (XP), Season (Punkte)
 
 import { getSupabase } from './supabase-init.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 import { RANK_ORDER, groupPlayersByRank } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { getSportContext, getUsersInSport } from './sport-context-supabase.js';

@@ -4,7 +4,7 @@
  */
 
 import { RANK_ORDER } from './ranks.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
 // Chart-Instanzen (global für Cleanup)
 let attendanceTrendChart = null;

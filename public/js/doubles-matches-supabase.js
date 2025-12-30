@@ -1,4 +1,4 @@
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
 
 /**

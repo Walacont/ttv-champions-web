@@ -1,6 +1,6 @@
 // ===== Verein-Anfragen Manager für Trainer (Supabase Version) =====
 
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 let currentUserData = null;
 let supabaseClient = null;

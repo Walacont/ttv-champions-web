@@ -3,7 +3,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { getChallengePartnerSettings } from './milestone-management.js';
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 const supabase = getSupabase();
 

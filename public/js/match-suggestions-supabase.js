@@ -4,7 +4,7 @@
  * Multi-sport support: Filters suggestions by active sport
  */
 
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 
 // Cache for clubs data

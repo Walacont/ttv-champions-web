@@ -1,7 +1,7 @@
 // Punkteverwaltung (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 let notificationsModule = null;
 let notificationsLoaded = false;

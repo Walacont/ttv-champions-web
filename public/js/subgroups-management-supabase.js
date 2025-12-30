@@ -4,7 +4,7 @@
  * Multi-sport support: Subgroups are filtered by active sport
  */
 
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 
 // Store current sport context for use in other functions

@@ -16,7 +16,7 @@ import {
 import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 import { calculateHandicap } from './validation-utils.js';
-import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
 /**
  * @param {string} userId - Benutzer-ID

@@ -2,7 +2,7 @@
 
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard-supabase.js';
 import { loadLeaderboardForCoach } from './leaderboard-supabase.js';
-import { getSeasonEndDate } from './ui-utils.js';
+import { getSeasonEndDate } from './ui-utils-supabase.js';
 
 // Saison-Resets werden durch Edge Function gesteuert (6-Wochen-Zyklus)
 export async function checkAndResetClubSeason(clubId, supabase) {
