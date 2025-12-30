@@ -1,4 +1,5 @@
-// ===== IMPORTS =====
+// SC Champions - Registrierungsseite (Firebase-Version)
+
 import {
     createUserWithEmailAndPassword,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
@@ -17,16 +18,8 @@ import {
 import { initFirebase } from './firebase-init.js';
 import { isCodeExpired, validateCodeFormat } from './invitation-code-utils.js';
 
-console.log('[REGISTER] Script starting...');
-
-// ===== INITIALISIERUNG =====
-// Use shared Firebase instance (singleton)
-// Using top-level await (supported in ES modules)
 const { auth, db, functions } = await initFirebase();
 
-console.log('[REGISTER] Firebase initialized via shared instance');
-
-// ===== UI ELEMENTE =====
 const loader = document.getElementById('loader');
 const registrationFormContainer = document.getElementById('registration-form-container');
 const registrationForm = document.getElementById('registration-form');
@@ -38,10 +31,9 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 let tokenId = null;
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null; // 'token', 'code', or 'no-code'
+let registrationType = null;
 
-// ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
-// Function to initialize registration (works for both normal load and SPA navigation)
+// Registrierung initialisieren (funktioniert für normale Seitenladung und SPA-Navigation)
 async function initializeRegistration() {
     const urlParams = new URLSearchParams(window.location.search);
     tokenId = urlParams.get('token');
@@ -119,19 +111,15 @@ async function initializeRegistration() {
     }
 }
 
-// Call initialization function
-// For normal page load
 window.addEventListener('load', initializeRegistration);
 
-// For SPA navigation - call immediately if DOM is already loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeRegistration);
 } else {
-    // DOM is already ready, execute now (for SPA navigation)
     initializeRegistration();
 }
 
-// ===== REGISTRIERUNG OHNE CODE =====
+// Registrierung ohne Code
 const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
 if (registerWithoutCodeBtn) {
     registerWithoutCodeBtn.addEventListener('click', () => {
@@ -156,69 +144,46 @@ if (registerWithoutCodeBtn) {
     });
 }
 
-// ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener('submit', async e => {
     e.preventDefault();
     errorMessage.textContent = '';
 
-    // Formulardaten abrufen
     const email = document.getElementById('email-address').value;
     const password = document.getElementById('password').value;
     const passwordConfirm = document.getElementById('password-confirm').value;
-
-    // NEU: Die Checkboxen abrufen
     const consentStudy = document.getElementById('consent-study').checked;
     const consentPrivacy = document.getElementById('consent-privacy').checked;
 
-    // Passwort-Prüfung
     if (password !== passwordConfirm) {
         errorMessage.textContent = 'Die Passwörter stimmen nicht überein.';
         return;
     }
 
-    // NEU: Die Checkboxen-Prüfung
     if (!consentStudy || !consentPrivacy) {
         errorMessage.textContent = 'Du musst der Studie und der Datenschutzerklärung zustimmen.';
-        return; // Bricht die Funktion hier ab
+        return;
     }
 
-    // Ab hier geht der Code normal weiter...
     submitButton.disabled = true;
     submitButton.textContent = 'Registriere...';
 
     try {
-        // 1️⃣ Firebase User erstellen
-        console.log('[REGISTER] Step 1: Creating user...');
+        // Firebase User erstellen
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-        console.log('[REGISTER] Step 1 complete: User created:', user.email);
 
-        // 2️⃣ Kurz warten, bis Auth-State vollständig aktiv ist
-        console.log('[REGISTER] Step 2: Waiting for auth state...');
+        // Kurz warten, bis Auth-State vollständig aktiv ist
         await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('[REGISTER] Step 2 complete');
-
-        // 3️⃣ Sicherheitshalber frisches Auth-Token abrufen
-        console.log('[REGISTER] Step 3: Getting ID token...');
         await user.getIdToken(true);
-        console.log('[REGISTER] Step 3 complete: Got ID token');
 
-        // ===== CODE-FLOW =====
         if (registrationType === 'code') {
-            console.log('[REGISTER] Using CODE flow');
-            // 4️⃣ Callable Cloud Function aufrufen für Code-basierte Registrierung
-            console.log('[REGISTER] Step 4: Calling claimInvitationCode...');
             const claimInvitationCode = httpsCallable(functions, 'claimInvitationCode');
             const result = await claimInvitationCode({
                 code: invitationCode,
                 codeId: invitationCodeData.id,
             });
-            console.log('[REGISTER] Step 4 complete:', result.data);
 
             if (result.data.success) {
-                // 5️⃣ Weiterleitung zum Onboarding
-                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
-                // Use SPA navigation if available
                 if (window.spaNavigate) {
                     window.spaNavigate('/onboarding.html');
                 } else {
@@ -227,20 +192,11 @@ registrationForm.addEventListener('submit', async e => {
             } else {
                 throw new Error('Ein unbekannter Fehler ist aufgetreten.');
             }
-        }
-        // ===== TOKEN-FLOW (Bisheriger Flow) =====
-        else if (registrationType === 'token') {
-            console.log('[REGISTER] Using TOKEN flow');
-            // 4️⃣ Callable Cloud Function aufrufen
-            console.log('[REGISTER] Step 4: Calling claimInvitationToken...');
+        } else if (registrationType === 'token') {
             const claimInvitationToken = httpsCallable(functions, 'claimInvitationToken');
             const result = await claimInvitationToken({ tokenId });
-            console.log('[REGISTER] Step 4 complete:', result.data);
 
             if (result.data.success) {
-                // 5️⃣ Weiterleitung zum Onboarding
-                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
-                // Use SPA navigation if available
                 if (window.spaNavigate) {
                     window.spaNavigate('/onboarding.html');
                 } else {
@@ -249,11 +205,7 @@ registrationForm.addEventListener('submit', async e => {
             } else {
                 throw new Error('Ein unbekannter Fehler ist aufgetreten.');
             }
-        }
-        // ===== NO-CODE FLOW (Neu: Registrierung ohne Einladung) =====
-        else if (registrationType === 'no-code') {
-            console.log('[REGISTER] Using NO-CODE flow');
-            // Get name fields
+        } else if (registrationType === 'no-code') {
             const firstName = document.getElementById('first-name').value.trim();
             const lastName = document.getElementById('last-name').value.trim();
 
@@ -264,19 +216,13 @@ registrationForm.addEventListener('submit', async e => {
                 return;
             }
 
-            // 4️⃣ Callable Cloud Function aufrufen für Registrierung ohne Code
-            console.log('[REGISTER] Step 4: Calling registerWithoutCode...');
             const registerWithoutCode = httpsCallable(functions, 'registerWithoutCode');
             const result = await registerWithoutCode({
                 firstName,
                 lastName,
             });
-            console.log('[REGISTER] Step 4 complete:', result.data);
 
             if (result.data.success) {
-                // 5️⃣ Weiterleitung zum Onboarding
-                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
-                // Use SPA navigation if available
                 if (window.spaNavigate) {
                     window.spaNavigate('/onboarding.html');
                 } else {
@@ -309,25 +255,17 @@ registrationForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== FEHLERANZEIGE (NICHT-ZERSTÖRERISCHE VERSION) =====
+// Fehleranzeige (nutzt bestehenden Container)
 function displayError(message) {
-    // 1. Verstecke alle Haupt-Container
     loader.classList.add('hidden');
     registrationFormContainer.classList.add('hidden');
 
-    // 2. Finde den Nachrichten-Container aus der HTML
-    // (tokenRequiredMessageContainer ist bereits global definiert)
-
     if (tokenRequiredMessageContainer) {
-        // 3. Passe den Inhalt des bestehenden Containers an
-
-        // Icon ändern
         const icon = tokenRequiredMessageContainer.querySelector('i');
         if (icon) {
-            icon.className = 'fas fa-exclamation-triangle text-4xl text-red-600'; // Rotes Fehler-Icon
+            icon.className = 'fas fa-exclamation-triangle text-4xl text-red-600';
         }
 
-        // Titel ändern
         const title = tokenRequiredMessageContainer.querySelector('h1');
         if (title) {
             title.textContent = 'Ein Fehler ist aufgetreten';
@@ -335,34 +273,24 @@ function displayError(message) {
             title.classList.add('text-red-600');
         }
 
-        // Alle Paragraphen finden
         const paragraphs = tokenRequiredMessageContainer.querySelectorAll('p');
-
-        // Ersten Paragraph für die Fehlermeldung nutzen
         if (paragraphs[0]) {
             paragraphs[0].textContent = message;
             paragraphs[0].classList.remove('text-gray-600');
-            paragraphs[0].classList.add('text-gray-800', 'font-medium'); // Deutlicher hervorheben
+            paragraphs[0].classList.add('text-gray-800', 'font-medium');
         }
 
-        // Alle weiteren Paragraphen und den Trenner verstecken
         if (paragraphs[1]) paragraphs[1].classList.add('hidden');
         const divider = tokenRequiredMessageContainer.querySelector('div.border-t');
         if (divider) divider.classList.add('hidden');
 
-        // "Zur Startseite" Button sichtbar lassen, falls er da ist
         const homeLink = tokenRequiredMessageContainer.querySelector('a');
         if (homeLink) {
-            homeLink.href = '/'; // Sicherstellen, dass es zur Startseite geht
+            homeLink.href = '/';
         }
 
-        // 4. Stelle sicher, dass der Container sichtbar ist
         tokenRequiredMessageContainer.classList.remove('hidden');
     } else {
-        // Fallback, falls der Container nicht gefunden wird (alte Methode)
-        console.error(
-            'Kritischer Fehler: #token-required-message Container nicht im DOM gefunden.'
-        );
         document.body.innerHTML = `
       <div class="w-full max-w-md p-8 bg-white rounded-xl shadow-lg text-center mx-auto mt-10">
         <h2 class="text-2xl font-bold text-red-600">Fehler</h2>

@@ -1,4 +1,5 @@
-// Use shared Firebase instance to avoid duplicate initialization
+// SC Champions - Login-Seite (Firebase-Version)
+
 import {
     signInWithEmailAndPassword,
     onAuthStateChanged,
@@ -17,12 +18,7 @@ import { validateCodeFormat, formatCode, isCodeExpired } from './invitation-code
 
 console.log('[INDEX] Script starting...');
 
-// Use shared Firebase instance (singleton) - this ensures we use the same
-// auth/db instances as other parts of the app
-// Using top-level await (supported in ES modules)
 const { auth, db } = await initFirebase();
-
-console.log('[INDEX] Firebase initialized via shared instance');
 
 const loginForm = document.getElementById('login-form');
 const resetForm = document.getElementById('reset-form');
@@ -36,30 +32,18 @@ const forgotPasswordButton = document.getElementById('forgot-password-button');
 const backToLoginButton = document.getElementById('back-to-login-button');
 const invitationCodeInput = document.getElementById('invitation-code');
 
-console.log('[INDEX] DOM elements:', {
-    loginForm: !!loginForm,
-    resetForm: !!resetForm,
-    codeForm: !!codeForm,
-    emailLoginTab: !!emailLoginTab,
-    codeLoginTab: !!codeLoginTab
-});
-
-// Check URL for code parameter (direct link from WhatsApp/etc)
+// URL-Parameter prüfen für Direktlinks (z.B. aus WhatsApp)
 const urlParams = new URLSearchParams(window.location.search);
 const codeFromUrl = urlParams.get('code');
 if (codeFromUrl) {
-    // Switch to code tab and prefill
     switchToCodeTab();
     invitationCodeInput.value = codeFromUrl;
-
-    // NEU: Auch das Modal direkt öffnen, wenn ein Code in der URL ist
     const loginModal = document.getElementById('login-modal');
     if (loginModal) {
         loginModal.classList.remove('hidden');
     }
 }
 
-// Tab Switching
 if (emailLoginTab) emailLoginTab.addEventListener('click', switchToEmailTab);
 if (codeLoginTab) codeLoginTab.addEventListener('click', switchToCodeTab);
 
@@ -89,7 +73,7 @@ function switchToCodeTab() {
     feedbackMessage.textContent = '';
 }
 
-// Auto-format code input (add dashes)
+// Auto-Formatierung des Codes (Bindestriche für bessere Lesbarkeit)
 invitationCodeInput?.addEventListener('input', e => {
     let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     if (value.length > 3 && value.length <= 6) {
@@ -100,35 +84,23 @@ invitationCodeInput?.addEventListener('input', e => {
     e.target.value = value;
 });
 
-// *** VEREINFACHTE LOGIK ***
-// Dieser Listener ist jetzt NUR für bereits eingeloggte Nutzer, die die Seite neu laden.
+// Auth-State-Listener: Leitet bereits eingeloggte Benutzer weiter
 onAuthStateChanged(auth, async user => {
-    console.log('[INDEX] onAuthStateChanged triggered, user:', user ? user.email : 'null');
     if (user) {
         try {
-            console.log('[INDEX] Fetching user document for uid:', user.uid);
             const userDoc = await getDoc(doc(db, 'users', user.uid));
-            console.log('[INDEX] User document exists:', userDoc.exists());
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                console.log('[INDEX] User data:', JSON.stringify({ role: userData.role, onboardingComplete: userData.onboardingComplete }));
-                // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
                 if (!userData.onboardingComplete) {
-                    console.log('[INDEX] User not onboarded, redirecting to onboarding');
                     window.location.href = '/onboarding.html';
                     return;
                 }
-                // Ansonsten, normale Weiterleitung basierend auf der Rolle.
                 let targetUrl;
                 if (userData.role === 'admin') targetUrl = '/admin.html';
                 else if (userData.role === 'coach') targetUrl = '/coach.html';
                 else targetUrl = '/dashboard.html';
 
-                console.log('[INDEX] Redirecting to:', targetUrl);
-                // Use normal navigation for initial login redirect (not SPA navigation)
                 window.location.href = targetUrl;
-            } else {
-                console.error('[INDEX] User document does not exist in Firestore!');
             }
         } catch (error) {
             console.error('[INDEX] Error fetching user document:', error);
@@ -137,42 +109,26 @@ onAuthStateChanged(auth, async user => {
 });
 
 if (loginForm) {
-    console.log('[INDEX] Setting up login form submit handler');
     loginForm.addEventListener('submit', async e => {
         e.preventDefault();
-        console.log('[INDEX] Login form submitted!');
         const email = document.getElementById('email-address').value;
         const password = document.getElementById('password').value;
         const submitButton = document.getElementById('login-submit-button');
-        console.log('[INDEX] Attempting login for:', email);
         feedbackMessage.textContent = '';
         feedbackMessage.className = 'mt-2 text-center text-sm';
         submitButton.disabled = true;
 
         try {
-            console.log('[INDEX] Calling signInWithEmailAndPassword...');
-            console.log('[INDEX] Auth object:', auth ? 'exists' : 'null');
-            console.log('[INDEX] Auth app name:', auth?.app?.name);
-
-            // Add timeout wrapper to detect hanging calls
+            // Timeout um hängende Anfragen zu erkennen
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Login timeout after 15 seconds')), 15000)
             );
 
             const loginPromise = signInWithEmailAndPassword(auth, email, password);
-
-            console.log('[INDEX] Login promise created, waiting...');
-
-            const userCredential = await Promise.race([loginPromise, timeoutPromise]);
-            console.log('[INDEX] Login successful! User:', userCredential.user.email);
-            console.log('[INDEX] Waiting for onAuthStateChanged to handle redirect...');
-            // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
+            await Promise.race([loginPromise, timeoutPromise]);
+            // Weiterleitung erfolgt durch onAuthStateChanged Listener
         } catch (error) {
             console.error('[INDEX] Login error:', error);
-            console.error('[INDEX] Error name:', error.name);
-            console.error('[INDEX] Error code:', error.code);
-            console.error('[INDEX] Error message:', error.message);
-
             if (error.message === 'Login timeout after 15 seconds') {
                 feedbackMessage.textContent = 'Login-Timeout. Bitte prüfe deine Internetverbindung.';
             } else {
@@ -182,8 +138,6 @@ if (loginForm) {
             submitButton.disabled = false;
         }
     });
-} else {
-    console.error('[INDEX] loginForm NOT found - cannot set up submit handler!');
 }
 
 forgotPasswordButton?.addEventListener('click', () => {
@@ -219,14 +173,12 @@ resetForm?.addEventListener('submit', async e => {
     }
 });
 
-// Code Form Handler
 codeForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const code = invitationCodeInput.value.trim().toUpperCase();
     feedbackMessage.textContent = '';
     feedbackMessage.className = 'mt-2 text-center text-sm';
 
-    // Validiere Format
     if (!validateCodeFormat(code)) {
         feedbackMessage.textContent = 'Ungültiges Code-Format. Format: TTV-XXX-YYY';
         feedbackMessage.classList.add('text-red-600');
@@ -234,7 +186,6 @@ codeForm?.addEventListener('submit', async e => {
     }
 
     try {
-        // Suche Code in Firestore
         const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
         const snapshot = await getDocs(q);
 
@@ -245,16 +196,13 @@ codeForm?.addEventListener('submit', async e => {
         }
 
         const codeData = snapshot.docs[0].data();
-        const codeId = snapshot.docs[0].id;
 
-        // Prüfe ob Code bereits verwendet wurde
         if (codeData.used) {
             feedbackMessage.textContent = 'Dieser Code wurde bereits verwendet.';
             feedbackMessage.classList.add('text-red-600');
             return;
         }
 
-        // Prüfe ob Code abgelaufen ist
         if (isCodeExpired(codeData.expiresAt)) {
             feedbackMessage.textContent =
                 'Dieser Code ist leider abgelaufen. Bitte fordere einen neuen Code an.';
@@ -262,21 +210,14 @@ codeForm?.addEventListener('submit', async e => {
             return;
         }
 
-        // Code ist gültig! Weiterleitung zur Registrierung
         feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
         feedbackMessage.classList.add('text-green-600');
 
         setTimeout(() => {
             const targetUrl = `/register.html?code=${code}`;
-            console.log('[INDEX] Navigating to:', targetUrl);
-            console.log('[INDEX] spaNavigate available?', !!window.spaNavigate);
-
-            // Use SPA navigation if available, otherwise fallback to normal navigation
             if (window.spaNavigate) {
-                console.log('[INDEX] Using SPA navigation');
                 window.spaNavigate(targetUrl);
             } else {
-                console.log('[INDEX] Using normal navigation');
                 window.location.href = targetUrl;
             }
         }, 1000);
@@ -287,52 +228,23 @@ codeForm?.addEventListener('submit', async e => {
     }
 });
 
-// ===== CODE FÜR MODAL-STEUERUNG (HINZUFÜGEN) =====
-
-// Alle Elemente für das Modal holen
+// Modal-Steuerung
 const loginModal = document.getElementById('login-modal');
 const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');
 
-console.log('[INDEX] Modal elements:', {
-    loginModal: !!loginModal,
-    openLoginBtn: !!openLoginBtn,
-    closeLoginBtn: !!closeLoginBtn
-});
-
 if (loginModal && openLoginBtn && closeLoginBtn) {
-    console.log('[INDEX] Setting up modal event listeners');
-
-    // Modal öffnen (Klick auf "Login" im Header)
     openLoginBtn.addEventListener('click', () => {
-        console.log('[INDEX] Open login button clicked - opening modal');
         loginModal.classList.remove('hidden');
     });
 
-    // Modal schließen (Klick auf 'X' im Modal)
     closeLoginBtn.addEventListener('click', () => {
-        console.log('[INDEX] Close button clicked - closing modal');
         loginModal.classList.add('hidden');
     });
 
-    // Modal schließen (Klick auf den dunklen Hintergrund)
     loginModal.addEventListener('click', e => {
-        // Prüfen, ob der Klick direkt auf den Hintergrund (loginModal)
-        // und nicht auf ein Kind-Element (das weiße Panel) erfolgte.
         if (e.target === loginModal) {
-            console.log('[INDEX] Background clicked - closing modal');
             loginModal.classList.add('hidden');
         }
-    });
-} else {
-    console.error('[INDEX] Modal elements NOT found - cannot set up modal!');
-}
-
-// Also add a direct click listener on the submit button for debugging
-const loginSubmitBtn = document.getElementById('login-submit-button');
-if (loginSubmitBtn) {
-    console.log('[INDEX] Adding click listener to submit button');
-    loginSubmitBtn.addEventListener('click', (e) => {
-        console.log('[INDEX] Submit button clicked directly');
     });
 }

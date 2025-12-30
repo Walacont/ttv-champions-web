@@ -1,15 +1,10 @@
-/**
- * Table Editor Module
- * Handles creation and editing of tables in exercise descriptions
- */
+// Tabellen-Editor Modul
+// Erstellt und bearbeitet Tabellen in Übungsbeschreibungen
 
 import { escapeHtml } from './utils/security.js';
 
 /**
- * Creates a table editor interface
- * @param {string} containerId - ID of the container element
- * @param {Object} initialData - Initial table data (optional)
- * @returns {Object} Table editor instance with methods
+ * Erstellt eine Tabellen-Editor-Oberfläche
  */
 export function createTableEditor(containerId, initialData = null) {
     const container = document.getElementById(containerId);
@@ -151,9 +146,7 @@ export function createTableEditor(containerId, initialData = null) {
 }
 
 /**
- * Renders a table from data for display (read-only)
- * @param {Object} tableData - Table data object with headers and rows
- * @returns {string} HTML string of the rendered table
+ * Rendert eine Tabelle aus Daten (nur Anzeige)
  */
 export function renderTableForDisplay(tableData) {
     if (!tableData || !tableData.headers || !tableData.rows) {
@@ -184,13 +177,7 @@ export function renderTableForDisplay(tableData) {
 }
 
 /**
- * Sets up the description editor with text and table toggle
- * @param {Object} config - Configuration object
- * @param {string} config.textAreaId - ID of the textarea element
- * @param {string} config.toggleContainerId - ID of the toggle container
- * @param {string} config.tableEditorContainerId - ID of the table editor container
- * @param {Object} config.initialData - Initial data (optional)
- * @returns {Object} Editor instance with methods
+ * Richtet den Beschreibungs-Editor mit Text/Tabellen-Umschalter ein
  */
 export function setupDescriptionEditor(config) {
     const { textAreaId, toggleContainerId, tableEditorContainerId, initialData = null } = config;

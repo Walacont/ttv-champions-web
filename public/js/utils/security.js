@@ -1,13 +1,8 @@
-/**
- * Security Utilities for XSS Prevention
- * SC Champions - Zentrale Sicherheits-Funktionen
- */
+// Sicherheits-Utilities zur XSS-Prävention
 
 /**
- * Escape HTML to prevent XSS attacks
- * Use this for ALL user-generated content before inserting into innerHTML
- * @param {string} text - Text to escape
- * @returns {string} Escaped HTML-safe string
+ * HTML-Escape zur XSS-Prävention
+ * Für ALLE benutzergenerierten Inhalte vor innerHTML-Einfügung verwenden
  */
 export function escapeHtml(text) {
     if (text === null || text === undefined) return '';
@@ -19,10 +14,8 @@ export function escapeHtml(text) {
 }
 
 /**
- * Escape HTML attribute values
- * Use this when inserting into HTML attributes like alt="", title="", etc.
- * @param {string} value - Attribute value to escape
- * @returns {string} Escaped attribute-safe string
+ * HTML-Attributwerte escapen
+ * Für Attribute wie alt="", title="" etc. verwenden
  */
 export function escapeAttr(value) {
     if (value === null || value === undefined) return '';
@@ -37,17 +30,14 @@ export function escapeAttr(value) {
 }
 
 /**
- * Sanitize URL to prevent javascript: and data: attacks
- * @param {string} url - URL to sanitize
- * @param {string} fallback - Fallback URL if invalid
- * @returns {string} Safe URL or fallback
+ * URL bereinigen um javascript: und data: Angriffe zu verhindern
  */
 export function sanitizeUrl(url, fallback = '#') {
     if (!url || typeof url !== 'string') return fallback;
 
     const trimmed = url.trim().toLowerCase();
 
-    // Block dangerous protocols
+    // Gefährliche Protokolle blockieren
     if (trimmed.startsWith('javascript:') ||
         trimmed.startsWith('data:') ||
         trimmed.startsWith('vbscript:')) {
@@ -58,17 +48,14 @@ export function sanitizeUrl(url, fallback = '#') {
 }
 
 /**
- * Sanitize image URL
- * @param {string} url - Image URL
- * @param {string} fallback - Default avatar/image URL
- * @returns {string} Safe image URL
+ * Bild-URL bereinigen
  */
 export function sanitizeImageUrl(url, fallback = '/icons/icon-192x192.png') {
     if (!url || typeof url !== 'string') return fallback;
 
     const trimmed = url.trim().toLowerCase();
 
-    // Only allow http, https, and relative URLs
+    // Nur http, https und relative URLs erlauben
     if (trimmed.startsWith('http://') ||
         trimmed.startsWith('https://') ||
         trimmed.startsWith('/') ||
@@ -80,10 +67,7 @@ export function sanitizeImageUrl(url, fallback = '/icons/icon-192x192.png') {
 }
 
 /**
- * Create a safe HTML string with escaped user content
- * @param {string[]} literals - Template literal strings
- * @param {...any} values - Values to escape
- * @returns {string} Safe HTML string
+ * Sicheren HTML-String mit escapten Benutzerinhalten erstellen
  */
 export function safeHtml(literals, ...values) {
     let result = '';
@@ -96,7 +80,6 @@ export function safeHtml(literals, ...values) {
     return result;
 }
 
-// Legacy support - also export as default object
 export default {
     escapeHtml,
     escapeAttr,
