@@ -3494,6 +3494,8 @@ async function createMatchFromRequest(request) {
             matchData.club_id = clubId;
         }
 
+        console.log('[Match] Creating match with played_at:', matchData.played_at, 'from request.created_at:', request.created_at);
+
         const { error } = await supabase
             .from('matches')
             .insert(matchData);
