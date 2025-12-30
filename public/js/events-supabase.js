@@ -1,17 +1,15 @@
 /**
- * Events Module (Supabase Version)
- * Handles event creation flow for coaches
+ * Events Modul - Verwaltung von Veranstaltungen für Trainer
  */
 
 import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 
-// Module state
 let currentEventData = {
     selectedDate: null,
-    eventType: 'single', // 'single' or 'recurring'
-    targetType: 'club', // 'club' or 'subgroups'
+    eventType: 'single',
+    targetType: 'club',
     selectedSubgroups: [],
     selectedMembers: [],
     formData: {}
@@ -21,20 +19,18 @@ let clubSubgroups = [];
 let clubMembers = [];
 let currentUserData = null;
 
-// Exercise tracking state for event attendance
+// Übungen werden zur Punkteberechnung bei Anwesenheit verwendet
 let eventExercises = [];
-let allExercises = []; // Cache of all available exercises
+let allExercises = [];
 
-// Points configuration
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
 /**
- * Show a toast notification message
- * @param {string} message - Message to display
- * @param {string} type - 'success', 'error', or 'info'
+ * Toast-Benachrichtigung anzeigen
+ * @param {string} message - Nachricht
+ * @param {string} type - 'success', 'error' oder 'info'
  */
 function showToastMessage(message, type = 'info') {
-    // Remove any existing toast
     const existingToast = document.getElementById('event-toast');
     if (existingToast) existingToast.remove();
 
@@ -58,12 +54,10 @@ function showToastMessage(message, type = 'info') {
 
     document.body.appendChild(toast);
 
-    // Fade in
     requestAnimationFrame(() => {
         toast.style.opacity = '1';
     });
 
-    // Auto remove after 3 seconds
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
@@ -71,16 +65,15 @@ function showToastMessage(message, type = 'info') {
 }
 
 /**
- * Generate upcoming occurrence dates for a recurring event
- * Returns dates where invitations should be created (within lead time window)
- * @param {string} startDate - Event start date (YYYY-MM-DD)
+ * Generiert zukünftige Termine für wiederkehrende Veranstaltungen
+ * @param {string} startDate - Startdatum (YYYY-MM-DD)
  * @param {string} repeatType - 'daily', 'weekly', 'biweekly', 'monthly'
- * @param {string|null} repeatEndDate - Optional end date for recurring
- * @param {Array} excludedDates - Array of excluded date strings
- * @param {number|null} leadTimeValue - Lead time value (e.g., 3)
+ * @param {string|null} repeatEndDate - Enddatum
+ * @param {Array} excludedDates - Ausgeschlossene Termine
+ * @param {number|null} leadTimeValue - Vorlaufzeit-Wert
  * @param {string|null} leadTimeUnit - 'hours', 'days', 'weeks'
- * @param {number} weeksAhead - How many weeks ahead to generate occurrences
- * @returns {Array} Array of date strings (YYYY-MM-DD)
+ * @param {number} weeksAhead - Wochen im Voraus
+ * @returns {Array} Datums-Array (YYYY-MM-DD)
  */
 function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], leadTimeValue = null, leadTimeUnit = null, weeksAhead = 4) {
     const occurrences = [];
@@ -90,19 +83,14 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
     const eventStart = new Date(startDate + 'T12:00:00');
     const endDate = repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null;
 
-    // Calculate the window: from today to weeksAhead weeks from now
     const windowEnd = new Date(today);
     windowEnd.setDate(windowEnd.getDate() + (weeksAhead * 7));
 
-    // If there's a lead time, we should include occurrences that are within the lead time window
-    // For example, if lead time is 3 days and an event is in 5 days, it should be included
-    // because in 2 days it will be within the 3-day window
+    // Vorlaufzeit wird berücksichtigt, damit Einladungen rechtzeitig erstellt werden
     let windowStart = new Date(today);
 
-    // Start from the event's start date or today, whichever is later
     let currentDate = new Date(eventStart);
     if (currentDate < today) {
-        // Find the first occurrence on or after today
         while (currentDate < today) {
             switch (repeatType) {
                 case 'daily':
@@ -121,20 +109,16 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
         }
     }
 
-    // Generate occurrences within the window
     let maxIterations = 100;
     while (currentDate <= windowEnd && maxIterations > 0) {
-        // Check if past end date
         if (endDate && currentDate > endDate) break;
 
         const dateStr = currentDate.toISOString().split('T')[0];
 
-        // Check if not excluded
         if (!excludedDates.includes(dateStr)) {
             occurrences.push(dateStr);
         }
 
-        // Move to next occurrence
         switch (repeatType) {
             case 'daily':
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -157,26 +141,22 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
 }
 
 /**
- * Check and create missing invitations for recurring events
- * This should be called periodically or when viewing events
+ * Prüft und erstellt fehlende Einladungen für wiederkehrende Veranstaltungen
  * @param {string} eventId - Event ID
- * @param {Object} event - Event data with repeat settings
- * @param {Array} existingInvitations - Existing invitations for this event
- * @returns {Array} New invitations that were created
+ * @param {Object} event - Event-Daten
+ * @param {Array} existingInvitations - Bestehende Einladungen
+ * @returns {Array} Neu erstellte Einladungen
  */
 async function ensureRecurringInvitations(eventId, event, existingInvitations) {
     if (!event.repeat_type || event.event_type !== 'recurring') return [];
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Get all unique user IDs from existing invitations
     const userIds = [...new Set(existingInvitations.map(inv => inv.user_id))];
     if (userIds.length === 0) return [];
 
-    // Get existing occurrence dates
     const existingDates = new Set(existingInvitations.map(inv => inv.occurrence_date));
 
-    // Generate upcoming occurrences
     const upcomingOccurrences = generateUpcomingOccurrences(
         event.start_date,
         event.repeat_type,
@@ -184,10 +164,9 @@ async function ensureRecurringInvitations(eventId, event, existingInvitations) {
         event.excluded_dates || [],
         event.invitation_lead_time_value,
         event.invitation_lead_time_unit,
-        4 // 4 weeks ahead
+        4
     );
 
-    // Find missing invitations
     const newInvitations = [];
     upcomingOccurrences.forEach(occurrenceDate => {
         if (!existingDates.has(occurrenceDate)) {
@@ -203,7 +182,6 @@ async function ensureRecurringInvitations(eventId, event, existingInvitations) {
         }
     });
 
-    // Insert new invitations
     if (newInvitations.length > 0) {
         try {
             const { error } = await supabase
@@ -225,8 +203,8 @@ async function ensureRecurringInvitations(eventId, event, existingInvitations) {
 }
 
 /**
- * Initialize events module
- * @param {Object} userData - Current user data
+ * Initialisiert das Events-Modul
+ * @param {Object} userData - Aktuelle Benutzerdaten
  */
 export function initEventsModule(userData) {
     currentUserData = userData;
@@ -235,49 +213,40 @@ export function initEventsModule(userData) {
 }
 
 /**
- * Setup all event listeners for modals
+ * Richtet Event-Listener für die Modals ein
  */
 function setupEventListeners() {
-    // Day Modal
     document.getElementById('close-event-day-modal')?.addEventListener('click', closeAllModals);
     document.getElementById('add-event-btn')?.addEventListener('click', openEventTypeModal);
 
-    // Event Type Modal
     document.getElementById('close-event-type-modal')?.addEventListener('click', closeAllModals);
     document.getElementById('back-event-type-modal')?.addEventListener('click', () => showModal('event-day-modal'));
     document.getElementById('select-single-event')?.addEventListener('click', () => selectEventType('single'));
     document.getElementById('select-recurring-event')?.addEventListener('click', () => selectEventType('recurring'));
 
-    // Target Group Modal
     document.getElementById('close-event-target-modal')?.addEventListener('click', closeAllModals);
     document.getElementById('back-event-target-modal')?.addEventListener('click', () => showModal('event-type-modal'));
     document.getElementById('select-whole-club')?.addEventListener('click', () => selectTargetType('club'));
     document.getElementById('select-subgroups')?.addEventListener('click', () => selectTargetType('subgroups'));
 
-    // Subgroup Selection Modal
     document.getElementById('close-event-subgroup-modal')?.addEventListener('click', closeAllModals);
     document.getElementById('back-event-subgroup-modal')?.addEventListener('click', () => showModal('event-target-modal'));
     document.getElementById('confirm-subgroups-btn')?.addEventListener('click', confirmSubgroups);
 
-    // Members Modal
     document.getElementById('back-event-members-modal')?.addEventListener('click', goBackFromMembers);
     document.getElementById('event-members-next-btn')?.addEventListener('click', openEventFormModal);
     document.getElementById('event-select-all-members')?.addEventListener('click', toggleSelectAllMembers);
 
-    // Event Form Modal
     document.getElementById('back-event-form-modal')?.addEventListener('click', () => showModal('event-members-modal'));
     document.getElementById('event-form-submit-btn')?.addEventListener('click', submitEvent);
 
-    // Invitation send type toggle
     document.getElementById('event-send-invitation')?.addEventListener('change', (e) => {
         const scheduledDiv = document.getElementById('event-scheduled-send');
         const leadTimeDiv = document.getElementById('event-lead-time-send');
 
-        // Hide all first
         scheduledDiv?.classList.add('hidden');
         leadTimeDiv?.classList.add('hidden');
 
-        // Show the relevant one
         if (e.target.value === 'scheduled') {
             scheduledDiv?.classList.remove('hidden');
         } else if (e.target.value === 'lead_time') {
@@ -287,14 +256,13 @@ function setupEventListeners() {
 }
 
 /**
- * Open the day modal when clicking on a calendar day
- * @param {string} dateString - Date in YYYY-MM-DD format
- * @param {Array} eventsOnDay - Events on this day
+ * Öffnet das Tag-Modal beim Klick auf einen Kalendertag
+ * @param {string} dateString - Datum (YYYY-MM-DD)
+ * @param {Array} eventsOnDay - Events an diesem Tag
  */
 export function openEventDayModal(dateString, eventsOnDay = []) {
     currentEventData.selectedDate = dateString;
 
-    // Format date for display
     const [year, month, day] = dateString.split('-');
     const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
     const formattedDate = dateObj.toLocaleDateString('de-DE', {
@@ -306,7 +274,6 @@ export function openEventDayModal(dateString, eventsOnDay = []) {
 
     document.getElementById('event-day-modal-date').textContent = formattedDate;
 
-    // Populate events list
     const listEl = document.getElementById('event-day-list');
 
     if (eventsOnDay.length > 0) {
@@ -345,21 +312,17 @@ export function openEventDayModal(dateString, eventsOnDay = []) {
     showModal('event-day-modal');
 }
 
-/**
- * Open event type selection modal
- */
 function openEventTypeModal() {
     showModal('event-type-modal');
 }
 
 /**
- * Select event type and proceed
- * @param {string} type - 'single' or 'recurring'
+ * Wählt Event-Typ und fährt fort
+ * @param {string} type - 'single' oder 'recurring'
  */
 function selectEventType(type) {
     currentEventData.eventType = type;
 
-    // Show/hide recurring settings in form
     const recurringSettings = document.getElementById('event-recurring-settings');
     if (type === 'recurring') {
         recurringSettings?.classList.remove('hidden');
@@ -371,8 +334,8 @@ function selectEventType(type) {
 }
 
 /**
- * Select target type and proceed
- * @param {string} type - 'club' or 'subgroups'
+ * Wählt Zielgruppe und fährt fort
+ * @param {string} type - 'club' oder 'subgroups'
  */
 async function selectTargetType(type) {
     currentEventData.targetType = type;
@@ -381,16 +344,12 @@ async function selectTargetType(type) {
         await loadSubgroups();
         showModal('event-subgroup-modal');
     } else {
-        // Whole club - load all members
         currentEventData.selectedSubgroups = [];
         await loadMembers();
         showModal('event-members-modal');
     }
 }
 
-/**
- * Load subgroups for selection
- */
 async function loadSubgroups() {
     if (!currentUserData?.clubId) return;
 
@@ -410,9 +369,6 @@ async function loadSubgroups() {
     }
 }
 
-/**
- * Render subgroup list in modal
- */
 function renderSubgroupList() {
     const listEl = document.getElementById('event-subgroup-list');
     if (!listEl) return;
@@ -429,13 +385,9 @@ function renderSubgroupList() {
         `;
     }).join('');
 
-    // Expose update function
     window.updateSubgroupSelection = updateSubgroupSelection;
 }
 
-/**
- * Update subgroup selection state
- */
 function updateSubgroupSelection() {
     const checkboxes = document.querySelectorAll('.subgroup-checkbox:checked');
     currentEventData.selectedSubgroups = Array.from(checkboxes).map(cb => cb.value);
@@ -446,17 +398,11 @@ function updateSubgroupSelection() {
     }
 }
 
-/**
- * Confirm subgroup selection and proceed
- */
 async function confirmSubgroups() {
     await loadMembers();
     showModal('event-members-modal');
 }
 
-/**
- * Load members based on selection
- */
 async function loadMembers() {
     if (!currentUserData?.clubId) return;
 
@@ -472,7 +418,6 @@ async function loadMembers() {
 
         if (error) throw error;
 
-        // Filter by subgroups if selected
         if (currentEventData.targetType === 'subgroups' && currentEventData.selectedSubgroups.length > 0) {
             clubMembers = (data || []).filter(member => {
                 const memberSubgroups = member.subgroup_ids || [];
@@ -488,9 +433,6 @@ async function loadMembers() {
     }
 }
 
-/**
- * Render member list in modal
- */
 function renderMemberList() {
     const listEl = document.getElementById('event-members-list');
     const totalEl = document.getElementById('event-members-total');
@@ -518,17 +460,12 @@ function renderMemberList() {
         `;
     }).join('');
 
-    // Select all by default
     currentEventData.selectedMembers = clubMembers.map(m => m.id);
     updateMemberCount();
 
-    // Expose update function
     window.updateMemberCount = updateMemberCount;
 }
 
-/**
- * Update member count display
- */
 function updateMemberCount() {
     const checkboxes = document.querySelectorAll('.member-checkbox:checked');
     currentEventData.selectedMembers = Array.from(checkboxes).map(cb => cb.value);
@@ -541,7 +478,6 @@ function updateMemberCount() {
             : `${count} Empfänger ausgewählt`;
     }
 
-    // Update select all button text
     const selectAllBtn = document.getElementById('event-select-all-members');
     if (selectAllBtn) {
         const allChecked = checkboxes.length === clubMembers.length;
@@ -549,9 +485,6 @@ function updateMemberCount() {
     }
 }
 
-/**
- * Toggle select all members
- */
 function toggleSelectAllMembers() {
     const checkboxes = document.querySelectorAll('.member-checkbox');
     const allChecked = document.querySelectorAll('.member-checkbox:checked').length === checkboxes.length;
@@ -563,9 +496,6 @@ function toggleSelectAllMembers() {
     updateMemberCount();
 }
 
-/**
- * Go back from members modal
- */
 function goBackFromMembers() {
     if (currentEventData.targetType === 'subgroups') {
         showModal('event-subgroup-modal');
@@ -574,17 +504,12 @@ function goBackFromMembers() {
     }
 }
 
-/**
- * Open event creation form modal
- */
 function openEventFormModal() {
-    // Pre-fill date from selected date
     const startDateInput = document.getElementById('event-start-date');
     if (startDateInput && currentEventData.selectedDate) {
         startDateInput.value = currentEventData.selectedDate;
     }
 
-    // Set default time to 18:00
     const startTimeInput = document.getElementById('event-start-time');
     if (startTimeInput && !startTimeInput.value) {
         startTimeInput.value = '18:00';
@@ -594,7 +519,7 @@ function openEventFormModal() {
 }
 
 /**
- * Submit the event
+ * Erstellt die Veranstaltung und Einladungen
  */
 async function submitEvent() {
     const title = document.getElementById('event-title')?.value?.trim();
@@ -613,7 +538,6 @@ async function submitEvent() {
     const leadTimeUnit = document.getElementById('event-lead-time-unit')?.value || 'days';
     const commentsEnabled = document.getElementById('event-comments-enabled')?.checked;
 
-    // Validation
     if (!title) {
         alert('Bitte gib einen Titel ein.');
         return;
@@ -627,7 +551,6 @@ async function submitEvent() {
         return;
     }
 
-    // Recurring settings
     let repeatType = null;
     let repeatEnd = null;
     if (currentEventData.eventType === 'recurring') {
@@ -635,7 +558,6 @@ async function submitEvent() {
         repeatEnd = document.getElementById('event-repeat-end')?.value || null;
     }
 
-    // Calculate invitation_send_at based on send type
     let invitationSendAt = new Date().toISOString();
     let invitationLeadTimeValue = null;
     let invitationLeadTimeUnit = null;
@@ -643,7 +565,6 @@ async function submitEvent() {
     if (sendInvitation === 'scheduled' && sendAt) {
         invitationSendAt = sendAt;
     } else if (sendInvitation === 'lead_time') {
-        // Calculate when to send based on lead time before event
         const eventDateTime = new Date(`${startDate}T${startTime}`);
         const sendDateTime = new Date(eventDateTime);
 
@@ -659,19 +580,16 @@ async function submitEvent() {
                 break;
         }
 
-        // If calculated time is in the past, send now
         if (sendDateTime < new Date()) {
             invitationSendAt = new Date().toISOString();
         } else {
             invitationSendAt = sendDateTime.toISOString();
         }
 
-        // Store lead time for recurring events
         invitationLeadTimeValue = leadTimeValue;
         invitationLeadTimeUnit = leadTimeUnit;
     }
 
-    // Build event data
     const eventData = {
         club_id: currentUserData.clubId,
         organizer_id: currentUserData.id,
@@ -713,26 +631,21 @@ async function submitEvent() {
 
         if (eventError) throw eventError;
 
-        // Create invitations for selected members
-        // For recurring events, create invitations for each occurrence within the next 4 weeks
-        // For single events, create one invitation with occurrence_date = start_date
         const invitations = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         if (currentEventData.eventType === 'recurring' && repeatType) {
-            // Generate occurrences for the next 4 weeks (or until repeat_end_date)
             const occurrences = generateUpcomingOccurrences(
                 startDate,
                 repeatType,
                 repeatEnd,
-                [],  // no excluded dates yet
+                [],
                 invitationLeadTimeValue,
                 invitationLeadTimeUnit,
-                4 // weeks to look ahead
+                4
             );
 
-            // Create invitation for each occurrence and each member
             occurrences.forEach(occurrenceDate => {
                 currentEventData.selectedMembers.forEach(userId => {
                     invitations.push({
@@ -745,7 +658,6 @@ async function submitEvent() {
                 });
             });
         } else {
-            // Single event - one invitation per member
             currentEventData.selectedMembers.forEach(userId => {
                 invitations.push({
                     event_id: event.id,
@@ -765,8 +677,6 @@ async function submitEvent() {
             if (invError) throw invError;
         }
 
-        // Create notifications for invited members (if sending now)
-        // Note: This is optional and won't block event creation if it fails
         if (sendInvitation === 'now') {
             try {
                 const notifications = currentEventData.selectedMembers.map(userId => ({
@@ -785,12 +695,10 @@ async function submitEvent() {
             }
         }
 
-        // Success
         alert('Veranstaltung erfolgreich erstellt!');
         closeAllModals();
         resetEventData();
 
-        // Trigger calendar reload
         window.dispatchEvent(new CustomEvent('event-created'));
 
     } catch (error) {
@@ -805,9 +713,6 @@ async function submitEvent() {
     }
 }
 
-/**
- * Reset event data
- */
 function resetEventData() {
     currentEventData = {
         selectedDate: null,
@@ -818,13 +723,12 @@ function resetEventData() {
         formData: {}
     };
 
-    // Reset form
     document.getElementById('event-creation-form')?.reset();
 }
 
 /**
- * Show a specific modal and hide others
- * @param {string} modalId - Modal ID to show
+ * Zeigt ein bestimmtes Modal an
+ * @param {string} modalId - Modal ID
  */
 function showModal(modalId) {
     const allModals = [
@@ -848,9 +752,6 @@ function showModal(modalId) {
     });
 }
 
-/**
- * Close all modals
- */
 function closeAllModals() {
     const allModals = [
         'event-day-modal',
@@ -867,10 +768,9 @@ function closeAllModals() {
 }
 
 /**
- * Open event details (for viewing an existing event)
- * Shows attendance tracking for coaches if event is today or past
- * @param {string} eventId - The event ID
- * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
+ * Öffnet Event-Details und zeigt Anwesenheitserfassung für Trainer
+ * @param {string} eventId - Event ID
+ * @param {string} occurrenceDate - Datum für wiederkehrende Events (YYYY-MM-DD)
  */
 window.openEventDetails = async function(eventId, occurrenceDate = null) {
     try {
@@ -883,7 +783,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         if (eventError) throw eventError;
 
-        // Load invitations with user details
         const { data: invitations, error: invError } = await supabase
             .from('event_invitations')
             .select(`
@@ -905,20 +804,16 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         const declined = (invitations || []).filter(i => i.status === 'rejected' || i.status === 'declined');
         const pending = (invitations || []).filter(i => i.status === 'pending');
 
-        // Check if event is today or in past
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        // Use occurrence date if provided (for recurring events), otherwise use start_date
         const displayDate = occurrenceDate || event.start_date;
         const eventDate = new Date(displayDate);
         eventDate.setHours(0, 0, 0, 0);
         const isPastOrToday = eventDate <= today;
 
-        // Check if current user is coach/head_coach/admin
         const isCoach = currentUserData && ['coach', 'head_coach', 'admin'].includes(currentUserData.role);
         console.log('[Events] openEventDetails - currentUserData:', currentUserData, 'isCoach:', isCoach);
 
-        // Format date
         const formattedDate = eventDate.toLocaleDateString('de-DE', {
             weekday: 'long',
             day: 'numeric',
@@ -926,9 +821,8 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             year: 'numeric'
         });
 
-        // Load existing attendance if any
         let attendanceData = null;
-        eventExercises = []; // Reset exercises
+        eventExercises = [];
         if (isPastOrToday) {
             const { data: attendance, error: attendanceError } = await supabase
                 .from('event_attendance')
@@ -940,14 +834,12 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                 console.warn('[Events] Could not load attendance:', attendanceError);
             } else {
                 attendanceData = attendance;
-                // Load existing exercises from attendance
                 if (attendance?.completed_exercises) {
                     eventExercises = attendance.completed_exercises;
                 }
             }
         }
 
-        // Create and show modal
         const existingModal = document.getElementById('event-details-modal');
         if (existingModal) existingModal.remove();
 
@@ -1166,7 +1058,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         document.body.appendChild(modal);
 
-        // Close on backdrop click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
@@ -1180,7 +1071,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 };
 
 /**
- * Save event attendance and exercises with points/streak logic
+ * Speichert Anwesenheit und Übungen inkl. Punkte-/Streak-Logik
  * @param {string} eventId - Event ID
  */
 window.saveEventAttendance = async function(eventId) {
@@ -1188,7 +1079,6 @@ window.saveEventAttendance = async function(eventId) {
         const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
         const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
 
-        // Load event details for points calculation
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select('*, target_subgroup_ids')
@@ -1197,17 +1087,14 @@ window.saveEventAttendance = async function(eventId) {
 
         if (eventError) throw eventError;
 
-        // Prepare exercise data
         const exerciseData = eventExercises.map(ex => ({
             id: ex.id,
             name: ex.name,
             points: ex.points || 0
         }));
 
-        // Calculate total exercise points
         const totalExercisePoints = exerciseData.reduce((sum, ex) => sum + (ex.points || 0), 0);
 
-        // Check if attendance record exists and get previous attendees
         const { data: existing, error: existingError } = await supabase
             .from('event_attendance')
             .select('id, present_user_ids, points_awarded_to')
@@ -1221,11 +1108,9 @@ window.saveEventAttendance = async function(eventId) {
         const previouslyAwardedTo = existing?.points_awarded_to || [];
         const previousPresentIds = existing?.present_user_ids || [];
 
-        // Determine which players need points awarded (new attendees)
         const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
         const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
 
-        // Award points to new attendees
         for (const playerId of newAttendees) {
             await awardEventAttendancePoints(
                 playerId,
@@ -1234,7 +1119,6 @@ window.saveEventAttendance = async function(eventId) {
             );
         }
 
-        // Deduct points from removed attendees (if they were previously awarded)
         for (const playerId of removedAttendees) {
             await deductEventAttendancePoints(
                 playerId,
@@ -1242,14 +1126,12 @@ window.saveEventAttendance = async function(eventId) {
             );
         }
 
-        // Update the list of players who received points
         const updatedPointsAwardedTo = [
             ...previouslyAwardedTo.filter(id => presentUserIds.includes(id)),
             ...newAttendees
         ];
 
         if (existing) {
-            // Update existing record
             const { error } = await supabase
                 .from('event_attendance')
                 .update({
@@ -1262,7 +1144,6 @@ window.saveEventAttendance = async function(eventId) {
 
             if (error) throw error;
         } else {
-            // Create new record
             const { error } = await supabase
                 .from('event_attendance')
                 .insert({
@@ -1278,7 +1159,7 @@ window.saveEventAttendance = async function(eventId) {
 
         alert('Gespeichert!');
         document.getElementById('event-details-modal')?.remove();
-        eventExercises = []; // Reset
+        eventExercises = [];
 
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
@@ -1287,10 +1168,10 @@ window.saveEventAttendance = async function(eventId) {
 };
 
 /**
- * Award attendance points to a player for an event
- * @param {string} playerId - Player ID
- * @param {Object} event - Event object with details
- * @param {number} exercisePoints - Additional points from exercises
+ * Vergibt Punkte für Event-Teilnahme inkl. Streak-Berechnung
+ * @param {string} playerId - Spieler ID
+ * @param {Object} event - Event-Daten
+ * @param {number} exercisePoints - Zusätzliche Übungspunkte
  */
 async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     const date = event.start_date;
@@ -1298,10 +1179,9 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     const subgroupIds = event.target_subgroup_ids || [];
     const isTraining = event.event_category === 'training';
 
-    // Use first subgroup for streak tracking (only for trainings)
+    // Streak-Tracking nur für Trainings mit erster Subgruppe
     const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
 
-    // Get subgroup name if available
     let subgroupName = '';
     if (primarySubgroupId) {
         const { data: subgroup } = await supabase
@@ -1312,13 +1192,11 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         subgroupName = subgroup?.name || '';
     }
 
-    // Streak logic only for trainings
     let wasPresentAtLastEvent = false;
     let currentStreak = 0;
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
-        // Get previous training event to determine streak continuation
         const { data: previousEvents } = await supabase
             .from('events')
             .select('id, start_date')
@@ -1338,7 +1216,6 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
         }
 
-        // Get current streak
         const { data: streakData } = await supabase
             .from('streaks')
             .select('current_streak')
@@ -1349,7 +1226,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
     }
 
-    // Check for other events on same day
+    // Prüfen ob bereits heute bei anderem Event anwesend (halbe Punkte)
     const { data: otherEventsToday } = await supabase
         .from('events')
         .select('id')
@@ -1373,25 +1250,22 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         }
     }
 
-    // Format date for display
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
     });
 
-    // Calculate points
     let pointsToAdd = EVENT_ATTENDANCE_POINTS_BASE;
     let reason = `${eventTitle} am ${formattedDate}`;
     if (subgroupName) reason += ` - ${subgroupName}`;
 
-    // Streak bonuses only for trainings
     if (isTraining) {
         if (newStreak >= 5) {
-            pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+            pointsToAdd = 6;
             reason += ` (🔥 ${newStreak}x Streak!)`;
         } else if (newStreak >= 3) {
-            pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+            pointsToAdd = 5;
             reason += ` (⚡ ${newStreak}x Streak)`;
         }
     }
@@ -1401,13 +1275,11 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         reason += ` (2. Veranstaltung heute)`;
     }
 
-    // Add exercise points
     const totalPoints = pointsToAdd + exercisePoints;
     if (exercisePoints > 0) {
         reason += ` (+${exercisePoints} Übungspunkte)`;
     }
 
-    // Update streak (only for trainings with valid subgroup_id)
     if (isTraining && primarySubgroupId) {
         const { error: streakError } = await supabase.from('streaks').upsert({
             user_id: playerId,
@@ -1424,7 +1296,6 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         }
     }
 
-    // Update player points and XP
     const { error: rpcError } = await supabase.rpc('add_player_points', {
         p_user_id: playerId,
         p_points: totalPoints,
@@ -1435,7 +1306,6 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         console.warn('[Events] Error adding points:', rpcError);
     }
 
-    // Create points history entry
     const now = new Date().toISOString();
     const { error: pointsError } = await supabase.from('points_history').insert({
         user_id: playerId,
@@ -1451,7 +1321,6 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         console.warn('[Events] Error creating points history:', pointsError);
     }
 
-    // Create XP history entry
     const { error: xpError } = await supabase.from('xp_history').insert({
         player_id: playerId,
         xp: totalPoints,
@@ -1464,7 +1333,6 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         console.warn('[Events] Error creating XP history:', xpError);
     }
 
-    // Send notification to player
     let notificationTitle = 'Anwesenheit eingetragen';
     let notificationMessage = `Du hast +${totalPoints} Punkte für "${eventTitle}" am ${formattedDate} erhalten.`;
 
@@ -1496,9 +1364,9 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 }
 
 /**
- * Deduct attendance points from a player when removed from event
- * @param {string} playerId - Player ID
- * @param {Object} event - Event object with details
+ * Zieht Punkte ab wenn Spieler nachträglich von Anwesenheit entfernt wird
+ * @param {string} playerId - Spieler ID
+ * @param {Object} event - Event-Daten
  */
 async function deductEventAttendancePoints(playerId, event) {
     const date = event.start_date;
@@ -1506,7 +1374,6 @@ async function deductEventAttendancePoints(playerId, event) {
     const subgroupIds = event.target_subgroup_ids || [];
     const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
 
-    // Get subgroup name if available
     let subgroupName = '';
     if (primarySubgroupId) {
         const { data: subgroup } = await supabase
@@ -1517,25 +1384,21 @@ async function deductEventAttendancePoints(playerId, event) {
         subgroupName = subgroup?.name || '';
     }
 
-    // Format date for display
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
     });
 
-    // Deduct base points (we don't track exact amount previously given, so use base)
     const pointsToDeduct = EVENT_ATTENDANCE_POINTS_BASE;
     const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate}${subgroupName ? ` - ${subgroupName}` : ''} (${pointsToDeduct} Punkte abgezogen)`;
 
-    // Deduct player points and XP
     await supabase.rpc('deduct_player_points', {
         p_user_id: playerId,
         p_points: pointsToDeduct,
         p_xp: pointsToDeduct
     });
 
-    // Create negative history entry
     const correctionTime = new Date().toISOString();
     await supabase.from('points_history').insert({
         user_id: playerId,
@@ -1547,7 +1410,6 @@ async function deductEventAttendancePoints(playerId, event) {
         awarded_by: 'System (Veranstaltung)',
     });
 
-    // Create negative XP history entry
     await supabase.from('xp_history').insert({
         player_id: playerId,
         xp: -pointsToDeduct,
@@ -1560,12 +1422,11 @@ async function deductEventAttendancePoints(playerId, event) {
 }
 
 /**
- * Open exercise selector modal
+ * Öffnet Übungsauswahl-Modal
  * @param {string} eventId - Event ID
  */
 window.openEventExerciseSelector = async function(eventId) {
     try {
-        // Load exercises if not cached
         if (allExercises.length === 0) {
             const { data: exercises, error } = await supabase
                 .from('exercises')
@@ -1577,7 +1438,6 @@ window.openEventExerciseSelector = async function(eventId) {
             allExercises = exercises || [];
         }
 
-        // Create exercise selector modal
         const existingSelector = document.getElementById('exercise-selector-modal');
         if (existingSelector) existingSelector.remove();
 
@@ -1625,7 +1485,6 @@ window.openEventExerciseSelector = async function(eventId) {
 
         document.body.appendChild(modal);
 
-        // Close on backdrop click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
@@ -1636,10 +1495,6 @@ window.openEventExerciseSelector = async function(eventId) {
     }
 };
 
-/**
- * Filter exercises in selector
- * @param {string} query - Search query
- */
 window.filterExercises = function(query) {
     const listEl = document.getElementById('exercise-selector-list');
     if (!listEl) return;
@@ -1657,30 +1512,17 @@ window.filterExercises = function(query) {
     `).join('') : '<p class="text-gray-500 text-center py-4">Keine Übungen gefunden</p>';
 };
 
-/**
- * Add exercise to event
- * @param {string} id - Exercise ID
- * @param {string} name - Exercise name
- * @param {number} points - Exercise points
- */
 window.addEventExercise = function(id, name, points) {
     eventExercises.push({ id, name, points });
     document.getElementById('exercise-selector-modal')?.remove();
     renderEventExercises();
 };
 
-/**
- * Remove exercise from event
- * @param {number} index - Index in eventExercises array
- */
 window.removeEventExercise = function(index) {
     eventExercises.splice(index, 1);
     renderEventExercises();
 };
 
-/**
- * Render event exercises list
- */
 function renderEventExercises() {
     const listEl = document.getElementById('event-exercises-list');
     if (!listEl) return;
@@ -1706,9 +1548,6 @@ function renderEventExercises() {
     `).join('');
 }
 
-/**
- * Open create exercise modal (full version like exercises tab)
- */
 window.openCreateExerciseModal = function() {
     const existingModal = document.getElementById('create-exercise-modal');
     if (existingModal) existingModal.remove();
@@ -1858,22 +1697,16 @@ window.openCreateExerciseModal = function() {
 
     document.body.appendChild(modal);
 
-    // Setup event listeners
     setupNewExerciseModalListeners();
 };
 
-/**
- * Setup listeners for the new exercise modal
- */
 function setupNewExerciseModalListeners() {
-    // Table toggle
     const tableCheckbox = document.getElementById('new-exercise-use-table');
     const tableContainer = document.getElementById('new-exercise-table-container');
     tableCheckbox?.addEventListener('change', () => {
         tableContainer.classList.toggle('hidden', !tableCheckbox.checked);
     });
 
-    // Auto-calculate points based on level and difficulty
     const levelSelect = document.getElementById('new-exercise-level');
     const difficultySelect = document.getElementById('new-exercise-difficulty');
     const pointsInput = document.getElementById('new-exercise-points');
@@ -1894,7 +1727,6 @@ function setupNewExerciseModalListeners() {
     levelSelect?.addEventListener('change', calculatePoints);
     difficultySelect?.addEventListener('change', calculatePoints);
 
-    // Image preview
     const imageInput = document.getElementById('new-exercise-image');
     imageInput?.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -1913,9 +1745,6 @@ function setupNewExerciseModalListeners() {
     });
 }
 
-/**
- * Add row to exercise table
- */
 window.addExerciseTableRow = function() {
     const tbody = document.getElementById('new-exercise-table-body');
     if (!tbody) return;
@@ -1929,9 +1758,6 @@ window.addExerciseTableRow = function() {
     tbody.appendChild(row);
 };
 
-/**
- * Save new exercise with all fields
- */
 window.saveNewExerciseFull = async function() {
     const name = document.getElementById('new-exercise-name')?.value?.trim();
     const description = document.getElementById('new-exercise-description')?.value?.trim();
@@ -1943,7 +1769,6 @@ window.saveNewExerciseFull = async function() {
     const visibility = document.querySelector('input[name="new-exercise-visibility"]:checked')?.value || 'global';
     const useTable = document.getElementById('new-exercise-use-table')?.checked;
 
-    // Validation
     if (!name) {
         alert('Bitte gib einen Titel ein');
         return;
@@ -1958,7 +1783,6 @@ window.saveNewExerciseFull = async function() {
     }
 
     try {
-        // Get table data if enabled
         let tableData = null;
         if (useTable) {
             const rows = document.querySelectorAll('#new-exercise-table-body tr');
@@ -1971,13 +1795,11 @@ window.saveNewExerciseFull = async function() {
             });
         }
 
-        // Prepare description (either text or table JSON)
         let finalDescription = description || '';
         if (useTable && tableData && tableData.length > 0) {
             finalDescription = JSON.stringify({ type: 'table', data: tableData });
         }
 
-        // Upload image if provided
         let imageUrl = null;
         if (imageFile) {
             const fileName = `exercises/${Date.now()}_${imageFile.name}`;
@@ -1995,10 +1817,8 @@ window.saveNewExerciseFull = async function() {
             }
         }
 
-        // Parse tags
         const tagsArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
 
-        // Save to database
         const exerciseData = {
             name,
             description: finalDescription,
@@ -2021,17 +1841,14 @@ window.saveNewExerciseFull = async function() {
 
         if (error) throw error;
 
-        // Add to cache
         allExercises.push(newExercise);
 
-        // Add to current event
         eventExercises.push({
             id: newExercise.id,
             name: newExercise.name,
             points: newExercise.points
         });
 
-        // Close modals
         document.getElementById('create-exercise-modal')?.remove();
         document.getElementById('exercise-selector-modal')?.remove();
 
@@ -2046,13 +1863,12 @@ window.saveNewExerciseFull = async function() {
 };
 
 /**
- * Open delete event confirmation modal
+ * Öffnet Bestätigungsdialog zum Löschen einer Veranstaltung
  * @param {string} eventId - Event ID
- * @param {boolean} isRecurring - Whether this is a recurring event
- * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
+ * @param {boolean} isRecurring - Wiederkehrende Veranstaltung
+ * @param {string} occurrenceDate - Datum für wiederkehrende Events (YYYY-MM-DD)
  */
 window.openDeleteEventModal = async function(eventId, isRecurring, occurrenceDate = null) {
-    // Load event details
     const { data: event, error } = await supabase
         .from('events')
         .select('*')
@@ -2144,10 +1960,10 @@ window.openDeleteEventModal = async function(eventId, isRecurring, occurrenceDat
 };
 
 /**
- * Execute event deletion
+ * Führt das Löschen einer Veranstaltung aus
  * @param {string} eventId - Event ID
- * @param {boolean} isRecurring - Whether this is a recurring event
- * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
+ * @param {boolean} isRecurring - Wiederkehrende Veranstaltung
+ * @param {string} occurrenceDate - Datum (YYYY-MM-DD)
  */
 window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate = '') {
     try {
@@ -2165,10 +1981,8 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
 
         if (eventError) throw eventError;
 
-        // Use occurrence date if provided, otherwise fall back to start_date
         const targetDate = occurrenceDate || event.start_date;
 
-        // Get all participants to notify
         let participantsToNotify = [];
         if (notifyParticipants) {
             const { data: invitations } = await supabase
@@ -2178,7 +1992,6 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             participantsToNotify = (invitations || []).map(i => i.user_id);
         }
 
-        // Format date for notification
         const formattedDate = new Date(targetDate + 'T12:00:00').toLocaleDateString('de-DE', {
             weekday: 'long',
             day: 'numeric',
@@ -2186,10 +1999,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
         });
 
         if (deleteScope === 'this') {
-            // Delete only this event instance
-            // For recurring events, we add this date to an exclusions list
             if (isRecurring && event.repeat_type) {
-                // Add exclusion date - use the specific occurrence date, not the original start_date
                 const exclusions = event.excluded_dates || [];
                 exclusions.push(targetDate);
 
@@ -2198,13 +2008,11 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                     .update({ excluded_dates: exclusions })
                     .eq('id', eventId);
             } else {
-                // Delete the event completely
                 await supabase.from('event_invitations').delete().eq('event_id', eventId);
                 await supabase.from('event_attendance').delete().eq('event_id', eventId);
                 await supabase.from('events').delete().eq('id', eventId);
             }
         } else if (deleteScope === 'future') {
-            // Set repeat_end_date to before this date
             const previousDay = new Date(targetDate);
             previousDay.setDate(previousDay.getDate() - 1);
             const newEndDate = previousDay.toISOString().split('T')[0];
@@ -2214,13 +2022,11 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 .update({ repeat_end_date: newEndDate })
                 .eq('id', eventId);
         } else if (deleteScope === 'all') {
-            // Delete the entire event series
             await supabase.from('event_invitations').delete().eq('event_id', eventId);
             await supabase.from('event_attendance').delete().eq('event_id', eventId);
             await supabase.from('events').delete().eq('id', eventId);
         }
 
-        // Send notifications
         if (notifyParticipants && participantsToNotify.length > 0) {
             const scopeText = deleteScope === 'all' ? ' (alle Termine)'
                 : deleteScope === 'future' ? ' (ab diesem Datum)'
@@ -2244,16 +2050,13 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             await supabase.from('notifications').insert(notifications);
         }
 
-        // Close all related modals
         document.getElementById('delete-event-modal')?.remove();
         document.getElementById('event-details-modal')?.remove();
         document.getElementById('event-day-modal')?.classList.add('hidden');
 
-        // Show success message (non-blocking toast)
         const message = 'Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : '');
         showToastMessage(message, 'success');
 
-        // Trigger calendar refresh by dispatching custom event with occurrence date
         window.dispatchEvent(new CustomEvent('event-changed', {
             detail: {
                 type: 'delete',
@@ -2270,7 +2073,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
 };
 
 /**
- * Open edit event modal
+ * Öffnet Bearbeitungs-Modal für eine Veranstaltung
  * @param {string} eventId - Event ID
  */
 window.openEditEventModal = async function(eventId) {
@@ -2413,9 +2216,9 @@ window.openEditEventModal = async function(eventId) {
 };
 
 /**
- * Execute event edit/update
+ * Speichert Änderungen an einer Veranstaltung
  * @param {string} eventId - Event ID
- * @param {boolean} isRecurring - Whether this is a recurring event
+ * @param {boolean} isRecurring - Wiederkehrende Veranstaltung
  */
 window.executeEditEvent = async function(eventId, isRecurring) {
     try {
@@ -2424,7 +2227,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             : 'all';
         const notifyParticipants = document.getElementById('edit-notify-participants')?.checked ?? true;
 
-        // Gather form data
         const title = document.getElementById('edit-event-title')?.value?.trim();
         const description = document.getElementById('edit-event-description')?.value?.trim();
         const startDate = document.getElementById('edit-event-date')?.value;
@@ -2438,7 +2240,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             return;
         }
 
-        // Load original event
         const { data: originalEvent, error: loadError } = await supabase
             .from('events')
             .select('*')
@@ -2447,7 +2248,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
 
         if (loadError) throw loadError;
 
-        // Get participants to notify
         let participantsToNotify = [];
         if (notifyParticipants) {
             const { data: invitations } = await supabase
@@ -2457,7 +2257,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             participantsToNotify = (invitations || []).map(i => i.user_id);
         }
 
-        // Build update data
         const updateData = {
             title,
             description: description || null,
@@ -2468,12 +2267,8 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             updated_at: new Date().toISOString()
         };
 
-        // Handle date changes based on scope
         if (startDate && startDate !== originalEvent.start_date) {
             if (editScope === 'this' && isRecurring) {
-                // For single instance change of recurring event, we need to:
-                // 1. Add original date to exclusions
-                // 2. Create a new single event for the new date
                 const exclusions = originalEvent.excluded_dates || [];
                 exclusions.push(originalEvent.start_date);
 
@@ -2482,7 +2277,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                     .update({ excluded_dates: exclusions })
                     .eq('id', eventId);
 
-                // Create new single event
                 const newEventData = {
                     ...originalEvent,
                     id: undefined,
@@ -2502,7 +2296,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
 
                 if (createError) throw createError;
 
-                // Copy invitations to new event
                 const { data: oldInvitations } = await supabase
                     .from('event_invitations')
                     .select('*')
@@ -2524,11 +2317,8 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             }
         }
 
-        // Update the event (for 'all' or 'future' scope, or non-recurring)
         if (editScope !== 'this' || !isRecurring || !startDate || startDate === originalEvent.start_date) {
             if (editScope === 'future' && isRecurring) {
-                // For future: update this event and set previous date as end date for a copy
-                // This is complex - for simplicity we just update all
                 updateData.start_date = startDate || originalEvent.start_date;
             }
 
@@ -2538,16 +2328,13 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                 .eq('id', eventId);
         }
 
-        // Format date for notification
         const formattedDate = new Date((startDate || originalEvent.start_date) + 'T12:00:00').toLocaleDateString('de-DE', {
             weekday: 'long',
             day: 'numeric',
             month: 'long'
         });
 
-        // Send notifications
         if (notifyParticipants && participantsToNotify.length > 0) {
-            // Build change description
             const changes = [];
             if (title !== originalEvent.title) changes.push(`Titel: "${title}"`);
             if (startDate && startDate !== originalEvent.start_date) changes.push(`Neues Datum: ${formattedDate}`);
@@ -2574,13 +2361,11 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             await supabase.from('notifications').insert(notifications);
         }
 
-        // Close modals and refresh
         document.getElementById('edit-event-modal')?.remove();
         document.getElementById('event-details-modal')?.remove();
 
         alert('Veranstaltung wurde aktualisiert' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : ''));
 
-        // Trigger calendar refresh
         window.dispatchEvent(new CustomEvent('event-changed', { detail: { type: 'update', eventId } }));
 
     } catch (error) {
@@ -2590,9 +2375,9 @@ window.executeEditEvent = async function(eventId, isRecurring) {
 };
 
 /**
- * Load and render upcoming events with response status for coaches
- * @param {string} containerId - Container element ID to render into
- * @param {Object} userData - Current user data
+ * Lädt und rendert anstehende Veranstaltungen für Trainer mit Rückmeldestatus
+ * @param {string} containerId - Container-Element ID
+ * @param {Object} userData - Benutzerdaten
  */
 export async function loadUpcomingEventsForCoach(containerId, userData) {
     const container = document.getElementById(containerId);
@@ -2632,14 +2417,12 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
             return;
         }
 
-        // Load response counts for each event
         const eventIds = events.map(e => e.id);
         const { data: allInvitations } = await supabase
             .from('event_invitations')
             .select('event_id, status, user_id, profiles:user_id(first_name, last_name)')
             .in('event_id', eventIds);
 
-        // Group invitations by event
         const invitationsByEvent = {};
         (allInvitations || []).forEach(inv => {
             if (!invitationsByEvent[inv.event_id]) {
@@ -2651,7 +2434,6 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
             invitationsByEvent[inv.event_id][statusGroup].push(inv);
         });
 
-        // Render events
         container.innerHTML = `
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -2736,7 +2518,6 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
             </div>
         `;
 
-        // Set up real-time subscription for responses
         const invitationsChannel = supabase
             .channel('coach_event_responses')
             .on(
@@ -2747,13 +2528,11 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
                     table: 'event_invitations'
                 },
                 () => {
-                    // Reload when any invitation changes
                     loadUpcomingEventsForCoach(containerId, userData);
                 }
             )
             .subscribe();
 
-        // Set up real-time subscription for events changes (including deletions)
         const eventsChannel = supabase
             .channel('coach_events_changes')
             .on(
@@ -2765,13 +2544,11 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
                     filter: `club_id=eq.${userData.clubId}`
                 },
                 () => {
-                    // Reload when any event changes (including excluded_dates updates)
                     loadUpcomingEventsForCoach(containerId, userData);
                 }
             )
             .subscribe();
 
-        // Store unsubscribe
         if (!window.coachEventUnsubscribes) window.coachEventUnsubscribes = [];
         window.coachEventUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
         window.coachEventUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
@@ -2786,5 +2563,4 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
     }
 }
 
-// Export functions for global access
 export { closeAllModals };

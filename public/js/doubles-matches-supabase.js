@@ -2,22 +2,22 @@ import { formatDate } from './ui-utils.js';
 import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
 
 /**
- * Doubles Matches Module (Supabase Version)
- * Handles doubles match functionality, pairing management, and rankings
+ * Doppel-Matches Modul
+ * Verwaltet Doppel-Matches, Paarungen und Rankings
  */
 
 // ========================================================================
-// ===== NOTIFICATION HELPER =====
+// BENACHRICHTIGUNGEN
 // ========================================================================
 
 /**
- * Creates a notification for a user
- * @param {Object} supabase - Supabase client instance
- * @param {string} userId - User ID to notify
- * @param {string} type - Notification type
- * @param {string} title - Notification title
- * @param {string} message - Notification message
- * @param {Object} data - Additional data (optional)
+ * Erstellt eine Benachrichtigung für einen Benutzer
+ * @param {Object} supabase - Supabase Client
+ * @param {string} userId - Benutzer-ID
+ * @param {string} type - Benachrichtigungstyp
+ * @param {string} title - Titel
+ * @param {string} message - Nachricht
+ * @param {Object} data - Zusätzliche Daten (optional)
  */
 async function createNotification(supabase, userId, type, title, message, data = {}) {
     try {
@@ -43,24 +43,23 @@ async function createNotification(supabase, userId, type, title, message, data =
 }
 
 // ========================================================================
-// ===== HELPER FUNCTIONS =====
+// HILFSFUNKTIONEN
 // ========================================================================
 
 /**
- * Checks if a player has no club
- * @param {string|null|undefined} clubId - The club ID to check
- * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ * @param {string|null|undefined} clubId
+ * @returns {boolean} True wenn Spieler keinen Verein hat
  */
 function hasNoClub(clubId) {
     return !clubId || clubId === '';
 }
 
 /**
- * Creates a sorted pairing ID from two player IDs
- * Ensures that playerA + playerB = playerB + playerA
- * @param {string} player1Id - First player ID
- * @param {string} player2Id - Second player ID
- * @returns {string} Sorted pairing ID (e.g., "abc123_xyz789")
+ * Erstellt sortierte Paarungs-ID aus zwei Spieler-IDs
+ * Stellt sicher, dass Reihenfolge keine Rolle spielt (A+B = B+A)
+ * @param {string} player1Id
+ * @param {string} player2Id
+ * @returns {string} Sortierte Paarungs-ID
  */
 export function createPairingId(player1Id, player2Id) {
     const ids = [player1Id, player2Id].sort();
@@ -68,10 +67,10 @@ export function createPairingId(player1Id, player2Id) {
 }
 
 /**
- * Calculates team Elo as average of both players' doubles Elo
- * @param {Object} player1 - First player object with doublesEloRating
- * @param {Object} player2 - Second player object with doublesEloRating
- * @returns {number} Team Elo (average)
+ * Berechnet Team-Elo als Durchschnitt beider Spieler
+ * @param {Object} player1
+ * @param {Object} player2
+ * @returns {number} Team Elo
  */
 export function calculateTeamElo(player1, player2) {
     const elo1 = player1.doubles_elo_rating || player1.doublesEloRating || 800;
@@ -80,15 +79,15 @@ export function calculateTeamElo(player1, player2) {
 }
 
 // ========================================================================
-// ===== COACH: DOUBLES MATCH SAVE =====
+// TRAINER: DOPPEL-MATCH SPEICHERN
 // ========================================================================
 
 /**
- * Saves a doubles match result (Coach only)
- * @param {Object} matchData - Match data object
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data
- * @returns {Promise<Object>} Result object with success status
+ * Speichert ein Doppel-Match (nur Trainer)
+ * @param {Object} matchData
+ * @param {Object} supabase
+ * @param {Object} currentUserData
+ * @returns {Promise<Object>}
  */
 export async function saveDoublesMatch(matchData, supabase, currentUserData) {
     const {
@@ -96,20 +95,18 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
         teamA_player2Id,
         teamB_player1Id,
         teamB_player2Id,
-        winningTeam, // "A" or "B"
+        winningTeam,
         sets,
         handicapUsed,
         handicap,
         matchMode = 'best-of-5',
     } = matchData;
 
-    // Validate all players are different
     const allPlayerIds = [teamA_player1Id, teamA_player2Id, teamB_player1Id, teamB_player2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
-    // Load all 4 players to check their clubIds
     const { data: players, error: playersError } = await supabase
         .from('profiles')
         .select('id, club_id')
@@ -125,7 +122,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
     const player3ClubId = playerMap.get(teamB_player1Id)?.club_id;
     const player4ClubId = playerMap.get(teamB_player2Id)?.club_id;
 
-    // Determine clubId: Only set if all 4 players are from the same club
+    // clubId nur setzen wenn ALLE 4 Spieler im selben Verein sind
     let matchClubId = null;
     if (
         player1ClubId &&
@@ -136,13 +133,10 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
         matchClubId = player1ClubId;
     }
 
-    // Create pairing IDs
     const teamAPairingId = createPairingId(teamA_player1Id, teamA_player2Id);
     const teamBPairingId = createPairingId(teamB_player1Id, teamB_player2Id);
 
-    // Create match document
-    // Note: winning_pairing_id, losing_pairing_id, and source columns don't exist in table
-    // The trigger will calculate pairing info from team data
+    // Hinweis: Der Trigger berechnet Paarungs-Infos aus den Team-Daten
     const { data: doublesMatch, error: insertError } = await supabase
         .from('doubles_matches')
         .insert([{
@@ -170,9 +164,8 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
 
     console.log('Doubles match saved:', doublesMatch.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
 
-    // Create points_history entries for all 4 players
+    // Punktehistorie für alle 4 Spieler erstellen
     try {
-        // Fetch player names
         const { data: playersData } = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
@@ -183,7 +176,6 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
         });
 
-        // Determine winners and losers
         const winningTeamIds = winningTeam === 'A'
             ? [teamA_player1Id, teamA_player2Id]
             : [teamB_player1Id, teamB_player2Id];
@@ -191,7 +183,6 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             ? [teamB_player1Id, teamB_player2Id]
             : [teamA_player1Id, teamA_player2Id];
 
-        // Calculate sets display
         let teamASetsWon = 0;
         let teamBSetsWon = 0;
         (sets || []).forEach(set => {
@@ -202,12 +193,11 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             ? `${teamASetsWon}:${teamBSetsWon}`
             : `${teamBSetsWon}:${teamASetsWon}`;
 
-        const winnerPoints = 15; // Points for winning doubles
-        const loserPoints = 5; // Participation points
+        const winnerPoints = 15;
+        const loserPoints = 5;
         const matchType = handicapUsed ? 'Handicap-Doppel' : 'Doppel';
         const playedAt = doublesMatch.created_at || new Date().toISOString();
 
-        // Create entries for winning team
         for (const winnerId of winningTeamIds) {
             const partnerId = winningTeamIds.find(id => id !== winnerId);
             const partnerName = playerNameMap[partnerId] || 'Partner';
@@ -236,7 +226,6 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             }
         }
 
-        // Create entries for losing team
         for (const loserId of losingTeamIds) {
             const partnerId = losingTeamIds.find(id => id !== loserId);
             const partnerName = playerNameMap[partnerId] || 'Partner';
@@ -267,22 +256,22 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
 
     } catch (historyError) {
         console.warn('[DoublesMatches] Error creating points history entries:', historyError);
-        // Don't fail the match save if history creation fails
+        // Match-Speicherung soll nicht fehlschlagen wenn Punktehistorie-Erstellung fehlschlägt
     }
 
     return { success: true, matchId: doublesMatch.id, isCrossClub: matchClubId === null };
 }
 
 // ========================================================================
-// ===== PLAYER: DOUBLES MATCH REQUEST =====
+// SPIELER: DOPPEL-MATCH ANFRAGE
 // ========================================================================
 
 /**
- * Creates a doubles match request (Player initiated)
- * @param {Object} requestData - Request data object
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data
- * @returns {Promise<Object>} Result object with success status
+ * Erstellt eine Doppel-Match Anfrage (Spieler-initiiert)
+ * @param {Object} requestData
+ * @param {Object} supabase
+ * @param {Object} currentUserData
+ * @returns {Promise<Object>}
  */
 export async function createDoublesMatchRequest(requestData, supabase, currentUserData) {
     const {
@@ -297,13 +286,11 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
 
     const initiatorId = currentUserData.id;
 
-    // Validate all players are different
     const allPlayerIds = [initiatorId, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
-    // Load all 4 players to check their clubIds
     const { data: players, error: playersError } = await supabase
         .from('profiles')
         .select('id, club_id')
@@ -319,7 +306,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     const opponent1ClubId = playerMap.get(opponent1Id)?.club_id;
     const opponent2ClubId = playerMap.get(opponent2Id)?.club_id;
 
-    // Determine clubId: Only set if all 4 players are from the same club
+    // clubId nur setzen wenn ALLE 4 Spieler im selben Verein sind
     let matchClubId = null;
     if (
         initiatorClubId &&
@@ -330,7 +317,6 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         matchClubId = initiatorClubId;
     }
 
-    // Determine required sets to win based on match mode
     let setsToWin;
     switch (matchMode) {
         case 'single-set':
@@ -349,37 +335,32 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
             setsToWin = 3;
     }
 
-    // Determine winner
     const setsWonByInitiatorTeam = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
     const setsWonByOpponentTeam = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
-    // Check that no team has MORE than setsToWin (match should end when someone wins)
+    // Match muss enden sobald jemand gewinnt
     if (setsWonByInitiatorTeam > setsToWin || setsWonByOpponentTeam > setsToWin) {
         throw new Error(`Ungültiges Ergebnis: Bei diesem Modus kann kein Team mehr als ${setsToWin} Sätze gewinnen.`);
     }
 
     let winningTeam;
     if (setsWonByInitiatorTeam >= setsToWin) {
-        winningTeam = 'A'; // Initiator's team won
+        winningTeam = 'A';
     } else if (setsWonByOpponentTeam >= setsToWin) {
-        winningTeam = 'B'; // Opponent team won
+        winningTeam = 'B';
     } else {
         throw new Error(`Ungültiges Ergebnis: Kein Team hat ${setsToWin} Sätze gewonnen`);
     }
 
-    // Create pairing IDs
     const initiatorPairingId = createPairingId(initiatorId, partnerId);
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
 
-    // Get player names from requestData if provided, otherwise use userData
     const playerNames = requestData.playerNames || {};
 
-    // Handle both camelCase and snake_case for user data
     const userFirstName = currentUserData.firstName || currentUserData.first_name || '';
     const userLastName = currentUserData.lastName || currentUserData.last_name || '';
     const defaultUserName = `${userFirstName} ${userLastName}`.trim() || 'Unbekannt';
 
-    // Build the request document data using JSONB structure for teams
     const doublesRequestData = {
         team_a: {
             player1_id: initiatorId,
@@ -433,19 +414,16 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
 
     console.log('Doubles match request created successfully! ID:', request.id);
 
-    // Build notification with match details
     const initiatorName = playerNames.player1 || 'Ein Spieler';
     const teamANames = `${playerNames.player1 || '?'} & ${playerNames.player2 || '?'}`;
     const teamBNames = `${playerNames.opponent1 || '?'} & ${playerNames.opponent2 || '?'}`;
 
-    // Build set score string
     const setsString = sets.map(s => {
         const scoreA = s.teamA ?? s.playerA ?? 0;
         const scoreB = s.teamB ?? s.playerB ?? 0;
         return `${scoreA}:${scoreB}`;
     }).join(', ');
 
-    // Count set wins
     let teamAWins = 0, teamBWins = 0;
     sets.forEach(s => {
         const scoreA = s.teamA ?? s.playerA ?? 0;
@@ -455,7 +433,6 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     });
     const setScore = `${teamAWins}:${teamBWins}`;
 
-    // Build notification message with winner info
     const winnerNames = winningTeam === 'A' ? teamANames : teamBNames;
     let notificationMessage = `${initiatorName} trägt ein: ${winnerNames} hat ${setScore} gewonnen (${setsString})`;
     if (handicapUsed) {
@@ -471,7 +448,6 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         handicap_used: handicapUsed ? 'true' : 'false'
     };
 
-    // Notify partner
     await createNotification(
         supabase,
         partnerId,
@@ -481,7 +457,6 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         notificationData
     );
 
-    // Notify opponent 1
     await createNotification(
         supabase,
         opponent1Id,
@@ -491,7 +466,6 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         notificationData
     );
 
-    // Notify opponent 2
     await createNotification(
         supabase,
         opponent2Id,
@@ -505,11 +479,11 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
 }
 
 /**
- * Confirms a doubles match request (Opponent acceptance)
- * @param {string} requestId - Request document ID
- * @param {string} playerId - Player ID who is confirming
- * @param {Object} supabase - Supabase client instance
- * @returns {Promise<Object>} Result object with success status
+ * Bestätigt eine Doppel-Match Anfrage (Gegner-Bestätigung)
+ * @param {string} requestId
+ * @param {string} playerId
+ * @param {Object} supabase
+ * @returns {Promise<Object>}
  */
 export async function confirmDoublesMatchRequest(requestId, playerId, supabase) {
     const { data: request, error: fetchError } = await supabase
@@ -521,14 +495,13 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
     if (fetchError) throw fetchError;
     if (!request) throw new Error('Anfrage nicht gefunden');
 
-    // Check if player is one of the opponents (using JSONB structure)
     const teamB = request.team_b || {};
     const isOpponent = teamB.player1_id === playerId || teamB.player2_id === playerId;
     if (!isOpponent) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
 
-    // Auto-approve when opponent confirms (no coach approval needed)
+    // Auto-Genehmigung wenn Gegner bestätigt (keine Trainer-Genehmigung nötig)
     const updatedApprovals = { ...request.approvals, [playerId]: true };
 
     const updateData = {
@@ -545,19 +518,17 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 
     console.log('Doubles match request confirmed and auto-approved by opponent:', playerId);
 
-    // Dispatch event to notify other components (dashboard, etc.) to refresh
     window.dispatchEvent(new CustomEvent('matchRequestUpdated', {
         detail: { type: 'doubles', action: 'approved', requestId }
     }));
 
-    // Notify all 4 players that the match is approved (using JSONB structure)
     const teamA = request.team_a || {};
     const allPlayerIds = [
         teamA.player1_id,
         teamA.player2_id,
         teamB.player1_id,
         teamB.player2_id
-    ].filter(id => id); // Filter out undefined
+    ].filter(id => id);
 
     const teamANames = `${teamA.player1_name || 'Spieler'} & ${teamA.player2_name || 'Spieler'}`;
     const teamBNames = `${teamB.player1_name || 'Spieler'} & ${teamB.player2_name || 'Spieler'}`;
@@ -578,11 +549,11 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 }
 
 /**
- * Approves a doubles match request (Coach only)
- * @param {string} requestId - Request document ID
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Coach user data
- * @returns {Promise<Object>} Result object with success status
+ * Genehmigt eine Doppel-Match Anfrage (nur Trainer)
+ * @param {string} requestId
+ * @param {Object} supabase
+ * @param {Object} currentUserData
+ * @returns {Promise<Object>}
  */
 export async function approveDoublesMatchRequest(requestId, supabase, currentUserData) {
     const { error } = await supabase
@@ -601,15 +572,14 @@ export async function approveDoublesMatchRequest(requestId, supabase, currentUse
 }
 
 /**
- * Rejects a doubles match request (by opponent or coach)
- * @param {string} requestId - Request document ID
- * @param {string} reason - Rejection reason
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - User data of person rejecting
- * @returns {Promise<Object>} Result object with success status
+ * Lehnt eine Doppel-Match Anfrage ab (Gegner oder Trainer)
+ * @param {string} requestId
+ * @param {string} reason
+ * @param {Object} supabase
+ * @param {Object} currentUserData
+ * @returns {Promise<Object>}
  */
 export async function rejectDoublesMatchRequest(requestId, reason, supabase, currentUserData) {
-    // First fetch the request to get player info for notifications
     const { data: request, error: fetchError } = await supabase
         .from('doubles_match_requests')
         .select('*')
@@ -632,7 +602,6 @@ export async function rejectDoublesMatchRequest(requestId, reason, supabase, cur
 
     console.log('Doubles match request rejected');
 
-    // Notify the initiator that the match was rejected
     if (request && request.initiated_by) {
         const rejecterName = `${currentUserData.firstName || currentUserData.first_name || ''} ${currentUserData.lastName || currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
         await createNotification(
@@ -649,26 +618,26 @@ export async function rejectDoublesMatchRequest(requestId, reason, supabase, cur
 }
 
 // ========================================================================
-// ===== DOUBLES LEADERBOARD =====
+// DOPPEL BESTENLISTE
 // ========================================================================
 
 /**
- * Loads doubles pairings leaderboard with real-time updates
- * @param {string} clubId - Club ID (null for global leaderboard)
- * @param {Object} supabase - Supabase client instance
- * @param {HTMLElement} container - Container element to render leaderboard
- * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
- * @param {string} currentUserId - Current user's ID (for privacy filtering)
- * @param {boolean} isGlobal - Whether this is the global leaderboard (default: false)
- * @param {string} sportId - Sport ID to filter by (optional, filters pairings by players' sport)
+ * Lädt Doppel-Paarungen Bestenliste mit Echtzeit-Updates
+ * @param {string} clubId - Vereins-ID (null für globale Bestenliste)
+ * @param {Object} supabase
+ * @param {HTMLElement} container
+ * @param {Array} unsubscribes
+ * @param {string} currentUserId
+ * @param {boolean} isGlobal
+ * @param {string} sportId
  */
 export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes, currentUserId, isGlobal = false, sportId = null) {
     if (!container) return;
 
     async function loadData() {
         try {
-            // Load all pairings (we'll filter by player club membership later)
-            // Don't filter by club_id here as it may be NULL or incorrect
+            // Hier NICHT nach club_id filtern, da diese NULL oder falsch sein kann
+            // Filterung erfolgt später nach Spieler-Vereinszugehörigkeit
             let query = supabase
                 .from('doubles_pairings')
                 .select('*')
@@ -677,12 +646,10 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             const { data: pairingsData, error: pairingsError } = await query;
             if (pairingsError) throw pairingsError;
 
-            // Load clubs map
             const { data: clubsData } = await supabase.from('clubs').select('*');
             const clubsMap = new Map();
             (clubsData || []).forEach(club => clubsMap.set(club.id, club));
 
-            // Load current user data
             let currentUserData = null;
             if (currentUserId) {
                 const { data: userData } = await supabase
@@ -700,7 +667,6 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             const pairings = [];
 
             for (const data of pairingsData || []) {
-                // Try to fetch player data
                 let player1Data = null;
                 let player2Data = null;
 
@@ -722,14 +688,13 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     player2Data = p2;
                 }
 
-                // Sport filtering: The pairing must be for the specified sport
-                // Use the pairing's sport_id, not the players' current active_sport_id
+                // Sport-Filterung: Paarung muss für die angegebene Sportart sein
+                // sport_id der Paarung verwenden, NICHT active_sport_id der Spieler
                 if (sportId) {
-                    // Check if the pairing has a sport_id stored
                     if (data.sport_id && data.sport_id !== sportId) {
-                        continue; // Skip pairing - it's for a different sport
+                        continue;
                     }
-                    // Fallback: if no sport_id on pairing, check if both players are currently in the sport
+                    // Fallback: Wenn keine sport_id gespeichert, beide Spieler prüfen
                     if (!data.sport_id) {
                         const player1Sport = player1Data?.active_sport_id;
                         const player2Sport = player2Data?.active_sport_id;
@@ -739,7 +704,6 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     }
                 }
 
-                // Privacy filtering
                 const isCurrentUserInTeam = currentUserId && (data.player1_id === currentUserId || data.player2_id === currentUserId);
 
                 if (!isCurrentUserInTeam) {
@@ -760,7 +724,6 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     }
                 }
 
-                // Test club filtering
                 if (!isCurrentUserInTeam && data.club_id) {
                     const teamClub = clubsMap.get(data.club_id);
                     if (teamClub && teamClub.is_test_club) {
@@ -770,16 +733,13 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     }
                 }
 
-                // Check if players are deleted
                 const player1Deleted = player1Data?.deleted || !player1Data?.first_name || !player1Data?.last_name;
                 const player2Deleted = player2Data?.deleted || !player2Data?.first_name || !player2Data?.last_name;
 
-                // Determine club display (always calculate, shown only in global but needed for data)
                 let clubDisplay = 'Kein Verein';
                 let clubType = 'none';
 
-                // Use nullish coalescing (??) to handle both null and undefined
-                // Prefer stored club_id_at_match, fallback to player's current club_id
+                // Bevorzuge gespeicherte club_id_at_match, Fallback auf aktuelle club_id
                 const p1ClubId = data.player1_club_id_at_match ?? player1Data?.club_id;
                 const p2ClubId = data.player2_club_id_at_match ?? player2Data?.club_id;
 
@@ -794,18 +754,17 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     clubDisplay = 'Mix';
                 }
 
-                // Filter by club membership for club-specific leaderboards
-                // BOTH players must currently be in the specified club
-                // This is dynamic - if a player joins the club later, the pairing will appear
+                // Für Vereins-Bestenlisten: BEIDE Spieler müssen aktuell im Verein sein
+                // Dynamisch - wenn Spieler später dem Verein beitritt, erscheint die Paarung
                 if (!isGlobal && clubId) {
                     const player1InClub = player1Data?.club_id === clubId;
                     const player2InClub = player2Data?.club_id === clubId;
                     if (!player1InClub || !player2InClub) {
-                        continue; // Skip this pairing - both players must be in the club
+                        continue;
                     }
                 }
 
-                // Build names from profile data (not from doubles_pairings table) to ensure photos match names
+                // Namen aus Profil-Daten holen (nicht aus doubles_pairings) damit Fotos zu Namen passen
                 const player1FullName = player1Deleted
                     ? (player1Data?.display_name || 'Gelöschter Nutzer')
                     : `${player1Data?.first_name || ''} ${player1Data?.last_name || ''}`.trim() || data.player1_name || 'Unbekannt';
@@ -849,10 +808,8 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
         }
     }
 
-    // Initial load
     loadData();
 
-    // Set up real-time subscription
     const channelName = isGlobal ? 'doubles-leaderboard-global' : `doubles-leaderboard-${clubId}`;
     const subscription = supabase
         .channel(channelName)
@@ -875,12 +832,12 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
 }
 
 /**
- * Renders the doubles leaderboard in the UI
- * @param {Array} pairings - Array of pairing objects
- * @param {HTMLElement} container - Container element
- * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
- * @param {Object} supabase - Supabase client instance (optional, for head-to-head modal)
- * @param {string} currentUserId - Current user's ID (optional, for head-to-head modal)
+ * Rendert die Doppel-Bestenliste
+ * @param {Array} pairings
+ * @param {HTMLElement} container
+ * @param {boolean} isGlobal
+ * @param {Object} supabase
+ * @param {string} currentUserId
  */
 export function renderDoublesLeaderboard(pairings, container, isGlobal = false, supabase = null, currentUserId = null) {
     if (!container) return;
@@ -891,9 +848,8 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
         return;
     }
 
-    // Desktop: Table view, Mobile: Card view
     let html = `
-        <!-- Desktop Table View (hidden on mobile) -->
+        <!-- Desktop-Tabellenansicht (ausgeblendet auf Mobilgeräten) -->
         <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
                 <thead class="bg-gray-100">
@@ -927,7 +883,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
             pairing.player2PhotoURL ||
             `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
 
-        // Check if this team is clickable (not current user's own team)
         const isClickable = supabase && currentUserId &&
             pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId;
         const teamData = isClickable ? JSON.stringify({
@@ -975,11 +930,10 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
             </table>
         </div>
 
-        <!-- Mobile Card View (shown only on mobile) -->
+        <!-- Mobile-Kartenansicht (nur auf Mobilgeräten angezeigt) -->
         <div class="md:hidden space-y-3">
     `;
 
-    // Mobile Cards
     pairings.forEach((pairing, index) => {
         const rank = index + 1;
         const winRate =
@@ -999,7 +953,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
 
         const rankDisplay = rank === 1 ? '1' : rank === 2 ? '2' : rank === 3 ? '3' : `#${rank}`;
 
-        // Check if this team is clickable for mobile (not current user's own team)
         const isMobileClickable = supabase && currentUserId &&
             pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId;
         const mobileTeamData = isMobileClickable ? JSON.stringify({
@@ -1068,7 +1021,6 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
 
     container.innerHTML = html;
 
-    // Add click handlers for head-to-head modal (only if supabase and currentUserId are provided)
     if (supabase && currentUserId) {
         const clickableElements = container.querySelectorAll('[data-doubles-team]');
         clickableElements.forEach(el => {
@@ -1081,15 +1033,15 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
 }
 
 // ========================================================================
-// ===== LOAD COACH DOUBLES MATCH REQUESTS =====
+// TRAINER: DOPPEL-MATCH ANFRAGEN LADEN
 // ========================================================================
 
 /**
- * Loads pending doubles match requests for coach approval
- * @param {Object} userData - Current user data
- * @param {Object} supabase - Supabase client instance
- * @param {HTMLElement} container - Container element for rendering
- * @returns {Function} Unsubscribe function
+ * Lädt ausstehende Doppel-Match Anfragen für Trainer-Genehmigung
+ * @param {Object} userData
+ * @param {Object} supabase
+ * @param {HTMLElement} container
+ * @returns {Function} Unsubscribe-Funktion
  */
 export async function loadCoachDoublesMatchRequests(userData, supabase, container) {
     if (!container) return;
@@ -1113,7 +1065,6 @@ export async function loadCoachDoublesMatchRequests(userData, supabase, containe
 
             const requests = [];
             for (const data of requestsData) {
-                // Use JSONB structure for team data
                 const teamA = data.team_a || {};
                 const teamB = data.team_b || {};
 
@@ -1161,7 +1112,6 @@ export async function loadCoachDoublesMatchRequests(userData, supabase, containe
 
     loadRequests();
 
-    // Set up real-time subscription
     const subscription = supabase
         .channel('coach-doubles-requests')
         .on(
@@ -1182,7 +1132,7 @@ export async function loadCoachDoublesMatchRequests(userData, supabase, containe
 }
 
 /**
- * Renders doubles match request cards for coach
+ * Rendert Doppel-Match Anfragekarten für Trainer
  */
 function renderCoachDoublesRequestCards(requests, supabase, userData, container) {
     if (!container) return;
@@ -1270,7 +1220,7 @@ function renderCoachDoublesRequestCards(requests, supabase, userData, container)
 }
 
 /**
- * Formats sets display for doubles matches
+ * Formatiert Satz-Anzeige für Doppel-Matches
  */
 function formatDoublesSets(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
@@ -1283,14 +1233,14 @@ function formatDoublesSets(sets) {
 }
 
 // ========================================================================
-// ===== OPPONENT CONFIRMATION WORKFLOW =====
+// GEGNER-BESTÄTIGUNG
 // ========================================================================
 
 /**
- * Loads pending doubles match requests where current user is an opponent
- * @param {Object} userData - Current user data
- * @param {Object} supabase - Supabase client instance
- * @param {HTMLElement} container - Container element to render requests
+ * Lädt ausstehende Doppel-Match Anfragen wo der aktuelle Benutzer Gegner ist
+ * @param {Object} userData
+ * @param {Object} supabase
+ * @param {HTMLElement} container
  */
 export function loadPendingDoublesRequestsForOpponent(userData, supabase, container) {
     async function loadRequests() {
@@ -1310,7 +1260,7 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
                 return;
             }
 
-            // Filter to only show requests where current user is an opponent (using JSONB structure)
+            // Nur Anfragen anzeigen wo aktueller Benutzer Gegner ist
             const relevantRequests = requestsData.filter(req => {
                 const teamB = req.team_b || {};
                 return teamB.player1_id === userData.id || teamB.player2_id === userData.id;
@@ -1324,7 +1274,6 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
 
             const requests = [];
             for (const data of relevantRequests) {
-                // Use JSONB structure for team data
                 const teamA = data.team_a || {};
                 const teamB = data.team_b || {};
 
@@ -1372,7 +1321,6 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
 
     loadRequests();
 
-    // Set up real-time subscription
     const subscription = supabase
         .channel('opponent-doubles-requests')
         .on(
@@ -1393,7 +1341,7 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
 }
 
 /**
- * Renders pending doubles requests cards for opponent confirmation
+ * Rendert ausstehende Doppel-Anfragen für Gegner-Bestätigung
  */
 function renderPendingDoublesRequestsForOpponent(requests, container, supabase, userData) {
     container.innerHTML = '';

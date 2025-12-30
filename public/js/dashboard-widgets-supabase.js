@@ -1,17 +1,15 @@
 /**
- * Dashboard Widgets Management (Supabase Version)
- * Allows players to customize which widgets are visible on their dashboard
- * Inspired by modern app customization (like HVV Switch)
+ * Dashboard Widgets Verwaltung mit Supabase
+ * Ermöglicht Spielern die Anpassung der sichtbaren Dashboard-Widgets
  */
 
-// Widget definitions with metadata
 const WIDGETS = [
     {
         id: 'info-banner',
         name: '📚 Info-Banner',
         description: 'Erklärt die drei Systeme: XP, Elo und Saisonpunkte',
         default: true,
-        essential: true, // Cannot be disabled
+        essential: true, // Kann nicht deaktiviert werden
     },
     {
         id: 'statistics',
@@ -26,14 +24,14 @@ const WIDGETS = [
         description: 'Zeit bis zum Ende der aktuellen Saison',
         default: true,
         essential: false,
-        requiresClub: true, // Only available for club members
+        requiresClub: true, // Nur für Vereinsmitglieder
     },
     {
         id: 'match-requests',
         name: '🏓 Wettkampf-Anfragen',
         description: 'Ausstehende und eingegangene Match-Anfragen',
         default: true,
-        essential: true, // Cannot be disabled - required for match system
+        essential: true, // Notwendig für das Match-System
     },
     {
         id: 'rank',
@@ -55,7 +53,7 @@ const WIDGETS = [
         description: 'Dein nächster Konkurrent in der XP-Rangliste',
         default: true,
         essential: false,
-        requiresClub: true, // Only available for club members
+        requiresClub: true, // Nur für Vereinsmitglieder
     },
     {
         id: 'points-history',
@@ -79,36 +77,32 @@ let currentUserId = null;
 let currentUserData = null;
 
 /**
- * Initialize widget management system
- * Non-blocking: Shows defaults immediately, then loads saved settings in background
- * @param {Object} supabaseInstance - Supabase client instance
- * @param {string} userId - Current user ID
- * @param {Object} userData - Current user data (optional, for club status)
+ * Initialisiert das Widget-System (nicht-blockierend)
+ * Zeigt sofort Defaults an, lädt gespeicherte Einstellungen im Hintergrund
  */
 export function initializeWidgetSystem(supabaseInstance, userId, userData = null) {
     supabaseClient = supabaseInstance;
     currentUserId = userId;
     currentUserData = userData;
 
-    // Use default settings immediately (non-blocking)
+    // Sofort Defaults nutzen für schnelles Rendering
     currentSettings = getDefaultSettings();
     applyWidgetSettings();
 
-    // Setup event listeners
     setupWidgetControls();
 
-    // Load user's saved settings in background (non-blocking)
+    // Gespeicherte Einstellungen im Hintergrund laden
     loadWidgetSettings()
         .then(() => {
             applyWidgetSettings();
         })
         .catch(error => {
-            // Use defaults if loading fails
+            // Bei Fehler bleiben die Defaults aktiv
         });
 }
 
 /**
- * Load widget settings from Supabase (with localStorage fallback)
+ * Lädt Widget-Einstellungen aus Supabase (mit localStorage Fallback)
  */
 async function loadWidgetSettings() {
     try {
@@ -118,9 +112,8 @@ async function loadWidgetSettings() {
             .eq('user_id', currentUserId)
             .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        if (error && error.code !== 'PGRST116') { // PGRST116 = keine Zeilen gefunden
             console.warn('[Widget System] Supabase table not available, using localStorage:', error.message);
-            // Fallback to localStorage
             const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
             if (localData) {
                 currentSettings = JSON.parse(localData);
@@ -132,10 +125,9 @@ async function loadWidgetSettings() {
 
         if (data && data.dashboard_widgets) {
             currentSettings = data.dashboard_widgets;
-            // Also save to localStorage as backup
+            // Auch lokal speichern als Backup
             localStorage.setItem(`widgetSettings_${currentUserId}`, JSON.stringify(data.dashboard_widgets));
         } else {
-            // Try localStorage fallback
             const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
             if (localData) {
                 currentSettings = JSON.parse(localData);
@@ -145,7 +137,6 @@ async function loadWidgetSettings() {
         }
     } catch (error) {
         console.warn('[Widget System] Error loading from Supabase, using localStorage fallback:', error);
-        // Fallback to localStorage
         const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
         if (localData) {
             currentSettings = JSON.parse(localData);
@@ -156,18 +147,17 @@ async function loadWidgetSettings() {
 }
 
 /**
- * Get default widget settings
- * @returns {Object} Default settings object
+ * Gibt die Standard-Widget-Einstellungen zurück
  */
 function getDefaultSettings() {
     const settings = {};
-    // Support both camelCase and snake_case for club ID
+    // Unterstützt beide Schreibweisen für club ID (camelCase und snake_case)
     const hasClub = currentUserData &&
         (currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
         (currentUserData.club_id !== null && currentUserData.club_id !== undefined);
 
     WIDGETS.forEach(widget => {
-        // Disable club-only widgets by default if user has no club
+        // Vereins-Widgets standardmäßig deaktivieren wenn User keinen Verein hat
         if (widget.requiresClub && !hasClub) {
             settings[widget.id] = false;
         } else {
@@ -178,18 +168,16 @@ function getDefaultSettings() {
 }
 
 /**
- * Save widget settings to Supabase (with localStorage fallback)
- * @param {Object} settings - Settings object to save
+ * Speichert Widget-Einstellungen in Supabase (mit localStorage Fallback)
  */
 async function saveWidgetSettings(settings) {
-    // Always save to localStorage as backup
+    // Immer lokal speichern als Backup
     try {
         localStorage.setItem(`widgetSettings_${currentUserId}`, JSON.stringify(settings));
     } catch (localError) {
         console.warn('[Widget System] Could not save to localStorage:', localError);
     }
 
-    // Try to save to Supabase
     try {
         const { error } = await supabaseClient
             .from('user_preferences')
@@ -203,36 +191,34 @@ async function saveWidgetSettings(settings) {
 
         if (error) {
             console.warn('[Widget System] Supabase table not available, using localStorage only:', error.message);
-            // Still return true since we saved to localStorage
+            // Trotzdem true zurückgeben, da localStorage erfolgreich war
             return true;
         }
         return true;
     } catch (error) {
         console.warn('[Widget System] Error saving to Supabase, using localStorage only:', error);
-        // Still return true since we saved to localStorage
+        // Trotzdem true zurückgeben, da localStorage erfolgreich war
         return true;
     }
 }
 
 /**
- * Apply widget settings to the dashboard (show/hide widgets)
+ * Wendet Widget-Einstellungen auf das Dashboard an
  */
 function applyWidgetSettings() {
     const widgets = document.querySelectorAll('.dashboard-widget');
-    // Support both camelCase and snake_case for club ID
+    // Unterstützt beide Schreibweisen für club ID (camelCase und snake_case)
     const hasClub = currentUserData &&
         (currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
         (currentUserData.club_id !== null && currentUserData.club_id !== undefined);
 
     widgets.forEach(widget => {
         const widgetId = widget.getAttribute('data-widget-id');
-        const isVisible = currentSettings[widgetId] !== false; // Default to visible if not set
+        const isVisible = currentSettings[widgetId] !== false; // Standardmäßig sichtbar
 
-        // Check if widget requires club membership
         const widgetDef = WIDGETS.find(w => w.id === widgetId);
         const requiresClub = widgetDef?.requiresClub || false;
 
-        // Hide widget if it requires club and user has no club
         const shouldShow = isVisible && (!requiresClub || hasClub);
 
         if (shouldShow) {
@@ -244,28 +230,24 @@ function applyWidgetSettings() {
 }
 
 /**
- * Setup event listeners for widget controls
+ * Richtet Event-Listener für Widget-Controls ein
  */
 function setupWidgetControls() {
-    // Open modal button
     const editButton = document.getElementById('edit-dashboard-button');
     if (editButton) {
         editButton.addEventListener('click', openWidgetSettingsModal);
     }
 
-    // Close modal buttons
     const closeButton = document.getElementById('close-widget-settings-modal');
     const cancelButton = document.getElementById('cancel-widget-settings-button');
     if (closeButton) closeButton.addEventListener('click', closeWidgetSettingsModal);
     if (cancelButton) cancelButton.addEventListener('click', closeWidgetSettingsModal);
 
-    // Save button
     const saveButton = document.getElementById('save-widget-settings-button');
     if (saveButton) {
         saveButton.addEventListener('click', saveWidgetSettingsFromModal);
     }
 
-    // Reset button
     const resetButton = document.getElementById('reset-widgets-button');
     if (resetButton) {
         resetButton.addEventListener('click', resetWidgetSettings);
@@ -273,7 +255,7 @@ function setupWidgetControls() {
 }
 
 /**
- * Open widget settings modal
+ * Öffnet das Widget-Einstellungen Modal
  */
 function openWidgetSettingsModal() {
     console.log('[Widget System] Opening settings modal');
@@ -281,7 +263,7 @@ function openWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     const listContainer = document.getElementById('widget-settings-list');
 
-    // Check if user has a club - support both camelCase and snake_case
+    // Unterstützt beide Schreibweisen für club ID (camelCase und snake_case)
     const hasClub = currentUserData &&
         ((currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
          (currentUserData.club_id !== null && currentUserData.club_id !== undefined));
@@ -292,10 +274,8 @@ function openWidgetSettingsModal() {
         club_id: currentUserData?.club_id
     });
 
-    // Clear previous content
     listContainer.innerHTML = '';
 
-    // Generate widget toggles
     WIDGETS.forEach(widget => {
         const isEnabled = currentSettings[widget.id] !== false;
         const isEssential = widget.essential;
@@ -326,25 +306,23 @@ function openWidgetSettingsModal() {
         listContainer.appendChild(widgetItem);
     });
 
-    // Show modal
     modal.classList.remove('hidden');
 }
 
 /**
- * Close widget settings modal
+ * Schließt das Widget-Einstellungen Modal
  */
 function closeWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     modal.classList.add('hidden');
 
-    // Clear feedback
     const feedback = document.getElementById('widget-settings-feedback');
     feedback.classList.add('hidden');
     feedback.textContent = '';
 }
 
 /**
- * Save widget settings from modal
+ * Speichert Widget-Einstellungen aus dem Modal
  */
 async function saveWidgetSettingsFromModal() {
     console.log('[Widget System] Saving settings from modal');
@@ -354,7 +332,6 @@ async function saveWidgetSettingsFromModal() {
     feedback.className = 'mt-4 text-center text-sm font-medium text-gray-600';
     feedback.textContent = 'Speichere Einstellungen...';
 
-    // Collect settings from checkboxes
     const toggles = document.querySelectorAll('.widget-toggle');
     const newSettings = {};
 
@@ -363,33 +340,27 @@ async function saveWidgetSettingsFromModal() {
         newSettings[widgetId] = toggle.checked;
     });
 
-    // Save to Supabase
     const success = await saveWidgetSettings(newSettings);
 
     if (success) {
-        // Update current settings
         currentSettings = newSettings;
-
-        // Apply to dashboard
         applyWidgetSettings();
 
-        // Show success message
         feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
         feedback.textContent = '✓ Einstellungen gespeichert!';
 
-        // Close modal after delay
+        // Modal nach kurzer Verzögerung schließen für besseres UX
         setTimeout(() => {
             closeWidgetSettingsModal();
         }, 1500);
     } else {
-        // Show error message
         feedback.className = 'mt-4 text-center text-sm font-medium text-red-600';
         feedback.textContent = '✗ Fehler beim Speichern. Bitte versuche es erneut.';
     }
 }
 
 /**
- * Reset widget settings to defaults
+ * Setzt Widget-Einstellungen auf Standardwerte zurück
  */
 async function resetWidgetSettings() {
     if (!confirm('Möchtest du alle Widgets auf die Standardeinstellungen zurücksetzen?')) {
@@ -399,22 +370,15 @@ async function resetWidgetSettings() {
     console.log('[Widget System] Resetting to default settings');
 
     const defaultSettings = getDefaultSettings();
-
-    // Save defaults to Supabase
     const success = await saveWidgetSettings(defaultSettings);
 
     if (success) {
-        // Update current settings
         currentSettings = defaultSettings;
-
-        // Apply to dashboard
         applyWidgetSettings();
 
-        // Refresh modal
         closeWidgetSettingsModal();
         openWidgetSettingsModal();
 
-        // Show feedback
         const feedback = document.getElementById('widget-settings-feedback');
         feedback.classList.remove('hidden');
         feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
@@ -427,17 +391,14 @@ async function resetWidgetSettings() {
 }
 
 /**
- * Get current widget settings (for debugging)
- * @returns {Object} Current settings
+ * Gibt aktuelle Widget-Einstellungen zurück (für Debugging)
  */
 export function getCurrentWidgetSettings() {
     return { ...currentSettings };
 }
 
 /**
- * Check if a specific widget is visible
- * @param {string} widgetId - Widget ID to check
- * @returns {boolean} True if visible
+ * Prüft ob ein Widget sichtbar ist
  */
 export function isWidgetVisible(widgetId) {
     return currentSettings[widgetId] !== false;

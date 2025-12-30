@@ -1,24 +1,23 @@
-// Training Schedule Module - Supabase Version
+// Trainingsplan-Modul - Supabase Version
 // SC Champions - Migration von Firebase zu Supabase
 
 import { getSupabase } from './supabase-init.js';
 
 /**
- * Training Schedule Module - Supabase Version
- * Handles recurring training templates and training sessions
+ * Trainingsplan-Modul für wiederkehrende Trainingsvorlagen und Trainingssessions
  */
 
 const supabase = getSupabase();
 
 // ============================================================================
-// RECURRING TRAINING TEMPLATES
+// WIEDERKEHRENDE TRAININGSVORLAGEN
 // ============================================================================
 
 /**
- * Create a recurring training template
- * @param {Object} templateData - Template configuration
- * @param {string} userId - ID of user creating the template
- * @returns {Promise<string>} Template ID
+ * Erstellt eine wiederkehrende Trainingsvorlage
+ * @param {Object} templateData - Vorlagenkonfiguration
+ * @param {string} userId - Benutzer-ID
+ * @returns {Promise<string>} Vorlagen-ID
  */
 export async function createRecurringTemplate(templateData, userId = 'system') {
     const {
@@ -31,7 +30,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         endDate = null,
     } = templateData;
 
-    // Validation
     if (dayOfWeek < 0 || dayOfWeek > 6) {
         throw new Error('dayOfWeek must be between 0 (Sunday) and 6 (Saturday)');
     }
@@ -44,7 +42,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping templates
     const overlapping = await checkTemplateOverlap(
         dayOfWeek,
         startTime,
@@ -82,9 +79,9 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
 }
 
 /**
- * Get all recurring templates for a club
- * @param {string} clubId
- * @returns {Promise<Array>} Templates
+ * Lädt alle wiederkehrenden Vorlagen eines Vereins
+ * @param {string} clubId - Vereins-ID
+ * @returns {Promise<Array>} Vorlagen
  */
 export async function getRecurringTemplates(clubId) {
     const { data, error } = await supabase
@@ -113,9 +110,9 @@ export async function getRecurringTemplates(clubId) {
 }
 
 /**
- * Update a recurring template
- * @param {string} templateId
- * @param {Object} updates
+ * Aktualisiert eine wiederkehrende Vorlage
+ * @param {string} templateId - Vorlagen-ID
+ * @param {Object} updates - Zu aktualisierende Felder
  */
 export async function updateRecurringTemplate(templateId, updates) {
     const snakeUpdates = {};
@@ -136,16 +133,16 @@ export async function updateRecurringTemplate(templateId, updates) {
 }
 
 /**
- * Deactivate a recurring template (soft delete)
- * @param {string} templateId
+ * Deaktiviert eine Vorlage (Soft Delete - Daten bleiben erhalten)
+ * @param {string} templateId - Vorlagen-ID
  */
 export async function deactivateRecurringTemplate(templateId) {
     await updateRecurringTemplate(templateId, { active: false });
 }
 
 /**
- * Delete a recurring template (hard delete)
- * @param {string} templateId
+ * Löscht eine Vorlage unwiderruflich (Hard Delete)
+ * @param {string} templateId - Vorlagen-ID
  */
 export async function deleteRecurringTemplate(templateId) {
     const { error } = await supabase
@@ -157,7 +154,7 @@ export async function deleteRecurringTemplate(templateId) {
 }
 
 /**
- * Check if template would overlap with existing ones
+ * Prüft auf Überschneidungen mit existierenden Vorlagen
  * @private
  */
 async function checkTemplateOverlap(
@@ -175,7 +172,6 @@ async function checkTemplateOverlap(
         if (template.dayOfWeek !== dayOfWeek) continue;
         if (template.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, template.startTime, template.endTime)) {
             return true;
         }
@@ -185,14 +181,14 @@ async function checkTemplateOverlap(
 }
 
 // ============================================================================
-// TRAINING SESSIONS
+// TRAININGSSESSIONS
 // ============================================================================
 
 /**
- * Create a training session
- * @param {Object} sessionData - Session configuration
- * @param {string} userId - ID of user creating the session
- * @returns {Promise<string>} Session ID
+ * Erstellt eine Trainingssession
+ * @param {Object} sessionData - Session-Konfiguration
+ * @param {string} userId - Benutzer-ID
+ * @returns {Promise<string>} Session-ID
  */
 export async function createTrainingSession(sessionData, userId = 'system') {
     const {
@@ -205,7 +201,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         plannedExercises = [],
     } = sessionData;
 
-    // Validation
     if (!isValidDateFormat(date)) {
         throw new Error('Date must be in YYYY-MM-DD format');
     }
@@ -218,7 +213,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping sessions on same date
     const overlapping = await checkSessionOverlap(date, startTime, endTime, subgroupId, clubId);
     if (overlapping) {
         throw new Error(
@@ -252,8 +246,8 @@ export async function createTrainingSession(sessionData, userId = 'system') {
 }
 
 /**
- * Get all sessions for a date range
- * @param {string} clubId
+ * Lädt alle Sessions in einem Datumsbereich
+ * @param {string} clubId - Vereins-ID
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
  * @returns {Promise<Array>} Sessions
@@ -275,8 +269,8 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
 }
 
 /**
- * Get all sessions for a specific date
- * @param {string} clubId
+ * Lädt alle Sessions für ein bestimmtes Datum
+ * @param {string} clubId - Vereins-ID
  * @param {string} date - YYYY-MM-DD
  * @returns {Promise<Array>} Sessions
  */
@@ -295,8 +289,8 @@ export async function getSessionsForDate(clubId, date) {
 }
 
 /**
- * Get a single session by ID
- * @param {string} sessionId
+ * Lädt eine einzelne Session anhand der ID
+ * @param {string} sessionId - Session-ID
  * @returns {Promise<Object>} Session
  */
 export async function getSession(sessionId) {
@@ -317,9 +311,9 @@ export async function getSession(sessionId) {
 }
 
 /**
- * Update a training session
- * @param {string} sessionId
- * @param {Object} updates
+ * Aktualisiert eine Trainingssession
+ * @param {string} sessionId - Session-ID
+ * @param {Object} updates - Zu aktualisierende Felder
  */
 export async function updateTrainingSession(sessionId, updates) {
     const snakeUpdates = {};
@@ -341,14 +335,12 @@ export async function updateTrainingSession(sessionId, updates) {
 }
 
 /**
- * Cancel a training session (soft delete)
- * Also reverses points awarded to players
- * @param {string} sessionId
+ * Storniert eine Session (Soft Delete) und macht vergebene Punkte rückgängig
+ * @param {string} sessionId - Session-ID
  */
 export async function cancelTrainingSession(sessionId) {
     console.log(`[Cancel Training] Cancelling session ${sessionId} and correcting player points...`);
 
-    // Find associated attendance records
     const { data: attendanceRecords, error: attendanceError } = await supabase
         .from('attendance')
         .select('*')
@@ -356,13 +348,12 @@ export async function cancelTrainingSession(sessionId) {
 
     if (attendanceError) throw attendanceError;
 
-    // For each attendance record, reverse the points awarded to players
     for (const attendanceData of attendanceRecords || []) {
         const { present_player_ids, date, subgroup_id } = attendanceData;
 
         if (!present_player_ids || present_player_ids.length === 0) continue;
 
-        // Get subgroup name for history entries
+        // Subgroup-Namen für History-Einträge laden
         let subgroupName = subgroup_id;
         try {
             const { data: subgroup } = await supabase
@@ -388,10 +379,8 @@ export async function cancelTrainingSession(sessionId) {
             `[Cancel Training] Correcting points for ${present_player_ids.length} players on ${date}`
         );
 
-        // For each player who attended, find and reverse their points
         for (const playerId of present_player_ids) {
             try {
-                // Find the original points awarded for this training
                 const { data: historyEntries } = await supabase
                     .from('points_history')
                     .select('*')
@@ -400,7 +389,6 @@ export async function cancelTrainingSession(sessionId) {
                     .eq('subgroup_id', subgroup_id)
                     .eq('awarded_by', 'System (Anwesenheit)');
 
-                // Find the specific history entry for this training
                 const historyEntry = (historyEntries || []).find(entry => {
                     return (
                         entry.points > 0 &&
@@ -418,14 +406,12 @@ export async function cancelTrainingSession(sessionId) {
                         `[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
                     );
 
-                    // Deduct points and XP from player
                     await supabase.rpc('deduct_player_points', {
                         p_user_id: playerId,
                         p_points: pointsToDeduct,
                         p_xp: xpToDeduct
                     });
 
-                    // Create negative entry in points history
                     await supabase.from('points_history').insert({
                         user_id: playerId,
                         points: -pointsToDeduct,
@@ -436,7 +422,6 @@ export async function cancelTrainingSession(sessionId) {
                         awarded_by: 'System (Training abgesagt)',
                     });
 
-                    // Create negative entry in XP history
                     await supabase.from('xp_history').insert({
                         player_id: playerId,
                         xp: -xpToDeduct,
@@ -445,7 +430,6 @@ export async function cancelTrainingSession(sessionId) {
                         awarded_by: 'System (Training abgesagt)',
                     });
 
-                    // Delete the original history entry
                     await supabase
                         .from('points_history')
                         .delete()
@@ -462,29 +446,26 @@ export async function cancelTrainingSession(sessionId) {
         }
     }
 
-    // Delete all attendance records for this session
     await supabase
         .from('attendance')
         .delete()
         .eq('session_id', sessionId);
 
-    // Mark the session as cancelled
     await updateTrainingSession(sessionId, { cancelled: true });
 
     console.log(`[Cancel Training] Session ${sessionId} cancelled successfully`);
 }
 
 /**
- * Delete a training session (hard delete)
- * @param {string} sessionId
+ * Löscht eine Session unwiderruflich (Hard Delete)
+ * @param {string} sessionId - Session-ID
  */
 export async function deleteTrainingSession(sessionId) {
     console.log(`[Delete Training] Deleting session ${sessionId}...`);
 
-    // First cancel and reverse points
+    // Zuerst Punkte zurücksetzen
     await cancelTrainingSession(sessionId);
 
-    // Then delete the session
     const { error } = await supabase
         .from('training_sessions')
         .delete()
@@ -496,7 +477,7 @@ export async function deleteTrainingSession(sessionId) {
 }
 
 /**
- * Check if session would overlap with existing ones
+ * Prüft auf Überschneidungen mit existierenden Sessions
  * @private
  */
 async function checkSessionOverlap(
@@ -513,7 +494,6 @@ async function checkSessionOverlap(
         if (excludeSessionId && session.id === excludeSessionId) continue;
         if (session.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, session.startTime, session.endTime)) {
             return true;
         }
@@ -523,28 +503,26 @@ async function checkSessionOverlap(
 }
 
 // ============================================================================
-// AUTO-GENERATION OF SESSIONS FROM TEMPLATES
+// AUTO-GENERIERUNG VON SESSIONS AUS VORLAGEN
 // ============================================================================
 
 /**
- * Generate training sessions from recurring templates
- * @param {string} clubId
+ * Generiert Sessions aus wiederkehrenden Vorlagen
+ * @param {string} clubId - Vereins-ID
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<number>} Number of sessions created
+ * @returns {Promise<number>} Anzahl erstellter Sessions
  */
 export async function generateSessionsFromTemplates(clubId, startDate, endDate) {
     const templates = await getRecurringTemplates(clubId);
     let createdCount = 0;
 
-    // Get all dates in range
     const dates = getDatesInRange(startDate, endDate);
 
     for (const date of dates) {
         const dateObj = new Date(date + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
 
-        // Find templates for this day of week
         const templatesForDay = templates.filter(t => {
             if (t.dayOfWeek !== dayOfWeek) return false;
             if (t.startDate && date < t.startDate) return false;
@@ -552,9 +530,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
             return true;
         });
 
-        // Create sessions from templates
         for (const template of templatesForDay) {
-            // Check if session already exists
             const existingSession = await checkExistingSession(
                 clubId,
                 date,
@@ -580,7 +556,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
 }
 
 /**
- * Check if a session already exists
+ * Prüft ob eine Session bereits existiert
  * @private
  */
 async function checkExistingSession(clubId, date, startTime, subgroupId) {
@@ -598,11 +574,11 @@ async function checkExistingSession(clubId, date, startTime, subgroupId) {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
+// HILFSFUNKTIONEN
 // ============================================================================
 
 /**
- * Map Supabase session to JS object with camelCase
+ * Konvertiert Supabase-Session zu camelCase-Objekt
  */
 function mapSessionToJS(s) {
     return {
@@ -623,31 +599,31 @@ function mapSessionToJS(s) {
 }
 
 /**
- * Check if time format is valid (HH:MM)
+ * Prüft Zeitformat (HH:MM)
  */
 function isValidTimeFormat(time) {
     return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 }
 
 /**
- * Check if date format is valid (YYYY-MM-DD)
+ * Prüft Datumsformat (YYYY-MM-DD)
  */
 function isValidDateFormat(date) {
     return /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
 
 /**
- * Check if two time ranges overlap
+ * Prüft ob sich zwei Zeitbereiche überschneiden
  */
 function timeRangesOverlap(start1, end1, start2, end2) {
     return start1 < end2 && end1 > start2;
 }
 
 /**
- * Get all dates in a range
+ * Liefert alle Daten in einem Bereich
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<string>} Array of dates in YYYY-MM-DD format
+ * @returns {Array<string>} Daten im YYYY-MM-DD Format
  */
 function getDatesInRange(startDate, endDate) {
     const dates = [];
@@ -663,7 +639,7 @@ function getDatesInRange(startDate, endDate) {
 }
 
 /**
- * Format date to YYYY-MM-DD
+ * Formatiert Datum zu YYYY-MM-DD
  */
 function formatDateToISO(date) {
     const year = date.getFullYear();
@@ -673,8 +649,8 @@ function formatDateToISO(date) {
 }
 
 /**
- * Get day of week name in German
- * @param {number} dayOfWeek - 0=Sunday, 6=Saturday
+ * Liefert deutschen Wochentagsnamen
+ * @param {number} dayOfWeek - 0=Sonntag, 6=Samstag
  * @returns {string}
  */
 export function getDayOfWeekName(dayOfWeek) {
@@ -683,7 +659,7 @@ export function getDayOfWeekName(dayOfWeek) {
 }
 
 /**
- * Format time range for display
+ * Formatiert Zeitbereich für Anzeige
  * @param {string} startTime - HH:MM
  * @param {string} endTime - HH:MM
  * @returns {string} "16:00-17:00"
@@ -693,10 +669,10 @@ export function formatTimeRange(startTime, endTime) {
 }
 
 /**
- * Subscribe to training session changes (real-time)
- * @param {string} clubId - Club ID
- * @param {Function} callback - Callback to run on changes
- * @returns {Function} Unsubscribe function
+ * Abonniert Echtzeit-Änderungen von Trainingssessions
+ * @param {string} clubId - Vereins-ID
+ * @param {Function} callback - Callback bei Änderungen
+ * @returns {Function} Unsubscribe-Funktion
  */
 export function subscribeToTrainingSessions(clubId, callback) {
     const channel = supabase

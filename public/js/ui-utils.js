@@ -1,23 +1,19 @@
-/**
- * UI Utils Module
- * Common UI utility functions for tabs and countdown timers
- */
+/** UI Utilities - Tab-Navigation und Countdown-Timer */
 
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-// Module-level cache for season end date
+// Cache für Season-Enddatum (verhindert wiederholte Firestore-Abfragen)
 let cachedSeasonEnd = null;
 let lastFetchTime = null;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+const CACHE_DURATION = 60 * 60 * 1000; // 1 Stunde
 
 /**
- * Fetches the season end date from Firestore config
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Date>} The end date of the current season
+ * Lädt das Season-Enddatum aus Firestore
+ * @param {Object} db - Firestore-Instanz
+ * @returns {Promise<Date>} Enddatum der aktuellen Season
  */
 async function fetchSeasonEndDate(db) {
     try {
-        // Check cache first
         if (cachedSeasonEnd && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
             return cachedSeasonEnd;
         }
@@ -31,7 +27,6 @@ async function fetchSeasonEndDate(db) {
             const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
             const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
 
-            // Cache the result
             cachedSeasonEnd = seasonEnd;
             lastFetchTime = Date.now();
 
@@ -41,7 +36,7 @@ async function fetchSeasonEndDate(db) {
             );
             return seasonEnd;
         } else {
-            // Fallback: If no config exists, calculate from today + 6 weeks
+            // Fallback falls keine Config existiert
             console.warn('⚠️ No season reset config found, using fallback calculation');
             const now = new Date();
             const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
@@ -55,7 +50,6 @@ async function fetchSeasonEndDate(db) {
     } catch (error) {
         console.error('Error fetching season end date:', error);
 
-        // Fallback calculation
         const now = new Date();
         const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
         return new Date(now.getTime() + sixWeeksInMs);
@@ -63,19 +57,17 @@ async function fetchSeasonEndDate(db) {
 }
 
 /**
- * Sets up tab navigation for both dashboard and coach views
- * @param {string} defaultTab - The default tab to show (e.g., 'overview', 'dashboard')
+ * Richtet Tab-Navigation ein
+ * @param {string} defaultTab - Standard-Tab (z.B. 'overview', 'dashboard')
  */
 export function setupTabs(defaultTab = 'overview') {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
     const defaultButton = document.querySelector(`.tab-button[data-tab="${defaultTab}"]`);
 
-    // First, hide all tabs and remove all active states
     tabButtons.forEach(btn => btn.classList.remove('tab-active'));
     tabContents.forEach(content => content.classList.add('hidden'));
 
-    // Then show only the default tab
     if (defaultButton) {
         defaultButton.classList.add('tab-active');
         const defaultContent = document.getElementById(`tab-content-${defaultTab}`);
@@ -95,11 +87,10 @@ export function setupTabs(defaultTab = 'overview') {
 }
 
 /**
- * Updates the season countdown timer
- * Shows countdown to the end of the 6-week season cycle
- * @param {string} elementId - The ID of the countdown element (default: 'season-countdown')
- * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false)
- * @param {Object} db - Firestore database instance (required)
+ * Aktualisiert den Season-Countdown
+ * @param {string} elementId - ID des Countdown-Elements
+ * @param {boolean} reloadOnEnd - Seite beim Season-Ende neu laden
+ * @param {Object} db - Firestore-Instanz (erforderlich)
  */
 export async function updateSeasonCountdown(
     elementId = 'season-countdown',
@@ -139,18 +130,16 @@ export async function updateSeasonCountdown(
 }
 
 /**
- * Gets the current season end date
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Date>} The end date of the current season
+ * @param {Object} db - Firestore-Instanz
+ * @returns {Promise<Date>} Season-Enddatum
  */
 export async function getSeasonEndDate(db) {
     return await fetchSeasonEndDate(db);
 }
 
 /**
- * Formats the season end date for display
- * @param {Object} db - Firestore database instance
- * @returns {Promise<string>} Formatted date string (e.g., "15.12.2025")
+ * @param {Object} db - Firestore-Instanz
+ * @returns {Promise<string>} Formatiertes Datum (z.B. "15.12.2025")
  */
 export async function formatSeasonEndDate(db) {
     const endDate = await fetchSeasonEndDate(db);
@@ -162,10 +151,9 @@ export async function formatSeasonEndDate(db) {
 }
 
 /**
- * Gets the current season key (format: "MONTH-YEAR" based on reset date)
- * Used for tracking which season a milestone was completed in
- * @param {Object} db - Firestore database instance
- * @returns {Promise<string>} Season key (e.g., "11-2025")
+ * Gibt den Season-Key zurück (Format: "MONAT-JAHR")
+ * @param {Object} db - Firestore-Instanz
+ * @returns {Promise<string>} Season-Key (z.B. "11-2025")
  */
 export async function getCurrentSeasonKey(db) {
     try {
@@ -176,10 +164,9 @@ export async function getCurrentSeasonKey(db) {
             const data = configDoc.data();
             const lastResetDate = data.lastResetDate.toDate();
 
-            // Season key is based on the month/year when the season started (lastResetDate)
+            // Key basiert auf Startdatum der Season
             return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
         } else {
-            // Fallback: Use current month/year
             const now = new Date();
             return `${now.getMonth() + 1}-${now.getFullYear()}`;
         }
@@ -191,16 +178,14 @@ export async function getCurrentSeasonKey(db) {
 }
 
 // ============================================
-// DATE FORMATTING UTILITIES
+// DATUMSFORMATIERUNG
 // ============================================
 
 /**
- * Formats a Firestore timestamp or Date to German date format
- * @param {Object|Date} timestamp - Firestore timestamp or Date object
- * @param {Object} options - Formatting options
- * @param {boolean} options.includeTime - Include time in output (default: false)
- * @param {boolean} options.shortFormat - Use short format like "15.12." (default: false)
- * @returns {string} Formatted date string
+ * Formatiert Datum im deutschen Format
+ * @param {Object|Date} timestamp - Firestore-Timestamp oder Date-Objekt
+ * @param {Object} options - Optionen: includeTime, shortFormat
+ * @returns {string} Formatiertes Datum
  */
 export function formatDate(timestamp, options = {}) {
     const { includeTime = false, shortFormat = false } = options;
@@ -235,9 +220,9 @@ export function formatDate(timestamp, options = {}) {
 }
 
 /**
- * Formats a timestamp to relative time (e.g., "vor 5 Minuten")
- * @param {Object|Date} timestamp - Firestore timestamp or Date object
- * @returns {string} Relative time string
+ * Formatiert Zeitpunkt relativ (z.B. "vor 5 Minuten")
+ * @param {Object|Date} timestamp - Firestore-Timestamp oder Date-Objekt
+ * @returns {string} Relative Zeitangabe
  */
 export function formatRelativeTime(timestamp) {
     if (!timestamp) return '—';
@@ -264,14 +249,14 @@ export function formatRelativeTime(timestamp) {
 }
 
 // ============================================
-// NUMBER FORMATTING UTILITIES
+// ZAHLENFORMATIERUNG
 // ============================================
 
 /**
- * Formats points with sign prefix
- * @param {number} points - Points value
- * @param {boolean} alwaysShowSign - Always show + or - (default: true)
- * @returns {string} Formatted points string (e.g., "+15", "-5")
+ * Formatiert Punkte mit Vorzeichen
+ * @param {number} points - Punktwert
+ * @param {boolean} alwaysShowSign - Immer Vorzeichen anzeigen
+ * @returns {string} Formatierte Punkte (z.B. "+15", "-5")
  */
 export function formatPoints(points, alwaysShowSign = true) {
     if (points === null || points === undefined) return '0';
@@ -285,10 +270,10 @@ export function formatPoints(points, alwaysShowSign = true) {
 }
 
 /**
- * Formats XP with optional suffix
- * @param {number} xp - XP value
- * @param {boolean} showSuffix - Show "XP" suffix (default: true)
- * @returns {string} Formatted XP string (e.g., "1.250 XP")
+ * Formatiert XP mit optionalem Suffix
+ * @param {number} xp - XP-Wert
+ * @param {boolean} showSuffix - "XP"-Suffix anzeigen
+ * @returns {string} Formatierte XP (z.B. "1.250 XP")
  */
 export function formatXP(xp, showSuffix = true) {
     if (xp === null || xp === undefined) return showSuffix ? '0 XP' : '0';
@@ -300,9 +285,8 @@ export function formatXP(xp, showSuffix = true) {
 }
 
 /**
- * Formats Elo rating
- * @param {number} elo - Elo value
- * @returns {string} Formatted Elo string
+ * @param {number} elo - Elo-Wert
+ * @returns {string} Formatierte Elo
  */
 export function formatElo(elo) {
     if (elo === null || elo === undefined) return '800';
@@ -312,10 +296,10 @@ export function formatElo(elo) {
 }
 
 /**
- * Formats percentage
- * @param {number} value - Value (0-100 or 0-1)
- * @param {boolean} isDecimal - If true, value is 0-1 and will be multiplied by 100
- * @returns {string} Formatted percentage (e.g., "75%")
+ * Formatiert Prozent
+ * @param {number} value - Wert (0-100 oder 0-1)
+ * @param {boolean} isDecimal - true wenn Wert 0-1 ist
+ * @returns {string} Formatierter Prozentsatz (z.B. "75%")
  */
 export function formatPercent(value, isDecimal = false) {
     if (value === null || value === undefined) return '0%';
@@ -330,10 +314,10 @@ export function formatPercent(value, isDecimal = false) {
 // ============================================
 
 /**
- * Calculates wins from a sets array
- * @param {Array} sets - Array of set objects with score properties
- * @param {string} playerKey - Key for player score ('playerA', 'teamA', etc.)
- * @param {string} opponentKey - Key for opponent score ('playerB', 'teamB', etc.)
+ * Berechnet Satzgewinne aus einem Sets-Array
+ * @param {Array} sets - Array von Set-Objekten mit Punkteständen
+ * @param {string} playerKey - Key für Spieler-Score ('playerA', 'teamA', etc.)
+ * @param {string} opponentKey - Key für Gegner-Score ('playerB', 'teamB', etc.)
  * @returns {Object} { playerWins, opponentWins }
  */
 export function calculateSetWins(sets, playerKey = 'playerA', opponentKey = 'playerB') {
@@ -348,7 +332,7 @@ export function calculateSetWins(sets, playerKey = 'playerA', opponentKey = 'pla
         const playerScore = set[playerKey] || 0;
         const opponentScore = set[opponentKey] || 0;
 
-        // A set is won if score >= 11 and lead >= 2
+        // Satz ist gewonnen bei >= 11 Punkten und min. 2 Punkte Vorsprung
         if (playerScore >= 11 && playerScore > opponentScore) {
             playerWins++;
         } else if (opponentScore >= 11 && opponentScore > playerScore) {
@@ -360,20 +344,18 @@ export function calculateSetWins(sets, playerKey = 'playerA', opponentKey = 'pla
 }
 
 /**
- * Formats a match result string
- * @param {number} winsA - Wins for player/team A
- * @param {number} winsB - Wins for player/team B
- * @returns {string} Formatted result (e.g., "3:1")
+ * @param {number} winsA - Satzgewinne Spieler/Team A
+ * @param {number} winsB - Satzgewinne Spieler/Team B
+ * @returns {string} Formatiertes Ergebnis (z.B. "3:1")
  */
 export function formatMatchResult(winsA, winsB) {
     return `${winsA}:${winsB}`;
 }
 
 /**
- * Determines match outcome for a player
- * @param {number} playerWins - Player's set wins
- * @param {number} opponentWins - Opponent's set wins
- * @returns {string} 'win', 'loss', or 'draw'
+ * @param {number} playerWins - Satzgewinne des Spielers
+ * @param {number} opponentWins - Satzgewinne des Gegners
+ * @returns {string} 'win', 'loss' oder 'draw'
  */
 export function getMatchOutcome(playerWins, opponentWins) {
     if (playerWins > opponentWins) return 'win';
@@ -385,21 +367,19 @@ export function getMatchOutcome(playerWins, opponentWins) {
 // LISTENER MANAGER
 // ============================================
 
-/**
- * Manages Firestore listeners to prevent memory leaks
- */
+/** Verwaltet Firestore-Listener (verhindert Memory Leaks) */
 class ListenerManager {
     constructor() {
         this.listeners = new Map();
     }
 
     /**
-     * Adds a listener with a key
-     * @param {string} key - Unique identifier for the listener
-     * @param {Function} unsubscribe - The unsubscribe function returned by onSnapshot
+     * Fügt einen Listener hinzu
+     * @param {string} key - Eindeutiger Identifier
+     * @param {Function} unsubscribe - unsubscribe-Funktion von onSnapshot
      */
     add(key, unsubscribe) {
-        // Cleanup existing listener with same key
+        // Verhindert doppelte Listener mit gleichem Key
         if (this.listeners.has(key)) {
             this.remove(key);
         }
@@ -407,8 +387,7 @@ class ListenerManager {
     }
 
     /**
-     * Removes and unsubscribes a listener
-     * @param {string} key - The listener key to remove
+     * @param {string} key - Listener-Key zum Entfernen
      */
     remove(key) {
         const unsubscribe = this.listeners.get(key);
@@ -422,9 +401,7 @@ class ListenerManager {
         this.listeners.delete(key);
     }
 
-    /**
-     * Removes all listeners
-     */
+    /** Entfernt alle Listener */
     clear() {
         this.listeners.forEach((unsubscribe, key) => {
             try {
@@ -438,19 +415,15 @@ class ListenerManager {
         this.listeners.clear();
     }
 
-    /**
-     * Gets the count of active listeners
-     * @returns {number}
-     */
+    /** @returns {number} Anzahl aktiver Listener */
     get size() {
         return this.listeners.size;
     }
 }
 
-// Singleton instance
 export const listenerManager = new ListenerManager();
 
-// Cleanup on page unload
+// Cleanup bei Seitenverlassen
 if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', () => {
         listenerManager.clear();
@@ -458,17 +431,14 @@ if (typeof window !== 'undefined') {
 }
 
 // ============================================
-// ERROR HANDLING UTILITIES
+// FEHLERBEHANDLUNG
 // ============================================
 
 /**
- * Wraps an async function with error handling
- * @param {Function} fn - Async function to wrap
- * @param {Object} options - Options
- * @param {string} options.context - Context for error messages
- * @param {Function} options.onError - Custom error handler
- * @param {*} options.fallback - Fallback value on error
- * @returns {Function} Wrapped function
+ * Umschließt async-Funktion mit Fehlerbehandlung
+ * @param {Function} fn - Async-Funktion zum Wrappen
+ * @param {Object} options - Optionen: context, onError, fallback
+ * @returns {Function} Gewrappte Funktion
  */
 export function withErrorHandling(fn, options = {}) {
     const { context = 'Operation', onError, fallback = null } = options;
@@ -489,10 +459,10 @@ export function withErrorHandling(fn, options = {}) {
 }
 
 /**
- * Shows a user-friendly error message
- * @param {string} message - Error message to display
- * @param {string} elementId - ID of element to show error in (optional)
- * @param {number} duration - How long to show the message in ms (default: 5000)
+ * Zeigt Fehlermeldung an
+ * @param {string} message - Fehlermeldung
+ * @param {string} elementId - ID des Elements (optional)
+ * @param {number} duration - Anzeigedauer in ms
  */
 export function showError(message, elementId = null, duration = 5000) {
     if (elementId) {
@@ -509,15 +479,15 @@ export function showError(message, elementId = null, duration = 5000) {
         }
     }
 
-    // Fallback: Show toast or console
+    // Fallback falls kein Element angegeben
     console.error(message);
 }
 
 /**
- * Shows a success message
- * @param {string} message - Success message to display
- * @param {string} elementId - ID of element to show message in
- * @param {number} duration - How long to show the message in ms (default: 3000)
+ * Zeigt Erfolgsmeldung an
+ * @param {string} message - Erfolgsmeldung
+ * @param {string} elementId - ID des Elements
+ * @param {number} duration - Anzeigedauer in ms
  */
 export function showSuccess(message, elementId, duration = 3000) {
     const el = document.getElementById(elementId);
@@ -533,16 +503,15 @@ export function showSuccess(message, elementId, duration = 3000) {
 }
 
 // ============================================
-// LAZY LOADING UTILITIES
+// LAZY LOADING
 // ============================================
 
-// Cache for loaded modules
 const moduleCache = new Map();
 
 /**
- * Lazy loads a module and caches it
- * @param {string} modulePath - Path to the module
- * @returns {Promise<Object>} The loaded module
+ * Lädt Modul lazy und cached es
+ * @param {string} modulePath - Pfad zum Modul
+ * @returns {Promise<Object>} Geladenes Modul
  */
 export async function lazyLoad(modulePath) {
     if (moduleCache.has(modulePath)) {
@@ -560,30 +529,29 @@ export async function lazyLoad(modulePath) {
 }
 
 /**
- * Preloads modules in the background
- * @param {Array<string>} modulePaths - Array of module paths to preload
+ * Lädt Module im Hintergrund vor
+ * @param {Array<string>} modulePaths - Array von Modul-Pfaden
  */
 export function preloadModules(modulePaths) {
     modulePaths.forEach(path => {
-        // Use requestIdleCallback if available, otherwise setTimeout
+        // requestIdleCallback nutzen falls verfügbar (bessere Performance)
         const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 100));
         schedulePreload(() => {
             lazyLoad(path).catch(() => {
-                // Silently ignore preload errors
+                // Preload-Fehler stillschweigend ignorieren
             });
         });
     });
 }
 
 // ============================================
-// DEBOUNCE / THROTTLE UTILITIES
+// DEBOUNCE / THROTTLE
 // ============================================
 
 /**
- * Debounces a function
- * @param {Function} fn - Function to debounce
- * @param {number} delay - Delay in milliseconds
- * @returns {Function} Debounced function
+ * @param {Function} fn - Funktion zum Debouncing
+ * @param {number} delay - Verzögerung in Millisekunden
+ * @returns {Function} Gedebouncte Funktion
  */
 export function debounce(fn, delay = 300) {
     let timeoutId;
@@ -594,10 +562,9 @@ export function debounce(fn, delay = 300) {
 }
 
 /**
- * Throttles a function
- * @param {Function} fn - Function to throttle
- * @param {number} limit - Minimum time between calls in milliseconds
- * @returns {Function} Throttled function
+ * @param {Function} fn - Funktion zum Throttling
+ * @param {number} limit - Minimale Zeit zwischen Aufrufen in ms
+ * @returns {Function} Gethrottlete Funktion
  */
 export function throttle(fn, limit = 100) {
     let inThrottle;
@@ -611,13 +578,10 @@ export function throttle(fn, limit = 100) {
 }
 
 // ============================================
-// AGE GROUP UTILITIES
+// ALTERSGRUPPEN
 // ============================================
 
-/**
- * Age group definitions for automatic filtering
- * Youth groups (under X years) and Senior groups (over X years)
- */
+/** Altersgruppen-Definitionen für automatische Filterung */
 export const AGE_GROUPS = {
     youth: [
         { id: 'u11', label: 'U11', maxAge: 10 },
@@ -643,9 +607,6 @@ export const AGE_GROUPS = {
     ],
 };
 
-/**
- * Gender filter definitions
- */
 export const GENDER_GROUPS = [
     { id: 'gender_all', label: 'Alle', value: null },
     { id: 'male', label: 'Männlich', value: 'male' },
@@ -653,16 +614,15 @@ export const GENDER_GROUPS = [
 ];
 
 /**
- * Calculates age from birthdate
- * @param {Object|Date|string} birthdate - Firestore timestamp, Date object, or date string
- * @returns {number|null} Age in years, or null if birthdate is invalid
+ * Berechnet Alter aus Geburtsdatum
+ * @param {Object|Date|string} birthdate - Firestore-Timestamp, Date oder String
+ * @returns {number|null} Alter in Jahren
  */
 export function calculateAge(birthdate) {
     if (!birthdate) return null;
 
     let date;
     if (birthdate.toDate) {
-        // Firestore Timestamp
         date = birthdate.toDate();
     } else if (birthdate instanceof Date) {
         date = birthdate;
@@ -676,7 +636,7 @@ export function calculateAge(birthdate) {
     let age = today.getFullYear() - date.getFullYear();
     const monthDiff = today.getMonth() - date.getMonth();
 
-    // Adjust if birthday hasn't occurred yet this year
+    // Anpassung falls Geburtstag in diesem Jahr noch nicht war
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
         age--;
     }
@@ -685,27 +645,24 @@ export function calculateAge(birthdate) {
 }
 
 /**
- * Checks if a player belongs to a specific age group
- * @param {number} age - Player's age
- * @param {string} ageGroupId - Age group ID (e.g., 'u15', 'o40')
- * @returns {boolean} True if player belongs to the age group
+ * Prüft ob Spieler zu Altersgruppe gehört
+ * @param {number} age - Alter des Spielers
+ * @param {string} ageGroupId - Altersgruppen-ID (z.B. 'u15', 'o40')
+ * @returns {boolean}
  */
 export function isInAgeGroup(age, ageGroupId) {
     if (age === null || age === undefined) return false;
 
-    // Check youth groups
     const youthGroup = AGE_GROUPS.youth.find(g => g.id === ageGroupId);
     if (youthGroup) {
         return age <= youthGroup.maxAge;
     }
 
-    // Check adults group (has both minAge and maxAge)
     const adultGroup = AGE_GROUPS.adults.find(g => g.id === ageGroupId);
     if (adultGroup) {
         return age >= adultGroup.minAge && age <= adultGroup.maxAge;
     }
 
-    // Check senior groups
     const seniorGroup = AGE_GROUPS.seniors.find(g => g.id === ageGroupId);
     if (seniorGroup) {
         return age >= seniorGroup.minAge;
@@ -715,10 +672,10 @@ export function isInAgeGroup(age, ageGroupId) {
 }
 
 /**
- * Filters players by age group
- * @param {Array} players - Array of player objects with birthdate field
- * @param {string} ageGroupId - Age group ID (e.g., 'u15', 'o40')
- * @returns {Array} Filtered players
+ * Filtert Spieler nach Altersgruppe
+ * @param {Array} players - Array von Spieler-Objekten
+ * @param {string} ageGroupId - Altersgruppen-ID
+ * @returns {Array} Gefilterte Spieler
  */
 export function filterPlayersByAgeGroup(players, ageGroupId) {
     return players.filter(player => {
@@ -728,9 +685,8 @@ export function filterPlayersByAgeGroup(players, ageGroupId) {
 }
 
 /**
- * Checks if a filter value is an age group
- * @param {string} filterValue - Filter value to check
- * @returns {boolean} True if it's an age group filter
+ * @param {string} filterValue - Filterwert zum Prüfen
+ * @returns {boolean} true wenn Altersgruppen-Filter
  */
 export function isAgeGroupFilter(filterValue) {
     if (!filterValue) return false;
@@ -742,9 +698,8 @@ export function isAgeGroupFilter(filterValue) {
 }
 
 /**
- * Checks if a filter value is a gender filter
- * @param {string} filterValue - Filter value to check
- * @returns {boolean} True if it's a gender filter
+ * @param {string} filterValue - Filterwert zum Prüfen
+ * @returns {boolean} true wenn Geschlechts-Filter
  */
 export function isGenderFilter(filterValue) {
     if (!filterValue) return false;
@@ -752,13 +707,13 @@ export function isGenderFilter(filterValue) {
 }
 
 /**
- * Filters players by gender
- * @param {Array} players - Array of player objects with gender field
- * @param {string} genderId - Gender ID ('gender_all', 'male', 'female')
- * @returns {Array} Filtered players
+ * Filtert Spieler nach Geschlecht
+ * @param {Array} players - Array von Spieler-Objekten
+ * @param {string} genderId - Geschlechts-ID ('gender_all', 'male', 'female')
+ * @returns {Array} Gefilterte Spieler
  */
 export function filterPlayersByGender(players, genderId) {
-    // 'gender_all' returns all players (no filtering)
+    // 'gender_all' gibt alle Spieler zurück
     if (genderId === 'gender_all') return players;
 
     const genderGroup = GENDER_GROUPS.find(g => g.id === genderId);

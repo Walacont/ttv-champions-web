@@ -1,5 +1,4 @@
-// Settings Page - Supabase Version
-// 1:1 Migration von settings.js - Firebase → Supabase
+// Einstellungsseite - Supabase Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
@@ -23,7 +22,6 @@ const newEmailInput = document.getElementById('new-email');
 const currentPasswordInput = document.getElementById('current-password');
 const emailFeedback = document.getElementById('email-feedback');
 
-// Privacy Settings Elements
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
 const searchableFriendsOnly = document.getElementById('searchable-friends-only');
@@ -37,14 +35,12 @@ let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
 
-// Check auth state on load
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -52,7 +48,7 @@ async function initializeAuth() {
             .single();
 
         if (!error && profile) {
-            // Map Supabase profile to expected format (single sport model)
+            // Mapping zu einheitlichem Format für Single-Sport-Modell
             currentUserData = {
                 id: currentUser.id,
                 email: profile.email || currentUser.email,
@@ -89,19 +85,13 @@ async function initializeAuth() {
                     .eq('id', currentUser.id);
             }
 
-            // Tutorial-Status anzeigen
             updateTutorialStatus(currentUserData);
-
-            // Privacy-Einstellungen laden
             loadPrivacySettings(currentUserData);
-
-            // Vereinsverwaltung initialisieren
             initializeClubManagement();
         }
 
-        // Email-Adresse anzeigen und Verifizierungs-Status
         currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
-        // Supabase handles email verification differently
+        // Supabase verwendet ein anderes Verifizierungssystem als Firebase
         updateEmailVerificationStatus(currentUser.email_confirmed_at != null);
 
         pageLoader.style.display = 'none';
@@ -111,29 +101,25 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+// Bei SPA-Navigation ist das Dokument bereits geladen
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
-    // Document is already loaded (SPA navigation), initialize immediately
     initializeAuth();
 }
 
-// Listen for auth state changes
 onAuthStateChange((event, session) => {
-    // Only redirect on explicit sign out, not on initial load or token refresh
-    // SIGNED_OUT is the only reliable indicator that user intentionally signed out
+    // Nur bei explizitem Sign-Out umleiten, nicht bei Token-Refresh
+    // SIGNED_OUT ist der einzige zuverlässige Indikator für bewusstes Ausloggen
     if (event === 'SIGNED_OUT') {
         console.log('[Settings] User signed out, redirecting to login');
         window.location.href = '/index.html';
     }
-    // TOKEN_REFRESHED means session is still valid
     if (event === 'TOKEN_REFRESHED' && session) {
         console.log('[Settings] Token refreshed, session still valid');
     }
 });
 
-// Setup logout button
 const logoutButton = document.getElementById('logout-button');
 if (logoutButton) {
     logoutButton.addEventListener('click', async () => {
@@ -141,17 +127,17 @@ if (logoutButton) {
             logoutButton.disabled = true;
             logoutButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Abmelden...';
 
-            // Clear SPA cache to prevent back-button access to authenticated pages
+            // Cache leeren um Zurück-Navigation zu authentifizierten Seiten zu verhindern
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
             }
 
             await supabase.auth.signOut();
-            // Use replace() to clear history and prevent back navigation
+            // replace() löscht History und verhindert Zurück-Navigation
             window.location.replace('/index.html');
         } catch (error) {
             console.error('Logout error:', error);
-            // If session is already missing, just redirect to login
+            // Bei fehlender Session trotzdem umleiten
             if (error.message?.includes('Auth session missing') || error.message?.includes('session_not_found')) {
                 window.location.replace('/index.html');
                 return;
@@ -162,7 +148,6 @@ if (logoutButton) {
     });
 }
 
-// Zeigt den Email-Verifizierungs-Status an
 function updateEmailVerificationStatus(isVerified) {
     if (isVerified) {
         emailVerificationStatus.innerHTML = `
@@ -184,14 +169,12 @@ function updateEmailVerificationStatus(isVerified) {
             </div>
         `;
 
-        // Event Listener für Verifizierungs-Email
         document
             .getElementById('send-verification-btn')
             ?.addEventListener('click', sendVerificationEmail);
     }
 }
 
-// Sendet eine Email-Verifikation
 async function sendVerificationEmail() {
     try {
         const { error } = await supabase.auth.resend({
@@ -238,7 +221,6 @@ uploadPhotoForm.addEventListener('submit', async e => {
     uploadFeedback.className = 'mt-2 text-sm';
 
     try {
-        // Upload to Supabase Storage
         const fileExt = selectedFile.name.split('.').pop();
         const fileName = `${currentUser.id}/profile.${fileExt}`;
 
@@ -248,14 +230,12 @@ uploadPhotoForm.addEventListener('submit', async e => {
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: urlData } = supabase.storage
             .from('profile-pictures')
             .getPublicUrl(fileName);
 
         const photoURL = urlData.publicUrl;
 
-        // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ avatar_url: photoURL })
@@ -303,7 +283,6 @@ updateNameForm.addEventListener('submit', async e => {
     }
 });
 
-// Email-Änderung mit Re-Authentication
 updateEmailForm.addEventListener('submit', async e => {
     e.preventDefault();
     const newEmail = newEmailInput.value.trim();
@@ -312,7 +291,6 @@ updateEmailForm.addEventListener('submit', async e => {
     emailFeedback.textContent = '';
     emailFeedback.className = 'text-sm';
 
-    // Validierung
     if (newEmail === currentUser.email) {
         emailFeedback.textContent = 'Die neue Email-Adresse ist identisch mit der aktuellen.';
         emailFeedback.className = 'text-sm text-amber-600';
@@ -320,7 +298,7 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 
     try {
-        // Schritt 1: Re-Authentication (verify current password)
+        // Schritt 1: Re-Authentication
         const { error: signInError } = await supabase.auth.signInWithPassword({
             email: currentUser.email,
             password: password
@@ -328,14 +306,13 @@ updateEmailForm.addEventListener('submit', async e => {
 
         if (signInError) throw signInError;
 
-        // Schritt 2: Update email (Supabase sends verification automatically)
+        // Schritt 2: Email-Update (Supabase sendet automatisch Verifizierung)
         const { error: updateError } = await supabase.auth.updateUser({
             email: newEmail
         });
 
         if (updateError) throw updateError;
 
-        // Erfolg!
         emailFeedback.innerHTML = `
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div class="flex items-start">
@@ -356,7 +333,6 @@ updateEmailForm.addEventListener('submit', async e => {
             </div>
         `;
 
-        // Formular zurücksetzen
         newEmailInput.value = '';
         currentPasswordInput.value = '';
     } catch (error) {
@@ -364,7 +340,6 @@ updateEmailForm.addEventListener('submit', async e => {
 
         let errorMessage = 'Ein unbekannter Fehler ist aufgetreten.';
 
-        // Spezifische Fehlermeldungen
         if (error.message?.includes('Invalid login credentials')) {
             errorMessage = 'Das eingegebene Passwort ist falsch.';
         } else if (error.message?.includes('already registered')) {
@@ -389,11 +364,8 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== TUTORIAL FUNCTIONS =====
+// ===== TUTORIAL FUNKTIONEN =====
 
-/**
- * Tutorial-Status anzeigen
- */
 function updateTutorialStatus(userData) {
     const role = userData?.role;
     const tutorialSection = document.getElementById('tutorial-section');
@@ -401,7 +373,6 @@ function updateTutorialStatus(userData) {
 
     tutorialSection.style.display = 'block';
 
-    // Coach Tutorial Status
     const coachTutorialCompleted = userData?.tutorialCompleted?.coach || false;
     const coachBadge = document.getElementById('tutorial-badge-coach');
     const coachButton = document.getElementById('start-coach-tutorial-btn');
@@ -429,7 +400,6 @@ function updateTutorialStatus(userData) {
         }
     }
 
-    // Player Tutorial Status
     const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
     const playerBadge = document.getElementById('tutorial-badge-player');
     const playerButton = document.getElementById('start-player-tutorial-btn');
@@ -458,35 +428,23 @@ function updateTutorialStatus(userData) {
     }
 }
 
-/**
- * Coach-Tutorial starten
- */
 document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', () => {
-    // Zur Coach-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('coach.html')) {
-        // Bereits auf der Coach-Seite
         if (typeof window.startCoachTutorial === 'function') {
             window.startCoachTutorial();
         }
     } else {
-        // Zur Coach-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'coach');
         window.location.href = '/coach.html';
     }
 });
 
-/**
- * Player-Tutorial starten
- */
 document.getElementById('start-player-tutorial-btn')?.addEventListener('click', () => {
-    // Zur Dashboard-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('dashboard.html')) {
-        // Bereits auf der Dashboard-Seite
         if (typeof window.startPlayerTutorial === 'function') {
             window.startPlayerTutorial();
         }
     } else {
-        // Zur Dashboard-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'player');
         window.location.href = '/dashboard.html';
     }
@@ -494,13 +452,11 @@ document.getElementById('start-player-tutorial-btn')?.addEventListener('click', 
 
 /**
  * ===============================================
- * GDPR DATA EXPORT & ACCOUNT DELETION
+ * GDPR DATENEXPORT & ACCOUNT-LÖSCHUNG
  * ===============================================
  */
 
-/**
- * Export all user data as JSON file (GDPR Art. 20)
- */
+/** Exportiert alle Benutzerdaten als JSON (GDPR Art. 20) */
 document.getElementById('export-data-btn')?.addEventListener('click', async () => {
     const exportBtn = document.getElementById('export-data-btn');
     const feedbackEl = document.getElementById('export-feedback');
@@ -516,7 +472,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
         feedbackEl.textContent = '';
 
-        // Get user data from profiles
         const { data: userData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -525,7 +480,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
 
         if (profileError) throw profileError;
 
-        // Get all matches (singles)
         const { data: matches, error: matchesError } = await supabase
             .from('matches')
             .select('*')
@@ -533,7 +487,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
 
         if (matchesError) console.error('Error fetching matches:', matchesError);
 
-        // Get all doubles matches
         let doublesMatches = [];
         if (userData?.club_id) {
             const { data: doublesData, error: doublesError } = await supabase
@@ -545,7 +498,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             if (!doublesError) doublesMatches = doublesData || [];
         }
 
-        // Get attendance records
         let attendance = [];
         if (userData?.role === 'player') {
             const { data: attendanceData, error: attendanceError } = await supabase
@@ -563,7 +515,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             if (!attendanceError) attendance = attendanceData || [];
         }
 
-        // Compile all data
         const exportData = {
             exportDate: new Date().toISOString(),
             profile: {
@@ -592,7 +543,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             attendance: attendance,
         };
 
-        // Create and download JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
@@ -615,16 +565,13 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/**
- * Delete account with anonymization
- */
+/** Löscht den Account mit Anonymisierung */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
         return;
     }
 
-    // Show confirmation dialog
     const confirmed = confirm(
         '⚠️ WARNUNG: Account-Löschung\n\n' +
         'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
@@ -640,7 +587,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     if (!confirmed) return;
 
-    // Second confirmation
     const doubleConfirm = prompt(
         'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
     );
@@ -656,7 +602,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
         deleteBtn.disabled = true;
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
 
-        // Call Supabase RPC function to anonymize account
         const { data, error } = await supabase.rpc('anonymize_account', {
             p_user_id: currentUser.id
         });
@@ -668,7 +613,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
             'Du wirst jetzt abgemeldet.'
         );
 
-        // Sign out user
         await supabase.auth.signOut();
         window.location.href = '/index.html';
     } catch (error) {
@@ -681,17 +625,13 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
 /**
  * ===============================================
- * PRIVACY SETTINGS
+ * PRIVACY EINSTELLUNGEN
  * ===============================================
  */
 
-/**
- * Load privacy settings from user data
- */
 function loadPrivacySettings(userData) {
     if (!userData) return;
 
-    // Load searchable setting (default: 'global')
     const searchable = userData.privacySettings?.searchable || 'global';
     if (searchable === 'global') {
         searchableGlobal.checked = true;
@@ -702,27 +642,22 @@ function loadPrivacySettings(userData) {
     } else if (searchable === 'none') {
         searchableNone.checked = true;
     } else {
-        // Fallback for old boolean values
+        // Fallback für alte Boolean-Werte
         searchableGlobal.checked = true;
     }
 
-    // Load showInLeaderboards setting (default: true)
     const showInLeaderboardsSetting = userData.privacySettings?.showInLeaderboards !== false;
     showInLeaderboards.checked = showInLeaderboardsSetting;
 
-    // Show warning if user has no club and selects club_only
+    // Warnung anzeigen wenn Nutzer keinen Verein hat aber "club_only" wählt
     updateNoClubWarning(userData.clubId);
 
-    // Add listeners to radio buttons to show/hide warning
     searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableFriendsOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableNone.addEventListener('change', () => updateNoClubWarning(userData.clubId));
 }
 
-/**
- * Show/hide warning if user has no club
- */
 function updateNoClubWarning(clubId) {
     if (!clubId && searchableClubOnly.checked) {
         noClubWarning.classList.remove('hidden');
@@ -731,9 +666,6 @@ function updateNoClubWarning(clubId) {
     }
 }
 
-/**
- * Save privacy settings
- */
 savePrivacySettingsBtn?.addEventListener('click', async () => {
     if (!currentUser || !currentUserData) {
         privacyFeedback.textContent = 'Fehler: Nicht angemeldet';
@@ -746,8 +678,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
         privacyFeedback.textContent = '';
 
-        // Get selected values
-        let searchable = 'global'; // default
+        let searchable = 'global';
         if (searchableGlobal.checked) {
             searchable = 'global';
         } else if (searchableClubOnly.checked) {
@@ -759,7 +690,6 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         }
         const showInLeaderboardsValue = showInLeaderboards.checked;
 
-        // Update Supabase profiles table
         const newPrivacySettings = {
             ...currentUserData.privacySettings,
             searchable: searchable,
@@ -777,7 +707,6 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
 
         console.log('[Privacy Settings] Saved successfully!');
 
-        // Update local data
         currentUserData.privacySettings = newPrivacySettings;
 
         privacyFeedback.textContent = '✓ Einstellungen erfolgreich gespeichert';
@@ -797,11 +726,10 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
 
 /**
  * ===============================================
- * CLUB MANAGEMENT
+ * VEREINSVERWALTUNG
  * ===============================================
  */
 
-// Get DOM elements
 const currentClubStatus = document.getElementById('current-club-status');
 const pendingRequestStatus = document.getElementById('pending-request-status');
 const clubSearchSection = document.getElementById('club-search-section');
@@ -815,27 +743,15 @@ const clubManagementFeedback = document.getElementById('club-management-feedback
 let clubRequestsSubscription = null;
 let leaveRequestsSubscription = null;
 
-/**
- * Initialize club management UI
- */
 async function initializeClubManagement() {
     if (!currentUser || !currentUserData) return;
 
-    // Listen for club requests
     listenToClubRequests();
-
-    // Listen for leave requests
     listenToLeaveRequests();
-
-    // Update UI based on current state
     await updateClubManagementUI();
 }
 
-/**
- * Show rejection notification and delete the rejected request
- */
 async function showRejectionNotification(type, requestData) {
-    // Load club name
     let clubName = requestData.club_id;
     try {
         const { data: clubData } = await supabase
@@ -854,7 +770,6 @@ async function showRejectionNotification(type, requestData) {
     const messageType = type === 'join' ? 'Beitrittsanfrage' : 'Austrittsanfrage';
     const message = `Deine ${messageType} an "${clubName}" wurde leider abgelehnt.`;
 
-    // Show notification in the feedback area
     clubManagementFeedback.innerHTML = `
         <div class="bg-red-50 border border-red-300 p-3 rounded-lg">
             <div class="flex items-start justify-between">
@@ -878,7 +793,7 @@ async function showRejectionNotification(type, requestData) {
         </div>
     `;
 
-    // Delete the rejected request after showing notification
+    // Abgelehnte Anfrage nach Benachrichtigung löschen
     try {
         const tableName = type === 'join' ? 'club_requests' : 'leave_club_requests';
         await supabase.from(tableName).delete().eq('id', requestData.id);
@@ -887,9 +802,6 @@ async function showRejectionNotification(type, requestData) {
     }
 }
 
-/**
- * Listen to club join requests in real-time
- */
 function listenToClubRequests() {
     if (clubRequestsSubscription) {
         clubRequestsSubscription.unsubscribe();
@@ -903,7 +815,6 @@ function listenToClubRequests() {
             table: 'club_requests',
             filter: `player_id=eq.${currentUser.id}`
         }, async (payload) => {
-            // Check for rejected requests
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('join', payload.new);
             }
@@ -912,9 +823,6 @@ function listenToClubRequests() {
         .subscribe();
 }
 
-/**
- * Listen to club leave requests in real-time
- */
 function listenToLeaveRequests() {
     if (leaveRequestsSubscription) {
         leaveRequestsSubscription.unsubscribe();
@@ -928,7 +836,6 @@ function listenToLeaveRequests() {
             table: 'leave_club_requests',
             filter: `player_id=eq.${currentUser.id}`
         }, async (payload) => {
-            // Check for rejected requests
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('leave', payload.new);
             }
@@ -937,13 +844,9 @@ function listenToLeaveRequests() {
         .subscribe();
 }
 
-/**
- * Update club management UI based on user state
- */
 async function updateClubManagementUI() {
     if (!currentUser || !currentUserData) return;
 
-    // Refresh user data
     const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -954,7 +857,6 @@ async function updateClubManagementUI() {
         currentUserData.clubId = profile.club_id || null;
     }
 
-    // Check for pending join request
     const { data: joinRequests } = await supabase
         .from('club_requests')
         .select('*')
@@ -963,7 +865,6 @@ async function updateClubManagementUI() {
 
     const hasPendingJoinRequest = joinRequests && joinRequests.length > 0;
 
-    // Check for pending leave request
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
         .select('*')
@@ -972,9 +873,7 @@ async function updateClubManagementUI() {
 
     const hasPendingLeaveRequest = leaveRequests && leaveRequests.length > 0;
 
-    // Update current club status
     if (currentUserData.clubId) {
-        // Load club name
         let clubName = currentUserData.clubId;
         try {
             const { data: clubData } = await supabase
@@ -1009,11 +908,9 @@ async function updateClubManagementUI() {
         `;
     }
 
-    // Update pending request status
     if (hasPendingJoinRequest) {
         const joinRequestData = joinRequests[0];
 
-        // Load club name
         let clubName = joinRequestData.club_id;
         try {
             const { data: clubData } = await supabase
@@ -1052,7 +949,6 @@ async function updateClubManagementUI() {
             </div>
         `;
 
-        // Add event listener to withdraw button
         document.querySelector('.withdraw-join-request-btn').addEventListener('click', async (e) => {
             const requestId = e.target.closest('button').dataset.requestId;
             await withdrawJoinRequest(requestId);
@@ -1060,7 +956,6 @@ async function updateClubManagementUI() {
     } else if (hasPendingLeaveRequest) {
         const leaveRequestData = leaveRequests[0];
 
-        // Load club name
         let clubName = leaveRequestData.club_id;
         try {
             const { data: clubData } = await supabase
@@ -1099,7 +994,6 @@ async function updateClubManagementUI() {
             </div>
         `;
 
-        // Add event listener to withdraw button
         document.querySelector('.withdraw-leave-request-btn').addEventListener('click', async (e) => {
             const requestId = e.target.closest('button').dataset.requestId;
             await withdrawLeaveRequest(requestId);
@@ -1108,14 +1002,12 @@ async function updateClubManagementUI() {
         pendingRequestStatus.innerHTML = '';
     }
 
-    // Show/hide club search section
     if (!currentUserData.clubId && !hasPendingJoinRequest) {
         clubSearchSection.classList.remove('hidden');
     } else {
         clubSearchSection.classList.add('hidden');
     }
 
-    // Show/hide leave club section
     if (currentUserData.clubId && !hasPendingLeaveRequest) {
         leaveClubSection.classList.remove('hidden');
     } else {
@@ -1123,9 +1015,6 @@ async function updateClubManagementUI() {
     }
 }
 
-/**
- * Search for clubs
- */
 clubSearchBtn?.addEventListener('click', async () => {
     const searchTerm = clubSearchInput.value.trim().toLowerCase();
 
@@ -1144,14 +1033,11 @@ clubSearchBtn?.addEventListener('click', async () => {
         clubSearchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Suche...';
         clubSearchResults.innerHTML = '<p class="text-sm text-gray-500">Suche...</p>';
 
-        // Get user's active sport
         const userSportId = currentUserData.activeSportId;
 
-        // Get all clubs matching search term that support the user's sport
         let clubsData = [];
 
         if (userSportId) {
-            // Find clubs that have the user's sport in club_sports
             const { data: clubSportsData, error: csError } = await supabase
                 .from('club_sports')
                 .select('club_id')
@@ -1174,7 +1060,7 @@ clubSearchBtn?.addEventListener('click', async () => {
                 clubsData = data || [];
             }
         } else {
-            // No sport filter - show all clubs (fallback)
+            // Kein Sportarten-Filter vorhanden
             const { data, error } = await supabase
                 .from('clubs')
                 .select('*')
@@ -1187,7 +1073,7 @@ clubSearchBtn?.addEventListener('click', async () => {
 
         let clubs = clubsData;
 
-        // Count members for each club (including offline players and coaches)
+        // Mitgliederzahl ermitteln (inklusive Offline-Spieler und Trainer)
         for (const club of clubs) {
             const { count } = await supabase
                 .from('profiles')
@@ -1225,7 +1111,6 @@ clubSearchBtn?.addEventListener('click', async () => {
                 `)
                 .join('');
 
-            // Add event listeners to all request buttons
             document.querySelectorAll('.request-to-join-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const clubId = e.target.closest('button').dataset.clubId;
@@ -1250,12 +1135,9 @@ clubSearchBtn?.addEventListener('click', async () => {
     }
 });
 
-/**
- * Notify all coaches in a club about a join/leave request
- */
+/** Benachrichtigt alle Trainer über Beitritts-/Austrittsanfragen */
 async function notifyClubCoaches(clubId, type, playerName) {
     try {
-        // Find all coaches and head_coaches in this club
         const { data: coaches, error: coachError } = await supabase
             .from('profiles')
             .select('id')
@@ -1272,8 +1154,7 @@ async function notifyClubCoaches(clubId, type, playerName) {
             return;
         }
 
-        // Create notifications for all coaches
-        // Include player_id in data so the player can delete the notification if they withdraw
+        // player_id in Daten speichern damit Spieler die Benachrichtigung beim Zurückziehen löschen kann
         const notifications = coaches.map(coach => ({
             user_id: coach.id,
             type: type === 'join' ? 'club_join_request' : 'club_leave_request',
@@ -1299,9 +1180,6 @@ async function notifyClubCoaches(clubId, type, playerName) {
     }
 }
 
-/**
- * Request to join a club
- */
 async function requestToJoinClub(clubId, clubName) {
     if (!confirm(`Möchtest du wirklich eine Beitrittsanfrage an "${clubName}" senden?`)) {
         return;
@@ -1311,7 +1189,6 @@ async function requestToJoinClub(clubId, clubName) {
         clubManagementFeedback.textContent = 'Sende Anfrage...';
         clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
 
-        // Create club join request
         const { error } = await supabase.from('club_requests').insert({
             player_id: currentUser.id,
             club_id: clubId,
@@ -1320,18 +1197,15 @@ async function requestToJoinClub(clubId, clubName) {
 
         if (error) throw error;
 
-        // Notify coaches about the new request
         const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
         await notifyClubCoaches(clubId, 'join', playerName);
 
         clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
 
-        // Clear search
         clubSearchInput.value = '';
         clubSearchResults.innerHTML = '';
 
-        // Update UI
         await updateClubManagementUI();
     } catch (error) {
         console.error('Error requesting to join club:', error);
@@ -1340,16 +1214,12 @@ async function requestToJoinClub(clubId, clubName) {
     }
 }
 
-/**
- * Request to leave club
- */
 leaveClubBtn?.addEventListener('click', async () => {
     if (!currentUserData.clubId) {
         alert('Du bist aktuell keinem Verein zugeordnet.');
         return;
     }
 
-    // Load club name
     let clubName = currentUserData.clubId;
     try {
         const { data: clubData } = await supabase
@@ -1365,7 +1235,7 @@ leaveClubBtn?.addEventListener('click', async () => {
         console.error('Error loading club name:', error);
     }
 
-    // Special warning for coaches - they will lose their coach role
+    // Warnung für Trainer - sie verlieren ihre Trainer-Rechte
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
     let confirmMessage = `Möchtest du wirklich eine Austrittsanfrage für "${clubName}" senden?`;
 
@@ -1384,7 +1254,6 @@ leaveClubBtn?.addEventListener('click', async () => {
         leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende Anfrage...';
         clubManagementFeedback.textContent = '';
 
-        // Create leave club request
         const { error } = await supabase.from('leave_club_requests').insert({
             player_id: currentUser.id,
             club_id: currentUserData.clubId,
@@ -1393,14 +1262,12 @@ leaveClubBtn?.addEventListener('click', async () => {
 
         if (error) throw error;
 
-        // Notify coaches about the leave request
         const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
         await notifyClubCoaches(currentUserData.clubId, 'leave', playerName);
 
         clubManagementFeedback.textContent = `✓ Austrittsanfrage gesendet!`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
 
-        // Update UI
         await updateClubManagementUI();
 
         leaveClubBtn.disabled = false;
@@ -1415,12 +1282,9 @@ leaveClubBtn?.addEventListener('click', async () => {
     }
 });
 
-/**
- * Remove notifications created by this player for a specific type
- */
+/** Entfernt Benachrichtigungen die dieser Spieler erstellt hat */
 async function removePlayerNotifications(playerId, notificationType) {
     try {
-        // Delete notifications where data->player_id matches and type matches
         const { error } = await supabase
             .from('notifications')
             .delete()
@@ -1437,9 +1301,6 @@ async function removePlayerNotifications(playerId, notificationType) {
     }
 }
 
-/**
- * Withdraw join request
- */
 async function withdrawJoinRequest(requestId) {
     if (!confirm('Möchtest du deine Beitrittsanfrage wirklich zurückziehen?')) {
         return;
@@ -1456,7 +1317,7 @@ async function withdrawJoinRequest(requestId) {
 
         if (error) throw error;
 
-        // Also remove the notifications sent to coaches
+        // Benachrichtigungen an Trainer ebenfalls entfernen
         await removePlayerNotifications(currentUser.id, 'club_join_request');
 
         clubManagementFeedback.textContent = '✓ Beitrittsanfrage zurückgezogen';
@@ -1470,9 +1331,6 @@ async function withdrawJoinRequest(requestId) {
     }
 }
 
-/**
- * Withdraw leave request
- */
 async function withdrawLeaveRequest(requestId) {
     if (!confirm('Möchtest du deine Austrittsanfrage wirklich zurückziehen?')) {
         return;
@@ -1489,7 +1347,7 @@ async function withdrawLeaveRequest(requestId) {
 
         if (error) throw error;
 
-        // Also remove the notifications sent to coaches
+        // Benachrichtigungen an Trainer ebenfalls entfernen
         await removePlayerNotifications(currentUser.id, 'club_leave_request');
 
         clubManagementFeedback.textContent = '✓ Austrittsanfrage zurückgezogen';
@@ -1502,4 +1360,3 @@ async function withdrawLeaveRequest(requestId) {
         clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
     }
 }
-

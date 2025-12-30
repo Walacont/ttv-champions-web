@@ -1,6 +1,5 @@
 /**
- * Profile View Module - Supabase Version
- * Displays public profile pages for other users
+ * Profilansicht-Modul für öffentliche Benutzerprofile
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -15,14 +14,11 @@ let isOwnProfile = false;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
-/**
- * Initialize the profile view
- */
+/** Initialisiert die Profilansicht */
 async function initProfileView() {
     console.log('[ProfileView] Initializing profile view');
 
     try {
-        // Get profile ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         profileId = urlParams.get('id');
 
@@ -31,7 +27,6 @@ async function initProfileView() {
             return;
         }
 
-        // Ensure Supabase is initialized
         const supabase = getSupabase();
         if (!supabase) {
             console.error('[ProfileView] Supabase not initialized');
@@ -39,22 +34,18 @@ async function initProfileView() {
             return;
         }
 
-        // Get current user (viewer)
         const { data: { session } } = await supabase.auth.getSession();
         currentUser = session?.user || null;
 
-        // Check if viewing own profile
         isOwnProfile = currentUser && currentUser.id === profileId;
 
-        // Load profile data
         await loadProfile();
 
-        // Set up real-time subscription for follow status changes
+        // Real-time Updates nur für fremde Profile - eigenes Profil ändert sich nicht durch andere
         if (currentUser && !isOwnProfile) {
             setupFollowStatusSubscription(supabase);
         }
 
-        // Show main content
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
     } catch (error) {
@@ -64,12 +55,10 @@ async function initProfileView() {
 }
 
 /**
- * Set up real-time subscription for follow status changes
- * This updates the UI when the profile owner accepts/declines our follow request
+ * Echtzeit-Updates für Follow-Status
+ * Aktualisiert UI wenn Profilbesitzer Follow-Request annimmt/ablehnt
  */
 function setupFollowStatusSubscription(supabase) {
-    // Subscribe to friendships where current user is the requester
-    // This handles: request accepted, request declined (deleted)
     const channel = supabase
         .channel('follow-status-changes')
         .on(
@@ -83,17 +72,15 @@ function setupFollowStatusSubscription(supabase) {
             async (payload) => {
                 console.log('[ProfileView] Friendship change:', payload);
 
-                // Check if this change is relevant to the profile we're viewing
+                // Nur Änderungen für aktuell angezeigtes Profil verarbeiten
                 if (payload.new?.addressee_id === profileId || payload.old?.addressee_id === profileId) {
                     if (payload.eventType === 'UPDATE' && payload.new?.status === 'accepted') {
-                        // Our follow request was accepted
                         console.log('[ProfileView] Follow request accepted!');
                         await loadFollowerStats();
                         await renderFollowButton();
-                        // Reload profile to check if we now have view permission
+                        // Profil neu laden falls jetzt Zugriff gewährt wurde
                         await loadProfile();
                     } else if (payload.eventType === 'DELETE') {
-                        // Our follow request was declined (deleted)
                         console.log('[ProfileView] Follow request declined');
                         await renderFollowButton();
                     }
@@ -111,9 +98,8 @@ function setupFollowStatusSubscription(supabase) {
             async (payload) => {
                 console.log('[ProfileView] Incoming friendship change:', payload);
 
-                // Check if this change is from the profile we're viewing
+                // Prüfen ob Änderung vom angezeigten Profil kommt
                 if (payload.new?.requester_id === profileId || payload.old?.requester_id === profileId) {
-                    // Profile user sent us a request, or their request status changed
                     await loadFollowerStats();
                     await renderFollowButton();
                 }
@@ -123,21 +109,18 @@ function setupFollowStatusSubscription(supabase) {
             console.log('[ProfileView] Subscription status:', status);
         });
 
-    // Clean up subscription when leaving the page
+    // Aufräumen beim Verlassen der Seite
     window.addEventListener('beforeunload', () => {
         supabase.removeChannel(channel);
     });
 }
 
-/**
- * Load profile data
- */
+/** Lädt Profildaten */
 async function loadProfile() {
     try {
         const supabase = getSupabase();
 
-        // Fetch profile with club info
-        // Note: bio and location fields may not exist yet if migration hasn't run
+        // bio und location können fehlen falls Migration noch nicht durchgelaufen
         const { data: profile, error } = await supabase
             .from('profiles')
             .select(`
@@ -169,15 +152,13 @@ async function loadProfile() {
         profileUser = profile;
         console.log('[ProfileView] Profile loaded:', profile);
 
-        // Render profile header (always visible)
         renderProfileHeader(profile);
 
-        // Check privacy settings - own profile always has full access
+        // Eigenes Profil hat immer vollen Zugriff
         const visibility = profile.privacy_settings?.profile_visibility || 'global';
         const canViewDetails = isOwnProfile || await checkViewPermission(profile, visibility);
 
         if (canViewDetails) {
-            // Show full profile
             document.getElementById('public-profile-content').classList.remove('hidden');
             document.getElementById('private-profile-notice').classList.add('hidden');
 
@@ -185,17 +166,14 @@ async function loadProfile() {
             await renderClubSection(profile);
             await renderRecentActivity(profile);
 
-            // Show additional sections for own profile
             if (isOwnProfile) {
                 await renderOwnProfileExtras(profile);
             }
         } else {
-            // Show private notice
             document.getElementById('public-profile-content').classList.add('hidden');
             document.getElementById('private-profile-notice').classList.remove('hidden');
         }
 
-        // Load follower counts and follow button
         await loadFollowerStats();
         renderFollowButton();
 
@@ -206,23 +184,20 @@ async function loadProfile() {
 }
 
 /**
- * Check if current user can view profile details
- * Based on profile_visibility setting: 'global', 'club_only', 'followers_only'
+ * Prüft Zugriffsberechtigung basierend auf Sichtbarkeitseinstellung
+ * Optionen: 'global', 'club_only', 'followers_only'
  */
 async function checkViewPermission(profile, visibility) {
-    // Global profiles are always visible
     if (visibility === 'global') {
         return true;
     }
 
-    // Must be logged in for other visibility levels
     if (!currentUser) {
         return false;
     }
 
     const supabase = getSupabase();
 
-    // Check if same club for club_only
     if (visibility === 'club_only') {
         const { data: currentProfile } = await supabase
             .from('profiles')
@@ -236,9 +211,7 @@ async function checkViewPermission(profile, visibility) {
         return false;
     }
 
-    // Check if following for followers_only
     if (visibility === 'followers_only') {
-        // Current user must follow the profile owner (current user is requester, profile is addressee)
         const { data: friendship } = await supabase
             .from('friendships')
             .select('status')
@@ -250,28 +223,21 @@ async function checkViewPermission(profile, visibility) {
         return !!friendship;
     }
 
-    // Default: no access
     return false;
 }
 
-/**
- * Render profile header (name, avatar, location, bio)
- */
+/** Rendert Profil-Header mit Name, Avatar, Ort und Bio */
 function renderProfileHeader(profile) {
     const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannt';
     const photoUrl = profile.avatar_url || `https://placehold.co/120x120/e2e8f0/64748b?text=${(profile.first_name?.[0] || '?')}`;
 
-    // Set page title
     document.title = isOwnProfile ? 'Mein Profil - SC Champions' : `${fullName} - SC Champions`;
 
-    // Avatar
     document.getElementById('profile-avatar').src = photoUrl;
     document.getElementById('profile-avatar').alt = fullName;
 
-    // Name
     document.getElementById('profile-name').textContent = isOwnProfile ? 'Mein Profil' : fullName;
 
-    // Show user's actual name below if own profile
     const subtitleEl = document.getElementById('profile-subtitle');
     if (subtitleEl) {
         if (isOwnProfile) {
@@ -282,7 +248,6 @@ function renderProfileHeader(profile) {
         }
     }
 
-    // Location
     const locationEl = document.getElementById('profile-location');
     if (profile.location || profile.clubs?.name) {
         const locationText = profile.location || profile.clubs?.name || '';
@@ -291,13 +256,11 @@ function renderProfileHeader(profile) {
         locationEl.classList.add('hidden');
     }
 
-    // Bio
     if (profile.bio) {
         document.getElementById('profile-bio').textContent = profile.bio;
         document.getElementById('profile-bio-container').classList.remove('hidden');
     }
 
-    // Show edit button for own profile
     const editBtnContainer = document.getElementById('edit-profile-btn-container');
     if (editBtnContainer) {
         if (isOwnProfile) {
@@ -313,17 +276,12 @@ function renderProfileHeader(profile) {
     }
 }
 
-/**
- * Render profile statistics
- */
+/** Rendert Profilstatistiken */
 async function renderProfileStats(profile) {
-    // Elo Rating
     document.getElementById('stat-elo').textContent = profile.elo_rating || 800;
 
-    // Points
     document.getElementById('stat-points').textContent = profile.points || 0;
 
-    // Load match stats
     const supabase = getSupabase();
     const { data: matches, error } = await supabase
         .from('matches')
@@ -339,9 +297,7 @@ async function renderProfileStats(profile) {
     }
 }
 
-/**
- * Render club section
- */
+/** Rendert Vereins-Sektion */
 async function renderClubSection(profile) {
     if (!profile.clubs) {
         return;
@@ -352,7 +308,6 @@ async function renderClubSection(profile) {
 
     document.getElementById('club-name').textContent = profile.clubs.name;
 
-    // Get member count
     const supabase = getSupabase();
     const { count } = await supabase
         .from('profiles')
@@ -362,9 +317,7 @@ async function renderClubSection(profile) {
     document.getElementById('club-members').textContent = `${count || 0} Mitglieder`;
 }
 
-/**
- * Format relative date
- */
+/** Formatiert relatives Datum (Heute, Gestern, oder TT.MM.JJJJ) */
 function formatRelativeDate(date) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -381,17 +334,13 @@ function formatRelativeDate(date) {
     }
 }
 
-/**
- * Render recent activity (matches and posts only) - Like activity feed on dashboard
- */
+/** Rendert letzte Aktivitäten (Matches und Posts) analog zum Dashboard */
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
     const ACTIVITY_LIMIT = 10;
 
     try {
-        // Fetch activity types for this user (matches and posts only)
         const [singlesRes, doublesRes, postsRes] = await Promise.all([
-            // Singles matches
             supabase
                 .from('matches')
                 .select('*')
@@ -399,7 +348,6 @@ async function renderRecentActivity(profile) {
                 .order('created_at', { ascending: false })
                 .limit(ACTIVITY_LIMIT),
 
-            // Doubles matches
             supabase
                 .from('doubles_matches')
                 .select('*')
@@ -407,7 +355,6 @@ async function renderRecentActivity(profile) {
                 .order('created_at', { ascending: false })
                 .limit(ACTIVITY_LIMIT),
 
-            // Community posts
             supabase
                 .from('community_posts')
                 .select('*')
@@ -417,24 +364,20 @@ async function renderRecentActivity(profile) {
                 .limit(ACTIVITY_LIMIT)
         ]);
 
-        // Combine all activities
         const allActivities = [
             ...(singlesRes.data || []).map(m => ({ ...m, activityType: 'singles' })),
             ...(doublesRes.data || []).map(m => ({ ...m, activityType: 'doubles' })),
             ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' }))
         ];
 
-        // Sort by created_at descending
         allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Take top activities
         const activities = allActivities.slice(0, ACTIVITY_LIMIT);
 
         if (activities.length === 0) {
             return;
         }
 
-        // Collect player IDs for profile lookup
         const playerIds = new Set();
         activities.forEach(activity => {
             if (activity.activityType === 'singles') {
@@ -450,7 +393,6 @@ async function renderRecentActivity(profile) {
             }
         });
 
-        // Fetch profiles
         const { data: profiles } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url, display_name, elo_rating')
@@ -461,7 +403,6 @@ async function renderRecentActivity(profile) {
             profileMap[p.id] = p;
         });
 
-        // Show activity section
         const activitySection = document.getElementById('activity-section');
         activitySection.classList.remove('hidden');
 
@@ -475,9 +416,7 @@ async function renderRecentActivity(profile) {
     }
 }
 
-/**
- * Render a single activity card for profile view
- */
+/** Rendert einzelne Aktivitätskarte */
 function renderProfileActivityCard(activity, profileMap) {
     switch (activity.activityType) {
         case 'singles':
@@ -491,9 +430,7 @@ function renderProfileActivityCard(activity, profileMap) {
     }
 }
 
-/**
- * Render singles match card for profile
- */
+/** Rendert Einzel-Match-Karte */
 function renderProfileSinglesCard(match, profileMap) {
     const playerA = profileMap[match.player_a_id] || {};
     const playerB = profileMap[match.player_b_id] || {};
@@ -510,7 +447,6 @@ function renderProfileSinglesCard(match, profileMap) {
     const profileAvatar = profilePlayer?.avatar_url || DEFAULT_AVATAR;
     const oppAvatar = opponent?.avatar_url || DEFAULT_AVATAR;
 
-    // Calculate set wins
     let playerASetWins = 0;
     let playerBSetWins = 0;
     const sets = match.sets || [];
@@ -598,9 +534,7 @@ function renderProfileSinglesCard(match, profileMap) {
     `;
 }
 
-/**
- * Render doubles match card for profile
- */
+/** Rendert Doppel-Match-Karte */
 function renderProfileDoublesCard(match, profileMap) {
     const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
     const teamAPlayer2 = profileMap[match.team_a_player2_id] || {};
@@ -617,7 +551,6 @@ function renderProfileDoublesCard(match, profileMap) {
     const myTeamNames = myTeam.map(p => getProfileDisplayName(p)).join(' & ');
     const oppTeamNames = oppTeam.map(p => getProfileDisplayName(p)).join(' & ');
 
-    // Calculate set wins
     let teamASetWins = 0;
     let teamBSetWins = 0;
     const sets = match.sets || [];
@@ -649,7 +582,6 @@ function renderProfileDoublesCard(match, profileMap) {
                 </span>
             </div>
 
-            <!-- Score and Teams - mobile optimized vertical layout -->
             <div class="flex flex-col items-center mb-3">
                 <p class="text-2xl font-bold mb-2">${mySetWins} : ${oppSetWins}</p>
 
@@ -675,9 +607,7 @@ function renderProfileDoublesCard(match, profileMap) {
     `;
 }
 
-/**
- * Render community post card for profile
- */
+/** Rendert Community-Post-Karte */
 function renderProfilePostCard(post, profileMap) {
     const profile = profileMap[post.user_id] || {};
     const displayName = getProfileDisplayName(profile);
@@ -731,9 +661,7 @@ function renderProfilePostCard(post, profileMap) {
     `;
 }
 
-/**
- * Get display name for a player profile
- */
+/** Liefert Anzeigenamen für Spielerprofil */
 function getProfileDisplayName(profile) {
     if (!profile) return 'Unbekannt';
     if (profile.display_name) return profile.display_name;
@@ -745,20 +673,18 @@ function getProfileDisplayName(profile) {
 }
 
 /**
- * Load follower statistics
- * Uses RPC function to bypass RLS - follower counts should be visible to everyone
+ * Lädt Follower-Statistiken
+ * Verwendet RPC-Funktion um RLS zu umgehen - Follower-Zahlen sollten für alle sichtbar sein
  */
 async function loadFollowerStats() {
     const supabase = getSupabase();
 
     try {
-        // Use RPC function to get counts (bypasses RLS so everyone can see counts)
         const { data, error } = await supabase
             .rpc('get_follow_counts', { p_user_id: profileId });
 
         if (error) {
             console.error('[ProfileView] Error loading follow counts:', error);
-            // Fallback to 0 if error
             document.getElementById('followers-count').textContent = '0';
             document.getElementById('following-count').textContent = '0';
         } else {
@@ -771,7 +697,6 @@ async function loadFollowerStats() {
         document.getElementById('following-count').textContent = '0';
     }
 
-    // Set links to connections page
     const followingLink = document.getElementById('following-link');
     const followersLink = document.getElementById('followers-link');
 
@@ -783,19 +708,15 @@ async function loadFollowerStats() {
     }
 }
 
-/**
- * Render follow/unfollow button
- */
+/** Rendert Follow/Unfollow-Button */
 async function renderFollowButton() {
     const container = document.getElementById('follow-button-container');
 
-    // Don't show follow button for own profile
     if (isOwnProfile) {
         container.innerHTML = '';
         return;
     }
 
-    // Not logged in - show login prompt
     if (!currentUser) {
         container.innerHTML = `
             <a href="/app.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-full transition">
@@ -807,8 +728,7 @@ async function renderFollowButton() {
 
     const supabase = getSupabase();
 
-    // Check current friendship status - ONE WAY only
-    // Only check if current user is following the profile (requester = current user)
+    // Nur prüfen ob aktueller User dem Profil folgt (einseitig)
     const { data: friendship } = await supabase
         .from('friendships')
         .select('id, status, requester_id')
@@ -818,7 +738,6 @@ async function renderFollowButton() {
 
     if (friendship) {
         if (friendship.status === 'accepted') {
-            // Already following
             container.innerHTML = `
                 <button
                     onclick="window.unfollowUser('${profileId}')"
@@ -829,7 +748,6 @@ async function renderFollowButton() {
             `;
         } else if (friendship.status === 'pending') {
             if (friendship.requester_id === currentUser.id) {
-                // Current user sent request
                 container.innerHTML = `
                     <button
                         onclick="window.cancelFollowRequest('${profileId}')"
@@ -839,7 +757,6 @@ async function renderFollowButton() {
                     </button>
                 `;
             } else {
-                // Profile user sent request - show accept button
                 container.innerHTML = `
                     <div class="flex gap-2">
                         <button
@@ -859,7 +776,6 @@ async function renderFollowButton() {
             }
         }
     } else {
-        // No relationship - show follow button
         container.innerHTML = `
             <button
                 onclick="window.followUser('${profileId}')"
@@ -871,9 +787,7 @@ async function renderFollowButton() {
     }
 }
 
-/**
- * Follow a user
- */
+/** Folgt einem Benutzer */
 let followInProgress = false;
 window.followUser = async function(userId) {
     if (!currentUser) {
@@ -881,7 +795,7 @@ window.followUser = async function(userId) {
         return;
     }
 
-    // Prevent double-clicks
+    // Verhindert Doppel-Klicks
     if (followInProgress) {
         console.log('[ProfileView] Follow already in progress');
         return;
@@ -889,7 +803,6 @@ window.followUser = async function(userId) {
 
     followInProgress = true;
 
-    // Update button to show loading state
     const container = document.getElementById('follow-button-container');
     if (container) {
         container.innerHTML = `
@@ -902,10 +815,8 @@ window.followUser = async function(userId) {
     try {
         const supabase = getSupabase();
 
-        // Check if profile is public (no confirmation needed) or private
         const visibility = profileUser?.privacy_settings?.profileVisibility || 'public';
 
-        // Get current user's profile for name
         const { data: currentUserProfile } = await supabase
             .from('profiles')
             .select('first_name, last_name')
@@ -914,7 +825,6 @@ window.followUser = async function(userId) {
 
         const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
 
-        // Send follow request
         const { data, error } = await supabase
             .rpc('send_friend_request', {
                 current_user_id: currentUser.id,
@@ -923,16 +833,14 @@ window.followUser = async function(userId) {
 
         if (error) throw error;
 
-        // For non-public profiles, create a notification
+        // Nur für nicht-öffentliche Profile Benachrichtigung erstellen
         if (visibility !== 'public') {
             await createFollowRequestNotification(userId, currentUser.id, currentUserName);
         }
 
-        // Refresh button and stats
         await loadFollowerStats();
         await renderFollowButton();
 
-        // Reload profile if now following
         if (visibility === 'public') {
             await loadProfile();
         }
@@ -940,16 +848,13 @@ window.followUser = async function(userId) {
     } catch (error) {
         console.error('[ProfileView] Error following user:', error);
         alert('Fehler beim Folgen');
-        // Render button again on error
         await renderFollowButton();
     } finally {
         followInProgress = false;
     }
 };
 
-/**
- * Unfollow a user
- */
+/** Entfolgt einem Benutzer */
 window.unfollowUser = async function(userId) {
     if (!currentUser) return;
 
@@ -968,7 +873,6 @@ window.unfollowUser = async function(userId) {
 
         if (error) throw error;
 
-        // Refresh
         await loadFollowerStats();
         await renderFollowButton();
         await loadProfile();
@@ -979,16 +883,13 @@ window.unfollowUser = async function(userId) {
     }
 };
 
-/**
- * Cancel a pending follow request (that current user sent)
- */
+/** Bricht eine ausstehende Follow-Anfrage ab */
 window.cancelFollowRequest = async function(userId) {
     if (!currentUser) return;
 
     try {
         const supabase = getSupabase();
 
-        // Find the friendship
         const { data: friendship } = await supabase
             .from('friendships')
             .select('id')
@@ -1018,16 +919,13 @@ window.cancelFollowRequest = async function(userId) {
     }
 };
 
-/**
- * Accept a follow request (from profile user to current user)
- */
+/** Nimmt eine Follow-Anfrage an */
 window.acceptFollowRequest = async function(userId) {
     if (!currentUser) return;
 
     try {
         const supabase = getSupabase();
 
-        // Find the friendship
         const { data: friendship } = await supabase
             .from('friendships')
             .select('id')
@@ -1041,7 +939,6 @@ window.acceptFollowRequest = async function(userId) {
             return;
         }
 
-        // Get current user's name to include in notification
         const { data: currentUserProfile } = await supabase
             .from('profiles')
             .select('first_name, last_name')
@@ -1058,7 +955,6 @@ window.acceptFollowRequest = async function(userId) {
 
         if (error) throw error;
 
-        // Notify the requester that their request was accepted
         await createFollowAcceptedNotification(userId, currentUser.id, currentUserName);
 
         await loadFollowerStats();
@@ -1070,16 +966,13 @@ window.acceptFollowRequest = async function(userId) {
     }
 };
 
-/**
- * Decline a follow request (from profile user to current user)
- */
+/** Lehnt eine Follow-Anfrage ab */
 window.declineFollowRequest = async function(userId) {
     if (!currentUser) return;
 
     try {
         const supabase = getSupabase();
 
-        // Find the friendship
         const { data: friendship } = await supabase
             .from('friendships')
             .select('id')
@@ -1110,19 +1003,17 @@ window.declineFollowRequest = async function(userId) {
 };
 
 /**
- * Render additional sections for own profile (XP, rank, challenges, attendance)
- * Now renders into the Fortschritt tab with dashboard-like widgets
+ * Rendert zusätzliche Sektionen für eigenes Profil (XP, Rang, Challenges, Anwesenheit)
+ * Zeigt Dashboard-ähnliche Widgets im Fortschritt-Tab
  */
 async function renderOwnProfileExtras(profile) {
     const supabase = getSupabase();
 
-    // Show tab switcher for own profile
     const tabSwitcher = document.getElementById('profile-tab-switcher');
     if (tabSwitcher) {
         tabSwitcher.classList.remove('hidden');
     }
 
-    // Setup global tab switch function
     window.switchProfileTab = function(tabName) {
         const aktivitaetContent = document.getElementById('profile-content-aktivitaet');
         const fortschrittContent = document.getElementById('profile-content-fortschritt');
@@ -1146,7 +1037,6 @@ async function renderOwnProfileExtras(profile) {
         }
     };
 
-    // Build Fortschritt tab content
     const fortschrittContainer = document.getElementById('profile-content-fortschritt');
     if (!fortschrittContainer) return;
 
@@ -1155,11 +1045,9 @@ async function renderOwnProfileExtras(profile) {
     const points = profile.points || 0;
     const grundlagenCount = profile.grundlagen_completed || 0;
 
-    // Get detailed rank progress
     const progress = getRankProgress(elo, xp, grundlagenCount);
     const { currentRank, nextRank, eloProgress, xpProgress, grundlagenProgress, eloNeeded, xpNeeded, grundlagenNeeded, isMaxRank } = progress;
 
-    // Build rank progress HTML
     let rankProgressHtml = `
         <div class="flex items-center justify-center space-x-3 mb-4">
             <span class="text-5xl">${currentRank.emoji}</span>
@@ -1175,7 +1063,6 @@ async function renderOwnProfileExtras(profile) {
             <div class="mt-4 text-sm">
                 <p class="text-gray-600 font-medium mb-3">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
 
-                <!-- ELO Progress -->
                 ${nextRank.minElo > 0 ? `
                 <div class="mb-3">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
@@ -1191,7 +1078,6 @@ async function renderOwnProfileExtras(profile) {
                 </div>
                 ` : ''}
 
-                <!-- XP Progress -->
                 <div class="mb-3">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>XP: ${xp}/${nextRank.minXP}</span>
@@ -1205,7 +1091,6 @@ async function renderOwnProfileExtras(profile) {
                         : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
                 </div>
 
-                <!-- Grundlagen Progress -->
                 ${nextRank.requiresGrundlagen ? `
                 <div>
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
@@ -1228,7 +1113,6 @@ async function renderOwnProfileExtras(profile) {
 
     let html = `
         <div class="p-4 space-y-4">
-            <!-- Info Banner explaining the 3 systems -->
             <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg">
                 <div class="flex items-start">
                     <div class="flex-shrink-0">
@@ -1245,7 +1129,6 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Statistics -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-500 mb-3 text-center">Deine Statistiken</h2>
                 <div class="grid grid-cols-3 gap-3">
@@ -1264,7 +1147,6 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Rank with Progress -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-700 mb-3">Dein Rang</h2>
                 <div id="profile-rank-info">
@@ -1272,16 +1154,13 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Rivals Section -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- Skill Rival -->
                 <div class="bg-white rounded-xl shadow-sm p-4">
                     <h2 class="text-base font-semibold text-gray-700 mb-3">⚡ Skill-Rivale</h2>
                     <div id="profile-skill-rival" class="text-gray-500 text-sm">
                         <p>Lade Rivalen...</p>
                     </div>
                 </div>
-                <!-- Effort Rival -->
                 <div class="bg-white rounded-xl shadow-sm p-4">
                     <h2 class="text-base font-semibold text-gray-700 mb-3">💪 Fleiß-Rivale</h2>
                     <div id="profile-effort-rival" class="text-gray-500 text-sm">
@@ -1290,7 +1169,6 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Points History -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-700 mb-3">Punkte-Historie</h2>
                 <ul id="profile-points-history" class="space-y-2 max-h-48 overflow-y-auto text-sm">
@@ -1298,7 +1176,6 @@ async function renderOwnProfileExtras(profile) {
                 </ul>
             </div>
 
-            <!-- Active Challenges -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-700 mb-3">Aktive Challenges</h2>
                 <div id="profile-challenges" class="space-y-3">
@@ -1306,7 +1183,6 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Attendance Calendar -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-700 mb-3">
                     <i class="fas fa-calendar-check text-green-600 mr-2"></i>Anwesenheit
@@ -1320,7 +1196,6 @@ async function renderOwnProfileExtras(profile) {
 
     fortschrittContainer.innerHTML = html;
 
-    // Load additional data for Fortschritt tab
     await Promise.all([
         loadProfileRivals(profile),
         loadProfilePointsHistory(),
@@ -1328,21 +1203,17 @@ async function renderOwnProfileExtras(profile) {
         loadProfileAttendance()
     ]);
 
-    // Hide old extras container (we now use the tab)
     const oldExtras = document.getElementById('own-profile-extras');
     if (oldExtras) {
         oldExtras.classList.add('hidden');
     }
 }
 
-/**
- * Load rival data for profile Fortschritt tab
- */
+/** Lädt Rivalen-Daten für Fortschritt-Tab */
 async function loadProfileRivals(profile) {
     const supabase = getSupabase();
 
     try {
-        // Get players from same club for rival comparison
         const { data: clubPlayers } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, xp, avatar_url')
@@ -1356,19 +1227,16 @@ async function loadProfileRivals(profile) {
             return;
         }
 
-        // Find skill rival (closest Elo above)
         const myElo = profile.elo_rating || 800;
         const playersAboveElo = clubPlayers.filter(p => (p.elo_rating || 800) > myElo);
         playersAboveElo.sort((a, b) => (a.elo_rating || 800) - (b.elo_rating || 800));
         const skillRival = playersAboveElo[0];
 
-        // Find effort rival (closest XP above)
         const myXp = profile.xp || 0;
         const playersAboveXp = clubPlayers.filter(p => (p.xp || 0) > myXp);
         playersAboveXp.sort((a, b) => (a.xp || 0) - (b.xp || 0));
         const effortRival = playersAboveXp[0];
 
-        // Render skill rival
         const skillContainer = document.getElementById('profile-skill-rival');
         if (skillRival) {
             const rivalName = `${skillRival.first_name || ''} ${skillRival.last_name || ''}`.trim();
@@ -1395,7 +1263,6 @@ async function loadProfileRivals(profile) {
             skillContainer.innerHTML = '<p class="text-green-600 font-medium text-center py-2">Du bist an der Spitze! 🏆</p>';
         }
 
-        // Render effort rival
         const effortContainer = document.getElementById('profile-effort-rival');
         if (effortRival) {
             const rivalName = `${effortRival.first_name || ''} ${effortRival.last_name || ''}`.trim();
@@ -1426,9 +1293,7 @@ async function loadProfileRivals(profile) {
     }
 }
 
-/**
- * Load points history for profile Fortschritt tab
- */
+/** Lädt Punkte-Historie für Fortschritt-Tab */
 async function loadProfilePointsHistory() {
     const supabase = getSupabase();
     const container = document.getElementById('profile-points-history');
@@ -1451,19 +1316,16 @@ async function loadProfilePointsHistory() {
             const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE');
             const reason = entry.reason || entry.description || 'Punkte';
 
-            // Get point values
             const points = entry.points || 0;
             const xp = entry.xp !== undefined ? entry.xp : points;
             const elo = entry.elo_change || 0;
 
-            // Helper function for color classes
             const getColorClass = (value) => {
                 if (value > 0) return 'text-green-600';
                 if (value < 0) return 'text-red-600';
                 return 'text-gray-500';
             };
 
-            // Helper function for sign
             const getSign = (value) => {
                 if (value > 0) return '+';
                 if (value < 0) return '';
@@ -1499,16 +1361,13 @@ async function loadProfilePointsHistory() {
     }
 }
 
-/**
- * Load challenges for profile Fortschritt tab
- */
+/** Lädt Challenges für Fortschritt-Tab */
 async function loadProfileChallenges() {
     const supabase = getSupabase();
     const container = document.getElementById('profile-challenges');
     if (!container) return;
 
     try {
-        // Load completed challenges for this user
         const { data: completedChallenges, error } = await supabase
             .from('completed_challenges')
             .select(`
@@ -1565,9 +1424,9 @@ async function loadProfileChallenges() {
 }
 
 /**
- * Load attendance calendar for own profile (now based on event_attendance)
- * Enhanced to show all club events and make days clickable
- * Shows: ✓ for all events attended, ◐ for partial, ✗ for none attended
+ * Lädt Anwesenheitskalender basierend auf event_attendance
+ * Zeigt alle Vereinsevents und macht Tage klickbar
+ * Status: ✓ für alle teilgenommen, ◐ für teilweise, ✗ für keine Teilnahme
  */
 async function loadProfileAttendance() {
     const container = document.getElementById('profile-attendance-calendar');
@@ -1578,13 +1437,11 @@ async function loadProfileAttendance() {
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    // Get first and last day of current month
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDateStr = firstDay.toISOString().split('T')[0];
     const endDateStr = lastDay.toISOString().split('T')[0];
 
-    // Get user's club_id
     const { data: profile } = await supabase
         .from('profiles')
         .select('club_id')
@@ -1594,8 +1451,7 @@ async function loadProfileAttendance() {
     const clubId = profile?.club_id;
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
-    // Query event_attendance where this user was present
-    // We need event_id AND the occurrence_date to track per-occurrence attendance
+    // Abfrage nach event_attendance wo dieser User anwesend war
     const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
         .select(`
@@ -1613,12 +1469,10 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading event attendance:', attendanceError);
     }
 
-    // Create a set of attended event-date combinations
-    // Key format: "eventId-date"
+    // Set von besuchten Event-Datum-Kombinationen: "eventId-date"
     const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            // Use occurrence_date if available, otherwise fall back to event's start_date
             const eventDate = ea.occurrence_date || ea.events?.start_date;
             if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
                 const key = `${ea.event_id}-${eventDate}`;
@@ -1627,7 +1481,6 @@ async function loadProfileAttendance() {
         });
     }
 
-    // Load all club events for this month (including recurring)
     let allEventsForMonth = [];
     if (clubId) {
         const { data: clubEvents, error: eventsError } = await supabase
@@ -1656,7 +1509,6 @@ async function loadProfileAttendance() {
 
         console.log('[ProfileView] Club events loaded:', clubEvents?.length || 0, 'events for club', clubId);
 
-        // Process events including recurring ones
         if (clubEvents) {
             clubEvents.forEach(event => {
                 const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
@@ -1670,16 +1522,13 @@ async function loadProfileAttendance() {
         }
     }
 
-    // Load user's invitations for events this month (including occurrence_date for per-occurrence tracking)
     const { data: invitations } = await supabase
         .from('event_invitations')
         .select('id, event_id, status, occurrence_date')
         .eq('user_id', profileId);
 
-    // Create a map with key = "eventId-occurrenceDate" for per-occurrence lookup
     const invitationMap = {};
     (invitations || []).forEach(inv => {
-        // Support both new (with occurrence_date) and old (without) invitations
         const key = inv.occurrence_date
             ? `${inv.event_id}-${inv.occurrence_date}`
             : inv.event_id;
@@ -1690,7 +1539,6 @@ async function loadProfileAttendance() {
         };
     });
 
-    // Group events by date
     const eventsByDate = {};
     allEventsForMonth.forEach(event => {
         const dateKey = event.displayDate;
@@ -1698,11 +1546,9 @@ async function loadProfileAttendance() {
             eventsByDate[dateKey] = [];
         }
 
-        // Try to find invitation for this specific occurrence first
         const occurrenceKey = `${event.id}-${dateKey}`;
         let invitation = invitationMap[occurrenceKey];
 
-        // Fall back to event-level invitation (for backwards compatibility)
         if (!invitation) {
             invitation = invitationMap[event.id];
         }
@@ -1713,14 +1559,12 @@ async function loadProfileAttendance() {
         eventsByDate[dateKey].push(event);
     });
 
-    // Store events data globally for click handler
     window.profileCalendarEvents = eventsByDate;
     window.profileCalendarMonth = { year, month };
 
-    // Build calendar grid
     const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
     const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
 
     let calendarHtml = `
         <h4 class="font-semibold text-gray-700 mb-3">${monthName}</h4>
@@ -1734,12 +1578,10 @@ async function loadProfileAttendance() {
             <div class="text-gray-400 font-medium py-1">So</div>
     `;
 
-    // Empty cells for days before first of month
     for (let i = 0; i < startDayOfWeek; i++) {
         calendarHtml += '<div></div>';
     }
 
-    // Days of month
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
@@ -1748,7 +1590,6 @@ async function loadProfileAttendance() {
         const eventCount = dayEvents.length;
         const isPastDay = new Date(dateStr) < new Date(now.toISOString().split('T')[0]);
 
-        // Calculate attendance for this day
         let attendedCount = 0;
         if (hasEvents) {
             dayEvents.forEach(event => {
@@ -1762,18 +1603,14 @@ async function loadProfileAttendance() {
         let dayClass = '';
         let statusIcon = '';
 
-        // Only show attendance status for past days with events
         if (isPastDay && hasEvents) {
             if (attendedCount === eventCount) {
-                // All events attended - green checkmark
                 dayClass = 'bg-green-100 text-green-800';
                 statusIcon = '<i class="fas fa-check text-green-600 text-[8px] absolute top-0.5 right-0.5"></i>';
             } else if (attendedCount > 0) {
-                // Some events attended - half circle (partial)
                 dayClass = 'bg-yellow-100 text-yellow-800';
                 statusIcon = '<i class="fas fa-adjust text-yellow-600 text-[8px] absolute top-0.5 right-0.5"></i>';
             } else {
-                // No events attended - red X
                 dayClass = 'bg-red-100 text-red-800';
                 statusIcon = '<i class="fas fa-times text-red-600 text-[8px] absolute top-0.5 right-0.5"></i>';
             }
@@ -1783,7 +1620,6 @@ async function loadProfileAttendance() {
             dayClass = 'text-gray-600';
         }
 
-        // Dot indicator for future events
         let dotIndicator = '';
         if (hasEvents && !isPastDay) {
             dayClass += ' cursor-pointer hover:ring-2 hover:ring-indigo-400 transition';
@@ -1804,11 +1640,9 @@ async function loadProfileAttendance() {
 
     calendarHtml += '</div>';
 
-    // Stats - count total attendances (each event-date counts as one)
     const totalAttendances = attendedEventDates.size;
     const totalEventsThisMonth = Object.values(eventsByDate).reduce((sum, events) => sum + events.length, 0);
 
-    // Count past events (only count past days)
     const todayStr = now.toISOString().split('T')[0];
     let pastEventsCount = 0;
     Object.keys(eventsByDate).forEach(dateStr => {
@@ -1832,7 +1666,6 @@ async function loadProfileAttendance() {
         </div>
     `;
 
-    // Legend
     calendarHtml += `
         <div class="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-500">
             <div class="flex items-center gap-1">
@@ -1863,9 +1696,7 @@ async function loadProfileAttendance() {
     container.innerHTML = calendarHtml;
 }
 
-/**
- * Get all dates an event occurs on within a date range (handles recurring events)
- */
+/** Liefert alle Termine eines Events innerhalb eines Datumsbereichs (für wiederkehrende Events) */
 function getEventDatesInRange(event, startDate, endDate) {
     const dates = [];
     const eventStart = event.start_date;
@@ -1874,14 +1705,12 @@ function getEventDatesInRange(event, startDate, endDate) {
     const excludedDates = event.excluded_dates || [];
 
     if (!repeatType || repeatType === 'none') {
-        // Single event - check if it falls in range
         if (eventStart >= startDate && eventStart <= endDate) {
             dates.push(eventStart);
         }
         return dates;
     }
 
-    // Recurring event - generate all occurrences in range
     let currentDate = new Date(eventStart + 'T12:00:00');
     const endDateObj = new Date(endDate + 'T12:00:00');
     const startDateObj = new Date(startDate + 'T12:00:00');
@@ -1891,14 +1720,12 @@ function getEventDatesInRange(event, startDate, endDate) {
     while (currentDate <= endDateObj && maxIterations > 0) {
         const dateStr = currentDate.toISOString().split('T')[0];
 
-        // Check if within range and not excluded
         if (currentDate >= startDateObj && !excludedDates.includes(dateStr)) {
             if (!repeatEndObj || currentDate <= repeatEndObj) {
                 dates.push(dateStr);
             }
         }
 
-        // Move to next occurrence
         switch (repeatType) {
             case 'daily':
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -1913,7 +1740,7 @@ function getEventDatesInRange(event, startDate, endDate) {
                 currentDate.setMonth(currentDate.getMonth() + 1);
                 break;
             default:
-                maxIterations = 0; // Exit loop
+                maxIterations = 0;
         }
 
         maxIterations--;
@@ -1922,9 +1749,7 @@ function getEventDatesInRange(event, startDate, endDate) {
     return dates;
 }
 
-/**
- * Show events for a specific day in a modal/popover
- */
+/** Zeigt Events für einen bestimmten Tag in einem Modal */
 window.showDayEvents = function(dateStr) {
     const events = window.profileCalendarEvents?.[dateStr] || [];
     if (events.length === 0) return;
@@ -1937,21 +1762,18 @@ window.showDayEvents = function(dateStr) {
         year: 'numeric'
     });
 
-    // Build events list HTML
     const eventsHtml = events.map(event => {
         const timeDisplay = event.start_time
             ? `${event.start_time.slice(0, 5)}${event.end_time ? ' - ' + event.end_time.slice(0, 5) : ''}`
             : '';
 
-        // Determine status
         let statusHtml = '';
         const now = new Date();
         const isRecurring = event.repeat_type && event.repeat_type !== 'none';
 
-        // Calculate invitation send time for this specific occurrence
         let invitationSendAt = event.invitation_send_at ? new Date(event.invitation_send_at) : null;
 
-        // For recurring events with lead time, calculate send time for this occurrence
+        // Für wiederkehrende Events mit Vorlaufzeit: Sendezeit für diese Occurrence berechnen
         if (isRecurring && event.invitation_lead_time_value && event.invitation_lead_time_unit && event.displayDate) {
             const eventDateTime = new Date(`${event.displayDate}T${event.start_time || '12:00'}`);
             const sendDateTime = new Date(eventDateTime);
@@ -1970,7 +1792,6 @@ window.showDayEvents = function(dateStr) {
             invitationSendAt = sendDateTime;
         }
 
-        // Determine response buttons based on invitation status
         let responseButtonsHtml = '';
         const hasInvitation = event.invitationId && event.invitationStatus;
         const canRespond = hasInvitation || (invitationSendAt && invitationSendAt <= now);
@@ -2012,16 +1833,13 @@ window.showDayEvents = function(dateStr) {
                 `;
             }
         } else if (invitationSendAt && invitationSendAt > now) {
-            // Invitation not yet sent - show when it will be sent
             const sendDateStr = invitationSendAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' });
             const sendTimeStr = invitationSendAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             statusHtml = `<span class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700"><i class="fas fa-paper-plane mr-1"></i>Einladung: ${sendDateStr}, ${sendTimeStr}</span>`;
         } else {
-            // No invitation yet (possibly hasn't been sent or event is public)
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500"><i class="fas fa-question mr-1"></i>Keine Einladung</span>';
         }
 
-        // Recurring indicator with lead time info
         let recurringHtml = '';
         if (isRecurring) {
             if (event.invitation_lead_time_value && event.invitation_lead_time_unit) {
@@ -2052,7 +1870,6 @@ window.showDayEvents = function(dateStr) {
         `;
     }).join('');
 
-    // Create modal
     const existingModal = document.getElementById('day-events-modal');
     if (existingModal) existingModal.remove();
 
@@ -2081,15 +1898,9 @@ window.showDayEvents = function(dateStr) {
     document.body.appendChild(modal);
 };
 
-/**
- * Respond to an event invitation from the calendar modal
- * @param {string} invitationId - Invitation ID
- * @param {string} status - 'accepted' or 'rejected'
- * @param {string} occurrenceDate - The occurrence date this response is for
- */
+/** Antwortet auf Event-Einladung aus dem Kalender-Modal */
 window.respondToEventFromCalendar = async function(invitationId, status, occurrenceDate) {
     try {
-        // Update invitation status
         const { error } = await supabase
             .from('event_invitations')
             .update({
@@ -2100,8 +1911,6 @@ window.respondToEventFromCalendar = async function(invitationId, status, occurre
 
         if (error) throw error;
 
-        // Update the UI immediately
-        // Find and update the event in profileCalendarEvents
         if (window.profileCalendarEvents && occurrenceDate) {
             const events = window.profileCalendarEvents[occurrenceDate];
             if (events) {
@@ -2113,14 +1922,12 @@ window.respondToEventFromCalendar = async function(invitationId, status, occurre
             }
         }
 
-        // Refresh the modal to show updated status
         const modal = document.getElementById('day-events-modal');
         if (modal) {
             modal.remove();
             window.showDayEvents(occurrenceDate);
         }
 
-        // Show success feedback
         const statusText = status === 'accepted' ? 'Zugesagt' : 'Abgesagt';
         showToast(`${statusText} für diesen Termin`, 'success');
 
@@ -2130,9 +1937,7 @@ window.respondToEventFromCalendar = async function(invitationId, status, occurre
     }
 };
 
-/**
- * Show a simple toast notification
- */
+/** Zeigt einfache Toast-Benachrichtigung */
 function showToast(message, type = 'info') {
     const existingToast = document.querySelector('.profile-toast');
     if (existingToast) existingToast.remove();
@@ -2163,9 +1968,7 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-/**
- * Calculate rank from XP (simplified version)
- */
+/** Berechnet Rang aus XP (vereinfachte Version) */
 function calculateRankFromXP(xp) {
     const RANKS = [
         { name: 'Rekrut', minXP: 0, icon: '🔰' },
@@ -2187,9 +1990,7 @@ function calculateRankFromXP(xp) {
     return rank;
 }
 
-/**
- * Show error message
- */
+/** Zeigt Fehlermeldung */
 function showError(message) {
     document.getElementById('page-loader').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
@@ -2207,10 +2008,8 @@ function showError(message) {
     `;
 }
 
-// Initialize when DOM is ready - handle both cases where DOM might already be loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initProfileView);
 } else {
-    // DOM is already loaded, initialize immediately
     initProfileView();
 }

@@ -1,6 +1,3 @@
-// Notifications Module - Supabase Version
-// Handles in-app notifications for points, matches, etc.
-
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
 import { escapeHtml } from './utils/security.js';
@@ -11,21 +8,19 @@ let doublesMatchRequestSubscription = null;
 let notificationModalOpen = false;
 
 /**
- * Initialize notifications system
- * @param {string} userId - Current user's ID
+ * Initialisiert das Benachrichtigungssystem
+ * @param {string} userId - User-ID
  */
 export async function initNotifications(userId) {
     const db = getSupabase();
     if (!db || !userId) return;
 
-    // Setup notification bell click handlers FIRST (before async operations)
+    // Event-Handler ZUERST registrieren, bevor async Operations die UI blockieren könnten
     setupNotificationHandlers(userId);
 
-    // Load initial notification count (non-blocking)
     try {
         await updateNotificationBadge(userId);
 
-        // Subscribe to real-time notifications
         notificationSubscription = db
             .channel(`notifications-${userId}`)
             .on('postgres_changes', {
@@ -35,14 +30,13 @@ export async function initNotifications(userId) {
                 filter: `user_id=eq.${userId}`
             }, (payload) => {
                 updateNotificationBadge(userId);
-                // If notification modal is open, refresh it
                 if (notificationModalOpen) {
                     refreshNotificationModal(userId);
                 }
             })
             .subscribe();
 
-        // Subscribe to match_requests changes (for real-time updates when requests are withdrawn)
+        // Reagiert auf zurückgezogene Match-Anfragen um Benachrichtigungen zu entfernen
         matchRequestSubscription = db
             .channel(`match-requests-${userId}`)
             .on('postgres_changes', {
@@ -51,7 +45,7 @@ export async function initNotifications(userId) {
                 table: 'match_requests',
                 filter: `player_b_id=eq.${userId}`
             }, async (payload) => {
-                // When a match request is deleted (withdrawn), remove the corresponding notification
+                // Zurückgezogene Anfragen müssen aus Benachrichtigungen entfernt werden
                 const deletedRequestId = payload.old?.id;
                 if (deletedRequestId) {
                     await removeMatchRequestNotification(userId, deletedRequestId);
@@ -59,7 +53,6 @@ export async function initNotifications(userId) {
                     if (notificationModalOpen) {
                         refreshNotificationModal(userId);
                     }
-                    // Also refresh match requests list if available
                     if (typeof window.loadMatchRequests === 'function') {
                         window.loadMatchRequests();
                     }
@@ -71,14 +64,12 @@ export async function initNotifications(userId) {
                 table: 'match_requests',
                 filter: `player_b_id=eq.${userId}`
             }, async (payload) => {
-                // When a match request is updated (e.g., status changed), refresh
                 if (typeof window.loadMatchRequests === 'function') {
                     window.loadMatchRequests();
                 }
             })
             .subscribe();
 
-        // Subscribe to doubles_match_requests changes
         doublesMatchRequestSubscription = db
             .channel(`doubles-requests-${userId}`)
             .on('postgres_changes', {
@@ -86,7 +77,7 @@ export async function initNotifications(userId) {
                 schema: 'public',
                 table: 'doubles_match_requests'
             }, async (payload) => {
-                // Check if current user is involved in this request
+                // Nur für Anfragen bei denen der User beteiligt ist
                 const record = payload.new || payload.old;
                 if (!record) return;
 
@@ -97,32 +88,29 @@ export async function initNotifications(userId) {
 
                 if (!isInvolved) return;
 
-                // Handle deletion - remove corresponding notification
                 if (payload.eventType === 'DELETE' && payload.old?.id) {
                     await removeDoublesRequestNotification(userId, payload.old.id);
                 }
 
-                // Refresh notifications
                 updateNotificationBadge(userId);
                 if (notificationModalOpen) {
                     refreshNotificationModal(userId);
                 }
 
-                // Refresh doubles requests list if available
                 if (typeof window.loadDoublesMatchRequests === 'function') {
                     window.loadDoublesMatchRequests();
                 }
             })
             .subscribe();
 
-        // Remove any existing language change listener to avoid duplicates
+        // Verhindert doppelte Listener bei mehrfacher Initialisierung
         if (window.notificationsLanguageListener) {
             window.removeEventListener('languageChanged', window.notificationsLanguageListener);
         }
 
-        // Listen for language changes and refresh notifications if modal is open
+        // Modal muss nach Sprachwechsel aktualisiert werden
         window.notificationsLanguageListener = async () => {
-            // Small delay to ensure i18next has loaded the new language
+            // Kurze Verzögerung damit i18next die neue Sprache laden kann
             await new Promise(resolve => setTimeout(resolve, 100));
             if (notificationModalOpen) {
                 refreshNotificationModal(userId);
@@ -135,14 +123,13 @@ export async function initNotifications(userId) {
 }
 
 /**
- * Remove notification for a withdrawn match request
+ * Entfernt Benachrichtigung für zurückgezogene Match-Anfrage
  */
 async function removeMatchRequestNotification(userId, requestId) {
     const db = getSupabase();
     if (!db) return;
 
     try {
-        // Find and delete notifications with this request_id
         const { data: notifications } = await db
             .from('notifications')
             .select('id, data')
@@ -160,14 +147,13 @@ async function removeMatchRequestNotification(userId, requestId) {
 }
 
 /**
- * Remove notification for a withdrawn doubles match request
+ * Entfernt Benachrichtigung für zurückgezogene Doppel-Anfrage
  */
 async function removeDoublesRequestNotification(userId, requestId) {
     const db = getSupabase();
     if (!db) return;
 
     try {
-        // Find and delete notifications with this request_id
         const { data: notifications } = await db
             .from('notifications')
             .select('id, data')
@@ -185,36 +171,33 @@ async function removeDoublesRequestNotification(userId, requestId) {
 }
 
 /**
- * Refresh the notification modal if it's open
+ * Aktualisiert Modal falls geöffnet
  */
 async function refreshNotificationModal(userId) {
     const existingModal = document.getElementById('notification-modal');
     if (existingModal) {
         existingModal.remove();
         notificationModalOpen = false;
-        // Re-open the modal with fresh data
         showNotificationModal(userId);
     }
 }
 
 /**
- * Check and mark match request notifications as read if the match is already confirmed
- * @param {string} userId - Current user's ID
- * @param {Array} notifications - Array of notifications to check
- * @returns {Array} - Updated notifications array with is_read updated for confirmed matches
+ * Markiert Match-Anfragen automatisch als gelesen wenn sie bereits bestätigt wurden
+ * @param {string} userId - User-ID
+ * @param {Array} notifications - Benachrichtigungen
+ * @returns {Array} - Aktualisierte Benachrichtigungen
  */
 async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
     const db = getSupabase();
     if (!db || !notifications || notifications.length === 0) return notifications;
 
-    // Find all unread match_request notifications
     const unreadMatchRequestNotifs = notifications.filter(n =>
         n.type === 'match_request' && !n.is_read
     );
 
     if (unreadMatchRequestNotifs.length === 0) return notifications;
 
-    // Get all request IDs from these notifications
     const requestIds = unreadMatchRequestNotifs
         .map(n => n.data?.request_id)
         .filter(id => id);
@@ -222,39 +205,34 @@ async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
     if (requestIds.length === 0) return notifications;
 
     try {
-        // Check status of these match requests
         const { data: matchRequests } = await db
             .from('match_requests')
             .select('id, status')
             .in('id', requestIds);
 
-        // Create a map of request statuses
         const requestStatusMap = {};
         (matchRequests || []).forEach(mr => {
             requestStatusMap[mr.id] = mr.status;
         });
 
-        // Find notifications that should be marked as read (approved, rejected, or deleted)
+        // Gelöschte oder bereits bearbeitete Anfragen als gelesen markieren
         const notificationsToMarkRead = [];
         for (const notif of unreadMatchRequestNotifs) {
             const requestId = notif.data?.request_id;
             if (!requestId) continue;
 
             const status = requestStatusMap[requestId];
-            // If request doesn't exist (deleted) or is approved/rejected, mark notification as read
             if (!status || status === 'approved' || status === 'rejected') {
                 notificationsToMarkRead.push(notif.id);
             }
         }
 
-        // Mark these notifications as read in the database
         if (notificationsToMarkRead.length > 0) {
             await db
                 .from('notifications')
                 .update({ is_read: true })
                 .in('id', notificationsToMarkRead);
 
-            // Update the notifications array to reflect the change
             return notifications.map(n => {
                 if (notificationsToMarkRead.includes(n.id)) {
                     return { ...n, is_read: true };
@@ -270,23 +248,21 @@ async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
 }
 
 /**
- * Check and mark doubles match request notifications as read if the request is already handled
- * @param {string} userId - Current user's ID
- * @param {Array} notifications - Array of notifications to check
- * @returns {Array} - Updated notifications array with is_read updated for handled requests
+ * Markiert Doppel-Anfragen automatisch als gelesen wenn sie bereits bearbeitet wurden
+ * @param {string} userId - User-ID
+ * @param {Array} notifications - Benachrichtigungen
+ * @returns {Array} - Aktualisierte Benachrichtigungen
  */
 async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) {
     const db = getSupabase();
     if (!db || !notifications || notifications.length === 0) return notifications;
 
-    // Find all unread doubles_match_request notifications
     const unreadDoublesRequestNotifs = notifications.filter(n =>
         n.type === 'doubles_match_request' && !n.is_read
     );
 
     if (unreadDoublesRequestNotifs.length === 0) return notifications;
 
-    // Get all request IDs from these notifications
     const requestIds = unreadDoublesRequestNotifs
         .map(n => n.data?.request_id)
         .filter(id => id);
@@ -294,19 +270,16 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
     if (requestIds.length === 0) return notifications;
 
     try {
-        // Check status of these doubles match requests
         const { data: doublesRequests } = await db
             .from('doubles_match_requests')
             .select('id, status')
             .in('id', requestIds);
 
-        // Create a map of request statuses
         const requestStatusMap = {};
         (doublesRequests || []).forEach(mr => {
             requestStatusMap[mr.id] = mr.status;
         });
 
-        // Find notifications that should be marked as read (approved, rejected, processed, or deleted)
         const notificationsToMarkRead = [];
         const notificationsToDelete = [];
 
@@ -315,17 +288,13 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
             if (!requestId) continue;
 
             const status = requestStatusMap[requestId];
-            // If request doesn't exist (deleted) or is not pending anymore, mark notification as handled
             if (!status) {
-                // Request was deleted - delete notification too
                 notificationsToDelete.push(notif.id);
             } else if (status === 'approved' || status === 'rejected' || status === 'processed') {
-                // Request was already handled - mark as read
                 notificationsToMarkRead.push(notif.id);
             }
         }
 
-        // Delete notifications for deleted requests
         if (notificationsToDelete.length > 0) {
             await db
                 .from('notifications')
@@ -333,7 +302,6 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
                 .in('id', notificationsToDelete);
         }
 
-        // Mark these notifications as read in the database
         if (notificationsToMarkRead.length > 0) {
             await db
                 .from('notifications')
@@ -341,7 +309,6 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
                 .in('id', notificationsToMarkRead);
         }
 
-        // Update the notifications array to reflect the changes
         return notifications
             .filter(n => !notificationsToDelete.includes(n.id))
             .map(n => {
@@ -358,30 +325,27 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
 }
 
 /**
- * Check and mark club request notifications as read if the request is already handled
- * @param {string} userId - Current user's ID
- * @param {Array} notifications - Array of notifications to check
- * @returns {Array} - Updated notifications array with is_read updated for handled requests
+ * Markiert Vereins-Anfragen automatisch als gelesen wenn sie bereits bearbeitet wurden
+ * @param {string} userId - User-ID
+ * @param {Array} notifications - Benachrichtigungen
+ * @returns {Array} - Aktualisierte Benachrichtigungen
  */
 async function checkAndMarkConfirmedClubRequests(userId, notifications) {
     const db = getSupabase();
     if (!db || !notifications || notifications.length === 0) return notifications;
 
-    // Find all unread club_join_request and club_leave_request notifications
     const unreadClubRequestNotifs = notifications.filter(n =>
         (n.type === 'club_join_request' || n.type === 'club_leave_request') && !n.is_read
     );
 
     if (unreadClubRequestNotifs.length === 0) return notifications;
 
-    // Separate join and leave requests
     const joinNotifs = unreadClubRequestNotifs.filter(n => n.type === 'club_join_request');
     const leaveNotifs = unreadClubRequestNotifs.filter(n => n.type === 'club_leave_request');
 
     const notificationsToMarkRead = [];
 
     try {
-        // Check join requests by player_id
         if (joinNotifs.length > 0) {
             const playerIds = joinNotifs
                 .map(n => n.data?.player_id)
@@ -403,7 +367,6 @@ async function checkAndMarkConfirmedClubRequests(userId, notifications) {
                     if (!playerId) continue;
 
                     const status = requestStatusMap[playerId];
-                    // If request doesn't exist or is approved/rejected, mark as read
                     if (!status || status === 'approved' || status === 'rejected') {
                         notificationsToMarkRead.push(notif.id);
                     }
@@ -411,7 +374,6 @@ async function checkAndMarkConfirmedClubRequests(userId, notifications) {
             }
         }
 
-        // Check leave requests by player_id
         if (leaveNotifs.length > 0) {
             const playerIds = leaveNotifs
                 .map(n => n.data?.player_id)
@@ -433,7 +395,6 @@ async function checkAndMarkConfirmedClubRequests(userId, notifications) {
                     if (!playerId) continue;
 
                     const status = requestStatusMap[playerId];
-                    // If request doesn't exist or is approved/rejected, mark as read
                     if (!status || status === 'approved' || status === 'rejected') {
                         notificationsToMarkRead.push(notif.id);
                     }
@@ -441,14 +402,12 @@ async function checkAndMarkConfirmedClubRequests(userId, notifications) {
             }
         }
 
-        // Mark these notifications as read in the database
         if (notificationsToMarkRead.length > 0) {
             await db
                 .from('notifications')
                 .update({ is_read: true })
                 .in('id', notificationsToMarkRead);
 
-            // Update the notifications array to reflect the change
             return notifications.map(n => {
                 if (notificationsToMarkRead.includes(n.id)) {
                     return { ...n, is_read: true };
@@ -464,7 +423,7 @@ async function checkAndMarkConfirmedClubRequests(userId, notifications) {
 }
 
 /**
- * Update the notification badge count
+ * Aktualisiert Badge mit Anzahl ungelesener Benachrichtigungen
  */
 async function updateNotificationBadge(userId) {
     const db = getSupabase();
@@ -483,7 +442,6 @@ async function updateNotificationBadge(userId) {
 
     const unreadCount = count || 0;
 
-    // Update desktop badge
     const desktopBadge = document.getElementById('desktop-notifications-badge');
     if (desktopBadge) {
         if (unreadCount > 0) {
@@ -494,7 +452,6 @@ async function updateNotificationBadge(userId) {
         }
     }
 
-    // Update mobile badge
     const mobileBadge = document.getElementById('mobile-notifications-badge');
     if (mobileBadge) {
         if (unreadCount > 0) {
@@ -507,7 +464,7 @@ async function updateNotificationBadge(userId) {
 }
 
 /**
- * Setup click handlers for notification bells
+ * Registriert Click-Handler für Benachrichtigungs-Icons
  */
 function setupNotificationHandlers(userId) {
     const desktopBtn = document.getElementById('desktop-notifications-btn');
@@ -524,7 +481,7 @@ function setupNotificationHandlers(userId) {
 }
 
 /**
- * Show the notification modal/dropdown
+ * Zeigt das Benachrichtigungs-Modal
  */
 async function showNotificationModal(userId) {
     if (notificationModalOpen) return;
@@ -533,7 +490,6 @@ async function showNotificationModal(userId) {
     const db = getSupabase();
     if (!db) return;
 
-    // Fetch recent notifications
     const { data: rawNotifications, error } = await db
         .from('notifications')
         .select('*')
@@ -547,19 +503,12 @@ async function showNotificationModal(userId) {
         return;
     }
 
-    // Check and mark confirmed match request notifications as read
     let notifications = await checkAndMarkConfirmedMatchRequests(userId, rawNotifications);
-
-    // Check and mark confirmed doubles match request notifications as read
     notifications = await checkAndMarkConfirmedDoublesMatchRequests(userId, notifications);
-
-    // Check and mark confirmed club request notifications as read
     notifications = await checkAndMarkConfirmedClubRequests(userId, notifications);
 
-    // Update badge count if any notifications were marked as read
     updateNotificationBadge(userId);
 
-    // Create modal
     const modal = document.createElement('div');
     modal.id = 'notification-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-start justify-center pt-16 sm:pt-20';
@@ -618,7 +567,6 @@ async function showNotificationModal(userId) {
 
     document.body.appendChild(modal);
 
-    // Close handlers
     const closeModal = () => {
         modal.remove();
         notificationModalOpen = false;
@@ -630,49 +578,43 @@ async function showNotificationModal(userId) {
 
     document.getElementById('close-notification-modal')?.addEventListener('click', closeModal);
 
-    // Mark as read on click (on content, not delete button)
+    // Unterschiedliche Behandlung je nach Benachrichtigungstyp
     modal.querySelectorAll('.notification-content').forEach((content, index) => {
         content.addEventListener('click', async () => {
             const item = content.closest('.notification-item');
             const notificationId = item.dataset.id;
             const notification = notifications[index];
 
-            // For match requests: navigate to Wettkampf tab without marking as read
-            // User should accept/decline there, which will handle the notification
+            // Match-Anfragen: Navigation ohne als gelesen zu markieren (User muss erst annehmen/ablehnen)
             if (isMatchRequest(notification.type)) {
                 handleNotificationClick(notification);
                 closeModal();
                 return;
             }
 
-            // For club requests (coaches): navigate to Verein tab without marking as read
-            // Coach should accept/decline there, which will handle the notification
+            // Vereins-Anfragen: Navigation ohne als gelesen zu markieren (Coach muss erst bearbeiten)
             if (isClubRequest(notification.type)) {
                 handleNotificationClick(notification);
                 closeModal();
                 return;
             }
 
-            // For other notifications: mark as read and navigate
             await markNotificationAsRead(notificationId);
             item.classList.remove('bg-blue-50');
             item.classList.add('bg-white');
             item.querySelector('.unread-dot')?.remove();
             item.dataset.read = 'true';
-            // Add delete button after marking as read
             const actionsDiv = item.querySelector('.flex.items-center.gap-2');
             if (actionsDiv && !actionsDiv.querySelector('.delete-notification')) {
                 actionsDiv.innerHTML = `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>`;
             }
             updateNotificationBadge(userId);
 
-            // Handle navigation based on notification type
             handleNotificationClick(notification);
             closeModal();
         });
     });
 
-    // Delete single notification
     modal.addEventListener('click', async (e) => {
         const deleteBtn = e.target.closest('.delete-notification');
         if (deleteBtn) {
@@ -686,7 +628,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Accept follow request
     modal.addEventListener('click', async (e) => {
         const acceptBtn = e.target.closest('.accept-follow-btn');
         if (acceptBtn) {
@@ -695,7 +636,6 @@ async function showNotificationModal(userId) {
             const notificationId = acceptBtn.dataset.notificationId;
             const item = acceptBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.follow-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -703,7 +643,6 @@ async function showNotificationModal(userId) {
 
             const success = await handleAcceptFollow(requesterId, notificationId, userId);
             if (success) {
-                // Update UI to show accepted
                 item.classList.remove('bg-blue-50');
                 item.classList.add('bg-white');
                 item.dataset.read = 'true';
@@ -719,7 +658,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Decline follow request
     modal.addEventListener('click', async (e) => {
         const declineBtn = e.target.closest('.decline-follow-btn');
         if (declineBtn) {
@@ -728,7 +666,6 @@ async function showNotificationModal(userId) {
             const notificationId = declineBtn.dataset.notificationId;
             const item = declineBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.follow-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -747,7 +684,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Accept match request
     modal.addEventListener('click', async (e) => {
         const acceptBtn = e.target.closest('.accept-match-btn');
         if (acceptBtn) {
@@ -757,7 +693,6 @@ async function showNotificationModal(userId) {
             const notificationId = acceptBtn.dataset.notificationId;
             const item = acceptBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.match-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -765,7 +700,6 @@ async function showNotificationModal(userId) {
 
             const success = await handleAcceptMatch(requestId, requesterId, notificationId, userId);
             if (success) {
-                // Update UI to show accepted
                 item.classList.remove('bg-blue-50');
                 item.classList.add('bg-white');
                 item.dataset.read = 'true';
@@ -781,7 +715,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Decline match request
     modal.addEventListener('click', async (e) => {
         const declineBtn = e.target.closest('.decline-match-btn');
         if (declineBtn) {
@@ -791,7 +724,6 @@ async function showNotificationModal(userId) {
             const notificationId = declineBtn.dataset.notificationId;
             const item = declineBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.match-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -810,7 +742,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Accept doubles match request
     modal.addEventListener('click', async (e) => {
         const acceptBtn = e.target.closest('.accept-doubles-btn');
         if (acceptBtn) {
@@ -819,7 +750,6 @@ async function showNotificationModal(userId) {
             const notificationId = acceptBtn.dataset.notificationId;
             const item = acceptBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.doubles-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -827,7 +757,6 @@ async function showNotificationModal(userId) {
 
             const success = await handleAcceptDoublesMatch(requestId, notificationId, userId);
             if (success) {
-                // Update UI to show accepted
                 item.classList.remove('bg-blue-50');
                 item.classList.add('bg-white');
                 item.dataset.read = 'true';
@@ -843,7 +772,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Decline doubles match request
     modal.addEventListener('click', async (e) => {
         const declineBtn = e.target.closest('.decline-doubles-btn');
         if (declineBtn) {
@@ -852,7 +780,6 @@ async function showNotificationModal(userId) {
             const notificationId = declineBtn.dataset.notificationId;
             const item = declineBtn.closest('.notification-item');
 
-            // Disable buttons while processing
             const actionsDiv = item.querySelector('.doubles-request-actions');
             if (actionsDiv) {
                 actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
@@ -871,7 +798,6 @@ async function showNotificationModal(userId) {
         }
     });
 
-    // Mark all as read
     document.getElementById('mark-all-read')?.addEventListener('click', async () => {
         await markAllNotificationsAsRead(userId);
         modal.querySelectorAll('.notification-item').forEach(item => {
@@ -879,7 +805,6 @@ async function showNotificationModal(userId) {
             item.classList.add('bg-white');
             item.querySelector('.unread-dot')?.remove();
             item.dataset.read = 'true';
-            // Add delete button
             const actionsDiv = item.querySelector('.flex.items-center.gap-2');
             if (actionsDiv && !actionsDiv.querySelector('.delete-notification')) {
                 actionsDiv.innerHTML = `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>`;
@@ -888,14 +813,12 @@ async function showNotificationModal(userId) {
         updateNotificationBadge(userId);
     });
 
-    // Delete all read notifications
     document.getElementById('delete-all-read')?.addEventListener('click', async () => {
         await deleteAllReadNotifications(userId);
         modal.querySelectorAll('.notification-item[data-read="true"]').forEach(item => {
             item.remove();
         });
         updateNotificationBadge(userId);
-        // Check if no notifications left
         const remainingItems = modal.querySelectorAll('.notification-item');
         if (remainingItems.length === 0) {
             modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
@@ -910,7 +833,7 @@ async function showNotificationModal(userId) {
 }
 
 /**
- * Mark a single notification as read
+ * Markiert Benachrichtigung als gelesen
  */
 async function markNotificationAsRead(notificationId) {
     const db = getSupabase();
@@ -923,7 +846,7 @@ async function markNotificationAsRead(notificationId) {
 }
 
 /**
- * Mark all notifications as read
+ * Markiert alle Benachrichtigungen als gelesen
  */
 async function markAllNotificationsAsRead(userId) {
     const db = getSupabase();
@@ -937,7 +860,7 @@ async function markAllNotificationsAsRead(userId) {
 }
 
 /**
- * Delete a single notification
+ * Löscht Benachrichtigung
  */
 async function deleteNotification(notificationId) {
     const db = getSupabase();
@@ -950,7 +873,7 @@ async function deleteNotification(notificationId) {
 }
 
 /**
- * Delete all read notifications for a user
+ * Löscht alle gelesenen Benachrichtigungen
  */
 async function deleteAllReadNotifications(userId) {
     const db = getSupabase();
@@ -964,7 +887,7 @@ async function deleteAllReadNotifications(userId) {
 }
 
 /**
- * Create a notification for a user
+ * Erstellt neue Benachrichtigung
  */
 export async function createNotification(userId, type, title, message, data = {}) {
     const db = getSupabase();
@@ -986,7 +909,7 @@ export async function createNotification(userId, type, title, message, data = {}
 }
 
 /**
- * Create a follow request notification
+ * Erstellt Follow-Request Benachrichtigung
  */
 export async function createFollowRequestNotification(toUserId, fromUserId, fromUserName) {
     const title = t('notifications.types.followRequest');
@@ -999,7 +922,7 @@ export async function createFollowRequestNotification(toUserId, fromUserId, from
 }
 
 /**
- * Create a follow accepted notification
+ * Erstellt Follow-Accepted Benachrichtigung
  */
 export async function createFollowAcceptedNotification(toUserId, accepterId, accepterName) {
     const title = t('notifications.types.followRequestAccepted');
@@ -1012,7 +935,7 @@ export async function createFollowAcceptedNotification(toUserId, accepterId, acc
 }
 
 /**
- * Create a points notification
+ * Erstellt Punkte-Benachrichtigung
  */
 export async function createPointsNotification(userId, points, xp, eloChange, reason, awardedBy) {
     const isPositive = points >= 0;
@@ -1041,7 +964,7 @@ export async function createPointsNotification(userId, points, xp, eloChange, re
 }
 
 /**
- * Check if notifications list is empty and update UI
+ * Prüft ob Benachrichtigungsliste leer ist
  */
 function checkEmptyNotifications(modal) {
     const remainingItems = modal.querySelectorAll('.notification-item');
@@ -1057,22 +980,19 @@ function checkEmptyNotifications(modal) {
 }
 
 /**
- * Handle notification click - navigate based on type
+ * Behandelt Click auf Benachrichtigung - Navigation je nach Typ
  */
 function handleNotificationClick(notification) {
     if (!notification) return;
 
     const type = notification.type;
 
-    // Match request notifications - navigate to Wettkampf tab and scroll to pending requests
     if (type === 'match_request') {
-        // Try to click the Wettkampf tab
         const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
                             document.querySelector('[data-tab="wettkampf"]') ||
                             document.querySelector('button[onclick*="matches"]');
         if (wettkampfTab) {
             wettkampfTab.click();
-            // Scroll to pending requests section after tab switch
             setTimeout(() => {
                 const pendingSection = document.getElementById('pending-requests-section');
                 if (pendingSection) {
@@ -1081,22 +1001,18 @@ function handleNotificationClick(notification) {
             }, 100);
             return;
         }
-        // If we're not on dashboard, navigate there with hash
         if (!window.location.pathname.includes('dashboard')) {
             window.location.href = '/dashboard.html#pending-requests-section';
         }
         return;
     }
 
-    // Doubles match request notifications - navigate to Wettkampf tab, pending requests section
     if (type === 'doubles_match_request') {
-        // Try to click the Wettkampf tab
         const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
                             document.querySelector('[data-tab="wettkampf"]') ||
                             document.querySelector('button[onclick*="matches"]');
         if (wettkampfTab) {
             wettkampfTab.click();
-            // Scroll to pending requests section after tab switch
             setTimeout(() => {
                 const pendingSection = document.getElementById('pending-requests-section');
                 if (pendingSection) {
@@ -1105,14 +1021,12 @@ function handleNotificationClick(notification) {
             }, 150);
             return;
         }
-        // If we're not on dashboard, navigate there with hash
         if (!window.location.pathname.includes('dashboard')) {
             window.location.href = '/dashboard.html#pending-requests-section';
         }
         return;
     }
 
-    // Follow request notifications - navigate to profile or community
     if (type === 'follow_request' || type === 'friend_request') {
         const requesterId = notification.data?.requester_id;
         if (requesterId) {
@@ -1121,31 +1035,25 @@ function handleNotificationClick(notification) {
         }
     }
 
-    // Friend request accepted - navigate to their profile
     if (type === 'friend_request_accepted' || type === 'follow_accepted') {
         const accepterId = notification.data?.accepter_id;
         if (accepterId) {
             window.location.href = `/profile.html?id=${accepterId}`;
             return;
         }
-        // Fallback to community tab
         const communityTab = document.querySelector('[data-tab="community"]');
         if (communityTab) {
             communityTab.click();
         }
     }
 
-    // Club request notifications (for coaches) - navigate to correct tab
     if (type === 'club_join_request' || type === 'club_leave_request') {
-        // Join requests are in "club" tab, Leave requests are in "statistics" tab
         const isLeaveRequest = type === 'club_leave_request';
 
         if (isLeaveRequest) {
-            // Navigate to Statistics tab for leave requests
             const statisticsTab = document.querySelector('[data-tab="statistics"]');
             if (statisticsTab) {
                 statisticsTab.click();
-                // Scroll to leave requests section after tab switch
                 setTimeout(() => {
                     const requestsSection = document.getElementById('leave-requests-list');
                     if (requestsSection) {
@@ -1155,13 +1063,11 @@ function handleNotificationClick(notification) {
                 return;
             }
         } else {
-            // Navigate to Club/Verein tab for join requests
             const vereinTab = document.querySelector('[data-tab="club"]') ||
                               document.querySelector('[data-tab="verein"]') ||
                               document.querySelector('button[onclick*="club"]');
             if (vereinTab) {
                 vereinTab.click();
-                // Scroll to club requests section after tab switch
                 setTimeout(() => {
                     const requestsSection = document.getElementById('club-join-requests-list');
                     if (requestsSection) {
@@ -1172,7 +1078,6 @@ function handleNotificationClick(notification) {
             }
         }
 
-        // If we're not on dashboard, navigate there
         if (!window.location.pathname.includes('dashboard')) {
             window.location.href = '/dashboard.html#club-requests';
         }
@@ -1181,7 +1086,7 @@ function handleNotificationClick(notification) {
 }
 
 /**
- * Get icon for notification type
+ * Gibt Icon für Benachrichtigungstyp zurück
  */
 function getNotificationIcon(type) {
     const icons = {
@@ -1212,46 +1117,30 @@ function getNotificationIcon(type) {
     return icons[type] || icons.default;
 }
 
-/**
- * Check if notification type is an actionable follow request
- */
 function isFollowRequest(type) {
     return type === 'follow_request' || type === 'friend_request';
 }
 
-/**
- * Check if notification type is an actionable match request (singles)
- */
 function isMatchRequest(type) {
     return type === 'match_request';
 }
 
-/**
- * Check if notification type is a doubles match request
- */
 function isDoublesMatchRequest(type) {
     return type === 'doubles_match_request';
 }
 
-/**
- * Check if notification type is an actionable club request (for coaches)
- */
 function isClubRequest(type) {
     return type === 'club_join_request' || type === 'club_leave_request';
 }
 
-/**
- * Check if notification is actionable (follow, match, doubles, or club request)
- */
 function isActionableRequest(type) {
     return isFollowRequest(type) || isMatchRequest(type) || isDoublesMatchRequest(type) || isClubRequest(type);
 }
 
 /**
- * Render action buttons for follow request notifications
+ * Rendert Action-Buttons für Benachrichtigungen
  */
 function renderFollowRequestActions(notification) {
-    // Handle follow requests
     if (isFollowRequest(notification.type) && !notification.is_read) {
         const requesterId = notification.data?.requester_id;
         if (!requesterId) return '';
@@ -1270,7 +1159,6 @@ function renderFollowRequestActions(notification) {
         `;
     }
 
-    // Handle match requests - show hint to go to Wettkampf tab or status if already handled
     if (isMatchRequest(notification.type)) {
         if (!notification.is_read) {
             return `
@@ -1281,7 +1169,6 @@ function renderFollowRequestActions(notification) {
                 </div>
             `;
         } else {
-            // Match request has already been handled (confirmed/rejected/withdrawn)
             return `
                 <div class="match-request-status mt-2">
                     <span class="text-xs text-gray-500">
@@ -1292,7 +1179,6 @@ function renderFollowRequestActions(notification) {
         }
     }
 
-    // Handle club requests (for coaches) - show hint to go to coach dashboard
     if (isClubRequest(notification.type)) {
         if (!notification.is_read) {
             const isJoinRequest = notification.type === 'club_join_request';
@@ -1314,7 +1200,6 @@ function renderFollowRequestActions(notification) {
         }
     }
 
-    // Handle doubles match requests - show accept/reject buttons
     if (isDoublesMatchRequest(notification.type)) {
         const requestId = notification.data?.request_id;
         if (!notification.is_read && requestId) {
@@ -1353,14 +1238,13 @@ function renderFollowRequestActions(notification) {
 }
 
 /**
- * Handle accept follow request from notification
+ * Behandelt Follow-Request Annahme
  */
 async function handleAcceptFollow(requesterId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Find the friendship
         const { data: friendship } = await db
             .from('friendships')
             .select('id')
@@ -1374,7 +1258,6 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
             return false;
         }
 
-        // Get current user's name for notification
         const { data: currentUserProfile } = await db
             .from('profiles')
             .select('first_name, last_name')
@@ -1390,10 +1273,7 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
 
         if (error) throw error;
 
-        // Mark notification as read
         await markNotificationAsRead(notificationId);
-
-        // Notify the requester that their request was accepted
         await createFollowAcceptedNotification(requesterId, userId, currentUserName);
 
         return true;
@@ -1404,14 +1284,13 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
 }
 
 /**
- * Handle decline follow request from notification
+ * Behandelt Follow-Request Ablehnung
  */
 async function handleDeclineFollow(requesterId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Find the friendship
         const { data: friendship } = await db
             .from('friendships')
             .select('id')
@@ -1422,7 +1301,7 @@ async function handleDeclineFollow(requesterId, notificationId, userId) {
 
         if (!friendship) {
             console.error('Friendship not found');
-            // Still delete the notification since the friendship might have been handled
+            // Benachrichtigung trotzdem löschen falls Freundschaft bereits bearbeitet wurde
             await deleteNotification(notificationId);
             return true;
         }
@@ -1434,7 +1313,6 @@ async function handleDeclineFollow(requesterId, notificationId, userId) {
 
         if (error) throw error;
 
-        // Delete the notification
         await deleteNotification(notificationId);
 
         return true;
@@ -1445,14 +1323,13 @@ async function handleDeclineFollow(requesterId, notificationId, userId) {
 }
 
 /**
- * Handle accept match request from notification
+ * Behandelt Match-Request Annahme
  */
 async function handleAcceptMatch(requestId, requesterId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Find the match request - either by ID or by requester
         let matchRequest;
         if (requestId) {
             const { data } = await db
@@ -1462,7 +1339,6 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
                 .single();
             matchRequest = data;
         } else if (requesterId) {
-            // Find pending request from this requester to current user
             const { data } = await db
                 .from('match_requests')
                 .select('*')
@@ -1478,17 +1354,15 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
         if (!matchRequest) {
             console.error('Match request not found');
             await deleteNotification(notificationId);
-            return true; // Still return true to remove notification UI
+            return true;
         }
 
-        // Update approvals
         let approvals = matchRequest.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
         approvals.player_b = true;
 
-        // Update the match request to approved
         const { error: updateError } = await db
             .from('match_requests')
             .update({
@@ -1500,15 +1374,12 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
 
         if (updateError) throw updateError;
 
-        // Create the actual match using the global function if available
         if (typeof window.createMatchFromRequest === 'function') {
             await window.createMatchFromRequest(matchRequest);
         }
 
-        // Mark notification as read
         await markNotificationAsRead(notificationId);
 
-        // Notify player A that match was accepted
         const { data: currentUserProfile } = await db
             .from('profiles')
             .select('first_name, last_name')
@@ -1524,12 +1395,10 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
             t('notifications.matchApprovedMessage', { name: currentUserName })
         );
 
-        // Dispatch event to notify other components (dashboard, etc.) to refresh
         window.dispatchEvent(new CustomEvent('matchRequestUpdated', {
             detail: { type: 'singles', action: 'approved', requestId: matchRequest.id }
         }));
 
-        // Refresh match requests if function exists (legacy support)
         if (typeof window.loadMatchRequests === 'function') {
             window.loadMatchRequests();
         }
@@ -1542,14 +1411,13 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
 }
 
 /**
- * Handle decline match request from notification
+ * Behandelt Match-Request Ablehnung
  */
 async function handleDeclineMatch(requestId, requesterId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Find the match request
         let matchRequest;
         if (requestId) {
             const { data } = await db
@@ -1577,7 +1445,6 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
             return true;
         }
 
-        // Update the match request to rejected
         const { error: updateError } = await db
             .from('match_requests')
             .update({
@@ -1588,10 +1455,8 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
 
         if (updateError) throw updateError;
 
-        // Delete the notification
         await deleteNotification(notificationId);
 
-        // Notify player A that match was rejected
         const { data: currentUserProfile } = await db
             .from('profiles')
             .select('first_name, last_name')
@@ -1607,7 +1472,6 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
             t('notifications.matchRejectedMessage', { name: currentUserName })
         );
 
-        // Refresh match requests if function exists
         if (typeof window.loadMatchRequests === 'function') {
             window.loadMatchRequests();
         }
@@ -1620,17 +1484,15 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
 }
 
 /**
- * Handle accept doubles match request from notification
+ * Behandelt Doppel-Match Annahme
  */
 async function handleAcceptDoublesMatch(requestId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Import confirmDoublesMatchRequest function dynamically
         const { confirmDoublesMatchRequest } = await import('./doubles-matches-supabase.js');
 
-        // Call the confirm function
         const result = await confirmDoublesMatchRequest(requestId, userId, db);
 
         if (!result.success) {
@@ -1638,7 +1500,6 @@ async function handleAcceptDoublesMatch(requestId, notificationId, userId) {
             return false;
         }
 
-        // Mark notification as read
         await markNotificationAsRead(notificationId);
 
         return true;
@@ -1649,31 +1510,27 @@ async function handleAcceptDoublesMatch(requestId, notificationId, userId) {
 }
 
 /**
- * Handle decline doubles match request from notification
+ * Behandelt Doppel-Match Ablehnung
  */
 async function handleDeclineDoublesMatch(requestId, notificationId, userId) {
     const db = getSupabase();
     if (!db) return false;
 
     try {
-        // Get current user data for the reject function
         const { data: currentUserProfile } = await db
             .from('profiles')
             .select('id, first_name, last_name')
             .eq('id', userId)
             .single();
 
-        // Import rejectDoublesMatchRequest function dynamically
         const { rejectDoublesMatchRequest } = await import('./doubles-matches-supabase.js');
 
-        // Call the reject function
         await rejectDoublesMatchRequest(requestId, 'Vom Spieler abgelehnt', db, {
             id: userId,
             first_name: currentUserProfile?.first_name,
             last_name: currentUserProfile?.last_name
         });
 
-        // Delete the notification
         await deleteNotification(notificationId);
 
         return true;
@@ -1684,7 +1541,7 @@ async function handleDeclineDoublesMatch(requestId, notificationId, userId) {
 }
 
 /**
- * Format time ago
+ * Formatiert Zeitangaben
  */
 function formatTimeAgo(dateString) {
     const date = new Date(dateString);
@@ -1702,7 +1559,7 @@ function formatTimeAgo(dateString) {
 }
 
 /**
- * Cleanup subscriptions
+ * Räumt Subscriptions auf
  */
 export function cleanupNotifications() {
     if (notificationSubscription) {

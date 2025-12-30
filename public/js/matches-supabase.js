@@ -1,5 +1,4 @@
 // Matches Module - Supabase Version
-// SC Champions - Migration von Firebase zu Supabase
 
 import { getSupabase } from './supabase-init.js';
 import {
@@ -20,14 +19,11 @@ import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
- * Matches Module - Supabase Version
- * Handles match pairings, handicap calculation, and match result reporting
- */
-
-const supabase = getSupabase();
-
-/**
- * Helper function to create a notification for a user
+ * @param {string} userId - Benutzer-ID
+ * @param {string} type - Benachrichtigungstyp
+ * @param {string} title - Titel
+ * @param {string} message - Nachricht
+ * @param {Object} data - Zusätzliche Daten
  */
 async function createNotification(userId, type, title, message, data = {}) {
     const db = getSupabase();
@@ -55,18 +51,18 @@ async function createNotification(userId, type, title, message, data = {}) {
     }
 }
 
-// Global variables
+const supabase = getSupabase();
+
 let coachSetScoreInput = null;
 let currentPairingsSession = null;
 let currentPairingSessionId = null;
 let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 let currentHandicapData = null;
-let currentSportName = 'table_tennis'; // Default sport
+let currentSportName = 'table_tennis';
 
 /**
- * Sets the current sport name for handicap calculations
- * @param {string} sportName - The sport name (table_tennis, tennis, badminton, padel)
+ * @param {string} sportName - Sportart (table_tennis, tennis, badminton, padel)
  */
 export function setCurrentSport(sportName) {
     currentSportName = sportName?.toLowerCase() || 'table_tennis';
@@ -74,8 +70,7 @@ export function setCurrentSport(sportName) {
 }
 
 /**
- * Updates the coach match winner display based on current set scores
- * @param {Object} setScoreInput - Optional set score input instance (defaults to coachSetScoreInput)
+ * @param {Object} setScoreInput - Set-Score-Input Instanz
  */
 export function updateCoachWinnerDisplay(setScoreInput = null) {
     const matchWinnerInfo = document.getElementById('coach-match-winner-info');
@@ -84,14 +79,11 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
     const inputInstance = setScoreInput || coachSetScoreInput;
     if (!inputInstance || !matchWinnerInfo || !matchWinnerText) return;
 
-    // Check if getMatchWinner method exists
     if (typeof inputInstance.getMatchWinner !== 'function') return;
 
     const winnerData = inputInstance.getMatchWinner();
 
     if (winnerData && winnerData.winner) {
-        // We have a winner
-        // Get player names from the select elements
         const playerASelect = document.getElementById('player-a-select');
         const playerBSelect = document.getElementById('player-b-select');
 
@@ -105,18 +97,13 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
         matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
         matchWinnerInfo.classList.remove('hidden');
     } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
-        // Match in progress, show current score
         matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
         matchWinnerInfo.classList.remove('hidden');
     } else {
-        // No valid sets yet
         matchWinnerInfo.classList.add('hidden');
     }
 }
 
-/**
- * Initializes the set score input for coach match form
- */
 export async function initializeCoachSetScoreInput(currentUserId) {
     const container = document.getElementById('coach-set-score-container');
     const matchModeSelect = document.getElementById('coach-match-mode-select');
@@ -126,13 +113,11 @@ export async function initializeCoachSetScoreInput(currentUserId) {
 
     if (!container) return null;
 
-    // Get sport context to determine scoring system
     const sportContext = await getSportContext(currentUserId);
     const sportName = sportContext?.sportName;
     const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
     const isBadminton = sportName === 'badminton';
 
-    // Show/hide tennis options based on sport
     const tennisOptionsContainer = document.getElementById('coach-tennis-options-container');
     if (tennisOptionsContainer) {
         if (isTennisOrPadel) {
@@ -142,10 +127,8 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         }
     }
 
-    // Adjust default match mode based on sport
     if (matchModeSelect) {
         if (isTennisOrPadel || isBadminton) {
-            // For tennis/padel/badminton, default to Best of 3
             matchModeSelect.value = 'best-of-3';
         }
     }
@@ -176,7 +159,6 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         if (!container) return null;
 
         if (isTennisOrPadel) {
-            // Tennis/Padel scoring
             const options = {
                 mode: mode || 'best-of-3',
                 goldenPoint: goldenPointCheckbox?.checked || false,
@@ -184,10 +166,8 @@ export async function initializeCoachSetScoreInput(currentUserId) {
             };
             return createTennisScoreInput(container, [], options);
         } else if (isBadminton) {
-            // Badminton scoring (always Best of 3)
             return createBadmintonScoreInput(container, [], 'best-of-3');
         } else {
-            // Table Tennis scoring
             return createSetScoreInput(container, [], mode || 'best-of-5');
         }
     }
@@ -208,7 +188,6 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         });
     }
 
-    // Tennis-specific options
     goldenPointCheckbox?.addEventListener('change', () => {
         coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
     });
@@ -224,9 +203,6 @@ export function setCurrentPairingsSession(sessionId) {
     currentPairingsSession = sessionId;
 }
 
-/**
- * Generates match pairings from present and match-ready players
- */
 export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all', sessionId = null) {
     if (sessionId) {
         currentPairingsSession = sessionId;
@@ -235,13 +211,12 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
-    // Only pair players who have completed Grundlagen (5 exercises)
+    // Nur Spieler paaren, die Grundlagen abgeschlossen haben (Fairness)
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
         const grundlagen = player.grundlagenCompleted || 0;
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup, age group, or gender
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             matchReadyAndPresentPlayers = filterPlayersByAgeGroup(matchReadyAndPresentPlayers, currentSubgroupFilter);
@@ -254,10 +229,8 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
         }
     }
 
-    // Sort by ELO rating
     matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 0) - (b.eloRating || 0));
 
-    // Create groups of 4
     const pairingsByGroup = {};
     const groupSize = 4;
 
@@ -266,14 +239,12 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
         pairingsByGroup[`Gruppe ${groupNumber}`] = matchReadyAndPresentPlayers.slice(i, i + groupSize);
     }
 
-    // Generate pairings within each group
     const finalPairings = {};
     let leftoverPlayer = null;
 
     for (const groupName in pairingsByGroup) {
         let playersInGroup = pairingsByGroup[groupName];
 
-        // Shuffle players
         for (let i = playersInGroup.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [playersInGroup[i], playersInGroup[j]] = [playersInGroup[j], playersInGroup[i]];
@@ -292,9 +263,6 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
     renderPairingsInModal(finalPairings, leftoverPlayer);
 }
 
-/**
- * Renders pairings in the modal
- */
 export function renderPairingsInModal(pairings, leftoverPlayer) {
     const modal = document.getElementById('pairings-modal');
     const container = document.getElementById('modal-pairings-content');
@@ -368,14 +336,13 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 }
 
 /**
- * Saves a match result to Supabase
- * ELO calculation is handled automatically by the database trigger
+ * Speichert Match in Datenbank (ELO-Berechnung erfolgt automatisch durch DB-Trigger)
  */
 export async function saveMatchResult(matchData, currentUserData) {
     try {
         const { playerAId, playerBId, winnerId, loserId, sets, handicapUsed, matchMode } = matchData;
 
-        // Calculate sets won (handle different set formats)
+        // Sets müssen gezählt werden, da verschiedene Formate möglich sind
         let playerASetsWon = 0;
         let playerBSetsWon = 0;
 
@@ -390,7 +357,7 @@ export async function saveMatchResult(matchData, currentUserData) {
 
         const playedAt = new Date().toISOString();
 
-        // Insert match - ELO trigger will calculate ratings automatically
+        // ELO-Berechnung erfolgt automatisch durch DB-Trigger
         const { data, error } = await supabase
             .from('matches')
             .insert({
@@ -415,9 +382,7 @@ export async function saveMatchResult(matchData, currentUserData) {
 
         console.log('[Matches] Match saved successfully:', data.id);
 
-        // Create points_history entries for both players
         try {
-            // Fetch player names
             const { data: playersData } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name')
@@ -431,7 +396,6 @@ export async function saveMatchResult(matchData, currentUserData) {
             const winnerName = playerMap[winnerId] || 'Gegner';
             const loserName = playerMap[loserId] || 'Gegner';
 
-            // Calculate ELO changes from the returned match data
             const winnerEloChange = winnerId === playerAId
                 ? (data.player_a_elo_after - data.player_a_elo_before)
                 : (data.player_b_elo_after - data.player_b_elo_before);
@@ -439,14 +403,12 @@ export async function saveMatchResult(matchData, currentUserData) {
                 ? (data.player_a_elo_after - data.player_a_elo_before)
                 : (data.player_b_elo_after - data.player_b_elo_before);
 
-            // Calculate points based on ELO change (winner gets positive, loser gets participation)
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 0; // No points for losing
+            const loserPoints = 0;
 
             const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
             const setsDisplay = `${playerASetsWon}:${playerBSetsWon}`;
 
-            // Winner points history entry
             const { error: winnerHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -463,7 +425,6 @@ export async function saveMatchResult(matchData, currentUserData) {
                 console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
             }
 
-            // Loser points history entry (participation)
             const { error: loserHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -480,7 +441,6 @@ export async function saveMatchResult(matchData, currentUserData) {
                 console.warn('[Matches] Error creating loser points history:', loserHistoryError);
             }
 
-            // Update player points
             if (!winnerHistoryError) {
                 await supabase.rpc('add_player_points', {
                     p_user_id: winnerId,
@@ -497,8 +457,8 @@ export async function saveMatchResult(matchData, currentUserData) {
             }
 
         } catch (historyError) {
+            // Fehler bei History-Erstellung soll Match-Speicherung nicht verhindern
             console.warn('[Matches] Error creating points history entries:', historyError);
-            // Don't fail the match save if history creation fails
         }
 
         return { success: true, match: data };
@@ -510,7 +470,7 @@ export async function saveMatchResult(matchData, currentUserData) {
 }
 
 /**
- * Loads matches for a club with real-time updates
+ * Lädt Matches mit Real-time Updates
  */
 export function loadClubMatches(clubId, callback, limit = 50) {
     const channel = supabase
@@ -530,16 +490,11 @@ export function loadClubMatches(clubId, callback, limit = 50) {
         )
         .subscribe();
 
-    // Initial fetch
     fetchClubMatches(clubId, limit).then(callback);
 
-    // Return unsubscribe function
     return () => supabase.removeChannel(channel);
 }
 
-/**
- * Fetches matches for a club
- */
 async function fetchClubMatches(clubId, limit = 50) {
     const { data, error } = await supabase
         .from('matches')
@@ -558,7 +513,7 @@ async function fetchClubMatches(clubId, limit = 50) {
         return [];
     }
 
-    // Convert to camelCase for compatibility
+    // Konvertierung zu camelCase für Kompatibilität
     return (data || []).map(match => ({
         id: match.id,
         playerAId: match.player_a_id,
@@ -600,9 +555,6 @@ async function fetchClubMatches(clubId, limit = 50) {
     }));
 }
 
-/**
- * Gets match history for a player
- */
 export async function getPlayerMatchHistory(playerId, limit = 20) {
     const { data, error } = await supabase
         .from('matches')
@@ -623,9 +575,6 @@ export async function getPlayerMatchHistory(playerId, limit = 20) {
     return data || [];
 }
 
-/**
- * Gets head-to-head stats between two players
- */
 export async function getHeadToHead(playerAId, playerBId) {
     const { data, error } = await supabase
         .from('matches')
@@ -657,9 +606,6 @@ export async function getHeadToHead(playerAId, playerBId) {
     };
 }
 
-/**
- * Updates the match form UI based on selected players
- */
 export function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select')?.value;
     const playerBId = document.getElementById('player-b-select')?.value;
@@ -707,9 +653,6 @@ export function updateMatchUI(clubPlayers) {
     }
 }
 
-/**
- * Initializes handicap toggle event listener
- */
 export function initializeHandicapToggle() {
     const handicapToggle = document.getElementById('handicap-toggle');
     if (!handicapToggle) return;
@@ -725,12 +668,8 @@ export function initializeHandicapToggle() {
     });
 }
 
-// Export for compatibility
 export { calculateHandicap };
 
-/**
- * Updates the state of the generate pairings button
- */
 export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
     const pairingsButton = document.getElementById('generate-pairings-button');
     if (!pairingsButton) return;
@@ -772,9 +711,6 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     }
 }
 
-/**
- * Handles match result submission
- */
 export async function handleMatchSave(e, supabaseClient, currentUserData, clubPlayers) {
     e.preventDefault();
     const feedbackEl = document.getElementById('match-feedback');
@@ -793,7 +729,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         return;
     }
 
-    // Use coachSetScoreInput for validation and getting sets
     if (!coachSetScoreInput) {
         if (feedbackEl) feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
         return;
@@ -807,7 +742,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
     const sets = coachSetScoreInput.getSets();
 
-    // Calculate sets won (handle different set formats)
+    // Sets müssen gezählt werden, da verschiedene Formate möglich sind
     let setsA = 0;
     let setsB = 0;
     if (sets && sets.length > 0) {
@@ -831,7 +766,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    // Get match mode and handicap settings
     const matchModeSelect = document.getElementById('coach-match-mode-select');
     const matchMode = matchModeSelect?.value || 'best-of-5';
     const handicapToggle = document.getElementById('handicap-toggle');
@@ -840,7 +774,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
-        // Prepare match data
         const matchData = {
             player_a_id: playerAId,
             player_b_id: playerBId,
@@ -857,12 +790,11 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             played_at: new Date().toISOString()
         };
 
-        // Debug: Log match data being sent
         console.log('[Matches] Saving match with data:', matchData);
         console.log('[Matches] Player A:', playerA);
         console.log('[Matches] Player B:', playerB);
 
-        // Save match result - ELO trigger handles calculation automatically
+        // ELO-Berechnung erfolgt automatisch durch DB-Trigger
         const { data: match, error: matchError } = await supabase
             .from('matches')
             .insert(matchData)
@@ -885,11 +817,9 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             feedbackEl.classList.add('text-green-600');
         }
 
-        // Create points_history entries for both players
         try {
             const loserId = winnerId === playerAId ? playerBId : playerAId;
 
-            // Fetch player names for display
             const { data: playersData } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name')
@@ -903,7 +833,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
             const displayLoserName = playerNameMap[loserId] || 'Gegner';
 
-            // Calculate ELO changes from the returned match data
             const winnerEloChange = winnerId === playerAId
                 ? (match.player_a_elo_after - match.player_a_elo_before)
                 : (match.player_b_elo_after - match.player_b_elo_before);
@@ -911,15 +840,13 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 ? (match.player_a_elo_after - match.player_a_elo_before)
                 : (match.player_b_elo_after - match.player_b_elo_before);
 
-            // Calculate points based on ELO change
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 0; // No points for losing
+            const loserPoints = 0;
 
             const matchType = handicapUsed ? 'Handicap-Einzel' : 'Einzel';
             const setsDisplay = `${setsA}:${setsB}`;
             const playedAt = match.played_at || new Date().toISOString();
 
-            // Winner points history entry
             const { error: winnerHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -936,7 +863,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
             }
 
-            // Loser points history entry
             const { error: loserHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -958,7 +884,6 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             console.warn('[Matches] Error creating points history entries:', historyError);
         }
 
-        // Reset form
         document.getElementById('player-a-select').value = '';
         document.getElementById('player-b-select').value = '';
         if (coachSetScoreInput && typeof coachSetScoreInput.reset === 'function') {
@@ -978,8 +903,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 }
 
 /**
- * Populates match dropdowns with match-ready players
- * @param {boolean} includeOfflinePlayers - If true, include offline players (for coach dashboard)
+ * @param {boolean} includeOfflinePlayers - Für Coach-Dashboard: auch Offline-Spieler
  */
 export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all', includeOfflinePlayers = false) {
     const playerASelect = document.getElementById('player-a-select');
@@ -990,7 +914,6 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
-    // Debug: Log all players including offline ones
     console.log('[Matches] All clubPlayers:', clubPlayers.map(p => ({
         id: p.id,
         name: `${p.firstName || p.first_name} ${p.lastName || p.last_name}`,
@@ -1002,8 +925,8 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady || p.is_match_ready;
         const isOffline = p.isOffline || p.is_offline;
-        // For coach dashboard: include offline players
-        // For player dashboard: exclude offline players (they can only play doubles)
+        // Coach-Dashboard: Offline-Spieler einbeziehen
+        // Spieler-Dashboard: Offline-Spieler ausschließen (nur Doppel)
         if (includeOfflinePlayers) {
             return isMatchReady === true;
         }
@@ -1015,7 +938,6 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return isMatchReady !== true;
     });
 
-    // Debug logging for filters
     console.log('[Matches] populateMatchDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
@@ -1026,14 +948,12 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         excludePlayerId
     });
 
-    // Apply subgroup/age filter first
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             console.log('[Matches] Filtering by age group:', currentSubgroupFilter);
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
             console.log('[Matches] After age filter:', matchReadyPlayers.length);
         } else if (!isGenderFilter(currentSubgroupFilter)) {
-            // Custom subgroup filter (not gender - gender is handled separately)
             console.log('[Matches] Filtering by custom subgroup:', currentSubgroupFilter);
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
@@ -1042,14 +962,12 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         }
     }
 
-    // Apply gender filter separately (can be combined with age/subgroup filter)
     if (currentGenderFilter && currentGenderFilter !== 'all' && currentGenderFilter !== 'gender_all') {
         console.log('[Matches] Filtering by gender:', currentGenderFilter);
         matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentGenderFilter);
         console.log('[Matches] After gender filter:', matchReadyPlayers.length);
     }
 
-    // Exclude the specified player (e.g., coach) from the dropdowns
     if (excludePlayerId) {
         matchReadyPlayers = matchReadyPlayers.filter(p => p.id !== excludePlayerId);
         console.log('[Matches] After excluding player:', matchReadyPlayers.length);
@@ -1093,9 +1011,8 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 }
 
 /**
- * Loads pending match requests for coach approval
- * Multi-sport: Shows sport badge and cross-club indicator
- * For cross-club matches, both coaches can see and approve the request
+ * Multi-Sport: Zeigt Sport-Badge und vereinsübergreifende Matches
+ * Beide Coaches können vereinsübergreifende Anfragen sehen und genehmigen
  */
 export async function loadCoachMatchRequests(userData, supabaseClient) {
     const container = document.getElementById('coach-pending-requests-list');
@@ -1105,7 +1022,6 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
     const supabase = getSupabase();
 
     try {
-        // First, get all club members for the coach's club (single sport model)
         const { data: clubMembers } = await supabase
             .from('profiles')
             .select('id')
@@ -1113,8 +1029,6 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
 
         const clubMemberIds = (clubMembers || []).map(m => m.id);
 
-        // Query for singles requests awaiting coach approval
-        // Include sport info for display
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
             .select(`
@@ -1130,7 +1044,7 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
             console.error('Error loading singles requests:', singlesError);
         }
 
-        // Filter requests: show only requests where at least one player is in our club
+        // Nur Anfragen zeigen, bei denen mindestens ein Spieler in unserem Verein ist
         const relevantRequests = (singlesRequests || []).filter(req => {
             return clubMemberIds.includes(req.player_a_id) || clubMemberIds.includes(req.player_b_id);
         });
@@ -1151,14 +1065,12 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
             return;
         }
 
-        // Render requests with sport badge and cross-club indicator
         container.innerHTML = allRequests.map(req => {
             const playerA = req.playerAData;
             const playerB = req.playerBData;
             const sportBadge = req.sportName ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full ml-2">${req.sportName}</span>` : '';
             const crossClubBadge = req.is_cross_club ? `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full ml-1">Vereinsübergreifend</span>` : '';
 
-            // Format sets if available
             const setsDisplay = req.sets && req.sets.length > 0
                 ? req.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ')
                 : '';
@@ -1191,8 +1103,7 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
             `;
         }).join('');
 
-        // Set up event delegation for approve/reject buttons
-        // Remove any existing handler first to prevent duplicates
+        // Event-Delegation vermeidet Duplikate
         const newContainer = container.cloneNode(false);
         newContainer.innerHTML = container.innerHTML;
         container.parentNode.replaceChild(newContainer, container);
@@ -1222,22 +1133,19 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
 }
 
 /**
- * Handle coach approval/rejection of match request
- * Creates the actual match if approved
+ * Erstellt Match bei Genehmigung, aktualisiert Status bei Ablehnung
  */
 async function handleCoachApproval(requestId, approve, userData) {
     const supabase = getSupabase();
 
     try {
         if (!approve) {
-            // Rejected - first get the request to notify players
             const { data: rejectedRequest } = await supabase
                 .from('match_requests')
                 .select('player_a_id, player_b_id')
                 .eq('id', requestId)
                 .single();
 
-            // Update status
             const { error } = await supabase
                 .from('match_requests')
                 .update({
@@ -1248,7 +1156,6 @@ async function handleCoachApproval(requestId, approve, userData) {
 
             if (error) throw error;
 
-            // Notify both players that the match was rejected
             if (rejectedRequest) {
                 await createNotification(
                     rejectedRequest.player_a_id,
@@ -1270,7 +1177,6 @@ async function handleCoachApproval(requestId, approve, userData) {
             return;
         }
 
-        // Approved - get the request details
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
             .select('*')
@@ -1279,35 +1185,29 @@ async function handleCoachApproval(requestId, approve, userData) {
 
         if (fetchError) throw fetchError;
 
-        // Update approvals JSON
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
 
-        // Mark this coach as approved
-        // For cross-club matches, we track which coach approved
-        // The first coach to approve releases the match
+        // Vereinsübergreifend: beide Coaches müssen genehmigen
+        // Erster Coach gibt Match frei
         if (request.is_cross_club) {
-            // Determine if this coach is for player A or player B (single sport model)
             const { data: playerAProfile } = await supabase
                 .from('profiles')
                 .select('club_id')
                 .eq('id', request.player_a_id)
                 .single();
 
-            // Determine which side the approving coach is on
             if (playerAProfile?.club_id === userData.clubId) {
                 approvals.coach_a = true;
             } else {
                 approvals.coach_b = true;
             }
         } else {
-            // Same club - single coach approval
             approvals.coach_a = true;
         }
 
-        // Create the match (first coach to approve releases it)
         const { data: match, error: matchError } = await supabase
             .from('matches')
             .insert({
@@ -1330,13 +1230,11 @@ async function handleCoachApproval(requestId, approve, userData) {
 
         if (matchError) throw matchError;
 
-        // Create points_history entries for both players
         try {
             const winnerId = request.winner_id;
             const loserId = request.loser_id;
             const playerAId = request.player_a_id;
 
-            // Fetch player names for display
             const { data: playersData } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name')
@@ -1350,7 +1248,6 @@ async function handleCoachApproval(requestId, approve, userData) {
             const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
             const displayLoserName = playerNameMap[loserId] || 'Gegner';
 
-            // Calculate ELO changes from the returned match data
             const winnerEloChange = winnerId === playerAId
                 ? (match.player_a_elo_after - match.player_a_elo_before)
                 : (match.player_b_elo_after - match.player_b_elo_before);
@@ -1358,11 +1255,9 @@ async function handleCoachApproval(requestId, approve, userData) {
                 ? (match.player_a_elo_after - match.player_a_elo_before)
                 : (match.player_b_elo_after - match.player_b_elo_before);
 
-            // Calculate points based on ELO change
             const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-            const loserPoints = 0; // No points for losing
+            const loserPoints = 0;
 
-            // Calculate sets won
             let setsA = 0, setsB = 0;
             if (request.sets && request.sets.length > 0) {
                 request.sets.forEach(set => {
@@ -1377,7 +1272,6 @@ async function handleCoachApproval(requestId, approve, userData) {
             const setsDisplay = `${setsA}:${setsB}`;
             const playedAt = match.played_at || match.created_at || new Date().toISOString();
 
-            // Winner points history entry
             const { error: winnerHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -1394,7 +1288,6 @@ async function handleCoachApproval(requestId, approve, userData) {
                 console.warn('[Coach] Error creating winner points history:', winnerHistoryError);
             }
 
-            // Loser points history entry
             const { error: loserHistoryError } = await supabase
                 .from('points_history')
                 .insert({
@@ -1416,7 +1309,6 @@ async function handleCoachApproval(requestId, approve, userData) {
             console.warn('[Coach] Error creating points history entries:', historyError);
         }
 
-        // Update the request status to approved
         const { error: updateError } = await supabase
             .from('match_requests')
             .update({
@@ -1428,7 +1320,6 @@ async function handleCoachApproval(requestId, approve, userData) {
 
         if (updateError) throw updateError;
 
-        // Notify both players that the match was approved
         await createNotification(
             request.player_a_id,
             'match_approved',
@@ -1445,7 +1336,6 @@ async function handleCoachApproval(requestId, approve, userData) {
         console.log('[Coach] Match approved and created:', requestId);
         alert('Match genehmigt und erstellt!');
 
-        // Reload both lists
         loadCoachMatchRequests(userData, supabase);
         loadCoachProcessedRequests(userData, supabase);
 
@@ -1455,10 +1345,6 @@ async function handleCoachApproval(requestId, approve, userData) {
     }
 }
 
-/**
- * Loads and renders processed match requests for coach (approved/rejected)
- * Multi-sport: Shows sport badge
- */
 export async function loadCoachProcessedRequests(userData, supabaseClient) {
     const container = document.getElementById('coach-processed-requests-list');
     if (!container) return;
@@ -1514,19 +1400,12 @@ export async function loadCoachProcessedRequests(userData, supabaseClient) {
 }
 
 /**
- * Loads saved pairings for a training session
- * Note: Pairings are stored in-memory during sessions, not persisted in DB
+ * Paarungen werden während Trainings generiert, nicht in DB gespeichert
  */
 export async function loadSavedPairings(supabaseClient, clubId) {
-    // Pairings are generated during training sessions and not persisted
-    // Return empty array as there's no dedicated pairings table
     return [];
 }
 
-/**
- * Load pending match confirmations for current player
- * Shows matches that need player B's confirmation
- */
 export async function loadPendingPlayerConfirmations(userId) {
     const supabase = getSupabase();
 
@@ -1553,9 +1432,6 @@ export async function loadPendingPlayerConfirmations(userId) {
     }
 }
 
-/**
- * Load pending doubles match confirmations for current player
- */
 export async function loadPendingDoublesConfirmations(userId) {
     const supabase = getSupabase();
 
@@ -1571,7 +1447,6 @@ export async function loadPendingDoublesConfirmations(userId) {
 
         if (error) throw error;
 
-        // Filter for requests where user is in team_b
         const filtered = (requests || []).filter(req => {
             const teamB = req.team_b || {};
             return teamB.player1_id === userId || teamB.player2_id === userId;
@@ -1580,7 +1455,7 @@ export async function loadPendingDoublesConfirmations(userId) {
         console.log('[Matches] Loaded pending doubles confirmations:', filtered.length);
         return filtered.map(req => ({
             ...req,
-            isDoubles: true  // Mark as doubles for rendering
+            isDoubles: true
         }));
     } catch (error) {
         console.error('[Matches] Error loading pending doubles confirmations:', error);
@@ -1588,16 +1463,12 @@ export async function loadPendingDoublesConfirmations(userId) {
     }
 }
 
-/**
- * Load all pending confirmations (singles + doubles)
- */
 export async function loadAllPendingConfirmations(userId) {
     const [singlesRequests, doublesRequests] = await Promise.all([
         loadPendingPlayerConfirmations(userId),
         loadPendingDoublesConfirmations(userId)
     ]);
 
-    // Combine and sort by created_at
     const allRequests = [...singlesRequests, ...doublesRequests]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -1607,22 +1478,16 @@ export async function loadAllPendingConfirmations(userId) {
     return allRequests;
 }
 
-// Store active subscriptions for cleanup
 let bottomSheetSubscriptions = [];
 
-/**
- * Show bottom sheet with pending match confirmations
- */
 export function showMatchConfirmationBottomSheet(requests) {
     if (!requests || requests.length === 0) return;
 
     const supabase = getSupabase();
     let currentIndex = 0;
 
-    // Cleanup any existing subscriptions
     cleanupBottomSheetSubscriptions();
 
-    // Setup real-time subscriptions for request changes
     setupBottomSheetRealtimeSubscriptions(requests, () => currentIndex);
 
     const renderBottomSheet = (index) => {
@@ -1631,18 +1496,14 @@ export function showMatchConfirmationBottomSheet(requests) {
         let playerA, playerB, winnerName, setsA, setsB, playerAElo, playerBElo;
 
         if (request.isDoubles) {
-            // Doubles match
             const teamA = request.team_a || {};
             const teamB = request.team_b || {};
 
-            playerA = 'Team A';  // We'd need to fetch player names from profiles
+            playerA = 'Team A';
             playerB = 'Team B (Du)';
 
-            // For doubles, we'd need to fetch player profiles
-            // For now, show team IDs as placeholder
             winnerName = request.winning_team === 'A' ? 'Team A' : 'Team B';
 
-            // Calculate sets won from sets array for doubles
             setsA = 0;
             setsB = 0;
             if (request.sets && request.sets.length > 0) {
@@ -1657,7 +1518,6 @@ export function showMatchConfirmationBottomSheet(requests) {
             playerAElo = '-';
             playerBElo = '-';
         } else {
-            // Singles match
             playerA = request.player_a?.display_name ||
                            `${request.player_a?.first_name || ''} ${request.player_a?.last_name || ''}`.trim() ||
                            'Spieler A';
@@ -1668,19 +1528,17 @@ export function showMatchConfirmationBottomSheet(requests) {
             const winnerId = request.winner_id;
             winnerName = winnerId === request.player_a_id ? playerA : playerB;
 
-            // Calculate sets won from sets array (more reliable than stored values)
+            // Sets zählen ist zuverlässiger als gespeicherte Werte
             setsA = 0;
             setsB = 0;
             if (request.sets && request.sets.length > 0) {
                 request.sets.forEach(set => {
-                    // Handle different property name formats
                     const scoreA = set.playerA ?? set.player_a ?? set.a ?? 0;
                     const scoreB = set.playerB ?? set.player_b ?? set.b ?? 0;
                     if (scoreA > scoreB) setsA++;
                     else if (scoreB > scoreA) setsB++;
                 });
             }
-            // Fallback to stored values if sets array didn't yield results
             if (setsA === 0 && setsB === 0) {
                 setsA = request.player_a_sets_won || 0;
                 setsB = request.player_b_sets_won || 0;
@@ -1690,24 +1548,19 @@ export function showMatchConfirmationBottomSheet(requests) {
             playerBElo = request.player_b?.elo_rating || 800;
         }
 
-        // Handle different possible set data formats
         let setsDetails = 'Keine Details';
         if (request.sets && request.sets.length > 0) {
-            // Try different possible property names (singles and doubles)
             setsDetails = request.sets.map(s => {
-                // Singles formats
                 if (s.playerA !== undefined && s.playerB !== undefined) {
                     return `${s.playerA}:${s.playerB}`;
                 } else if (s.player_a !== undefined && s.player_b !== undefined) {
                     return `${s.player_a}:${s.player_b}`;
                 }
-                // Doubles formats
                 else if (s.teamA !== undefined && s.teamB !== undefined) {
                     return `${s.teamA}:${s.teamB}`;
                 } else if (s.team_a !== undefined && s.team_b !== undefined) {
                     return `${s.team_a}:${s.team_b}`;
                 }
-                // Generic formats
                 else if (s.a !== undefined && s.b !== undefined) {
                     return `${s.a}:${s.b}`;
                 } else if (Array.isArray(s) && s.length === 2) {
@@ -1728,7 +1581,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                            matchMode === 'best-of-3' ? 'Best of 3' :
                            matchMode === 'best-of-7' ? 'Best of 7' : matchMode;
 
-        // Usually player A creates the request, so show their name
         const createdBy = playerA;
 
         const createdAt = request.created_at ? new Date(request.created_at).toLocaleString('de-DE', {
@@ -1742,7 +1594,6 @@ export function showMatchConfirmationBottomSheet(requests) {
             <div id="match-confirmation-bottomsheet" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 animate-fade-in" style="animation: fadeIn 0.2s ease-out; padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));">
                 <div class="bg-white rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto animate-slide-up" style="animation: slideUp 0.3s ease-out;">
                     <div class="p-6 pb-4">
-                        <!-- Header -->
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-xl font-bold text-gray-800">
                                 Match-Ergebnis bestätigen
@@ -1758,7 +1609,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                             </div>
                         ` : ''}
 
-                        <!-- Match Info -->
                         <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-4 mb-4 border border-indigo-100">
                             <div class="text-sm text-gray-600 mb-2">Spieler:</div>
                             <div class="flex items-center justify-between mb-3">
@@ -1779,7 +1629,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                             </div>
                         </div>
 
-                        <!-- Match Details -->
                         <div class="space-y-3 mb-6">
                             <div class="flex items-start gap-3">
                                 <div class="flex-1">
@@ -1807,7 +1656,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                             </div>
                         </div>
 
-                        <!-- Action Buttons -->
                         <div class="flex gap-3 mb-4">
                             <button id="confirm-accept" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
                                 <span>Bestätigen</span>
@@ -1817,7 +1665,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                             </button>
                         </div>
 
-                        <!-- Navigation for multiple requests -->
                         ${requests.length > 1 ? `
                             <div class="flex items-center justify-center gap-4 pt-2">
                                 <button id="prev-request" class="text-indigo-600 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed" ${index === 0 ? 'disabled' : ''}>
@@ -1829,7 +1676,6 @@ export function showMatchConfirmationBottomSheet(requests) {
                             </div>
                         ` : ''}
 
-                        <!-- Created By -->
                         <div class="text-xs text-center text-gray-400 mt-4">
                             Eingetragen von: ${createdBy}
                         </div>
@@ -1852,7 +1698,6 @@ export function showMatchConfirmationBottomSheet(requests) {
         return modalHTML;
     };
 
-    // Insert bottom sheet into DOM
     const existingSheet = document.getElementById('match-confirmation-bottomsheet');
     if (existingSheet) {
         existingSheet.remove();
@@ -1860,7 +1705,6 @@ export function showMatchConfirmationBottomSheet(requests) {
 
     document.body.insertAdjacentHTML('beforeend', renderBottomSheet(currentIndex));
 
-    // Setup event listeners
     const setupListeners = () => {
         const modal = document.getElementById('match-confirmation-bottomsheet');
         const closeBtn = document.getElementById('close-bottomsheet');
@@ -1879,7 +1723,6 @@ export function showMatchConfirmationBottomSheet(requests) {
             if (e.target === modal) closeModal();
         });
 
-        // Listen for real-time request removal
         modal?.addEventListener('requestRemoved', (e) => {
             const newIndex = e.detail?.newIndex ?? 0;
             currentIndex = newIndex;
@@ -1933,17 +1776,14 @@ export function showMatchConfirmationBottomSheet(requests) {
 }
 
 /**
- * Setup real-time subscriptions for bottom sheet
- * Listens for request deletions or status changes
+ * Real-time Updates für Bottom Sheet - überwacht Änderungen/Löschungen
  */
 function setupBottomSheetRealtimeSubscriptions(requests, getCurrentIndex) {
     const supabase = getSupabase();
 
-    // Get all request IDs separated by type
     const singlesIds = requests.filter(r => !r.isDoubles).map(r => r.id);
     const doublesIds = requests.filter(r => r.isDoubles).map(r => r.id);
 
-    // Subscribe to singles match_requests changes
     if (singlesIds.length > 0) {
         const singlesChannel = supabase
             .channel('bottomsheet-singles-' + Date.now())
@@ -1965,7 +1805,6 @@ function setupBottomSheetRealtimeSubscriptions(requests, getCurrentIndex) {
         bottomSheetSubscriptions.push(singlesChannel);
     }
 
-    // Subscribe to doubles match_requests changes
     if (doublesIds.length > 0) {
         const doublesChannel = supabase
             .channel('bottomsheet-doubles-' + Date.now())
@@ -1990,13 +1829,9 @@ function setupBottomSheetRealtimeSubscriptions(requests, getCurrentIndex) {
     console.log('[BottomSheet] Real-time subscriptions active for', singlesIds.length, 'singles,', doublesIds.length, 'doubles');
 }
 
-/**
- * Handle real-time request changes
- */
 function handleRequestChange(payload, requests, getCurrentIndex, isDoubles) {
     const { eventType, old: oldRecord, new: newRecord } = payload;
 
-    // Find the request in our list
     const requestId = oldRecord?.id || newRecord?.id;
     const requestIndex = requests.findIndex(r => r.id === requestId && r.isDoubles === isDoubles);
 
@@ -2010,7 +1845,6 @@ function handleRequestChange(payload, requests, getCurrentIndex, isDoubles) {
         toastMessage = 'Anfrage wurde zurückgezogen';
     } else if (eventType === 'UPDATE') {
         const newStatus = newRecord?.status;
-        // Remove if status changed from pending
         if (newStatus && newStatus !== 'pending_player' && newStatus !== 'pending_opponent') {
             shouldRemove = true;
             if (newStatus === 'withdrawn' || newStatus === 'cancelled') {
@@ -2020,37 +1854,28 @@ function handleRequestChange(payload, requests, getCurrentIndex, isDoubles) {
     }
 
     if (shouldRemove) {
-        // Remove from requests array
         requests.splice(requestIndex, 1);
 
-        // Show toast
         if (toastMessage) {
             showToast(toastMessage, 'info');
         }
 
-        // Update UI
         const modal = document.getElementById('match-confirmation-bottomsheet');
         if (!modal) return;
 
         if (requests.length === 0) {
-            // No more requests - close bottom sheet
             cleanupBottomSheetSubscriptions();
             modal.remove();
         } else {
-            // Re-render with updated list
             let currentIndex = getCurrentIndex();
             if (currentIndex >= requests.length) {
                 currentIndex = requests.length - 1;
             }
-            // Trigger re-render by dispatching custom event
             modal.dispatchEvent(new CustomEvent('requestRemoved', { detail: { newIndex: currentIndex } }));
         }
     }
 }
 
-/**
- * Cleanup bottom sheet subscriptions
- */
 function cleanupBottomSheetSubscriptions() {
     const supabase = getSupabase();
     bottomSheetSubscriptions.forEach(channel => {
@@ -2064,16 +1889,12 @@ function cleanupBottomSheetSubscriptions() {
     console.log('[BottomSheet] Subscriptions cleaned up');
 }
 
-/**
- * Handle player confirmation (accept/decline)
- */
 async function handlePlayerConfirmation(requestId, approved, declineReason = null, isDoubles = false) {
     const supabase = getSupabase();
 
     try {
         if (approved) {
             if (isDoubles) {
-                // Handle doubles match confirmation
                 const { data: request } = await supabase
                     .from('doubles_match_requests')
                     .select('*')
@@ -2082,7 +1903,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
                 if (!request) throw new Error('Doubles match request not found');
 
-                // Create the doubles match
                 const { data: match, error: matchError } = await supabase
                     .from('doubles_matches')
                     .insert({
@@ -2105,7 +1925,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message || matchError.code}`);
                 }
 
-                // Update request status
                 await supabase
                     .from('doubles_match_requests')
                     .update({ status: 'approved' })
@@ -2114,7 +1933,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 console.log('[Matches] Doubles match confirmed and created');
                 showToast('Doppel-Match bestätigt!', 'success');
             } else {
-                // Handle singles match confirmation
                 const { data: request } = await supabase
                     .from('match_requests')
                     .select('*')
@@ -2123,7 +1941,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
                 if (!request) throw new Error('Match request not found');
 
-                // Create the match (without tournament_match_id - that's in tournament_matches table)
                 const { data: match, error: matchError } = await supabase
                     .from('matches')
                     .insert({
@@ -2150,19 +1967,16 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
                 }
 
-                // Update request status
                 await supabase
                     .from('match_requests')
                     .update({ status: 'approved' })
                     .eq('id', requestId);
 
-                // Create points_history entries for both players
                 try {
                     const winnerId = request.winner_id;
                     const loserId = winnerId === request.player_a_id ? request.player_b_id : request.player_a_id;
                     const playerAId = request.player_a_id;
 
-                    // Fetch player names for display
                     const { data: playersData } = await supabase
                         .from('profiles')
                         .select('id, first_name, last_name')
@@ -2176,7 +1990,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     const displayWinnerName = playerNameMap[winnerId] || 'Gegner';
                     const displayLoserName = playerNameMap[loserId] || 'Gegner';
 
-                    // Calculate ELO changes from the returned match data
                     const winnerEloChange = winnerId === playerAId
                         ? (match.player_a_elo_after - match.player_a_elo_before)
                         : (match.player_b_elo_after - match.player_b_elo_before);
@@ -2184,13 +1997,12 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         ? (match.player_a_elo_after - match.player_a_elo_before)
                         : (match.player_b_elo_after - match.player_b_elo_before);
 
-                    // Calculate points based on ELO change
                     const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
-                    const loserPoints = 0; // No points for losing
+                    const loserPoints = 0;
 
                     const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
 
-                    // Calculate sets won from sets array
+                    // Sets müssen gezählt werden, da verschiedene Formate möglich sind
                     let setsA = 0, setsB = 0;
                     if (request.sets && request.sets.length > 0) {
                         request.sets.forEach(set => {
@@ -2203,7 +2015,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     const setsDisplay = `${setsA}:${setsB}`;
                     const playedAt = match.played_at || new Date().toISOString();
 
-                    // Winner points history entry
                     const { error: winnerHistoryError } = await supabase
                         .from('points_history')
                         .insert({
@@ -2220,7 +2031,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         console.warn('[Matches] Error creating winner points history:', winnerHistoryError);
                     }
 
-                    // Loser points history entry
                     const { error: loserHistoryError } = await supabase
                         .from('points_history')
                         .insert({
@@ -2242,7 +2052,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     console.warn('[Matches] Error creating points history entries:', historyError);
                 }
 
-                // If linked to tournament, update tournament match
+                // Turnier-Match verknüpfen, falls vorhanden
                 if (request.tournament_match_id && match) {
                     const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
                     await recordTournamentMatchResult(request.tournament_match_id, match.id);
@@ -2252,7 +2062,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 showToast('Match bestätigt!', 'success');
             }
         } else {
-            // Decline the match
             const table = isDoubles ? 'doubles_match_requests' : 'match_requests';
             await supabase
                 .from(table)
@@ -2272,9 +2081,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
     }
 }
 
-/**
- * Show toast notification
- */
 function showToast(message, type = 'info') {
     const colors = {
         info: 'bg-indigo-600',

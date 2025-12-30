@@ -8,20 +8,16 @@ export const firebaseConfig = {
     measurementId: 'G-H2R9ZJYQ06',
 };
 
-// Set to false to disable emulators in production
-// Set to true only for local development with Firebase emulators running
+// Auf 'true' setzen für lokale Entwicklung mit Firebase Emulatoren
 export const USE_FIREBASE_EMULATORS = false;
 
 /**
- * Helper function to determine if emulators should be used
- * Returns true only if:
- * 1. USE_FIREBASE_EMULATORS is explicitly true
- * 2. Running on localhost (not in Capacitor native app)
+ * Emulatoren werden nur im Browser auf localhost verwendet,
+ * da sie in nativen Capacitor Apps nicht erreichbar sind
  */
 export function shouldUseEmulators() {
     if (!USE_FIREBASE_EMULATORS) return false;
 
-    // Check if running in Capacitor native app
     const isCapacitorApp = typeof window !== 'undefined' &&
         typeof window.Capacitor !== 'undefined' &&
         window.Capacitor.isNativePlatform &&
@@ -29,7 +25,6 @@ export function shouldUseEmulators() {
 
     if (isCapacitorApp) return false;
 
-    // Only use emulators on localhost in browser
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
     return hostname === 'localhost' || hostname === '127.0.0.1';
 }

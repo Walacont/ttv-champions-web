@@ -5,21 +5,12 @@ import { getSupabase } from './supabase-init.js';
 import { getChallengePartnerSettings } from './milestone-management.js';
 import { formatDate } from './ui-utils.js';
 
-/**
- * Challenges Module - Supabase Version
- * Handles challenge creation, display, and countdown timers
- */
-
 const supabase = getSupabase();
 
-// Store subscription channels for cleanup
+// Subscription-Channels werden gespeichert für späteres Cleanup
 let challengeSubscriptions = [];
 
-/**
- * Handles challenge creation form submission
- * @param {Event} e - Form submit event
- * @param {Object} currentUserData - Current user's data
- */
+/** Challenge-Formular verarbeiten */
 export async function handleCreateChallenge(e, currentUserData) {
     e.preventDefault();
     const feedbackEl = document.getElementById('challenge-feedback');
@@ -29,7 +20,6 @@ export async function handleCreateChallenge(e, currentUserData) {
     const subgroupId = document.getElementById('challenge-subgroup').value;
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
 
-    // Check if milestones are enabled
     const milestonesEnabled =
         document.getElementById('challenge-milestones-enabled')?.checked || false;
     let points = 0;
@@ -42,7 +32,6 @@ export async function handleCreateChallenge(e, currentUserData) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
             return;
         }
-        // Total points is sum of all milestones
         points = milestones.reduce((sum, m) => sum + m.points, 0);
     } else {
         points = parseInt(document.getElementById('challenge-points').value);
@@ -74,7 +63,6 @@ export async function handleCreateChallenge(e, currentUserData) {
             last_reactivated_at: new Date().toISOString(),
         };
 
-        // Add tieredPoints if enabled
         if (milestonesEnabled && milestones) {
             challengeData.tiered_points = {
                 enabled: true,
@@ -87,7 +75,6 @@ export async function handleCreateChallenge(e, currentUserData) {
             };
         }
 
-        // Add partner system settings if enabled
         const partnerSettings = getChallengePartnerSettings();
         if (partnerSettings) {
             challengeData.partner_system = {
@@ -111,16 +98,13 @@ export async function handleCreateChallenge(e, currentUserData) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
 
-        // Reset dropdown to "all"
         document.getElementById('challenge-subgroup').value = 'all';
 
-        // Reset milestones
         document.getElementById('challenge-milestones-list').innerHTML = '';
         document.getElementById('challenge-milestones-enabled').checked = false;
         document.getElementById('challenge-standard-points-container').classList.remove('hidden');
         document.getElementById('challenge-milestones-container').classList.add('hidden');
 
-        // Reset partner system
         const partnerToggle = document.getElementById('challenge-partner-system-toggle-coach');
         const partnerContainer = document.getElementById('challenge-partner-container-coach');
         const partnerPercentageInput = document.getElementById(
@@ -139,9 +123,7 @@ export async function handleCreateChallenge(e, currentUserData) {
     }, 4000);
 }
 
-/**
- * Sets up dynamic point range recommendations based on challenge type
- */
+/** Punktempfehlungen basierend auf Challenge-Typ */
 export function setupChallengePointRecommendations() {
     const typeSelect = document.getElementById('challenge-type');
     const pointsRangeEl = document.getElementById('challenge-points-range');
@@ -163,12 +145,10 @@ export function setupChallengePointRecommendations() {
     };
 
     typeSelect.addEventListener('change', updateRecommendation);
-    updateRecommendation(); // Set initial value
+    updateRecommendation();
 }
 
-/**
- * Sets up milestone system for challenges
- */
+/** Meilenstein-System für Challenges konfigurieren */
 export function setupChallengeMilestones() {
     const milestonesEnabled = document.getElementById('challenge-milestones-enabled');
     const standardContainer = document.getElementById('challenge-standard-points-container');
@@ -180,13 +160,12 @@ export function setupChallengeMilestones() {
         return;
     }
 
-    // Function to update UI based on checkbox state
     const updateUI = () => {
         if (milestonesEnabled.checked) {
             standardContainer.classList.add('hidden');
             milestonesContainer.classList.remove('hidden');
             if (pointsInput) pointsInput.removeAttribute('required');
-            // Add first milestone by default if none exist
+            // Erster Meilenstein wird automatisch hinzugefügt für bessere UX
             if (getChallengeMilestones().length === 0) {
                 addChallengeMilestone();
             }
@@ -197,19 +176,16 @@ export function setupChallengeMilestones() {
         }
     };
 
-    // Set initial state
     updateUI();
 
-    // Toggle between standard points and milestones
     milestonesEnabled.addEventListener('change', updateUI);
 
-    // Add milestone button
     const addBtn = document.getElementById('add-challenge-milestone-btn');
     if (addBtn) {
         addBtn.addEventListener('click', addChallengeMilestone);
     }
 
-    // When form is reset, ensure UI is reset too
+    // Bei Form-Reset muss UI ebenfalls zurückgesetzt werden
     const form = document.getElementById('create-challenge-form');
     if (form) {
         form.addEventListener('reset', () => {
@@ -221,9 +197,7 @@ export function setupChallengeMilestones() {
     }
 }
 
-/**
- * Adds a new milestone input row for challenges
- */
+/** Neue Meilenstein-Zeile hinzufügen */
 function addChallengeMilestone() {
     const list = document.getElementById('challenge-milestones-list');
     if (!list) return;
@@ -248,13 +222,11 @@ function addChallengeMilestone() {
         </button>
     `;
 
-    // Add remove handler
     row.querySelector('.remove-challenge-milestone').addEventListener('click', () => {
         row.remove();
         updateChallengeTotalPoints();
     });
 
-    // Add update handlers
     row.querySelectorAll('input').forEach(input => {
         input.addEventListener('input', updateChallengeTotalPoints);
     });
@@ -263,10 +235,7 @@ function addChallengeMilestone() {
     updateChallengeTotalPoints();
 }
 
-/**
- * Gets all milestones from the challenge form
- * @returns {Array} Array of {count, points} objects
- */
+/** Alle Meilensteine aus dem Formular auslesen */
 function getChallengeMilestones() {
     const list = document.getElementById('challenge-milestones-list');
     if (!list) return [];
@@ -280,14 +249,11 @@ function getChallengeMilestones() {
         }
     });
 
-    // Sort by count ascending
     milestones.sort((a, b) => a.count - b.count);
     return milestones;
 }
 
-/**
- * Updates the total milestone points display for challenges
- */
+/** Gesamtpunktzahl der Meilensteine aktualisieren */
 function updateChallengeTotalPoints() {
     const milestones = getChallengeMilestones();
     const total = milestones.reduce((sum, m) => sum + m.points, 0);
@@ -297,12 +263,7 @@ function updateChallengeTotalPoints() {
     }
 }
 
-/**
- * Calculates the expiry date for a challenge based on type
- * @param {string} createdAt - ISO timestamp when challenge was created
- * @param {string} type - Challenge type (daily, weekly, monthly)
- * @returns {Date} Expiry date
- */
+/** Ablaufdatum basierend auf Challenge-Typ berechnen */
 export function calculateExpiry(createdAt, type) {
     if (!createdAt) return new Date();
     const startDate = new Date(createdAt);
@@ -321,11 +282,7 @@ export function calculateExpiry(createdAt, type) {
     return expiryDate;
 }
 
-/**
- * Loads and displays active challenges for the club
- * @param {string} clubId - Club ID
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+/** Aktive Challenges laden und anzeigen */
 export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all') {
     const activeChallengesList = document.getElementById('active-challenges-list');
     if (!activeChallengesList) return;
@@ -358,7 +315,6 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
             }))
             .filter(challenge => calculateExpiry(challenge.createdAt, challenge.type) > now);
 
-        // Filter by subgroup
         if (currentSubgroupFilter !== 'all') {
             challenges = challenges.filter(
                 challenge =>
@@ -373,7 +329,6 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
             return;
         }
 
-        // Load subgroup names for badges
         const subgroupIds = [...new Set(challenges.map(c => c.subgroupId).filter(id => id && id !== 'all'))];
         let subgroupNamesMap = {};
 
@@ -398,7 +353,6 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
 
         updateAllCountdowns();
 
-        // Set up real-time subscription
         subscribeToChallenge(clubId, () => {
             loadActiveChallenges(clubId, currentSubgroupFilter);
         });
@@ -410,15 +364,12 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
     }
 }
 
-/**
- * Creates a challenge card element
- */
+/** Challenge-Card-Element erstellen */
 function createChallengeCard(challenge, subgroupNamesMap, isExpired) {
     const card = document.createElement('div');
     card.className = 'p-4 border rounded-lg bg-gray-50';
     const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
 
-    // Determine subgroup badge
     let subgroupBadge = '';
     if (challenge.subgroupId === 'all') {
         subgroupBadge =
@@ -427,7 +378,6 @@ function createChallengeCard(challenge, subgroupNamesMap, isExpired) {
         subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">${subgroupNamesMap[challenge.subgroupId]}</span>`;
     }
 
-    // Determine repeatable badge
     const isRepeatable = challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
     const repeatableBadge = isRepeatable
         ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Mehrfach</span>'
@@ -493,11 +443,7 @@ function createChallengeCard(challenge, subgroupNamesMap, isExpired) {
     return card;
 }
 
-/**
- * Loads challenges for dropdown selection (used in points assignment)
- * @param {string} clubId - Club ID
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+/** Challenges für Dropdown laden (Punktevergabe) */
 export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 'all') {
     const select = document.getElementById('challenge-select');
     if (!select) return;
@@ -533,7 +479,6 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
                 return expiresAt > now;
             });
 
-        // Filter by subgroup
         if (currentSubgroupFilter !== 'all') {
             activeChallenges = activeChallenges.filter(
                 challenge =>
@@ -552,7 +497,6 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
             const option = document.createElement('option');
             option.value = challenge.id;
 
-            // Check for tieredPoints format
             const hasTieredPoints =
                 challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
             const displayText = hasTieredPoints
@@ -569,7 +513,6 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
                 option.dataset.milestones = JSON.stringify(challenge.tieredPoints.milestones);
             }
 
-            // Add partner system data
             const hasPartnerSystem = challenge.partnerSystem?.enabled || false;
             option.dataset.hasPartnerSystem = hasPartnerSystem;
             if (hasPartnerSystem) {
@@ -579,7 +522,6 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
             select.appendChild(option);
         });
 
-        // Set up real-time subscription
         subscribeToChallenge(clubId, () => {
             loadChallengesForDropdown(clubId, currentSubgroupFilter);
         });
@@ -590,10 +532,7 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
     }
 }
 
-/**
- * Loads expired challenges for the club
- * @param {string} clubId - Club ID
- */
+/** Abgelaufene Challenges laden */
 export async function loadExpiredChallenges(clubId) {
     const expiredChallengesList = document.getElementById('expired-challenges-list');
     if (!expiredChallengesList) return;
@@ -624,7 +563,6 @@ export async function loadExpiredChallenges(clubId) {
             }))
             .filter(challenge => {
                 const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-                // Show if expired OR manually ended
                 return expiresAt <= now || challenge.isActive === false;
             });
 
@@ -634,7 +572,6 @@ export async function loadExpiredChallenges(clubId) {
             return;
         }
 
-        // Load subgroup names for badges
         const subgroupIds = [...new Set(expiredChallenges.map(c => c.subgroupId).filter(id => id && id !== 'all'))];
         let subgroupNamesMap = {};
 
@@ -663,12 +600,7 @@ export async function loadExpiredChallenges(clubId) {
     }
 }
 
-/**
- * Reactivates a challenge with a new duration and subgroup
- * @param {string} challengeId - Challenge ID
- * @param {string} duration - New duration (daily, weekly, monthly)
- * @param {string} subgroupId - Subgroup ID (or "all")
- */
+/** Challenge reaktivieren mit neuer Dauer und Subgruppe */
 export async function reactivateChallenge(challengeId, duration, subgroupId) {
     try {
         const { error } = await supabase
@@ -690,10 +622,7 @@ export async function reactivateChallenge(challengeId, duration, subgroupId) {
     }
 }
 
-/**
- * Ends a challenge early
- * @param {string} challengeId - Challenge ID
- */
+/** Challenge vorzeitig beenden */
 export async function endChallenge(challengeId) {
     try {
         const { error } = await supabase
@@ -709,10 +638,7 @@ export async function endChallenge(challengeId) {
     }
 }
 
-/**
- * Deletes a challenge permanently
- * @param {string} challengeId - Challenge ID
- */
+/** Challenge dauerhaft löschen */
 export async function deleteChallenge(challengeId) {
     try {
         const { error } = await supabase
@@ -728,9 +654,7 @@ export async function deleteChallenge(challengeId) {
     }
 }
 
-/**
- * Updates all countdown timers on the page
- */
+/** Alle Countdown-Timer aktualisieren */
 export function updateAllCountdowns() {
     const countdownElements = document.querySelectorAll('.challenge-countdown');
     const now = new Date();
@@ -751,11 +675,7 @@ export function updateAllCountdowns() {
     });
 }
 
-/**
- * Populates a subgroup dropdown with subgroups from the club
- * @param {string} clubId - Club ID
- * @param {string} selectId - ID of the select element
- */
+/** Subgruppen-Dropdown mit Daten füllen */
 export async function populateSubgroupDropdown(clubId, selectId) {
     const select = document.getElementById(selectId);
     if (!select) return;
@@ -769,7 +689,7 @@ export async function populateSubgroupDropdown(clubId, selectId) {
 
         if (error) throw error;
 
-        // Keep the "Alle" option
+        // "Alle"-Option muss erhalten bleiben für Gesamtverein
         const currentValue = select.value;
         select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
 
@@ -780,7 +700,7 @@ export async function populateSubgroupDropdown(clubId, selectId) {
             select.appendChild(option);
         });
 
-        // Restore previous selection if it still exists
+        // Vorherige Auswahl wiederherstellen falls noch vorhanden
         if (
             currentValue &&
             Array.from(select.options).some(opt => opt.value === currentValue)
@@ -793,13 +713,9 @@ export async function populateSubgroupDropdown(clubId, selectId) {
     }
 }
 
-/**
- * Subscribe to challenge changes (real-time)
- * @param {string} clubId - Club ID
- * @param {Function} callback - Callback to run on changes
- */
+/** Echtzeit-Updates für Challenges abonnieren */
 function subscribeToChallenge(clubId, callback) {
-    // Avoid duplicate subscriptions
+    // Doppelte Subscriptions vermeiden um Mehrfach-Updates zu verhindern
     const existingChannel = challengeSubscriptions.find(c => c.topic === `challenges_${clubId}`);
     if (existingChannel) return;
 
@@ -822,9 +738,7 @@ function subscribeToChallenge(clubId, callback) {
     challengeSubscriptions.push(channel);
 }
 
-/**
- * Unsubscribe from all challenge channels
- */
+/** Alle Challenge-Subscriptions beenden */
 export function unsubscribeFromChallenges() {
     challengeSubscriptions.forEach(channel => {
         supabase.removeChannel(channel);
@@ -832,9 +746,7 @@ export function unsubscribeFromChallenges() {
     challengeSubscriptions = [];
 }
 
-/**
- * Start countdown update interval
- */
+/** Countdown-Aktualisierung starten */
 export function startCountdownInterval() {
     setInterval(updateAllCountdowns, 1000);
 }

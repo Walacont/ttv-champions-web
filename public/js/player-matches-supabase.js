@@ -1,21 +1,14 @@
-// SC Champions - Player Matches Module (Supabase Version)
-// Handles match requests, set score input, and match history
-// Multi-sport support: Match requests include sport_id
-
 import { getSupabase } from './supabase-init.js';
 import { getSportContext } from './sport-context-supabase.js';
 
 const supabase = getSupabase();
 
-// Default avatar
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOTRhM2I4Ii8+PHBhdGggZD0iTTIwIDg1YzAtMjAgMTMtMzAgMzAtMzBzMzAgMTAgMzAgMzAiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=';
 
 let setScoreHandler = null;
 let selectedOpponent = null;
 
-/**
- * Setup Match Form and related functionality
- */
+/** Match-Formular und Eventhandler einrichten */
 export async function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
     const form = document.getElementById('match-request-form');
     const opponentSearchInput = document.getElementById('opponent-search-input');
@@ -29,13 +22,11 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
 
     if (!form) return;
 
-    // Get sport context to determine which scoring system to use
     const sportContext = await getSportContext(currentUser.id);
     const sportName = sportContext?.sportName;
     const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
     const isBadminton = sportName === 'badminton';
 
-    // Show/hide tennis options based on sport
     const tennisOptionsContainer = document.getElementById('tennis-options-container');
     if (tennisOptionsContainer) {
         if (isTennisOrPadel) {
@@ -45,20 +36,16 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
         }
     }
 
-    // Adjust default match mode based on sport
     if (matchModeSelect) {
         if (isTennisOrPadel || isBadminton) {
-            // For tennis/padel/badminton, default to Best of 3
             matchModeSelect.value = 'best-of-3';
         }
     }
 
-    // Helper function to create appropriate score input based on sport
     function createScoreInputForSport(mode) {
         if (!setScoreContainer) return null;
 
         if (isTennisOrPadel) {
-            // Tennis/Padel scoring
             const options = {
                 mode: mode || 'best-of-3',
                 goldenPoint: goldenPointCheckbox?.checked || false,
@@ -66,23 +53,18 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
             };
             return createTennisScoreInput(setScoreContainer, [], options);
         } else if (isBadminton) {
-            // Badminton scoring (always Best of 3)
             return createBadmintonScoreInput(setScoreContainer, [], 'best-of-3');
         } else {
-            // Table Tennis scoring (default)
             return createSetScoreInput(setScoreContainer, [], mode || 'best-of-5');
         }
     }
 
-    // Initialize set score inputs
     setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
 
-    // Match mode change
     matchModeSelect?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect.value);
     });
 
-    // Tennis-specific options: Golden Point and Match Tie-Break
     goldenPointCheckbox?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
     });
@@ -91,7 +73,6 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
         setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
     });
 
-    // Singles/Doubles toggle
     singlesToggle?.addEventListener('click', () => {
         singlesToggle.classList.add('active');
         doublesToggle?.classList.remove('active');
@@ -106,7 +87,6 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
         document.getElementById('doubles-players-container')?.classList.remove('hidden');
     });
 
-    // Opponent search
     let searchTimeout = null;
     opponentSearchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -120,22 +100,18 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
         searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults, currentUser, currentUserData), 300);
     });
 
-    // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         await submitMatchRequest(currentUser, currentUserData, callbacks);
     });
 
-    // Setup match suggestions toggle
     setupMatchSuggestions(currentUser, currentUserData);
 
-    // Make clearOpponentSelection globally available
+    // Funktion muss global verfügbar sein für onclick-Handler im DOM
     window.clearOpponentSelection = () => clearOpponentSelection(currentUserData);
 }
 
-/**
- * Search for opponents in the same club
- */
+/** Gegner im selben Verein suchen */
 async function searchOpponents(query, resultsContainer, currentUser, currentUserData) {
     if (!currentUserData.club_id) {
         resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Du musst einem Verein beitreten um Wettkämpfe zu melden.</p>';
@@ -143,8 +119,6 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
     }
 
     try {
-        // Search by display_name, first_name, or last_name
-        // Include is_offline to filter out offline players (singles only allows online players)
         const { data: players, error } = await supabase
             .from('profiles')
             .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings, is_offline')
@@ -160,22 +134,16 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             return;
         }
 
-        // Filter players based on privacy settings and offline status
-        // Note: showInLeaderboards only affects leaderboard visibility, not opponent search
-        // Opponent search uses the 'searchable' setting:
-        // - 'global': anyone can find them
-        // - 'club_only': only club members can find them (already the case here since we search within club)
-        // Singles matches do NOT allow offline players (they can only play doubles)
+        // Offline-Spieler sind nur im Doppel erlaubt, nicht im Einzel
         const filteredPlayers = players.filter(player => {
-            // Exclude offline players from singles opponent search
             if (player.is_offline === true) return false;
 
             const privacySettings = player.privacy_settings || {};
             const searchable = privacySettings.searchable || 'global';
 
-            // Both 'global' and 'club_only' players are visible since we're searching within the same club
+            // 'global' und 'club_only' sind beide sichtbar, da wir innerhalb des Vereins suchen
             return searchable === 'global' || searchable === 'club_only';
-        }).slice(0, 10); // Limit to 10 after filtering
+        }).slice(0, 10);
 
         if (filteredPlayers.length === 0) {
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
@@ -198,7 +166,6 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             </div>
         `).join('');
 
-        // Add click handlers
         resultsContainer.querySelectorAll('.opponent-option').forEach(option => {
             option.addEventListener('click', () => selectOpponent(option, currentUserData));
         });
@@ -209,9 +176,7 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
     }
 }
 
-/**
- * Select an opponent from search results
- */
+/** Gegner aus Suchergebnissen auswählen */
 function selectOpponent(optionElement, currentUserData) {
     const id = optionElement.dataset.id;
     const name = optionElement.dataset.name;
@@ -219,7 +184,6 @@ function selectOpponent(optionElement, currentUserData) {
 
     selectedOpponent = { id, name, elo: parseInt(elo) };
 
-    // Update UI
     document.getElementById('selected-opponent-id').value = id;
     document.getElementById('selected-opponent-elo').value = elo;
     document.getElementById('opponent-search-input').value = name;
@@ -234,13 +198,10 @@ function selectOpponent(optionElement, currentUserData) {
         </div>
     `;
 
-    // Check for handicap
     checkHandicap(currentUserData);
 }
 
-/**
- * Clear opponent selection
- */
+/** Gegnerauswahl zurücksetzen */
 function clearOpponentSelection(currentUserData) {
     selectedOpponent = null;
     const opponentIdEl = document.getElementById('selected-opponent-id');
@@ -256,9 +217,7 @@ function clearOpponentSelection(currentUserData) {
     if (handicapInfo) handicapInfo.classList.add('hidden');
 }
 
-/**
- * Check and display handicap info
- */
+/** Handicap-Empfehlung prüfen und anzeigen */
 function checkHandicap(currentUserData) {
     const handicapInfo = document.getElementById('match-handicap-info');
     const handicapText = document.getElementById('match-handicap-text');
@@ -281,10 +240,7 @@ function checkHandicap(currentUserData) {
     }
 }
 
-/**
- * Submit match request
- * Multi-sport: Includes sport_id and cross-club detection
- */
+/** Match-Anfrage erstellen */
 async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) {
     const feedbackEl = document.getElementById('match-request-feedback');
 
@@ -308,17 +264,14 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
     const matchMode = document.getElementById('match-mode-select')?.value || 'best-of-5';
     const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
 
-    // Determine winner
     const winnerId = validation.winnerId === 'A' ? currentUser.id : selectedOpponent.id;
     const loserId = validation.winnerId === 'A' ? selectedOpponent.id : currentUser.id;
 
     try {
-        // Get sport context for current user
         const sportContext = await getSportContext(currentUser.id);
         const sportId = sportContext?.sportId || null;
         const myClubId = sportContext?.clubId || currentUserData.club_id;
 
-        // Get opponent's club (single sport model - just use profiles)
         let opponentClubId = selectedOpponent.clubId || null;
         if (selectedOpponent.id && !opponentClubId) {
             const { data: opponentProfile } = await supabase
@@ -332,11 +285,9 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
             }
         }
 
-        // Determine if this is a cross-club match
         const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
 
-        // Determine which club to associate with the match
-        // Use requester's club, or null if no club
+        // Verein des Anfragenden verwenden, falls vorhanden
         const matchClubId = myClubId || opponentClubId || null;
 
         const { error } = await supabase
@@ -354,7 +305,7 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
                 status: 'pending_player',
                 is_cross_club: isCrossClub,
                 approvals: JSON.stringify({
-                    player_a: true, // Requester auto-approves
+                    player_a: true, // Anfragender bestätigt automatisch
                     player_b: false,
                     coach_a: null,
                     coach_b: null
@@ -366,11 +317,9 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
 
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');
 
-        // Reset form
         clearOpponentSelection(currentUserData);
         setScoreHandler.reset();
 
-        // Trigger reload callbacks
         if (callbacks.onRequestCreated) {
             callbacks.onRequestCreated();
         }
@@ -381,9 +330,7 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
     }
 }
 
-/**
- * Show feedback message
- */
+/** Feedback-Nachricht anzeigen */
 function showFeedback(element, message, type) {
     if (!element) return;
 
@@ -400,9 +347,7 @@ function showFeedback(element, message, type) {
     }, 5000);
 }
 
-/**
- * Create set score input component
- */
+/** Satz-Score-Eingabe erstellen (Tischtennis) */
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
     container.innerHTML = '';
 
@@ -464,11 +409,9 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        // Erlaubt 0 als gültigen Wert (parseInt("0") || '' würde fälschlicherweise '' werden)
         const value = e.target.value.trim();
         sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
-
-        // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
         sets.forEach(set => {
             const a = parseInt(set.playerA) || 0;
@@ -532,15 +475,12 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
-    // Function to set handicap for a player
     function setHandicap(player, points) {
         sets.forEach((set, index) => {
             if (player === 'A') {
-                // Set minimum for player A
                 const currentValue = parseInt(set.playerA) || 0;
                 sets[index].playerA = Math.max(currentValue, points);
             } else if (player === 'B') {
-                // Set minimum for player B
                 const currentValue = parseInt(set.playerB) || 0;
                 sets[index].playerB = Math.max(currentValue, points);
             }
@@ -548,7 +488,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
-    // Function to clear handicap for a player
     function clearHandicap(player) {
         sets.forEach((set, index) => {
             if (player === 'A') {
@@ -560,7 +499,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
-    // Function to get current match winner (or null if no winner yet)
     function getMatchWinner() {
         const filledSets = getSets();
 
@@ -568,7 +506,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return null;
         }
 
-        // Calculate wins
         let playerAWins = 0;
         let playerBWins = 0;
 
@@ -578,7 +515,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             if (winner === 'B') playerBWins++;
         });
 
-        // Check if someone has won
         if (playerAWins >= setsToWin) {
             return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
         }
@@ -586,7 +522,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
         }
 
-        // No winner yet, but return current score if there are any wins
         if (playerAWins > 0 || playerBWins > 0) {
             return { winner: null, setsA: playerAWins, setsB: playerBWins };
         }
@@ -606,42 +541,27 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     };
 }
 
-/**
- * Creates a Tennis/Padel score input component
- * Supports multiple modes:
- * - best-of-3: Standard 2 winning sets, each to 6 games
- * - pro-set: Single long set (to 9/10 games)
- * - timed: Free game count (no set validation)
- * - fast4: Sets to 4 games, tie-break at 3:3
- * @param {HTMLElement} container - Container element for the score inputs
- * @param {Array} existingSets - Existing set scores (optional)
- * @param {Object} options - Match options { mode: 'best-of-3', goldenPoint: false, matchTieBreak: false }
- * @returns {Object} API for getting, validating sets
- */
+/** Satz-Score-Eingabe erstellen (Tennis/Padel) */
 export function createTennisScoreInput(container, existingSets = [], options = {}) {
     const { mode = 'best-of-3', goldenPoint = false, matchTieBreak = false } = options;
 
     container.innerHTML = '';
 
-    // Mode-specific configuration
     const isTimedMode = mode === 'timed';
     const isProSetMode = mode === 'pro-set';
     const isFast4Mode = mode === 'fast4';
     const isStandardMode = !isTimedMode && !isProSetMode && !isFast4Mode;
 
-    // Games needed to win a set (for validation)
+    // Für Fast4 sind nur 4 Spiele zum Satzgewinn nötig statt 6
     const gamesForSet = isFast4Mode ? 4 : 6;
-    const tieBreakAt = isFast4Mode ? 3 : 6; // Tie-break triggers at this score
+    const tieBreakAt = isFast4Mode ? 3 : 6;
 
     let minSets, maxSets, setsToWin;
     if (isTimedMode || isProSetMode) {
-        // Single "set" mode - just one score entry
         minSets = 1; maxSets = 1; setsToWin = 1;
     } else if (isFast4Mode) {
-        // Fast4: Best of 3 with shorter sets
         minSets = 2; maxSets = 3; setsToWin = 2;
     } else {
-        // Standard modes
         switch (mode) {
             case 'best-of-3': minSets = 2; maxSets = 3; setsToWin = 2; break;
             case 'best-of-5': minSets = 3; maxSets = 5; setsToWin = 3; break;
@@ -654,44 +574,33 @@ export function createTennisScoreInput(container, existingSets = [], options = {
         sets.push({ playerA: '', playerB: '', tiebreak: null });
     }
 
-    /**
-     * Validates if a set score is valid according to tennis rules
-     */
     function isValidSet(scoreA, scoreB, setIndex) {
         const a = parseInt(scoreA) || 0;
         const b = parseInt(scoreB) || 0;
 
-        // Empty set is not valid
         if (a === 0 && b === 0) return false;
 
-        // Timed mode: Any score where someone has more games is valid
         if (isTimedMode) {
-            return a !== b; // Just need a winner (not a tie)
+            return a !== b;
         }
 
-        // Pro Set mode: First to 9 (or 10), must win by 2
         if (isProSetMode) {
-            if (a < 9 && b < 9) return false; // Someone must reach 9
-            return Math.abs(a - b) >= 2; // Must win by 2 (e.g., 9:7, 10:8)
+            if (a < 9 && b < 9) return false;
+            return Math.abs(a - b) >= 2;
         }
 
-        // Fast4 mode: Sets to 4, tie-break at 3:3
         if (isFast4Mode) {
-            // Tie-break win: 4:3
             if (a === 4 && b === 3) return true;
             if (b === 4 && a === 3) return true;
-            // Standard win: 4:0, 4:1, 4:2
             if (a >= 4 || b >= 4) {
                 return Math.abs(a - b) >= 1 && (a === 4 || b === 4);
             }
             return false;
         }
 
-        // Check if this is a match tie-break (3rd set in best-of-3 or 5th in best-of-5)
         const isMatchTieBreakSet = matchTieBreak && setIndex === (maxSets - 1) && sets.length === maxSets;
 
         if (isMatchTieBreakSet) {
-            // Match Tie-Break: First to 10, must win by 2
             if (a < 10 && b < 10) return false;
             if (a >= 10 || b >= 10) {
                 return Math.abs(a - b) >= 2;
@@ -699,12 +608,9 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return false;
         }
 
-        // Standard set or Tie-Break set
-        // Must win by 2 games, or win tie-break at 7:6
-        if (a === 7 && b === 6) return true; // Tie-break win for A
-        if (b === 7 && a === 6) return true; // Tie-break win for B
+        if (a === 7 && b === 6) return true;
+        if (b === 7 && a === 6) return true;
 
-        // Standard win: 6:0, 6:1, 6:2, 6:3, 6:4, 7:5, 8:6, etc.
         if (a >= 6 || b >= 6) {
             return Math.abs(a - b) >= 2;
         }
@@ -724,7 +630,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
     function renderSets() {
         container.innerHTML = '';
 
-        // For timed mode, show a simple game count input
         if (isTimedMode) {
             const div = document.createElement('div');
             div.className = 'mb-4';
@@ -744,7 +649,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             `;
             container.appendChild(div);
         }
-        // For pro-set mode, show single set with higher limit
         else if (isProSetMode) {
             const div = document.createElement('div');
             div.className = 'mb-4';
@@ -763,13 +667,11 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             `;
             container.appendChild(div);
         }
-        // Standard or Fast4 mode
         else {
             sets.forEach((set, index) => {
                 const a = parseInt(set.playerA) || 0;
                 const b = parseInt(set.playerB) || 0;
 
-                // Check if tie-break display is needed
                 const isTieBreakPossible = isFast4Mode
                     ? (a === 4 && b === 3) || (b === 4 && a === 3)
                     : (a === 7 && b === 6) || (b === 7 && a === 6);
@@ -815,17 +717,15 @@ export function createTennisScoreInput(container, existingSets = [], options = {
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        // Erlaubt 0 als gültigen Wert (parseInt("0") || '' würde fälschlicherweise '' werden)
         const value = e.target.value.trim();
         sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
 
-        // For timed/pro-set modes, no auto-add of sets
         if (isTimedMode || isProSetMode) {
             renderSets();
             return;
         }
 
-        // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
         sets.forEach((set, idx) => {
             const winner = getSetWinner(set.playerA, set.playerB, idx);
@@ -841,7 +741,7 @@ export function createTennisScoreInput(container, existingSets = [], options = {
                 renderSets();
             }
         } else {
-            renderSets(); // Re-render to show tie-break input if needed
+            renderSets();
         }
     }
 
@@ -861,7 +761,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
     function validate() {
         const filledSets = getSets();
 
-        // For timed mode, just need any valid score
         if (isTimedMode) {
             if (filledSets.length === 0) {
                 return { valid: false, error: 'Bitte gib die Anzahl der gewonnenen Spiele ein.' };
@@ -874,7 +773,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return { valid: true, winnerId: winner, playerAWins: set.playerA > set.playerB ? 1 : 0, playerBWins: set.playerB > set.playerA ? 1 : 0 };
         }
 
-        // For pro-set mode
         if (isProSetMode) {
             if (filledSets.length === 0) {
                 return { valid: false, error: 'Bitte gib das Ergebnis ein.' };
@@ -887,7 +785,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
             return { valid: true, winnerId: winner, playerAWins: 1, playerBWins: 0 };
         }
 
-        // Standard and Fast4 validation
         if (filledSets.length < minSets) {
             return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
         }
@@ -1080,11 +977,9 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        // Erlaubt 0 als gültigen Wert (parseInt("0") || '' würde fälschlicherweise '' werden)
         const value = e.target.value.trim();
         sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
-
-        // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
         sets.forEach(set => {
             const winner = getSetWinner(set.playerA, set.playerB);

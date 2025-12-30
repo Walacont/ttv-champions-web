@@ -1,20 +1,17 @@
-// Attendance Module - Supabase Version
-// SC Champions - Migration von Firebase zu Supabase
-// Multi-sport support: Attendance is filtered by active sport
+// Anwesenheits-Modul - Supabase Version
+// SC Champions - Multi-Sport-Unterstützung: Anwesenheit wird nach aktiver Sportart gefiltert
 
 import { getSupabase } from './supabase-init.js';
 import { getSportContext } from './sport-context-supabase.js';
 
 /**
- * Attendance Module - Supabase Version
- * Handles calendar rendering and attendance tracking for coaches
- * Supports subgroups with separate streaks per subgroup
- * Multi-sport: Filters attendance by active sport
+ * Anwesenheits-Modul mit Kalenderdarstellung und Anwesenheitsverfolgung für Trainer
+ * Unterstützt Untergruppen mit separaten Streaks pro Untergruppe
  */
 
 const supabase = getSupabase();
 
-// Module state
+// Modul-Status
 let monthlyAttendance = new Map();
 let monthlyEvents = new Map();
 let subgroupsMap = new Map();
@@ -22,16 +19,16 @@ let currentSubgroupFilter = 'all';
 let isRenderingAttendance = false;
 let currentSessionId = null;
 
-// Store callbacks for current session
+// Callbacks für aktuelle Session speichern
 let currentClubPlayers = [];
 let currentUpdateAttendanceCount = null;
 let currentUpdatePairingsButtonState = null;
 
-// Constants
+// Konstanten
 const ATTENDANCE_POINTS_BASE = 3;
 
 /**
- * Calculates the duration in hours between two time strings
+ * Berechnet Trainingsdauer in Stunden zwischen zwei Zeitangaben
  */
 function calculateTrainingDuration(startTime, endTime) {
     try {
@@ -52,21 +49,21 @@ function calculateTrainingDuration(startTime, endTime) {
 }
 
 /**
- * Sets the current subgroup filter for attendance operations
+ * Setzt den aktuellen Untergruppen-Filter
  */
 export function setAttendanceSubgroupFilter(subgroupId) {
     currentSubgroupFilter = subgroupId || 'all';
 }
 
 /**
- * Gets the current session ID being edited
+ * Gibt die ID der aktuell bearbeiteten Session zurück
  */
 export function getCurrentSessionId() {
     return currentSessionId;
 }
 
 /**
- * Renders the calendar for a given month and year
+ * Rendert den Kalender für einen gegebenen Monat
  */
 export async function renderCalendar(date, currentUserData) {
     const calendarGrid = document.getElementById('calendar-grid');
@@ -109,7 +106,6 @@ export async function renderCalendar(date, currentUserData) {
 
         dayCell.dataset.date = dateString;
 
-        // Check for events on this day
         const eventsOnDay = monthlyEvents.get(dateString) || [];
 
         if (eventsOnDay.length > 0) {
@@ -118,11 +114,10 @@ export async function renderCalendar(date, currentUserData) {
             const dotsContainer = document.createElement('div');
             dotsContainer.className = 'flex gap-1 justify-center mt-1 flex-wrap';
 
-            // Add event dots with subgroup colors
             const eventsToShow = Math.min(eventsOnDay.length, 4);
             for (let i = 0; i < eventsToShow; i++) {
                 const event = eventsOnDay[i];
-                // Use first subgroup color, or default indigo for club-wide events
+                // Erste Untergruppen-Farbe verwenden, oder Standard-Indigo für vereinsweite Events
                 const color = event.subgroupColor || '#6366f1';
 
                 const dot = document.createElement('div');
@@ -132,7 +127,6 @@ export async function renderCalendar(date, currentUserData) {
                 dotsContainer.appendChild(dot);
             }
 
-            // Show + if there are more events
             if (eventsOnDay.length > 4) {
                 const moreDot = document.createElement('div');
                 moreDot.className = 'text-xs text-indigo-600 font-bold';
@@ -150,13 +144,12 @@ export async function renderCalendar(date, currentUserData) {
 }
 
 /**
- * Fetches attendance data and events for a specific month
+ * Lädt Anwesenheitsdaten und Events für einen Monat
  */
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
     monthlyAttendance.clear();
     monthlyEvents.clear();
 
-    // Check for valid clubId before querying
     if (!currentUserData?.clubId) {
         console.warn('[fetchMonthlyAttendance] No clubId provided, skipping');
         return;
@@ -165,19 +158,18 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-    // Get sport context for multi-sport filtering
+    // Sport-Kontext für Multi-Sport-Filterung abrufen
     const sportContext = await getSportContext(currentUserData.id);
     const effectiveClubId = sportContext?.clubId || currentUserData.clubId;
     const activeSportId = sportContext?.sportId;
 
     try {
-        // Load subgroups for color mapping (filtered by sport if available)
+        // Untergruppen für Farb-Mapping laden (nach Sportart gefiltert falls verfügbar)
         let subgroupsQuery = supabase
             .from('subgroups')
             .select('id, name, color')
             .eq('club_id', effectiveClubId);
 
-        // Filter by sport if available
         if (activeSportId) {
             subgroupsQuery = subgroupsQuery.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
         }
@@ -198,9 +190,7 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         throw error;
     }
 
-    // Fetch events for the month (including recurring events)
     try {
-        // Query 1: Single events in this month
         const { data: singleEvents, error: singleError } = await supabase
             .from('events')
             .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
@@ -210,7 +200,6 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
             .gte('start_date', startDate)
             .lte('start_date', endDate);
 
-        // Query 2: Recurring events that might occur in this month
         const { data: recurringEvents, error: recurringError } = await supabase
             .from('events')
             .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
@@ -227,7 +216,6 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
             console.warn('[fetchMonthlyAttendance] Could not load recurring events:', recurringError);
         }
 
-        // Helper function to add event to a specific date
         const addEventToDate = (dateKey, event) => {
             let subgroupColor = '#6366f1';
             if (event.target_type === 'subgroups' && event.target_subgroup_ids && event.target_subgroup_ids.length > 0) {
@@ -251,12 +239,11 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
             });
         };
 
-        // Process single events
         (singleEvents || []).forEach(e => {
             addEventToDate(e.start_date, e);
         });
 
-        // Process recurring events - generate instances for each matching day in the month
+        // Wiederkehrende Events: Instanzen für jeden passenden Tag im Monat generieren
         (recurringEvents || []).forEach(e => {
             const eventStartDate = new Date(e.start_date + 'T12:00:00');
             const monthStart = new Date(startDate + 'T12:00:00');
@@ -264,33 +251,23 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
             const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
             const excludedDates = e.excluded_dates || [];
 
-            // Get the day of week for the original event (0 = Sunday, 1 = Monday, etc.)
             const eventDayOfWeek = eventStartDate.getDay();
 
-            // Iterate through each day in the month
             for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
-                // Skip if before event start date
                 if (d < eventStartDate) continue;
-
-                // Skip if after repeat end date
                 if (repeatEndDate && d > repeatEndDate) continue;
 
                 const currentDateString = d.toISOString().split('T')[0];
 
-                // Skip if this date is in the excluded dates list
                 if (excludedDates.includes(currentDateString)) continue;
 
-                // Check if this day matches the repeat pattern
                 if (e.repeat_type === 'weekly') {
-                    // Weekly: same day of week
                     if (d.getDay() === eventDayOfWeek) {
                         addEventToDate(currentDateString, e);
                     }
                 } else if (e.repeat_type === 'daily') {
-                    // Daily: every day
                     addEventToDate(currentDateString, e);
                 } else if (e.repeat_type === 'monthly') {
-                    // Monthly: same day of month
                     if (d.getDate() === eventStartDate.getDate()) {
                         addEventToDate(currentDateString, e);
                     }
@@ -299,10 +276,9 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         });
     } catch (error) {
         console.warn('[fetchMonthlyAttendance] Error loading events:', error);
-        // Don't throw - events loading shouldn't break the page
+        // Fehler beim Laden von Events sollte die Seite nicht blockieren
     }
 
-    // Fetch attendance records
     try {
         let attendanceQuery = supabase
             .from('attendance')
@@ -345,7 +321,7 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
 }
 
 /**
- * Handles calendar day click to open attendance modal
+ * Behandelt Kalender-Tag-Klick zum Öffnen des Anwesenheits-Modals
  */
 export async function handleCalendarDayClick(
     e,
@@ -389,7 +365,7 @@ export async function handleCalendarDayClick(
 }
 
 /**
- * Open attendance modal for a specific session
+ * Öffnet das Anwesenheits-Modal für eine bestimmte Session
  */
 export async function openAttendanceModalForSession(
     sessionId,
@@ -405,7 +381,6 @@ export async function openAttendanceModalForSession(
         currentUpdateAttendanceCount = updateAttendanceCount;
         currentUpdatePairingsButtonState = updatePairingsButtonState;
 
-        // Get session data
         const { data: sessionData, error: sessError } = await supabase
             .from('training_sessions')
             .select('*')
@@ -420,7 +395,6 @@ export async function openAttendanceModalForSession(
 
         const subgroupId = sessionData.subgroup_id;
 
-        // Check if attendance already exists for this session
         const { data: attendanceRecords } = await supabase
             .from('attendance')
             .select('*')
@@ -434,7 +408,6 @@ export async function openAttendanceModalForSession(
               }
             : null;
 
-        // Load coaches for the club
         const { data: coaches } = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
@@ -449,7 +422,6 @@ export async function openAttendanceModalForSession(
             ? attendanceData.id
             : '';
 
-        // Store sessionId in a hidden field
         let sessionIdInput = document.getElementById('attendance-session-id-input');
         if (!sessionIdInput) {
             sessionIdInput = document.createElement('input');
@@ -459,7 +431,6 @@ export async function openAttendanceModalForSession(
         }
         sessionIdInput.value = sessionId;
 
-        // Populate coach checkboxes with hours input
         const coachListContainer = document.getElementById('attendance-coach-list');
         coachListContainer.innerHTML = '';
 
@@ -520,12 +491,11 @@ export async function openAttendanceModalForSession(
             playerListContainer.removeChild(playerListContainer.firstChild);
         }
 
-        // Filter players: Only show players who are members of the session's subgroup
+        // Nur Spieler anzeigen, die Mitglieder der Untergruppe dieser Session sind
         const playersInCurrentSubgroup = clubPlayers.filter(
             player => player.subgroupIDs && player.subgroupIDs.includes(subgroupId)
         );
 
-        // Deduplicate players by ID
         const playersMap = new Map();
         playersInCurrentSubgroup.forEach(player => {
             playersMap.set(player.id, player);
@@ -543,7 +513,6 @@ export async function openAttendanceModalForSession(
             return;
         }
 
-        // Render players
         for (const player of uniquePlayers) {
             const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
 
@@ -570,7 +539,7 @@ export async function openAttendanceModalForSession(
 }
 
 /**
- * Saves attendance data and calculates points/streaks
+ * Speichert Anwesenheitsdaten und berechnet Punkte/Streaks
  */
 export async function handleAttendanceSave(
     e,
@@ -595,7 +564,6 @@ export async function handleAttendanceSave(
         return;
     }
 
-    // Load session to get subgroup
     let subgroupId, subgroupName;
     try {
         const { data: sessionData, error: sessError } = await supabase
@@ -611,7 +579,6 @@ export async function handleAttendanceSave(
         }
         subgroupId = sessionData.subgroup_id;
 
-        // Load subgroup name
         const { data: subgroupData } = await supabase
             .from('subgroups')
             .select('name')
@@ -633,7 +600,6 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    // Get selected coaches with their hours
     const coachCheckboxes = document
         .getElementById('attendance-coach-list')
         .querySelectorAll('input[type="checkbox"]');
@@ -646,7 +612,7 @@ export async function handleAttendanceSave(
             return { id: coachId, hours };
         });
 
-    // Get previous attendance for THIS SPECIFIC SESSION
+    // Vorherige Anwesenheit für DIESE SPEZIFISCHE SESSION abrufen
     let previouslyPresentIdsOnThisDay = [];
     if (docId) {
         try {
@@ -669,7 +635,7 @@ export async function handleAttendanceSave(
     console.log(`  - Now present: ${presentPlayerIds.length} players`);
 
     try {
-        // Find the last training day for THIS SUBGROUP before the current date
+        // Letzten Trainingstag für DIESE UNTERGRUPPE vor dem aktuellen Datum finden
         const { data: previousTrainings } = await supabase
             .from('attendance')
             .select('present_player_ids')
@@ -684,12 +650,9 @@ export async function handleAttendanceSave(
             previousTrainingPresentIds = previousTrainings[0].present_player_ids || [];
         }
 
-        // Handle attendance document
         if (presentPlayerIds.length === 0 && docId) {
-            // Delete if empty
             await supabase.from('attendance').delete().eq('id', docId);
         } else if (presentPlayerIds.length > 0) {
-            // Update/create attendance
             const attendanceData = {
                 date,
                 club_id: currentUserData.clubId,
@@ -713,7 +676,6 @@ export async function handleAttendanceSave(
             }
         }
 
-        // Process players and update points/streaks
         const playersInSubgroup = clubPlayers.filter(
             p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
         );
@@ -723,7 +685,6 @@ export async function handleAttendanceSave(
             const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
 
             if (isPresentToday && !wasPresentPreviouslyOnThisDay) {
-                // Player newly marked as present
                 await awardAttendancePoints(
                     player.id,
                     date,
@@ -734,7 +695,6 @@ export async function handleAttendanceSave(
                     sessionId
                 );
             } else if (!isPresentToday && wasPresentPreviouslyOnThisDay) {
-                // Player removed from attendance
                 await deductAttendancePoints(
                     player.id,
                     date,
@@ -761,7 +721,7 @@ export async function handleAttendanceSave(
 }
 
 /**
- * Award attendance points to a player
+ * Vergibt Anwesenheitspunkte an einen Spieler
  */
 async function awardAttendancePoints(
     playerId,
@@ -772,7 +732,7 @@ async function awardAttendancePoints(
     previousTrainingPresentIds,
     sessionId
 ) {
-    // Get current streak (only if valid subgroupId)
+    // Aktuellen Streak abrufen (nur bei gültiger subgroupId)
     let currentStreak = 0;
     if (subgroupId) {
         const { data: streakData } = await supabase
@@ -786,7 +746,7 @@ async function awardAttendancePoints(
     const wasPresentLastTraining = previousTrainingPresentIds.includes(playerId);
     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
-    // Check for other trainings on same day
+    // Prüfen ob am selben Tag bereits an anderen Trainings teilgenommen wurde
     const { data: otherTrainings } = await supabase
         .from('attendance')
         .select('id, session_id')
@@ -798,22 +758,20 @@ async function awardAttendancePoints(
         t => t.session_id && t.session_id !== sessionId
     ).length > 0;
 
-    // Format date for display
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
     });
 
-    // Calculate points
     let pointsToAdd = ATTENDANCE_POINTS_BASE;
     let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
     if (newStreak >= 5) {
-        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+        pointsToAdd = 6;
         reason = `Training am ${formattedDate} - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
     } else if (newStreak >= 3) {
-        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+        pointsToAdd = 5;
         reason = `Training am ${formattedDate} - ${subgroupName} (⚡ ${newStreak}x Streak)`;
     }
 
@@ -822,7 +780,7 @@ async function awardAttendancePoints(
         reason += ` (2. Training heute)`;
     }
 
-    // Update streak (only if valid subgroupId)
+    // Streak aktualisieren (nur bei gültiger subgroupId)
     if (subgroupId) {
         const { error: streakError } = await supabase.from('streaks').upsert({
             user_id: playerId,
@@ -837,7 +795,6 @@ async function awardAttendancePoints(
         }
     }
 
-    // Update player points and XP
     const { error: rpcError } = await supabase.rpc('add_player_points', {
         p_user_id: playerId,
         p_points: pointsToAdd,
@@ -848,7 +805,6 @@ async function awardAttendancePoints(
         console.warn('[Attendance] Error adding points:', rpcError);
     }
 
-    // Create points history entry
     const now = new Date().toISOString();
     const { error: pointsError } = await supabase.from('points_history').insert({
         user_id: playerId,
@@ -864,7 +820,6 @@ async function awardAttendancePoints(
         console.warn('[Attendance] Error creating points history:', pointsError);
     }
 
-    // Create XP history entry
     const { error: xpError } = await supabase.from('xp_history').insert({
         player_id: playerId,
         xp: pointsToAdd,
@@ -877,7 +832,6 @@ async function awardAttendancePoints(
         console.warn('[Attendance] Error creating XP history:', xpError);
     }
 
-    // Send notification to player
     let notificationTitle = 'Anwesenheit eingetragen';
     let notificationMessage = `Du hast +${pointsToAdd} Punkte für das Training am ${formattedDate} erhalten.`;
 
@@ -905,7 +859,7 @@ async function awardAttendancePoints(
 }
 
 /**
- * Deduct attendance points from a player
+ * Zieht Anwesenheitspunkte von einem Spieler ab
  */
 async function deductAttendancePoints(
     playerId,
@@ -914,7 +868,6 @@ async function deductAttendancePoints(
     subgroupName,
     clubId
 ) {
-    // Find original points awarded
     const { data: historyEntries } = await supabase
         .from('points_history')
         .select('*')
@@ -930,21 +883,18 @@ async function deductAttendancePoints(
 
     const pointsToDeduct = historyEntry?.points || 10;
 
-    // Format date for display
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
     });
 
-    // Deduct points
     await supabase.rpc('deduct_player_points', {
         p_user_id: playerId,
         p_points: pointsToDeduct,
         p_xp: pointsToDeduct
     });
 
-    // Create negative history entry
     const correctionTime = new Date().toISOString();
     await supabase.from('points_history').insert({
         user_id: playerId,
@@ -956,7 +906,6 @@ async function deductAttendancePoints(
         awarded_by: 'System (Anwesenheit)',
     });
 
-    // Create negative XP history entry
     await supabase.from('xp_history').insert({
         player_id: playerId,
         xp: -pointsToDeduct,
@@ -967,13 +916,13 @@ async function deductAttendancePoints(
 }
 
 /**
- * Loads players for attendance tracking
- * @param {string} clubId - Club ID
- * @param {Object|Function} supabaseOrCallback - Supabase instance (ignored) or callback
- * @param {Function} [callback] - Callback function when players are loaded
+ * Lädt Spieler für Anwesenheitsverfolgung
+ * @param {string} clubId - Vereins-ID
+ * @param {Object|Function} supabaseOrCallback - Supabase-Instanz (ignoriert) oder Callback
+ * @param {Function} [callback] - Callback-Funktion wenn Spieler geladen wurden
  */
 export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callback) {
-    // Handle both (clubId, callback) and (clubId, supabase, callback) signatures
+    // Unterstützt beide Signaturen: (clubId, callback) und (clubId, supabase, callback)
     const onPlayersLoaded = typeof supabaseOrCallback === 'function' ? supabaseOrCallback : callback;
     const PLAYER_LIMIT = 300;
 
@@ -988,12 +937,11 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
 
         if (error) throw error;
 
-        // Debug: Log all players including offline ones
+        // Debug: Alle Spieler inkl. Offline-Spieler loggen
         console.log(`[Attendance] Loaded ${data?.length || 0} players from DB:`,
             data?.map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name}`, is_offline: p.is_offline }))
         );
 
-        // Deduplicate players
         const playersMap = new Map();
         const seenIdentifiers = new Set();
 
@@ -1032,7 +980,6 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
             onPlayersLoaded(players);
         }
 
-        // Set up real-time subscription
         const channel = supabase
             .channel(`attendance_players_${clubId}`)
             .on(
@@ -1058,7 +1005,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
 }
 
 /**
- * Updates the attendance count display
+ * Aktualisiert die Anwesenheitszähler-Anzeige
  */
 export function updateAttendanceCount() {
     const countEl = document.getElementById('attendance-count');
@@ -1070,7 +1017,7 @@ export function updateAttendanceCount() {
 }
 
 /**
- * Subscribe to attendance changes (real-time)
+ * Abonniert Anwesenheitsänderungen (Echtzeit)
  */
 export function subscribeToAttendance(clubId, callback) {
     const channel = supabase

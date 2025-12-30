@@ -1,6 +1,5 @@
-// Leaderboard Module - Supabase Version
-// SC Champions - Migration von Firebase zu Supabase
-// Updated for multi-sport support - leaderboards filter by active sport
+// Leaderboard Modul - Supabase Version
+// Verwaltet Ranglisten: Skill (ELO), Fleiß (XP), Season (Punkte)
 
 import { getSupabase } from './supabase-init.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
@@ -9,14 +8,12 @@ import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { getSportContext, getUsersInSport } from './sport-context-supabase.js';
 
 /**
- * Leaderboard Module - Supabase Version
- * Handles leaderboards: Skill (ELO), Effort (XP), Season (Points)
- * Multi-sport support: Leaderboards show only players from the active sport
+ * Leaderboard Modul mit Multi-Sport-Unterstützung
+ * Zeigt nur Spieler der aktiven Sportart
  */
 
 const supabase = getSupabase();
 
-// Constants
 export const LEAGUES = {
     diamond: { name: 'Diamant', minElo: 1400, color: 'text-cyan-400', bgColor: 'bg-cyan-100', icon: '💎' },
     platinum: { name: 'Platin', minElo: 1200, color: 'text-gray-300', bgColor: 'bg-gray-100', icon: '🏆' },
@@ -28,23 +25,19 @@ export const LEAGUES = {
 export const PROMOTION_COUNT = 4;
 export const DEMOTION_COUNT = 4;
 
-// State
 let currentLeaderboardSubgroupFilter = 'all';
 let currentLeaderboardGenderFilter = 'all';
-let currentLeaderboardSportId = null; // Sport filter for multi-sport support
+let currentLeaderboardSportId = null;
 let leaderboardSubscriptions = [];
 let currentActiveTab = 'effort';
 
-// Cache for test club filtering
+// Cache um wiederholte Datenbankabfragen zu vermeiden
 let testClubIdsCache = null;
 let currentUserDataCache = null;
 
 /**
- * Filter players based on privacy settings
- * @param {Array} players - Array of player objects
- * @param {string} currentUserId - Current user's ID
- * @param {string} currentUserClubId - Current user's club ID
- * @returns {Object} { filteredPlayers, currentUserHidden } - Filtered players and whether current user is hidden
+ * Filtert Spieler basierend auf Datenschutzeinstellungen
+ * @returns {Object} { filteredPlayers, currentUserHidden }
  */
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     let currentUserHidden = false;
@@ -55,45 +48,39 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
 
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
-        const searchable = privacySettings.searchable || 'global'; // Default: global
+        const showInLeaderboards = privacySettings.showInLeaderboards !== false;
+        const searchable = privacySettings.searchable || 'global';
 
-        // Check if this is the current user
         const isCurrentUser = player.id === currentUserId;
 
-        // Debug log for each player
         console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
             '| showInLeaderboards:', showInLeaderboards,
             '| searchable:', searchable,
             '| isCurrentUser:', isCurrentUser,
             '| raw privacySettings:', JSON.stringify(privacySettings));
 
-        // If player has disabled leaderboard visibility
         if (!showInLeaderboards) {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true; // Still show current user to themselves
+                return true;
             }
             console.log('[Privacy Filter] HIDING', player.firstName, '- showInLeaderboards is false');
-            return false; // Hide from others
+            return false;
         }
 
-        // If player is only visible to club members
         if (searchable === 'club_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true; // Still show current user to themselves
+                return true;
             }
-            // Only show if viewer is in the same club
             if (currentUserClubId && player.clubId === currentUserClubId) {
                 console.log('[Privacy Filter] SHOWING', player.firstName, '- same club');
                 return true;
             }
             console.log('[Privacy Filter] HIDING', player.firstName, '- club_only and different club');
-            return false; // Hide from non-club members
+            return false;
         }
 
-        // Global visibility - show to everyone
         return true;
     });
 
@@ -101,9 +88,7 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     return { filteredPlayers, currentUserHidden };
 }
 
-/**
- * Load test club IDs for filtering
- */
+/** Lädt Test-Verein IDs für Filterung */
 async function loadTestClubIds() {
     if (testClubIdsCache !== null) return testClubIdsCache;
 
@@ -131,9 +116,7 @@ async function loadTestClubIds() {
     }
 }
 
-/**
- * Load current user data for test club filtering
- */
+/** Lädt aktuelle Benutzerdaten für Test-Verein-Filterung */
 async function loadCurrentUserData(userId) {
     if (currentUserDataCache && currentUserDataCache.id === userId) {
         return currentUserDataCache;
@@ -150,14 +133,12 @@ async function loadCurrentUserData(userId) {
 }
 
 /**
- * Filter players from test clubs
- * - Players from test clubs are hidden from the leaderboard
- * - Exception: Coach of the same test club can see all players
+ * Filtert Spieler aus Test-Vereinen
+ * Ausnahme: Coaches desselben Test-Vereins sehen alle Spieler
  */
 async function filterTestClubPlayers(players, currentUserId) {
     const testClubIds = await loadTestClubIds();
 
-    // If no test clubs exist, return all players
     if (testClubIds.length === 0) {
         console.log('[Leaderboard] No test clubs found, showing all players');
         return players;
@@ -180,18 +161,15 @@ async function filterTestClubPlayers(players, currentUserId) {
     const filteredPlayers = players.filter(player => {
         const playerClubId = player.clubId || player.club_id;
 
-        // If player is not in a test club, show them
         if (!playerClubId || !testClubIds.includes(playerClubId)) {
             return true;
         }
 
-        // Player is in a test club
-        // If current user is a coach of the same test club, show the player
+        // Coach desselben Test-Vereins kann Spieler sehen
         if (isCoach && isCurrentUserInTestClub && currentUserClubId === playerClubId) {
             return true;
         }
 
-        // Hide players from test clubs for everyone else
         return false;
     });
 
@@ -199,47 +177,34 @@ async function filterTestClubPlayers(players, currentUserId) {
     return filteredPlayers;
 }
 
-/**
- * Clear test club cache (call when user changes)
- */
+/** Cache löschen bei Benutzerwechsel */
 export function clearTestClubCache() {
     testClubIdsCache = null;
     currentUserDataCache = null;
 }
 
-/**
- * Set subgroup filter for leaderboard
- */
 export function setLeaderboardSubgroupFilter(subgroupId) {
     currentLeaderboardSubgroupFilter = subgroupId;
 }
 
-/**
- * Set gender filter for leaderboard
- */
 export function setLeaderboardGenderFilter(genderId) {
     currentLeaderboardGenderFilter = genderId;
 }
 
 /**
- * Set sport filter for leaderboard (multi-sport support)
- * When set, leaderboard only shows players from this sport
+ * Setzt Sport-Filter für Rangliste
+ * Zeigt nur Spieler dieser Sportart
  */
 export function setLeaderboardSportFilter(sportId) {
     currentLeaderboardSportId = sportId;
     console.log('[Leaderboard] Sport filter set:', sportId);
 }
 
-/**
- * Get current sport filter
- */
 export function getLeaderboardSportFilter() {
     return currentLeaderboardSportId;
 }
 
-/**
- * Get league info based on ELO rating
- */
+/** Ermittelt Liga basierend auf ELO-Rating */
 export function getLeague(eloRating) {
     const elo = eloRating || 1000;
     if (elo >= LEAGUES.diamond.minElo) return LEAGUES.diamond;
@@ -250,8 +215,8 @@ export function getLeague(eloRating) {
 }
 
 /**
- * Load club leaderboard (Skill - ELO based)
- * Multi-sport: If sport filter is set, shows only players in that sport
+ * Lädt Skill-Rangliste (ELO-basiert)
+ * Multi-Sport: Zeigt nur Spieler der aktiven Sportart
  */
 export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 'skill-list-club') {
     const container = document.getElementById(containerId);
@@ -260,20 +225,17 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        // Build query with direct sport and club filters (single sport model)
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, highest_elo, avatar_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('elo_rating', { ascending: false });
 
-        // Filter by sport if set
         if (currentLeaderboardSportId) {
             query = query.eq('active_sport_id', currentLeaderboardSportId);
             console.log('[Leaderboard] Sport filter active:', currentLeaderboardSportId);
         }
 
-        // Filter by club if set
         if (clubId) {
             query = query.eq('club_id', clubId);
         }
@@ -283,7 +245,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         if (error) throw error;
 
         let players = (data || [])
-            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .filter(p => p.role !== 'admin') // Sicherheit: Admins ausschließen
             .map(p => ({
                 id: p.id,
                 firstName: p.first_name,
@@ -301,7 +263,6 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
                 privacySettings: p.privacy_settings || {}
             }));
 
-        // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
@@ -314,10 +275,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
-        // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
-        // Filter by privacy settings (showInLeaderboards)
         const currentUserClubId = clubId;
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
@@ -338,8 +297,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
 }
 
 /**
- * Load club leaderboard (Effort - XP based)
- * Multi-sport: If sport filter is set, shows only players in that sport
+ * Lädt Fleiß-Rangliste (XP-basiert)
+ * Multi-Sport: Zeigt nur Spieler der aktiven Sportart
  */
 export async function loadEffortLeaderboard(clubId, currentUserId, containerId = 'effort-list-club') {
     const container = document.getElementById(containerId);
@@ -348,20 +307,16 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        // Build query (single sport model)
-
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, xp, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('xp', { ascending: false });
 
-        // Filter by sport if set
         if (currentLeaderboardSportId) {
             query = query.eq('active_sport_id', currentLeaderboardSportId);
         }
 
-        // Filter by club if set
         if (clubId) {
             query = query.eq('club_id', clubId);
         }
@@ -371,7 +326,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
         if (error) throw error;
 
         let players = (data || [])
-            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .filter(p => p.role !== 'admin')
             .map(p => ({
                 id: p.id,
                 firstName: p.first_name,
@@ -386,7 +341,6 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
                 privacySettings: p.privacy_settings || {}
             }));
 
-        // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
@@ -399,10 +353,8 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
-        // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
-        // Filter by privacy settings (showInLeaderboards)
         const currentUserClubId = clubId;
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
@@ -423,8 +375,8 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
 }
 
 /**
- * Load season leaderboard (Points based)
- * Multi-sport: If sport filter is set, shows only players in that sport
+ * Lädt Season-Rangliste (Punkte-basiert)
+ * Multi-Sport: Zeigt nur Spieler der aktiven Sportart
  */
 export async function loadSeasonLeaderboard(clubId, currentUserId, containerId = 'season-list-club') {
     const container = document.getElementById(containerId);
@@ -433,20 +385,16 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        // Build query (single sport model)
-
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, points, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('points', { ascending: false });
 
-        // Filter by sport if set
         if (currentLeaderboardSportId) {
             query = query.eq('active_sport_id', currentLeaderboardSportId);
         }
 
-        // Filter by club if set
         if (clubId) {
             query = query.eq('club_id', clubId);
         }
@@ -456,7 +404,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         if (error) throw error;
 
         let players = (data || [])
-            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .filter(p => p.role !== 'admin')
             .map(p => ({
                 id: p.id,
                 firstName: p.first_name,
@@ -471,7 +419,6 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
                 privacySettings: p.privacy_settings || {}
             }));
 
-        // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
@@ -484,10 +431,8 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
-        // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
-        // Filter by privacy settings (showInLeaderboards)
         const currentUserClubId = clubId;
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
@@ -508,22 +453,19 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
 }
 
 /**
- * Load global leaderboard (all clubs) - both Skill and Doubles
- * Supports both old signature (userData, supabaseClient, unsubscribes) and new signature (currentUserId, containerId, limit)
+ * Lädt globale Rangliste (alle Vereine)
+ * Unterstützt alte und neue Funktionssignatur
  */
 export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContainerId = 'skill-list-global', unsubscribesOrLimit = 100) {
-    // Detect which signature is being used
     let currentUserId;
     let containerId = 'skill-list-global';
     let limit = 100;
     let userData = null;
 
     if (typeof userDataOrId === 'object' && userDataOrId !== null && userDataOrId.id) {
-        // Old signature: (userData, supabaseClient, unsubscribes)
         currentUserId = userDataOrId.id;
         userData = userDataOrId;
     } else {
-        // New signature: (currentUserId, containerId, limit)
         currentUserId = userDataOrId;
         if (typeof supabaseClientOrContainerId === 'string') {
             containerId = supabaseClientOrContainerId;
@@ -533,20 +475,17 @@ export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContai
         }
     }
 
-    // Load global skill leaderboard
     await loadGlobalSkillLeaderboardInternal(currentUserId, containerId, limit);
 
-    // Also load global doubles leaderboard if called with userData (old signature)
     if (userData) {
         loadGlobalDoublesLeaderboard(userData);
     }
 }
 
 /**
- * Internal function to load global skill leaderboard
- * Shows top 100 players + current user's position if not in top 100
- * Multi-sport: Uses user_sport_stats for sport-specific ELO and filtering
- * Only shows players with matches_played > 0 (after first match in sport)
+ * Lädt globale Skill-Rangliste
+ * Multi-Sport: Nutzt user_sport_stats für sport-spezifisches ELO
+ * Zeigt nur Spieler mit matches_played > 0
  */
 async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = 'skill-list-global', limit = 100) {
     const container = document.getElementById(containerId);
@@ -557,9 +496,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
     try {
         let allPlayers = [];
 
-        // Try to use sport-specific stats table first
         if (currentLeaderboardSportId) {
-            // Get sport-specific stats (only players with matches_played > 0)
             const { data: sportStats, error: statsError } = await supabase
                 .from('user_sport_stats')
                 .select(`
@@ -575,13 +512,12 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                     )
                 `)
                 .eq('sport_id', currentLeaderboardSportId)
-                .gt('matches_played', 0)  // Only show after first match
+                .gt('matches_played', 0)
                 .order('elo_rating', { ascending: false });
 
             if (!statsError && sportStats && sportStats.length > 0) {
                 console.log('[Leaderboard] Using sport-specific stats, players:', sportStats.length);
 
-                // Single sport model: club info is already in profiles
                 allPlayers = sportStats.map(ss => {
                     const p = ss.profiles;
                     return {
@@ -602,12 +538,10 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                     };
                 });
             } else {
-                // Fallback: user_sport_stats table might not exist yet
                 console.log('[Leaderboard] Falling back to profiles query');
                 allPlayers = await loadLeaderboardFallback(currentLeaderboardSportId);
             }
         } else {
-            // No sport filter - use fallback (all sports)
             allPlayers = await loadLeaderboardFallback(null);
         }
 
@@ -616,12 +550,10 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             return [];
         }
 
-        // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 allPlayers = filterPlayersByAgeGroup(allPlayers, currentLeaderboardSubgroupFilter);
             } else if (!isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                // Custom subgroup filter (not age group, not gender)
                 allPlayers = allPlayers.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
             }
         }
@@ -630,14 +562,11 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             allPlayers = filterPlayersByGender(allPlayers, currentLeaderboardGenderFilter);
         }
 
-        // Filter out players from test clubs (except for coaches of the same test club)
         allPlayers = await filterTestClubPlayers(allPlayers, currentUserId);
 
-        // Get current user's club ID for privacy filtering
         const currentUserProfile = allPlayers.find(p => p.id === currentUserId);
         const currentUserClubId = currentUserProfile?.clubId;
 
-        // Filter by privacy settings (showInLeaderboards and searchable)
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(allPlayers, currentUserId, currentUserClubId);
         allPlayers = filteredPlayers;
 
@@ -646,14 +575,11 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             return [];
         }
 
-        // Find current user's rank (after filtering)
         const currentUserRank = allPlayers.findIndex(p => p.id === currentUserId) + 1;
         const currentUserData = allPlayers.find(p => p.id === currentUserId);
 
-        // Get top 100
         const top100 = allPlayers.slice(0, limit);
 
-        // Check if current user is in top 100
         const isCurrentUserInTop = currentUserRank > 0 && currentUserRank <= limit;
 
         renderGlobalLeaderboardList(container, top100, currentUserId, currentUserRank, currentUserData, isCurrentUserInTop, currentUserHidden);
@@ -667,12 +593,10 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
 }
 
 /**
- * Fallback function to load leaderboard from profiles table
- * Used when user_sport_stats table doesn't exist or is empty
- * Single sport model: filter by profiles.active_sport_id directly
+ * Fallback für Rangliste aus profiles-Tabelle
+ * Wird verwendet wenn user_sport_stats nicht existiert
  */
 async function loadLeaderboardFallback(sportId) {
-    // Fetch all players from profiles
     let query = supabase
         .from('profiles')
         .select(`
@@ -682,7 +606,6 @@ async function loadLeaderboardFallback(sportId) {
         .in('role', ['player', 'coach', 'head_coach'])
         .order('elo_rating', { ascending: false });
 
-    // Apply sport filter (single sport model)
     if (sportId) {
         query = query.eq('active_sport_id', sportId);
     }
@@ -692,7 +615,7 @@ async function loadLeaderboardFallback(sportId) {
     if (error) throw error;
 
     return (data || [])
-        .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+        .filter(p => p.role !== 'admin')
         .map(p => ({
             id: p.id,
             firstName: p.first_name,
@@ -710,16 +633,12 @@ async function loadLeaderboardFallback(sportId) {
         }));
 }
 
-/**
- * Loads the global Doubles leaderboard
- */
+/** Lädt globale Doppel-Rangliste */
 function loadGlobalDoublesLeaderboard(userData) {
     const listEl = document.getElementById('doubles-list-global');
     if (!listEl) return;
 
     try {
-        // Load global doubles leaderboard (null clubId = global)
-        // Pass sport filter to only show doubles from current sport
         loadDoublesLeaderboard(null, supabase, listEl, [], userData.id, true, currentLeaderboardSportId);
     } catch (error) {
         console.error('[Leaderboard] Error loading global doubles leaderboard:', error);
@@ -727,13 +646,10 @@ function loadGlobalDoublesLeaderboard(userData) {
     }
 }
 
-/**
- * Render leaderboard list
- */
+/** Rendert Ranglisten-Liste */
 function renderLeaderboardList(container, players, currentUserId, type = 'elo', currentUserHidden = false) {
     container.innerHTML = '';
 
-    // Show privacy notice if current user is hidden from others
     if (currentUserHidden) {
         const notice = document.createElement('div');
         notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
@@ -767,7 +683,6 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo', 
                       type === 'xp' ? 'XP' :
                       'Punkte';
 
-        // Show hidden icon if current user is hidden
         const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
 
         row.innerHTML = `
@@ -797,13 +712,12 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo', 
 }
 
 /**
- * Render global leaderboard list (with club names)
- * Shows top players + current user's position at the bottom if not in top list
+ * Rendert globale Rangliste mit Vereinsnamen
+ * Zeigt Top-Spieler + Position des aktuellen Benutzers
  */
 function renderGlobalLeaderboardList(container, players, currentUserId, currentUserRank = 0, currentUserData = null, isCurrentUserInTop = true, currentUserHidden = false) {
     container.innerHTML = '';
 
-    // Show privacy notice if current user is hidden from others
     if (currentUserHidden) {
         const notice = document.createElement('div');
         notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
@@ -824,7 +738,6 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
         const rank = index + 1;
         const isCurrentUser = player.id === currentUserId;
 
-        // Show hidden icon if current user is hidden
         const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
 
         const row = document.createElement('div');
@@ -857,7 +770,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
         container.appendChild(row);
     });
 
-    // Show current user's position at bottom if not in top list
+    // Zeigt Benutzerposition am Ende wenn nicht in Top-Liste
     if (!isCurrentUserInTop && currentUserData && currentUserRank > 0) {
         const separator = document.createElement('div');
         separator.className = 'border-t-2 border-dashed border-gray-300 my-4';
@@ -891,9 +804,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
     }
 }
 
-/**
- * Subscribe to leaderboard changes (real-time)
- */
+/** Abonniert Echtzeit-Änderungen der Rangliste */
 export function subscribeToLeaderboard(clubId, callback) {
     const channel = supabase
         .channel(`leaderboard_${clubId}`)
@@ -915,9 +826,7 @@ export function subscribeToLeaderboard(clubId, callback) {
     return () => supabase.removeChannel(channel);
 }
 
-/**
- * Unsubscribe from all leaderboard channels
- */
+/** Beendet alle Ranglisten-Abonnements */
 export function unsubscribeFromLeaderboards() {
     leaderboardSubscriptions.forEach(channel => {
         supabase.removeChannel(channel);
@@ -925,9 +834,7 @@ export function unsubscribeFromLeaderboards() {
     leaderboardSubscriptions = [];
 }
 
-/**
- * Load all leaderboards for a club
- */
+/** Lädt alle Ranglisten für einen Verein */
 export async function loadAllLeaderboards(userData) {
     if (!userData.clubId) return;
 
@@ -939,9 +846,7 @@ export async function loadAllLeaderboards(userData) {
     ]);
 }
 
-/**
- * Renders the leaderboard HTML structure
- */
+/** Rendert Ranglisten-HTML-Struktur */
 export function renderLeaderboardHTML(containerId, options = {}) {
     const { showToggle = true, userData = null } = options;
 
@@ -1049,9 +954,7 @@ export function renderLeaderboardHTML(containerId, options = {}) {
     `;
 }
 
-/**
- * Sets up the leaderboard tabs click handlers
- */
+/** Richtet Tab-Click-Handler ein */
 export function setupLeaderboardTabs(userData = null) {
     const tabSkillBtn = document.getElementById('tab-skill');
     const tabEffortBtn = document.getElementById('tab-effort');
@@ -1114,9 +1017,7 @@ export function setupLeaderboardTabs(userData = null) {
     switchTab(defaultTab);
 }
 
-/**
- * Sets up the club/global toggle for Skill and Doubles tabs
- */
+/** Richtet Verein/Global-Umschalter ein */
 export function setupLeaderboardToggle(userData = null) {
     const toggleClubBtn = document.getElementById('toggle-club');
     const toggleGlobalBtn = document.getElementById('toggle-global');
@@ -1157,9 +1058,7 @@ export function setupLeaderboardToggle(userData = null) {
     switchScope(hasClub ? 'club' : 'global');
 }
 
-/**
- * Loads all leaderboards (wrapper for compatibility)
- */
+/** Lädt alle Ranglisten (Wrapper für Kompatibilität) */
 export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
     if (!userData.clubId) return;
 
@@ -1173,26 +1072,23 @@ export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
 }
 
 /**
- * Loads the Ranks view showing players grouped by rank
- * Multi-sport: If sport filter is set, shows only players in that sport
+ * Lädt Ränge-Ansicht gruppiert nach Rang
+ * Multi-Sport: Zeigt nur Spieler der aktiven Sportart
  */
 async function loadRanksView(userData) {
     const listEl = document.getElementById('ranks-list');
     if (!listEl) return;
 
     try {
-        // Build query (single sport model)
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, xp, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach']);
 
-        // Filter by sport if set
         if (currentLeaderboardSportId) {
             query = query.eq('active_sport_id', currentLeaderboardSportId);
         }
 
-        // Filter by club if set
         if (userData.clubId) {
             query = query.eq('club_id', userData.clubId);
         }
@@ -1202,7 +1098,7 @@ async function loadRanksView(userData) {
         if (error) throw error;
 
         let players = (data || [])
-            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .filter(p => p.role !== 'admin')
             .map(p => ({
                 id: p.id,
                 firstName: p.first_name,
@@ -1218,7 +1114,6 @@ async function loadRanksView(userData) {
                 privacySettings: p.privacy_settings || {}
             }));
 
-        // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
@@ -1231,10 +1126,8 @@ async function loadRanksView(userData) {
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
-        // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, userData.id);
 
-        // Filter by privacy settings (showInLeaderboards)
         const currentUserClubId = userData.clubId;
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, currentUserClubId);
         players = filteredPlayers;
@@ -1247,7 +1140,6 @@ async function loadRanksView(userData) {
         const grouped = groupPlayersByRank(players);
         listEl.innerHTML = '';
 
-        // Show privacy notice if current user is hidden from others
         if (currentUserHidden) {
             const notice = document.createElement('div');
             notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
@@ -1264,14 +1156,12 @@ async function loadRanksView(userData) {
             listEl.appendChild(notice);
         }
 
-        // Display ranks from highest to lowest
         for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
             const rank = RANK_ORDER[i];
             const playersInRank = grouped[rank.id] || [];
 
             if (playersInRank.length === 0) continue;
 
-            // Sort by XP within rank
             playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
 
             const rankSection = document.createElement('div');
@@ -1315,15 +1205,12 @@ async function loadRanksView(userData) {
     }
 }
 
-/**
- * Loads the Doubles leaderboard tab
- */
+/** Lädt Doppel-Rangliste Tab */
 function loadDoublesLeaderboardTab(userData) {
     const listEl = document.getElementById('doubles-list-club');
     if (!listEl) return;
 
     try {
-        // Pass sport filter to only show doubles from current sport
         loadDoublesLeaderboard(userData.clubId, supabase, listEl, [], userData.id, false, currentLeaderboardSportId);
     } catch (error) {
         console.error('[Leaderboard] Error loading doubles leaderboard:', error);
@@ -1331,10 +1218,7 @@ function loadDoublesLeaderboardTab(userData) {
     }
 }
 
-/**
- * @deprecated This function is deprecated and will be removed in future versions.
- * Use the new 3-tab leaderboard system instead.
- */
+/** @deprecated Veraltete Funktion - Wird in zukünftigen Versionen entfernt */
 export function loadLeaderboardForCoach(clubId, leagueToShow, supabase, unsubscribeCallback) {
     console.warn(
         'loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.'

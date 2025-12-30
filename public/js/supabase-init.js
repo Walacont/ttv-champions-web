@@ -1,18 +1,10 @@
-// Supabase Client Initialization
 // SC Champions - Migration von Firebase zu Supabase
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { supabaseConfig } from './supabase-config.js';
 
-/**
- * Singleton instance of Supabase client
- * @type {Object|null}
- */
 let supabaseInstance = null;
 
-/**
- * Check if running in Capacitor native app
- */
 function isCapacitorNative() {
     return typeof window !== 'undefined' &&
         typeof window.Capacitor !== 'undefined' &&
@@ -20,27 +12,20 @@ function isCapacitorNative() {
         window.Capacitor.isNativePlatform();
 }
 
-/**
- * Custom storage adapter for Capacitor apps
- * Uses Capacitor Preferences (secure native storage) for better session persistence
- * Falls back to localStorage for web
- */
+// Nutzt Capacitor Preferences (sicherer nativer Speicher) für bessere Session-Persistenz
+// Fallback auf localStorage für Web
 class CapacitorStorageAdapter {
     constructor() {
         this.isNative = isCapacitorNative();
         this.preferencesModule = null;
-        this.cache = new Map(); // In-memory cache for sync access
+        this.cache = new Map(); // Für synchronen Zugriff, den Supabase benötigt
         this.initialized = false;
         this.initPromise = null;
 
-        // Pre-load from localStorage immediately for sync access
+        // Sofort aus localStorage laden, damit synchroner Zugriff funktioniert bevor async init abgeschlossen ist
         this._preloadFromLocalStorage();
     }
 
-    /**
-     * Pre-load auth tokens from localStorage into cache immediately
-     * This ensures sync access works before async init completes
-     */
     _preloadFromLocalStorage() {
         const authKey = 'sb-' + new URL(supabaseConfig.url).hostname.split('.')[0] + '-auth-token';
         const value = localStorage.getItem(authKey);
@@ -50,9 +35,6 @@ class CapacitorStorageAdapter {
         }
     }
 
-    /**
-     * Initialize async storage (call this and await before using Supabase)
-     */
     async init() {
         if (this.initialized) return;
         if (this.initPromise) return this.initPromise;
@@ -66,7 +48,6 @@ class CapacitorStorageAdapter {
             try {
                 const module = await import('@capacitor/preferences');
                 this.preferencesModule = module.Preferences;
-                // Load existing auth data into cache from native storage
                 await this.loadCacheFromNative();
                 console.log('[Storage] Capacitor Preferences initialized');
             } catch (e) {
@@ -80,14 +61,13 @@ class CapacitorStorageAdapter {
     async loadCacheFromNative() {
         if (!this.preferencesModule) return;
 
-        // Load common Supabase auth keys
         const authKey = 'sb-' + new URL(supabaseConfig.url).hostname.split('.')[0] + '-auth-token';
 
         try {
             const { value } = await this.preferencesModule.get({ key: authKey });
             if (value) {
                 this.cache.set(authKey, value);
-                // Also sync to localStorage as backup
+                // Zusätzlich in localStorage synchronisieren als Backup
                 localStorage.setItem(authKey, value);
                 console.log('[Storage] Loaded auth token from native storage');
             }
@@ -97,30 +77,27 @@ class CapacitorStorageAdapter {
     }
 
     getItem(key) {
-        // First check cache (for sync access that Supabase needs)
+        // Zuerst Cache prüfen (für synchronen Zugriff, den Supabase benötigt)
         if (this.cache.has(key)) {
             return this.cache.get(key);
         }
-        // Fall back to localStorage
         const value = localStorage.getItem(key);
         if (value) {
-            // Update cache for future sync access
+            // In Cache aufnehmen für zukünftigen synchronen Zugriff
             this.cache.set(key, value);
         }
         return value;
     }
 
     setItem(key, value) {
-        // Update cache immediately
         this.cache.set(key, value);
-        // Update localStorage as backup (always, for persistence)
+        // Immer in localStorage schreiben für Persistenz
         try {
             localStorage.setItem(key, value);
         } catch (e) {
             console.error('[Storage] localStorage setItem failed:', e);
         }
 
-        // Persist to native storage asynchronously
         if (this.isNative && this.preferencesModule) {
             this.preferencesModule.set({ key, value }).catch(e => {
                 console.error('[Storage] Error saving to Preferences:', e);
@@ -129,16 +106,13 @@ class CapacitorStorageAdapter {
     }
 
     removeItem(key) {
-        // Remove from cache
         this.cache.delete(key);
-        // Remove from localStorage
         try {
             localStorage.removeItem(key);
         } catch (e) {
             console.error('[Storage] localStorage removeItem failed:', e);
         }
 
-        // Remove from native storage asynchronously
         if (this.isNative && this.preferencesModule) {
             this.preferencesModule.remove({ key }).catch(e => {
                 console.error('[Storage] Error removing from Preferences:', e);
@@ -147,12 +121,8 @@ class CapacitorStorageAdapter {
     }
 }
 
-// Global storage adapter instance
 let storageAdapter = null;
 
-/**
- * Get or create storage adapter
- */
 function getStorageAdapter() {
     if (!storageAdapter) {
         storageAdapter = new CapacitorStorageAdapter();
@@ -160,10 +130,6 @@ function getStorageAdapter() {
     return storageAdapter;
 }
 
-/**
- * Initializes Supabase client
- * @returns {Object} Supabase client
- */
 export function initSupabase() {
     if (supabaseInstance) {
         return supabaseInstance;
@@ -178,17 +144,16 @@ export function initSupabase() {
         auth: {
             autoRefreshToken: true,
             persistSession: true,
-            detectSessionInUrl: !isCapacitorNative(), // Disable URL detection in native apps
+            detectSessionInUrl: !isCapacitorNative(), // URL-Erkennung in nativen Apps deaktivieren
             storage: storage,
-            // Longer storage key retention for Android
+            // Längere Storage-Key-Retention für Android
             storageKey: 'sb-' + new URL(supabaseConfig.url).hostname.split('.')[0] + '-auth-token'
         }
     });
 
-    // Set up session refresh on app resume for native apps
     if (isCapacitorNative()) {
         setupAppStateListener();
-        // Initialize storage async (don't block, but start early)
+        // Storage async initialisieren - nicht blockieren, aber früh starten
         storage.init().then(() => {
             console.log('[Supabase] Storage fully initialized');
         });
@@ -198,19 +163,13 @@ export function initSupabase() {
     return supabaseInstance;
 }
 
-/**
- * Async initialization that ensures storage is ready
- * Call this early in app startup for best results
- */
+// Früh im App-Start aufrufen für beste Ergebnisse
 export async function initSupabaseAsync() {
     const storage = getStorageAdapter();
     await storage.init();
     return initSupabase();
 }
 
-/**
- * Setup listener to refresh session when app resumes from background
- */
 async function setupAppStateListener() {
     try {
         const { App } = await import('@capacitor/app');
@@ -219,17 +178,15 @@ async function setupAppStateListener() {
             if (isActive && supabaseInstance) {
                 console.log('[Supabase] App resumed, checking session...');
                 try {
-                    // First, ensure storage is synced from native
                     const storage = getStorageAdapter();
                     if (storage.isNative && storage.preferencesModule) {
                         await storage.loadCacheFromNative();
                     }
 
-                    // Get current session
                     const { data, error } = await supabaseInstance.auth.getSession();
 
                     if (data?.session) {
-                        // Check if token is close to expiring (within 5 minutes)
+                        // Prüfen ob Token bald abläuft (innerhalb von 5 Minuten)
                         const expiresAt = data.session.expires_at;
                         const now = Math.floor(Date.now() / 1000);
                         const fiveMinutes = 5 * 60;
@@ -247,25 +204,25 @@ async function setupAppStateListener() {
                         }
                     } else if (error) {
                         console.log('[Supabase] Session error on resume:', error.message);
-                        // Don't automatically sign out - let the app handle it
+                        // Nicht automatisch ausloggen - App soll selbst entscheiden
                     } else {
                         console.log('[Supabase] No session found on resume');
                     }
                 } catch (e) {
                     console.error('[Supabase] Error checking session on resume:', e);
-                    // Don't throw - just log the error
+                    // Nicht werfen - nur loggen
                 }
             }
         });
 
-        // Also listen to visibility change as a backup
+        // Zusätzlich auf Sichtbarkeitswechsel hören als Backup
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible' && supabaseInstance) {
                 console.log('[Supabase] Page became visible, checking session...');
                 try {
                     const { data } = await supabaseInstance.auth.getSession();
                     if (data?.session) {
-                        // Proactively refresh if we have a session
+                        // Proaktiv aktualisieren wenn Session vorhanden
                         const expiresAt = data.session.expires_at;
                         const now = Math.floor(Date.now() / 1000);
                         if (expiresAt && (expiresAt - now) < 300) {
@@ -284,21 +241,14 @@ async function setupAppStateListener() {
     }
 }
 
-/**
- * Gets the existing Supabase instance or initializes if not yet created
- * @returns {Object} Supabase client
- */
 export function getSupabase() {
     return supabaseInstance || initSupabase();
 }
 
 // ============================================
-// AUTH HELPER FUNCTIONS
+// AUTH-HILFSFUNKTIONEN
 // ============================================
 
-/**
- * Sign up with email and password
- */
 export async function signUp(email, password, displayName) {
     const supabase = getSupabase();
 
@@ -316,9 +266,6 @@ export async function signUp(email, password, displayName) {
     return data;
 }
 
-/**
- * Sign in with email and password
- */
 export async function signIn(email, password) {
     const supabase = getSupabase();
 
@@ -331,9 +278,6 @@ export async function signIn(email, password) {
     return data;
 }
 
-/**
- * Sign out
- */
 export async function signOut() {
     const supabase = getSupabase();
 
@@ -341,9 +285,6 @@ export async function signOut() {
     if (error) throw error;
 }
 
-/**
- * Get current user
- */
 export async function getCurrentUser() {
     const supabase = getSupabase();
 
@@ -351,9 +292,6 @@ export async function getCurrentUser() {
     return user;
 }
 
-/**
- * Get current session
- */
 export async function getSession() {
     const supabase = getSupabase();
 
@@ -361,9 +299,6 @@ export async function getSession() {
     return session;
 }
 
-/**
- * Listen to auth state changes
- */
 export function onAuthStateChange(callback) {
     const supabase = getSupabase();
 
@@ -372,9 +307,6 @@ export function onAuthStateChange(callback) {
     });
 }
 
-/**
- * Send password reset email
- */
 export async function resetPassword(email) {
     const supabase = getSupabase();
 
@@ -386,12 +318,9 @@ export async function resetPassword(email) {
 }
 
 // ============================================
-// DATABASE HELPER FUNCTIONS
+// DATENBANK-HILFSFUNKTIONEN
 // ============================================
 
-/**
- * Get user profile from profiles table
- */
 export async function getUserProfile(userId) {
     const supabase = getSupabase();
 
@@ -405,9 +334,6 @@ export async function getUserProfile(userId) {
     return data;
 }
 
-/**
- * Update user profile
- */
 export async function updateUserProfile(userId, updates) {
     const supabase = getSupabase();
 
@@ -422,9 +348,6 @@ export async function updateUserProfile(userId, updates) {
     return data;
 }
 
-/**
- * Get all clubs
- */
 export async function getClubs() {
     const supabase = getSupabase();
 
@@ -437,9 +360,6 @@ export async function getClubs() {
     return data;
 }
 
-/**
- * Get players in a club
- */
 export async function getClubPlayers(clubId) {
     const supabase = getSupabase();
 
@@ -453,9 +373,6 @@ export async function getClubPlayers(clubId) {
     return data;
 }
 
-/**
- * Get matches for a club
- */
 export async function getClubMatches(clubId, limit = 50) {
     const supabase = getSupabase();
 
@@ -474,9 +391,6 @@ export async function getClubMatches(clubId, limit = 50) {
     return data;
 }
 
-/**
- * Get leaderboard for a club
- */
 export async function getLeaderboard(clubId, orderBy = 'elo_rating') {
     const supabase = getSupabase();
 
@@ -490,9 +404,6 @@ export async function getLeaderboard(clubId, orderBy = 'elo_rating') {
     return data;
 }
 
-/**
- * Get all sports
- */
 export async function getSports() {
     const supabase = getSupabase();
 
@@ -506,9 +417,6 @@ export async function getSports() {
     return data;
 }
 
-/**
- * Subscribe to realtime changes
- */
 export function subscribeToTable(table, callback, filter = null) {
     const supabase = getSupabase();
 
@@ -529,9 +437,6 @@ export function subscribeToTable(table, callback, filter = null) {
     return channel;
 }
 
-/**
- * Unsubscribe from realtime changes
- */
 export function unsubscribe(channel) {
     const supabase = getSupabase();
     supabase.removeChannel(channel);

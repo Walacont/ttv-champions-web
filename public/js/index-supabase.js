@@ -11,11 +11,9 @@ import {
 
 console.log('[INDEX-SUPABASE] Script starting...');
 
-// Initialize Supabase
 const supabase = initSupabase();
 console.log('[INDEX-SUPABASE] Supabase initialized');
 
-// DOM Elements
 const loginForm = document.getElementById('login-form');
 const resetForm = document.getElementById('reset-form');
 const codeForm = document.getElementById('code-form');
@@ -36,7 +34,7 @@ console.log('[INDEX-SUPABASE] DOM elements:', {
     codeLoginTab: !!codeLoginTab
 });
 
-// Check URL for code parameter (direct link from WhatsApp/etc)
+// URL-Parameter prüfen für Direktlinks (z.B. aus WhatsApp)
 const urlParams = new URLSearchParams(window.location.search);
 const codeFromUrl = urlParams.get('code');
 if (codeFromUrl) {
@@ -46,7 +44,6 @@ if (codeFromUrl) {
     if (loginModal) loginModal.classList.remove('hidden');
 }
 
-// Tab Switching
 if (emailLoginTab) emailLoginTab.addEventListener('click', switchToEmailTab);
 if (codeLoginTab) codeLoginTab.addEventListener('click', switchToCodeTab);
 
@@ -76,7 +73,7 @@ function switchToCodeTab() {
     feedbackMessage.textContent = '';
 }
 
-// Auto-format code input (add dashes)
+// Auto-Formatierung des Codes (Bindestriche einfügen für bessere Lesbarkeit)
 invitationCodeInput?.addEventListener('input', e => {
     let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     if (value.length > 3 && value.length <= 6) {
@@ -87,17 +84,16 @@ invitationCodeInput?.addEventListener('input', e => {
     e.target.value = value;
 });
 
-// Auth State Change Listener
 onAuthStateChange(async (event, session) => {
     console.log('[INDEX-SUPABASE] Auth state changed:', event, session?.user?.email);
 
-    // Don't redirect after sign out or on initial load without explicit sign in
+    // Nach Sign-Out auf Login-Seite bleiben (nicht umleiten)
     if (event === 'SIGNED_OUT') {
         console.log('[INDEX-SUPABASE] User signed out, staying on index');
         return;
     }
 
-    // Only redirect on explicit sign in, not on initial session check
+    // Nur bei explizitem Sign-In umleiten, nicht beim initialen Session-Check
     if (event !== 'SIGNED_IN') {
         console.log('[INDEX-SUPABASE] Ignoring event:', event);
         return;
@@ -105,7 +101,6 @@ onAuthStateChange(async (event, session) => {
 
     if (session?.user) {
         try {
-            // Get user profile from database
             const { data: profile, error } = await supabase
                 .from('profiles')
                 .select('*')
@@ -120,7 +115,7 @@ onAuthStateChange(async (event, session) => {
             if (profile) {
                 console.log('[INDEX-SUPABASE] User profile:', { role: profile.role, onboarding: profile.onboarding_complete });
 
-                // Auto-fix coach/head_coach defaults if not set
+                // Coach-Accounts erhalten automatisch Training-Zugang (historische Defaults korrigieren)
                 if ((profile.role === 'coach' || profile.role === 'head_coach') &&
                     (profile.grundlagen_completed < 5 || !profile.is_match_ready)) {
                     console.log('[INDEX-SUPABASE] Fixing coach defaults: grundlagen_completed=5, is_match_ready=true');
@@ -133,14 +128,12 @@ onAuthStateChange(async (event, session) => {
                         .eq('id', session.user.id);
                 }
 
-                // Check onboarding
                 if (!profile.onboarding_complete) {
                     console.log('[INDEX-SUPABASE] Redirecting to onboarding');
                     window.location.href = '/onboarding.html';
                     return;
                 }
 
-                // Redirect based on role
                 let targetUrl;
                 if (profile.role === 'admin') targetUrl = '/admin.html';
                 else if (profile.role === 'coach' || profile.role === 'head_coach') targetUrl = '/coach.html';
@@ -155,7 +148,6 @@ onAuthStateChange(async (event, session) => {
     }
 });
 
-// Login Form Handler
 if (loginForm) {
     console.log('[INDEX-SUPABASE] Setting up login form handler');
 
@@ -175,7 +167,7 @@ if (loginForm) {
             console.log('[INDEX-SUPABASE] Attempting login for:', email);
             const data = await signIn(email, password);
             console.log('[INDEX-SUPABASE] Login successful!', data.user.email);
-            // Redirect wird vom onAuthStateChange Handler übernommen
+            // Weiterleitung erfolgt automatisch durch onAuthStateChange Handler
         } catch (error) {
             console.error('[INDEX-SUPABASE] Login error:', error);
 
@@ -192,7 +184,6 @@ if (loginForm) {
     });
 }
 
-// Forgot Password Handler
 forgotPasswordButton?.addEventListener('click', () => {
     loginForm.classList.add('hidden');
     resetForm.classList.remove('hidden');
@@ -207,7 +198,6 @@ backToLoginButton?.addEventListener('click', () => {
     feedbackMessage.textContent = '';
 });
 
-// Password Reset Handler
 resetForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('reset-email-address').value;
@@ -225,14 +215,12 @@ resetForm?.addEventListener('submit', async e => {
     }
 });
 
-// Code Form Handler
 codeForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const code = invitationCodeInput.value.trim().toUpperCase();
     feedbackMessage.textContent = '';
     feedbackMessage.className = 'mt-2 text-center text-sm';
 
-    // Validate format
     const codeRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
     if (!codeRegex.test(code)) {
         feedbackMessage.textContent = 'Ungültiges Code-Format. Format: TTV-XXX-YYY';
@@ -241,7 +229,6 @@ codeForm?.addEventListener('submit', async e => {
     }
 
     try {
-        // Search code in Supabase
         const { data: codeData, error } = await supabase
             .from('invitation_codes')
             .select('*')
@@ -254,28 +241,24 @@ codeForm?.addEventListener('submit', async e => {
             return;
         }
 
-        // Check if code is active
         if (!codeData.is_active) {
             feedbackMessage.textContent = 'Dieser Code ist nicht mehr aktiv.';
             feedbackMessage.classList.add('text-red-600');
             return;
         }
 
-        // Check if code is expired
         if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
             feedbackMessage.textContent = 'Dieser Code ist abgelaufen.';
             feedbackMessage.classList.add('text-red-600');
             return;
         }
 
-        // Check max uses
         if (codeData.max_uses && codeData.use_count >= codeData.max_uses) {
             feedbackMessage.textContent = 'Dieser Code wurde bereits zu oft verwendet.';
             feedbackMessage.classList.add('text-red-600');
             return;
         }
 
-        // Code is valid!
         feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
         feedbackMessage.classList.add('text-green-600');
 
@@ -290,7 +273,6 @@ codeForm?.addEventListener('submit', async e => {
     }
 });
 
-// Modal Controls
 const loginModal = document.getElementById('login-modal');
 const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');

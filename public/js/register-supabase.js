@@ -1,4 +1,4 @@
-// SC Champions - Registration Page (Supabase Version)
+// SC Champions - Registrierungsseite (Supabase Version)
 // Ersetzt register.js für die Supabase-Migration
 
 import { getSupabase } from './supabase-init.js';
@@ -7,7 +7,6 @@ console.log('[REGISTER-SUPABASE] Script starting...');
 
 const supabase = getSupabase();
 
-// ===== UI ELEMENTE =====
 const loader = document.getElementById('loader');
 const registrationFormContainer = document.getElementById('registration-form-container');
 const registrationForm = document.getElementById('registration-form');
@@ -18,19 +17,16 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null; // 'code' or 'no-code'
+let registrationType = null;
 
-// ===== INITIALISIERUNG =====
 async function initializeRegistration() {
     const urlParams = new URLSearchParams(window.location.search);
     invitationCode = urlParams.get('code');
 
     if (!invitationCode) {
-        // Kein Code - zeige Standard-Nachricht
         return;
     }
 
-    // Code gefunden - verstecke Standard-Nachricht
     if (tokenRequiredMessageContainer) {
         tokenRequiredMessageContainer.classList.add('hidden');
     }
@@ -39,13 +35,11 @@ async function initializeRegistration() {
     try {
         invitationCode = invitationCode.trim().toUpperCase();
 
-        // Validiere Format
         const codeRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
         if (!codeRegex.test(invitationCode)) {
             return displayError('Ungültiges Code-Format.');
         }
 
-        // Suche Code in Supabase
         const { data: codeData, error } = await supabase
             .from('invitation_codes')
             .select('*')
@@ -64,22 +58,18 @@ async function initializeRegistration() {
             role: codeData.role
         });
 
-        // Prüfe ob Code aktiv ist
         if (!codeData.is_active) {
             return displayError('Dieser Code ist nicht mehr aktiv.');
         }
 
-        // Prüfe ob Code abgelaufen ist
         if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
             return displayError('Dieser Code ist abgelaufen.');
         }
 
-        // Prüfe max uses
         if (codeData.max_uses && codeData.use_count >= codeData.max_uses) {
             return displayError('Dieser Code wurde bereits zu oft verwendet.');
         }
 
-        // Code gültig - Zeige Formular
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         loader.classList.add('hidden');
@@ -91,10 +81,8 @@ async function initializeRegistration() {
     }
 }
 
-// Initialize on load
 initializeRegistration();
 
-// ===== REGISTRIERUNG OHNE CODE =====
 const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
 if (registerWithoutCodeBtn) {
     registerWithoutCodeBtn.addEventListener('click', () => {
@@ -104,7 +92,6 @@ if (registerWithoutCodeBtn) {
         loader.classList.add('hidden');
         registrationFormContainer.classList.remove('hidden');
 
-        // Zeige Name-Felder
         const nameFields = document.getElementById('name-fields');
         if (nameFields) {
             nameFields.classList.remove('hidden');
@@ -116,7 +103,6 @@ if (registerWithoutCodeBtn) {
     });
 }
 
-// ===== REGISTRIERUNG =====
 registrationForm?.addEventListener('submit', async e => {
     e.preventDefault();
     errorMessage.textContent = '';
@@ -128,7 +114,6 @@ registrationForm?.addEventListener('submit', async e => {
     const consentStudy = document.getElementById('consent-study')?.checked;
     const consentPrivacy = document.getElementById('consent-privacy')?.checked;
 
-    // Validierungen
     if (password !== passwordConfirm) {
         errorMessage.textContent = 'Die Passwörter stimmen nicht überein.';
         return;
@@ -145,7 +130,7 @@ registrationForm?.addEventListener('submit', async e => {
     try {
         console.log('[REGISTER-SUPABASE] Creating user...');
 
-        // Get name for user_metadata (used in email templates)
+        // Name wird in user_metadata gespeichert für E-Mail-Templates
         let firstName = '';
         let lastName = '';
 
@@ -205,16 +190,13 @@ registrationForm?.addEventListener('submit', async e => {
         // 2. Profil updaten (Trigger hat es bereits erstellt)
         let profileUpdates = {};
 
-        // Bei Code-Registrierung: Club-ID und Role aus Code übernehmen
         if (registrationType === 'code' && invitationCodeData) {
             profileUpdates.club_id = invitationCodeData.club_id;
 
-            // Role aus dem Invitation Code übernehmen (z.B. 'coach' oder 'player')
             if (invitationCodeData.role) {
                 profileUpdates.role = invitationCodeData.role;
             }
 
-            // Sport aus dem Invitation Code übernehmen
             if (invitationCodeData.sport_id) {
                 profileUpdates.active_sport_id = invitationCodeData.sport_id;
                 console.log('[REGISTER] Setting active_sport_id from invitation code:', invitationCodeData.sport_id);
@@ -222,7 +204,6 @@ registrationForm?.addEventListener('submit', async e => {
                 console.warn('[REGISTER] Invitation code has no sport_id!');
             }
 
-            // Optional: Name aus Code übernehmen falls vorhanden
             if (invitationCodeData.first_name) {
                 profileUpdates.first_name = invitationCodeData.first_name;
             }
@@ -230,9 +211,9 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.last_name = invitationCodeData.last_name;
             }
 
-            // Check if this code is for an existing offline player
+            // Prüfe ob dieser Code für einen existierenden Offline-Spieler ist
             if (invitationCodeData.player_id) {
-                // FULL MIGRATION: Use RPC to transfer ALL data from offline player
+                // Vollständige Migration: Übertrage ALLE Daten vom Offline-Spieler via RPC
                 console.log('[REGISTER] Migrating offline player:', invitationCodeData.player_id, '-> new user:', user.id);
 
                 const { data: migrationResult, error: migrationError } = await supabase.rpc('migrate_offline_player', {
@@ -242,13 +223,12 @@ registrationForm?.addEventListener('submit', async e => {
 
                 console.log('[REGISTER] Migration RPC result:', migrationResult, 'error:', migrationError);
 
-                // Check for RPC error or if the function returned success: false
                 const migrationFailed = migrationError || (migrationResult && migrationResult.success === false);
 
                 if (migrationFailed) {
                     const errorMsg = migrationError?.message || migrationResult?.error || 'Unknown error';
                     console.error('[REGISTER] Migration error:', errorMsg);
-                    // Fallback: At least set basic data
+                    // Fallback: Zumindest Basis-Daten setzen
                     const { data: offlinePlayer } = await supabase
                         .from('profiles')
                         .select('*')
@@ -266,8 +246,7 @@ registrationForm?.addEventListener('submit', async e => {
                         if (offlinePlayer.gender) profileUpdates.gender = offlinePlayer.gender;
                         if (offlinePlayer.subgroup_ids) profileUpdates.subgroup_ids = offlinePlayer.subgroup_ids;
 
-                        // Delete the old offline player profile after copying data
-                        // Use RPC function to bypass RLS (direct delete is blocked by RLS)
+                        // RPC wird verwendet da direktes Löschen durch RLS blockiert ist
                         console.log('[REGISTER] Deleting old offline player profile via RPC:', invitationCodeData.player_id);
                         const { data: deleteResult, error: deleteError } = await supabase.rpc('delete_offline_player', {
                             p_offline_player_id: invitationCodeData.player_id
@@ -287,10 +266,8 @@ registrationForm?.addEventListener('submit', async e => {
                     console.log('[REGISTER] Old profile deleted:', migrationResult.old_profile_deleted);
                     console.log('[REGISTER] Deleted count:', migrationResult.deleted_count);
 
-                    // Check if the delete actually worked
                     if (migrationResult.old_profile_deleted === false) {
                         console.warn('[REGISTER] Migration succeeded but delete failed! Trying fallback delete...');
-                        // Try fallback delete via RPC
                         const { data: deleteResult, error: deleteError } = await supabase.rpc('delete_offline_player', {
                             p_offline_player_id: invitationCodeData.player_id
                         });
@@ -304,21 +281,19 @@ registrationForm?.addEventListener('submit', async e => {
                         }
                     }
 
-                    // Migration RPC handles everything - no need to update profile manually
-                    // Clear profileUpdates since RPC already did the work
+                    // Migration RPC hat alles erledigt - manuelles Profil-Update nicht nötig
                     profileUpdates = {};
                 } else {
                     console.warn('[REGISTER] Unexpected migration result:', migrationResult);
                 }
             } else {
-                // Check if invitation code has birthdate/gender (from offline player creation)
                 if (invitationCodeData.birthdate) {
                     profileUpdates.birthdate = invitationCodeData.birthdate;
                 }
                 if (invitationCodeData.gender) {
                     profileUpdates.gender = invitationCodeData.gender;
                 }
-                // Code without player_id - new player via code (including head_coach), set defaults
+                // Neuer Spieler via Code (inkl. head_coach) - setze Standard-Werte
                 profileUpdates.is_match_ready = true;
                 profileUpdates.elo_rating = 800;
                 profileUpdates.highest_elo = 800;
@@ -327,14 +302,13 @@ registrationForm?.addEventListener('submit', async e => {
             }
         }
 
-        // Bei No-Code (Selbst-Registrierung): Automatisch wettkampfsbereit
+        // Bei No-Code-Registrierung: Automatisch wettkampfsbereit
         if (registrationType === 'no-code') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
             profileUpdates.first_name = firstName;
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
-            // Selbst-Registrierung: automatisch wettkampfsbereit
             profileUpdates.is_match_ready = true;
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
@@ -342,11 +316,10 @@ registrationForm?.addEventListener('submit', async e => {
             console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
         }
 
-        // Update Profil falls nötig
         if (Object.keys(profileUpdates).length > 0) {
             console.log('[REGISTER] Updating profile with:', profileUpdates);
 
-            // Use .select() to verify the update worked and get the updated row
+            // .select() wird verwendet um das Update zu verifizieren
             const { data: updatedProfile, error: updateError } = await supabase
                 .from('profiles')
                 .update(profileUpdates)
@@ -360,14 +333,12 @@ registrationForm?.addEventListener('submit', async e => {
             } else if (updatedProfile) {
                 console.log('[REGISTER] Profile updated successfully:', updatedProfile);
 
-                // Verify the role was set correctly
                 if (profileUpdates.role && updatedProfile.role !== profileUpdates.role) {
                     console.error('[REGISTER] Role mismatch! Expected:', profileUpdates.role, 'Got:', updatedProfile.role);
                 }
                 if (profileUpdates.active_sport_id && updatedProfile.active_sport_id !== profileUpdates.active_sport_id) {
                     console.error('[REGISTER] Sport mismatch! Expected:', profileUpdates.active_sport_id, 'Got:', updatedProfile.active_sport_id);
                 }
-                // Verify is_match_ready was set correctly
                 if (profileUpdates.is_match_ready !== undefined && updatedProfile.is_match_ready !== profileUpdates.is_match_ready) {
                     console.error('[REGISTER] is_match_ready mismatch! Expected:', profileUpdates.is_match_ready, 'Got:', updatedProfile.is_match_ready);
                 } else {
@@ -385,7 +356,7 @@ registrationForm?.addEventListener('submit', async e => {
                 .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
                 .eq('id', invitationCodeData.id);
 
-            // Store invitation code data for onboarding pre-fill
+            // Speichern für Vorausfüllung im Onboarding
             localStorage.setItem('pendingInvitationData', JSON.stringify({
                 firstName: invitationCodeData.first_name || '',
                 lastName: invitationCodeData.last_name || '',
@@ -398,7 +369,6 @@ registrationForm?.addEventListener('submit', async e => {
 
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
-        // Weiterleitung zum Onboarding
         window.location.href = '/onboarding.html';
 
     } catch (error) {
@@ -419,7 +389,6 @@ registrationForm?.addEventListener('submit', async e => {
     }
 });
 
-// ===== FEHLERANZEIGE =====
 function displayError(message) {
     loader.classList.add('hidden');
     registrationFormContainer.classList.add('hidden');

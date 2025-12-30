@@ -1,17 +1,16 @@
-// Auth Utilities for Supabase
+// Auth-Hilfsfunktionen für Supabase
 // SC Champions - Supabase Version
 
 import { getSupabase, signOut as supabaseSignOut, onAuthStateChange } from './supabase-init.js';
 
 /**
- * Handles user logout with proper cleanup
+ * Meldet Benutzer ab und bereinigt den SPA-Cache
  * @returns {Promise<void>}
  */
 export async function handleLogout() {
     try {
         await supabaseSignOut();
 
-        // Clear SPA cache if available
         if (window.spaEnhancer) {
             window.spaEnhancer.clearCache();
         }
@@ -24,16 +23,15 @@ export async function handleLogout() {
 }
 
 /**
- * Requires user authentication and validates role access
- * @param {string[]} allowedRoles - Array of allowed role names (e.g., ['player', 'coach'])
- * @returns {Promise<{user: Object, userData: Object}>} Authenticated user and their data
- * @throws {Error} If user is not authenticated or doesn't have required role
+ * Validiert Authentifizierung und Rollenzugriff
+ * @param {string[]} allowedRoles - Array erlaubter Rollen (z.B. ['player', 'coach'])
+ * @returns {Promise<{user: Object, userData: Object}>} Authentifizierter Benutzer und dessen Daten
+ * @throws {Error} Wenn Benutzer nicht authentifiziert ist oder keine erforderliche Rolle hat
  */
 export function requireRole(allowedRoles = []) {
     return new Promise((resolve, reject) => {
         const supabase = getSupabase();
 
-        // Check current session first
         supabase.auth.getSession().then(async ({ data: { session } }) => {
             try {
                 if (!session || !session.user) {
@@ -44,7 +42,6 @@ export function requireRole(allowedRoles = []) {
 
                 const user = session.user;
 
-                // Get user profile from profiles table
                 const { data: userData, error } = await supabase
                     .from('profiles')
                     .select('*')
@@ -65,7 +62,6 @@ export function requireRole(allowedRoles = []) {
                         `Access denied. Required roles: ${allowedRoles.join(', ')}, user role: ${userData.role}`
                     );
 
-                    // Redirect based on user's actual role
                     if (userData.role === 'coach' || userData.role === 'head_coach') {
                         window.location.replace('/coach.html');
                     } else if (userData.role === 'admin') {
@@ -85,8 +81,8 @@ export function requireRole(allowedRoles = []) {
 }
 
 /**
- * Sets up logout button handler
- * @param {string} buttonId - ID of the logout button element
+ * Richtet Event-Handler für Logout-Button ein
+ * @param {string} buttonId - ID des Logout-Button-Elements
  */
 export function setupLogoutButton(buttonId) {
     const logoutButton = document.getElementById(buttonId);
@@ -98,7 +94,7 @@ export function setupLogoutButton(buttonId) {
 }
 
 /**
- * Check if user is authenticated
+ * Prüft ob Benutzer authentifiziert ist
  * @returns {Promise<boolean>}
  */
 export async function isAuthenticated() {
@@ -108,7 +104,7 @@ export async function isAuthenticated() {
 }
 
 /**
- * Get current user with profile data
+ * Gibt aktuellen Benutzer mit Profildaten zurück
  * @returns {Promise<{user: Object, profile: Object}|null>}
  */
 export async function getCurrentUserWithProfile() {
@@ -134,8 +130,8 @@ export async function getCurrentUserWithProfile() {
 }
 
 /**
- * Redirect to appropriate dashboard based on role
- * @param {string} role - User role
+ * Leitet zum rollenbasierten Dashboard weiter
+ * @param {string} role - Benutzerrolle
  */
 export function redirectToDashboard(role) {
     switch (role) {

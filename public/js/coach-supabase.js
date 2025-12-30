@@ -1,5 +1,4 @@
 // Coach Dashboard - Supabase Version
-// 1:1 Migration von coach.js - Firebase → Supabase
 
 import { getSupabase, onAuthStateChange as supabaseAuthStateChange } from './supabase-init.js';
 import {
@@ -121,7 +120,6 @@ import {
     initializeChallengePartnerSystemCoach,
 } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics-supabase.js';
-// migration.js is no longer needed - we're fully on Supabase
 import {
     loadSubgroupsList,
     handleCreateSubgroup,
@@ -142,13 +140,12 @@ import {
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
 
-// Initialize Supabase
 const supabase = getSupabase();
 
-// Notifications module - loaded dynamically
+// Wird dynamisch geladen, um initiales Laden nicht zu blockieren
 let notificationsModule = null;
 
-// --- State ---
+// --- Zustand ---
 let currentUserData = null;
 let unsubscribePlayerList = null;
 let unsubscribeLeaderboard = null;
@@ -161,7 +158,7 @@ let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
 let descriptionEditor = null;
 
-// --- Main App Initialization ---
+// --- Initialisierung ---
 document.addEventListener('DOMContentLoaded', async () => {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
@@ -176,14 +173,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Auth-Fehler:', message);
     }
 
-    // Check Supabase session
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         const user = { uid: session.user.id, email: session.user.email };
 
         try {
-            // Get user profile from Supabase
             const { data: supabaseProfile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
@@ -195,11 +190,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // Get club and sport directly from profile (single sport model)
+            // Single Sport Model: Club und Sport direkt aus Profil
             const effectiveClubId = supabaseProfile.club_id || null;
             const effectiveSportId = supabaseProfile.active_sport_id || null;
 
-            // Get sport name for handicap calculations
+            // Sportname für Handicap-Berechnungen
             let sportName = 'table_tennis';
             if (effectiveSportId) {
                 const { data: sportData } = await supabase
@@ -211,10 +206,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     sportName = sportData.name;
                 }
             }
-            // Set sport for handicap calculations
             setCurrentSport(sportName);
 
-            // Map Supabase profile to expected format
             const userData = {
                 id: user.uid,
                 email: supabaseProfile.email || user.email,
@@ -236,11 +229,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             if (userData.role === 'coach' || userData.role === 'head_coach' || userData.role === 'admin') {
-                // Coaches must be in a club - if not, downgrade to player and redirect
+                // Coaches ohne Club (außer Admins) werden zu Spielern herabgestuft
                 if (!userData.clubId && userData.role !== 'admin') {
                     console.warn('[COACH] Coach without club detected, downgrading to player');
 
-                    // Update role in database
                     const { error: updateError } = await supabase
                         .from('profiles')
                         .update({ role: 'player' })
@@ -258,7 +250,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 currentUserData = userData;
 
-                // Check for season reset
                 await checkAndResetClubSeason(userData.clubId, supabase);
 
                 initializeCoachPage(currentUserData);
@@ -269,11 +260,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             showAuthError(`DB-Fehler: ${error.message}`);
         }
     } else {
-        // No session, redirect to login
         window.location.replace('/index.html');
     }
 
-    // Listen for auth state changes - only redirect on explicit sign out
+    // Auth State Changes: Nur bei explizitem Sign-Out umleiten
     supabaseAuthStateChange((event, session) => {
         console.log('[COACH] Auth state changed:', event);
         if (event === 'SIGNED_OUT') {
@@ -283,23 +273,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * Sets the header profile picture and club information
- * @param {Object} userData - Current user data
+ * Setzt Header-Profilbild und Vereinsinformation
  */
 async function setHeaderProfileAndClub(userData) {
     const headerProfilePic = document.getElementById('header-profile-pic');
     const headerClubName = document.getElementById('header-club-name');
 
-    // Set profile picture
     if (userData.photoURL) {
         headerProfilePic.src = userData.photoURL;
     } else {
-        // Generate initials
         const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
         headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
     }
 
-    // Set club information
     if (userData.clubId) {
         try {
             const { data: clubData, error } = await supabase
@@ -319,7 +305,7 @@ async function setHeaderProfileAndClub(userData) {
         }
     } else {
         headerClubName.textContent = 'Kein Verein';
-        // Hide icon for "no club" state
+        // Icon bei "Kein Verein" ausblenden
         const headerClubInfo = document.getElementById('header-club-info');
         if (headerClubInfo) {
             const icon = headerClubInfo.querySelector('i');
@@ -335,7 +321,7 @@ async function initializeCoachPage(userData) {
     const mainContent = document.getElementById('main-content');
     const loaderText = document.getElementById('loader-text');
 
-    // No migration needed - fully on Supabase
+    // Vollständig auf Supabase - keine Migration mehr nötig
     if (loaderText) loaderText.textContent = 'Lade Dashboard...';
 
     pageLoader.style.display = 'none';
@@ -344,10 +330,9 @@ async function initializeCoachPage(userData) {
     document.getElementById('welcome-message').textContent =
         `Willkommen, ${userData.firstName || userData.email}!`;
 
-    // Set header profile picture and club info
     await setHeaderProfileAndClub(userData);
 
-    // Track page view (console log instead of Firebase Analytics)
+    // Analytics per Console statt Firebase
     console.log('[Analytics] Coach page view tracked', {
         page_title: 'Coach Dashboard',
         page_location: window.location.href,
@@ -356,49 +341,43 @@ async function initializeCoachPage(userData) {
         club_id: userData.clubId,
     });
 
-    // Initialize Club Requests Manager
     await initClubRequestsManager(userData, supabase);
     console.log('[Coach] Club requests manager initialized');
 
-    // Initialize Events Module
     initEventsModule(userData);
     console.log('[Coach] Events module initialized');
 
-    // Load Upcoming Events with Response Status for Coach Dashboard
     loadUpcomingEventsForCoach('coach-upcoming-events', userData);
     console.log('[Coach] Upcoming events widget loaded');
 
-    // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
         showToggle: true,
-        userData: userData, // Pass user data for tab visibility preferences
+        userData: userData, // Für Tab-Sichtbarkeits-Präferenzen
     });
 
     setupTabs('statistics');
     setupLeaderboardTabs(userData);
     setupLeaderboardToggle(userData);
 
-    // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened
+    // Gespeicherte Paarungen laden, wenn Wettkampf-Tab geöffnet wird
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
             if (tabName === 'matches') {
-                // Load saved pairings when Wettkampf tab is opened
                 loadSavedPairings(supabase, userData.clubId);
             }
         });
     });
 
-    // Initialize Invitation Code Management
     initInvitationCodeManagement(supabase, userData.clubId, userData.id);
 
-    // Initialize Player Invitation Management (pass supabase instead of auth/functions)
+    // Supabase-Instanz statt auth/functions übergeben
     initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id, userData.activeSportId);
 
-    // Initialize Training Completion (for intelligent points distribution)
+    // Für intelligente Punkteverteilung
     initializeTrainingCompletion(supabase, userData);
 
-    // Bridge function: Connect training-schedule-ui to attendance module
+    // Bridge-Funktion: Verbindet Trainingsplan mit Anwesenheits-Modul
     window.openAttendanceForSessionFromSchedule = async function (sessionId, dateStr) {
         await openAttendanceModalForSession(
             sessionId,
@@ -411,10 +390,9 @@ async function initializeCoachPage(userData) {
         );
     };
 
-    // Load statistics initially (since it's the default tab)
+    // Statistik initial laden (Standard-Tab)
     loadStatistics(userData, supabase, currentSubgroupFilter);
 
-    // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
@@ -422,7 +400,6 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Setup Subgroups Tab
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {
         subgroupsTabButton.addEventListener('click', () => {
@@ -433,7 +410,6 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Load initial data
     loadPlayersForDropdown(userData.clubId, supabase, userData.activeSportId);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
     loadExercisesForDropdown(supabase);
@@ -442,23 +418,21 @@ async function initializeCoachPage(userData) {
     setExerciseContext(supabase, userData.id, userData.role, userData.clubId, userData.activeSportId);
     loadAllExercises(supabase);
 
-    // Populate subgroup dropdowns for challenge forms
     populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', supabase);
     populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', supabase);
     loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
-        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
-        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter); // Populate doubles dropdowns, exclude coach
+        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
+        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
         populateHistoryFilterDropdown(clubPlayers);
-        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Exclude coach from points dropdown
+        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Coach ausschließen
     });
 
-    // Initialize set score input for coach match form (used by both singles and doubles)
+    // Set-Eingabe für Singles und Doubles
     const setScoreInput = await initializeCoachSetScoreInput(userData.id);
 
-    // Initialize doubles match UI and set the same set score input
     initializeDoublesCoachUI();
-    setDoublesUserId(userData.id); // Set user ID for sport context in doubles
+    setDoublesUserId(userData.id); // Für Sport-Kontext in Doubles
     if (setScoreInput) {
         setDoublesSetScoreInput(setScoreInput);
     }
@@ -468,7 +442,7 @@ async function initializeCoachPage(userData) {
 
     calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
 
-    // Listen for training cancellation events to reload calendar
+    // Kalender neu laden bei Training-Absage
     window.addEventListener('trainingCancelled', () => {
         console.log('[Coach] Training cancelled, reloading calendar...');
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -477,7 +451,7 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Listen for training creation events to reload calendar
+    // Kalender neu laden bei Training-Erstellung
     window.addEventListener('trainingCreated', () => {
         console.log('[Coach] Training created, reloading calendar...');
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -486,7 +460,7 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Listen for event creation to reload calendar
+    // Kalender neu laden bei Event-Erstellung
     window.addEventListener('event-created', () => {
         console.log('[Coach] Event created, reloading calendar...');
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -495,27 +469,26 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Listen for player subgroup changes to reload clubPlayers and refresh filtered views
+    // Bei Änderung der Spieler-Untergruppen: clubPlayers neu laden
     window.addEventListener('playerSubgroupsChanged', () => {
         console.log('[Coach] Player subgroups changed, reloading clubPlayers...');
         loadPlayersForAttendance(userData.clubId, supabase, players => {
             clubPlayers = players;
             console.log('[Coach] clubPlayers refreshed with', players.length, 'players');
-            // Refresh all filtered views with updated player data
-            populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
+            populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
             populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
             updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
             updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
         });
     });
 
-    // Listen for subgroup changes to refresh the filter dropdown
+    // Bei Änderung von Untergruppen: Filter-Dropdown aktualisieren
     window.addEventListener('subgroupsChanged', () => {
         console.log('[Coach] Subgroups changed, refreshing filter dropdown...');
         populateSubgroupFilter(userData.clubId, supabase);
     });
 
-    // Initialize notifications (loaded dynamically, non-blocking)
+    // Benachrichtigungen dynamisch und non-blocking laden
     try {
         notificationsModule = await import('./notifications-supabase.js');
         if (notificationsModule.initNotifications) {
@@ -525,14 +498,14 @@ async function initializeCoachPage(userData) {
         console.warn('Notifications not available:', e);
     }
 
-    // Initialize push notifications (loaded dynamically, non-blocking)
+    // Push-Benachrichtigungen dynamisch und non-blocking laden
     try {
         const pushModule = await import('./push-notifications-manager.js');
         if (pushModule.initPushNotifications) {
             pushModule.initPushNotifications(userData.id);
         }
 
-        // Show push permission prompt after a short delay (only if not already enabled)
+        // Push-Berechtigung nach Verzögerung anzeigen (nur falls nicht bereits aktiviert)
         setTimeout(async () => {
             if (pushModule.shouldShowPushPrompt && await pushModule.shouldShowPushPrompt()) {
                 await pushModule.showPushPermissionPrompt();
@@ -551,11 +524,11 @@ async function initializeCoachPage(userData) {
                     notificationsModule.cleanupNotifications();
                 }
                 await supabase.auth.signOut();
-                // Clear SPA cache to prevent back-button access to authenticated pages
+                // SPA-Cache leeren um Zurück-Navigation zu verhindern
                 if (window.spaEnhancer) {
                     window.spaEnhancer.clearCache();
                 }
-                // Use replace() instead of href to clear history and prevent back navigation
+                // replace() statt href um History zu löschen
                 window.location.replace('/index.html');
             } catch (error) {
                 console.error('Logout error:', error);
@@ -574,7 +547,7 @@ async function initializeCoachPage(userData) {
         }
     });
 
-    // Player Modal Listeners
+    // Spieler-Modal
     document.getElementById('open-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.remove('hidden');
         loadPlayerList(userData.clubId, supabase, unsub => {
@@ -587,15 +560,13 @@ async function initializeCoachPage(userData) {
         if (unsubscribePlayerList) unsubscribePlayerList();
     });
 
-    // Add Player/Code Modal Listeners
+    // Offline-Spieler hinzufügen Modal
     document.getElementById('add-offline-player-button').addEventListener('click', async () => {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
         document.getElementById('add-offline-player-modal').classList.add('flex');
 
-        // Initialize birthdate dropdowns
         initOfflinePlayerBirthdateSelects();
 
-        // Lade Subgroups from Supabase
         const { data: subgroupsData, error } = await supabase
             .from('subgroups')
             .select('*')
@@ -613,11 +584,11 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.add('hidden');
         document.getElementById('add-offline-player-modal').classList.remove('flex');
-        // Reset form to clear all inputs including checkboxes
+        // Reset inklusive Checkboxen
         document.getElementById('add-offline-player-form').reset();
     });
 
-    // Edit Player Modal Listeners
+    // Spieler bearbeiten Modal
     document
         .getElementById('close-edit-player-modal-button')
         .addEventListener('click', () =>
@@ -627,19 +598,17 @@ async function initializeCoachPage(userData) {
         .getElementById('save-player-subgroups-button')
         .addEventListener('click', () => handleSavePlayerSubgroups(supabase));
 
-    // Attendance Modal Listeners
+    // Anwesenheits-Modal
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => {
         document.getElementById('attendance-modal').classList.add('hidden');
-        // Reload calendar when closing attendance modal without saving
-        // This ensures newly created sessions are visible even if attendance wasn't recorded
+        // Kalender neu laden, um neu erstellte Sessions anzuzeigen (auch ohne gespeicherte Anwesenheit)
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Form Submissions
-    // Initialize description editor for exercise creation BEFORE registering event handlers
+    // Beschreibungs-Editor VOR Event-Handler initialisieren
     descriptionEditor = setupDescriptionEditor({
         textAreaId: 'exercise-description-form',
         toggleContainerId: 'description-toggle-container-coach',
@@ -676,22 +645,18 @@ async function initializeCoachPage(userData) {
         }
     });
 
-    // Setup exercise points auto-calculation (based on level + difficulty)
+    // Auto-Berechnung basierend auf Level + Schwierigkeit
     setupExercisePointsCalculation();
 
-    // Setup exercise milestones system
     setupExerciseMilestones();
 
-    // Initialize partner system for exercises
     initializeExercisePartnerSystemCoach();
 
-    // Setup challenge point recommendations (based on duration)
+    // Empfehlungen basierend auf Dauer
     setupChallengePointRecommendations();
 
-    // Setup challenge milestones system
     setupChallengeMilestones();
 
-    // Initialize partner system for challenges
     initializeChallengePartnerSystemCoach();
 
     document
@@ -707,13 +672,12 @@ async function initializeCoachPage(userData) {
         .getElementById('cancel-edit-subgroup-button')
         .addEventListener('click', closeEditSubgroupModal);
 
-    // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
 
-    // Setup milestone selectors for exercise/challenge points awarding
+    // Für Übungen/Challenges bei Punktevergabe
     setupMilestoneSelectors(supabase);
 
-    // Setup manual partner system for manual points awarding
+    // Für manuelle Punktevergabe
     setupManualPartnerSystem(supabase);
 
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
@@ -733,7 +697,6 @@ async function initializeCoachPage(userData) {
         .getElementById('close-exercise-modal-button')
         .addEventListener('click', closeExerciseModal);
 
-    // Toggle abbreviations in exercise modal (Coach)
     const toggleAbbreviationsCoach = document.getElementById('toggle-abbreviations-coach');
     const abbreviationsContentCoach = document.getElementById('abbreviations-content-coach');
     const abbreviationsIconCoach = document.getElementById('abbreviations-icon-coach');
@@ -769,14 +732,14 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Export buttons for attendance
+    // Anwesenheits-Export
     document.getElementById('export-attendance-btn').addEventListener('click', async () => {
         await exportAttendanceToExcel(supabase, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
     document.getElementById('export-attendance-summary-btn').addEventListener('click', async () => {
         await exportAttendanceSummary(supabase, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
-    // Calendar day click - opens the new event day modal
+
     document
         .getElementById('calendar-grid')
         .addEventListener('click', async (e) => {
@@ -786,9 +749,7 @@ async function initializeCoachPage(userData) {
             const dateString = dayCell.dataset.date;
             if (!dateString) return;
 
-            // Load events for this day (including recurring events)
             try {
-                // Query 1: Single events on this exact date
                 const { data: singleEvents, error: singleError } = await supabase
                     .from('events')
                     .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type')
@@ -800,7 +761,6 @@ async function initializeCoachPage(userData) {
 
                 if (singleError) throw singleError;
 
-                // Query 2: Recurring events that might occur on this day
                 const clickedDate = new Date(dateString + 'T12:00:00');
                 const clickedDayOfWeek = clickedDate.getDay();
                 const clickedDayOfMonth = clickedDate.getDate();
@@ -816,7 +776,6 @@ async function initializeCoachPage(userData) {
 
                 if (recurringError) throw recurringError;
 
-                // Filter recurring events that actually occur on this day
                 const matchingRecurringEvents = (recurringEvents || []).filter(event => {
                     const eventStartDate = new Date(event.start_date + 'T12:00:00');
                     const eventDayOfWeek = eventStartDate.getDay();
@@ -832,16 +791,13 @@ async function initializeCoachPage(userData) {
                     return false;
                 });
 
-                // Combine all events
                 const allEvents = [...(singleEvents || []), ...matchingRecurringEvents];
 
-                // Get subgroup info for events with subgroup targets
                 const eventsWithInfo = await Promise.all(allEvents.map(async (event) => {
                     let subgroupNames = [];
-                    let subgroupColor = '#6366f1'; // Default indigo for club-wide
+                    let subgroupColor = '#6366f1';
 
                     if (event.target_type === 'subgroups' && event.target_subgroup_ids && event.target_subgroup_ids.length > 0) {
-                        // Load subgroup info for color and names
                         const { data: subgroups } = await supabase
                             .from('subgroups')
                             .select('id, name, color')
@@ -866,10 +822,8 @@ async function initializeCoachPage(userData) {
                     };
                 }));
 
-                // Sort by start time
                 eventsWithInfo.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
-                // Open the event day modal
                 openEventDayModal(dateString, eventsWithInfo);
 
             } catch (error) {
@@ -878,7 +832,7 @@ async function initializeCoachPage(userData) {
             }
         });
 
-    // Make openAttendanceForSession available globally for the event day modal
+    // Global verfügbar für Event-Day-Modal
     window.openAttendanceForSession = async (sessionId, dateString) => {
         openAttendanceModalForSession(
             sessionId,
@@ -890,7 +844,7 @@ async function initializeCoachPage(userData) {
         );
     };
 
-    // Event delegation for attendance checkboxes - listen on the container
+    // Event Delegation: Listener am Container, nicht an einzelnen Checkboxen
     document.getElementById('attendance-player-list').addEventListener('change', e => {
         if (e.target.type === 'checkbox') {
             updateAttendanceCount();
@@ -904,29 +858,23 @@ async function initializeCoachPage(userData) {
     document
         .getElementById('player-b-select')
         .addEventListener('change', () => updateMatchUI(clubPlayers));
-    initializeHandicapToggle(); // Initialize handicap toggle for automatic score setting
+    initializeHandicapToggle(); // Für automatische Score-Setzung
     document
         .getElementById('subgroups-list')
         .addEventListener('click', e => handleSubgroupActions(e, supabase, userData.clubId));
-
-    // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
-    // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
-    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, supabase, null, null)); // <--- ALT & FALSCH
 
     // Event-Handler für Aktions-Buttons (Desktop)
     const handleActionClick = async e => {
         const button = e.target.closest('button');
         if (!button) return;
 
-        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern, Wettkampfsbereit, etc.)
         await handlePlayerListActions(e, supabase, userData);
 
-        // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {
             const playerId = button.dataset.id;
             let player = clubPlayers.find(p => p.id === playerId);
 
-            // If player not in cache, fetch from database
+            // Falls nicht im Cache, aus DB laden
             if (!player) {
                 console.log('[Coach] Player not in cache, fetching from database:', playerId);
                 try {
@@ -959,19 +907,16 @@ async function initializeCoachPage(userData) {
         }
     };
 
-    // Listener für Desktop Aktions-Panel
     const actionsDesktop = document.getElementById('player-detail-actions-desktop');
     if (actionsDesktop) {
         actionsDesktop.addEventListener('click', handleActionClick);
     }
 
-    // Listener für Mobile Aktions-Panel
     const actionsMobile = document.getElementById('player-detail-actions-mobile');
     if (actionsMobile) {
         actionsMobile.addEventListener('click', handleActionClick);
     }
 
-    // Mobile Modal Close Button
     const closeMobileBtn = document.getElementById('close-player-detail-mobile');
     if (closeMobileBtn) {
         closeMobileBtn.addEventListener('click', () => {
@@ -979,12 +924,12 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // NEU: Listener für die Suchleiste im Spieler-Modal
+    // Suchleiste im Spieler-Modal
     document.getElementById('player-search-input').addEventListener('keyup', e => {
         const searchTerm = e.target.value.toLowerCase();
         const items = document.querySelectorAll('#modal-player-list .player-list-item');
         items.forEach(item => {
-            const name = item.dataset.playerName; // Benutzt das data-Attribut
+            const name = item.dataset.playerName;
             if (name.includes(searchTerm)) {
                 item.style.display = 'block';
             } else {
@@ -992,9 +937,8 @@ async function initializeCoachPage(userData) {
             }
         });
     });
-    // === KORREKTUR ENDE ===
 
-    // Filter Listeners
+    // Filter
     document.getElementById('history-player-filter').addEventListener('change', e => {
         loadPointsHistoryForCoach(e.target.value, supabase, unsub => {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
@@ -1003,18 +947,15 @@ async function initializeCoachPage(userData) {
     });
 
     document.getElementById('player-select').addEventListener('change', e => {
-        // === KORREKTUR 3: 'supabase' Instanz übergeben ===
         updateCoachGrundlagenDisplay(e.target.value, supabase);
     });
 
-    // Subgroup Filter
     populateSubgroupFilter(userData.clubId, supabase);
     document.getElementById('subgroup-filter').addEventListener('change', e => {
         currentSubgroupFilter = e.target.value;
         handleSubgroupFilterChange(userData);
     });
 
-    // Gender Filter
     const genderFilterDropdown = document.getElementById('coach-gender-filter');
     if (genderFilterDropdown) {
         genderFilterDropdown.addEventListener('change', e => {
@@ -1023,7 +964,7 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Intervals (pass user's active sport ID for sport-specific countdown)
+    // Sport-ID für sportspezifischen Countdown übergeben
     const activeSportId = userData.activeSportId || null;
     updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId), 1000);
@@ -1031,18 +972,14 @@ async function initializeCoachPage(userData) {
 }
 
 /**
- * Populates the subgroup filter dropdown with age groups and custom subgroups
- * @param {string} clubId - Club ID
- * @param {Object} db - Supabase client instance
+ * Füllt Untergruppen-Filter mit Altersgruppen und benutzerdefinierten Untergruppen
  */
 function populateSubgroupFilter(clubId, db) {
     const select = document.getElementById('subgroup-filter');
     if (!select) return;
 
-    // Initial load
     loadSubgroupsForFilter();
 
-    // Set up real-time subscription
     const subscription = supabase
         .channel('subgroups-filter-changes')
         .on('postgres_changes', {
@@ -1071,13 +1008,11 @@ function populateSubgroupFilter(clubId, db) {
             const currentValue = select.value;
             select.innerHTML = '';
 
-            // Add "Alle" option
             const allOption = document.createElement('option');
             allOption.value = 'all';
             allOption.textContent = 'Alle (Gesamtverein)';
             select.appendChild(allOption);
 
-            // Add Youth Age Groups
             const youthGroup = document.createElement('optgroup');
             youthGroup.label = 'Jugend (nach Alter)';
             AGE_GROUPS.youth.forEach(group => {
@@ -1088,7 +1023,6 @@ function populateSubgroupFilter(clubId, db) {
             });
             select.appendChild(youthGroup);
 
-            // Add Adults Age Group
             AGE_GROUPS.adults.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group.id;
@@ -1096,7 +1030,6 @@ function populateSubgroupFilter(clubId, db) {
                 select.appendChild(option);
             });
 
-            // Add Senior Age Groups
             const seniorGroup = document.createElement('optgroup');
             seniorGroup.label = 'Senioren (nach Alter)';
             AGE_GROUPS.seniors.forEach(group => {
@@ -1107,9 +1040,8 @@ function populateSubgroupFilter(clubId, db) {
             });
             select.appendChild(seniorGroup);
 
-            // Note: Gender is handled by separate coach-gender-filter dropdown
+            // Geschlecht wird von separatem coach-gender-filter Dropdown behandelt
 
-            // Add Custom Subgroups
             const customSubgroups = subgroupsData.filter(sg => !sg.is_default);
 
             if (customSubgroups.length > 0) {
@@ -1124,7 +1056,7 @@ function populateSubgroupFilter(clubId, db) {
                 select.appendChild(customGroup);
             }
 
-            // Restore previous selection if it still exists
+            // Vorherige Auswahl wiederherstellen falls noch vorhanden
             if (
                 currentValue &&
                 Array.from(select.options).some(opt => opt.value === currentValue)
@@ -1138,44 +1070,38 @@ function populateSubgroupFilter(clubId, db) {
 }
 
 /**
- * Handles subgroup filter changes - reloads all filtered modules
- * @param {Object} userData - Current user data
+ * Behandelt Untergruppen-Filteränderungen
  */
 function handleSubgroupFilterChange(userData) {
     console.log(`[Coach] Subgroup filter changed to: ${currentSubgroupFilter}`);
 
-    // Update attendance module's filter
     setAttendanceSubgroupFilter(currentSubgroupFilter);
 
-    // Update leaderboard module's filters (both subgroup and gender)
+    // Beide Filter übergeben
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
     setLeaderboardGenderFilter(currentGenderFilter);
 
-    // Reload calendar/attendance view
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
         calendarUnsubscribe();
     }
     calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
 
-    // Reload leaderboards
     loadLeaderboard(userData, supabase, []);
     loadGlobalLeaderboard(userData, supabase, []);
 
-    // Reload challenges for current subgroup
     loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
 
-    // Reload match dropdowns with new filter (exclude coach from dropdown, apply both subgroup and gender filters)
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
+    // Coach aus Dropdown ausschließen, beide Filter anwenden
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 
-    // Update points player dropdown with new filter (exclude coach)
+    // Coach aus Dropdown ausschließen
     updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
 
-    // Update pairings button state with new filter
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
 
-    // Reload statistics if the tab is active
+    // Statistik neu laden falls Tab aktiv
     const statisticsTab = document.getElementById('tab-content-statistics');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, supabase, currentSubgroupFilter);
@@ -1183,25 +1109,22 @@ function handleSubgroupFilterChange(userData) {
 }
 
 /**
- * Handles gender filter changes - reloads leaderboards and match dropdowns with combined filters
- * @param {Object} userData - Current user data
+ * Behandelt Geschlechts-Filteränderungen
  */
 function handleGenderFilterChange(userData) {
     console.log(`[Coach] Gender filter changed to: ${currentGenderFilter}`);
 
-    // Update leaderboard module's gender filter
     setLeaderboardGenderFilter(currentGenderFilter);
 
-    // Reload leaderboards with updated gender filter
     loadLeaderboard(userData, supabase, []);
     loadGlobalLeaderboard(userData, supabase, []);
 
-    // Reload match dropdowns with new gender filter (combine with current subgroup filter)
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
+    // Mit aktuellem Untergruppen-Filter kombinieren
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 }
 
-// Global challenge handlers (called from onclick in HTML)
+// Global verfügbar (aufgerufen via onclick in HTML)
 let currentChallengeId = null;
 
 window.showReactivateModal = function (challengeId, title) {
@@ -1256,7 +1179,6 @@ window.confirmDeleteChallenge = async function (challengeId, title) {
     }
 };
 
-// Close reactivate modal
 document.getElementById('close-reactivate-modal')?.addEventListener('click', () => {
     document.getElementById('reactivate-challenge-modal').classList.add('hidden');
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');
