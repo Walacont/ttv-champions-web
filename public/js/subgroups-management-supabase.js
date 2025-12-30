@@ -1,43 +1,25 @@
-/**
- * Subgroups Management Module (Supabase Version)
- * Handles creation, editing, and deletion of training subgroups within a club
- * Multi-sport support: Subgroups are filtered by active sport
- */
+/** Untergruppen-Verwaltung (Supabase-Version) - Multi-Sport-Unterstützung: Filterung nach aktiver Sportart */
 
 import { formatDate } from './ui-utils-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 
-// Store current sport context for use in other functions
 let currentSportContext = null;
-
-// Module-level storage for refresh functionality
 let storedSupabase = null;
 let storedClubId = null;
 let storedUserId = null;
 
-/**
- * Refreshes the subgroups list by simulating a tab click
- * This ensures a completely fresh load without any caching issues
- */
+/** Aktualisiert die Untergruppen-Liste durch Tab-Klick-Simulation */
 export async function refreshSubgroupsList() {
-    console.log('[Subgroups] refreshSubgroupsList called - triggering tab reload');
-
-    // Simply click the subgroups tab button to trigger a fresh load
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {
-        console.log('[Subgroups] Clicking tab button to reload');
         subgroupsTabButton.click();
     } else {
-        console.warn('[Subgroups] Tab button not found, trying direct reload');
         if (storedSupabase && storedClubId) {
             await reloadSubgroupsListDirectly();
         }
     }
 }
 
-/**
- * Direct reload of subgroups list (used as fallback)
- */
 async function reloadSubgroupsListDirectly() {
     const subgroupsListContainer = document.getElementById('subgroups-list');
     if (!subgroupsListContainer || !storedSupabase || !storedClubId) {
@@ -48,7 +30,6 @@ async function reloadSubgroupsListDirectly() {
     console.log('[Subgroups] Reloading list directly...');
 
     try {
-        // Get sport context for filtering
         let activeSportId = null;
         if (storedUserId) {
             const sportContext = await getSportContext(storedUserId);
@@ -69,17 +50,13 @@ async function reloadSubgroupsListDirectly() {
 
         if (error) throw error;
 
-        // Debug: Log what we got from database
         console.log('[Subgroups] Query returned', data?.length, 'subgroups:', data?.map(s => s.name));
-
-        // Re-render the list
         console.log('[Subgroups] Clearing container innerHTML...');
         console.log('[Subgroups] Container element:', subgroupsListContainer);
         console.log('[Subgroups] Container children before clear:', subgroupsListContainer.children.length);
         subgroupsListContainer.innerHTML = '';
         console.log('[Subgroups] Container children after clear:', subgroupsListContainer.children.length);
 
-        // Add visual flash to confirm DOM update
         subgroupsListContainer.style.opacity = '0.5';
         setTimeout(() => { subgroupsListContainer.style.opacity = '1'; }, 200);
 
@@ -182,9 +159,7 @@ async function reloadSubgroupsListDirectly() {
     }
 }
 
-/**
- * Maps subgroup data from Supabase (snake_case) to app format (camelCase)
- */
+/** Mappt Untergruppen-Daten von Supabase (snake_case) zu App-Format (camelCase) */
 function mapSubgroupFromSupabase(subgroup) {
     return {
         id: subgroup.id,
@@ -198,20 +173,13 @@ function mapSubgroupFromSupabase(subgroup) {
     };
 }
 
-/**
- * Loads all subgroups for a club (filtered by sport)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {Function} setUnsubscribe - Callback to set unsubscribe function
- * @param {string} userId - User ID (optional, for sport context lookup)
- */
+/** Lädt alle Untergruppen für einen Verein (gefiltert nach Sportart) */
 export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = null) {
     const subgroupsListContainer = document.getElementById('subgroups-list');
     if (!subgroupsListContainer) return;
 
     async function loadSubgroups() {
         try {
-            // Get sport context for multi-sport filtering
             let activeSportId = null;
             let effectiveClubId = clubId;
 
@@ -227,7 +195,6 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
                 .eq('club_id', effectiveClubId)
                 .order('created_at', { ascending: true });
 
-            // Filter by sport if available
             if (activeSportId) {
                 query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
             }
@@ -340,16 +307,14 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
         }
     }
 
-    // Store context for refresh functionality
     storedSupabase = supabase;
     storedClubId = clubId;
     storedUserId = userId;
     console.log('[Subgroups] Context stored - supabase:', !!supabase, 'clubId:', clubId, 'userId:', userId);
 
-    // Initial load
     loadSubgroups();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription für Änderungen
     const subscription = supabase
         .channel('subgroups-list-changes')
         .on(
@@ -368,20 +333,13 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
 
     setUnsubscribe(() => {
         subscription.unsubscribe();
-        // Note: Don't clear storedSupabase/storedClubId so refresh still works
     });
 }
 
-/**
- * Handles subgroup creation
- * @param {Event} e - Form submit event
- * @param {Object} supabase - Supabase client instance
- * @param {string} clubId - Club ID
- */
+/** Erstellt eine neue Untergruppe */
 export async function handleCreateSubgroup(e, supabase, clubId) {
     e.preventDefault();
 
-    // Store context for refresh functionality (in case loadSubgroupsList wasn't called first)
     storedSupabase = supabase;
     storedClubId = clubId;
 
@@ -407,7 +365,6 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
         }
 
-        // Get current user's sport context
         const { data: { user } } = await supabase.auth.getUser();
         let sportId = null;
         if (user) {
@@ -435,14 +392,13 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
 
         form.reset();
 
-        // Small delay to ensure database consistency, then refresh
+        // Kurze Verzögerung für DB-Konsistenz
         console.log('[Subgroups] Insert successful, waiting 200ms for DB sync...');
         await new Promise(resolve => setTimeout(resolve, 200));
         console.log('[Subgroups] Now refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed');
 
-        // Dispatch event to refresh filter dropdowns
         console.log('[Subgroups] Dispatching subgroupsChanged event');
         window.dispatchEvent(new CustomEvent('subgroupsChanged'));
 
@@ -458,12 +414,7 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
     }
 }
 
-/**
- * Opens the edit subgroup modal
- * @param {string} subgroupId - Subgroup ID
- * @param {string} currentName - Current subgroup name
- * @param {string} currentColor - Current subgroup color
- */
+/** Öffnet das Bearbeiten-Modal für eine Untergruppe */
 export function openEditSubgroupModal(subgroupId, currentName, currentColor) {
     const modal = document.getElementById('edit-subgroup-modal');
     const idInput = document.getElementById('edit-subgroup-id');
@@ -472,40 +423,29 @@ export function openEditSubgroupModal(subgroupId, currentName, currentColor) {
 
     if (!modal || !idInput || !nameInput) return;
 
-    // Set values
     idInput.value = subgroupId;
     nameInput.value = currentName;
 
-    // Set color
     const colorRadios = document.querySelectorAll('input[name="edit-subgroup-color"]');
     colorRadios.forEach(radio => {
         radio.checked = radio.value === currentColor;
     });
 
-    // Clear feedback
     if (feedbackEl) feedbackEl.textContent = '';
 
-    // Show modal
     modal.classList.remove('hidden');
 }
 
-/**
- * Closes the edit subgroup modal
- */
+/** Schließt das Bearbeiten-Modal */
 export function closeEditSubgroupModal() {
     const modal = document.getElementById('edit-subgroup-modal');
     if (modal) modal.classList.add('hidden');
 }
 
-/**
- * Handles subgroup editing form submission
- * @param {Event} e - Form submit event
- * @param {Object} supabase - Supabase client instance
- */
+/** Verarbeitet das Formular zum Bearbeiten einer Untergruppe */
 export async function handleEditSubgroupSubmit(e, supabase) {
     e.preventDefault();
 
-    // Store supabase reference for refresh
     storedSupabase = supabase;
 
     const idInput = document.getElementById('edit-subgroup-id');
@@ -547,7 +487,6 @@ export async function handleEditSubgroupSubmit(e, supabase) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         }
 
-        // Refresh the list immediately
         console.log('[Subgroups] Update successful, refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed after edit');
@@ -564,19 +503,11 @@ export async function handleEditSubgroupSubmit(e, supabase) {
     }
 }
 
-/**
- * Handles subgroup deletion
- * @param {string} subgroupId - Subgroup ID
- * @param {string} subgroupName - Subgroup name
- * @param {Object} supabase - Supabase client instance
- * @param {string} clubId - Club ID
- */
+/** Löscht eine Untergruppe */
 export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, clubId) {
-    // Store context for refresh functionality
     storedSupabase = supabase;
     storedClubId = clubId;
 
-    // Check if any players are assigned to this subgroup
     try {
         const { data: playersInSubgroup, error: queryError } = await supabase
             .from('profiles')
@@ -599,7 +530,7 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
             }
         }
 
-        // Delete the subgroup - use .select() to see what was actually deleted
+        // .select() um zu sehen was tatsächlich gelöscht wurde (RLS-Prüfung)
         const { data: deletedData, error: deleteError } = await supabase
             .from('subgroups')
             .delete()
@@ -608,7 +539,6 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
 
         if (deleteError) throw deleteError;
 
-        // Check if RLS silently blocked the delete
         if (!deletedData || deletedData.length === 0) {
             console.error('[Subgroups] DELETE returned no data - RLS might have blocked it. SubgroupId:', subgroupId);
             alert('Fehler: Die Untergruppe konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen. Bitte stelle sicher, dass die RLS-Policies in Supabase korrekt sind.');
@@ -617,7 +547,7 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
 
         console.log('[Subgroups] Successfully deleted:', deletedData);
 
-        // Remove subgroup from all players
+        // Untergruppe von allen Spielern entfernen
         if (playerCount > 0) {
             for (const player of playersInSubgroup) {
                 const currentSubgroups = player.subgroup_ids || [];
@@ -634,14 +564,13 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
             }
         }
 
-        // Small delay to ensure database consistency, then refresh
+        // Kurze Verzögerung für DB-Konsistenz
         console.log('[Subgroups] Delete successful, waiting 200ms for DB sync...');
         await new Promise(resolve => setTimeout(resolve, 200));
         console.log('[Subgroups] Now refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed after delete');
 
-        // Dispatch event to refresh filter dropdowns
         console.log('[Subgroups] Dispatching subgroupsChanged event');
         window.dispatchEvent(new CustomEvent('subgroupsChanged'));
 
@@ -652,13 +581,7 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
     }
 }
 
-/**
- * Loads subgroups into a dropdown/select element
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {string} selectId - ID of the select element
- * @param {boolean} includeAll - Whether to include an "Alle" option
- */
+/** Lädt Untergruppen in ein Dropdown-Element */
 export function loadSubgroupsForDropdown(clubId, supabase, selectId, includeAll = false) {
     const select = document.getElementById(selectId);
     if (!select) return;
@@ -689,7 +612,6 @@ export function loadSubgroupsForDropdown(clubId, supabase, selectId, includeAll 
                 select.appendChild(option);
             });
 
-            // Trigger change event to update dependent UI
             select.dispatchEvent(new Event('change'));
         } catch (error) {
             console.error('Error loading subgroups for dropdown:', error);
@@ -697,10 +619,9 @@ export function loadSubgroupsForDropdown(clubId, supabase, selectId, includeAll 
         }
     }
 
-    // Initial load
     loadSubgroups();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription
     const subscription = supabase
         .channel(`subgroups-dropdown-${selectId}`)
         .on(
@@ -717,18 +638,12 @@ export function loadSubgroupsForDropdown(clubId, supabase, selectId, includeAll 
         )
         .subscribe();
 
-    // Return unsubscribe function
     return () => {
         subscription.unsubscribe();
     };
 }
 
-/**
- * Gets all subgroups for a club (as a promise)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @returns {Promise<Array>} - Array of subgroups
- */
+/** Holt alle Untergruppen für einen Verein */
 export async function getSubgroups(clubId, supabase) {
     const { data, error } = await supabase
         .from('subgroups')
@@ -741,18 +656,12 @@ export async function getSubgroups(clubId, supabase) {
     return (data || []).map(s => mapSubgroupFromSupabase(s));
 }
 
-/**
- * Loads club players and displays them as checkboxes for a subgroup
- * @param {string} subgroupId - Subgroup ID
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- */
+/** Lädt Spieler-Checkboxen für die Untergruppen-Zuweisung */
 export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
     const container = document.getElementById(`player-checkboxes-${subgroupId}`);
     if (!container) return;
 
     try {
-        // Query all players in the club (including offline players)
         const { data: players, error } = await supabase
             .from('profiles')
             .select('*')
@@ -761,7 +670,6 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
 
         if (error) throw error;
 
-        // Debug: Log loaded players including offline status
         console.log(`[Subgroups] Loaded ${players?.length || 0} players for checkboxes:`,
             players?.map(p => ({
                 id: p.id,
@@ -811,12 +719,7 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
     }
 }
 
-/**
- * Saves player assignments for a subgroup
- * @param {string} subgroupId - Subgroup ID
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- */
+/** Speichert Spieler-Zuweisungen für eine Untergruppe */
 export async function savePlayerAssignments(subgroupId, clubId, supabase) {
     const container = document.getElementById(`player-checkboxes-${subgroupId}`);
     if (!container) return;
@@ -825,7 +728,6 @@ export async function savePlayerAssignments(subgroupId, clubId, supabase) {
         const checkboxes = container.querySelectorAll('input[type="checkbox"]');
         let changesCount = 0;
 
-        // Get all players to check current assignments
         const { data: players, error: queryError } = await supabase
             .from('profiles')
             .select('id, subgroup_ids')
@@ -848,7 +750,6 @@ export async function savePlayerAssignments(subgroupId, clubId, supabase) {
             const currentSubgroups = player.subgroup_ids || [];
             const isCurrentlyInSubgroup = currentSubgroups.includes(subgroupId);
 
-            // Add player to subgroup
             if (isChecked && !isCurrentlyInSubgroup) {
                 const updatedSubgroups = [...currentSubgroups, subgroupId];
                 const { error } = await supabase
@@ -863,7 +764,6 @@ export async function savePlayerAssignments(subgroupId, clubId, supabase) {
                 }
             }
 
-            // Remove player from subgroup
             if (!isChecked && isCurrentlyInSubgroup) {
                 const updatedSubgroups = currentSubgroups.filter(id => id !== subgroupId);
                 const { error } = await supabase
@@ -891,18 +791,12 @@ export async function savePlayerAssignments(subgroupId, clubId, supabase) {
     }
 }
 
-/**
- * Handles click events on subgroup action buttons
- * @param {Event} e - Click event
- * @param {Object} supabase - Supabase client instance
- * @param {string} clubId - Club ID
- */
+/** Verarbeitet Klick-Events auf Untergruppen-Aktionsbuttons */
 export async function handleSubgroupActions(e, supabase, clubId) {
     const target = e.target;
     const button = target.closest('button');
     if (!button) return;
 
-    // Handle toggle player list
     if (button.classList.contains('toggle-player-list-btn')) {
         const subgroupId = button.dataset.subgroupId;
         const playerListDiv = document.getElementById(`player-list-${subgroupId}`);
@@ -912,17 +806,14 @@ export async function handleSubgroupActions(e, supabase, clubId) {
             const isHidden = playerListDiv.classList.contains('hidden');
 
             if (isHidden) {
-                // Show player list
                 playerListDiv.classList.remove('hidden');
                 arrow.style.transform = 'rotate(90deg)';
 
-                // Load players if not already loaded
                 const container = document.getElementById(`player-checkboxes-${subgroupId}`);
                 if (container && container.querySelector('p')) {
                     await loadPlayerCheckboxes(subgroupId, clubId, supabase);
                 }
             } else {
-                // Hide player list
                 playerListDiv.classList.add('hidden');
                 arrow.style.transform = 'rotate(0deg)';
             }
@@ -930,14 +821,12 @@ export async function handleSubgroupActions(e, supabase, clubId) {
         return;
     }
 
-    // Handle save player assignments
     if (button.classList.contains('save-player-assignments-btn')) {
         const subgroupId = button.dataset.subgroupId;
         await savePlayerAssignments(subgroupId, clubId, supabase);
         return;
     }
 
-    // Handle edit button
     if (button.classList.contains('edit-subgroup-btn')) {
         const subgroupId = button.dataset.id;
         const currentName = button.dataset.name;
@@ -946,7 +835,6 @@ export async function handleSubgroupActions(e, supabase, clubId) {
         return;
     }
 
-    // Handle delete button
     if (button.classList.contains('delete-subgroup-btn')) {
         const subgroupId = button.dataset.id;
         const subgroupName = button.dataset.name;
