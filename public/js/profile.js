@@ -71,7 +71,6 @@ export function updateRankDisplay(userData) {
         isMaxRank,
     } = progress;
 
-    // Update rank badge
     rankInfoEl.innerHTML = `
         <div class="flex items-center justify-center space-x-2 mb-2">
             <span class="text-4xl">${currentRank.emoji}</span>

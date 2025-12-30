@@ -245,10 +245,6 @@ export function getSupabase() {
     return supabaseInstance || initSupabase();
 }
 
-// ============================================
-// AUTH-HILFSFUNKTIONEN
-// ============================================
-
 export async function signUp(email, password, displayName) {
     const supabase = getSupabase();
 
@@ -316,10 +312,6 @@ export async function resetPassword(email) {
 
     if (error) throw error;
 }
-
-// ============================================
-// DATENBANK-HILFSFUNKTIONEN
-// ============================================
 
 export async function getUserProfile(userId) {
     const supabase = getSupabase();
