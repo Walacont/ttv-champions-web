@@ -1915,7 +1915,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         sport_id: request.sport_id,
                         match_mode: request.match_mode || 'best-of-5',
                         handicap_used: request.handicap_used || false,
-                        played_at: new Date().toISOString()
+                        played_at: request.created_at || new Date().toISOString()
                     })
                     .select()
                     .single();
@@ -1956,7 +1956,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         sport_id: request.sport_id,
                         match_mode: request.match_mode || 'best-of-5',
                         handicap_used: request.handicap_used || false,
-                        played_at: request.played_at || new Date().toISOString()
+                        played_at: request.created_at || new Date().toISOString()
                     })
                     .select()
                     .single();
