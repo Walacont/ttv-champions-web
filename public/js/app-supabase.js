@@ -1,24 +1,16 @@
-/**
- * SC Champions SPA - Haupteinstiegspunkt (Supabase Version)
- */
+// SC Champions SPA - Haupteinstiegspunkt (Supabase-Version)
 
 import { router, viewLoader } from './router.js';
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { suppressConsoleLogs } from './utils/logger.js';
 
-// Debug-Logs in Produktion unterdrücken
 suppressConsoleLogs();
 
 const supabase = getSupabase();
 
-// Module-Cache verhindert erneute Initialisierung bei Navigation
 const loadedModules = new Map();
 let currentModuleCleanup = null;
 
-/**
- * Lädt ein Seiten-Modul und führt dessen Init- und Cleanup-Funktionen aus
- * @param {string} modulePath - Pfad zum Modul
- */
 async function loadPageModule(modulePath) {
     try {
         if (currentModuleCleanup) {
@@ -38,26 +30,20 @@ async function loadPageModule(modulePath) {
 
         return module;
     } catch (error) {
-        console.error(`Failed to load module ${modulePath}:`, error);
+        console.error(`Modul ${modulePath} konnte nicht geladen werden:`, error);
     }
 }
 
-/**
- * Lädt eine Seite inkl. HTML, Styles und JS-Modul
- * @param {string} htmlPath - Pfad zur HTML-Datei
- * @param {string} jsPath - Pfad zum JS-Modul (optional)
- */
 async function loadPage(htmlPath, jsPath = null) {
     showLoader();
 
     try {
         const response = await fetch(htmlPath);
         if (!response.ok) {
-            throw new Error(`Failed to load ${htmlPath}`);
+            throw new Error(`${htmlPath} konnte nicht geladen werden`);
         }
 
         const html = await response.text();
-
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
@@ -81,7 +67,6 @@ async function loadPage(htmlPath, jsPath = null) {
         const bodyClass = doc.body.className;
 
         document.body.className = bodyClass;
-
         viewLoader.loadHTML(bodyContent);
 
         const scripts = doc.querySelectorAll('script[type="module"]');
@@ -103,7 +88,7 @@ async function loadPage(htmlPath, jsPath = null) {
 
         hideLoader();
     } catch (error) {
-        console.error('Failed to load page:', error);
+        console.error('Seite konnte nicht geladen werden:', error);
         hideLoader();
         router.navigate('/404');
     }
@@ -123,9 +108,6 @@ function hideLoader() {
     }
 }
 
-/**
- * Prüft Authentifizierung und leitet bei Fehler um
- */
 function requireAuth(redirectTo = '/') {
     return new Promise(async (resolve, reject) => {
         try {
@@ -135,10 +117,10 @@ function requireAuth(redirectTo = '/') {
                 resolve(session.user);
             } else {
                 router.navigate(redirectTo);
-                reject(new Error('Not authenticated'));
+                reject(new Error('Nicht authentifiziert'));
             }
         } catch (error) {
-            console.error('Auth check error:', error);
+            console.error('Auth-Check Fehler:', error);
             router.navigate(redirectTo);
             reject(error);
         }
@@ -146,16 +128,12 @@ function requireAuth(redirectTo = '/') {
 }
 
 router
-    // Öffentliche Routen
     .on('/', async () => {
-        // Landing Page bleibt außerhalb der SPA
         window.location.href = '/index.html';
     })
     .on('/faq', async () => {
         window.location.href = '/faq.html';
     })
-
-    // Authentifizierung
     .on('/register', async () => {
         window.location.href = '/register.html';
     })
@@ -164,17 +142,15 @@ router
             await requireAuth('/');
             window.location.href = '/onboarding.html';
         } catch (error) {
-            console.log('Authentication required');
+            console.log('Authentifizierung erforderlich');
         }
     })
-
-    // Geschützte Routen - Spieler (SPA)
     .on('/dashboard', async () => {
         try {
             await requireAuth('/');
             await loadPage('/dashboard.html', '/js/dashboard-supabase.js');
         } catch (error) {
-            console.log('Authentication required');
+            console.log('Authentifizierung erforderlich');
         }
     })
     .on('/settings', async () => {
@@ -182,49 +158,42 @@ router
             await requireAuth('/');
             await loadPage('/settings.html', '/js/settings-supabase.js');
         } catch (error) {
-            console.log('Authentication required');
+            console.log('Authentifizierung erforderlich');
         }
     })
-
-    // Geschützte Routen - Trainer
     .on('/coach', async () => {
         try {
             await requireAuth('/');
             await loadPage('/coach.html', '/js/coach-supabase.js');
         } catch (error) {
-            console.log('Authentication required');
+            console.log('Authentifizierung erforderlich');
         }
     })
-
-    // Geschützte Routen - Admin
     .on('/admin', async () => {
         try {
             await requireAuth('/');
             await loadPage('/admin.html', '/js/admin-supabase.js');
         } catch (error) {
-            console.log('Authentication required');
+            console.log('Authentifizierung erforderlich');
         }
     })
-
     .on('/404', async () => {
         window.location.href = '/404.html';
     });
 
 router.beforeNavigate(async path => {
-    console.log('Navigating to:', path);
+    console.log('Navigiere zu:', path);
     return true;
 });
 
 router.afterNavigate(async path => {
-    // Bei Navigation nach oben scrollen für bessere UX
     window.scrollTo(0, 0);
-    console.log('Navigation complete:', path);
+    console.log('Navigation abgeschlossen:', path);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('SC Champions SPA (Supabase) initialized');
+    console.log('SC Champions SPA (Supabase) initialisiert');
     router.start();
 });
 
-// Globaler Zugriff für andere Module
 export { router, supabase, requireAuth };
