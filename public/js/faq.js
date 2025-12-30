@@ -1,4 +1,5 @@
-// NEU: Zusätzliche Imports für die Emulatoren
+// FAQ-Seite (Firebase-Version)
+
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -17,7 +18,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
 if (shouldUseEmulators()) {
     console.log('faq.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
@@ -28,7 +28,6 @@ const backLink = document.getElementById('back-link');
 
 onAuthStateChanged(auth, async user => {
     if (user) {
-        // User is logged in - set back link based on role
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
             const { role } = userDoc.data();
@@ -36,11 +35,9 @@ onAuthStateChanged(auth, async user => {
             else if (role === 'coach') backLink.href = '/coach.html';
             else backLink.href = '/dashboard.html';
         } else {
-            // User exists but no user document - go to index
             backLink.href = '/index.html';
         }
     } else {
-        // User is not logged in - FAQ is publicly accessible, link back to index
         backLink.href = '/index.html';
     }
 });

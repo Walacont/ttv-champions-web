@@ -1,66 +1,23 @@
+// Saison-Verwaltung (Supabase-Version)
+
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard-supabase.js';
 import { loadLeaderboardForCoach } from './leaderboard-supabase.js';
 import { getSeasonEndDate } from './ui-utils.js';
 
-/**
- * Season Management Module (Supabase Version)
- * Handles season resets, league promotions/demotions, and league selector management
- */
-
-/**
- * Checks and resets season for entire club (called by coach)
- * NOTE: Season resets are now handled by Edge Function (every 6 weeks)
- * This function only checks if a reset has occurred and is no longer needed for testing
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- */
+// Saison-Resets werden durch Edge Function gesteuert (6-Wochen-Zyklus)
 export async function checkAndResetClubSeason(clubId, supabase) {
-    // DISABLED: Season resets are now fully handled by Edge Function
-    // This function is kept for backwards compatibility but does nothing
-    console.log('Season check: Edge Function handles all resets (6-week cycle)');
+    console.log('Saison-Check: Edge Function übernimmt alle Resets (6-Wochen-Zyklus)');
     return;
 }
 
-/**
- * DEPRECATED: Season reset logic (now handled by Edge Function)
- * This function is kept for reference but is no longer called
- * Edge Function `autoSeasonReset` handles all resets every 6 weeks
- * @param {string} userId - User ID
- * @param {Object} userData - User data
- * @param {Object} supabase - Supabase client instance
- */
+// Veraltet: Saison-Reset-Logik jetzt in Edge Function `autoSeasonReset`
 export async function handleSeasonReset(userId, userData, supabase) {
     console.warn(
-        'handleSeasonReset called - this is deprecated. Edge Function handles resets.'
+        'handleSeasonReset aufgerufen - veraltet. Edge Function übernimmt Resets.'
     );
-    // Function body kept for reference but does nothing
     return;
-
-    /* ORIGINAL LOGIC - NOW IN EDGE FUNCTION
-    const now = new Date();
-    const lastReset = userData.lastSeasonReset;
-
-    if (!lastReset) {
-        await supabase
-            .from('profiles')
-            .update({
-                last_season_reset: new Date().toISOString(),
-                league: userData.league || 'Bronze'
-            })
-            .eq('id', userId);
-        return;
-    }
-
-    // ... rest of logic moved to Edge Function autoSeasonReset
-    */
 }
 
-/**
- * Loads available leagues for the league selector (coach view)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {Function} setUnsubscribeCallback - Callback to manage leaderboard unsubscribe
- */
 export async function loadLeaguesForSelector(clubId, supabase, setUnsubscribeCallback) {
     const coachLeagueSelect = document.getElementById('coach-league-select');
     if (!coachLeagueSelect) return;

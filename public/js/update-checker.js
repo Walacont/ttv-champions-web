@@ -1,9 +1,4 @@
-/**
- * Update Checker - DISABLED
- *
- * This functionality has been disabled.
- * The file is kept to prevent 404 errors from HTML includes.
- */
+// Update Checker - Deaktiviert
+// Datei bleibt erhalten um 404-Fehler bei HTML-Includes zu vermeiden
 
-// No-op - update checker is disabled
-console.log('[UpdateChecker] Disabled');
+console.log('[UpdateChecker] Deaktiviert');

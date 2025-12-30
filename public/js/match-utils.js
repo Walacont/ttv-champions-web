@@ -1,18 +1,5 @@
-/**
- * Match Utilities Module
- * Shared utilities for match set formatting and winner determination
- */
+// Match-Utilities für Satz-Formatierung und Sieger-Bestimmung
 
-/**
- * Formats match sets for display
- * @param {Array} sets - Array of set objects with playerA and playerB scores
- * @param {Object} options - Formatting options
- * @param {string} options.playerAKey - Key for player A score (default: 'playerA')
- * @param {string} options.playerBKey - Key for player B score (default: 'playerB')
- * @param {boolean} options.showRatio - Whether to show win ratio (default: true)
- * @param {string} options.noResultText - Text to show when no result (default: 'Kein Ergebnis')
- * @returns {string} Formatted set string (e.g., "2:1 (11:9, 9:11, 11:7)")
- */
 export function formatMatchSets(sets, options = {}) {
     const {
         playerAKey = 'playerA',
@@ -36,11 +23,6 @@ export function formatMatchSets(sets, options = {}) {
     return setsStr;
 }
 
-/**
- * Formats doubles match sets for display
- * @param {Array} sets - Array of set objects with teamA and teamB scores
- * @returns {string} Formatted set string
- */
 export function formatDoublesSets(sets) {
     return formatMatchSets(sets, {
         playerAKey: 'teamA',
@@ -48,14 +30,6 @@ export function formatDoublesSets(sets) {
     });
 }
 
-/**
- * Determines the winner of a match based on sets won
- * @param {Array} sets - Array of set objects
- * @param {string} matchMode - Match mode ('single-set', 'best-of-3', 'best-of-5', 'best-of-7')
- * @param {string} playerAKey - Key for player A score (default: 'playerA')
- * @param {string} playerBKey - Key for player B score (default: 'playerB')
- * @returns {string|null} 'A' if player A wins, 'B' if player B wins, null if no winner yet
- */
 export function determineWinner(
     sets,
     matchMode = 'best-of-5',
@@ -82,14 +56,6 @@ export function determineWinner(
     return null;
 }
 
-/**
- * Gets the display name of the winner
- * @param {Array} sets - Array of set objects
- * @param {Object} playerA - Player A object with firstName property
- * @param {Object} playerB - Player B object with firstName property
- * @param {string} matchMode - Match mode (default: 'best-of-5')
- * @returns {string} Winner's name or 'Unentschieden'
- */
 export function getWinnerDisplay(sets, playerA, playerB, matchMode = 'best-of-5') {
     const winner = determineWinner(sets, matchMode);
 
@@ -103,21 +69,10 @@ export function getWinnerDisplay(sets, playerA, playerB, matchMode = 'best-of-5'
     return 'Unentschieden';
 }
 
-/**
- * Formats a simple set display without ratio (just scores)
- * @param {Array} sets - Array of set objects
- * @returns {string} Formatted set string (e.g., "11:9, 9:11, 11:7")
- */
 export function formatSetsSimple(sets) {
     return formatMatchSets(sets, { showRatio: false });
 }
 
-/**
- * Gets winner name for doubles match
- * @param {Object} match - Match object with teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2
- * @param {string} winningTeam - 'A' or 'B'
- * @returns {string} Team names concatenated with &
- */
 export function getDoublesTeamName(match, winningTeam) {
     if (winningTeam === 'A') {
         const p1 = match.teamAPlayer1?.firstName || 'Spieler 1';

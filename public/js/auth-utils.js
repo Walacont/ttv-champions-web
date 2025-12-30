@@ -1,45 +1,31 @@
+// Auth-Utilities (Firebase-Version)
+
 import {
     signOut,
     onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Handles user logout with proper cleanup
- * @param {Object} auth - Firebase Auth instance
- * @returns {Promise<void>}
- */
 export async function handleLogout(auth) {
     try {
         await signOut(auth);
-
-        // Clear SPA cache if available
         if (window.spaEnhancer) {
             window.spaEnhancer.clearCache();
         }
-
         window.location.replace('/index.html');
     } catch (error) {
-        console.error('Logout error:', error);
+        console.error('Logout Fehler:', error);
         throw error;
     }
 }
 
-/**
- * Requires user authentication and validates role access
- * @param {Object} auth - Firebase Auth instance
- * @param {Object} db - Firestore instance
- * @param {string[]} allowedRoles - Array of allowed role names (e.g., ['player', 'coach'])
- * @returns {Promise<{user: Object, userData: Object}>} Authenticated user and their data
- * @throws {Error} If user is not authenticated or doesn't have required role
- */
 export function requireRole(auth, db, allowedRoles = []) {
     return new Promise((resolve, reject) => {
         const unsubscribe = onAuthStateChanged(auth, async user => {
             try {
                 if (!user) {
                     window.location.replace('/index.html');
-                    reject(new Error('Not authenticated'));
+                    reject(new Error('Nicht authentifiziert'));
                     return;
                 }
 
@@ -47,9 +33,9 @@ export function requireRole(auth, db, allowedRoles = []) {
                 const userDocSnap = await getDoc(userDocRef);
 
                 if (!userDocSnap.exists()) {
-                    console.error('User document not found');
+                    console.error('Benutzer-Dokument nicht gefunden');
                     window.location.replace('/index.html');
-                    reject(new Error('User document not found'));
+                    reject(new Error('Benutzer-Dokument nicht gefunden'));
                     return;
                 }
 
@@ -59,10 +45,10 @@ export function requireRole(auth, db, allowedRoles = []) {
                     resolve({ user, userData });
                 } else {
                     console.error(
-                        `Access denied. Required roles: ${allowedRoles.join(', ')}, user role: ${userData.role}`
+                        `Zugriff verweigert. Erforderliche Rollen: ${allowedRoles.join(', ')}, Benutzerrolle: ${userData.role}`
                     );
 
-                    // Redirect based on user's actual role
+                    // Weiterleitung basierend auf der tatsächlichen Rolle
                     if (userData.role === 'coach') {
                         window.location.replace('/coach.html');
                     } else if (userData.role === 'admin') {
@@ -71,10 +57,10 @@ export function requireRole(auth, db, allowedRoles = []) {
                         window.location.replace('/dashboard.html');
                     }
 
-                    reject(new Error(`Role ${userData.role} not authorized`));
+                    reject(new Error(`Rolle ${userData.role} nicht autorisiert`));
                 }
             } catch (error) {
-                console.error('Error in requireRole:', error);
+                console.error('Fehler in requireRole:', error);
                 reject(error);
             } finally {
                 unsubscribe();
@@ -83,11 +69,6 @@ export function requireRole(auth, db, allowedRoles = []) {
     });
 }
 
-/**
- * Sets up logout button handler
- * @param {string} buttonId - ID of the logout button element
- * @param {Object} auth - Firebase Auth instance
- */
 export function setupLogoutButton(buttonId, auth) {
     const logoutButton = document.getElementById(buttonId);
     if (logoutButton) {
