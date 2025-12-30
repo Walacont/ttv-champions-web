@@ -1,3 +1,6 @@
+// Migration für Untergruppen-Feature
+// Migriert bestehende Daten um Untergruppen zu unterstützen
+
 import {
     collection,
     doc,
@@ -10,48 +13,25 @@ import {
     serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Migration Module for Subgroups Feature
- * Migrates existing data to support subgroups:
- * - Creates default "Hauptgruppe" for each club
- * - Assigns all players to the main subgroup
- * - Migrates streaks from user document to streaks subcollection
- * - Adds subgroupId to existing attendance documents
- */
-
 const MIGRATION_VERSION = 1;
 const DEFAULT_SUBGROUP_NAME = 'Hauptgruppe';
 
-/**
- * Checks if migration is needed for a club
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @returns {Promise<boolean>} - True if migration is needed
- */
 export async function needsMigration(clubId, db) {
     try {
-        // Check if any subgroups exist for this club
         const subgroupsQuery = query(collection(db, 'subgroups'), where('clubId', '==', clubId));
         const subgroupsSnapshot = await getDocs(subgroupsQuery);
-
         return subgroupsSnapshot.empty;
     } catch (error) {
-        console.error('Error checking migration status:', error);
+        console.error('Fehler beim Prüfen des Migrationsstatus:', error);
         return false;
     }
 }
 
-/**
- * Runs the migration for a club
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Object>} - Migration result
- */
 export async function runMigration(clubId, db) {
-    console.log(`[Migration] Starting migration for club: ${clubId}`);
+    console.log(`[Migration] Starte Migration für Verein: ${clubId}`);
 
     try {
-        // Step 1: Create default subgroup
+        // Standard-Untergruppe erstellen
         const mainSubgroupRef = await addDoc(collection(db, 'subgroups'), {
             clubId: clubId,
             name: DEFAULT_SUBGROUP_NAME,
@@ -59,14 +39,14 @@ export async function runMigration(clubId, db) {
             isDefault: true,
         });
         const mainSubgroupId = mainSubgroupRef.id;
-        console.log(`[Migration] Created main subgroup: ${mainSubgroupId}`);
+        console.log(`[Migration] Hauptgruppe erstellt: ${mainSubgroupId}`);
 
-        // Step 2: Get all players in the club
+        // Alle Spieler im Verein holen
         const usersQuery = query(collection(db, 'users'), where('clubId', '==', clubId));
         const usersSnapshot = await getDocs(usersQuery);
-        console.log(`[Migration] Found ${usersSnapshot.size} users to migrate`);
+        console.log(`[Migration] ${usersSnapshot.size} Benutzer gefunden`);
 
-        // Step 3: Migrate users and streaks in batches (max 500 operations per batch)
+        // Benutzer und Streaks in Batches migrieren (max 500 Operationen pro Batch)
         const batch = writeBatch(db);
         let batchCount = 0;
         let migratedUsers = 0;
@@ -77,7 +57,6 @@ export async function runMigration(clubId, db) {
             const userData = userDoc.data();
             const userRef = doc(db, 'users', userId);
 
-            // Update user: Add subgroupIDs array
             const subgroupIDs = [mainSubgroupId];
             batch.update(userRef, {
                 subgroupIDs: subgroupIDs,
@@ -87,7 +66,6 @@ export async function runMigration(clubId, db) {
             batchCount++;
             migratedUsers++;
 
-            // Migrate streak if it exists
             if (userData.streak !== undefined && userData.streak !== null) {
                 const streakRef = doc(db, `users/${userId}/streaks`, mainSubgroupId);
                 batch.set(streakRef, {
@@ -99,24 +77,22 @@ export async function runMigration(clubId, db) {
                 migratedStreaks++;
             }
 
-            // Commit batch if we're approaching the limit (500 operations)
             if (batchCount >= 450) {
                 await batch.commit();
-                console.log(`[Migration] Batch committed (${batchCount} operations)`);
+                console.log(`[Migration] Batch committed (${batchCount} Operationen)`);
                 batchCount = 0;
             }
         }
 
-        // Commit any remaining operations
         if (batchCount > 0) {
             await batch.commit();
-            console.log(`[Migration] Final batch committed (${batchCount} operations)`);
+            console.log(`[Migration] Letzter Batch committed (${batchCount} Operationen)`);
         }
 
-        // Step 4: Migrate attendance documents
+        // Anwesenheits-Dokumente migrieren
         const attendanceQuery = query(collection(db, 'attendance'), where('clubId', '==', clubId));
         const attendanceSnapshot = await getDocs(attendanceQuery);
-        console.log(`[Migration] Found ${attendanceSnapshot.size} attendance records to migrate`);
+        console.log(`[Migration] ${attendanceSnapshot.size} Anwesenheitseinträge gefunden`);
 
         const attendanceBatch = writeBatch(db);
         let attendanceBatchCount = 0;
@@ -124,8 +100,6 @@ export async function runMigration(clubId, db) {
 
         for (const attendanceDoc of attendanceSnapshot.docs) {
             const attendanceRef = doc(db, 'attendance', attendanceDoc.id);
-
-            // Add subgroupId to attendance document
             attendanceBatch.update(attendanceRef, {
                 subgroupId: mainSubgroupId,
                 migratedToSubgroups: true,
@@ -133,28 +107,22 @@ export async function runMigration(clubId, db) {
             attendanceBatchCount++;
             migratedAttendance++;
 
-            // Commit batch if approaching limit
             if (attendanceBatchCount >= 450) {
                 await attendanceBatch.commit();
-                console.log(
-                    `[Migration] Attendance batch committed (${attendanceBatchCount} operations)`
-                );
+                console.log(`[Migration] Anwesenheits-Batch committed (${attendanceBatchCount} Operationen)`);
                 attendanceBatchCount = 0;
             }
         }
 
-        // Commit any remaining attendance operations
         if (attendanceBatchCount > 0) {
             await attendanceBatch.commit();
-            console.log(
-                `[Migration] Final attendance batch committed (${attendanceBatchCount} operations)`
-            );
+            console.log(`[Migration] Letzter Anwesenheits-Batch committed (${attendanceBatchCount} Operationen)`);
         }
 
-        // Step 5: Migrate challenges (add subgroupId: "all" to existing challenges)
+        // Challenges migrieren
         const challengesQuery = query(collection(db, 'challenges'), where('clubId', '==', clubId));
         const challengesSnapshot = await getDocs(challengesQuery);
-        console.log(`[Migration] Found ${challengesSnapshot.size} challenges to migrate`);
+        console.log(`[Migration] ${challengesSnapshot.size} Challenges gefunden`);
 
         const challengesBatch = writeBatch(db);
         let challengesBatchCount = 0;
@@ -162,8 +130,6 @@ export async function runMigration(clubId, db) {
 
         for (const challengeDoc of challengesSnapshot.docs) {
             const challengeRef = doc(db, 'challenges', challengeDoc.id);
-
-            // Set subgroupId to "all" for existing challenges
             challengesBatch.update(challengeRef, {
                 subgroupId: 'all',
                 migratedToSubgroups: true,
@@ -173,27 +139,23 @@ export async function runMigration(clubId, db) {
 
             if (challengesBatchCount >= 450) {
                 await challengesBatch.commit();
-                console.log(
-                    `[Migration] Challenges batch committed (${challengesBatchCount} operations)`
-                );
+                console.log(`[Migration] Challenges-Batch committed (${challengesBatchCount} Operationen)`);
                 challengesBatchCount = 0;
             }
         }
 
         if (challengesBatchCount > 0) {
             await challengesBatch.commit();
-            console.log(
-                `[Migration] Final challenges batch committed (${challengesBatchCount} operations)`
-            );
+            console.log(`[Migration] Letzter Challenges-Batch committed (${challengesBatchCount} Operationen)`);
         }
 
-        console.log(`[Migration] Completed successfully!`);
-        console.log(`[Migration] Summary:`);
-        console.log(`  - Created main subgroup: ${mainSubgroupId}`);
-        console.log(`  - Migrated users: ${migratedUsers}`);
-        console.log(`  - Migrated streaks: ${migratedStreaks}`);
-        console.log(`  - Migrated attendance records: ${migratedAttendance}`);
-        console.log(`  - Migrated challenges: ${migratedChallenges}`);
+        console.log(`[Migration] Erfolgreich abgeschlossen!`);
+        console.log(`[Migration] Zusammenfassung:`);
+        console.log(`  - Hauptgruppe erstellt: ${mainSubgroupId}`);
+        console.log(`  - Benutzer migriert: ${migratedUsers}`);
+        console.log(`  - Streaks migriert: ${migratedStreaks}`);
+        console.log(`  - Anwesenheitseinträge migriert: ${migratedAttendance}`);
+        console.log(`  - Challenges migriert: ${migratedChallenges}`);
 
         return {
             success: true,
@@ -206,7 +168,7 @@ export async function runMigration(clubId, db) {
             },
         };
     } catch (error) {
-        console.error('[Migration] Error during migration:', error);
+        console.error('[Migration] Fehler:', error);
         return {
             success: false,
             error: error.message,
@@ -214,24 +176,18 @@ export async function runMigration(clubId, db) {
     }
 }
 
-/**
- * Checks and runs migration if needed
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Object>} - Migration result
- */
 export async function checkAndMigrate(clubId, db) {
     const migrationNeeded = await needsMigration(clubId, db);
 
     if (migrationNeeded) {
-        console.log(`[Migration] Migration needed for club ${clubId}`);
+        console.log(`[Migration] Migration erforderlich für Verein ${clubId}`);
         return await runMigration(clubId, db);
     } else {
-        console.log(`[Migration] No migration needed for club ${clubId}`);
+        console.log(`[Migration] Keine Migration erforderlich für Verein ${clubId}`);
         return {
             success: true,
             skipped: true,
-            message: 'Migration already completed or not needed',
+            message: 'Migration bereits abgeschlossen oder nicht erforderlich',
         };
     }
 }
