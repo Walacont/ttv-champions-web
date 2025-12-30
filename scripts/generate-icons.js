@@ -1,11 +1,10 @@
 // SC Champions Icon Generator
-// Run with: node scripts/generate-icons.js
+// Ausführen mit: node scripts/generate-icons.js
 
 const fs = require('fs');
 const path = require('path');
 
-// Wir erstellen ein einfaches SVG-Icon und konvertieren es
-// Da wir kein Canvas haben, nutzen wir SVG als Basis
+// SVG wird verwendet, da Canvas in Node.js ohne zusätzliche Dependencies nicht verfügbar ist
 
 const size = 512;
 const bgColor = "#1e40af";
@@ -22,13 +21,8 @@ function generateSVG(iconSize) {
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${iconSize} ${iconSize}" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
   <rect width="${iconSize}" height="${iconSize}" fill="${bgColor}"/>
-
-  <!-- Circle Ring -->
   <circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${accentColor}" stroke-width="${strokeWidth}"/>
-
-  <!-- SC Text -->
   <text x="${centerX}" y="${centerY + fontSize * 0.1}"
         font-family="Arial, Helvetica, sans-serif"
         font-size="${fontSize}"
@@ -36,18 +30,15 @@ function generateSVG(iconSize) {
         fill="${textColor}"
         text-anchor="middle"
         dominant-baseline="middle">SC</text>
-
-  <!-- Accent Bar -->
   <rect x="${centerX - iconSize * 0.15}" y="${centerY + fontSize * 0.35}"
         width="${iconSize * 0.3}" height="${iconSize * 0.03}"
         rx="${iconSize * 0.015}" fill="${accentColor}"/>
 </svg>`;
 }
 
-// Icon sizes needed for PWA and Capacitor
+// Icon-Größen für PWA und Capacitor erforderlich
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
-// Create directories
 const publicIconsDir = path.join(__dirname, '..', 'public', 'icons');
 const androidResDir = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 
@@ -57,7 +48,6 @@ if (!fs.existsSync(publicIconsDir)) {
 
 console.log('Generating SC Champions icons...\n');
 
-// Generate SVG icons for PWA (public/icons/)
 sizes.forEach(size => {
     const svg = generateSVG(size);
     const filename = `icon-${size}x${size}.svg`;
@@ -66,12 +56,10 @@ sizes.forEach(size => {
     console.log(`✓ Created ${filename}`);
 });
 
-// Create main icon
 const mainSvg = generateSVG(512);
 fs.writeFileSync(path.join(publicIconsDir, 'icon.svg'), mainSvg);
 console.log('✓ Created icon.svg (main icon)');
 
-// Create favicon
 const faviconSvg = generateSVG(32);
 fs.writeFileSync(path.join(__dirname, '..', 'public', 'favicon.svg'), faviconSvg);
 console.log('✓ Created favicon.svg');

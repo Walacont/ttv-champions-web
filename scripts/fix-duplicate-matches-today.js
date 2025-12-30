@@ -1,8 +1,6 @@
 /**
- * Script to find and delete duplicate matches from today
- * Also corrects player statistics (wins, losses, elo)
- *
- * Usage: node scripts/fix-duplicate-matches-today.js
+ * Findet und löscht doppelte Matches von heute und korrigiert Spieler-Statistiken
+ * Nutzung: node scripts/fix-duplicate-matches-today.js
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -23,7 +21,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function main() {
     console.log('🔍 Finding duplicate matches from today...\n');
 
-    // Get today's date range
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString();
@@ -32,7 +29,6 @@ async function main() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString();
 
-    // Fetch all matches from today
     const { data: matches, error } = await supabase
         .from('matches')
         .select('*')
@@ -52,10 +48,9 @@ async function main() {
         return;
     }
 
-    // Group matches by player pair (normalize order)
     const matchGroups = {};
     matches.forEach(match => {
-        // Create a normalized key (sort player IDs to handle both orders)
+        // Spieler-IDs sortieren, damit A-vs-B und B-vs-A als gleiche Paarung erkannt werden
         const players = [match.player_a_id, match.player_b_id].sort();
         const key = `${players[0]}_${players[1]}`;
 
@@ -65,7 +60,6 @@ async function main() {
         matchGroups[key].push(match);
     });
 
-    // Find duplicates (groups with more than 1 match)
     const duplicateGroups = Object.entries(matchGroups).filter(([key, group]) => group.length > 1);
 
     if (duplicateGroups.length === 0) {
@@ -75,14 +69,12 @@ async function main() {
 
     console.log(`Found ${duplicateGroups.length} groups with duplicates:\n`);
 
-    // Track stats corrections needed
     const statsCorrections = {};
 
     for (const [key, group] of duplicateGroups) {
         console.log(`\n--- Player pair: ${key} ---`);
         console.log(`Total matches: ${group.length} (${group.length - 1} duplicates to remove)`);
 
-        // Keep the first match, delete the rest
         const [keepMatch, ...duplicates] = group;
 
         console.log(`Keeping match ${keepMatch.id} (created ${keepMatch.created_at})`);
@@ -93,7 +85,6 @@ async function main() {
             console.log(`\nDeleting duplicate ${dup.id} (created ${dup.created_at})`);
             console.log(`  Winner: ${dup.winner_id}, Elo change: +${dup.winner_elo_change || 0}/${dup.loser_elo_change || 0}`);
 
-            // Track corrections for winner
             if (!statsCorrections[dup.winner_id]) {
                 statsCorrections[dup.winner_id] = { wins: 0, losses: 0, elo: 0, matchesPlayed: 0 };
             }
@@ -101,15 +92,14 @@ async function main() {
             statsCorrections[dup.winner_id].matchesPlayed -= 1;
             statsCorrections[dup.winner_id].elo -= (dup.winner_elo_change || 0);
 
-            // Track corrections for loser
             if (!statsCorrections[dup.loser_id]) {
                 statsCorrections[dup.loser_id] = { wins: 0, losses: 0, elo: 0, matchesPlayed: 0 };
             }
             statsCorrections[dup.loser_id].losses -= 1;
             statsCorrections[dup.loser_id].matchesPlayed -= 1;
-            statsCorrections[dup.loser_id].elo -= (dup.loser_elo_change || 0); // loser_elo_change is usually negative
+            // loser_elo_change ist normalerweise negativ, daher subtrahieren wir es
+            statsCorrections[dup.loser_id].elo -= (dup.loser_elo_change || 0);
 
-            // Delete the duplicate match
             const { error: deleteError } = await supabase
                 .from('matches')
                 .delete()
@@ -123,14 +113,12 @@ async function main() {
         }
     }
 
-    // Apply stats corrections
     console.log('\n\n📊 Applying stats corrections...\n');
 
     for (const [playerId, corrections] of Object.entries(statsCorrections)) {
         console.log(`Player ${playerId}:`);
         console.log(`  Wins: ${corrections.wins}, Losses: ${corrections.losses}, Elo: ${corrections.elo > 0 ? '+' : ''}${corrections.elo}`);
 
-        // Get current stats
         const { data: player, error: fetchError } = await supabase
             .from('profiles')
             .select('wins, losses, matches_played, elo_rating, first_name, last_name')
@@ -145,7 +133,6 @@ async function main() {
         const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim();
         console.log(`  Current: ${playerName} - Wins: ${player.wins}, Losses: ${player.losses}, Elo: ${player.elo_rating}`);
 
-        // Calculate new values
         const newWins = Math.max(0, (player.wins || 0) + corrections.wins);
         const newLosses = Math.max(0, (player.losses || 0) + corrections.losses);
         const newMatchesPlayed = Math.max(0, (player.matches_played || 0) + corrections.matchesPlayed);
@@ -153,7 +140,6 @@ async function main() {
 
         console.log(`  New: Wins: ${newWins}, Losses: ${newLosses}, Elo: ${newElo}`);
 
-        // Update player stats
         const { error: updateError } = await supabase
             .from('profiles')
             .update({

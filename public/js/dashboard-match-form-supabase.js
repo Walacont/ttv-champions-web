@@ -1,6 +1,6 @@
 // SC Champions - Dashboard Match Form Module (Supabase Version)
-// Extracted from dashboard-supabase.js for better maintainability
-// Handles match request form, opponent search, and match submission
+// Aus dashboard-supabase.js extrahiert für bessere Wartbarkeit
+// Verwaltet Match-Request-Formular, Gegnersuche und Match-Übermittlung
 
 import { getSupabase } from './supabase-init.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
@@ -9,17 +9,16 @@ import { createTennisScoreInput, createBadmintonScoreInput } from './player-matc
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
-// Module state
 let setScoreHandler = null;
 let selectedOpponent = null;
 let currentUser = null;
 let currentUserData = null;
 let currentSportContext = null;
 let testClubIdsCache = null;
-let currentHandicapDetails = null; // Stores current handicap suggestion details
+let currentHandicapDetails = null; // Speichert aktuelle Handicap-Vorschläge für spätere Verwendung
 
 /**
- * Initialize the module with user data
+ * Modul mit Benutzerdaten initialisieren
  */
 export function initMatchFormModule(user, userData, sportContext) {
     currentUser = user;
@@ -28,21 +27,21 @@ export function initMatchFormModule(user, userData, sportContext) {
 }
 
 /**
- * Get the current set score handler (for external access)
+ * Set-Score-Handler abrufen (für externen Zugriff)
  */
 export function getSetScoreHandler() {
     return setScoreHandler;
 }
 
 /**
- * Get the selected opponent (for external access)
+ * Gewählten Gegner abrufen (für externen Zugriff)
  */
 export function getSelectedOpponent() {
     return selectedOpponent;
 }
 
 /**
- * Load test club IDs for filtering (with caching)
+ * Test-Verein-IDs laden (mit Caching)
  */
 async function loadTestClubIds() {
     if (testClubIdsCache !== null) return testClubIdsCache;
@@ -64,7 +63,7 @@ async function loadTestClubIds() {
 }
 
 /**
- * Helper function to create a notification for a user
+ * Benachrichtigung für einen Benutzer erstellen
  */
 async function createNotification(userId, type, title, message, data = {}) {
     try {
@@ -88,7 +87,7 @@ async function createNotification(userId, type, title, message, data = {}) {
 }
 
 /**
- * Setup the match request form
+ * Match-Request-Formular einrichten
  */
 export function setupMatchForm(callbacks = {}) {
     const form = document.getElementById('match-request-form');
@@ -104,14 +103,12 @@ export function setupMatchForm(callbacks = {}) {
 
     if (!form) return;
 
-    // Determine sport type from currentSportContext
     const sportName = currentSportContext?.sportName;
     const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
     const isBadminton = sportName === 'badminton';
 
     console.log('[SetupMatchForm] Sport:', sportName, 'isTennis:', isTennisOrPadel, 'isBadminton:', isBadminton);
 
-    // Mode info texts for each sport
     const modeInfoTexts = {
         'best-of-3-tennis': {
             title: 'Best of 3 (Standard)',
@@ -179,7 +176,6 @@ export function setupMatchForm(callbacks = {}) {
         }
     }
 
-    // Create mode info container
     let modeInfoContainer = document.getElementById('match-mode-info');
     if (!modeInfoContainer && matchModeSelect) {
         modeInfoContainer = document.createElement('div');
@@ -206,7 +202,6 @@ export function setupMatchForm(callbacks = {}) {
         }
     }
 
-    // Update dropdown options based on sport
     if (matchModeSelect) {
         if (isTennisOrPadel) {
             matchModeSelect.innerHTML = `
@@ -232,7 +227,6 @@ export function setupMatchForm(callbacks = {}) {
         updateModeInfo(matchModeSelect.value);
     }
 
-    // Show/hide tennis options based on sport
     if (tennisOptionsContainer) {
         if (isTennisOrPadel) {
             tennisOptionsContainer.classList.remove('hidden');
@@ -241,7 +235,6 @@ export function setupMatchForm(callbacks = {}) {
         }
     }
 
-    // Helper function to update winner display
     function updateWinnerDisplay() {
         const matchWinnerInfo = document.getElementById('match-winner-info');
         const matchWinnerText = document.getElementById('match-winner-text');
@@ -283,14 +276,13 @@ export function setupMatchForm(callbacks = {}) {
                 }
             }
 
-            // Winner display is handled by winnerPreview only
+            // Gewinner-Anzeige wird nur von winnerPreview verwaltet
             matchWinnerInfo.classList.add('hidden');
         } else {
             matchWinnerInfo.classList.add('hidden');
         }
     }
 
-    // Helper function to create appropriate score input based on sport and mode
     function createScoreInputForSport(mode) {
         if (!setScoreContainer) return null;
 
@@ -317,18 +309,15 @@ export function setupMatchForm(callbacks = {}) {
         return handler;
     }
 
-    // Initialize set score inputs based on sport
     setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
     window.playerSetScoreInput = setScoreHandler;
 
-    // Match mode change
     matchModeSelect?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect.value);
         window.playerSetScoreInput = setScoreHandler;
         updateModeInfo(matchModeSelect.value);
     });
 
-    // Tennis-specific options
     goldenPointCheckbox?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
         window.playerSetScoreInput = setScoreHandler;
@@ -339,7 +328,6 @@ export function setupMatchForm(callbacks = {}) {
         window.playerSetScoreInput = setScoreHandler;
     });
 
-    // Singles/Doubles toggle
     singlesToggle?.addEventListener('click', () => {
         singlesToggle.classList.add('active');
         doublesToggle?.classList.remove('active');
@@ -354,7 +342,6 @@ export function setupMatchForm(callbacks = {}) {
         document.getElementById('doubles-players-container')?.classList.remove('hidden');
     });
 
-    // Opponent search
     let searchTimeout = null;
     opponentSearchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -368,7 +355,6 @@ export function setupMatchForm(callbacks = {}) {
         searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults), 300);
     });
 
-    // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -383,13 +369,12 @@ export function setupMatchForm(callbacks = {}) {
         }
     });
 
-    // Initialize doubles player UI
     initializeDoublesPlayerUI();
     initializeDoublesPlayerSearch(supabase, currentUserData);
 }
 
 /**
- * Search for opponents
+ * Gegner suchen
  */
 async function searchOpponents(query, resultsContainer) {
     try {
@@ -416,7 +401,7 @@ async function searchOpponents(query, resultsContainer) {
             if (player.role === 'admin') return false;
             if (player.is_match_ready !== true) return false;
 
-            // Singles: exclude offline players (they can only play doubles)
+            // Einzelspieler: Offline-Spieler ausschließen (können nur Doppel spielen)
             if (player.is_offline === true) return false;
 
             if (player.club_id && testClubIds.includes(player.club_id)) {
@@ -490,7 +475,7 @@ async function searchOpponents(query, resultsContainer) {
 }
 
 /**
- * Select an opponent from search results
+ * Gegner aus Suchergebnissen auswählen
  */
 function selectOpponent(optionElement) {
     const id = optionElement.dataset.id;
@@ -517,7 +502,7 @@ function selectOpponent(optionElement) {
 }
 
 /**
- * Clear opponent selection
+ * Gegnerwahl aufheben
  */
 export function clearOpponentSelection() {
     selectedOpponent = null;
@@ -529,11 +514,11 @@ export function clearOpponentSelection() {
     document.getElementById('match-handicap-info')?.classList.add('hidden');
 }
 
-// Expose to window for onclick handlers
+// Für onclick-Handler im globalen Scope verfügbar machen
 window.clearOpponentSelection = clearOpponentSelection;
 
 /**
- * Check for handicap suggestions
+ * Handicap-Vorschläge prüfen
  */
 async function checkHandicap() {
     const handicapInfo = document.getElementById('match-handicap-info');
@@ -555,7 +540,6 @@ async function checkHandicap() {
 
     let handicapSuggestions = [];
 
-    // Elo-based handicap
     if (diff >= threshold) {
         const stronger = iAmStronger ? 'Du bist' : `${selectedOpponent.name} ist`;
         const weaker = iAmStronger ? selectedOpponent.name : 'Du';
@@ -578,7 +562,6 @@ async function checkHandicap() {
         }
     }
 
-    // H2H-based handicap
     let h2hStreakWinnerId = null;
     try {
         const { data: h2hData, error } = await supabase
@@ -612,7 +595,6 @@ async function checkHandicap() {
         console.log('[Handicap] H2H check failed:', e);
     }
 
-    // Display suggestions and store details
     if (handicapSuggestions.length > 0) {
         const h2hSuggestion = handicapSuggestions.find(s => s.type === 'h2h');
         const eloSuggestion = handicapSuggestions.find(s => s.type === 'elo');
@@ -628,23 +610,21 @@ async function checkHandicap() {
             selectedSuggestion = eloSuggestion;
         }
 
-        // Store handicap details for later use when saving match
+        // Handicap-Details für spätere Verwendung beim Speichern des Matches speichern
         if (selectedSuggestion) {
             let handicapPlayerId, handicapPlayerName;
 
             if (selectedSuggestion.type === 'h2h' && h2hStreakWinnerId) {
-                // For H2H: the player who LOST the streak gets the handicap
+                // H2H: Der Spieler, der die Serie VERLOREN hat, bekommt das Handicap
                 if (h2hStreakWinnerId === selectedOpponent.id) {
-                    // Opponent won streak, so current user gets handicap
                     handicapPlayerId = currentUser.id;
                     handicapPlayerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim();
                 } else {
-                    // Current user won streak, so opponent gets handicap
                     handicapPlayerId = selectedOpponent.id;
                     handicapPlayerName = selectedOpponent.name;
                 }
             } else {
-                // For Elo-based: weaker player (lower Elo) gets handicap
+                // Elo-basiert: Schwächerer Spieler (niedrigere Elo) bekommt Handicap
                 const myElo = currentUserData.elo_rating || 800;
                 const opponentElo = selectedOpponent.elo;
                 const iAmStronger = myElo > opponentElo;
@@ -671,7 +651,7 @@ async function checkHandicap() {
 }
 
 /**
- * Submit match request
+ * Match-Anfrage absenden
  */
 async function submitMatchRequest(callbacks = {}) {
     const feedbackEl = document.getElementById('match-request-feedback');
@@ -706,7 +686,6 @@ async function submitMatchRequest(callbacks = {}) {
     const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
 
     try {
-        // Build handicap object if handicap is used
         const handicapData = handicapUsed && currentHandicapDetails ? {
             player_id: currentHandicapDetails.player_id,
             player_name: currentHandicapDetails.player_name,
@@ -741,30 +720,23 @@ async function submitMatchRequest(callbacks = {}) {
 
         if (error) throw error;
 
-        // Notify opponent with request_id and match details
         const playerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
         const opponentName = selectedOpponent.displayName || selectedOpponent.display_name ||
             `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() || 'du';
 
-        // Build set score string (e.g., "11:7, 9:11, 11:5")
         const setsString = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
 
-        // Determine winner from opponent's perspective
-        // validation.winnerId is 'A' (requester) or 'B' (opponent/receiver)
+        // Gewinner aus Sicht des Gegners bestimmen (validation.winnerId ist 'A' oder 'B')
         const opponentWon = validation.winnerId === 'B';
         const setScore = `${validation.playerAWins}:${validation.playerBWins}`;
 
-        // Build notification message
         let notificationBody;
         if (opponentWon) {
-            // Opponent (receiver) won
             notificationBody = `${playerName} trägt ein: Du hast ${setScore} gewonnen (${setsString})`;
         } else {
-            // Requester won
             notificationBody = `${playerName} trägt ein: ${playerName} hat ${setScore} gewonnen (${setsString})`;
         }
 
-        // Add handicap info if used
         if (handicapUsed) {
             notificationBody += ' [Handicap]';
         }
@@ -788,11 +760,9 @@ async function submitMatchRequest(callbacks = {}) {
 
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');
 
-        // Reset form
         clearOpponentSelection();
         setScoreHandler.reset();
 
-        // Callbacks for reloading
         if (callbacks.onSuccess) {
             callbacks.onSuccess();
         }
@@ -804,7 +774,7 @@ async function submitMatchRequest(callbacks = {}) {
 }
 
 /**
- * Show feedback message
+ * Feedback-Nachricht anzeigen
  */
 function showFeedback(element, message, type) {
     if (!element) return;
@@ -823,7 +793,7 @@ function showFeedback(element, message, type) {
 }
 
 /**
- * Create set score input (Table Tennis)
+ * Satzergebnis-Eingabe erstellen (Tischtennis)
  */
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
     container.innerHTML = '';
@@ -1003,7 +973,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
         }
 
-        // Check that no player has MORE than setsToWin (match should end when someone wins)
+        // Verhindert mehr als setsToWin Sätze (Match sollte enden, sobald jemand gewinnt)
         if (playerAWins > setsToWin || playerBWins > setsToWin) {
             return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
         }

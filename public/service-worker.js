@@ -3,7 +3,6 @@ const CACHE_NAME = 'ttv-champions-v10';
 const STATIC_CACHE = 'ttv-static-v10';
 const DYNAMIC_CACHE = 'ttv-dynamic-v10';
 
-// Static assets to cache on install
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -31,7 +30,6 @@ const STATIC_ASSETS = [
     '/manifest.json'
 ];
 
-// URLs that should always go to network (Firebase, Supabase, APIs)
 const NETWORK_ONLY = [
     'firestore.googleapis.com',
     'firebase.googleapis.com',
@@ -41,18 +39,16 @@ const NETWORK_ONLY = [
     'googleapis.com/storage',
     'google-analytics.com',
     'googletagmanager.com',
-    // Supabase URLs - MUST bypass cache for real-time data!
+    // Supabase muss Cache umgehen wegen Echtzeit-Daten
     'supabase.co',
     'supabase.com',
     'supabase.in',
-    // Version check - always fetch fresh
+    // Versionsprüfung immer aktuell halten
     'version.json',
     'update-checker.js',
-    // OneSignal
     'onesignal.com'
 ];
 
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing Service Worker...');
     event.waitUntil(
@@ -69,7 +65,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('[SW] Activating Service Worker...');
     event.waitUntil(
@@ -95,18 +90,15 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Helper: Check if URL should bypass cache
 function shouldBypassCache(url) {
     return NETWORK_ONLY.some((domain) => url.includes(domain));
 }
 
-// Helper: Check if request is for HTML page
 function isHtmlRequest(request) {
     const acceptHeader = request.headers.get('Accept') || '';
     return acceptHeader.includes('text/html');
 }
 
-// Helper: Check if request is for static asset
 function isStaticAsset(url) {
     return (
         url.endsWith('.css') ||
@@ -121,59 +113,51 @@ function isStaticAsset(url) {
     );
 }
 
-// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // Skip non-GET requests
     if (event.request.method !== 'GET') {
         return;
     }
 
-    // Network only for Firebase and external APIs
     if (shouldBypassCache(url)) {
         return;
     }
 
-    // Skip chrome-extension and other non-http(s) requests
+    // Chrome-Erweiterungen und andere nicht-HTTP(S) Anfragen überspringen
     if (!url.startsWith('http')) {
         return;
     }
 
     event.respondWith(
         (async () => {
-            // Try cache first for static assets
             if (isStaticAsset(url)) {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
-                    // Update cache in background (stale-while-revalidate)
+                    // Cache im Hintergrund aktualisieren (stale-while-revalidate)
                     event.waitUntil(updateCache(event.request));
                     return cachedResponse;
                 }
             }
 
-            // Network first for HTML pages (to get fresh content)
+            // HTML-Seiten: Network-First für aktuelle Inhalte
             if (isHtmlRequest(event.request)) {
                 try {
                     const networkResponse = await fetch(event.request);
-                    // Cache successful responses
                     if (networkResponse.ok) {
                         const cache = await caches.open(DYNAMIC_CACHE);
                         cache.put(event.request, networkResponse.clone());
                     }
                     return networkResponse;
                 } catch (error) {
-                    // Offline - serve from cache
                     const cachedResponse = await caches.match(event.request);
                     if (cachedResponse) {
                         return cachedResponse;
                     }
-                    // Return offline page
                     return caches.match('/dashboard.html');
                 }
             }
 
-            // For other requests: cache first, network fallback
             try {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
@@ -188,7 +172,6 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             } catch (error) {
                 console.error('[SW] Fetch failed:', error);
-                // Return a basic offline response for non-HTML requests
                 return new Response('Offline', {
                     status: 503,
                     statusText: 'Service Unavailable'
@@ -198,7 +181,6 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Helper: Update cache in background
 async function updateCache(request) {
     try {
         const response = await fetch(request);
@@ -207,11 +189,10 @@ async function updateCache(request) {
             await cache.put(request, response);
         }
     } catch (error) {
-        // Ignore network errors during background update
+        // Netzwerkfehler beim Hintergrund-Update ignorieren
     }
 }
 
-// Listen for messages from the main app
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
@@ -226,7 +207,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Background sync for offline match submissions (future feature)
+// Background Sync für Offline-Match-Eingaben (zukünftiges Feature)
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-matches') {
         event.waitUntil(syncMatches());
@@ -234,11 +215,11 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncMatches() {
-    // Future: Sync offline-submitted matches when back online
+    // Später: Offline gespeicherte Matches synchronisieren sobald wieder online
     console.log('[SW] Syncing matches...');
 }
 
-// Push notifications (future feature)
+// Push-Benachrichtigungen (zukünftiges Feature)
 self.addEventListener('push', (event) => {
     if (!event.data) return;
 
@@ -257,7 +238,6 @@ self.addEventListener('push', (event) => {
     event.waitUntil(self.registration.showNotification(data.title || 'TTV Champions', options));
 });
 
-// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
@@ -265,14 +245,12 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            // Check if there's already a window open
             for (const client of clientList) {
                 if (client.url.includes('ttv-champions') && 'focus' in client) {
                     client.navigate(urlToOpen);
                     return client.focus();
                 }
             }
-            // Open new window
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
             }

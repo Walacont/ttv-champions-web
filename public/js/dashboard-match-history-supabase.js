@@ -1,13 +1,11 @@
-// SC Champions - Dashboard Match History Module (Supabase Version)
-// Extracted from dashboard-supabase.js for better maintainability
-// Handles match history display, rendering, and details modals
+// SC Champions - Dashboard Match History Modul (Supabase-Version)
+// Verwaltet Anzeige der Wettkampf-Historie, Rendering und Detail-Modals
 
 import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
-// Module state
 let currentUser = null;
 let currentUserData = null;
 let allLoadedMatches = [];
@@ -15,9 +13,7 @@ let displayedMatchCount = 3;
 let profileMapCache = {};
 const MATCHES_PER_PAGE = 3;
 
-/**
- * Initialize the module with user data
- */
+/** Initialisiert das Modul mit Benutzerdaten */
 export function initMatchHistoryModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
@@ -26,18 +22,15 @@ export function initMatchHistoryModule(user, userData) {
     profileMapCache = {};
 }
 
-/**
- * Load match history (singles + doubles) with pagination
- */
+/** Lädt Wettkampf-Historie (Einzel + Doppel) mit Paginierung */
 export async function loadMatchHistory() {
     const container = document.getElementById('match-history-list');
     if (!container) return;
 
-    // Reset pagination on fresh load
+    // Paginierung zurücksetzen für neues Laden
     displayedMatchCount = MATCHES_PER_PAGE;
 
     try {
-        // Fetch singles matches
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
             .select('*')
@@ -47,7 +40,6 @@ export async function loadMatchHistory() {
 
         if (singlesError) throw singlesError;
 
-        // Fetch doubles matches
         const { data: doublesMatches, error: doublesError } = await supabase
             .from('doubles_matches')
             .select('*')
@@ -59,13 +51,11 @@ export async function loadMatchHistory() {
         console.log('[MatchHistory] Doubles matches found:', doublesMatches?.length || 0, doublesMatches);
         if (doublesError) console.warn('[MatchHistory] Error fetching doubles:', doublesError);
 
-        // Combine and normalize matches
         allLoadedMatches = [
             ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
             ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
         ];
 
-        // Sort by date descending
         allLoadedMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         if (allLoadedMatches.length === 0) {
@@ -73,7 +63,6 @@ export async function loadMatchHistory() {
             return;
         }
 
-        // Collect all player IDs
         const playerIds = new Set();
         allLoadedMatches.forEach(m => {
             if (m.matchType === 'singles') {
@@ -87,13 +76,11 @@ export async function loadMatchHistory() {
             }
         });
 
-        // Get player profiles
         const { data: profiles } = await supabase
             .from('profiles')
             .select('id, display_name, first_name, last_name, avatar_url, elo_rating, wins, losses')
             .in('id', [...playerIds].filter(Boolean));
 
-        // Calculate ranks based on Elo
         const { data: allPlayers } = await supabase
             .from('profiles')
             .select('id, elo_rating')
@@ -113,7 +100,6 @@ export async function loadMatchHistory() {
             };
         });
 
-        // Render initial matches
         renderMatchHistory(container);
 
     } catch (error) {
@@ -122,14 +108,11 @@ export async function loadMatchHistory() {
     }
 }
 
-/**
- * Render match history with current pagination
- */
+/** Rendert Wettkampf-Historie mit aktueller Paginierung */
 function renderMatchHistory(container) {
     const matchesToShow = allLoadedMatches.slice(0, displayedMatchCount);
     const hasMore = allLoadedMatches.length > displayedMatchCount;
 
-    // Render matches
     let html = matchesToShow.map(match => {
         if (match.matchType === 'doubles') {
             return renderDoublesMatchCard(match, profileMapCache);
@@ -138,7 +121,6 @@ function renderMatchHistory(container) {
         }
     }).join('');
 
-    // Add "Load More" button if there are more matches
     if (hasMore) {
         const remaining = allLoadedMatches.length - displayedMatchCount;
         html += `
@@ -151,7 +133,6 @@ function renderMatchHistory(container) {
 
     container.innerHTML = html;
 
-    // Add click handler for load more button
     const loadMoreBtn = document.getElementById('load-more-matches');
     if (loadMoreBtn) {
         loadMoreBtn.addEventListener('click', () => {
@@ -160,15 +141,13 @@ function renderMatchHistory(container) {
         });
     }
 
-    // Store matches for details modal
+    // Wettkämpfe für Detail-Modal global verfügbar machen
     const singlesMatchesForModal = allLoadedMatches.filter(m => m.matchType !== 'doubles');
     const doublesMatchesForModal = allLoadedMatches.filter(m => m.matchType === 'doubles');
     window.matchHistoryData = { matches: singlesMatchesForModal, doublesMatches: doublesMatchesForModal, profileMap: profileMapCache };
 }
 
-/**
- * Render a singles match card
- */
+/** Rendert eine Einzel-Wettkampf-Karte */
 function renderSinglesMatchCard(match, profileMap) {
     const playerA = profileMap[match.player_a_id] || {};
     const playerB = profileMap[match.player_b_id] || {};
@@ -178,7 +157,6 @@ function renderSinglesMatchCard(match, profileMap) {
     const currentPlayer = isCurrentUserA ? playerA : playerB;
     const opponent = isCurrentUserA ? playerB : playerA;
 
-    // Set wins calculation
     let playerASetWins = 0;
     let playerBSetWins = 0;
     const sets = match.sets || [];
@@ -207,7 +185,7 @@ function renderSinglesMatchCard(match, profileMap) {
     const myAvatar = currentPlayer.avatar_url || DEFAULT_AVATAR;
     const oppAvatar = opponent.avatar_url || DEFAULT_AVATAR;
 
-    // Only show Elo change on card (season points shown in details)
+    // Nur Elo-Änderung auf Karte anzeigen (Saisonpunkte werden in Details gezeigt)
     const displayElo = Math.abs(eloChange);
     const statsHtml = isWinner
         ? `<span class="text-green-600 font-medium">+${displayElo} Elo</span>`
@@ -217,13 +195,12 @@ function renderSinglesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
-    // Truncate opponent name if too long
     const oppName = opponent.first_name || opponent.display_name || 'Gegner';
     const oppNameDisplay = oppName.length > 10 ? oppName.substring(0, 10) + '.' : oppName;
 
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
-            <!-- Header -->
+            <!-- Kopfzeile -->
             <div class="flex justify-between items-center mb-3">
                 <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
                 <span class="px-2 py-1 rounded-full text-xs font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
@@ -231,12 +208,12 @@ function renderSinglesMatchCard(match, profileMap) {
                 </span>
             </div>
 
-            <!-- Score centered -->
+            <!-- Ergebnis -->
             <div class="text-center mb-3">
                 <p class="text-3xl font-bold">${mySetWins} : ${oppSetWins}</p>
             </div>
 
-            <!-- Players -->
+            <!-- Spieler -->
             <div class="flex items-center justify-center gap-4 mb-3">
                 <div class="flex items-center">
                     <img src="${myAvatar}" alt="Du"
@@ -261,7 +238,7 @@ function renderSinglesMatchCard(match, profileMap) {
                 </div>
             </div>
 
-            <!-- Footer -->
+            <!-- Fußzeile -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                 <div class="flex items-center">
                     ${statsHtml}${handicapBadge}
@@ -274,9 +251,7 @@ function renderSinglesMatchCard(match, profileMap) {
     `;
 }
 
-/**
- * Render a doubles match card (mobile-optimized vertical layout)
- */
+/** Rendert eine Doppel-Wettkampf-Karte (mobile-optimiert) */
 function renderDoublesMatchCard(match, profileMap) {
     const isTeamA = match.team_a_player1_id === currentUser.id || match.team_a_player2_id === currentUser.id;
     const isWinner = (isTeamA && match.winning_team === 'A') || (!isTeamA && match.winning_team === 'B');
@@ -289,7 +264,6 @@ function renderDoublesMatchCard(match, profileMap) {
     const oppTeamPlayer1 = isTeamA ? profileMap[match.team_b_player1_id] : profileMap[match.team_a_player1_id];
     const oppTeamPlayer2 = isTeamA ? profileMap[match.team_b_player2_id] : profileMap[match.team_a_player2_id];
 
-    // Set wins calculation
     let teamASetWins = 0;
     let teamBSetWins = 0;
     const sets = match.sets || [];
@@ -320,18 +294,16 @@ function renderDoublesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
-    // Get Elo change for my team
     const myTeamEloChange = isTeamA ? (match.team_a_elo_change || 0) : (match.team_b_elo_change || 0);
     const displayElo = Math.abs(myTeamEloChange);
 
-    // Show Elo change (positive for winner, negative for loser)
     const statsHtml = isWinner
         ? `<span class="text-green-600 font-medium">+${displayElo} Doppel-Elo</span>`
         : `<span class="text-red-600 font-medium">-${displayElo} Doppel-Elo</span>`;
 
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
-            <!-- Header -->
+            <!-- Kopfzeile -->
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
                     <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">Doppel</span>
@@ -342,12 +314,10 @@ function renderDoublesMatchCard(match, profileMap) {
                 </span>
             </div>
 
-            <!-- Score and Teams - mobile optimized -->
+            <!-- Ergebnis und Teams -->
             <div class="flex flex-col items-center mb-3">
-                <!-- Score -->
                 <p class="text-3xl font-bold mb-2">${mySetWins} : ${oppSetWins}</p>
 
-                <!-- Teams wrap on small screens -->
                 <div class="doubles-teams-row flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
                     <div class="flex items-center">
                         <div class="flex -space-x-1 flex-shrink-0">
@@ -375,7 +345,7 @@ function renderDoublesMatchCard(match, profileMap) {
                 </div>
             </div>
 
-            <!-- Footer -->
+            <!-- Fußzeile -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                 <div class="flex items-center">
                     ${statsHtml}${handicapBadge}
@@ -388,9 +358,7 @@ function renderDoublesMatchCard(match, profileMap) {
     `;
 }
 
-/**
- * Format relative date
- */
+/** Formatiert relative Datumsangabe (Heute, Gestern, oder Datum) */
 export function formatRelativeDate(date) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -407,9 +375,7 @@ export function formatRelativeDate(date) {
     }
 }
 
-/**
- * Show match details modal
- */
+/** Zeigt Detail-Modal für Einzel-Wettkampf */
 export function showMatchDetails(matchId, matchType = 'singles') {
     const { matches, doublesMatches, profileMap } = window.matchHistoryData || {};
 
@@ -426,31 +392,30 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     const playerA = profileMap[match.player_a_id] || {};
     const playerB = profileMap[match.player_b_id] || {};
 
-    // Check if current user is a participant
     const isParticipant = currentUser && (match.player_a_id === currentUser.id || match.player_b_id === currentUser.id);
     const isCurrentUserA = match.player_a_id === currentUser?.id;
     const isWinner = isParticipant && match.winner_id === currentUser.id;
 
-    // Determine left/right players based on whether user is participant
+    // Ansicht je nach Perspektive: Teilnehmer sieht "Du" links, Zuschauer sieht Gewinner links
     let leftPlayer, rightPlayer, leftIsWinner, leftName, rightName;
     if (isParticipant) {
-        // Show from user's perspective: "Du" on the left
+        // "Du" links für Teilnehmer
         leftPlayer = isCurrentUserA ? playerA : playerB;
         rightPlayer = isCurrentUserA ? playerB : playerA;
         leftIsWinner = isWinner;
         leftName = 'Du';
         rightName = rightPlayer.first_name || rightPlayer.display_name || 'Gegner';
     } else {
-        // Show objectively: winner on the left
+        // Gewinner links für Zuschauer
         const winnerIsA = match.winner_id === match.player_a_id;
         leftPlayer = winnerIsA ? playerA : playerB;
         rightPlayer = winnerIsA ? playerB : playerA;
-        leftIsWinner = true; // winner is always on left for non-participants
+        leftIsWinner = true;
         leftName = leftPlayer.first_name || leftPlayer.display_name || 'Spieler 1';
         rightName = rightPlayer.first_name || rightPlayer.display_name || 'Spieler 2';
     }
 
-    // Set details - scores from the left player's perspective
+    // Satzergebnisse aus Perspektive des linken Spielers
     const sets = match.sets || [];
     const leftIsPlayerA = isParticipant ? isCurrentUserA : (match.winner_id === match.player_a_id);
     let setsHtml = sets.map((set, i) => {
@@ -483,7 +448,7 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     const leftEloChange = leftIsWinner ? winnerEloChange : loserEloChange;
     const rightEloChange = leftIsWinner ? loserEloChange : winnerEloChange;
 
-    // Get ELO at time of match (before the match was played)
+    // Elo zum Zeitpunkt des Matches (vor dem Match)
     const leftEloAtMatch = leftIsPlayerA
         ? (match.player_a_elo_before || leftPlayer.elo_rating || 800)
         : (match.player_b_elo_before || rightPlayer.elo_rating || 800);
@@ -501,7 +466,6 @@ export function showMatchDetails(matchId, matchType = 'singles') {
         minute: '2-digit'
     });
 
-    // Result badge text
     let resultBadge = '';
     if (isParticipant) {
         resultBadge = `<span class="px-4 py-2 rounded-full text-lg font-bold ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
@@ -600,9 +564,7 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-/**
- * Show doubles match details modal
- */
+/** Zeigt Detail-Modal für Doppel-Wettkampf */
 function showDoublesMatchDetails(match, profileMap) {
     const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
     const teamAPlayer2 = profileMap[match.team_a_player2_id] || {};
@@ -773,9 +735,7 @@ function showDoublesMatchDetails(match, profileMap) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-/**
- * Format sets display
- */
+/** Formatiert Satz-Anzeige */
 export function formatSetsDisplay(sets) {
     if (!sets || sets.length === 0) return 'Keine Sätze';
 
@@ -802,14 +762,11 @@ export function formatSetsDisplay(sets) {
     return `${playerASetWins}:${playerBSetWins} (${setScores})`;
 }
 
-/**
- * Delete match request
- */
+/** Löscht eine Wettkampf-Anfrage */
 export async function deleteMatchRequest(requestId, callbacks = {}) {
     if (!confirm('Möchtest du diese Anfrage wirklich zurückziehen?')) return;
 
     try {
-        // First get the request to find player_b_id
         const { data: request } = await supabase
             .from('match_requests')
             .select('player_b_id')
@@ -824,9 +781,7 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
 
         if (error) throw error;
 
-        // Delete the notification for player B
         if (request?.player_b_id) {
-            // Find and delete notifications with this request_id
             const { data: notifications } = await supabase
                 .from('notifications')
                 .select('id, data')
@@ -840,8 +795,7 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
             }
         }
 
-        // Always refresh the lists for Player A (who withdrew)
-        // Use setTimeout to ensure DOM is ready and functions are available
+        // setTimeout stellt sicher, dass DOM und Funktionen verfügbar sind
         setTimeout(() => {
             if (typeof window.loadMatchRequests === 'function') {
                 window.loadMatchRequests();
@@ -861,6 +815,6 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
     }
 }
 
-// Expose to window for onclick handlers
+// Funktionen global verfügbar machen für onclick-Handler
 window.showMatchDetails = showMatchDetails;
 window.deleteMatchRequest = deleteMatchRequest;

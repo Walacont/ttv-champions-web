@@ -1,7 +1,6 @@
 /**
- * Cleanup Script - Remove duplicate profiles and fix Unknown Player names
- *
- * Usage: node scripts/cleanup-duplicates.js
+ * Bereinigt doppelte Profile und korrigiert "Unknown Player" Namen
+ * Verwendung: node scripts/cleanup-duplicates.js
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -14,11 +13,9 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Supabase config
 const SUPABASE_URL = 'https://wmrbjuyqgbmvtzrujuxs.supabase.co';
 const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtcmJqdXlxZ2JtdnR6cnVqdXhzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDY3OTMzOSwiZXhwIjoyMDgwMjU1MzM5fQ.94nqvxAhCHUP0g1unKzdnInOaM4huwTTcSnKxJ5jSdA';
 
-// Initialize Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: {
         autoRefreshToken: false,
@@ -26,11 +23,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     }
 });
 
-// Load Firebase service account
 const serviceAccountPath = join(__dirname, 'firebase-service-account.json');
 const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
 
-// Initialize Firebase Admin
 initializeApp({
     credential: cert(serviceAccount)
 });
@@ -51,7 +46,6 @@ function log(message, type = 'info') {
 async function findAndRemoveDuplicates() {
     log('Finding duplicate profiles...', 'progress');
 
-    // Get all profiles
     const { data: profiles, error } = await supabase
         .from('profiles')
         .select('id, email, display_name, xp, elo_rating, role');
@@ -61,7 +55,6 @@ async function findAndRemoveDuplicates() {
         return;
     }
 
-    // Group by email
     const emailGroups = {};
     for (const profile of profiles) {
         if (profile.email) {
@@ -72,25 +65,22 @@ async function findAndRemoveDuplicates() {
         }
     }
 
-    // Find duplicates
     let duplicatesRemoved = 0;
     for (const [email, group] of Object.entries(emailGroups)) {
         if (group.length > 1) {
             log(`  Duplicate found: ${email} (${group.length} entries)`, 'warn');
 
-            // Keep the one with highest XP/Elo or the one that's in auth.users
-            // Sort by XP descending, then by elo_rating
+            // Sortiere nach Gesamtscore (XP + Elo) für Fallback
             group.sort((a, b) => {
                 const scoreA = (a.xp || 0) + (a.elo_rating || 0);
                 const scoreB = (b.xp || 0) + (b.elo_rating || 0);
                 return scoreB - scoreA;
             });
 
-            // Check which one is in auth.users
             const { data: authUsers } = await supabase.auth.admin.listUsers();
             const authUserIds = new Set(authUsers?.users?.map(u => u.id) || []);
 
-            // Prefer the auth user, otherwise keep the one with most XP
+            // Bevorzuge auth.users Eintrag, sonst den mit höchstem Score
             let keepProfile = group[0];
             for (const profile of group) {
                 if (authUserIds.has(profile.id)) {
@@ -99,7 +89,6 @@ async function findAndRemoveDuplicates() {
                 }
             }
 
-            // Delete the others
             for (const profile of group) {
                 if (profile.id !== keepProfile.id) {
                     log(`    Removing: ${profile.id} (${profile.display_name})`, 'info');
@@ -125,7 +114,6 @@ async function findAndRemoveDuplicates() {
 async function fixUnknownPlayerNames() {
     log('Fixing Unknown Player names...', 'progress');
 
-    // Get profiles with Unknown Player name
     const { data: unknownProfiles, error } = await supabase
         .from('profiles')
         .select('id, email, display_name')
@@ -138,7 +126,7 @@ async function fixUnknownPlayerNames() {
 
     log(`Found ${unknownProfiles?.length || 0} profiles with Unknown name`, 'info');
 
-    // Load ID mappings to find original Firebase IDs
+    // Lade ID-Mappings um ursprüngliche Firebase-IDs zu finden
     let idMappings = {};
     try {
         const mappingsPath = join(__dirname, 'id-mappings.json');
@@ -147,7 +135,7 @@ async function fixUnknownPlayerNames() {
         log('Could not load id-mappings.json, will use email lookup', 'warn');
     }
 
-    // Create reverse mapping (Supabase ID -> Firebase ID)
+    // Reverse Mapping: Supabase ID -> Firebase ID
     const reverseMapping = {};
     for (const [firebaseId, supabaseId] of Object.entries(idMappings.users || {})) {
         reverseMapping[supabaseId] = firebaseId;
@@ -155,7 +143,6 @@ async function fixUnknownPlayerNames() {
 
     let fixedCount = 0;
     for (const profile of unknownProfiles || []) {
-        // Try to find the original Firebase data
         let firebaseId = reverseMapping[profile.id];
         let firebaseData = null;
 
@@ -170,7 +157,7 @@ async function fixUnknownPlayerNames() {
             }
         }
 
-        // If no Firebase ID mapping, try to find by email
+        // Fallback: Suche via E-Mail wenn keine ID-Zuordnung existiert
         if (!firebaseData && profile.email) {
             try {
                 const snapshot = await firestore.collection('users')
@@ -187,7 +174,6 @@ async function fixUnknownPlayerNames() {
         }
 
         if (firebaseData) {
-            // Build display name
             let displayName = firebaseData.displayName || firebaseData.name;
             if (!displayName && (firebaseData.firstName || firebaseData.lastName)) {
                 displayName = `${firebaseData.firstName || ''} ${firebaseData.lastName || ''}`.trim();

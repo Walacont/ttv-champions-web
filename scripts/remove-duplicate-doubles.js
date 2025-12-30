@@ -1,12 +1,6 @@
 /**
- * Script to remove duplicate doubles matches and pairings from Supabase
- *
- * This script handles:
- * 1. Duplicate matches (same players, same timestamp)
- * 2. Duplicate pairings with swapped player order (A+B vs B+A)
- *
- * Usage:
- *   node scripts/remove-duplicate-doubles.js
+ * Skript zum Entfernen von Duplikaten in doubles_matches und doubles_pairings
+ * Behandelt: Exakte Duplikate und Paarungen mit vertauschter Spieler-Reihenfolge (A+B vs B+A)
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -21,9 +15,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     }
 });
 
-/**
- * Create a sorted pairing key from two player IDs
- */
+/** Erstellt sortierten Schlüssel aus zwei Spieler-IDs */
 function createSortedKey(player1Id, player2Id) {
     const sorted = [player1Id, player2Id].sort();
     return `${sorted[0]}_${sorted[1]}`;
@@ -32,7 +24,6 @@ function createSortedKey(player1Id, player2Id) {
 async function removeDuplicateDoublesMatches() {
     console.log('🔍 Finding duplicate doubles matches...\n');
 
-    // Fetch all doubles matches
     const { data: matches, error } = await supabase
         .from('doubles_matches')
         .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, played_at, created_at')
@@ -45,7 +36,7 @@ async function removeDuplicateDoublesMatches() {
 
     console.log(`Found ${matches.length} total doubles matches\n`);
 
-    // Group by unique match key (players + played_at)
+    // Gruppierung nach Spielern und Zeitpunkt, um Duplikate zu finden
     const matchGroups = {};
 
     matches.forEach(match => {
@@ -57,7 +48,6 @@ async function removeDuplicateDoublesMatches() {
         matchGroups[key].push(match);
     });
 
-    // Find duplicates
     const duplicatesToDelete = [];
 
     for (const [key, group] of Object.entries(matchGroups)) {
@@ -66,7 +56,7 @@ async function removeDuplicateDoublesMatches() {
             console.log(`   Players: ${key.split('_').slice(0, 4).join(', ')}`);
             console.log(`   Played at: ${group[0].played_at}`);
 
-            // Keep the first one (oldest by created_at), delete the rest
+            // Ältesten Eintrag behalten, Rest löschen
             const [keep, ...remove] = group;
             console.log(`   Keeping ID: ${keep.id}`);
             console.log(`   Deleting IDs: ${remove.map(m => m.id).join(', ')}\n`);
@@ -82,7 +72,6 @@ async function removeDuplicateDoublesMatches() {
 
     console.log(`\n🗑️ Deleting ${duplicatesToDelete.length} duplicate matches...\n`);
 
-    // Delete duplicates
     const { error: deleteError } = await supabase
         .from('doubles_matches')
         .delete()
@@ -95,7 +84,6 @@ async function removeDuplicateDoublesMatches() {
 
     console.log(`✅ Successfully deleted ${duplicatesToDelete.length} duplicate matches!`);
 
-    // Verify final count
     const { count } = await supabase
         .from('doubles_matches')
         .select('*', { count: 'exact', head: true });
@@ -106,7 +94,6 @@ async function removeDuplicateDoublesMatches() {
 async function removeDuplicateDoublesPairings() {
     console.log('\n🔍 Finding duplicate doubles pairings (including swapped player order)...\n');
 
-    // Fetch all doubles pairings with all relevant fields
     const { data: pairings, error } = await supabase
         .from('doubles_pairings')
         .select('*')
@@ -119,11 +106,10 @@ async function removeDuplicateDoublesPairings() {
 
     console.log(`Found ${pairings.length} total doubles pairings\n`);
 
-    // Group by SORTED player IDs (to find duplicates where player order is swapped)
+    // Gruppierung nach sortierten Spieler-IDs, um Duplikate mit vertauschter Reihenfolge zu finden
     const pairingGroups = {};
 
     pairings.forEach(pairing => {
-        // Create a key using sorted player IDs
         const sortedKey = createSortedKey(pairing.player1_id, pairing.player2_id);
 
         if (!pairingGroups[sortedKey]) {
@@ -132,7 +118,6 @@ async function removeDuplicateDoublesPairings() {
         pairingGroups[sortedKey].push(pairing);
     });
 
-    // Find duplicates
     const duplicatesToDelete = [];
     const pairingsToUpdate = [];
 
@@ -140,12 +125,12 @@ async function removeDuplicateDoublesPairings() {
         if (group.length > 1) {
             console.log(`📋 Found ${group.length} pairings for players: ${sortedKey}`);
 
-            // Sort by matches_played descending to keep the one with most stats
+            // Sortierung nach matches_played, um Paarung mit meisten Stats zu behalten
             group.sort((a, b) => (b.matches_played || 0) - (a.matches_played || 0));
 
             const [keep, ...remove] = group;
 
-            // Merge stats from duplicates
+            // Stats von Duplikaten zusammenführen
             let totalMatchesPlayed = keep.matches_played || 0;
             let totalMatchesWon = keep.matches_won || 0;
             let totalMatchesLost = keep.matches_lost || 0;
@@ -162,11 +147,10 @@ async function removeDuplicateDoublesPairings() {
             console.log(`   Merged stats: ${totalMatchesWon}W / ${totalMatchesLost}L`);
             console.log(`   Deleting: ${remove.map(p => p.id).join(', ')}\n`);
 
-            // Ensure the kept pairing has sorted player IDs
+            // Spieler-IDs in konsistenter Reihenfolge (sortiert) sicherstellen
             const [sortedP1, sortedP2] = [keep.player1_id, keep.player2_id].sort();
             const needsPlayerSwap = sortedP1 !== keep.player1_id;
 
-            // Prepare update for the kept pairing
             pairingsToUpdate.push({
                 id: keep.id,
                 player1_id: sortedP1,
@@ -184,7 +168,7 @@ async function removeDuplicateDoublesPairings() {
 
             duplicatesToDelete.push(...remove.map(p => p.id));
         } else {
-            // Single pairing - just ensure player IDs are sorted
+            // Einzelne Paarung: Spieler-Reihenfolge normalisieren
             const pairing = group[0];
             const [sortedP1, sortedP2] = [pairing.player1_id, pairing.player2_id].sort();
 
@@ -204,7 +188,7 @@ async function removeDuplicateDoublesPairings() {
         }
     }
 
-    // Delete duplicates first
+    // Duplikate zuerst löschen, dann Updates durchführen
     if (duplicatesToDelete.length > 0) {
         console.log(`\n🗑️ Deleting ${duplicatesToDelete.length} duplicate pairings...\n`);
 
@@ -223,7 +207,7 @@ async function removeDuplicateDoublesPairings() {
         console.log('✅ No duplicate pairings found!');
     }
 
-    // Update remaining pairings with merged stats and sorted player IDs
+    // Verbleibende Paarungen mit zusammengeführten Stats aktualisieren
     if (pairingsToUpdate.length > 0) {
         console.log(`\n🔄 Updating ${pairingsToUpdate.length} pairings with merged stats and sorted player IDs...\n`);
 
@@ -241,7 +225,6 @@ async function removeDuplicateDoublesPairings() {
         console.log('✅ Pairings updated successfully!');
     }
 
-    // Verify final count
     const { count } = await supabase
         .from('doubles_pairings')
         .select('*', { count: 'exact', head: true });

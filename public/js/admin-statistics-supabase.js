@@ -1,12 +1,10 @@
-// Admin Statistics Module (Supabase Version)
-// Extracted from admin-supabase.js for better maintainability
-// Handles statistics loading and chart rendering
+// Admin-Statistikmodul (Supabase-Version)
+// Verwaltet Statistikladen und Chart-Rendering
 
 import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 
-// Module state
 let genderChartInstance = null;
 let attendanceChartInstance = null;
 let competitionChartInstance = null;
@@ -15,19 +13,13 @@ let competitionPeriod = 'month';
 let competitionTypeFilter = 'all';
 let currentSportFilter = 'all';
 
-/**
- * Set the current sport filter
- */
 export function setStatisticsSportFilter(sportId) {
     currentSportFilter = sportId;
 }
 
-/**
- * Load and display statistics
- */
 export async function loadStatistics() {
     try {
-        // Load clubs to identify test clubs
+        // Clubs laden um Test-Clubs zu identifizieren
         const { data: clubs } = await supabase
             .from('clubs')
             .select('id, is_test_club');
@@ -36,7 +28,7 @@ export async function loadStatistics() {
             (clubs || []).filter(c => c.is_test_club === true).map(c => c.id)
         );
 
-        // Load users (excluding test clubs, filtered by sport)
+        // Benutzer laden (Test-Clubs ausschließen, nach Sport filtern)
         let usersQuery = supabase.from('profiles').select('*');
 
         if (currentSportFilter !== 'all') {
@@ -47,14 +39,13 @@ export async function loadStatistics() {
 
         let users = (allUsers || []).filter(u => !u.club_id || !testClubIds.has(u.club_id));
 
-        // Load attendance (excluding test clubs)
+        // Anwesenheiten laden (Test-Clubs ausschließen)
         const { data: allAttendance } = await supabase
             .from('attendance')
             .select('*');
 
         const attendances = (allAttendance || []).filter(a => !a.club_id || !testClubIds.has(a.club_id));
 
-        // Count non-test clubs
         const realClubIds = new Set(
             users.map(u => u.club_id).filter(id => id && !testClubIds.has(id))
         );
@@ -96,7 +87,6 @@ export async function loadStatistics() {
         renderGenderChart(genderCounts);
         renderAttendanceChart(sortedMonths, attendanceByMonth);
 
-        // Load global competition statistics
         await loadGlobalCompetitionStatistics(testClubIds);
     } catch (error) {
         console.error('Fehler beim Laden der Statistiken:', error);
@@ -105,9 +95,6 @@ export async function loadStatistics() {
     }
 }
 
-/**
- * Render gender distribution chart
- */
 function renderGenderChart(data) {
     const ctx = document.getElementById('gender-chart')?.getContext('2d');
     if (!ctx) return;
@@ -128,9 +115,6 @@ function renderGenderChart(data) {
     });
 }
 
-/**
- * Render attendance chart
- */
 function renderAttendanceChart(labels, data) {
     const ctx = document.getElementById('attendance-chart')?.getContext('2d');
     if (!ctx) return;
@@ -159,9 +143,6 @@ function renderAttendanceChart(labels, data) {
     });
 }
 
-/**
- * Load global competition statistics
- */
 async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
     try {
         let singlesQuery = supabase
@@ -205,13 +186,10 @@ async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
         renderCompetitionStatistics();
         setupCompetitionFilterListeners();
     } catch (error) {
-        console.error('Error loading global competition statistics:', error);
+        console.error('Fehler beim Laden der Wettkampf-Statistiken:', error);
     }
 }
 
-/**
- * Setup competition filter event listeners
- */
 export function setupCompetitionFilterListeners() {
     const periodWeek = document.getElementById('admin-competition-period-week');
     const periodMonth = document.getElementById('admin-competition-period-month');
@@ -302,9 +280,6 @@ function updateTypeButtonStyles() {
     });
 }
 
-/**
- * Render competition statistics
- */
 export function renderCompetitionStatistics() {
     let filteredMatches = competitionMatchData;
     if (competitionTypeFilter === 'singles') {

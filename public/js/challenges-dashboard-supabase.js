@@ -1,21 +1,13 @@
 /**
- * Challenges Dashboard Module (Supabase Version)
- * Handles challenge loading and display for player dashboard
- */
-
-import { calculateExpiry } from './challenges-supabase.js';
-
-/**
- * Loads active challenges for a player
- * @param {Object} userData - User data
- * @param {Object} supabase - Supabase client instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
+ * Challenges Dashboard Modul
+ * @param {Object} userData - Benutzerdaten
+ * @param {Object} supabase - Supabase Client
+ * @param {Array} unsubscribes - Array für Unsubscribe-Funktionen
  */
 export async function loadChallenges(userData, supabase, unsubscribes) {
     const challengesListEl = document.getElementById('challenges-list');
     if (!challengesListEl) return;
 
-    // Load completed challenges with error handling
     let completedChallengeIds = [];
     try {
         const { data: completedData, error } = await supabase
@@ -31,10 +23,9 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
             'Could not load completed challenges (this is normal for new users):',
             error.message
         );
-        // Continue with empty array - user hasn't completed any challenges yet
+        // Leeres Array verwenden - Benutzer hat noch keine Challenges abgeschlossen
     }
 
-    // Load subgroups for the player
     const playerSubgroups = userData.subgroupIDs || [];
     let specializedSubgroups = [];
 
@@ -51,7 +42,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
         }
     }
 
-    // Load subgroup names map for later use
     const subgroupNamesMap = {};
     if (specializedSubgroups.length > 0) {
         const { data: subgroupNames } = await supabase
@@ -66,7 +56,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
         }
     }
 
-    // Function to fetch and render challenges
     async function fetchAndRender() {
         const { data: challengesData, error: challengesError } = await supabase
             .from('challenges')
@@ -81,7 +70,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
 
         const now = new Date();
 
-        // Map and filter challenges
         let activeChallenges = (challengesData || [])
             .map(c => ({
                 id: c.id,
@@ -99,9 +87,7 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
                 const isCompleted = completedChallengeIds.includes(challenge.id);
                 const isExpired = calculateExpiry(challenge.createdAt, challenge.type) < now;
 
-                // Only show challenges for:
-                // 1. subgroupId === 'all' (for entire club), OR
-                // 2. subgroupId matches one of player's specialized (non-default) subgroups
+                // Nur Challenges für 'all' (ganzer Club) oder spezialisierte Subgruppen des Spielers anzeigen
                 const subgroupId = challenge.subgroupId || 'all';
                 const isForPlayer =
                     subgroupId === 'all' || specializedSubgroups.includes(subgroupId);
@@ -116,7 +102,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
             return;
         }
 
-        // Load any missing subgroup names
         for (const challenge of activeChallenges) {
             if (
                 challenge.subgroupId &&
@@ -150,7 +135,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
             card.dataset.points = challenge.points;
             card.dataset.type = challenge.type;
 
-            // Add tieredPoints data
             if (challenge.tieredPoints) {
                 card.dataset.tieredPoints = JSON.stringify(challenge.tieredPoints);
             }
@@ -160,7 +144,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
                     ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
                     : '';
 
-            // Check if challenge has tiered points
             const hasTieredPoints =
                 challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
             const pointsBadge = hasTieredPoints
@@ -184,10 +167,8 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
         });
     }
 
-    // Initial fetch
     await fetchAndRender();
 
-    // Set up real-time subscription
     const subscription = supabase
         .channel('challenges-dashboard')
         .on(
@@ -211,7 +192,6 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
                 filter: `user_id=eq.${userData.id}`
             },
             async () => {
-                // Reload completed challenges
                 const { data: completedData } = await supabase
                     .from('completed_challenges')
                     .select('challenge_id')
@@ -229,8 +209,8 @@ export async function loadChallenges(userData, supabase, unsubscribes) {
 }
 
 /**
- * Opens the challenge modal
- * @param {Object} dataset - Challenge data from card dataset
+ * Öffnet das Challenge-Modal
+ * @param {Object} dataset - Challenge-Daten vom Card-Element
  */
 export function openChallengeModal(dataset) {
     const { title, description, points, tieredPoints } = dataset;
@@ -242,14 +222,13 @@ export function openChallengeModal(dataset) {
     if (titleEl) titleEl.textContent = title;
     if (descEl) descEl.textContent = description;
 
-    // Handle points display with milestones
     let tieredPointsData = null;
     try {
         if (tieredPoints) {
             tieredPointsData = JSON.parse(tieredPoints);
         }
     } catch (e) {
-        // Invalid JSON, ignore
+        // Ungültiges JSON ignorieren
     }
 
     const milestonesContainer = document.getElementById('modal-challenge-milestones');
@@ -258,7 +237,6 @@ export function openChallengeModal(dataset) {
     if (hasTieredPoints) {
         if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} Punkte`;
 
-        // Display milestones if container exists
         if (milestonesContainer) {
             const milestonesHtml = tieredPointsData.milestones
                 .sort((a, b) => a.count - b.count)
