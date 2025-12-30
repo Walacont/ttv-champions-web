@@ -1,9 +1,5 @@
-/**
- * Leaderboard Preferences Module (Supabase Version)
- * Handles user preferences for which leaderboard tabs to show/hide
- */
+/** Ranglisten-Einstellungen (Supabase-Version) */
 
-// Default preferences - all enabled (for club members)
 const DEFAULT_PREFERENCES = {
     effort: true,
     season: true,
@@ -12,7 +8,6 @@ const DEFAULT_PREFERENCES = {
     doubles: true,
 };
 
-// Default preferences for players without club
 const DEFAULT_PREFERENCES_NO_CLUB = {
     effort: false,    // Hidden for club-less players
     season: false,    // Hidden for club-less players
@@ -23,35 +18,23 @@ const DEFAULT_PREFERENCES_NO_CLUB = {
 
 let supabaseClient = null;
 
-/**
- * Gets default preferences based on user's club status
- * @param {Object} userData - Current user data
- * @returns {Object} Default preferences
- */
 function getDefaultPreferences(userData) {
     const hasClub = userData.clubId !== null && userData.clubId !== undefined;
     return hasClub ? DEFAULT_PREFERENCES : DEFAULT_PREFERENCES_NO_CLUB;
 }
 
-/**
- * Initializes leaderboard preferences UI and event listeners
- * @param {Object} userData - Current user data
- * @param {Object} supabase - Supabase client instance
- */
+/** Initialisiert die Ranglisten-Einstellungen */
 export function initializeLeaderboardPreferences(userData, supabase) {
     supabaseClient = supabase;
     const hasClub = userData.clubId !== null && userData.clubId !== undefined;
 
-    // Disable checkboxes for club-only features if user has no club
     if (!hasClub) {
-        // Disable and uncheck club-only tabs (Skill is available globally)
         const clubOnlyCheckboxes = ['pref-effort', 'pref-season', 'pref-ranks'];
         clubOnlyCheckboxes.forEach(id => {
             const checkbox = document.getElementById(id);
             if (checkbox) {
                 checkbox.disabled = true;
                 checkbox.checked = false;
-                // Add visual indicator
                 const label = checkbox.closest('label');
                 if (label) {
                     label.classList.add('opacity-50', 'cursor-not-allowed');
@@ -61,10 +44,8 @@ export function initializeLeaderboardPreferences(userData, supabase) {
         });
     }
 
-    // Load saved preferences (or set defaults if first time)
     loadPreferences(userData);
 
-    // Add change listeners to all checkboxes
     const checkboxes = document.querySelectorAll('.leaderboard-pref-checkbox');
     checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', async () => {
@@ -73,19 +54,13 @@ export function initializeLeaderboardPreferences(userData, supabase) {
         });
     });
 
-    // Apply preferences immediately
     applyPreferences();
 }
 
-/**
- * Loads preferences from userData and updates UI
- * @param {Object} userData - User data containing preferences
- */
 function loadPreferences(userData) {
     const defaultPrefs = getDefaultPreferences(userData);
     const prefs = userData.leaderboardPreferences || defaultPrefs;
 
-    // Update checkboxes
     document.getElementById('pref-effort').checked = prefs.effort !== false;
     document.getElementById('pref-season').checked = prefs.season !== false;
     document.getElementById('pref-skill').checked = prefs.skill !== false;
@@ -93,11 +68,6 @@ function loadPreferences(userData) {
     document.getElementById('pref-doubles').checked = prefs.doubles !== false;
 }
 
-/**
- * Saves current preferences to Supabase
- * @param {Object} userData - Current user data
- * @param {Object} supabase - Supabase client instance
- */
 async function savePreferences(userData, supabase) {
     const prefs = {
         effort: document.getElementById('pref-effort').checked,
@@ -122,9 +92,7 @@ async function savePreferences(userData, supabase) {
     }
 }
 
-/**
- * Applies preferences by showing/hiding leaderboard tabs and their content
- */
+/** Wendet die Einstellungen auf die Ranglisten-Tabs an */
 export function applyPreferences() {
     const prefs = {
         effort: document.getElementById('pref-effort')?.checked ?? true,
@@ -134,7 +102,6 @@ export function applyPreferences() {
         doubles: document.getElementById('pref-doubles')?.checked ?? true,
     };
 
-    // Show/hide tab buttons
     const tabButtons = {
         effort: document.getElementById('tab-effort'),
         season: document.getElementById('tab-season'),
@@ -143,7 +110,6 @@ export function applyPreferences() {
         doubles: document.getElementById('tab-doubles'),
     };
 
-    // Show/hide tab content containers
     const tabContents = {
         effort: document.getElementById('content-effort'),
         season: document.getElementById('content-season'),
@@ -152,35 +118,26 @@ export function applyPreferences() {
         doubles: document.getElementById('content-doubles'),
     };
 
-    // Apply visibility to both buttons and content
     Object.keys(tabButtons).forEach(key => {
         const button = tabButtons[key];
         const content = tabContents[key];
 
         if (prefs[key]) {
-            // Show tab button and content
             if (button) button.classList.remove('hidden');
             if (content) content.classList.remove('hidden');
         } else {
-            // Hide tab button and content
             if (button) button.classList.add('hidden');
             if (content) content.classList.add('hidden');
         }
     });
 
-    // If the currently active tab was hidden, switch to the first visible tab
     ensureValidActiveTab(prefs);
 }
 
-/**
- * Ensures that a visible tab is active
- * @param {Object} prefs - Current preferences
- */
 function ensureValidActiveTab(prefs) {
     const tabButtons = document.querySelectorAll('.leaderboard-tab-btn');
     let hasActiveVisibleTab = false;
 
-    // Check if current active tab is visible
     tabButtons.forEach(button => {
         if (
             button.classList.contains('border-indigo-600') &&
@@ -190,7 +147,6 @@ function ensureValidActiveTab(prefs) {
         }
     });
 
-    // If no visible tab is active, activate the first visible one
     if (!hasActiveVisibleTab) {
         const firstVisibleButton = Array.from(tabButtons).find(
             btn => !btn.classList.contains('hidden')
@@ -201,10 +157,7 @@ function ensureValidActiveTab(prefs) {
     }
 }
 
-/**
- * Gets current user preferences
- * @returns {Object} Current preferences
- */
+/** Gibt die aktuellen Einstellungen zurück */
 export function getCurrentPreferences() {
     return {
         effort: document.getElementById('pref-effort')?.checked ?? true,
