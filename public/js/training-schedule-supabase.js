@@ -1,29 +1,17 @@
-/**
- * Training Schedule Management (Supabase Version)
- * Handles recurring training templates and training sessions
- */
+/** Trainingsplanung (Supabase-Version) - Wiederkehrende Vorlagen und Sessions */
 
-// Supabase instance will be passed to functions
 let supabaseClient = null;
 
-/**
- * Initialize the module with Supabase instance
- * @param {Object} supabaseInstance - Supabase client instance
- */
+/** Initialisiert das Modul mit Supabase-Instanz */
 export function initializeTrainingSchedule(supabaseInstance) {
     supabaseClient = supabaseInstance;
 }
 
 // ============================================================================
-// RECURRING TRAINING TEMPLATES
+// WIEDERKEHRENDE TRAININGSVORLAGEN
 // ============================================================================
 
-/**
- * Create a recurring training template
- * @param {Object} templateData - Template configuration
- * @param {string} userId - ID of user creating the template
- * @returns {Promise<string>} Template ID
- */
+/** Erstellt eine wiederkehrende Trainingsvorlage */
 export async function createRecurringTemplate(templateData, userId = 'system') {
     const {
         dayOfWeek,
@@ -35,7 +23,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         endDate = null,
     } = templateData;
 
-    // Validation
     if (dayOfWeek < 0 || dayOfWeek > 6) {
         throw new Error('dayOfWeek must be between 0 (Sunday) and 6 (Saturday)');
     }
@@ -48,7 +35,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping templates
     const overlapping = await checkTemplateOverlap(
         dayOfWeek,
         startTime,
@@ -86,11 +72,7 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
     return data.id;
 }
 
-/**
- * Get all recurring templates for a club
- * @param {string} clubId
- * @returns {Promise<Array>} Templates
- */
+/** Holt alle wiederkehrenden Vorlagen für einen Verein */
 export async function getRecurringTemplates(clubId) {
     const { data, error } = await supabaseClient
         .from('recurring_training_templates')
@@ -117,13 +99,8 @@ export async function getRecurringTemplates(clubId) {
     }));
 }
 
-/**
- * Update a recurring template
- * @param {string} templateId
- * @param {Object} updates
- */
+/** Aktualisiert eine wiederkehrende Vorlage */
 export async function updateRecurringTemplate(templateId, updates) {
-    // Map camelCase to snake_case
     const mappedUpdates = {};
     if (updates.dayOfWeek !== undefined) mappedUpdates.day_of_week = updates.dayOfWeek;
     if (updates.startTime !== undefined) mappedUpdates.start_time = updates.startTime;
@@ -141,18 +118,12 @@ export async function updateRecurringTemplate(templateId, updates) {
     if (error) throw error;
 }
 
-/**
- * Deactivate a recurring template (soft delete)
- * @param {string} templateId
- */
+/** Deaktiviert eine wiederkehrende Vorlage (Soft-Delete) */
 export async function deactivateRecurringTemplate(templateId) {
     await updateRecurringTemplate(templateId, { active: false });
 }
 
-/**
- * Delete a recurring template (hard delete)
- * @param {string} templateId
- */
+/** Löscht eine wiederkehrende Vorlage (Hard-Delete) */
 export async function deleteRecurringTemplate(templateId) {
     const { error } = await supabaseClient
         .from('recurring_training_templates')
@@ -162,10 +133,7 @@ export async function deleteRecurringTemplate(templateId) {
     if (error) throw error;
 }
 
-/**
- * Check if template would overlap with existing ones
- * @private
- */
+/** Prüft auf Überschneidung mit bestehenden Vorlagen */
 async function checkTemplateOverlap(
     dayOfWeek,
     startTime,
@@ -181,7 +149,6 @@ async function checkTemplateOverlap(
         if (template.dayOfWeek !== dayOfWeek) continue;
         if (template.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, template.startTime, template.endTime)) {
             return true;
         }
@@ -191,15 +158,10 @@ async function checkTemplateOverlap(
 }
 
 // ============================================================================
-// TRAINING SESSIONS
+// TRAINING-SESSIONS
 // ============================================================================
 
-/**
- * Create a training session
- * @param {Object} sessionData - Session configuration
- * @param {string} userId - ID of user creating the session
- * @returns {Promise<string>} Session ID
- */
+/** Erstellt eine Trainingssession */
 export async function createTrainingSession(sessionData, userId = 'system') {
     const {
         date,
@@ -211,7 +173,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         plannedExercises = [],
     } = sessionData;
 
-    // Validation
     if (!isValidDateFormat(date)) {
         throw new Error('Date must be in YYYY-MM-DD format');
     }
@@ -224,7 +185,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping sessions on same date
     const overlapping = await checkSessionOverlap(date, startTime, endTime, subgroupId, clubId);
     if (overlapping) {
         throw new Error(
@@ -258,9 +218,7 @@ export async function createTrainingSession(sessionData, userId = 'system') {
     return data.id;
 }
 
-/**
- * Maps session from Supabase to app format
- */
+/** Mappt Session von Supabase auf App-Format */
 function mapSessionFromSupabase(session) {
     return {
         id: session.id,
@@ -279,13 +237,7 @@ function mapSessionFromSupabase(session) {
     };
 }
 
-/**
- * Get all sessions for a date range
- * @param {string} clubId
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<Array>} Sessions
- */
+/** Holt alle Sessions für einen Zeitraum */
 export async function getTrainingSessions(clubId, startDate, endDate) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
@@ -302,13 +254,7 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
     return (data || []).map(s => mapSessionFromSupabase(s));
 }
 
-/**
- * Get all sessions for a specific date
- * @param {string} clubId
- * @param {string} date - YYYY-MM-DD
- * @param {boolean} forceServerFetch - Not needed for Supabase, kept for API compatibility
- * @returns {Promise<Array>} Sessions
- */
+/** Holt alle Sessions für ein bestimmtes Datum */
 export async function getSessionsForDate(clubId, date, forceServerFetch = false) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
@@ -323,11 +269,7 @@ export async function getSessionsForDate(clubId, date, forceServerFetch = false)
     return (data || []).map(s => mapSessionFromSupabase(s));
 }
 
-/**
- * Get a single session by ID
- * @param {string} sessionId
- * @returns {Promise<Object>} Session
- */
+/** Holt eine einzelne Session per ID */
 export async function getSession(sessionId) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
@@ -344,13 +286,8 @@ export async function getSession(sessionId) {
     return mapSessionFromSupabase(data);
 }
 
-/**
- * Update a training session
- * @param {string} sessionId
- * @param {Object} updates
- */
+/** Aktualisiert eine Trainingssession */
 export async function updateTrainingSession(sessionId, updates) {
-    // Map camelCase to snake_case
     const mappedUpdates = {};
     if (updates.date !== undefined) mappedUpdates.date = updates.date;
     if (updates.startTime !== undefined) mappedUpdates.start_time = updates.startTime;
@@ -369,16 +306,12 @@ export async function updateTrainingSession(sessionId, updates) {
     if (error) throw error;
 }
 
-/**
- * Cancel a training session (soft delete)
- * @param {string} sessionId
- */
+/** Storniert eine Trainingssession (Soft-Delete) und korrigiert Spielerpunkte */
 export async function cancelTrainingSession(sessionId) {
     console.log(
         `[Cancel Training] Cancelling session ${sessionId} and correcting player points...`
     );
 
-    // Find associated attendance records
     const { data: attendanceRecords, error: attendanceError } = await supabaseClient
         .from('attendance')
         .select('*')
@@ -386,13 +319,11 @@ export async function cancelTrainingSession(sessionId) {
 
     if (attendanceError) throw attendanceError;
 
-    // For each attendance record, reverse the points awarded to players
     for (const attendanceData of attendanceRecords || []) {
         const { present_player_ids: presentPlayerIds, date, subgroup_id: subgroupId } = attendanceData;
 
         if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
 
-        // Get subgroup name for history entries
         let subgroupName = subgroupId;
         try {
             const { data: subgroupDoc } = await supabaseClient
@@ -417,10 +348,8 @@ export async function cancelTrainingSession(sessionId) {
             `[Cancel Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
         );
 
-        // For each player who attended, find and reverse their points
         for (const playerId of presentPlayerIds) {
             try {
-                // Find the original points awarded for this training
                 const { data: historyEntries, error: historyError } = await supabaseClient
                     .from('points_history')
                     .select('*')
@@ -431,7 +360,6 @@ export async function cancelTrainingSession(sessionId) {
 
                 if (historyError) throw historyError;
 
-                // Find the specific history entry for this training
                 const historyEntry = historyEntries?.find(entry => {
                     return (
                         entry.points > 0 &&
@@ -445,18 +373,12 @@ export async function cancelTrainingSession(sessionId) {
                     const pointsToDeduct = historyEntry.points || 0;
                     const xpToDeduct = historyEntry.xp || 0;
 
-                    console.log(
-                        `[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
-                    );
-
-                    // Get current player data
                     const { data: playerData } = await supabaseClient
                         .from('profiles')
                         .select('points, xp')
                         .eq('id', playerId)
                         .single();
 
-                    // Deduct points and XP from player
                     await supabaseClient
                         .from('profiles')
                         .update({
@@ -465,7 +387,6 @@ export async function cancelTrainingSession(sessionId) {
                         })
                         .eq('id', playerId);
 
-                    // Create negative entry in points history
                     await supabaseClient
                         .from('points_history')
                         .insert({
@@ -480,7 +401,6 @@ export async function cancelTrainingSession(sessionId) {
                             awarded_by: 'System (Training abgesagt)',
                         });
 
-                    // Create negative entry in XP history
                     await supabaseClient
                         .from('xp_history')
                         .insert({
@@ -493,7 +413,6 @@ export async function cancelTrainingSession(sessionId) {
                             awarded_by: 'System (Training abgesagt)',
                         });
 
-                    // Delete the original history entry
                     await supabaseClient
                         .from('points_history')
                         .delete()
@@ -509,26 +428,18 @@ export async function cancelTrainingSession(sessionId) {
         }
     }
 
-    // Delete all attendance records for this session
     await supabaseClient
         .from('attendance')
         .delete()
         .eq('session_id', sessionId);
 
-    // Mark the session as cancelled
     await updateTrainingSession(sessionId, { cancelled: true });
 
     console.log(`[Cancel Training] Session ${sessionId} cancelled successfully`);
 }
 
-/**
- * Delete a training session (hard delete)
- * @param {string} sessionId
- */
+/** Löscht eine Trainingssession (Hard-Delete) und korrigiert Spielerpunkte */
 export async function deleteTrainingSession(sessionId) {
-    console.log(`[Delete Training] Deleting session ${sessionId} and correcting player points...`);
-
-    // Find associated attendance records
     const { data: attendanceRecords, error: attendanceError } = await supabaseClient
         .from('attendance')
         .select('*')
@@ -536,13 +447,11 @@ export async function deleteTrainingSession(sessionId) {
 
     if (attendanceError) throw attendanceError;
 
-    // For each attendance record, reverse the points awarded to players
     for (const attendanceData of attendanceRecords || []) {
         const { present_player_ids: presentPlayerIds, date, subgroup_id: subgroupId } = attendanceData;
 
         if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
 
-        // Get subgroup name for history entries
         let subgroupName = subgroupId;
         try {
             const { data: subgroupDoc } = await supabaseClient
@@ -567,10 +476,8 @@ export async function deleteTrainingSession(sessionId) {
             `[Delete Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
         );
 
-        // For each player who attended, find and reverse their points
         for (const playerId of presentPlayerIds) {
             try {
-                // Find the original points awarded for this training
                 const { data: historyEntries, error: historyError } = await supabaseClient
                     .from('points_history')
                     .select('*')
@@ -581,7 +488,6 @@ export async function deleteTrainingSession(sessionId) {
 
                 if (historyError) throw historyError;
 
-                // Find the specific history entry for this training
                 const historyEntry = historyEntries?.find(entry => {
                     return entry.points > 0 && entry.reason && !entry.reason.includes('korrigiert');
                 });
@@ -601,7 +507,6 @@ export async function deleteTrainingSession(sessionId) {
                         .eq('id', playerId)
                         .single();
 
-                    // Deduct points and XP from player
                     await supabaseClient
                         .from('profiles')
                         .update({
@@ -610,7 +515,6 @@ export async function deleteTrainingSession(sessionId) {
                         })
                         .eq('id', playerId);
 
-                    // Create negative entry in points history
                     await supabaseClient
                         .from('points_history')
                         .insert({
@@ -625,7 +529,6 @@ export async function deleteTrainingSession(sessionId) {
                             awarded_by: 'System (Training gelöscht)',
                         });
 
-                    // Create negative entry in XP history
                     await supabaseClient
                         .from('xp_history')
                         .insert({
@@ -638,7 +541,6 @@ export async function deleteTrainingSession(sessionId) {
                             awarded_by: 'System (Training gelöscht)',
                         });
 
-                    // Delete the original history entry
                     await supabaseClient
                         .from('points_history')
                         .delete()
@@ -654,13 +556,11 @@ export async function deleteTrainingSession(sessionId) {
         }
     }
 
-    // Delete all attendance records
     await supabaseClient
         .from('attendance')
         .delete()
         .eq('session_id', sessionId);
 
-    // Delete the session
     const { error } = await supabaseClient
         .from('training_sessions')
         .delete()
@@ -668,13 +568,9 @@ export async function deleteTrainingSession(sessionId) {
 
     if (error) throw error;
 
-    console.log(`[Delete Training] Session ${sessionId} deleted successfully`);
 }
 
-/**
- * Check if session would overlap with existing ones
- * @private
- */
+/** Prüft auf Session-Überschneidung */
 async function checkSessionOverlap(
     date,
     startTime,
@@ -689,7 +585,6 @@ async function checkSessionOverlap(
         if (excludeSessionId && session.id === excludeSessionId) continue;
         if (session.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, session.startTime, session.endTime)) {
             return true;
         }
@@ -699,28 +594,20 @@ async function checkSessionOverlap(
 }
 
 // ============================================================================
-// AUTO-GENERATION OF SESSIONS FROM TEMPLATES
+// AUTO-GENERIERUNG VON SESSIONS AUS VORLAGEN
 // ============================================================================
 
-/**
- * Generate training sessions from recurring templates
- * @param {string} clubId
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<number>} Number of sessions created
- */
+/** Generiert Trainingssessions aus wiederkehrenden Vorlagen */
 export async function generateSessionsFromTemplates(clubId, startDate, endDate) {
     const templates = await getRecurringTemplates(clubId);
     let createdCount = 0;
 
-    // Get all dates in range
     const dates = getDatesInRange(startDate, endDate);
 
     for (const date of dates) {
         const dateObj = new Date(date + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
 
-        // Find templates for this day of week
         const templatesForDay = templates.filter(t => {
             if (t.dayOfWeek !== dayOfWeek) return false;
             if (t.startDate && date < t.startDate) return false;
@@ -728,9 +615,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
             return true;
         });
 
-        // Create sessions from templates
         for (const template of templatesForDay) {
-            // Check if session already exists
             const existingSession = await checkExistingSession(
                 clubId,
                 date,
@@ -755,10 +640,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
     return createdCount;
 }
 
-/**
- * Check if a session already exists
- * @private
- */
+/** Prüft ob eine Session bereits existiert */
 async function checkExistingSession(clubId, date, startTime, subgroupId) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
@@ -775,36 +657,21 @@ async function checkExistingSession(clubId, date, startTime, subgroupId) {
 }
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// HILFSFUNKTIONEN
 // ============================================================================
 
-/**
- * Check if time format is valid (HH:MM)
- */
 function isValidTimeFormat(time) {
     return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 }
 
-/**
- * Check if date format is valid (YYYY-MM-DD)
- */
 function isValidDateFormat(date) {
     return /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
 
-/**
- * Check if two time ranges overlap
- */
 function timeRangesOverlap(start1, end1, start2, end2) {
     return start1 < end2 && end1 > start2;
 }
 
-/**
- * Get all dates in a range
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<string>} Array of dates in YYYY-MM-DD format
- */
 function getDatesInRange(startDate, endDate) {
     const dates = [];
     const currentDate = new Date(startDate + 'T00:00:00');
@@ -818,9 +685,6 @@ function getDatesInRange(startDate, endDate) {
     return dates;
 }
 
-/**
- * Format date to YYYY-MM-DD
- */
 function formatDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -828,22 +692,13 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-/**
- * Get day of week name in German
- * @param {number} dayOfWeek - 0=Sunday, 6=Saturday
- * @returns {string}
- */
+/** Gibt deutschen Wochentagnamen zurück (0=Sonntag, 6=Samstag) */
 export function getDayOfWeekName(dayOfWeek) {
     const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
     return days[dayOfWeek];
 }
 
-/**
- * Format time range for display
- * @param {string} startTime - HH:MM
- * @param {string} endTime - HH:MM
- * @returns {string} "16:00-17:00"
- */
+/** Formatiert Zeitspanne für Anzeige */
 export function formatTimeRange(startTime, endTime) {
     return `${startTime}-${endTime}`;
 }
