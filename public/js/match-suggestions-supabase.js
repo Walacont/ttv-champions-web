@@ -39,7 +39,7 @@ async function loadClubsMap(supabase) {
             });
         });
 
-        // Update cache
+        // Cache aktualisieren
         clubsCache = clubsMap;
         clubsCacheTimestamp = Date.now();
 
@@ -66,7 +66,7 @@ function filterPlayersByPrivacy(players, currentUserData) {
         const privacySettings = player.privacySettings || {};
         const searchable = privacySettings.searchable || 'global';
 
-        // Show players who are searchable globally
+        // Spieler anzeigen die global suchbar sind
         if (searchable === 'global') return true;
 
         // club_only: only show to players in the same club
@@ -86,7 +86,7 @@ function filterPlayersByPrivacy(players, currentUserData) {
  * @returns {Array} Filtered players
  */
 function filterTestClubPlayers(players, currentUserData, clubsMap) {
-    // Check if current user is from a test club
+    // Prüfen ob Benutzer aus Test-Verein ist
     const currentUserClub = clubsMap.get(currentUserData.clubId);
     if (currentUserClub && currentUserClub.isTestClub) {
         // Test club members (players/coaches/admins) see everyone
@@ -94,7 +94,7 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
     }
 
     // Current user is NOT from a test club
-    // Filter out all test club players
+    // Alle Test-Verein-Spieler ausfiltern
     return players.filter(player => {
         // Always show current user
         if (player.id === currentUserData.id) return true;
@@ -102,7 +102,7 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
         // If player has no club, show them
         if (!player.clubId) return true;
 
-        // Get player's club data
+        // Vereinsdaten des Spielers abrufen
         const club = clubsMap.get(player.clubId);
 
         // If club doesn't exist or is not a test club, show player
@@ -145,7 +145,7 @@ function mapPlayerFromSupabase(player) {
  */
 export async function calculateMatchSuggestions(userData, allPlayers, supabase) {
     try {
-        // Filter eligible players (include both players and coaches)
+        // Berechtigte Spieler filtern (Spieler und Trainer)
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
             const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
@@ -153,7 +153,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             return isNotSelf && isMatchReady && isPlayerOrCoach;
         });
 
-        // Get all matches involving the current user
+        // Alle Matches des aktuellen Benutzers abrufen
         // Query as playerA
         const { data: matchesAsA, error: errorA } = await supabase
             .from('matches')
@@ -176,7 +176,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             allMatchDocs.set(match.id, match);
         });
 
-        // Build opponent history
+        // Gegner-Verlauf erstellen
         const opponentHistory = {};
         allMatchDocs.forEach((match) => {
             const opponentId = match.player_a_id === userData.id ? match.player_b_id : match.player_a_id;
@@ -201,7 +201,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             }
         });
 
-        // Calculate priority score for each eligible player
+        // Prioritäts-Score für jeden Spieler berechnen
         const now = new Date();
 
         const suggestions = eligiblePlayers.map(player => {
@@ -236,10 +236,10 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             };
         });
 
-        // Sort by priority score (highest first)
+        // Nach Prioritäts-Score sortieren (höchster zuerst)
         suggestions.sort((a, b) => b.suggestionScore - a.suggestionScore);
 
-        // Check if there are players we've never played against
+        // Prüfen ob es Spieler gibt gegen die nie gespielt wurde
         const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0);
 
         if (neverPlayedPlayers.length > 0) {
@@ -276,7 +276,7 @@ export async function loadMatchSuggestions(
     const container = document.getElementById('match-suggestions-list');
     if (!container) return;
 
-    // Check if player is in a club
+    // Prüfen ob Spieler in Verein ist
     const hasClub = userData.clubId !== null && userData.clubId !== undefined;
 
     if (!hasClub) {
@@ -300,7 +300,7 @@ export async function loadMatchSuggestions(
         return; // Exit early
     }
 
-    // Check if player is match-ready
+    // Prüfen ob Spieler spielbereit ist
     const isMatchReady = userData.isMatchReady === true || userData.is_match_ready === true;
 
     if (!isMatchReady) {
@@ -355,22 +355,22 @@ export async function loadMatchSuggestions(
             return;
         }
 
-        // Load clubs map for test club filtering
+        // Vereine-Map für Test-Verein-Filterung laden
         const clubsMap = await loadClubsMap(supabase);
 
-        // Get sport context (single sport model)
+        // Sport-Kontext abrufen (Single-Sport-Modell)
         const sportContext = await getSportContext(userData.id);
         const effectiveClubId = sportContext?.clubId || userData.clubId;
         const sportId = sportContext?.sportId;
 
-        // Get all players and coaches based on filter (single sport model - filter directly)
+        // Alle Spieler und Trainer basierend auf Filter abrufen
         let playersQuery = supabase
             .from('profiles')
             .select('*')
             .in('role', ['player', 'coach', 'head_coach'])
             .eq('club_id', effectiveClubId);
 
-        // Filter by sport if available
+        // Nach Sportart filtern falls verfügbar
         if (sportId) {
             playersQuery = playersQuery.eq('active_sport_id', sportId);
             console.log('[Match Suggestions] Sport filter active:', sportId);
@@ -408,11 +408,11 @@ export async function loadMatchSuggestions(
             console.log('[Match Suggestions] Players after filter:', allPlayers.length);
         }
 
-        // Filter by privacy settings (searchable)
+        // Nach Datenschutz-Einstellungen filtern (suchbar)
         allPlayers = filterPlayersByPrivacy(allPlayers, userData);
         console.log('[Match Suggestions] Players after privacy filter:', allPlayers.length);
 
-        // Filter test club players
+        // Test-Verein-Spieler filtern
         allPlayers = filterTestClubPlayers(allPlayers, userData, clubsMap);
         console.log('[Match Suggestions] Players after test club filter:', allPlayers.length);
 
@@ -428,7 +428,7 @@ export async function loadMatchSuggestions(
 
             container.innerHTML = '';
 
-            // Render all suggestions (3-4 players)
+            // Alle Vorschläge rendern (3-4 Spieler)
             suggestions.forEach(player => {
                 const card = createSuggestionCard(player, userData);
                 container.appendChild(card);
@@ -485,7 +485,7 @@ function createSuggestionCard(player, userData) {
           )
         : null;
 
-    // Calculate handicap (same logic as in player-matches.js)
+    // Handicap berechnen (gleiche Logik wie in player-matches.js)
     let handicapHTML = '';
     if (eloDiff >= 25) {
         const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);

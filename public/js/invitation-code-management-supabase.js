@@ -333,7 +333,7 @@ async function loadInvitationCodes() {
             return;
         }
 
-        // Map to app format
+        // In App-Format konvertieren
         const codes = data.map(code => mapCodeFromSupabase(code));
 
         // Sortiere: Aktive zuerst, dann supersedierte/verwendete, dann nach Erstellungsdatum

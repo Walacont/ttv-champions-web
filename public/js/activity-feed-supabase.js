@@ -365,7 +365,7 @@ function setupFilterDropdown() {
 function selectFilter(filter, label) {
     currentFilter = filter;
 
-    // Update label
+    // Label aktualisieren
     const labelEl = document.getElementById('activity-filter-label');
     if (labelEl) labelEl.textContent = label;
 
@@ -477,7 +477,7 @@ function setupPullToRefresh() {
     const pullThreshold = 80; // px needed to trigger refresh
     const maxPull = 120; // max pull distance
 
-    // Get the scrollable parent (could be the tab content or window)
+    // Scrollbares Eltern-Element abrufen
     function getScrollTop() {
         const tabContent = feedContainer.closest('.tab-content');
         if (tabContent) {
@@ -507,7 +507,7 @@ function setupPullToRefresh() {
         const pullDistance = Math.min(currentY - startY, maxPull);
 
         if (pullDistance > 0) {
-            // Update indicator
+            // Indikator aktualisieren
             const progress = Math.min(pullDistance / pullThreshold, 1);
             ptrIndicator.style.height = `${pullDistance}px`;
             ptrIndicator.style.opacity = progress;
@@ -535,7 +535,7 @@ function setupPullToRefresh() {
             // Trigger refresh
             isRefreshing = true;
 
-            // Show loading state
+            // Ladezustand anzeigen
             ptrIcon.className = 'fas fa-spinner fa-spin text-indigo-600 text-lg mb-1';
             ptrText.textContent = 'Aktualisiere...';
             ptrIndicator.style.height = '60px';
@@ -544,12 +544,12 @@ function setupPullToRefresh() {
                 // Reload activity feed
                 await loadActivityFeed();
             } finally {
-                // Hide indicator
+                // Indikator ausblenden
                 isRefreshing = false;
                 ptrIndicator.style.height = '0';
                 ptrIndicator.style.opacity = '0';
 
-                // Reset icon
+                // Icon zurücksetzen
                 setTimeout(() => {
                     ptrIcon.className = 'fas fa-arrow-down text-indigo-500 text-lg mb-1 transition-transform duration-200';
                     ptrIcon.style.transform = 'rotate(0deg)';
@@ -582,7 +582,7 @@ function setupPullToRefresh() {
  * Load match media for all match activities
  */
 async function loadMatchMediaForActivities(activities) {
-    // Check once if functions are available before making any calls
+    // Einmal prüfen ob Funktionen verfügbar sind
     if (!matchMediaFunctionsChecked) {
         await checkMatchMediaAvailability();
     }
@@ -608,12 +608,12 @@ export async function loadActivityFeed() {
     const container = document.getElementById('activity-feed');
     if (!container) return;
 
-    // Reset state for fresh load - prevent race conditions
+    // Zustand für neuen Ladevorgang zurücksetzen
     activityOffset = 0;
-    hasMoreActivities = false;  // Disable infinite scroll during load
-    followingIdsCache = null;   // Clear old cache
-    pendingActivitiesCache = []; // Clear cached activities
-    typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 }; // Reset type-specific offsets
+    hasMoreActivities = false;  // Infinite-Scroll während Laden deaktivieren
+    followingIdsCache = null;   // Alten Cache löschen
+    pendingActivitiesCache = []; // Gecachte Aktivitäten löschen
+    typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 }; // Typ-spezifische Offsets zurücksetzen
 
     // Only show loading indicator if NOT triggered by pull-to-refresh
     // (pull-to-refresh has its own indicator)
@@ -627,7 +627,7 @@ export async function loadActivityFeed() {
     }
 
     try {
-        // Get user IDs based on filter
+        // Benutzer-IDs basierend auf Filter abrufen
         const userIds = await getUserIdsForFilter();
 
         if (userIds.length === 0) {
@@ -645,7 +645,7 @@ export async function loadActivityFeed() {
         // Cache for pagination
         followingIdsCache = userIds;
 
-        // Load first batch
+        // Ersten Batch laden
         const activities = await fetchActivities(userIds);
 
         if (activities.length === 0) {
@@ -660,16 +660,16 @@ export async function loadActivityFeed() {
             return;
         }
 
-        // Render initial activities
+        // Initiale Aktivitäten rendern
         container.innerHTML = activities.map(activity => renderActivityCard(activity)).join('');
 
-        // Load match media for all rendered matches
+        // Match-Medien für alle gerenderten Matches laden
         loadMatchMediaForActivities(activities);
 
-        // Load comment counts for matches (after rendering so DOM exists)
+        // Kommentar-Anzahlen für Matches laden (nach Rendering)
         loadCommentCountsForMatches(activities);
 
-        // Check if we have more activities: either in cache or potentially in database
+        // Prüfen ob mehr Aktivitäten vorhanden sind
         hasMoreActivities = pendingActivitiesCache.length > 0 || activities.length >= ACTIVITIES_PER_PAGE;
 
     } catch (error) {
@@ -692,7 +692,7 @@ async function getUserIdsForFilter() {
     }
 
     if (currentFilter === 'following') {
-        // Get followed users + own user
+        // Gefolgte Benutzer + eigenen Benutzer abrufen
         const userIds = new Set([currentUser.id]);
 
         const { data: following } = await supabase
@@ -710,7 +710,7 @@ async function getUserIdsForFilter() {
         // Combine: own activities + followed users + club members
         const userIds = new Set([currentUser.id]);
 
-        // Get followed users
+        // Gefolgte Benutzer abrufen
         const { data: following } = await supabase
             .from('friendships')
             .select('addressee_id')
@@ -719,7 +719,7 @@ async function getUserIdsForFilter() {
 
         (following || []).forEach(f => userIds.add(f.addressee_id));
 
-        // Get club members if user is in a club
+        // Vereinsmitglieder abrufen falls Benutzer in Verein
         if (currentUserData.club_id) {
             const { data: clubMembers } = await supabase
                 .from('profiles')
@@ -733,7 +733,7 @@ async function getUserIdsForFilter() {
     }
 
     if (currentFilter.startsWith('club-')) {
-        // Filter by specific club
+        // Nach spezifischem Verein filtern
         const clubId = currentFilter.replace('club-', '');
 
         const { data: clubMembers } = await supabase
@@ -777,15 +777,15 @@ async function fetchActivities(userIds) {
     console.log('[ActivityFeed] Type offsets:', JSON.stringify(typeOffsets));
     console.log('[ActivityFeed] Pending cache size:', pendingActivitiesCache.length);
 
-    // Start with any cached activities from previous fetches
+    // Mit gecachten Aktivitäten starten
     let allActivities = [...pendingActivitiesCache];
-    pendingActivitiesCache = []; // Clear the cache
+    pendingActivitiesCache = []; // Cache leeren
 
     // Only fetch more if we need more activities
     const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
     if (needToFetch) {
-        // Load recent singles matches using type-specific offset
+        // Einzel-Matches mit typ-spezifischem Offset laden
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
             .select('*')
@@ -796,7 +796,7 @@ async function fetchActivities(userIds) {
         if (singlesError) throw singlesError;
         console.log('[ActivityFeed] Singles matches found:', singlesMatches?.length || 0);
 
-        // Load recent doubles matches using type-specific offset
+        // Doppel-Matches mit typ-spezifischem Offset laden
         const { data: doublesMatches, error: doublesError } = await supabase
             .from('doubles_matches')
             .select('*')
@@ -807,7 +807,7 @@ async function fetchActivities(userIds) {
         if (doublesError) console.warn('Error fetching doubles:', doublesError);
         console.log('[ActivityFeed] Doubles matches found:', doublesMatches?.length || 0);
 
-        // Load activity events using type-specific offset
+        // Aktivitäts-Events mit typ-spezifischem Offset laden
         const { data: activityEvents, error: eventsError } = await supabase
             .from('activity_events')
             .select('*')
@@ -817,7 +817,7 @@ async function fetchActivities(userIds) {
 
         if (eventsError) console.warn('Error fetching activity events:', eventsError);
 
-        // Load community posts using type-specific offset
+        // Community-Posts mit typ-spezifischem Offset laden
         const { data: communityPosts, error: postsError } = await supabase
             .from('community_posts')
             .select('*')
@@ -828,7 +828,7 @@ async function fetchActivities(userIds) {
 
         if (postsError) console.warn('Error fetching community posts:', postsError);
 
-        // Load community polls using type-specific offset
+        // Community-Umfragen mit typ-spezifischem Offset laden
         const { data: communityPolls, error: pollsError } = await supabase
             .from('community_polls')
             .select('*')
@@ -839,7 +839,7 @@ async function fetchActivities(userIds) {
 
         if (pollsError) console.warn('Error fetching community polls:', pollsError);
 
-        // Update type offsets based on what was fetched
+        // Typ-Offsets basierend auf geladenen Daten aktualisieren
         typeOffsets.singles += (singlesMatches || []).length;
         typeOffsets.doubles += (doublesMatches || []).length;
         typeOffsets.events += (activityEvents || []).length;
@@ -857,7 +857,7 @@ async function fetchActivities(userIds) {
         ];
     }
 
-    // Sort by date descending
+    // Nach Datum absteigend sortieren
     allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // Deduplicate by ID to avoid showing the same activity twice
@@ -918,7 +918,7 @@ async function fetchActivities(userIds) {
         // For events (club_join, rank_up), user data is in event_data
     });
 
-    // Get player profiles
+    // Spielerprofile abrufen
     const { data: profiles } = await supabase
         .from('profiles')
         .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
@@ -929,7 +929,7 @@ async function fetchActivities(userIds) {
         profileMap[p.id] = p;
     });
 
-    // Load user's poll votes for the polls in this batch
+    // Benutzer-Abstimmungen für Umfragen laden
     const pollActivities = activities.filter(a => a.activityType === 'poll');
     if (pollActivities.length > 0 && currentUser) {
         const pollIds = pollActivities.map(p => p.id);
@@ -961,10 +961,10 @@ async function fetchActivities(userIds) {
                 .select('poll_id, option_id, user_id')
                 .in('poll_id', nonAnonPollIds);
 
-            // Get unique voter IDs
+            // Eindeutige Wähler-IDs abrufen
             const voterIds = [...new Set((allVotes || []).map(v => v.user_id))];
 
-            // Load voter profiles
+            // Wählerprofile laden
             let voterProfiles = {};
             if (voterIds.length > 0) {
                 const { data: profiles } = await supabase
@@ -977,7 +977,7 @@ async function fetchActivities(userIds) {
                 });
             }
 
-            // Build voters map per poll and option
+            // Wähler-Map pro Umfrage und Option erstellen
             const votersMap = {};
             (allVotes || []).forEach(v => {
                 if (!votersMap[v.poll_id]) {
@@ -1003,10 +1003,10 @@ async function fetchActivities(userIds) {
         }
     }
 
-    // Load likes data
+    // Likes-Daten laden
     await loadLikesForActivities(activities);
 
-    // Get following IDs for context icons
+    // Gefolgte-IDs für Kontext-Icons abrufen
     let followingIds = [];
     if (currentFilter !== 'my-activities') {
         const { data: following } = await supabase
@@ -1049,14 +1049,14 @@ async function loadMoreActivities() {
             const newHtml = activities.map(activity => renderActivityCard(activity)).join('');
             container.insertAdjacentHTML('beforeend', newHtml);
 
-            // Load match media for newly rendered matches
+            // Match-Medien für neu gerenderte Matches laden
             loadMatchMediaForActivities(activities);
 
-            // Load comment counts for matches
+            // Kommentar-Anzahlen für Matches laden
             loadCommentCountsForMatches(activities);
         }
 
-        // Check if we have more activities: either in cache or potentially in database
+        // Prüfen ob mehr Aktivitäten vorhanden sind
         // We have more if the cache has items OR if we returned a full page (meaning DB might have more)
         hasMoreActivities = pendingActivitiesCache.length > 0 || activities.length >= ACTIVITIES_PER_PAGE;
 
@@ -1134,7 +1134,7 @@ async function loadLikesForActivities(activities) {
                 recentLikers: like.recent_likers || []
             };
 
-            // Update UI immediately
+            // UI sofort aktualisieren
             const countEl = document.querySelector(`[data-like-count="${key}"]`);
             const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
             if (countEl) {
@@ -1190,7 +1190,7 @@ async function loadLikesFallback(activities) {
                 recentLikers: []
             };
 
-            // Update UI immediately
+            // UI sofort aktualisieren
             const countEl = document.querySelector(`[data-like-count="${key}"]`);
             const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
             if (countEl) {
@@ -1218,7 +1218,7 @@ async function loadLikesFallback(activities) {
 async function loadCommentCountsForMatches(activities) {
     if (!activities || activities.length === 0) return;
 
-    // Filter only match activities
+    // Nur Match-Aktivitäten filtern
     const matchActivities = activities.filter(a =>
         a.activityType === 'singles' || a.activityType === 'doubles' ||
         a.matchType === 'singles' || a.matchType === 'doubles'
@@ -1227,7 +1227,7 @@ async function loadCommentCountsForMatches(activities) {
     if (matchActivities.length === 0) return;
 
     try {
-        // Build queries for each match type
+        // Abfragen für jeden Match-Typ erstellen
         const singlesIds = matchActivities
             .filter(a => a.activityType === 'singles' || a.matchType === 'singles')
             .map(a => a.id);
@@ -1305,12 +1305,12 @@ async function toggleActivityLike(activityId, activityType) {
         });
 
         if (error) {
-            // Check if user tried to like their own activity
+            // Prüfen ob Benutzer eigene Aktivität liken wollte
             if (error.message && error.message.includes('cannot like your own activity')) {
                 // Revert UI changes
                 updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
                 likesDataCache[key] = currentData;
-                // Show user-friendly message
+                // Benutzerfreundliche Nachricht anzeigen
                 const activityName = activityType === 'singles_match' ? 'dein Spiel' :
                                    activityType === 'doubles_match' ? 'dein Doppel' :
                                    activityType === 'post' ? 'deinen Beitrag' :
@@ -1332,7 +1332,7 @@ async function toggleActivityLike(activityId, activityType) {
 
     } catch (error) {
         console.error('[ActivityFeed] Error toggling like:', error);
-        // Check if it's the "own activity" error
+        // Prüfen ob es der "eigene Aktivität"-Fehler ist
         if (error.message && error.message.includes('cannot like your own activity')) {
             updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
             likesDataCache[key] = currentData;
@@ -1424,11 +1424,11 @@ function renderLikeButton(matchId, matchType, activity = null) {
     const isLiked = likeData.isLiked;
     const count = likeData.likeCount;
 
-    // Check if this is user's own activity
+    // Prüfen ob dies eigene Aktivität des Benutzers ist
     const isOwn = activity ? isOwnActivity(activity, matchType) : false;
 
     if (isOwn) {
-        // Render "View Likes" button for own activities
+        // "Likes anzeigen"-Button für eigene Aktivitäten rendern
         return `
             <button
                 data-like-btn="${key}"
@@ -1465,16 +1465,16 @@ function renderLikeButton(matchId, matchType, activity = null) {
 function renderGenericLikeButton(activityId, activityType, activity, count = 0) {
     const key = `${activityType}-${activityId}`;
 
-    // Get count from cache if available (cache is populated before rendering)
+    // Anzahl aus Cache abrufen falls verfügbar
     const cachedData = likesDataCache[key];
     const displayCount = cachedData ? cachedData.likeCount : count;
     const isLiked = cachedData ? cachedData.isLiked : false;
 
-    // Check if this is user's own activity
+    // Prüfen ob dies eigene Aktivität des Benutzers ist
     const isOwn = activity ? isOwnActivity(activity, activityType) : false;
 
     if (isOwn) {
-        // Render "View Likes" button for own activities
+        // "Likes anzeigen"-Button für eigene Aktivitäten rendern
         return `
             <button
                 onclick="showLikesModal('${activityId}', '${activityType}')"
@@ -1541,7 +1541,7 @@ async function injectMatchMedia(matchId, matchType) {
 
         const isParticipant = await checkIfParticipant(matchId, matchType);
 
-        // Build horizontal carousel items
+        // Horizontale Karussell-Elemente erstellen
         let carouselItems = '';
 
         media.forEach((item, index) => {
@@ -1549,7 +1549,7 @@ async function injectMatchMedia(matchId, matchType) {
                 .from('match-media')
                 .getPublicUrl(item.file_path);
 
-            // Delete button for participants
+            // Löschen-Button für Teilnehmer
             const deleteButton = isParticipant ? `
                 <button
                     onclick="event.stopPropagation(); deleteMatchMedia('${item.id}', '${item.file_path}', '${matchId}', '${matchType}')"
@@ -1654,7 +1654,7 @@ async function checkMatchMediaAvailability() {
     if (matchMediaFunctionsChecked) return matchMediaFunctionsAvailable;
 
     try {
-        // Check if the table exists by trying to select from it
+        // Prüfen ob Tabelle existiert durch Abfrage
         const { error } = await supabase
             .from('match_media')
             .select('id')
@@ -1743,7 +1743,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const winnerAvatar = winnerProfile.avatar_url || DEFAULT_AVATAR;
     const loserAvatar = loserProfile.avatar_url || DEFAULT_AVATAR;
 
-    // Calculate set score
+    // Satzstand berechnen
     let winnerSets = 0;
     let loserSets = 0;
     const sets = match.sets || [];
@@ -1761,7 +1761,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
 
     const setScore = `${winnerSets}:${loserSets}`;
 
-    // Format time
+    // Zeit formatieren
     const matchDate = new Date(match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -1915,7 +1915,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     const winnerNames = winnerTeam.map(p => getDisplayName(p)).join(' & ');
     const loserNames = loserTeam.map(p => getDisplayName(p)).join(' & ');
 
-    // Calculate set score
+    // Satzstand berechnen
     let winnerSets = 0;
     let loserSets = 0;
     const sets = match.sets || [];
@@ -2186,7 +2186,7 @@ function renderRankUpCard(activity) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Get rank color based on rank name (use raw value for color lookup)
+    // Rang-Farbe basierend auf Rang-Namen abrufen
     const rawRankName = eventData.rank_name || 'Unbekannt';
     const rankColors = {
         'Rekrut': 'gray',
@@ -2331,7 +2331,7 @@ function renderClubRankingChangeCard(activity) {
     };
     const colors = positionColors[newPosition] || { bg: 'blue', border: 'blue', text: 'blue' };
 
-    // Generate message based on movement
+    // Nachricht basierend auf Bewegung generieren
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
@@ -2442,7 +2442,7 @@ function renderGlobalRankingChangeCard(activity) {
     // Color scheme - purple for global ranking (to distinguish from club)
     const colors = { bg: 'purple', border: 'purple', text: 'purple' };
 
-    // Generate message based on movement
+    // Nachricht basierend auf Bewegung generieren
     let messageHtml = '';
     const changeText = positionsChanged > 1
         ? getRankingText('globalRanking.positionsPlural', { count: positionsChanged })
@@ -2549,7 +2549,7 @@ function renderClubDoublesRankingChangeCard(activity) {
     };
     const colors = positionColors[newPosition] || { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Generate message based on movement (plural for pairings: "steigen" instead of "steigt")
+    // Nachricht basierend auf Bewegung generieren (plural for pairings: "steigen" instead of "steigt")
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
@@ -2669,7 +2669,7 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     // Color scheme - teal for global doubles ranking
     const colors = { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Generate message based on movement (plural for pairings)
+    // Nachricht basierend auf Bewegung generieren (plural for pairings)
     let messageHtml = '';
     const changeText = positionsChanged > 1 ? `${positionsChanged} Plätze` : '1 Platz';
     if (direction === 'up') {
@@ -2872,7 +2872,7 @@ function renderPollCard(activity, profileMap) {
 
     const options = activity.options || [];
 
-    // Calculate percentages and mark user's votes
+    // Prozentsätze berechnen und Benutzer-Stimmen markieren
     const optionsWithPercent = options.map(opt => ({
         ...opt,
         percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
@@ -3045,7 +3045,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
     }
 
     try {
-        // Check if poll is still active
+        // Prüfen ob Umfrage noch aktiv ist
         const { data: poll, error: pollError } = await supabase
             .from('community_polls')
             .select('ends_at, options, total_votes, user_id, allow_multiple')
@@ -3064,7 +3064,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
 
         if (isMultipleChoice) {
             // Multiple choice voting logic
-            // Check if user already voted for this specific option
+            // Prüfen ob Benutzer bereits für diese Option gestimmt hat
             const { data: existingVoteForOption, error: checkError } = await supabase
                 .from('poll_votes')
                 .select('id')
@@ -3089,7 +3089,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
                     throw deleteError;
                 }
             } else {
-                // Add vote for this option
+                // Stimme für diese Option hinzufügen
                 const { error: insertError } = await supabase
                     .from('poll_votes')
                     .insert({
@@ -3105,7 +3105,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
             }
         } else {
             // Single choice voting logic (original behavior)
-            // Check if user already voted
+            // Prüfen ob Benutzer bereits gestimmt hat
             const { data: existingVote, error: checkError } = await supabase
                 .from('poll_votes')
                 .select('id, option_id')
@@ -3192,7 +3192,7 @@ async function refreshPollCard(pollId) {
 
         if (error) throw error;
 
-        // Get user's votes (can be multiple for multi-choice polls)
+        // Benutzer-Stimmen abrufen (können mehrere bei Mehrfachauswahl sein)
         const { data: userVotes } = await supabase
             .from('poll_votes')
             .select('option_id')
@@ -3242,7 +3242,7 @@ async function refreshPollCard(pollId) {
             });
         }
 
-        // Calculate percentages
+        // Prozentsätze berechnen
         const optionsWithPercent = options.map(opt => ({
             ...opt,
             percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
@@ -3253,7 +3253,7 @@ async function refreshPollCard(pollId) {
         const endsAt = new Date(poll.ends_at);
         const isActive = endsAt > new Date();
 
-        // Find and update the poll options in DOM
+        // Umfrage-Optionen im DOM finden und aktualisieren
         const pollCard = document.querySelector(`[onclick*="votePoll('${pollId}'"]`)?.closest('.bg-gradient-to-r');
         if (pollCard) {
             const optionsContainer = pollCard.querySelector('.space-y-2.mb-3');
@@ -3293,7 +3293,7 @@ async function refreshPollCard(pollId) {
                 `).join('');
             }
 
-            // Update total votes display
+            // Gesamtstimmen-Anzeige aktualisieren
             const votesDisplay = pollCard.querySelector('.fa-users')?.parentElement;
             if (votesDisplay) {
                 votesDisplay.innerHTML = `
@@ -3302,7 +3302,7 @@ async function refreshPollCard(pollId) {
                 `;
             }
 
-            // Update the "Du hast bereits abgestimmt" text
+            // "Du hast bereits abgestimmt"-Text aktualisieren
             const questionDiv = pollCard.querySelector('.mb-4');
             if (questionDiv) {
                 const statusDiv = questionDiv.querySelector('.flex.flex-wrap');
@@ -3331,11 +3331,11 @@ function updateCarousel(carousel, newIndex) {
 
     if (!track || slides.length === 0) return;
 
-    // Update track position
+    // Track-Position aktualisieren
     track.style.transform = `translateX(-${newIndex * 100}%)`;
     track.dataset.currentIndex = newIndex;
 
-    // Update dots
+    // Punkte aktualisieren
     dots.forEach((dot, index) => {
         if (index === newIndex) {
             dot.classList.remove('bg-opacity-50');
@@ -3352,7 +3352,7 @@ function updateCarousel(carousel, newIndex) {
  */
 function initCarouselSwipe() {
     document.addEventListener('DOMContentLoaded', () => {
-        // Add touch event listeners to all carousel containers
+        // Touch-Event-Listener für alle Karussell-Container hinzufügen
         const observer = new MutationObserver(() => {
             document.querySelectorAll('[id^="carousel-"]').forEach(carousel => {
                 if (carousel.dataset.swipeInit) return;
@@ -3393,5 +3393,5 @@ function initCarouselSwipe() {
     });
 }
 
-// Initialize swipe functionality
+// Swipe-Funktionalität initialisieren
 initCarouselSwipe();

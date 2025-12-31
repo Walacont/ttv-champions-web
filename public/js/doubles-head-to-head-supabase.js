@@ -16,10 +16,10 @@ let currentModal = null;
  * @param {Object} opponentTeam - Opponent team object with player1Id and player2Id
  */
 export async function showDoublesHeadToHeadModal(supabase, currentUserId, opponentTeam) {
-    // Close existing modal if any
+    // Bestehendes Modal schließen falls vorhanden
     closeDoublesHeadToHeadModal();
 
-    // Create modal container
+    // Modal-Container erstellen
     const modal = document.createElement('div');
     modal.id = 'doubles-h2h-modal';
     modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
@@ -43,17 +43,17 @@ export async function showDoublesHeadToHeadModal(supabase, currentUserId, oppone
     document.body.appendChild(modal);
     currentModal = modal;
 
-    // Close on background click
+    // Bei Hintergrund-Klick schließen
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             closeDoublesHeadToHeadModal();
         }
     });
 
-    // Close button
+    // Schließen-Button
     document.getElementById('close-doubles-h2h-modal').addEventListener('click', closeDoublesHeadToHeadModal);
 
-    // Load and display statistics
+    // Statistiken laden und anzeigen
     await loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam);
 }
 
@@ -99,7 +99,7 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
             return;
         }
 
-        // Filter matches where current user played against this specific opponent team
+        // Matches filtern wo Benutzer gegen dieses Gegnerteam gespielt hat
         const relevantMatches = [];
         const pairingHistory = new Map(); // Track which partners I played with
 
@@ -110,7 +110,7 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
             const currentUserInTeamA = teamAPlayers.includes(currentUserId);
             const currentUserInTeamB = teamBPlayers.includes(currentUserId);
 
-            // Check if opponent team is exactly in teamA or teamB
+            // Prüfen ob Gegnerteam genau in teamA oder teamB ist
             const opponentTeamInTeamA =
                 teamAPlayers.includes(opponentPlayer1Id) &&
                 teamAPlayers.includes(opponentPlayer2Id);
@@ -135,13 +135,13 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
             }
         });
 
-        // Calculate statistics
+        // Statistiken berechnen
         const stats = calculateDoublesStats(relevantMatches, currentUserId);
 
-        // Get partner names for pairings
+        // Partner-Namen für Paarungen abrufen
         const partnerNames = await getPartnerNames(supabase, Array.from(pairingHistory.keys()));
 
-        // Render the modal content
+        // Modal-Inhalt rendern
         renderDoublesHeadToHeadContent(
             contentEl,
             opponentTeamName,
@@ -222,7 +222,7 @@ function calculateDoublesStats(matches, currentUserId) {
         // Count sets
         if (match.sets && Array.isArray(match.sets)) {
             match.sets.forEach(set => {
-                // Sets can use team_a/team_b or teamA/teamB depending on storage format
+                // Sätze können team_a/team_b oder teamA/teamB je nach Format verwenden
                 const teamAScore = parseInt(set.team_a ?? set.teamA) || 0;
                 const teamBScore = parseInt(set.team_b ?? set.teamB) || 0;
 
@@ -274,7 +274,7 @@ function renderDoublesHeadToHeadContent(
         winRateColor = 'text-red-600';
     }
 
-    // Build pairings list HTML
+    // Paarungslisten-HTML erstellen
     let pairingsHTML = '';
     if (pairingHistory.size > 0) {
         pairingsHTML = '<div class="mb-6"><h4 class="text-md font-semibold text-gray-900 mb-2">Deine Paarungen</h4><div class="space-y-1">';
@@ -347,7 +347,7 @@ function renderDoublesHeadToHeadContent(
         `}
     `;
 
-    // Add toggle functionality for match history
+    // Toggle-Funktionalität für Match-Verlauf hinzufügen
     if (matches.length > 3) {
         let showingAll = false;
         const toggleBtn = document.getElementById('doubles-h2h-toggle-btn');
@@ -385,7 +385,7 @@ function renderDoublesMatchHistory(matches, currentUserId, partnerNames) {
         const teamBPlayers = [match.team_b_player1_id, match.team_b_player2_id];
         const currentUserInTeamA = teamAPlayers.includes(currentUserId);
 
-        // Find partner ID (the other player in the same team)
+        // Partner-ID finden (anderer Spieler im selben Team)
         const myTeamPlayers = currentUserInTeamA ? teamAPlayers : teamBPlayers;
         const partnerId = myTeamPlayers.find(id => id !== currentUserId);
         const partnerName = partnerNames?.get(partnerId) || 'Unbekannt';
@@ -394,12 +394,12 @@ function renderDoublesMatchHistory(matches, currentUserId, partnerNames) {
             ? match.winning_team === 'A'
             : match.winning_team === 'B';
 
-        // Parse date - Supabase returns ISO strings
+        // Datum parsen - Supabase gibt ISO-Strings zurück
         const matchDate = match.played_at ? new Date(match.played_at) :
                          match.created_at ? new Date(match.created_at) : new Date();
         const formattedDate = formatMatchDate(matchDate);
 
-        // Format sets
+        // Sätze formatieren
         const setsDisplay = formatDoublesS(match.sets, currentUserInTeamA);
 
         return `
@@ -436,7 +436,7 @@ function formatDoublesS(sets, isTeamA) {
 
     return sets
         .map(set => {
-            // Handle both snake_case and camelCase formats
+            // Sowohl snake_case als auch camelCase Formate verarbeiten
             const teamAScore = set.team_a ?? set.teamA;
             const teamBScore = set.team_b ?? set.teamB;
             const myScore = isTeamA ? teamAScore : teamBScore;

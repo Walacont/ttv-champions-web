@@ -78,7 +78,7 @@ export function loadMatchHistory(supabase, userData, matchType = 'all') {
     container.innerHTML =
         '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
-    // Load initial data and set up real-time listeners
+    // Initiale Daten laden und Echtzeit-Listener einrichten
     loadAndSubscribe(supabase, userData, container, matchType);
 
     // Return cleanup function
@@ -102,10 +102,10 @@ function cleanupSubscriptions() {
  */
 async function loadAndSubscribe(supabase, userData, container, matchType) {
     try {
-        // Fetch initial data
+        // Initiale Daten abrufen
         await fetchAndRenderMatches(supabase, userData, container, matchType);
 
-        // Set up real-time subscriptions for singles matches
+        // Echtzeit-Subscriptions für Einzel-Matches einrichten
         const singlesSubscription = supabase
             .channel('match-history-singles')
             .on(
@@ -117,7 +117,7 @@ async function loadAndSubscribe(supabase, userData, container, matchType) {
                     filter: `processed=eq.true`
                 },
                 async (payload) => {
-                    // Check if this match involves the current user
+                    // Prüfen ob dieses Match den aktuellen Benutzer betrifft
                     const match = payload.new || payload.old;
                     if (match && (match.player_a_id === userData.id || match.player_b_id === userData.id)) {
                         await fetchAndRenderMatches(supabase, userData, container, matchType);
@@ -128,7 +128,7 @@ async function loadAndSubscribe(supabase, userData, container, matchType) {
 
         matchHistorySubscriptions.push(singlesSubscription);
 
-        // Set up real-time subscriptions for doubles matches
+        // Echtzeit-Subscriptions für Doppel-Matches einrichten
         const doublesSubscription = supabase
             .channel('match-history-doubles')
             .on(
@@ -218,7 +218,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
                 doublesMatchesMap.set(match.id, mapDoublesMatchFromSupabase(match));
             });
 
-            // Filter doubles where user is involved
+            // Doppel filtern an denen Benutzer beteiligt ist
             doublesMatches = Array.from(doublesMatchesMap.values()).filter(match => {
                 return (
                     match.teamA?.player1Id === userData.id ||
@@ -238,7 +238,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
 
             if (doublesNullError) console.error('Error fetching null club doubles:', doublesNullError);
 
-            // Filter doubles where user is involved
+            // Doppel filtern an denen Benutzer beteiligt ist
             doublesMatches = (doublesNullClub || [])
                 .map(m => mapDoublesMatchFromSupabase(m))
                 .filter(match => {
@@ -251,7 +251,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
                 });
         }
 
-        // Filter matches based on matchType parameter
+        // Matches basierend auf matchType-Parameter filtern
         let filteredMatches = [];
         if (matchType === 'singles') {
             filteredMatches = singlesMatches;
@@ -276,19 +276,19 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
             return;
         }
 
-        // Sort by timestamp descending
+        // Nach Zeitstempel absteigend sortieren
         allMatches.sort((a, b) => {
             const timeA = new Date(a.timestamp || a.createdAt || 0).getTime();
             const timeB = new Date(b.timestamp || b.createdAt || 0).getTime();
             return timeB - timeA;
         });
 
-        // Get player names and ELO changes for all matches
+        // Spielernamen und ELO-Änderungen für alle Matches abrufen
         const matchesWithDetails = await Promise.all(
             allMatches.map(match => enrichMatchData(supabase, match, userData))
         );
 
-        // Render matches with toggle button
+        // Matches mit Toggle-Button rendern
         renderMatchesWithToggle(container, matchesWithDetails, userData);
 
     } catch (error) {
@@ -308,7 +308,7 @@ async function enrichMatchData(supabase, match, userData) {
     const enriched = { ...match };
 
     try {
-        // Handle DOUBLES matches differently
+        // DOPPEL-Matches anders verarbeiten
         if (match.type === 'doubles') {
             // Determine user's team and opponent team
             const isTeamA =
@@ -316,11 +316,11 @@ async function enrichMatchData(supabase, match, userData) {
             const userTeam = isTeamA ? match.teamA : match.teamB;
             const opponentTeam = isTeamA ? match.teamB : match.teamA;
 
-            // Get partner ID (the other player on user's team)
+            // Partner-ID abrufen (anderer Spieler im Team)
             const partnerId =
                 userTeam.player1Id === userData.id ? userTeam.player2Id : userTeam.player1Id;
 
-            // Fetch all player names
+            // Alle Spielernamen abrufen
             try {
                 const playerIds = [partnerId, opponentTeam.player1Id, opponentTeam.player2Id].filter(Boolean);
 
@@ -350,11 +350,11 @@ async function enrichMatchData(supabase, match, userData) {
             enriched.isWinner =
                 (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
         } else {
-            // Handle SINGLES matches
+            // EINZEL-Matches verarbeiten
             // Determine opponent ID
             const opponentId = match.winnerId === userData.id ? match.loserId : match.winnerId;
 
-            // Check if opponentId is valid before attempting to fetch
+            // Prüfen ob opponentId gültig ist vor Abruf
             if (
                 !opponentId ||
                 opponentId === '' ||
@@ -367,7 +367,7 @@ async function enrichMatchData(supabase, match, userData) {
                 return enriched;
             }
 
-            // Get opponent data
+            // Gegnerdaten abrufen
             try {
                 const { data: opponentData, error } = await supabase
                     .from('profiles')
@@ -393,7 +393,7 @@ async function enrichMatchData(supabase, match, userData) {
             enriched.isWinner = match.winnerId === userData.id;
         }
 
-        // Get ELO change from pointsHistory
+        // ELO-Änderung aus pointsHistory abrufen
         let eloChange = null;
         let pointsGained = null;
 
@@ -407,7 +407,7 @@ async function enrichMatchData(supabase, match, userData) {
 
             if (historyError) throw historyError;
 
-            // Find the history entry that corresponds to this match
+            // Verlaufseintrag finden der zu diesem Match gehört
             // Match by timestamp proximity (within 30 seconds) and check reason
             const matchTime = new Date(match.timestamp || match.playedAt || 0).getTime();
 
@@ -416,7 +416,7 @@ async function enrichMatchData(supabase, match, userData) {
             for (const historyEntry of historyData || []) {
                 const historyTime = new Date(historyEntry.timestamp || 0).getTime();
 
-                // Check if this history entry is from a match
+                // Prüfen ob Verlaufseintrag von Match stammt
                 const isMatchHistory =
                     historyEntry.awarded_by === 'System (Wettkampf)' ||
                     (historyEntry.reason &&
@@ -425,7 +425,7 @@ async function enrichMatchData(supabase, match, userData) {
 
                 // If timestamps are within 30 seconds and it's a match history, consider it a match
                 if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
-                    // Additionally check if opponent name matches (if available)
+                    // Zusätzlich Gegnernamen prüfen (falls verfügbar)
                     if (
                         historyEntry.reason &&
                         historyEntry.reason.includes(opponentName.split(' ')[0])
@@ -486,7 +486,7 @@ function renderMatchesWithToggle(container, allMatches, userData) {
         const matchesToShow = showingAll ? allMatches : allMatches.slice(0, 4);
         renderMatchHistory(container, matchesToShow, userData);
 
-        // Add toggle button if there are more than 4 matches
+        // Toggle-Button hinzufügen wenn mehr als 4 Matches
         if (allMatches.length > 4) {
             const toggleContainer = document.createElement('div');
             toggleContainer.className = 'text-center mt-4';
@@ -536,7 +536,7 @@ function renderMatchHistory(container, matches, userData) {
         const formattedTime = formatMatchTime(matchTime);
         const formattedDate = formatMatchDate(matchTime);
 
-        // Format sets
+        // Sätze formatieren
         let isPlayerA;
         if (isDoubles) {
             // For doubles, check if user is in teamA
@@ -637,7 +637,7 @@ function formatSetRatio(sets, isPlayerA) {
 
     sets.forEach(set => {
         let myScore, oppScore;
-        // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+        // Prüfen ob Doppel-Match (teamA/teamB) oder Einzel (playerA/playerB)
         if (set.teamA !== undefined && set.teamB !== undefined) {
             myScore = isPlayerA ? set.teamA : set.teamB;
             oppScore = isPlayerA ? set.teamB : set.teamA;
@@ -663,7 +663,7 @@ function formatSets(sets, isPlayerA) {
 
     return sets
         .map(set => {
-            // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+            // Prüfen ob Doppel-Match (teamA/teamB) oder Einzel (playerA/playerB)
             if (set.teamA !== undefined && set.teamB !== undefined) {
                 // Doubles match
                 const myScore = isPlayerA ? set.teamA : set.teamB;
@@ -700,7 +700,7 @@ function formatMatchDate(date) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time parts for comparison
+    // Zeitanteile für Vergleich zurücksetzen
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(

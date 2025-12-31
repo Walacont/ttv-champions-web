@@ -62,25 +62,25 @@ export function openExerciseSelectionModal(callback = null) {
     const modal = document.getElementById('exercise-selection-modal');
     if (!modal) return;
 
-    // Set callback (null means use default session planning behavior)
+    // Callback setzen (null bedeutet Standard-Trainingsplanung)
     modalCallback = callback;
 
-    // Reset temporary selection
+    // Temporäre Auswahl zurücksetzen
     tempModalSelection = [];
 
-    // Reset filter
+    // Filter zurücksetzen
     currentTagFilter = 'all';
 
-    // Generate tag filter buttons
+    // Tag-Filter-Buttons generieren
     renderTagFilters();
 
-    // Render exercises
+    // Übungen rendern
     renderExerciseSelectionGrid();
 
-    // Update counter
+    // Zähler aktualisieren
     updateSelectionCounter();
 
-    // Show modal
+    // Modal anzeigen
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
@@ -114,7 +114,7 @@ function renderTagFilters() {
     if (labelSpan) container.appendChild(labelSpan);
     if (alleButton) container.appendChild(alleButton);
 
-    // Add tag filter buttons
+    // Tag-Filter-Buttons hinzufügen
     Array.from(allTags)
         .sort()
         .forEach(tag => {
@@ -128,7 +128,7 @@ function renderTagFilters() {
             container.appendChild(btn);
         });
 
-    // Add click handler to "Alle" button
+    // Klick-Handler für "Alle"-Button hinzufügen
     if (alleButton) {
         alleButton.addEventListener('click', () => handleTagFilterClick('all'));
     }
@@ -141,7 +141,7 @@ function renderTagFilters() {
 function handleTagFilterClick(tag) {
     currentTagFilter = tag;
 
-    // Update button states
+    // Button-Zustände aktualisieren
     document.querySelectorAll('.tag-filter-btn').forEach(btn => {
         if (btn.dataset.tag === tag) {
             btn.classList.add('active', 'bg-indigo-100', 'text-indigo-700');
@@ -167,8 +167,8 @@ export function closeExerciseSelectionModal() {
         modal.classList.remove('flex');
     }
     currentTagFilter = 'all';
-    modalCallback = null; // Reset callback
-    tempModalSelection = []; // Reset temporary selection
+    modalCallback = null; // Callback zurücksetzen
+    tempModalSelection = []; // Temporäre Auswahl zurücksetzen
 }
 
 /**
@@ -179,13 +179,13 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     const grid = document.getElementById('exercise-selection-grid');
     if (!grid) return;
 
-    // Filter exercises by tag filter
+    // Übungen nach Tag-Filter filtern
     let exercises = allExercisesForSelection;
     if (currentTagFilter !== 'all') {
         exercises = exercises.filter(ex => ex.tags && ex.tags.includes(currentTagFilter));
     }
 
-    // Filter by search term
+    // Nach Suchbegriff filtern
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         exercises = exercises.filter(
@@ -204,7 +204,7 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     grid.innerHTML = '';
 
     exercises.forEach(exercise => {
-        // Check if this exercise is in temporary selection
+        // Prüfen ob diese Übung in temporärer Auswahl ist
         const isSelected = tempModalSelection.find(ex => ex.exerciseId === exercise.id);
 
         const card = document.createElement('div');
@@ -304,7 +304,7 @@ function toggleExerciseSelection(exercise) {
     const searchInput = document.getElementById('exercise-selection-search');
     renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
 
-    // Update counter
+    // Zähler aktualisieren
     updateSelectionCounter();
 }
 
@@ -482,7 +482,7 @@ export function resetSessionPlanning() {
  * Initialize event listeners for session planning
  */
 export function initializeSessionPlanningListeners() {
-    // Open exercise selection modal button
+    // Übungsauswahl-Modal öffnen Button
     const openModalButton = document.getElementById('open-exercise-selection-button');
     if (openModalButton) {
         openModalButton.addEventListener('click', () => openExerciseSelectionModal());
@@ -491,7 +491,7 @@ export function initializeSessionPlanningListeners() {
         console.warn('[Session Planning] Button "open-exercise-selection-button" not found');
     }
 
-    // Close exercise selection modal button
+    // Übungsauswahl-Modal schließen Button
     const closeModalButton = document.getElementById('close-exercise-selection-modal-button');
     if (closeModalButton) {
         closeModalButton.addEventListener('click', closeExerciseSelectionModal);
@@ -503,7 +503,7 @@ export function initializeSessionPlanningListeners() {
         doneButton.addEventListener('click', confirmSelectionAndClose);
     }
 
-    // Search input in exercise selection modal
+    // Sucheingabe im Übungsauswahl-Modal
     const searchInput = document.getElementById('exercise-selection-search');
     if (searchInput) {
         searchInput.addEventListener('input', e => {
@@ -511,7 +511,7 @@ export function initializeSessionPlanningListeners() {
         });
     }
 
-    // Create new exercise button
+    // Neue Übung erstellen Button
     const createButton = document.getElementById('create-new-exercise-from-session-button');
     if (createButton) {
         createButton.addEventListener('click', openCreateExerciseModal);
@@ -532,7 +532,7 @@ export function initializeSessionPlanningListeners() {
  * Open the exercise modal to create a new exercise
  */
 function openCreateExerciseModal() {
-    // Close the spontaneous session modal first
+    // Erst das spontane Trainings-Modal schließen
     const sessionModal = document.getElementById('spontaneous-session-modal');
     if (sessionModal) {
         sessionModal.classList.add('hidden');

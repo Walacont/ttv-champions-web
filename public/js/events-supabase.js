@@ -622,7 +622,7 @@ async function submitEvent() {
             submitBtn.disabled = true;
         }
 
-        // Insert event
+        // Event einfügen
         const { data: event, error: eventError } = await supabase
             .from('events')
             .insert(eventData)
@@ -774,7 +774,7 @@ function closeAllModals() {
  */
 window.openEventDetails = async function(eventId, occurrenceDate = null) {
     try {
-        // Load event details
+        // Event-Details laden
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select('*')
@@ -1972,7 +1972,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             : 'this';
         const notifyParticipants = document.getElementById('delete-notify-participants')?.checked ?? true;
 
-        // Load event details for notification
+        // Event-Details laden for notification
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select('*')
@@ -2078,7 +2078,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
  */
 window.openEditEventModal = async function(eventId) {
     try {
-        // Load event details
+        // Event-Details laden
         const { data: event, error } = await supabase
             .from('events')
             .select('*')
@@ -2389,7 +2389,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
         nextWeek.setDate(nextWeek.getDate() + 14);
         const endDate = nextWeek.toISOString().split('T')[0];
 
-        // Load upcoming events
+        // Anstehende Events laden
         const { data: events, error } = await supabase
             .from('events')
             .select('*')

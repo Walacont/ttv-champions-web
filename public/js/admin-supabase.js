@@ -162,7 +162,7 @@ function initializeAdminPage(userData, user) {
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
 
-        // Initialize description editors
+        // Beschreibungs-Editoren initialisieren
         descriptionEditor = setupDescriptionEditor({
             textAreaId: 'exercise-description',
             toggleContainerId: 'description-toggle-container',
@@ -175,13 +175,13 @@ function initializeAdminPage(userData, user) {
             tableEditorContainerId: 'edit-description-table-editor',
         });
 
-        // Initialize milestone management
+        // Meilenstein-Verwaltung initialisieren
         initializeExerciseMilestones();
 
-        // Initialize partner system
+        // Partner-System initialisieren
         initializeExercisePartnerSystem();
 
-        // Modal Listeners
+        // Modal-Listener
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
         closeExerciseModalButton.addEventListener('click', () =>
             exerciseModal.classList.add('hidden')
@@ -190,7 +190,7 @@ function initializeAdminPage(userData, user) {
             editExerciseModal.classList.add('hidden')
         );
 
-        // Toggle abbreviations in exercise modal
+        // Abkürzungen im Übungs-Modal umschalten
         const toggleAbbreviationsAdmin = document.getElementById('toggle-abbreviations-admin');
         const abbreviationsContentAdmin = document.getElementById('abbreviations-content-admin');
         const abbreviationsIconAdmin = document.getElementById('abbreviations-icon-admin');
@@ -234,15 +234,15 @@ function initializeAdminPage(userData, user) {
 
         editExerciseForm.addEventListener('submit', handleUpdateExercise);
 
-        // Load sports and clubs for the invite form
+        // Sportarten und Vereine für Einladungsformular laden
         loadSportsAndClubs();
         setupClubSearchListeners();
 
-        // Load seasons
+        // Saisonen laden
         loadSeasons();
         setupSeasonForm();
 
-        // Initialize audit section
+        // Audit-Bereich initialisieren
         initializeAuditSection();
 
         loadClubsAndPlayers();
@@ -254,12 +254,12 @@ function initializeAdminPage(userData, user) {
 }
 
 // ============================================
-// SPORTS AND CLUBS MANAGEMENT
+// SPORTARTEN- UND VEREINSVERWALTUNG
 // ============================================
 
 async function loadSportsAndClubs() {
     try {
-        // Load all sports
+        // Alle Sportarten laden
         const { data: sports, error: sportsError } = await supabase
             .from('sports')
             .select('*')
@@ -269,7 +269,7 @@ async function loadSportsAndClubs() {
         if (sportsError) throw sportsError;
         allSports = sports || [];
 
-        // Populate sports dropdowns
+        // Sportarten-Dropdowns befüllen
         const sportSelect = document.getElementById('sportSelect');
         const seasonSportSelect = document.getElementById('season-sport');
 
@@ -283,7 +283,7 @@ async function loadSportsAndClubs() {
             });
         }
 
-        // Populate season sport dropdown
+        // Saison-Sportarten-Dropdown befüllen
         if (seasonSportSelect) {
             seasonSportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
             allSports.forEach(sport => {
@@ -294,7 +294,7 @@ async function loadSportsAndClubs() {
             });
         }
 
-        // Populate exercise sport dropdown
+        // Übungs-Sportarten-Dropdown befüllen
         const exerciseSportSelect = document.getElementById('exercise-sport');
         if (exerciseSportSelect) {
             exerciseSportSelect.innerHTML = '<option value="">📊 Alle Sportarten</option>';
@@ -306,10 +306,10 @@ async function loadSportsAndClubs() {
             });
         }
 
-        // Initialize sport switch buttons
+        // Sport-Wechsel-Buttons initialisieren
         initializeSportSwitch();
 
-        // Load all clubs
+        // Alle Vereine laden
         const { data: clubs, error: clubsError } = await supabase
             .from('clubs')
             .select('id, name, is_test_club')
@@ -318,7 +318,7 @@ async function loadSportsAndClubs() {
         if (clubsError) throw clubsError;
         allClubs = clubs || [];
 
-        // Populate exercise club dropdown
+        // Übungs-Vereins-Dropdown befüllen
         const exerciseClubSelect = document.getElementById('exercise-club');
         if (exerciseClubSelect) {
             exerciseClubSelect.innerHTML = '<option value="">🌍 Global (alle Vereine)</option>';
@@ -339,14 +339,14 @@ function initializeSportSwitch() {
     const container = document.getElementById('sport-switch-container');
     if (!container) return;
 
-    // Clear and rebuild
+    // Leeren und neu aufbauen
     container.innerHTML = `
         <button class="sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors ${currentSportFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}" data-sport="all">
             📊 Alle
         </button>
     `;
 
-    // Add button for each sport
+    // Button für jede Sportart hinzufügen
     allSports.forEach(sport => {
         const btn = document.createElement('button');
         btn.className = `sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors ${currentSportFilter === sport.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
@@ -355,7 +355,7 @@ function initializeSportSwitch() {
         container.appendChild(btn);
     });
 
-    // Add click listeners
+    // Klick-Listener hinzufügen
     container.querySelectorAll('.sport-switch-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const sportId = btn.dataset.sport;
@@ -367,7 +367,7 @@ function initializeSportSwitch() {
 function switchSportFilter(sportId) {
     currentSportFilter = sportId;
 
-    // Update button styles
+    // Button-Stile aktualisieren
     document.querySelectorAll('.sport-switch-btn').forEach(btn => {
         if (btn.dataset.sport === sportId) {
             btn.className = 'sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white';
@@ -376,7 +376,7 @@ function switchSportFilter(sportId) {
         }
     });
 
-    // Update info text
+    // Info-Text aktualisieren
     const infoEl = document.getElementById('current-sport-info');
     const exerciseSportLabel = document.getElementById('exercise-sport-label');
     const sport = sportId !== 'all' ? allSports.find(s => s.id === sportId) : null;
@@ -389,7 +389,7 @@ function switchSportFilter(sportId) {
         }
     }
 
-    // Update exercise creation label
+    // Übungserstellungs-Label aktualisieren
     if (exerciseSportLabel) {
         if (sportId === 'all') {
             exerciseSportLabel.textContent = 'Alle Sportarten';
@@ -429,7 +429,7 @@ function setupClubSearchListeners() {
 
     let searchTimeout;
 
-    // Live search as user types
+    // Live-Suche während der Eingabe
     clubNameInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
 
@@ -446,14 +446,14 @@ function setupClubSearchListeners() {
         }, 300);
     });
 
-    // Hide results when clicking outside
+    // Ergebnisse ausblenden bei Klick außerhalb
     document.addEventListener('click', (e) => {
         if (!clubNameInput.contains(e.target) && !searchResults.contains(e.target)) {
             searchResults.classList.add('hidden');
         }
     });
 
-    // Clear selected club
+    // Ausgewählten Verein löschen
     if (clearSelectedClubBtn) {
         clearSelectedClubBtn.addEventListener('click', () => {
             clearSelectedClub();
@@ -472,7 +472,7 @@ async function performClubSearch(query) {
     const searchResults = document.getElementById('club-search-results');
     const newClubInfo = document.getElementById('new-club-info');
 
-    // Filter clubs that match the query
+    // Vereine filtern die der Suche entsprechen
     const matchingClubs = allClubs.filter(club =>
         club.name.toLowerCase().includes(query.toLowerCase())
     );
@@ -480,7 +480,7 @@ async function performClubSearch(query) {
     searchResults.innerHTML = '';
 
     if (matchingClubs.length > 0) {
-        // Show matching clubs
+        // Passende Vereine anzeigen
         for (const club of matchingClubs) {
             const clubSports = await getClubSports(club.id);
             const sportsText = clubSports.length > 0
@@ -549,19 +549,19 @@ function selectClub(club, clubSports) {
     const existingSportsList = document.getElementById('existing-sports-list');
     const newClubInfo = document.getElementById('new-club-info');
 
-    // Hide search results and input
+    // Suchergebnisse und Eingabe ausblenden
     searchResults.classList.add('hidden');
     clubNameInput.value = '';
     clubNameInput.classList.add('hidden');
-    clubNameInput.removeAttribute('required'); // Remove required when hidden
+    clubNameInput.removeAttribute('required'); // required-Attribut entfernen wenn versteckt
     newClubInfo.classList.add('hidden');
 
-    // Show selected club
+    // Ausgewählten Verein anzeigen
     selectedClubName.textContent = club.name;
     selectedClubIdInput.value = club.id;
     selectedClubContainer.classList.remove('hidden');
 
-    // Show existing sports
+    // Existierende Sportarten anzeigen
     if (clubSports.length > 0) {
         existingSportsList.innerHTML = clubSports.map(sport =>
             `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -573,7 +573,7 @@ function selectClub(club, clubSports) {
         existingSportsContainer.classList.add('hidden');
     }
 
-    // Check if selected sport already exists
+    // Prüfen ob ausgewählte Sportart bereits existiert
     checkExistingSport();
 }
 
@@ -588,7 +588,7 @@ function clearSelectedClub() {
     const newClubInfo = document.getElementById('new-club-info');
 
     clubNameInput.classList.remove('hidden');
-    clubNameInput.setAttribute('required', ''); // Add required back when shown
+    clubNameInput.setAttribute('required', ''); // required-Attribut wieder hinzufügen wenn sichtbar
     clubNameInput.value = '';
     selectedClubContainer.classList.add('hidden');
     selectedClubIdInput.value = '';
@@ -641,7 +641,7 @@ async function handleInviteCoach(e) {
             // Use selected existing club
             clubId = selectedClubId;
         } else {
-            // Check if club already exists by name (shouldn't happen with new UI, but safety check)
+            // Prüfen ob Verein mit diesem Namen bereits existiert (Sicherheitsprüfung)
             const { data: existingClub } = await supabase
                 .from('clubs')
                 .select('id')
@@ -651,7 +651,7 @@ async function handleInviteCoach(e) {
             if (existingClub) {
                 clubId = existingClub.id;
             } else {
-                // Create new club
+                // Neuen Verein erstellen
                 const { data: newClub, error: clubError } = await supabase
                     .from('clubs')
                     .insert({ name: clubName })
@@ -664,7 +664,7 @@ async function handleInviteCoach(e) {
             }
         }
 
-        // Add sport to club_sports if not already there
+        // Sportart zu club_sports hinzufügen falls noch nicht vorhanden
         const { data: existingClubSport } = await supabase
             .from('club_sports')
             .select('club_id')
@@ -687,7 +687,7 @@ async function handleInviteCoach(e) {
             }
         }
 
-        // Generate unique code
+        // Eindeutigen Code generieren
         let code = generateInvitationCode();
         let isUnique = false;
         let attempts = 0;
@@ -711,13 +711,13 @@ async function handleInviteCoach(e) {
             throw new Error('Konnte keinen eindeutigen Code generieren.');
         }
 
-        // Get current user
+        // Aktuellen Benutzer abrufen
         const user = await getCurrentUser();
 
-        // Get sport info for display
+        // Sportart-Info für Anzeige abrufen
         const selectedSport = allSports.find(s => s.id === sportId);
 
-        // Create code document with sport_id and head_coach role
+        // Code-Dokument mit sport_id und Cheftrainer-Rolle erstellen
         const expiresAt = getExpirationDate();
         const { error } = await supabase
             .from('invitation_codes')
@@ -739,15 +739,15 @@ async function handleInviteCoach(e) {
 
         if (error) throw error;
 
-        // Display code with info
+        // Code mit Info anzeigen
         inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
 
-        // Show success info
+        // Erfolgsmeldung anzeigen
         const clubDisplayName = selectedClub ? selectedClub.name : clubName;
         const sportDisplayName = selectedSport ? selectedSport.display_name : 'Unbekannt';
 
-        // Log audit event
+        // Audit-Ereignis protokollieren
         await logAuditEvent(
             'invitation_created',
             null,
@@ -759,7 +759,7 @@ async function handleInviteCoach(e) {
 
         alert(`Einladungscode erstellt!\n\nVerein: ${clubDisplayName}\nSparte: ${sportDisplayName}\nRolle: Spartenleiter\n\nCode: ${code}`);
 
-        // Reset form
+        // Formular zurücksetzen
         clearSelectedClub();
         document.getElementById('sportSelect').value = '';
         document.getElementById('new-club-info').classList.add('hidden');
@@ -786,7 +786,7 @@ function openExerciseModal(dataset) {
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl || '';
 
-    // Render description content
+    // Beschreibungsinhalt rendern
     let descriptionData;
     try {
         descriptionData = JSON.parse(descriptionContent);
@@ -807,7 +807,7 @@ function openExerciseModal(dataset) {
         modalExerciseDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    // Handle points display with milestones
+    // Punkteanzeige mit Meilensteinen verarbeiten
     let tieredPointsData = null;
     try {
         if (tieredPoints) {
@@ -862,7 +862,7 @@ function openExerciseModal(dataset) {
         }
     }
 
-    // Set data for both buttons
+    // Daten für beide Buttons setzen
     modalDeleteExerciseButton.dataset.id = id;
     modalDeleteExerciseButton.dataset.imageUrl = imageUrl;
     modalEditExerciseButton.dataset.id = id;
@@ -956,7 +956,7 @@ async function handleUpdateExercise(e) {
 
 async function loadStatistics() {
     try {
-        // Load clubs to identify test clubs
+        // Vereine laden um Test-Vereine zu identifizieren
         const { data: clubs } = await supabase
             .from('clubs')
             .select('id, is_test_club');
@@ -965,7 +965,7 @@ async function loadStatistics() {
             (clubs || []).filter(c => c.is_test_club === true).map(c => c.id)
         );
 
-        // Load users (excluding test clubs, filtered by sport - single sport model)
+        // Benutzer laden (Test-Vereine ausgeschlossen, gefiltert nach Sportart)
         let usersQuery = supabase.from('profiles').select('*');
 
         // Apply sport filter directly on profiles (single sport model)
@@ -977,7 +977,7 @@ async function loadStatistics() {
 
         let users = (allUsers || []).filter(u => !u.club_id || !testClubIds.has(u.club_id));
 
-        // Load attendance (excluding test clubs)
+        // Anwesenheiten laden (Test-Vereine ausgeschlossen)
         const { data: allAttendance } = await supabase
             .from('attendance')
             .select('*');
@@ -1026,7 +1026,7 @@ async function loadStatistics() {
         renderGenderChart(genderCounts);
         renderAttendanceChart(sortedMonths, attendanceByMonth);
 
-        // Load global competition statistics
+        // Globale Wettkampf-Statistiken laden
         await loadGlobalCompetitionStatistics(testClubIds);
     } catch (error) {
         console.error('Fehler beim Laden der Statistiken:', error);
@@ -1081,19 +1081,19 @@ function renderAttendanceChart(labels, data) {
 
 async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
     try {
-        // Build query for singles matches
+        // Abfrage für Einzel-Matches erstellen
         let singlesQuery = supabase
             .from('matches')
             .select('created_at, club_id, sport_id');
 
-        // Filter by sport if selected
+        // Nach Sportart filtern falls ausgewählt
         if (currentSportFilter !== 'all') {
             singlesQuery = singlesQuery.eq('sport_id', currentSportFilter);
         }
 
         const { data: singlesMatches } = await singlesQuery;
 
-        // Build query for doubles matches
+        // Abfrage für Doppel-Matches erstellen
         let doublesQuery = supabase
             .from('doubles_matches')
             .select('created_at, club_id, sport_id');
@@ -1104,7 +1104,7 @@ async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
 
         const { data: doublesMatches } = await doublesQuery;
 
-        // Process all matches (exclude test clubs)
+        // Alle Matches verarbeiten (Test-Vereine ausgeschlossen)
         competitionMatchData = [];
 
         (singlesMatches || []).forEach(match => {
@@ -1402,7 +1402,7 @@ function renderCompetitionChart(labels, data) {
 
 async function loadClubsAndPlayers() {
     try {
-        // Load clubs with their sports
+        // Vereine mit ihren Sportarten laden
         const { data: clubs, error: clubsError } = await supabase
             .from('clubs')
             .select('id, name, is_test_club')
@@ -1412,7 +1412,7 @@ async function loadClubsAndPlayers() {
 
         console.log(`[ADMIN] Loaded ${clubs?.length || 0} clubs from database`);
 
-        // Load club_sports relationships
+        // club_sports-Beziehungen laden
         const { data: clubSportsData, error: clubSportsError } = await supabase
             .from('club_sports')
             .select('club_id, sport_id, sports(id, name, display_name)')
@@ -1422,14 +1422,14 @@ async function loadClubsAndPlayers() {
 
         console.log(`[ADMIN] Loaded ${clubSportsData?.length || 0} club_sports relationships`);
 
-        // Load all users (single sport model - role is directly in profiles)
+        // Alle Benutzer laden (Rolle ist direkt in profiles)
         const { data: users, error: usersError } = await supabase
             .from('profiles')
             .select('*');
 
         if (usersError) throw usersError;
 
-        // Create data structures
+        // Datenstrukturen erstellen
         const clubsMap = new Map();
         (clubs || []).forEach(club => clubsMap.set(club.id, club));
 
@@ -1455,7 +1455,7 @@ async function loadClubsAndPlayers() {
 
         renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap, currentSportFilter);
 
-        // Setup realtime subscription for profiles and club_sports
+        // Echtzeit-Subscription für profiles und club_sports einrichten
         if (usersSubscription) {
             supabase.removeChannel(usersSubscription);
         }
@@ -1500,25 +1500,25 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
     console.log(`[ADMIN] Rendering ${clubsMap.size} clubs, sport filter: ${sportFilter}`);
     let renderedCount = 0;
 
-    // Render each club with its sports
+    // Jeden Verein mit seinen Sportarten rendern
     for (const [clubId, clubData] of clubsMap) {
         const clubUsers = usersByClub[clubId] || [];
         const clubSports = clubSportsMap.get(clubId) || [];
         const isTestClub = clubData.is_test_club === true;
 
-        // Filter clubs by sport if a specific sport is selected
+        // Vereine nach Sportart filtern falls ausgewählt
         if (sportFilter !== 'all') {
             const hasSport = clubSports.some(sport => sport.id === sportFilter);
             if (!hasSport) continue; // Skip clubs that don't offer the selected sport
         }
 
-        // Show all clubs - don't skip any unless filtered by sport above
+        // Alle Vereine anzeigen - nicht überspringen außer nach Sportart gefiltert
         // (Removed the condition that skipped clubs without sports and users)
 
         const clubDiv = document.createElement('div');
         clubDiv.className = 'bg-gray-50 rounded-lg overflow-hidden border border-gray-200';
 
-        // Calculate member count based on sport filter
+        // Mitgliederzahl basierend auf Sport-Filter berechnen
         let memberCountText = '';
         if (sportFilter !== 'all') {
             // Count users who have the filtered sport
@@ -1554,17 +1554,17 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         let sportsHtml = `<div class="club-sports-container hidden p-4 space-y-3" data-club-id="${clubId}">`;
 
         if (clubSports.length > 0) {
-            // Filter sports by selected sport filter
+            // Sportarten nach ausgewähltem Filter filtern
             const filteredSports = sportFilter !== 'all'
                 ? clubSports.filter(sport => sport.id === sportFilter)
                 : clubSports;
 
             for (const sport of filteredSports) {
-                // Get users for this sport by filtering using their active_sport_id
+                // Benutzer für diese Sportart über active_sport_id filtern
                 const sportUsers = clubUsers.filter(user => {
                     const profileKey = `${user.id}_${clubId}`;
                     const sportRoles = profileSportsMap.get(profileKey) || [];
-                    // Check if user has this sport as their active sport
+                    // Prüfen ob Benutzer diese Sportart aktiv hat
                     const hasSport = sportRoles.some(sr => sr.sport_id === sport.id);
                     // If no sport data, show all users
                     if (profileSportsMap.size === 0) return true;
@@ -1590,7 +1590,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         } else {
             // No sports defined yet
             if (clubUsers.length > 0) {
-                // Show all users in legacy mode
+                // Alle Benutzer im Legacy-Modus anzeigen
                 sportsHtml += `
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p class="text-sm text-amber-800">
@@ -1624,7 +1624,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
 
     console.log(`[ADMIN] Rendered ${renderedCount} clubs (filtered from ${clubsMap.size} total)`);
 
-    // Add event listeners for toggle buttons
+    // Event-Listener für Toggle-Buttons hinzufügen
     document.querySelectorAll('.toggle-club-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const clubId = btn.dataset.clubId;
@@ -1661,7 +1661,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         });
     });
 
-    // Add event listeners for delete buttons
+    // Event-Listener für Löschen-Buttons hinzufügen
     document.querySelectorAll('.delete-member-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1681,7 +1681,7 @@ function renderSportMembers(users, profileSportsMap, clubId, sportId) {
             const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
             const avatarSrc = user.avatar_url || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
 
-            // Get role for this sport from profileSportsMap
+            // Rolle für diese Sportart aus profileSportsMap abrufen
             const profileKey = `${user.id}_${clubId}`;
             const sportRoles = profileSportsMap.get(profileKey) || [];
             const sportRole = sportRoles.find(sr => sr.sport_id === sportId);
@@ -1756,7 +1756,7 @@ function getRoleDisplay(role) {
 async function handleDeletePlayer(playerId) {
     if (confirm('Sind Sie sicher, dass Sie diesen Benutzer endgültig löschen möchten?')) {
         try {
-            // Get user details before deletion for audit log
+            // Benutzerdetails vor Löschung für Audit-Log abrufen
             const { data: userData } = await supabase
                 .from('profiles')
                 .select('first_name, last_name, email, club_id')
@@ -1770,7 +1770,7 @@ async function handleDeletePlayer(playerId) {
 
             if (error) throw error;
 
-            // Log audit event
+            // Audit-Ereignis protokollieren
             await logAuditEvent(
                 'user_removed',
                 playerId,
@@ -1859,7 +1859,7 @@ async function handleCreateExercise(e) {
             imageUrl = urlData.publicUrl;
         }
 
-        // Get admin-specific selections
+        // Admin-spezifische Auswahlen abrufen
         const exerciseClub = document.getElementById('exercise-club')?.value || null;
         const exerciseSport = document.getElementById('exercise-sport')?.value || null;
 
@@ -1882,7 +1882,7 @@ async function handleCreateExercise(e) {
             sport_id: exerciseSport || null,
         };
 
-        // Add partner system settings if enabled
+        // Partner-System-Einstellungen hinzufügen falls aktiviert
         const partnerSettings = getExercisePartnerSettings();
         if (partnerSettings) {
             exerciseData.partner_system = {
@@ -1904,7 +1904,7 @@ async function handleCreateExercise(e) {
 
         if (error) throw error;
 
-        // Log audit event
+        // Audit-Ereignis protokollieren
         await logAuditEvent(
             'exercise_created',
             insertedExercise?.id,
@@ -1918,7 +1918,7 @@ async function handleCreateExercise(e) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         createExerciseForm.reset();
 
-        // Reset form fields
+        // Formularfelder zurücksetzen
         document.getElementById('exercise-points').value = '';
         document.getElementById('exercise-milestones-list').innerHTML = '';
         document.getElementById('exercise-tiered-points-toggle').checked = false;
@@ -1948,13 +1948,13 @@ async function handleCreateExercise(e) {
 
 async function loadAllExercises() {
     try {
-        // Build query with optional sport filter
+        // Abfrage mit optionalem Sport-Filter erstellen
         let query = supabase
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
 
-        // Filter by sport if selected
+        // Nach Sportart filtern falls ausgewählt
         if (currentSportFilter !== 'all') {
             query = query.eq('sport_id', currentSportFilter);
         }
@@ -1965,7 +1965,7 @@ async function loadAllExercises() {
 
         renderExercises(exercises || []);
 
-        // Setup realtime subscription
+        // Echtzeit-Subscription einrichten
         if (exercisesSubscription) {
             supabase.removeChannel(exercisesSubscription);
         }
@@ -2057,7 +2057,7 @@ function renderExercises(exercises) {
 async function handleDeleteExercise(exerciseId, imageUrl) {
     if (confirm('Sind Sie sicher, dass Sie diese Übung endgültig löschen möchten?')) {
         try {
-            // Get exercise details before deletion for audit log
+            // Übungsdetails vor Löschung für Audit-Log abrufen
             const { data: exerciseData } = await supabase
                 .from('exercises')
                 .select('title, sport_id')
@@ -2071,7 +2071,7 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
 
             if (error) throw error;
 
-            // Log audit event
+            // Audit-Ereignis protokollieren
             await logAuditEvent(
                 'exercise_deleted',
                 exerciseId,
@@ -2081,7 +2081,7 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
                 { title: exerciseData?.title }
             );
 
-            // Delete image from storage if it exists
+            // Bild aus Storage löschen falls vorhanden
             if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
                 try {
                     // Extract file path from URL
@@ -2115,7 +2115,7 @@ async function loadSeasons() {
     if (!seasonsListEl) return;
 
     try {
-        // Load all seasons grouped by sport
+        // Alle Saisonen gruppiert nach Sportart laden
         const { data: seasons, error } = await supabase
             .from('seasons')
             .select('*, sports(id, name, display_name)')
@@ -2145,7 +2145,7 @@ async function loadSeasons() {
             seasonsBySport[sportId].seasons.push(season);
         });
 
-        // Render seasons by sport
+        // Saisonen nach Sportart rendern
         seasonsListEl.innerHTML = '';
 
         for (const sportId in seasonsBySport) {
@@ -2155,7 +2155,7 @@ async function loadSeasons() {
             const sportDiv = document.createElement('div');
             sportDiv.className = 'border border-gray-200 rounded-lg overflow-hidden';
 
-            // Calculate remaining time for active season
+            // Verbleibende Zeit für aktive Saison berechnen
             let remainingInfo = '';
             let progressBar = '';
             if (activeSeason) {
@@ -2259,7 +2259,7 @@ function setupSeasonForm() {
     const form = document.getElementById('new-season-form');
     if (!form) return;
 
-    // Set default dates (today to one year from now)
+    // Standarddaten setzen (heute bis in einem Jahr)
     const today = new Date();
     const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
 
@@ -2269,7 +2269,7 @@ function setupSeasonForm() {
     if (startInput) startInput.value = today.toISOString().split('T')[0];
     if (endInput) endInput.value = nextYear.toISOString().split('T')[0];
 
-    // Set default season name
+    // Standard-Saisonname setzen
     const nameInput = document.getElementById('season-name');
     if (nameInput) {
         const currentYear = today.getFullYear();
@@ -2304,7 +2304,7 @@ async function handleStartNewSeason(e) {
         return;
     }
 
-    // Get sport name for confirmation
+    // Sportart-Name für Bestätigung abrufen
     const sport = allSports.find(s => s.id === sportId);
     const sportName = sport?.display_name || 'Unbekannt';
 
@@ -2337,7 +2337,7 @@ async function handleStartNewSeason(e) {
 
         if (error) throw error;
 
-        // Log audit event
+        // Audit-Ereignis protokollieren
         await logAuditEvent(
             'season_started',
             data,
@@ -2350,7 +2350,7 @@ async function handleStartNewSeason(e) {
         feedbackEl.textContent = `Saison "${name}" erfolgreich gestartet! Punkte wurden zurückgesetzt.`;
         feedbackEl.className = 'mt-3 text-sm font-medium text-green-600';
 
-        // Reset form
+        // Formular zurücksetzen
         document.getElementById('season-sport').value = '';
 
         // Reload seasons list
@@ -2380,7 +2380,7 @@ async function handleEndSeason(seasonId, seasonName) {
     if (!confirmed) return;
 
     try {
-        // Get season details for audit log
+        // Saison-Details für Audit-Log abrufen
         const { data: seasonData } = await supabase
             .from('seasons')
             .select('sport_id')
@@ -2394,7 +2394,7 @@ async function handleEndSeason(seasonId, seasonName) {
 
         if (error) throw error;
 
-        // Log audit event
+        // Audit-Ereignis protokollieren
         await logAuditEvent(
             'season_ended',
             seasonId,
@@ -2454,7 +2454,7 @@ async function loadAuditLogs() {
     if (!container) return;
 
     try {
-        // Get filter values
+        // Filterwerte abrufen
         const actionFilter = document.getElementById('audit-filter-action')?.value || null;
         const clubFilter = document.getElementById('audit-filter-club')?.value || null;
         const sportFilter = document.getElementById('audit-filter-sport')?.value || null;
@@ -2472,7 +2472,7 @@ async function loadAuditLogs() {
 
         if (error) throw error;
 
-        // Get total count for pagination
+        // Gesamtanzahl für Paginierung abrufen
         const { data: countResult, error: countError } = await supabase.rpc('count_audit_logs', {
             p_action_filter: actionFilter,
             p_club_filter: clubFilter,
@@ -2497,10 +2497,10 @@ async function loadAuditLogs() {
             return;
         }
 
-        // Render logs
+        // Logs rendern
         container.innerHTML = logs.map(log => renderAuditLogEntry(log)).join('');
 
-        // Update pagination
+        // Paginierung aktualisieren
         if (totalPages > 1) {
             pagination.classList.remove('hidden');
             document.getElementById('audit-page-info').textContent = `Seite ${auditCurrentPage + 1} von ${totalPages}`;
@@ -2525,7 +2525,7 @@ function renderAuditLogEntry(log) {
     const actionInfo = getActionDisplayInfo(log.action);
     const timeAgo = getTimeAgo(new Date(log.created_at));
 
-    // Build details string
+    // Details-String erstellen
     let detailsHtml = '';
     if (log.details) {
         const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
@@ -2693,7 +2693,7 @@ function setupAuditListeners() {
         });
     }
 
-    // Filter change listeners
+    // Filter-Änderungs-Listener
     ['audit-filter-action', 'audit-filter-club', 'audit-filter-sport'].forEach(id => {
         const element = document.getElementById(id);
         if (element) {

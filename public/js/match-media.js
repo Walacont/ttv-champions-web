@@ -109,7 +109,7 @@ function setupUploadModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Setup file input listener
+    // Datei-Input-Listener einrichten
     const fileInput = document.getElementById('media-file-input');
     fileInput.addEventListener('change', handleFileSelection);
 }
@@ -155,7 +155,7 @@ function setupGalleryModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Close on background click
+    // Bei Hintergrund-Klick schließen
     document.getElementById('media-gallery-modal').addEventListener('click', (e) => {
         if (e.target.id === 'media-gallery-modal') {
             window.closeMediaGallery();
@@ -219,7 +219,7 @@ function handleFileSelection(e) {
  * Open media upload modal
  */
 export async function openMediaUpload(matchId, matchType) {
-    // Check if feature is available
+    // Prüfen ob Feature verfügbar ist
     const isAvailable = await checkMatchMediaAvailable();
     if (!isAvailable) {
         alert('Match-Media Funktion ist noch nicht eingerichtet.');
@@ -230,7 +230,7 @@ export async function openMediaUpload(matchId, matchType) {
     currentMatchType = matchType;
 
     try {
-        // Check if user can upload
+        // Prüfen ob Benutzer hochladen kann
         const { data: canUpload, error: canUploadError } = await supabase.rpc('can_upload_match_media', {
             p_match_id: String(matchId),
             p_match_type: matchType
@@ -247,7 +247,7 @@ export async function openMediaUpload(matchId, matchType) {
             return;
         }
 
-        // Check current media count
+        // Aktuelle Medien-Anzahl prüfen
         const { data: existingMedia } = await supabase.rpc('get_match_media', {
             p_match_id: String(matchId),
             p_match_type: matchType
@@ -266,7 +266,7 @@ export async function openMediaUpload(matchId, matchType) {
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
-    // Reset form
+    // Formular zurücksetzen
     document.getElementById('media-file-input').value = '';
     document.getElementById('upload-preview').innerHTML = '';
     document.getElementById('upload-media-btn').disabled = true;
@@ -295,7 +295,7 @@ export async function uploadMedia() {
     uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + t('dashboard.matchMedia.uploading');
 
     try {
-        // Check current count
+        // Aktuelle Anzahl prüfen
         const { data: existingMedia } = await supabase.rpc('get_match_media', {
             p_match_id: currentMatchId,
             p_match_type: currentMatchType
@@ -312,7 +312,7 @@ export async function uploadMedia() {
             if (isPhoto && file.size > MAX_PHOTO_SIZE) continue;
             if (isVideo && file.size > MAX_VIDEO_SIZE) continue;
 
-            // Generate unique filename
+            // Eindeutigen Dateinamen generieren
             const timestamp = Date.now();
             const randomStr = Math.random().toString(36).substring(7);
             const ext = file.name.split('.').pop();
@@ -332,7 +332,7 @@ export async function uploadMedia() {
                 throw uploadError;
             }
 
-            // Save metadata to database
+            // Metadaten in Datenbank speichern
             const { error: dbError } = await supabase
                 .from('match_media')
                 .insert({
@@ -353,10 +353,10 @@ export async function uploadMedia() {
             }
         }
 
-        // Close modal and reload activity feed
+        // Modal schließen und Activity-Feed neu laden
         closeMediaUpload();
 
-        // Reset availability cache so media will be loaded
+        // Verfügbarkeits-Cache zurücksetzen damit Medien geladen werden
         matchMediaAvailable = true;
 
         // Also reset the cache in activity-feed if it exists
@@ -393,7 +393,7 @@ async function checkMatchMediaAvailable() {
 
     availabilityCheckPromise = (async () => {
         try {
-            // Check if table exists
+            // Prüfen ob Tabelle existiert
             const { error: tableError } = await supabase
                 .from('match_media')
                 .select('id')
@@ -419,7 +419,7 @@ async function checkMatchMediaAvailable() {
  * Load and display media for a match
  */
 export async function loadMatchMedia(matchId, matchType) {
-    // Check availability first (only makes 1 request ever)
+    // Verfügbarkeit zuerst prüfen (nur 1 Anfrage)
     const isAvailable = await checkMatchMediaAvailable();
     if (!isAvailable) {
         return [];
@@ -543,7 +543,7 @@ export async function deleteMedia(mediaId, filePath) {
     if (!confirm(t('dashboard.matchMedia.deleteConfirm'))) return;
 
     try {
-        // Delete from database
+        // Aus Datenbank löschen
         const { error: dbError } = await supabase
             .from('match_media')
             .delete()
@@ -551,7 +551,7 @@ export async function deleteMedia(mediaId, filePath) {
 
         if (dbError) throw dbError;
 
-        // Delete from storage
+        // Aus Storage löschen
         const { error: storageError } = await supabase.storage
             .from('match-media')
             .remove([filePath]);

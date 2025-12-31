@@ -21,14 +21,14 @@ let currentUserData = null;
 let clubRequestsSubscription = null;
 let leaveRequestsSubscription = null;
 
-// Check auth state on load
+// Authentifizierungsstatus beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
+        // Benutzerprofil von Supabase abrufen
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -46,7 +46,7 @@ async function initializeAuth() {
                 activeSportId: profile.active_sport_id || null,
             };
 
-            // Initialize club management
+            // Vereinsverwaltung initialisieren
             initializeClubManagement();
         }
 
@@ -57,14 +57,14 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded
+// Bei DOMContentLoaded initialisieren oder sofort falls bereits geladen
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
     initializeAuth();
 }
 
-// Listen for auth state changes - only redirect on explicit sign out
+// Auth-Status-Änderungen beobachten - nur bei explizitem Logout weiterleiten
 onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
@@ -189,7 +189,7 @@ function listenToLeaveRequests() {
 async function updateClubManagementUI() {
     if (!currentUser || !currentUserData) return;
 
-    // Refresh user data
+    // Benutzerdaten aktualisieren
     const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -200,7 +200,7 @@ async function updateClubManagementUI() {
         currentUserData.clubId = profile.club_id || null;
     }
 
-    // Check for pending join request
+    // Auf ausstehende Beitrittsanfrage prüfen
     const { data: joinRequests } = await supabase
         .from('club_requests')
         .select('*')
@@ -209,7 +209,7 @@ async function updateClubManagementUI() {
 
     const hasPendingJoinRequest = joinRequests && joinRequests.length > 0;
 
-    // Check for pending leave request
+    // Auf ausstehende Austrittsanfrage prüfen
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
         .select('*')
@@ -218,7 +218,7 @@ async function updateClubManagementUI() {
 
     const hasPendingLeaveRequest = leaveRequests && leaveRequests.length > 0;
 
-    // Update current club status
+    // Aktuellen Vereinsstatus aktualisieren
     if (currentUserData.clubId) {
         let clubName = currentUserData.clubId;
         try {
@@ -256,7 +256,7 @@ async function updateClubManagementUI() {
         `;
     }
 
-    // Update pending request status
+    // Status ausstehender Anfragen aktualisieren
     if (hasPendingJoinRequest) {
         const joinRequestData = joinRequests[0];
         let clubName = joinRequestData.club_id;
@@ -349,14 +349,14 @@ async function updateClubManagementUI() {
         pendingRequestStatus.innerHTML = '';
     }
 
-    // Show/hide club search section
+    // Vereinssuche-Bereich ein-/ausblenden
     if (!currentUserData.clubId && !hasPendingJoinRequest) {
         clubSearchSection.classList.remove('hidden');
     } else {
         clubSearchSection.classList.add('hidden');
     }
 
-    // Show/hide leave club section
+    // Verein-verlassen-Bereich ein-/ausblenden
     if (currentUserData.clubId && !hasPendingLeaveRequest) {
         leaveClubSection.classList.remove('hidden');
     } else {
