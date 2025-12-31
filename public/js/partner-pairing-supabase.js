@@ -35,10 +35,10 @@ function setupEventListeners() {
 
 /**
  * Open partner pairing modal
- * @param {Object} exercise - Exercise object
- * @param {Array} playerIds - Array of present player IDs
- * @param {Object} sessionData - Session data
- * @param {Object} existingPairings - Existing pairing data (optional, for editing)
+ * @param {Object} exercise - Übungs-Objekt
+ * @param {Array} playerIds - Array anwesender Spieler-IDs
+ * @param {Object} sessionData - Session-Daten
+ * @param {Object} existingPairings - Bestehende Paarungs-Daten (optional, zum Bearbeiten)
  * @returns {Promise} - Resolves when pairing is complete
  */
 export function openPartnerPairingModal(exercise, playerIds, sessionData, existingPairings = null) {
@@ -828,10 +828,10 @@ async function confirmPairingAndDistributePoints() {
 /**
  * Distribute points for exercise based on pairing results
  * All table tennis exercises are played with partners
- * @param {Array} pairs - Array of paired players with results
- * @param {Array} singles - Array of single players (with trainer) with results
- * @param {Object} exercise - Exercise object
- * @param {Object} sessionData - Session data
+ * @param {Array} pairs - Array gepaarter Spieler mit Ergebnissen
+ * @param {Array} singles - Array einzelner Spieler (mit Trainer) mit Ergebnissen
+ * @param {Object} exercise - Übungs-Objekt
+ * @param {Object} sessionData - Session-Daten
  */
 export async function distributeExercisePoints(pairs, singles, exercise, sessionData) {
     const date = sessionData.date;
@@ -936,10 +936,10 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
 
 /**
  * Distribute milestone points for tiered exercises
- * @param {Array} pairs - Array of paired players with results
- * @param {Array} singles - Array of single players with results
- * @param {Object} exercise - Exercise object with tieredPoints data
- * @param {Object} sessionData - Session data
+ * @param {Array} pairs - Array gepaarter Spieler mit Ergebnissen
+ * @param {Array} singles - Array einzelner Spieler mit Ergebnissen
+ * @param {Object} exercise - Übungs-Objekt with tieredPoints data
+ * @param {Object} sessionData - Session-Daten
  */
 export async function distributeMilestonePoints(pairs, singles, exercise, sessionData) {
     const date = sessionData.date;
@@ -1137,7 +1137,7 @@ async function getCurrentSeasonKey() {
 
 /**
  * Award points to a player
- * @param {string} successRate - Success rate indicator (e.g., "100%", "50%")
+ * @param {string} successRate - Erfolgsquoten-Indikator (z.B. "100%", "50%")
  */
 async function awardPointsToPlayer(
     playerId,

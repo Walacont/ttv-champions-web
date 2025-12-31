@@ -11,9 +11,9 @@ let currentModal = null;
 
 /**
  * Show head-to-head statistics modal for two doubles teams
- * @param {Object} supabase - Supabase client instance
- * @param {string} currentUserId - Current user's ID
- * @param {Object} opponentTeam - Opponent team object with player1Id and player2Id
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string} currentUserId - ID des aktuellen Benutzers
+ * @param {Object} opponentTeam - Gegnerteam-Objekt mit player1Id und player2Id
  */
 export async function showDoublesHeadToHeadModal(supabase, currentUserId, opponentTeam) {
     // Bestehendes Modal schließen falls vorhanden
@@ -73,9 +73,9 @@ export function closeDoublesHeadToHeadModal() {
 
 /**
  * Load and display doubles head-to-head statistics
- * @param {Object} supabase - Supabase client instance
- * @param {string} currentUserId - Current user's ID
- * @param {Object} opponentTeam - Opponent team with player1Id, player2Id, player1Name, player2Name
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string} currentUserId - ID des aktuellen Benutzers
+ * @param {Object} opponentTeam - Gegnerteam mit player1Id, player2Id, player1Name, player2Name
  */
 async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam) {
     const contentEl = document.getElementById('doubles-h2h-content');
@@ -160,9 +160,9 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
 
 /**
  * Get partner names from their IDs
- * @param {Object} supabase - Supabase client instance
- * @param {string[]} partnerIds - Array of partner IDs
- * @returns {Map} Map of partnerId -> name
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string[]} partnerIds - Array von Partner-IDs
+ * @returns {Map} Map von partnerId -> Name
  */
 async function getPartnerNames(supabase, partnerIds) {
     const names = new Map();
@@ -194,9 +194,9 @@ async function getPartnerNames(supabase, partnerIds) {
 
 /**
  * Calculate doubles statistics
- * @param {Array} matches - Array of match objects
- * @param {string} currentUserId - Current user's ID
- * @returns {Object} Statistics object
+ * @param {Array} matches - Array von Match-Objekten
+ * @param {string} currentUserId - ID des aktuellen Benutzers
+ * @returns {Object} Statistik-Objekt
  */
 function calculateDoublesStats(matches, currentUserId) {
     let wins = 0;
@@ -370,10 +370,10 @@ function renderDoublesHeadToHeadContent(
 
 /**
  * Render doubles match history list
- * @param {Array} matches - Array of match objects
- * @param {string} currentUserId - Current user's ID
- * @param {Map} partnerNames - Map of partnerId -> name
- * @returns {string} HTML string
+ * @param {Array} matches - Array von Match-Objekten
+ * @param {string} currentUserId - ID des aktuellen Benutzers
+ * @param {Map} partnerNames - Map von partnerId -> Name
+ * @returns {string} HTML-String
  */
 function renderDoublesMatchHistory(matches, currentUserId, partnerNames) {
     if (matches.length === 0) {
@@ -427,9 +427,9 @@ function renderDoublesMatchHistory(matches, currentUserId, partnerNames) {
 
 /**
  * Format sets for display
- * @param {Array} sets - Array of set objects
- * @param {boolean} isTeamA - Whether the current user is in Team A
- * @returns {string} Formatted sets string
+ * @param {Array} sets - Array von Satz-Objekten
+ * @param {boolean} isTeamA - Ob der aktuelle Benutzer in Team A ist
+ * @returns {string} Formatierter Satz-String
  */
 function formatDoublesS(sets, isTeamA) {
     if (!sets || sets.length === 0) return 'N/A';
@@ -448,8 +448,8 @@ function formatDoublesS(sets, isTeamA) {
 
 /**
  * Format match date
- * @param {Date} date - Date object
- * @returns {string} Formatted date string
+ * @param {Date} date - Datum-Objekt
+ * @returns {string} Formatierter Datum-String
  */
 function formatMatchDate(date) {
     const today = new Date();

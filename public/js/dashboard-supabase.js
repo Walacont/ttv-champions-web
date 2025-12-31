@@ -4021,7 +4021,7 @@ function setupLeaderboardPreferences() {
 /**
  * Populate player subgroup filter dropdown with scope options and custom subgroups
  * Age groups are now in a separate dropdown (player-age-group-filter)
- * @param {Object} userData - Current user data
+ * @param {Object} userData - Aktuelle Benutzerdaten
  */
 async function populatePlayerSubgroupFilter(userData) {
     const dropdown = document.getElementById('player-subgroup-filter');

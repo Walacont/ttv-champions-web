@@ -9,7 +9,7 @@ let notificationModalOpen = false;
 
 /**
  * Initialisiert das Benachrichtigungssystem
- * @param {string} userId - User-ID
+ * @param {string} userId - Benutzer-ID
  */
 export async function initNotifications(userId) {
     const db = getSupabase();
@@ -184,7 +184,7 @@ async function refreshNotificationModal(userId) {
 
 /**
  * Markiert Match-Anfragen automatisch als gelesen wenn sie bereits bestätigt wurden
- * @param {string} userId - User-ID
+ * @param {string} userId - Benutzer-ID
  * @param {Array} notifications - Benachrichtigungen
  * @returns {Array} - Aktualisierte Benachrichtigungen
  */
@@ -249,7 +249,7 @@ async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
 
 /**
  * Markiert Doppel-Anfragen automatisch als gelesen wenn sie bereits bearbeitet wurden
- * @param {string} userId - User-ID
+ * @param {string} userId - Benutzer-ID
  * @param {Array} notifications - Benachrichtigungen
  * @returns {Array} - Aktualisierte Benachrichtigungen
  */
@@ -326,7 +326,7 @@ async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) 
 
 /**
  * Markiert Vereins-Anfragen automatisch als gelesen wenn sie bereits bearbeitet wurden
- * @param {string} userId - User-ID
+ * @param {string} userId - Benutzer-ID
  * @param {Array} notifications - Benachrichtigungen
  * @returns {Array} - Aktualisierte Benachrichtigungen
  */

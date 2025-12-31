@@ -20,9 +20,9 @@ function mapPlayerFromSupabase(player) {
 
 /**
  * Loads top XP players for the current season (club)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {Function} setUnsubscribeCallback - Optional callback to store unsubscribe function
+ * @param {string} clubId - Vereins-ID
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Function} setUnsubscribeCallback - Optionaler Callback für Unsubscribe-Funktion
  */
 export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null) {
     const topXPElement = document.getElementById('top-xp-players');
@@ -102,9 +102,9 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
 
 /**
  * Loads top win players for the current season (club)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {Function} setUnsubscribeCallback - Optional callback to store unsubscribe function
+ * @param {string} clubId - Vereins-ID
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Function} setUnsubscribeCallback - Optionaler Callback für Unsubscribe-Funktion
  */
 export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = null) {
     const topWinsElement = document.getElementById('top-wins-players');

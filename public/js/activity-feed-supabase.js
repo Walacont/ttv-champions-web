@@ -3034,9 +3034,9 @@ window.carouselGoTo = function(carouselId, index) {
 
 /**
  * Vote on a poll
- * @param {string} pollId - Poll ID
- * @param {string} optionId - Selected option ID
- * @param {boolean} allowMultiple - Whether multiple selections are allowed
+ * @param {string} pollId - Umfrage-ID
+ * @param {string} optionId - Ausgewählte Options-ID
+ * @param {boolean} allowMultiple - Ob Mehrfachauswahl erlaubt ist
  */
 window.votePoll = async function(pollId, optionId, allowMultiple = false) {
     if (!currentUser) {

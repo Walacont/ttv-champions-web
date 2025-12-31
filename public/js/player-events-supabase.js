@@ -12,11 +12,11 @@ let currentUserId = null;
 
 /**
  * Generate upcoming occurrence dates for a recurring event (for a single user)
- * @param {string} startDate - Event start date (YYYY-MM-DD)
+ * @param {string} startDate - Event-Startdatum (YYYY-MM-DD)
  * @param {string} repeatType - 'daily', 'weekly', 'biweekly', 'monthly'
- * @param {string|null} repeatEndDate - Optional end date for recurring
- * @param {Array} excludedDates - Array of excluded date strings
- * @param {number} weeksAhead - How many weeks ahead to generate occurrences
+ * @param {string|null} repeatEndDate - Optionales Enddatum für Wiederholung
+ * @param {Array} excludedDates - Array ausgeschlossener Datum-Strings
+ * @param {number} weeksAhead - Wochen im Voraus für Termine
  * @returns {Array} Array of date strings (YYYY-MM-DD)
  */
 function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], weeksAhead = 4) {
@@ -81,9 +81,9 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
 
 /**
  * Ensure invitations exist for upcoming occurrences of a recurring event (for a single user)
- * @param {string} eventId - Event ID
- * @param {Object} event - Event data
- * @param {string} userId - User ID
+ * @param {string} eventId - Event-ID
+ * @param {Object} event - Event-Daten
+ * @param {string} userId - Benutzer-ID
  */
 async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
     if (!event.repeat_type || event.event_type !== 'recurring') return;
@@ -132,7 +132,7 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
 
 /**
  * Initialize player events module
- * @param {string} userId - Current user ID
+ * @param {string} userId - Aktuelle Benutzer-ID
  */
 export async function initPlayerEvents(userId) {
     if (!userId) return;
@@ -323,8 +323,8 @@ async function loadUpcomingEvents() {
 
 /**
  * Get the next occurrence of a recurring event
- * @param {Object} event - Event with repeat_type, start_date, repeat_end_date, excluded_dates
- * @param {string} afterDate - Find occurrence after this date (YYYY-MM-DD)
+ * @param {Object} event - Event mit repeat_type, start_date, repeat_end_date, excluded_dates
+ * @param {string} afterDate - Termin nach diesem Datum finden (YYYY-MM-DD)
  * @returns {string|null} Next occurrence date or null
  */
 function getNextOccurrence(event, afterDate) {
@@ -376,8 +376,8 @@ function getNextOccurrence(event, afterDate) {
 
 /**
  * Render a single event card
- * @param {Object} invitation - Event invitation with event data
- * @param {number} acceptedCount - Number of accepted invitations for this occurrence
+ * @param {Object} invitation - Event-Einladung mit Event-Daten
+ * @param {number} acceptedCount - Anzahl akzeptierter Einladungen für diesen Termin
  * @returns {string} HTML string
  */
 function renderEventCard(invitation, acceptedCount) {
@@ -546,9 +546,9 @@ function setupEventCardListeners() {
 
 /**
  * Respond to an event invitation
- * @param {string} invitationId - Invitation ID
+ * @param {string} invitationId - Einladungs-ID
  * @param {string} status - 'accepted' or 'rejected'
- * @param {string} reason - Optional rejection reason
+ * @param {string} reason - Optionaler Ablehnungsgrund
  */
 async function respondToEvent(invitationId, status, reason = null) {
     try {
@@ -683,7 +683,7 @@ async function respondToEvent(invitationId, status, reason = null) {
 
 /**
  * Show rejection modal with reason input
- * @param {string} invitationId - Invitation ID
+ * @param {string} invitationId - Einladungs-ID
  */
 async function showRejectModal(invitationId) {
     // Create modal
@@ -734,7 +734,7 @@ async function showRejectModal(invitationId) {
 
 /**
  * Show event details modal
- * @param {string} eventId - Event ID
+ * @param {string} eventId - Event-ID
  */
 async function showEventDetails(eventId) {
     try {

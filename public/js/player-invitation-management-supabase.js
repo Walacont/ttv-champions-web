@@ -143,7 +143,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
 
 /**
  * Generate invitation code for a player
- * @param {Object} playerData - Player data (firstName, lastName, subgroupIDs, etc.)
+ * @param {Object} playerData - Spielerdaten (firstName, lastName, subgroupIDs, etc.)
  * @param {string} [playerId] - Optional: ID of existing offline player to link
  */
 async function generateCodeForPlayer(playerData, playerId = null) {
@@ -214,7 +214,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
 /**
  * Invalidate old unused codes for the same player
  * @param {string} [playerId] - ID of the player (if existing offline player)
- * @param {Object} playerData - Player data with firstName, lastName
+ * @param {Object} playerData - Spielerdaten mit firstName, lastName
  */
 async function invalidateOldCodesForPlayer(playerId, playerData) {
     try {

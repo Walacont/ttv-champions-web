@@ -542,9 +542,9 @@ export class TutorialManager {
 
 /**
  * Helper: Tutorial-Status aus Supabase abrufen
- * @param {string} tutorialKey - Tutorial key to check
- * @param {Object} supabase - Supabase client instance
- * @param {string} userId - User ID
+ * @param {string} tutorialKey - Tutorial-Schlüssel zum Prüfen
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string} userId - Benutzer-ID
  * @returns {Promise<boolean>} True if tutorial completed
  */
 export async function getTutorialStatus(tutorialKey, supabase, userId) {

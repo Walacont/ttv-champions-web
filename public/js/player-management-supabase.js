@@ -20,7 +20,7 @@ let storedSetUnsubscribe = null;
 
 /**
  * Validates if a string is a valid UUID format
- * @param {string} str - String to validate
+ * @param {string} str - Zu validierender String
  * @returns {boolean} True if valid UUID
  */
 function isValidUUID(str) {
@@ -31,7 +31,7 @@ function isValidUUID(str) {
 
 /**
  * Filters an array to only include valid UUIDs
- * @param {Array} arr - Array of strings to filter
+ * @param {Array} arr - Array von Strings zum Filtern
  * @returns {Array} Array with only valid UUIDs
  */
 function filterValidUUIDs(arr) {
@@ -139,9 +139,9 @@ export function initOfflinePlayerBirthdateSelects() {
 
 /**
  * Handles offline player creation
- * @param {Event} e - Form submit event
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data with clubId
+ * @param {Event} e - Formular-Submit-Event
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Object} currentUserData - Aktuelle Benutzerdaten mit clubId
  */
 export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     e.preventDefault();
@@ -319,9 +319,9 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 
 /**
  * Handles player list actions (toggle match-ready, send invite, delete, promote)
- * @param {Event} e - Click event
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data for audit logging
+ * @param {Event} e - Klick-Event
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Object} currentUserData - Aktuelle Benutzerdaten für Audit-Logging
  */
 export async function handlePlayerListActions(e, supabase, currentUserData = null) {
     const target = e.target;
@@ -545,10 +545,10 @@ async function logAuditEvent(supabase, action, actorId, targetId, targetType, cl
 
 /**
  * Loads player list for the player management modal (NEW MASTER-DETAIL LAYOUT)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {Function} setUnsubscribe - Callback to set unsubscribe function
- * @param {Object} currentUserData - Current user data with role and activeSportId (for permission checks and sport filtering)
+ * @param {string} clubId - Vereins-ID
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Function} setUnsubscribe - Callback für Unsubscribe-Funktion
+ * @param {Object} currentUserData - Benutzerdaten mit role und activeSportId
  */
 export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData = null) {
     // Store context for refresh functionality
@@ -796,9 +796,9 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
 
 /**
  * Loads players for dropdown selection (for points awarding)
- * @param {string} clubId - Club ID
- * @param {Object} supabase - Supabase client instance
- * @param {string} sportId - Sport ID (optional, for filtering by sport)
+ * @param {string} clubId - Vereins-ID
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string} sportId - Sport-ID (optional, für Sportart-Filter)
  */
 export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
     const select = document.getElementById('player-select');
@@ -868,9 +868,9 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
 
 /**
  * Updates the points player dropdown based on subgroup or age group filter
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} subgroupFilter - Current subgroup filter ('all', age group ID, or subgroup ID)
- * @param {string} excludePlayerId - Player ID to exclude (e.g., coach)
+ * @param {Array} clubPlayers - Array aller Vereinsspieler
+ * @param {string} subgroupFilter - Aktueller Untergruppen-Filter
+ * @param {string} excludePlayerId - Auszuschließende Spieler-ID (z.B. Trainer)
  */
 export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludePlayerId = null) {
     const select = document.getElementById('player-select');
@@ -920,9 +920,9 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
 
 /**
  * Shows detailed player information in the player management modal
- * @param {Object} player - Player data object
- * @param {HTMLElement} detailContent - Target element for content
- * @param {Object} supabase - Supabase client instance
+ * @param {Object} player - Spieler-Datenobjekt
+ * @param {HTMLElement} detailContent - Zielelement für Inhalt
+ * @param {Object} supabase - Supabase-Client-Instanz
  */
 export async function showPlayerDetails(player, detailContent, supabase) {
     if (!detailContent) return;

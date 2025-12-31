@@ -6,8 +6,8 @@
 /**
  * Initialize training statistics display
  * Non-blocking: Loads data in background
- * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user's data
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {Object} currentUserData - Aktuelle Benutzerdaten
  */
 export function initializeTrainingStats(supabase, currentUserData) {
     // Show loading state immediately
@@ -53,10 +53,10 @@ async function loadAndDisplayTrainingStats(supabase, currentUserData) {
 
 /**
  * Get all training dates where player was present
- * @param {Object} supabase - Supabase client instance
- * @param {string} playerId - Player ID
- * @param {string} clubId - Club ID
- * @param {Date} since - Start date
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @param {string} playerId - Spieler-ID
+ * @param {string} clubId - Vereins-ID
+ * @param {Date} since - Startdatum
  * @returns {Promise<Array>} Array of date strings (YYYY-MM-DD)
  */
 async function getTrainingDates(supabase, playerId, clubId, since) {
@@ -86,7 +86,7 @@ async function getTrainingDates(supabase, playerId, clubId, since) {
 
 /**
  * Calculate statistics from training dates
- * @param {Array} trainingDates - Array of date strings
+ * @param {Array} trainingDates - Array von Datum-Strings
  * @returns {Object} Statistics object
  */
 function calculateStatistics(trainingDates) {
@@ -149,7 +149,7 @@ function calculateStatistics(trainingDates) {
 
 /**
  * Update statistics UI
- * @param {Object} stats - Statistics object
+ * @param {Object} stats - Statistik-Objekt
  */
 function updateStatsUI(stats) {
     // Current month count
@@ -199,7 +199,7 @@ function updateStatsUI(stats) {
 
 /**
  * Draw GitHub-style heatmap
- * @param {Array} trainingDates - Array of date strings
+ * @param {Array} trainingDates - Array von Datum-Strings
  */
 function drawHeatmap(trainingDates) {
     const container = document.getElementById('training-heatmap');

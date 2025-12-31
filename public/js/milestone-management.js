@@ -101,8 +101,8 @@ export function initializeChallengeMilestones() {
 
 /**
  * Add a milestone input field for exercises
- * @param {number} completions - Number of completions required
- * @param {number} points - Points awarded
+ * @param {number} completions - Anzahl erforderlicher Absolvierungen
+ * @param {number} points - Vergebene Punkte
  */
 function addExerciseMilestone(completions = 1, points = 0) {
     const list = document.getElementById('exercise-milestones-list');
@@ -155,8 +155,8 @@ function addExerciseMilestone(completions = 1, points = 0) {
 
 /**
  * Add a milestone input field for challenges
- * @param {number} completions - Number of completions required
- * @param {number} points - Points awarded
+ * @param {number} completions - Anzahl erforderlicher Absolvierungen
+ * @param {number} points - Vergebene Punkte
  */
 function addChallengeMilestone(completions = 1, points = 0) {
     const list = document.getElementById('challenge-milestones-list');
@@ -209,7 +209,7 @@ function addChallengeMilestone(completions = 1, points = 0) {
 
 /**
  * Clear all milestones from a list
- * @param {string} listId - ID of the milestone list
+ * @param {string} listId - ID der Meilenstein-Liste
  */
 function clearMilestones(listId) {
     const list = document.getElementById(listId);
