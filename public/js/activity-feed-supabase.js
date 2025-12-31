@@ -196,7 +196,9 @@ export function initActivityFeedModule(user, userData) {
 }
 
 /**
- * Check if a match is visible to the current user based on privacy settings
+ * Check if a match is visible to the current user based on privacy settings.
+ * ALL players must allow visibility - the strictest setting wins.
+ *
  * @param {Object} match - The match object (singles or doubles)
  * @param {string} matchType - 'singles' or 'doubles'
  * @param {Object} privacyMap - Map of userId -> privacy_settings
@@ -224,38 +226,37 @@ function canViewMatch(match, matchType, privacyMap, viewerId, viewerClubId, view
         return true;
     }
 
-    // Check if ANY player allows viewing based on their privacy settings
-    // A match is visible if at least one player's privacy settings allow it
+    // Check if ALL players allow viewing based on their privacy settings
+    // The strictest setting wins - if any player blocks, the match is hidden
     for (const playerId of playerIds) {
         const privacy = privacyMap[playerId]?.privacy_settings || {};
         const visibility = privacy.matches_visibility || 'global';
         const playerClubId = privacyMap[playerId]?.club_id;
 
+        // Check if this player allows viewing
+        let playerAllows = false;
+
         if (visibility === 'global') {
-            // This player allows everyone to see
-            return true;
+            playerAllows = true;
+        } else if (visibility === 'club_only') {
+            // Viewer must be in same club as this player
+            playerAllows = viewerClubId && playerClubId && viewerClubId === playerClubId;
+        } else if (visibility === 'followers_only') {
+            // Viewer must follow this player
+            playerAllows = viewerFollowingIds.has(playerId);
+        } else if (visibility === 'none') {
+            // Only players themselves can see - viewer is not a player (checked above)
+            playerAllows = false;
         }
 
-        if (visibility === 'club_only') {
-            // Check if viewer is in the same club as this player
-            if (viewerClubId && playerClubId && viewerClubId === playerClubId) {
-                return true;
-            }
+        // If any player blocks, the match is not visible
+        if (!playerAllows) {
+            return false;
         }
-
-        if (visibility === 'followers_only') {
-            // Check if viewer follows this player
-            if (viewerFollowingIds.has(playerId)) {
-                return true;
-            }
-        }
-
-        // visibility === 'none' means only the players themselves can see
-        // Continue to check other players
     }
 
-    // No player allows viewing
-    return false;
+    // All players allow viewing
+    return true;
 }
 
 /**

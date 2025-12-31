@@ -340,49 +340,6 @@ async function renderRecentActivity(profile) {
     const ACTIVITY_LIMIT = 10;
 
     try {
-        // === CHECK MATCHES VISIBILITY PRIVACY SETTING ===
-        const matchesVisibility = profile.privacy_settings?.matches_visibility || 'global';
-
-        // Determine if viewer can see matches based on profile owner's privacy settings
-        let canViewMatches = isOwnProfile; // Own profile always visible
-
-        if (!canViewMatches && matchesVisibility === 'global') {
-            canViewMatches = true;
-        } else if (!canViewMatches && matchesVisibility === 'club_only') {
-            // Check if viewer is in the same club
-            if (currentUser) {
-                const { data: viewerProfile } = await supabase
-                    .from('profiles')
-                    .select('club_id')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (viewerProfile?.club_id && viewerProfile.club_id === profile.club_id) {
-                    canViewMatches = true;
-                }
-            }
-        } else if (!canViewMatches && matchesVisibility === 'followers_only') {
-            // Check if viewer follows this profile
-            if (currentUser) {
-                const { data: friendship } = await supabase
-                    .from('friendships')
-                    .select('status')
-                    .eq('requester_id', currentUser.id)
-                    .eq('addressee_id', profileId)
-                    .eq('status', 'accepted')
-                    .maybeSingle();
-
-                if (friendship) {
-                    canViewMatches = true;
-                }
-            }
-        } else if (!canViewMatches && matchesVisibility === 'none') {
-            // Only players in the match can see - check in individual match filtering
-            // For profile view, if viewer is in one of the matches, they can see that specific match
-            // We'll handle this during match filtering below
-            canViewMatches = false;
-        }
-
         const [singlesRes, doublesRes, postsRes] = await Promise.all([
             supabase
                 .from('matches')
@@ -413,27 +370,110 @@ async function renderRecentActivity(profile) {
             ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' }))
         ];
 
-        // Filter matches based on privacy settings
-        if (!canViewMatches) {
-            // If matches_visibility is 'none', only show matches where viewer is a participant
-            const viewerId = currentUser?.id;
+        // === PRIVACY FILTERING FOR MATCHES ===
+        // ALL players in a match must allow visibility - strictest setting wins
+        // Skip filtering for own profile - always show all matches
+        const viewerId = currentUser?.id;
+
+        if (!isOwnProfile) {
+            // Collect all player IDs from matches
+            const matchPlayerIds = new Set();
+            allActivities.forEach(activity => {
+                if (activity.activityType === 'singles') {
+                    if (activity.player_a_id) matchPlayerIds.add(activity.player_a_id);
+                    if (activity.player_b_id) matchPlayerIds.add(activity.player_b_id);
+                } else if (activity.activityType === 'doubles') {
+                    if (activity.team_a_player1_id) matchPlayerIds.add(activity.team_a_player1_id);
+                    if (activity.team_a_player2_id) matchPlayerIds.add(activity.team_a_player2_id);
+                    if (activity.team_b_player1_id) matchPlayerIds.add(activity.team_b_player1_id);
+                    if (activity.team_b_player2_id) matchPlayerIds.add(activity.team_b_player2_id);
+                }
+            });
+
+            // Load privacy settings and club_id for all players
+            let privacyMap = {};
+            if (matchPlayerIds.size > 0) {
+                const { data: privacyProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, privacy_settings, club_id')
+                    .in('id', [...matchPlayerIds]);
+
+                (privacyProfiles || []).forEach(p => {
+                    privacyMap[p.id] = p;
+                });
+            }
+
+            // Get viewer's club_id and following list
+            let viewerClubId = null;
+            let viewerFollowingIds = new Set();
+
+            if (currentUser) {
+                const { data: viewerProfile } = await supabase
+                    .from('profiles')
+                    .select('club_id')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                viewerClubId = viewerProfile?.club_id;
+
+                const { data: following } = await supabase
+                    .from('friendships')
+                    .select('addressee_id')
+                    .eq('requester_id', currentUser.id)
+                    .eq('status', 'accepted');
+
+                (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
+            }
+
+            // Filter matches based on privacy settings of ALL players
             allActivities = allActivities.filter(activity => {
                 if (activity.activityType === 'post') {
                     return true; // Posts are not affected by matches_visibility
                 }
 
-                // For matches, only show if viewer is a participant
+                // Get all player IDs for this match
+                let playerIds = [];
                 if (activity.activityType === 'singles') {
-                    return viewerId && (activity.player_a_id === viewerId || activity.player_b_id === viewerId);
+                    playerIds = [activity.player_a_id, activity.player_b_id].filter(Boolean);
                 } else if (activity.activityType === 'doubles') {
-                    return viewerId && (
-                        activity.team_a_player1_id === viewerId ||
-                        activity.team_a_player2_id === viewerId ||
-                        activity.team_b_player1_id === viewerId ||
-                        activity.team_b_player2_id === viewerId
-                    );
+                    playerIds = [
+                        activity.team_a_player1_id,
+                        activity.team_a_player2_id,
+                        activity.team_b_player1_id,
+                        activity.team_b_player2_id
+                    ].filter(Boolean);
                 }
-                return false;
+
+                // If viewer is a player, always visible
+                if (viewerId && playerIds.includes(viewerId)) {
+                    return true;
+                }
+
+                // Check if ALL players allow viewing
+                for (const playerId of playerIds) {
+                    const privacy = privacyMap[playerId]?.privacy_settings || {};
+                    const visibility = privacy.matches_visibility || 'global';
+                    const playerClubId = privacyMap[playerId]?.club_id;
+
+                    let playerAllows = false;
+
+                    if (visibility === 'global') {
+                        playerAllows = true;
+                    } else if (visibility === 'club_only') {
+                        playerAllows = viewerClubId && playerClubId && viewerClubId === playerClubId;
+                    } else if (visibility === 'followers_only') {
+                        playerAllows = viewerFollowingIds.has(playerId);
+                    } else if (visibility === 'none') {
+                        playerAllows = false;
+                    }
+
+                    // If any player blocks, match is not visible
+                    if (!playerAllows) {
+                        return false;
+                    }
+                }
+
+                return true;
             });
         }
 
