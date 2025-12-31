@@ -1,6 +1,4 @@
-// SC Champions - Dashboard (Supabase Version)
-// Komplett neue Version ohne Firebase-Abhängigkeiten
-// Multi-sport support: Dashboard shows data filtered by active sport
+// Dashboard (Supabase-Version) - Multi-Sport-Unterstützung
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
@@ -25,7 +23,6 @@ import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
 import { loadAllPendingConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
-// Extracted modules for better maintainability
 import {
     initMatchFormModule,
     setupMatchForm,
@@ -41,10 +38,8 @@ import {
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
 
-// Suppress debug logs in production
 suppressConsoleLogs();
 
-// Notifications loaded dynamically - not critical for main functionality
 let notificationsModule = null;
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
@@ -55,23 +50,18 @@ const supabase = getSupabase();
 let currentUser = null;
 let currentUserData = null;
 let currentClubData = null;
-let currentSportContext = null; // Multi-sport: stores sportId, clubId, role for active sport
+let currentSportContext = null;
 let realtimeSubscriptions = [];
 let isReconnecting = false;
 let reconnectTimeout = null;
-let currentSubgroupFilter = 'global'; // Will be set properly in populatePlayerSubgroupFilter
+let currentSubgroupFilter = 'global';
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
 
-// Cache for test club filtering
 let testClubIdsCache = null;
-
-// Cache for following IDs (for leaderboard filtering)
 let followingIdsCache = null;
 
-/**
- * Load test club IDs for filtering (with caching)
- */
+/** Lädt Test-Verein-IDs für Filterung (mit Caching) */
 async function loadTestClubIds() {
     if (testClubIdsCache !== null) return testClubIdsCache;
 
