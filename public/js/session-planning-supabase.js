@@ -1,25 +1,25 @@
 /**
- * Session Planning Module (Supabase Version)
- * Handles the planning of exercises for training sessions
+ * Trainingsplanung-Modul (Supabase-Version)
+ * Verwaltet die Planung von Übungen für Trainingseinheiten
  */
 
 let supabaseClient = null;
-let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints}
-let allExercisesForSelection = []; // All exercises loaded from database
-let currentTagFilter = 'all'; // Current active tag filter
-let modalCallback = null; // Callback function for when an exercise is selected
-let tempModalSelection = []; // Temporary selection for modal (used in both modes)
+let selectedExercises = []; // Array von {exerciseId, name, points, tieredPoints}
+let allExercisesForSelection = []; // Alle Übungen aus Datenbank geladen
+let currentTagFilter = 'all'; // Aktueller aktiver Tag-Filter
+let modalCallback = null; // Callback-Funktion wenn Übung ausgewählt wird
+let tempModalSelection = []; // Temporäre Auswahl für Modal (in beiden Modi verwendet)
 
 /**
- * Initialize the session planning module
- * @param {Object} supabaseInstance - Supabase client instance
+ * Initialisiert das Trainingsplanung-Modul
+ * @param {Object} supabaseInstance - Supabase-Client-Instanz
  */
 export function initializeSessionPlanning(supabaseInstance) {
     supabaseClient = supabaseInstance;
 }
 
 /**
- * Load all exercises from database (for selection modal)
+ * Lädt alle Übungen aus Datenbank (für Auswahl-Modal)
  * @param {Object} supabase - Supabase client instance
  */
 export async function loadExercisesForSelection(supabase) {
@@ -55,8 +55,8 @@ export async function loadExercisesForSelection(supabase) {
 }
 
 /**
- * Open exercise selection modal
- * @param {Function} callback - Optional callback function to call when exercise is selected (instead of default behavior)
+ * Öffnet das Übungsauswahl-Modal
+ * @param {Function} callback - Optionale Callback-Funktion bei Übungsauswahl (statt Standardverhalten)
  */
 export function openExerciseSelectionModal(callback = null) {
     const modal = document.getElementById('exercise-selection-modal');
@@ -84,7 +84,7 @@ export function openExerciseSelectionModal(callback = null) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // Focus search input
+    // Sucheingabe fokussieren
     const searchInput = document.getElementById('exercise-selection-search');
     if (searchInput) {
         searchInput.value = '';
@@ -93,13 +93,13 @@ export function openExerciseSelectionModal(callback = null) {
 }
 
 /**
- * Render tag filter buttons
+ * Rendert Tag-Filter-Buttons
  */
 function renderTagFilters() {
     const container = document.getElementById('exercise-tag-filters');
     if (!container) return;
 
-    // Collect all unique tags from exercises
+    // Alle eindeutigen Tags aus Übungen sammeln
     const allTags = new Set();
     allExercisesForSelection.forEach(ex => {
         if (ex.tags && Array.isArray(ex.tags)) {
@@ -107,7 +107,7 @@ function renderTagFilters() {
         }
     });
 
-    // Keep "Alle" button and clear the rest
+    // "Alle"-Button behalten und Rest löschen
     const labelSpan = container.querySelector('.text-gray-500');
     const alleButton = container.querySelector('[data-tag="all"]');
     container.innerHTML = '';
@@ -135,8 +135,8 @@ function renderTagFilters() {
 }
 
 /**
- * Handle tag filter click
- * @param {string} tag - Tag to filter by (or 'all')
+ * Verarbeitet Tag-Filter-Klick
+ * @param {string} tag - Tag zum Filtern (oder 'all')
  */
 function handleTagFilterClick(tag) {
     currentTagFilter = tag;
@@ -152,13 +152,13 @@ function handleTagFilterClick(tag) {
         }
     });
 
-    // Re-render grid with filter
+    // Grid mit Filter neu rendern
     const searchInput = document.getElementById('exercise-selection-search');
     renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
 }
 
 /**
- * Close exercise selection modal
+ * Schließt das Übungsauswahl-Modal
  */
 export function closeExerciseSelectionModal() {
     const modal = document.getElementById('exercise-selection-modal');
@@ -172,8 +172,8 @@ export function closeExerciseSelectionModal() {
 }
 
 /**
- * Render exercise selection grid
- * @param {string} searchTerm - Optional search term to filter exercises
+ * Rendert das Übungsauswahl-Grid
+ * @param {string} searchTerm - Optionaler Suchbegriff zum Filtern
  */
 function renderExerciseSelectionGrid(searchTerm = '') {
     const grid = document.getElementById('exercise-selection-grid');
@@ -213,14 +213,14 @@ function renderExerciseSelectionGrid(searchTerm = '') {
         }`;
         card.onclick = () => toggleExerciseSelection(exercise);
 
-        // System badges (top corners)
+        // System-Badges (obere Ecken)
         let systemBadges = '';
         if (exercise.tieredPoints?.enabled) {
             systemBadges +=
                 '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
         }
 
-        // Tags display
+        // Tags-Anzeige
         let tagsHtml = '';
         if (exercise.tags && exercise.tags.length > 0) {
             tagsHtml = '<div class="flex flex-wrap gap-1 mt-2">';
@@ -233,14 +233,14 @@ function renderExerciseSelectionGrid(searchTerm = '') {
             tagsHtml += '</div>';
         }
 
-        // Selection indicator
+        // Auswahl-Indikator
         let selectionIndicator = '';
         if (isSelected) {
             selectionIndicator =
                 '<div class="absolute top-2 left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"><i class="fas fa-check"></i></div>';
         }
 
-        // Image or subtle placeholder (same style as global exercise catalog)
+        // Bild oder Platzhalter (gleicher Stil wie globaler Übungskatalog)
         let imageHtml = '';
         if (exercise.imageUrl) {
             imageHtml = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-40 object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -281,17 +281,17 @@ function renderExerciseSelectionGrid(searchTerm = '') {
 }
 
 /**
- * Toggle exercise selection in modal
- * @param {Object} exercise - Exercise object
+ * Schaltet Übungsauswahl im Modal um
+ * @param {Object} exercise - Übungs-Objekt
  */
 function toggleExerciseSelection(exercise) {
     const existingIndex = tempModalSelection.findIndex(ex => ex.exerciseId === exercise.id);
 
     if (existingIndex >= 0) {
-        // Deselect - remove from temp selection
+        // Abwählen - aus temporärer Auswahl entfernen
         tempModalSelection.splice(existingIndex, 1);
     } else {
-        // Select - add to temp selection
+        // Auswählen - zu temporärer Auswahl hinzufügen
         tempModalSelection.push({
             exerciseId: exercise.id,
             name: exercise.title,
@@ -300,7 +300,7 @@ function toggleExerciseSelection(exercise) {
         });
     }
 
-    // Re-render grid to show selection state
+    // Grid neu rendern um Auswahlzustand zu zeigen
     const searchInput = document.getElementById('exercise-selection-search');
     renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
 
@@ -309,7 +309,7 @@ function toggleExerciseSelection(exercise) {
 }
 
 /**
- * Update selection counter display
+ * Aktualisiert die Auswahl-Zähler-Anzeige
  */
 function updateSelectionCounter() {
     const counterElement = document.getElementById('exercise-selection-counter');
@@ -342,20 +342,20 @@ function updateSelectionCounter() {
 }
 
 /**
- * Confirm selection and close modal
+ * Bestätigt Auswahl und schließt Modal
  */
 function confirmSelectionAndClose() {
     if (tempModalSelection.length === 0) {
-        return; // Nothing to add
+        return; // Nichts hinzuzufügen
     }
 
     if (modalCallback) {
-        // Callback mode: Pass each selected exercise to the callback
+        // Callback-Modus: Jede ausgewählte Übung an Callback übergeben
         tempModalSelection.forEach(exercise => {
             modalCallback(exercise);
         });
     } else {
-        // Session planning mode: Add all to selectedExercises
+        // Trainingsplanung-Modus: Alle zu selectedExercises hinzufügen
         tempModalSelection.forEach(exercise => {
             selectedExercises.push(exercise);
         });
@@ -366,20 +366,20 @@ function confirmSelectionAndClose() {
 }
 
 /**
- * Add exercise from modal (DEPRECATED - keeping for compatibility)
- * @param {string} exerciseId - Exercise ID
+ * Übung aus Modal hinzufügen (VERALTET - für Kompatibilität)
+ * @param {string} exerciseId - Übungs-ID
  */
 function addExerciseFromModal(exerciseId) {
     const exercise = allExercisesForSelection.find(ex => ex.id === exerciseId);
     if (!exercise) return;
 
-    // If callback is set, use it instead of default behavior
+    // Falls Callback gesetzt, diesen statt Standardverhalten nutzen
     if (modalCallback) {
         modalCallback(exercise);
         return;
     }
 
-    // Default behavior: add to session planning (allow duplicates for multiple rounds)
+    // Standardverhalten: zu Trainingsplanung hinzufügen (Duplikate für mehrere Runden erlaubt)
     selectedExercises.push({
         exerciseId: exercise.id,
         name: exercise.title,
@@ -387,13 +387,13 @@ function addExerciseFromModal(exerciseId) {
         tieredPoints: exercise.tieredPoints?.enabled || false,
     });
 
-    // Re-render list
+    // Liste neu rendern
     renderSelectedExercises();
 }
 
 /**
- * Remove exercise from the list by index
- * @param {number} index - Index in selectedExercises array
+ * Entfernt Übung aus Liste nach Index
+ * @param {number} index - Index im selectedExercises-Array
  */
 export function removeExerciseFromList(index) {
     selectedExercises.splice(index, 1);
@@ -401,7 +401,7 @@ export function removeExerciseFromList(index) {
 }
 
 /**
- * Render the list of selected exercises
+ * Rendert die Liste der ausgewählten Übungen
  */
 function renderSelectedExercises() {
     const container = document.getElementById('selected-exercises-list');
@@ -439,9 +439,9 @@ function renderSelectedExercises() {
 }
 
 /**
- * Get all selected exercises
- * Returns array in the format required for trainingSessions.plannedExercises
- * @returns {Array} Planned exercises
+ * Gibt alle ausgewählten Übungen zurück
+ * Gibt Array im Format für trainingSessions.plannedExercises zurück
+ * @returns {Array} Geplante Übungen
  */
 export function getPlannedExercises() {
     return selectedExercises.map(exercise => ({
@@ -453,8 +453,8 @@ export function getPlannedExercises() {
 }
 
 /**
- * Load planned exercises into the UI (for editing existing sessions)
- * @param {Array} plannedExercises - Array of planned exercises
+ * Lädt geplante Übungen in die UI (zum Bearbeiten existierender Sessions)
+ * @param {Array} plannedExercises - Array geplanter Übungen
  */
 export function loadPlannedExercises(plannedExercises) {
     if (!plannedExercises || !Array.isArray(plannedExercises)) {
@@ -471,7 +471,7 @@ export function loadPlannedExercises(plannedExercises) {
 }
 
 /**
- * Reset the session planning UI
+ * Setzt die Trainingsplanung-UI zurück
  */
 export function resetSessionPlanning() {
     selectedExercises = [];
@@ -479,7 +479,7 @@ export function resetSessionPlanning() {
 }
 
 /**
- * Initialize event listeners for session planning
+ * Initialisiert Event-Listener für Trainingsplanung
  */
 export function initializeSessionPlanningListeners() {
     // Übungsauswahl-Modal öffnen Button

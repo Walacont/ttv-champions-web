@@ -1,24 +1,24 @@
 /**
- * Match Suggestions Module (Supabase Version)
- * Provides opponent suggestions based on match history and player ratings
- * Multi-sport support: Filters suggestions by active sport
+ * Match-Vorschläge-Modul (Supabase-Version)
+ * Bietet Gegner-Vorschläge basierend auf Match-Verlauf und Spieler-Bewertungen
+ * Multi-Sport-Unterstützung: Filtert Vorschläge nach aktiver Sportart
  */
 
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 
-// Cache for clubs data
+// Cache für Vereinsdaten
 let clubsCache = null;
 let clubsCacheTimestamp = null;
 const CLUBS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Load all clubs and return as Map (with caching)
- * @param {Object} supabase - Supabase client instance
- * @returns {Promise<Map>} Map of clubId -> club data
+ * Lädt alle Vereine und gibt sie als Map zurück (mit Caching)
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @returns {Promise<Map>} Map von clubId -> Vereinsdaten
  */
 async function loadClubsMap(supabase) {
-    // Return cached data if still valid
+    // Gecachte Daten zurückgeben falls noch gültig
     if (clubsCache && clubsCacheTimestamp && (Date.now() - clubsCacheTimestamp) < CLUBS_CACHE_TTL) {
         return clubsCache;
     }
@@ -46,21 +46,21 @@ async function loadClubsMap(supabase) {
         return clubsMap;
     } catch (error) {
         console.error('Error loading clubs:', error);
-        // Return empty map on error
+        // Bei Fehler leere Map zurückgeben
         return new Map();
     }
 }
 
 /**
- * Filter players based on privacy settings (searchable only)
- * Note: showInLeaderboards only affects leaderboard visibility, not match suggestions
- * @param {Array} players - Array of player objects
- * @param {Object} currentUserData - Current user's data (with id, role, clubId)
- * @returns {Array} Filtered players
+ * Filtert Spieler basierend auf Datenschutz-Einstellungen (nur suchbare)
+ * Hinweis: showInLeaderboards betrifft nur Ranglisten-Sichtbarkeit, nicht Match-Vorschläge
+ * @param {Array} players - Array von Spieler-Objekten
+ * @param {Object} currentUserData - Daten des aktuellen Benutzers (mit id, role, clubId)
+ * @returns {Array} Gefilterte Spieler
  */
 function filterPlayersByPrivacy(players, currentUserData) {
     return players.filter(player => {
-        // Always show current user
+        // Aktuellen Benutzer immer anzeigen
         if (player.id === currentUserData.id) return true;
 
         const privacySettings = player.privacySettings || {};
@@ -69,7 +69,7 @@ function filterPlayersByPrivacy(players, currentUserData) {
         // Spieler anzeigen die global suchbar sind
         if (searchable === 'global') return true;
 
-        // club_only: only show to players in the same club
+        // club_only: nur Spielern im selben Verein anzeigen
         if (searchable === 'club_only' && currentUserData.clubId === player.clubId) {
             return true;
         }
@@ -79,42 +79,42 @@ function filterPlayersByPrivacy(players, currentUserData) {
 }
 
 /**
- * Filter out players from test clubs (unless viewer is from a test club)
- * @param {Array} players - Array of player objects
- * @param {Object} currentUserData - Current user's data (with id, role, clubId)
- * @param {Map} clubsMap - Map of clubId -> club data
- * @returns {Array} Filtered players
+ * Filtert Spieler aus Test-Vereinen aus (außer Betrachter ist aus Test-Verein)
+ * @param {Array} players - Array von Spieler-Objekten
+ * @param {Object} currentUserData - Daten des aktuellen Benutzers (mit id, role, clubId)
+ * @param {Map} clubsMap - Map von clubId -> Vereinsdaten
+ * @returns {Array} Gefilterte Spieler
  */
 function filterTestClubPlayers(players, currentUserData, clubsMap) {
     // Prüfen ob Benutzer aus Test-Verein ist
     const currentUserClub = clubsMap.get(currentUserData.clubId);
     if (currentUserClub && currentUserClub.isTestClub) {
-        // Test club members (players/coaches/admins) see everyone
+        // Test-Verein-Mitglieder sehen alle
         return players;
     }
 
-    // Current user is NOT from a test club
+    // Aktueller Benutzer ist NICHT aus Test-Verein
     // Alle Test-Verein-Spieler ausfiltern
     return players.filter(player => {
-        // Always show current user
+        // Aktuellen Benutzer immer anzeigen
         if (player.id === currentUserData.id) return true;
 
-        // If player has no club, show them
+        // Spieler ohne Verein anzeigen
         if (!player.clubId) return true;
 
         // Vereinsdaten des Spielers abrufen
         const club = clubsMap.get(player.clubId);
 
-        // If club doesn't exist or is not a test club, show player
+        // Wenn Verein nicht existiert oder kein Test-Verein, Spieler anzeigen
         if (!club || !club.isTestClub) return true;
 
-        // Player is from a test club - hide from non-test-club users
+        // Spieler ist aus Test-Verein - von normalen Benutzern verstecken
         return false;
     });
 }
 
 /**
- * Maps player from Supabase (snake_case) to app format (camelCase)
+ * Mappt Spieler von Supabase (snake_case) zu App-Format (camelCase)
  */
 function mapPlayerFromSupabase(player) {
     return {
@@ -132,16 +132,16 @@ function mapPlayerFromSupabase(player) {
 }
 
 // ========================================================================
-// ===== MATCH SUGGESTIONS ALGORITHM =====
+// ===== MATCH-VORSCHLÄGE-ALGORITHMUS =====
 // ========================================================================
 
 /**
- * Calculates match suggestions for a player
- * Prioritizes players they haven't played against or haven't played in a while
- * @param {Object} userData - Current user data
- * @param {Array} allPlayers - All players in the club
- * @param {Object} supabase - Supabase client instance
- * @returns {Promise<Array>} Array of suggested players with priority scores
+ * Berechnet Match-Vorschläge für einen Spieler
+ * Priorisiert Spieler gegen die noch nicht oder lange nicht gespielt wurde
+ * @param {Object} userData - Aktuelle Benutzerdaten
+ * @param {Array} allPlayers - Alle Spieler im Verein
+ * @param {Object} supabase - Supabase-Client-Instanz
+ * @returns {Promise<Array>} Array von vorgeschlagenen Spielern mit Prioritäts-Scores
  */
 export async function calculateMatchSuggestions(userData, allPlayers, supabase) {
     try {
@@ -154,7 +154,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
         });
 
         // Alle Matches des aktuellen Benutzers abrufen
-        // Query as playerA
+        // Abfrage als playerA
         const { data: matchesAsA, error: errorA } = await supabase
             .from('matches')
             .select('*')
@@ -162,7 +162,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
 
         if (errorA) console.error('Error fetching matches as A:', errorA);
 
-        // Query as playerB
+        // Abfrage als playerB
         const { data: matchesAsB, error: errorB } = await supabase
             .from('matches')
             .select('*')
@@ -170,7 +170,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
 
         if (errorB) console.error('Error fetching matches as B:', errorB);
 
-        // Combine results and deduplicate by ID
+        // Ergebnisse kombinieren und nach ID deduplizieren
         const allMatchDocs = new Map();
         [...(matchesAsA || []), ...(matchesAsB || [])].forEach(match => {
             allMatchDocs.set(match.id, match);
@@ -262,10 +262,10 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
 
 /**
  * Loads and renders match suggestions
- * @param {Object} userData - Current user data
- * @param {Object} supabase - Supabase client instance
+ * @param {Object} userData - Aktuelle Benutzerdaten
+ * @param {Object} supabase - Supabase-Client-Instanz
  * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {String} subgroupFilter - Filter by subgroup ('club', 'global', or subgroup ID)
+ * @param {String} subgroupFilter - Filter nach Untergruppe ('club', 'global' oder Untergruppen-ID)
  */
 export async function loadMatchSuggestions(
     userData,
@@ -297,7 +297,7 @@ export async function loadMatchSuggestions(
         </div>
       </div>
     `;
-        return; // Exit early
+        return; // Frühzeitig beenden
     }
 
     // Prüfen ob Spieler spielbereit ist
@@ -323,7 +323,7 @@ export async function loadMatchSuggestions(
         </div>
       </div>
     `;
-        return; // Exit early
+        return; // Frühzeitig beenden
     }
 
     container.innerHTML =
@@ -332,8 +332,8 @@ export async function loadMatchSuggestions(
     console.log('[Match Suggestions] Loading with filter:', subgroupFilter);
 
     try {
-        // Match suggestions only work for club view (not global)
-        // This is because Firestore rules only allow players to read other players in their club
+        // Match-Vorschläge funktionieren nur in Club-Ansicht (nicht global)
+        // Supabase erlaubt nur Lesen von Spielern im eigenen Verein
         if (subgroupFilter === 'global') {
             container.innerHTML = `
         <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
@@ -392,8 +392,8 @@ export async function loadMatchSuggestions(
             allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs }))
         );
 
-        // Apply subgroup, age group, or gender filter in JavaScript if needed
-        // Note: Players can be in multiple subgroups, so we check if the array includes the filter
+        // Untergruppen-, Alters- oder Geschlechtsfilter in JavaScript anwenden
+        // Hinweis: Spieler können in mehreren Untergruppen sein
         if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
             console.log('[Match Suggestions] Applying filter:', subgroupFilter);
             if (isAgeGroupFilter(subgroupFilter)) {

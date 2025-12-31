@@ -2,37 +2,37 @@ import { createDoublesMatchRequest } from './doubles-matches-supabase.js';
 import { calculateDoublesHandicap } from './validation-utils.js';
 
 /**
- * Doubles Player UI Module (Supabase Version)
- * Handles player interface for doubles match requests
- * NOTE: Set score input is shared via window.playerSetScoreInput (from player-matches.js)
+ * Doppel-Spieler-UI-Modul (Supabase-Version)
+ * Verwaltet Spieler-Oberfläche für Doppel-Match-Anfragen
+ * HINWEIS: Satz-Eingabe wird über window.playerSetScoreInput geteilt (aus player-matches.js)
  */
 
 // ========================================================================
-// ===== HELPER FUNCTIONS =====
+// ===== HILFSFUNKTIONEN =====
 // ========================================================================
 
 /**
- * Checks if a player has no club
- * @param {string|null|undefined} clubId - The club ID to check
- * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ * Prüft ob Spieler keinen Verein hat
+ * @param {string|null|undefined} clubId - Die zu prüfende Vereins-ID
+ * @returns {boolean} True wenn Spieler keinen Verein hat
  */
 function hasNoClub(clubId) {
     return !clubId || clubId === '';
 }
 
 let currentPlayerMatchType = 'singles'; // 'singles' or 'doubles'
-let supabaseClient = null; // Store supabase client for use in handicap calculation
-let currentDoublesHandicapDetails = null; // Stores current handicap suggestion details for doubles
+let supabaseClient = null; // Supabase-Client für Handicap-Berechnung speichern
+let currentDoublesHandicapDetails = null; // Speichert aktuelle Handicap-Vorschlagsdetails für Doppel
 
 // ========================================================================
-// ===== INITIALIZATION =====
+// ===== INITIALISIERUNG =====
 // ========================================================================
 
 /**
- * Initializes the doubles match UI for players
+ * Initialisiert die Doppel-Match-UI für Spieler
  */
 export function initializeDoublesPlayerUI() {
-    // Set up toggle buttons
+    // Toggle-Buttons einrichten
     const singlesToggle = document.getElementById('player-singles-toggle');
     const doublesToggle = document.getElementById('player-doubles-toggle');
 
@@ -44,16 +44,16 @@ export function initializeDoublesPlayerUI() {
     singlesToggle.addEventListener('click', () => switchPlayerMatchType('singles'));
     doublesToggle.addEventListener('click', () => switchPlayerMatchType('doubles'));
 
-    // Initialize with singles
+    // Mit Einzel initialisieren
     switchPlayerMatchType('singles');
 
-    // Export getCurrentPlayerMatchType to window for access from player-matches.js
+    // getCurrentPlayerMatchType für Zugriff aus player-matches.js exportieren
     window.getCurrentPlayerMatchType = getCurrentPlayerMatchType;
 }
 
 /**
- * Switches between singles and doubles match type for player
- * @param {string} type - 'singles' or 'doubles'
+ * Wechselt zwischen Einzel- und Doppel-Match-Typ für Spieler
+ * @param {string} type - 'singles' oder 'doubles'
  */
 function switchPlayerMatchType(type) {
     currentPlayerMatchType = type;
@@ -99,14 +99,14 @@ function switchPlayerMatchType(type) {
         }
     }
 
-    // Reload match history with the appropriate filter
+    // Match-Verlauf mit passendem Filter neu laden
     if (window.reloadMatchHistory) {
         window.reloadMatchHistory(type);
     }
 }
 
 /**
- * Clears singles opponent selection
+ * Löscht Einzel-Gegner-Auswahl
  */
 function clearSinglesSelection() {
     const opponentSelect = document.getElementById('opponent-select');
@@ -114,13 +114,13 @@ function clearSinglesSelection() {
 }
 
 /**
- * Clears doubles player selections
+ * Löscht Doppel-Spieler-Auswahlen
  */
 function clearDoublesSelections() {
-    // Clear handicap details
+    // Handicap-Details löschen
     currentDoublesHandicapDetails = null;
 
-    // Clear search inputs
+    // Sucheingaben löschen
     const partnerInput = document.getElementById('partner-search-input');
     const opponent1Input = document.getElementById('opponent1-search-input');
     const opponent2Input = document.getElementById('opponent2-search-input');
@@ -143,45 +143,45 @@ function clearDoublesSelections() {
 }
 
 // ========================================================================
-// ===== PLAYER SEARCH FUNCTIONALITY =====
+// ===== SPIELER-SUCHE-FUNKTIONALITÄT =====
 // ========================================================================
 
 /**
- * Initializes search functionality for all 3 player selections in doubles
+ * Initialisiert Suchfunktionalität für alle 3 Spieler-Auswahlen im Doppel
  * @param {Object} supabase - Supabase client instance
- * @param {Object} userData - Current user data
+ * @param {Object} userData - Aktuelle Benutzerdaten
  */
 export async function initializeDoublesPlayerSearch(supabase, userData) {
-    // Store supabase client for later use (e.g., handicap calculation)
+    // Supabase-Client für spätere Nutzung speichern (z.B. Handicap)
     supabaseClient = supabase;
 
-    // Load all searchable players - with real-time updates
-    // Use object wrapper so search functions always access current data
+    // Alle suchbaren Spieler laden - mit Echtzeit-Updates
+    // Objekt-Wrapper damit Suchfunktionen immer aktuelle Daten haben
     const playersData = { players: [] };
 
-    // Get current user's sport ID for filtering (support both camelCase and snake_case)
+    // Sport-ID des Benutzers für Filterung abrufen (camelCase und snake_case)
     const userSportId = userData.activeSportId || userData.active_sport_id;
-    // Support both camelCase and snake_case for clubId
+    // Sowohl camelCase als auch snake_case für clubId
     const userClubId = userData.clubId || userData.club_id;
 
     async function loadPlayers() {
         try {
-            // Load clubs for test club filtering
+            // Vereine für Test-Verein-Filterung laden
             const { data: clubsData } = await supabase.from('clubs').select('*');
             const clubsMap = new Map();
             (clubsData || []).forEach(club => clubsMap.set(club.id, club));
 
-            // Check if current user is from a test club
+            // Prüfen ob Benutzer aus Test-Verein ist
             const currentUserClub = userClubId ? clubsMap.get(userClubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
-            // Load players and coaches - explicitly exclude admins
-            // Don't filter by sport in query - we'll do it in JS to allow offline players
+            // Spieler und Trainer laden - Admins explizit ausschließen
+            // Nicht nach Sport in Query filtern - wird in JS gemacht für Offline-Spieler
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .in('role', ['player', 'coach', 'head_coach'])
-                .neq('role', 'admin'); // Extra safety: explicitly exclude admins
+                .neq('role', 'admin'); // Extra-Sicherheit: Admins explizit ausschließen
 
             const { data: usersData, error } = await query;
 
@@ -204,20 +204,20 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     };
                 })
                 .filter(p => {
-                    // Filter: not self
+                    // Filter: nicht selbst
                     const isSelf = p.id === userData.id;
                     if (isSelf) return false;
 
-                    // Offline players are always allowed in doubles (they bypass match-ready check)
-                    // Online players must be match-ready
+                    // Offline-Spieler sind im Doppel immer erlaubt (umgehen Match-Ready-Prüfung)
+                    // Online-Spieler müssen spielbereit sein
                     if (!p.isOffline && !p.isMatchReady) return false;
 
-                    // Sport filter: same sport OR offline player (offline players can play any sport)
+                    // Sport-Filter: gleiche Sportart ODER Offline-Spieler (können jede Sportart)
                     if (userSportId && !p.isOffline) {
                         if (p.activeSportId !== userSportId) return false;
                     }
 
-                    // Test club filtering
+                    // Test-Verein-Filterung
                     if (!isCurrentUserFromTestClub && p.clubId) {
                         const playerClub = clubsMap.get(p.clubId);
                         if (playerClub && playerClub.is_test_club) {
@@ -225,12 +225,12 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         }
                     }
 
-                    // Offline players in the same club are always visible (bypass privacy check)
+                    // Offline-Spieler im selben Verein sind immer sichtbar
                     if (p.isOffline && userClubId && p.clubId === userClubId) {
                         return true;
                     }
 
-                    // Privacy check
+                    // Datenschutz-Prüfung
                     if (hasNoClub(userClubId) && hasNoClub(p.clubId)) {
                         return true;
                     }
@@ -254,10 +254,10 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         }
     }
 
-    // Initial load
+    // Initiales Laden
     await loadPlayers();
 
-    // Set up real-time subscription for player updates
+    // Echtzeit-Subscription für Spieler-Updates einrichten
     supabase
         .channel('doubles-player-search-updates')
         .on(
@@ -273,14 +273,14 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         )
         .subscribe();
 
-    // Track selected player IDs to exclude from other searches
+    // Ausgewählte Spieler-IDs verfolgen um von anderen Suchen auszuschließen
     const selectedIds = {
         partner: null,
         opponent1: null,
         opponent2: null
     };
 
-    // Function to get all currently selected IDs (excluding a specific field)
+    // Funktion um alle aktuell ausgewählten IDs zu erhalten (exkl. Feld)
     function getExcludeIds(excludeField) {
         const ids = [];
         if (excludeField !== 'partner' && selectedIds.partner) ids.push(selectedIds.partner);
@@ -289,7 +289,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         return ids;
     }
 
-    // Initialize search for Partner - pass playersData object
+    // Suche für Partner initialisieren - playersData-Objekt übergeben
     initializePlayerSearchInput(
         'partner-search-input',
         'partner-search-results',
@@ -301,7 +301,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         (id) => { selectedIds.partner = id; }
     );
 
-    // Initialize search for Opponent 1
+    // Suche für Gegner 1 initialisieren
     initializePlayerSearchInput(
         'opponent1-search-input',
         'opponent1-search-results',
@@ -313,7 +313,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         (id) => { selectedIds.opponent1 = id; }
     );
 
-    // Initialize search for Opponent 2
+    // Suche für Gegner 2 initialisieren
     initializePlayerSearchInput(
         'opponent2-search-input',
         'opponent2-search-results',
@@ -327,15 +327,15 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
 }
 
 /**
- * Initializes a single player search input
- * @param {string} inputId - ID of the search input element
- * @param {string} resultsId - ID of the results container element
- * @param {string} selectedIdFieldId - ID of the hidden field storing selected player ID
- * @param {string} selectedEloFieldId - ID of the hidden field storing selected player Elo
- * @param {Object} playersData - Object with players array (for real-time updates)
- * @param {Object} userData - Current user data
- * @param {Function} getExcludeIds - Function that returns array of player IDs to exclude
- * @param {Function} onSelect - Callback when a player is selected
+ * Initialisiert eine einzelne Spieler-Sucheingabe
+ * @param {string} inputId - ID des Sucheingabe-Elements
+ * @param {string} resultsId - ID des Ergebnis-Container-Elements
+ * @param {string} selectedIdFieldId - ID des versteckten Feldes für Spieler-ID
+ * @param {string} selectedEloFieldId - ID des versteckten Feldes für Spieler-Elo
+ * @param {Object} playersData - Objekt mit Spieler-Array (für Echtzeit-Updates)
+ * @param {Object} userData - Aktuelle Benutzerdaten
+ * @param {Function} getExcludeIds - Funktion die Array auszuschließender Spieler-IDs zurückgibt
+ * @param {Function} onSelect - Callback wenn Spieler ausgewählt wird
  */
 function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, playersData, userData, getExcludeIds, onSelect) {
     const searchInput = document.getElementById(inputId);
@@ -345,39 +345,39 @@ function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, sele
 
     if (!searchInput || !searchResults || !selectedIdField) return;
 
-    // Search on input
+    // Bei Eingabe suchen
     searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase().trim();
 
-        // If search is empty, clear results
+        // Wenn Suche leer, Ergebnisse löschen
         if (!searchTerm) {
             searchResults.innerHTML = '';
             return;
         }
 
-        // Get current exclude IDs (dynamically)
+        // Aktuelle Ausschluss-IDs abrufen (dynamisch)
         const excludeIds = getExcludeIds();
 
-        // Filter players by search term - use playersData.players for real-time data
+        // Spieler nach Suchbegriff filtern - playersData.players für Echtzeit-Daten
         const filteredPlayers = playersData.players.filter(player => {
-            // Exclude players already selected in other fields
+            // Spieler ausschließen die bereits in anderen Feldern ausgewählt
             if (excludeIds.includes(player.id)) return false;
 
             const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
             return fullName.includes(searchTerm);
-        }).slice(0, 10); // Limit to 10 results
+        }).slice(0, 10); // Auf 10 Ergebnisse begrenzen
 
         displaySearchResults(filteredPlayers, searchResults, searchInput, selectedIdField, selectedEloField, userData, onSelect);
     });
 
-    // Clear results when clicking outside
+    // Ergebnisse löschen bei Klick außerhalb
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
             searchResults.innerHTML = '';
         }
     });
 
-    // Clear selection when input is cleared
+    // Auswahl löschen wenn Eingabe gelöscht
     searchInput.addEventListener('input', (e) => {
         if (!e.target.value.trim()) {
             selectedIdField.value = '';
@@ -388,14 +388,14 @@ function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, sele
 }
 
 /**
- * Displays search results for player selection
- * @param {Array} players - Filtered players to display
- * @param {HTMLElement} resultsContainer - Container to display results
- * @param {HTMLElement} searchInput - Search input element
- * @param {HTMLElement} selectedIdField - Hidden field to store selected ID
- * @param {HTMLElement} selectedEloField - Hidden field to store selected Elo
- * @param {Object} userData - Current user data
- * @param {Function} onSelect - Callback when a player is selected
+ * Zeigt Suchergebnisse für Spieler-Auswahl an
+ * @param {Array} players - Gefilterte Spieler zum Anzeigen
+ * @param {HTMLElement} resultsContainer - Container für Ergebnisse
+ * @param {HTMLElement} searchInput - Sucheingabe-Element
+ * @param {HTMLElement} selectedIdField - Verstecktes Feld für ausgewählte ID
+ * @param {HTMLElement} selectedEloField - Verstecktes Feld für ausgewähltes Elo
+ * @param {Object} userData - Aktuelle Benutzerdaten
+ * @param {Function} onSelect - Callback wenn Spieler ausgewählt wird
  */
 function displaySearchResults(players, resultsContainer, searchInput, selectedIdField, selectedEloField, userData, onSelect) {
     if (players.length === 0) {
@@ -405,7 +405,7 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
 
     resultsContainer.innerHTML = players.map(player => {
         const clubName = player.clubName || 'Kein Verein';
-        // Check both camelCase and snake_case for userData club ID
+        // Sowohl camelCase als auch snake_case für userData Vereins-ID
         const userClubId = userData.clubId || userData.club_id;
         const isSameClub = player.clubId === userClubId;
 
@@ -426,54 +426,54 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         `;
     }).join('');
 
-    // Add click handlers to results
+    // Klick-Handler zu Ergebnissen hinzufügen
     resultsContainer.querySelectorAll('.player-search-result').forEach(result => {
         result.addEventListener('click', () => {
             const playerId = result.dataset.playerId;
             const playerName = result.dataset.playerName;
 
-            // Set selected player
+            // Ausgewählten Spieler setzen
             selectedIdField.value = playerId;
-            // Note: Individual Elo field is deprecated - pairing Elo is now used
+            // Hinweis: Individuelles Elo-Feld veraltet - Paarungs-Elo wird verwendet
             if (selectedEloField) selectedEloField.value = '800'; // Default, will be looked up from pairing
 
-            // Update search input to show selected player
+            // Sucheingabe aktualisieren um ausgewählten Spieler zu zeigen
             searchInput.value = playerName;
 
-            // Track selection for excluding from other searches
+            // Auswahl verfolgen um von anderen Suchen auszuschließen
             if (onSelect) onSelect(playerId);
 
-            // Clear search results
+            // Suchergebnisse löschen
             resultsContainer.innerHTML = '';
         });
     });
 }
 
-// Deprecated: Keep for backwards compatibility but mark as deprecated
+// Veraltet: Für Abwärtskompatibilität behalten
 export function populateDoublesPlayerDropdowns(players, currentUserId) {
     console.warn('populateDoublesPlayerDropdowns is deprecated. Use initializeDoublesPlayerSearch instead.');
 }
 
 // ========================================================================
-// ===== FORM SUBMISSION =====
+// ===== FORMULAR-ÜBERMITTLUNG =====
 // ========================================================================
 
 /**
- * Handles doubles match request submission
- * NOTE: e.preventDefault() is already called in player-matches.js before this function
- * @param {Event} e - Form submit event
+ * Verarbeitet Doppel-Match-Anfrage-Übermittlung
+ * HINWEIS: e.preventDefault() wird bereits in player-matches.js aufgerufen
+ * @param {Event} e - Formular-Submit-Event
  * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Current user data
+ * @param {Object} currentUserData - Aktuelle Benutzerdaten
  */
 export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserData) {
     const feedbackEl = document.getElementById('match-request-feedback');
 
-    // Get player selections from hidden fields
+    // Spieler-Auswahlen aus versteckten Feldern abrufen
     const partnerId = document.getElementById('selected-partner-id').value;
     const opponent1Id = document.getElementById('selected-opponent1-id').value;
     const opponent2Id = document.getElementById('selected-opponent2-id').value;
 
-    // Validate all players are selected
+    // Validieren dass alle Spieler ausgewählt sind
     if (!partnerId || !opponent1Id || !opponent2Id) {
         feedbackEl.textContent = 'Bitte alle Spieler auswählen: Partner und beide Gegner.';
         feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
@@ -481,7 +481,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         return;
     }
 
-    // Validate all players are different
+    // Validieren dass alle Spieler unterschiedlich sind
     const allPlayerIds = [currentUserData.id, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         feedbackEl.textContent = 'Alle 4 Spieler müssen unterschiedlich sein!';
@@ -490,7 +490,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         return;
     }
 
-    // Validate all players are match-ready (5+ Grundlagen) and load player data
+    // Validieren dass alle Spieler spielbereit sind (5+ Grundlagen)
     let playersData;
     try {
         const { data: players, error } = await supabase
@@ -516,11 +516,11 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             return;
         }
 
-        // Build a map for quick lookup
+        // Map für schnellen Lookup erstellen
         playersData = new Map();
         (players || []).forEach(p => playersData.set(p.id, p));
 
-        // NEW: Validate that at least one opponent is an online player
+        // NEU: Validieren dass mindestens ein Gegner Online-Spieler ist
         const opponent1Data = playersData.get(opponent1Id);
         const opponent2Data = playersData.get(opponent2Id);
 
@@ -543,7 +543,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         return;
     }
 
-    // Use the global set score input from player-matches.js (shared between singles and doubles)
+    // Globales Set-Score-Input von player-matches.js verwenden (geteilt)
     const setScoreInput = window.playerSetScoreInput;
     if (!setScoreInput) {
         feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
@@ -563,11 +563,11 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
     const sets = setScoreInput.getSets();
     const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
 
-    // Get match mode from dropdown
+    // Match-Modus aus Dropdown abrufen
     const matchModeSelect = document.getElementById('match-mode-select');
     const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
 
-    // Convert set field names from playerA/playerB to teamA/teamB for doubles
+    // Satz-Feldnamen von playerA/playerB zu teamA/teamB für Doppel konvertieren
     const doublesSets = sets.map(set => ({
         teamA: set.playerA,
         teamB: set.playerB,
@@ -578,16 +578,16 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
     feedbackEl.classList.remove('hidden');
 
     try {
-        // Extract player names from loaded player data
+        // Spielernamen aus geladenen Daten extrahieren
         const partnerData = playersData.get(partnerId);
         const opponent1Data = playersData.get(opponent1Id);
         const opponent2Data = playersData.get(opponent2Id);
 
-        // Handle both camelCase and snake_case for user data
+        // Sowohl camelCase als auch snake_case für Benutzerdaten
         const userFirstName = currentUserData.firstName || currentUserData.first_name || '';
         const userLastName = currentUserData.lastName || currentUserData.last_name || '';
 
-        // Build handicap object if handicap is used
+        // Handicap-Objekt erstellen falls Handicap verwendet
         const handicapData = handicapUsed && currentDoublesHandicapDetails ? {
             team: currentDoublesHandicapDetails.team,
             team_name: currentDoublesHandicapDetails.team_name,
@@ -623,18 +623,18 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             feedbackEl.className =
                 'bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded';
 
-            // Reset form
+            // Formular zurücksetzen
             if (setScoreInput && setScoreInput.reset) {
                 setScoreInput.reset();
             }
             clearDoublesSelections();
 
-            // Refresh match requests list if available
+            // Match-Anfragen-Liste aktualisieren falls verfügbar
             if (typeof window.loadMatchRequests === 'function') {
                 window.loadMatchRequests();
             }
 
-            // Hide feedback after 5 seconds
+            // Feedback nach 5 Sekunden ausblenden
             setTimeout(() => {
                 feedbackEl.classList.add('hidden');
             }, 5000);
@@ -647,21 +647,21 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
 }
 
 /**
- * Returns the current match type
- * @returns {string} 'singles' or 'doubles'
+ * Gibt den aktuellen Match-Typ zurück
+ * @returns {string} 'singles' oder 'doubles'
  */
 export function getCurrentPlayerMatchType() {
     return currentPlayerMatchType;
 }
 
 // ========================================================================
-// ===== HANDICAP SETUP =====
+// ===== HANDICAP-EINRICHTUNG =====
 // ========================================================================
 
 /**
- * Sets up handicap calculation for doubles player form
- * @param {Object} playersData - Object with players array
- * @param {Object} userData - Current user data
+ * Richtet Handicap-Berechnung für Doppel-Spieler-Formular ein
+ * @param {Object} playersData - Objekt mit Spieler-Array
+ * @param {Object} userData - Aktuelle Benutzerdaten
  */
 export function setupDoublesPlayerHandicap(playersData, userData) {
     const partnerIdField = document.getElementById('selected-partner-id');
@@ -680,17 +680,17 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
     }
 
     /**
-     * Calculate and display handicap based on current selections
-     * Uses PAIRING Elo from doubles_pairings table (not individual player average)
+     * Berechnet und zeigt Handicap basierend auf aktuellen Auswahlen
+     * Verwendet PAARUNGS-Elo aus doubles_pairings-Tabelle (nicht Spieler-Durchschnitt)
      */
     async function calculateAndDisplayHandicap() {
         const partnerId = partnerIdField.value;
         const opponent1Id = opponent1IdField.value;
         const opponent2Id = opponent2IdField.value;
 
-        // Check if all 3 players are selected
+        // Prüfen ob alle 3 Spieler ausgewählt sind
         if (!partnerId || !opponent1Id || !opponent2Id) {
-            // Hide handicap and team Elo if not all players selected
+            // Handicap und Team-Elo verstecken wenn nicht alle Spieler ausgewählt
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
                 handicapToggleContainer.classList.add('hidden');
