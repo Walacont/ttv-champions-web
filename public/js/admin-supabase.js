@@ -1,5 +1,4 @@
-// Admin Dashboard - Supabase Version
-// SC Champions - Migration von Firebase zu Supabase
+// Admin-Dashboard (Supabase-Version)
 
 import { getSupabase, onAuthStateChange, signOut as supabaseSignOut, getCurrentUser } from './supabase-init.js';
 import {
@@ -27,10 +26,9 @@ import {
 } from './milestone-management.js';
 import { escapeHtml } from './utils/security.js';
 
-// Supabase client
 const supabase = getSupabase();
 
-// DOM Elements
+// DOM-Elemente
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 const authErrorContainer = document.getElementById('auth-error-container');
@@ -46,7 +44,6 @@ const clubsListEl = document.getElementById('clubs-list');
 const createExerciseForm = document.getElementById('create-exercise-form');
 const exercisesListAdminEl = document.getElementById('exercises-list-admin');
 
-// Modals
 const playerModal = document.getElementById('player-modal');
 const closePlayerModalButton = document.getElementById('close-player-modal-button');
 const modalClubIdEl = document.getElementById('modal-club-id');
@@ -69,27 +66,21 @@ let genderChartInstance = null;
 let attendanceChartInstance = null;
 let competitionChartInstance = null;
 
-// Competition statistics state
 let competitionMatchData = [];
 let competitionPeriod = 'month';
 let competitionTypeFilter = 'all';
 let descriptionEditor = null;
 let editDescriptionEditor = null;
 
-// Realtime subscriptions
 let usersSubscription = null;
 let exercisesSubscription = null;
 
-// Sports and clubs data
 let allSports = [];
 let allClubs = [];
 let selectedClub = null;
 let clubExistingSports = [];
 
-// Current filter state
-let currentSportFilter = 'all'; // 'all' or sport_id
-
-// Prevent multiple initializations
+let currentSportFilter = 'all';
 let isAdminPageInitialized = false;
 
 function showAuthError(message) {
@@ -100,7 +91,6 @@ function showAuthError(message) {
     console.error('Auth-Fehler auf Admin-Seite:', message);
 }
 
-// Initialize auth listener
 onAuthStateChange(async (event, session) => {
     if (session?.user) {
         try {
@@ -125,13 +115,11 @@ onAuthStateChange(async (event, session) => {
             showAuthError(`Datenbankfehler: ${error.message}`);
         }
     } else {
-        // User logged out - use replace() to prevent back-button access
         window.location.replace('/index.html');
     }
 });
 
 function initializeAdminPage(userData, user) {
-    // Prevent multiple initializations (can happen with auth state changes)
     if (isAdminPageInitialized) {
         console.log('[Admin] Page already initialized, skipping');
         return;
@@ -141,7 +129,6 @@ function initializeAdminPage(userData, user) {
     try {
         welcomeMessage.textContent = `Willkommen, ${userData.first_name || userData.display_name || user.email}!`;
 
-        // Analytics removed - can be replaced with custom analytics if needed
         console.log('[Admin] Page view - Admin Dashboard');
 
         pageLoader.style.display = 'none';
@@ -150,7 +137,6 @@ function initializeAdminPage(userData, user) {
         logoutButton.addEventListener('click', async () => {
             try {
                 await supabaseSignOut();
-                // Clear SPA cache to prevent back-button access to authenticated pages
                 if (window.spaEnhancer) {
                     window.spaEnhancer.clearCache();
                 }
