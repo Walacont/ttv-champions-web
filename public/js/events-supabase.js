@@ -26,6 +26,29 @@ let allExercises = [];
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
 /**
+ * Prüft ob ein Spieler zu einem Event eingeladen war
+ * @param {Array} playerSubgroups - Untergruppen des Spielers
+ * @param {Object} event - Event mit target_type und target_subgroup_ids
+ * @returns {boolean} true wenn eingeladen
+ */
+function isPlayerInvitedToEvent(playerSubgroups, event) {
+    // Wenn target_type 'all' oder nicht gesetzt → alle eingeladen
+    if (!event.target_type || event.target_type === 'all' || event.target_type === 'club') {
+        return true;
+    }
+
+    // Wenn target_type 'subgroups' → prüfe ob Spieler in einer der Ziel-Untergruppen ist
+    if (event.target_type === 'subgroups') {
+        const targetSubgroups = event.target_subgroup_ids || [];
+        if (targetSubgroups.length === 0) return true;
+
+        return playerSubgroups.some(sg => targetSubgroups.includes(sg));
+    }
+
+    return true;
+}
+
+/**
  * Toast-Benachrichtigung anzeigen
  * @param {string} message - Nachricht
  * @param {string} type - 'success', 'error' oder 'info'
@@ -1197,23 +1220,47 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
+        // Spieler-Untergruppen holen, um zu prüfen zu welchen Events er eingeladen war
+        const { data: playerProfile } = await supabase
+            .from('profiles')
+            .select('subgroup_ids')
+            .eq('id', playerId)
+            .single();
+        const playerSubgroups = playerProfile?.subgroup_ids || [];
+
+        // Letzte Trainings holen (mehr als 1, um das richtige zu finden)
         const { data: previousEvents } = await supabase
             .from('events')
-            .select('id, start_date')
+            .select('id, start_date, target_type, target_subgroup_ids')
             .eq('club_id', event.club_id)
             .eq('event_category', 'training')
             .lt('start_date', date)
             .order('start_date', { ascending: false })
-            .limit(1);
+            .limit(10);
 
-        if (previousEvents && previousEvents.length > 0) {
+        // Finde das letzte Event, zu dem der Spieler EINGELADEN war
+        let lastInvitedEvent = null;
+        if (previousEvents) {
+            for (const prevEvent of previousEvents) {
+                const wasInvited = isPlayerInvitedToEvent(playerSubgroups, prevEvent);
+                if (wasInvited) {
+                    lastInvitedEvent = prevEvent;
+                    break;
+                }
+            }
+        }
+
+        if (lastInvitedEvent) {
             const { data: prevAttendance } = await supabase
                 .from('event_attendance')
                 .select('present_user_ids')
-                .eq('event_id', previousEvents[0].id)
+                .eq('event_id', lastInvitedEvent.id)
                 .maybeSingle();
 
             wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
+        } else {
+            // Kein vorheriges Event gefunden, zu dem Spieler eingeladen war → Streak startet neu
+            wasPresentAtLastEvent = true;
         }
 
         const { data: streakData } = await supabase
