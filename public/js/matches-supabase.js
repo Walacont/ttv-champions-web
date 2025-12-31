@@ -1941,7 +1941,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
                 if (!request) throw new Error('Match request not found');
 
-                console.log('[Matches] Request created_at:', request.created_at, '- wird als played_at verwendet');
+                console.warn('[Matches] DEBUG - Request created_at:', request.created_at, '→ played_at wird:', request.created_at || 'FALLBACK new Date()');
 
                 const { data: match, error: matchError } = await supabase
                     .from('matches')
