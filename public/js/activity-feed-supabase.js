@@ -1,7 +1,6 @@
 /**
- * Activity Feed Module - Supabase Version
- * Shows recent matches from club members and followed users
- * Includes like functionality, infinite scroll, and filters
+ * Aktivitäts-Feed-Modul (Supabase-Version)
+ * Zeigt aktuelle Matches von Vereinsmitgliedern und gefolgten Nutzern
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -14,7 +13,6 @@ import { escapeHtml } from './utils/security.js';
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
-// Module state
 let currentUser = null;
 let currentUserData = null;
 let activityOffset = 0;
@@ -27,10 +25,7 @@ let followedClubsCache = null;
 let currentFilter = 'all'; // 'all', 'following', 'my-activities', or club id
 const ACTIVITIES_PER_PAGE = 8;
 
-// Cache for activities that were fetched but not displayed due to pagination
-// This prevents losing activities when different activity types have different densities
 let pendingActivitiesCache = [];
-// Track offsets separately per activity type to avoid skipping items
 let typeOffsets = {
     singles: 0,
     doubles: 0,
@@ -39,16 +34,13 @@ let typeOffsets = {
     polls: 0
 };
 
-// Pull to refresh state
 let pullToRefreshStartY = 0;
 let pullToRefreshEnabled = false;
 let isPulling = false;
 let isRefreshing = false;
 const PULL_THRESHOLD = 80; // pixels to pull before triggering refresh
 
-/**
- * Update carousel counter on scroll
- */
+/** Aktualisiert Karussell-Zähler beim Scrollen */
 window.updateCarouselCounter = function(carousel, matchType, matchId, totalItems) {
     const counter = document.getElementById(`counter-${matchType}-${matchId}`);
     if (!counter || totalItems <= 1) return;
@@ -58,16 +50,13 @@ window.updateCarouselCounter = function(carousel, matchType, matchId, totalItems
     counter.textContent = `${currentIndex}/${totalItems}`;
 };
 
-/**
- * Delete match media (photo/video)
- */
+/** Löscht Match-Medien (Foto/Video) */
 window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) {
     if (!confirm('Möchtest du dieses Foto/Video wirklich löschen?')) {
         return;
     }
 
     try {
-        // Delete from database
         const { error: dbError } = await supabase
             .from('match_media')
             .delete()
@@ -79,17 +68,14 @@ window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) 
             return;
         }
 
-        // Delete from storage
         const { error: storageError } = await supabase.storage
             .from('match-media')
             .remove([filePath]);
 
         if (storageError) {
             console.error('Error deleting file from storage:', storageError);
-            // Continue anyway - file might already be deleted
         }
 
-        // Refresh the media for this match
         await injectMatchMedia(matchId, matchType);
 
     } catch (error) {
@@ -98,15 +84,12 @@ window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) 
     }
 };
 
-/**
- * Initialize the activity feed module
- */
+/** Initialisiert das Aktivitäts-Feed-Modul */
 export function initActivityFeedModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     activityOffset = 0;
 
-    // Inject CSS for hidden scrollbar and pull-to-refresh
     if (!document.getElementById('activity-feed-styles')) {
         const style = document.createElement('style');
         style.id = 'activity-feed-styles';
@@ -157,49 +140,32 @@ export function initActivityFeedModule(user, userData) {
     pendingActivitiesCache = [];
     typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 };
 
-    // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
 
-    // Initialize comments module and make openComments globally available
     initComments(userData);
     window.openComments = openComments;
 
-    // Setup likes viewer modal
     setupLikesModal();
     window.showLikesModal = showLikesModal;
 
-    // Setup infinite scroll
     setupInfiniteScroll();
-
-    // Setup pull-to-refresh
     setupPullToRefresh();
-
-    // Setup filter dropdown
     setupFilterDropdown();
-
-    // Load user's club for filter
     loadUserClub();
 
-    // Remove any existing language change listener to avoid duplicates
     if (window.activityFeedLanguageListener) {
         window.removeEventListener('languageChanged', window.activityFeedLanguageListener);
     }
 
-    // Listen for language changes and reload activity feed
     window.activityFeedLanguageListener = async () => {
-        // Small delay to ensure i18next has loaded the new language
         await new Promise(resolve => setTimeout(resolve, 100));
-        // Reload the activity feed to update translations
         loadActivityFeed();
     };
     window.addEventListener('languageChanged', window.activityFeedLanguageListener);
 }
 
-/**
- * Setup likes modal
- */
+/** Richtet Likes-Modal ein */
 function setupLikesModal() {
-    // Check if modal already exists
     if (document.getElementById('likes-modal')) return;
 
     const modalHTML = `
@@ -229,7 +195,6 @@ function setupLikesModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Close modal when clicking outside
     document.getElementById('likes-modal').addEventListener('click', (e) => {
         if (e.target.id === 'likes-modal') {
             window.closeLikesModal();
@@ -237,20 +202,16 @@ function setupLikesModal() {
     });
 }
 
-/**
- * Show likes modal with list of users who liked
- */
+/** Zeigt Likes-Modal mit Liste der Nutzer */
 async function showLikesModal(activityId, activityType) {
     const modal = document.getElementById('likes-modal');
     const likesList = document.getElementById('likes-list');
 
     if (!modal) return;
 
-    // Show modal
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
-    // Show loading
     likesList.innerHTML = `
         <div class="text-center text-gray-400 py-8">
             <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
@@ -259,7 +220,6 @@ async function showLikesModal(activityId, activityType) {
     `;
 
     try {
-        // Fetch likes
         const { data: likes, error } = await supabase
             .from('activity_likes')
             .select('user_id, created_at')
@@ -279,7 +239,6 @@ async function showLikesModal(activityId, activityType) {
             return;
         }
 
-        // Get user profiles
         const userIds = likes.map(l => l.user_id);
         const { data: profiles, error: profileError } = await supabase
             .from('profiles')
@@ -288,13 +247,11 @@ async function showLikesModal(activityId, activityType) {
 
         if (profileError) throw profileError;
 
-        // Create profile map
         const profileMap = {};
         (profiles || []).forEach(p => {
             profileMap[p.id] = p;
         });
 
-        // Render likes
         likesList.innerHTML = likes.map(like => {
             const profile = profileMap[like.user_id];
             if (!profile) return '';
@@ -329,9 +286,7 @@ async function showLikesModal(activityId, activityType) {
     }
 }
 
-/**
- * Close likes modal
- */
+/** Schließt Likes-Modal */
 window.closeLikesModal = function() {
     const modal = document.getElementById('likes-modal');
     if (modal) {
@@ -340,9 +295,7 @@ window.closeLikesModal = function() {
     }
 };
 
-/**
- * Get time ago string for a date
- */
+/** Gibt relative Zeitangabe zurück */
 function getTimeAgo(date) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -355,9 +308,7 @@ function getTimeAgo(date) {
     return date.toLocaleDateString('de-DE');
 }
 
-/**
- * Check if activity belongs to current user
- */
+/** Prüft ob Aktivität dem aktuellen Nutzer gehört */
 function isOwnActivity(activity, activityType) {
     if (!currentUser?.id) return false;
 
@@ -379,27 +330,22 @@ function isOwnActivity(activity, activityType) {
     return false;
 }
 
-/**
- * Setup filter dropdown
- */
+/** Richtet Filter-Dropdown ein */
 function setupFilterDropdown() {
     const filterBtn = document.getElementById('activity-filter-btn');
     const filterDropdown = document.getElementById('activity-filter-dropdown');
 
     if (!filterBtn || !filterDropdown) return;
 
-    // Toggle dropdown
     filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         filterDropdown.classList.toggle('hidden');
     });
 
-    // Close dropdown when clicking outside
     document.addEventListener('click', () => {
         filterDropdown.classList.add('hidden');
     });
 
-    // Filter option clicks
     filterDropdown.addEventListener('click', (e) => {
         const option = e.target.closest('.activity-filter-option');
         if (!option) return;
@@ -423,7 +369,6 @@ function selectFilter(filter, label) {
     const labelEl = document.getElementById('activity-filter-label');
     if (labelEl) labelEl.textContent = label;
 
-    // Update checkmarks
     document.querySelectorAll('.activity-filter-option .filter-check').forEach(check => {
         const option = check.closest('.activity-filter-option');
         if (option.dataset.filter === filter) {
@@ -433,24 +378,18 @@ function selectFilter(filter, label) {
         }
     });
 
-    // Reload feed with new filter
     loadActivityFeed();
 }
 
-/**
- * Load user's own club (for filter options)
- * Only shows the club the user is a member of
- */
+/** Lädt den Verein des Nutzers für Filter-Optionen */
 async function loadUserClub() {
     try {
-        // Check if user is in a club
         if (!currentUserData.club_id) {
             followedClubsCache = [];
             renderClubFilters();
             return;
         }
 
-        // Get the user's club details
         const { data: club, error } = await supabase
             .from('clubs')
             .select('id, name')
@@ -464,8 +403,6 @@ async function loadUserClub() {
         }
 
         followedClubsCache = [club];
-
-        // Render club filter options
         renderClubFilters();
 
     } catch (error) {
@@ -474,9 +411,7 @@ async function loadUserClub() {
     }
 }
 
-/**
- * Render club filter options in dropdown
- */
+/** Rendert Vereins-Filteroptionen im Dropdown */
 function renderClubFilters() {
     const container = document.getElementById('activity-filter-clubs');
     if (!container || !followedClubsCache) return;
@@ -497,9 +432,7 @@ function renderClubFilters() {
     `).join('');
 }
 
-/**
- * Setup infinite scroll using Intersection Observer
- */
+/** Richtet Infinite-Scroll mit Intersection Observer ein */
 function setupInfiniteScroll() {
     if (infiniteScrollObserver) {
         infiniteScrollObserver.disconnect();
