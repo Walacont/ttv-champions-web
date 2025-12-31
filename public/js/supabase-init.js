@@ -1,4 +1,4 @@
-// SC Champions - Migration von Firebase zu Supabase
+// Migration von Firebase zu Supabase
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { supabaseConfig } from './supabase-config.js';

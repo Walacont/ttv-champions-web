@@ -1,4 +1,4 @@
-// SC Champions SPA - Haupteinstiegspunkt (Supabase-Version)
+// SPA-Haupteinstiegspunkt (Supabase-Version)
 
 import { router, viewLoader } from './router.js';
 import { getSupabase, onAuthStateChange } from './supabase-init.js';

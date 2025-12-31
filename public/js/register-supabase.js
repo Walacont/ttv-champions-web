@@ -1,5 +1,4 @@
-// SC Champions - Registrierungsseite (Supabase-Version)
-// Ersetzt register.js für die Supabase-Migration
+// Registrierungsseite (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
 

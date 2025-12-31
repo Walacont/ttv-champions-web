@@ -1,5 +1,4 @@
-// Herausforderungen-Modul - Supabase-Version
-// SC Champions - Migration von Firebase zu Supabase
+// Herausforderungen-Modul (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
 import { getChallengePartnerSettings } from './milestone-management.js';

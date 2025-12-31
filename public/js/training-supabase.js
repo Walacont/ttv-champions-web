@@ -1,5 +1,4 @@
-// Trainingsplan-Modul - Supabase-Version
-// SC Champions - Migration von Firebase zu Supabase
+// Trainingsplan-Modul (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
 

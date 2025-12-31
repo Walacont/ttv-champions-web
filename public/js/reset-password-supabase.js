@@ -1,4 +1,4 @@
-// SC Champions - Passwort-Reset-Seite (Supabase)
+// Passwort-Reset-Seite (Supabase)
 
 import { getSupabase } from './supabase-init.js';
 

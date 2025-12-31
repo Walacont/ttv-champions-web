@@ -1,5 +1,4 @@
-// Auth-Hilfsfunktionen für Supabase
-// SC Champions - Supabase Version
+// Auth-Hilfsfunktionen (Supabase-Version)
 
 import { getSupabase, signOut as supabaseSignOut, onAuthStateChange } from './supabase-init.js';
 

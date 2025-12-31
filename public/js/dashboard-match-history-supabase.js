@@ -1,4 +1,4 @@
-// SC Champions - Dashboard Match History Modul (Supabase-Version)
+// Dashboard Match History Modul (Supabase-Version)
 // Verwaltet Anzeige der Wettkampf-Historie, Rendering und Detail-Modals
 
 import { getSupabase } from './supabase-init.js';
