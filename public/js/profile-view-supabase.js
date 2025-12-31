@@ -340,6 +340,49 @@ async function renderRecentActivity(profile) {
     const ACTIVITY_LIMIT = 10;
 
     try {
+        // === CHECK MATCHES VISIBILITY PRIVACY SETTING ===
+        const matchesVisibility = profile.privacy_settings?.matches_visibility || 'global';
+
+        // Determine if viewer can see matches based on profile owner's privacy settings
+        let canViewMatches = isOwnProfile; // Own profile always visible
+
+        if (!canViewMatches && matchesVisibility === 'global') {
+            canViewMatches = true;
+        } else if (!canViewMatches && matchesVisibility === 'club_only') {
+            // Check if viewer is in the same club
+            if (currentUser) {
+                const { data: viewerProfile } = await supabase
+                    .from('profiles')
+                    .select('club_id')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (viewerProfile?.club_id && viewerProfile.club_id === profile.club_id) {
+                    canViewMatches = true;
+                }
+            }
+        } else if (!canViewMatches && matchesVisibility === 'followers_only') {
+            // Check if viewer follows this profile
+            if (currentUser) {
+                const { data: friendship } = await supabase
+                    .from('friendships')
+                    .select('status')
+                    .eq('requester_id', currentUser.id)
+                    .eq('addressee_id', profileId)
+                    .eq('status', 'accepted')
+                    .maybeSingle();
+
+                if (friendship) {
+                    canViewMatches = true;
+                }
+            }
+        } else if (!canViewMatches && matchesVisibility === 'none') {
+            // Only players in the match can see - check in individual match filtering
+            // For profile view, if viewer is in one of the matches, they can see that specific match
+            // We'll handle this during match filtering below
+            canViewMatches = false;
+        }
+
         const [singlesRes, doublesRes, postsRes] = await Promise.all([
             supabase
                 .from('matches')
@@ -364,11 +407,35 @@ async function renderRecentActivity(profile) {
                 .limit(ACTIVITY_LIMIT)
         ]);
 
-        const allActivities = [
+        let allActivities = [
             ...(singlesRes.data || []).map(m => ({ ...m, activityType: 'singles' })),
             ...(doublesRes.data || []).map(m => ({ ...m, activityType: 'doubles' })),
             ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' }))
         ];
+
+        // Filter matches based on privacy settings
+        if (!canViewMatches) {
+            // If matches_visibility is 'none', only show matches where viewer is a participant
+            const viewerId = currentUser?.id;
+            allActivities = allActivities.filter(activity => {
+                if (activity.activityType === 'post') {
+                    return true; // Posts are not affected by matches_visibility
+                }
+
+                // For matches, only show if viewer is a participant
+                if (activity.activityType === 'singles') {
+                    return viewerId && (activity.player_a_id === viewerId || activity.player_b_id === viewerId);
+                } else if (activity.activityType === 'doubles') {
+                    return viewerId && (
+                        activity.team_a_player1_id === viewerId ||
+                        activity.team_a_player2_id === viewerId ||
+                        activity.team_b_player1_id === viewerId ||
+                        activity.team_b_player2_id === viewerId
+                    );
+                }
+                return false;
+            });
+        }
 
         allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 

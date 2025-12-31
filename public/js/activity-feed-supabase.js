@@ -196,6 +196,69 @@ export function initActivityFeedModule(user, userData) {
 }
 
 /**
+ * Check if a match is visible to the current user based on privacy settings
+ * @param {Object} match - The match object (singles or doubles)
+ * @param {string} matchType - 'singles' or 'doubles'
+ * @param {Object} privacyMap - Map of userId -> privacy_settings
+ * @param {string} viewerId - Current user's ID
+ * @param {string|null} viewerClubId - Current user's club ID
+ * @param {Set} viewerFollowingIds - Set of user IDs the viewer follows
+ * @returns {boolean} - Whether the match is visible
+ */
+function canViewMatch(match, matchType, privacyMap, viewerId, viewerClubId, viewerFollowingIds) {
+    // Get all player IDs from the match
+    let playerIds = [];
+    if (matchType === 'singles') {
+        playerIds = [match.player_a_id, match.player_b_id].filter(Boolean);
+    } else if (matchType === 'doubles') {
+        playerIds = [
+            match.team_a_player1_id,
+            match.team_a_player2_id,
+            match.team_b_player1_id,
+            match.team_b_player2_id
+        ].filter(Boolean);
+    }
+
+    // If viewer is a player in this match, always visible
+    if (playerIds.includes(viewerId)) {
+        return true;
+    }
+
+    // Check if ANY player allows viewing based on their privacy settings
+    // A match is visible if at least one player's privacy settings allow it
+    for (const playerId of playerIds) {
+        const privacy = privacyMap[playerId]?.privacy_settings || {};
+        const visibility = privacy.matches_visibility || 'global';
+        const playerClubId = privacyMap[playerId]?.club_id;
+
+        if (visibility === 'global') {
+            // This player allows everyone to see
+            return true;
+        }
+
+        if (visibility === 'club_only') {
+            // Check if viewer is in the same club as this player
+            if (viewerClubId && playerClubId && viewerClubId === playerClubId) {
+                return true;
+            }
+        }
+
+        if (visibility === 'followers_only') {
+            // Check if viewer follows this player
+            if (viewerFollowingIds.has(playerId)) {
+                return true;
+            }
+        }
+
+        // visibility === 'none' means only the players themselves can see
+        // Continue to check other players
+    }
+
+    // No player allows viewing
+    return false;
+}
+
+/**
  * Setup likes modal
  */
 function setupLikesModal() {
@@ -922,6 +985,61 @@ async function fetchActivities(userIds) {
             ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
             ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
         ];
+
+        // === PRIVACY FILTERING FOR MATCHES ===
+        // Collect all unique player IDs from singles and doubles matches for privacy check
+        const matchPlayerIds = new Set();
+        allActivities.forEach(activity => {
+            if (activity.activityType === 'singles') {
+                if (activity.player_a_id) matchPlayerIds.add(activity.player_a_id);
+                if (activity.player_b_id) matchPlayerIds.add(activity.player_b_id);
+            } else if (activity.activityType === 'doubles') {
+                if (activity.team_a_player1_id) matchPlayerIds.add(activity.team_a_player1_id);
+                if (activity.team_a_player2_id) matchPlayerIds.add(activity.team_a_player2_id);
+                if (activity.team_b_player1_id) matchPlayerIds.add(activity.team_b_player1_id);
+                if (activity.team_b_player2_id) matchPlayerIds.add(activity.team_b_player2_id);
+            }
+        });
+
+        // Load privacy settings for all players involved in matches
+        let privacyMap = {};
+        if (matchPlayerIds.size > 0) {
+            const { data: privacyProfiles } = await supabase
+                .from('profiles')
+                .select('id, privacy_settings, club_id')
+                .in('id', [...matchPlayerIds]);
+
+            (privacyProfiles || []).forEach(p => {
+                privacyMap[p.id] = p;
+            });
+        }
+
+        // Get viewer's following list for privacy checks
+        let viewerFollowingIds = new Set();
+        if (currentUser) {
+            const { data: following } = await supabase
+                .from('friendships')
+                .select('addressee_id')
+                .eq('requester_id', currentUser.id)
+                .eq('status', 'accepted');
+
+            (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
+        }
+
+        // Filter matches based on privacy settings
+        const viewerId = currentUser?.id;
+        const viewerClubId = currentUserData?.club_id;
+
+        allActivities = allActivities.filter(activity => {
+            // Only filter singles and doubles matches
+            if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
+                return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
+            }
+            // Other activity types (posts, polls, events) pass through
+            return true;
+        });
+
+        console.log('[ActivityFeed] Activities after privacy filter:', allActivities.length);
     }
 
     // Sort by date descending
