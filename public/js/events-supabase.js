@@ -1475,6 +1475,105 @@ async function deductEventAttendancePoints(playerId, event) {
 }
 
 /**
+ * Zieht ALLE vergebenen Punkte eines Events ab und verringert Streaks um 1
+ * Wird beim Löschen eines Events aufgerufen
+ */
+async function revokeEventAttendancePoints(eventId, event) {
+    // Anwesenheitsdaten holen
+    const { data: attendance } = await supabase
+        .from('event_attendance')
+        .select('points_awarded_to')
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+    const awardedPlayers = attendance?.points_awarded_to || [];
+    if (awardedPlayers.length === 0) return;
+
+    const eventTitle = event.title || 'Veranstaltung';
+    const date = event.start_date;
+    const isTraining = event.event_category === 'training';
+    const subgroupIds = event.target_subgroup_ids || [];
+    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
+
+    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+
+    for (const playerId of awardedPlayers) {
+        try {
+            // Punkte aus points_history suchen (enthält Event-Titel und Datum)
+            const { data: historyEntries } = await supabase
+                .from('points_history')
+                .select('points')
+                .eq('user_id', playerId)
+                .like('reason', `%${eventTitle}%${formattedDate}%`)
+                .gt('points', 0)
+                .order('timestamp', { ascending: false })
+                .limit(1);
+
+            const pointsToDeduct = historyEntries?.[0]?.points || EVENT_ATTENDANCE_POINTS_BASE;
+
+            // Punkte abziehen
+            await supabase.rpc('deduct_player_points', {
+                p_user_id: playerId,
+                p_points: pointsToDeduct,
+                p_xp: pointsToDeduct
+            });
+
+            // Korrektur-Einträge erstellen
+            const correctionTime = new Date().toISOString();
+            const reason = `Veranstaltung gelöscht: ${eventTitle} am ${formattedDate} (${pointsToDeduct} Punkte abgezogen)`;
+
+            await supabase.from('points_history').insert({
+                user_id: playerId,
+                points: -pointsToDeduct,
+                xp: -pointsToDeduct,
+                elo_change: 0,
+                reason,
+                timestamp: correctionTime,
+                awarded_by: 'System (Veranstaltung gelöscht)',
+            });
+
+            await supabase.from('xp_history').insert({
+                player_id: playerId,
+                xp: -pointsToDeduct,
+                reason,
+                timestamp: correctionTime,
+                awarded_by: 'System (Veranstaltung gelöscht)',
+            });
+
+            // Streak um 1 verringern (nicht löschen) - nur bei Trainings
+            if (primarySubgroupId) {
+                const { data: streakData } = await supabase
+                    .from('streaks')
+                    .select('current_streak')
+                    .eq('user_id', playerId)
+                    .eq('subgroup_id', primarySubgroupId)
+                    .maybeSingle();
+
+                if (streakData && streakData.current_streak > 0) {
+                    const newStreak = Math.max(0, streakData.current_streak - 1);
+                    await supabase.from('streaks').update({
+                        current_streak: newStreak,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', playerId)
+                    .eq('subgroup_id', primarySubgroupId);
+
+                    console.log(`[Events] Streak decreased for ${playerId}: ${streakData.current_streak} -> ${newStreak}`);
+                }
+            }
+
+            console.log(`[Events] Revoked ${pointsToDeduct} points from player ${playerId} (event deleted)`);
+        } catch (err) {
+            console.warn(`[Events] Error revoking points for player ${playerId}:`, err);
+        }
+    }
+}
+
+/**
  * Öffnet Übungsauswahl-Modal
  * @param {string} eventId - Event ID
  */
@@ -2061,6 +2160,8 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                     .update({ excluded_dates: exclusions })
                     .eq('id', eventId);
             } else {
+                // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
+                await revokeEventAttendancePoints(eventId, event);
                 await supabase.from('event_invitations').delete().eq('event_id', eventId);
                 await supabase.from('event_attendance').delete().eq('event_id', eventId);
                 await supabase.from('events').delete().eq('id', eventId);
@@ -2075,6 +2176,8 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 .update({ repeat_end_date: newEndDate })
                 .eq('id', eventId);
         } else if (deleteScope === 'all') {
+            // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
+            await revokeEventAttendancePoints(eventId, event);
             await supabase.from('event_invitations').delete().eq('event_id', eventId);
             await supabase.from('event_attendance').delete().eq('event_id', eventId);
             await supabase.from('events').delete().eq('id', eventId);
