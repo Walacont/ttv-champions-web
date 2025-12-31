@@ -1418,24 +1418,14 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 
 /**
  * Zieht Punkte ab wenn Spieler nachträglich von Anwesenheit entfernt wird
- * @param {string} playerId - Spieler ID
- * @param {Object} event - Event-Daten
+ * Sucht die tatsächlich vergebenen Punkte und verringert Streak um 1
  */
 async function deductEventAttendancePoints(playerId, event) {
     const date = event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
+    const isTraining = event.event_category === 'training';
     const subgroupIds = event.target_subgroup_ids || [];
-    const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
-
-    let subgroupName = '';
-    if (primarySubgroupId) {
-        const { data: subgroup } = await supabase
-            .from('subgroups')
-            .select('name')
-            .eq('id', primarySubgroupId)
-            .single();
-        subgroupName = subgroup?.name || '';
-    }
+    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
 
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
@@ -1443,8 +1433,18 @@ async function deductEventAttendancePoints(playerId, event) {
         year: 'numeric',
     });
 
-    const pointsToDeduct = EVENT_ATTENDANCE_POINTS_BASE;
-    const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate}${subgroupName ? ` - ${subgroupName}` : ''} (${pointsToDeduct} Punkte abgezogen)`;
+    // Tatsächlich vergebene Punkte aus History suchen
+    const { data: historyEntries } = await supabase
+        .from('points_history')
+        .select('points')
+        .eq('user_id', playerId)
+        .like('reason', `%${eventTitle}%${formattedDate}%`)
+        .gt('points', 0)
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+    const pointsToDeduct = historyEntries?.[0]?.points || EVENT_ATTENDANCE_POINTS_BASE;
+    const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate} (${pointsToDeduct} Punkte abgezogen)`;
 
     await supabase.rpc('deduct_player_points', {
         p_user_id: playerId,
@@ -1470,6 +1470,28 @@ async function deductEventAttendancePoints(playerId, event) {
         timestamp: correctionTime,
         awarded_by: 'System (Veranstaltung)',
     });
+
+    // Streak um 1 verringern (nicht löschen) - nur bei Trainings
+    if (primarySubgroupId) {
+        const { data: streakData } = await supabase
+            .from('streaks')
+            .select('current_streak')
+            .eq('user_id', playerId)
+            .eq('subgroup_id', primarySubgroupId)
+            .maybeSingle();
+
+        if (streakData && streakData.current_streak > 0) {
+            const newStreak = Math.max(0, streakData.current_streak - 1);
+            await supabase.from('streaks').update({
+                current_streak: newStreak,
+                updated_at: new Date().toISOString()
+            })
+            .eq('user_id', playerId)
+            .eq('subgroup_id', primarySubgroupId);
+
+            console.log(`[Events] Streak decreased for ${playerId}: ${streakData.current_streak} -> ${newStreak}`);
+        }
+    }
 
     console.log(`[Events] Deducted ${pointsToDeduct} points from player ${playerId}`);
 }
