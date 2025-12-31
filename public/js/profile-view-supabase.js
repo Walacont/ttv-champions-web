@@ -1482,9 +1482,9 @@ async function loadProfileChallenges() {
                 completed_at,
                 challenges (
                     id,
-                    name,
+                    title,
                     description,
-                    xp_reward
+                    points
                 )
             `)
             .eq('user_id', profileId)
@@ -1516,9 +1516,9 @@ async function loadProfileChallenges() {
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-check-circle text-green-600"></i>
-                            <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.name)}</span>
+                            <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.title)}</span>
                         </div>
-                        <span class="text-xs text-green-600 font-semibold">+${challenge.xp_reward} XP</span>
+                        <span class="text-xs text-green-600 font-semibold">+${challenge.points} Punkte</span>
                     </div>
                     ${completedDate ? `<p class="text-xs text-gray-500 mt-1 ml-6">Abgeschlossen am ${completedDate}</p>` : ''}
                 </div>
@@ -1563,7 +1563,6 @@ async function loadProfileAttendance() {
         .from('event_attendance')
         .select(`
             event_id,
-            occurrence_date,
             present_user_ids,
             events (
                 start_date,
@@ -1580,7 +1579,7 @@ async function loadProfileAttendance() {
     const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            const eventDate = ea.occurrence_date || ea.events?.start_date;
+            const eventDate = ea.events?.start_date;
             if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
                 const key = `${ea.event_id}-${eventDate}`;
                 attendedEventDates.add(key);
