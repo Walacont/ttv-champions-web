@@ -1,4 +1,4 @@
-// ===== Verein-Anfragen Manager für Trainer (Supabase Version) =====
+// ===== Verein-Anfragen Manager für Trainer (Supabase-Version) =====
 
 import { formatDate } from './ui-utils-supabase.js';
 

@@ -1,4 +1,4 @@
-// Coach Dashboard - Supabase Version
+// Trainer-Dashboard - Supabase-Version
 
 import { getSupabase, onAuthStateChange as supabaseAuthStateChange } from './supabase-init.js';
 import {

@@ -1,4 +1,4 @@
-// SC Champions - Onboarding Page (Supabase Version)
+// Onboarding-Seite (Supabase-Version)
 // Ersetzt onboarding.js für die Supabase-Migration
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';

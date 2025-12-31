@@ -1,4 +1,4 @@
-// Settings Support Page - Supabase Version
+// Support-Einstellungen - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 

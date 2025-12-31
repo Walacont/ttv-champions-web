@@ -1,4 +1,4 @@
-// SC Champions - Dashboard Match Form Module (Supabase Version)
+// Dashboard Match-Formular-Modul (Supabase-Version)
 // Aus dashboard-supabase.js extrahiert für bessere Wartbarkeit
 // Verwaltet Match-Request-Formular, Gegnersuche und Match-Übermittlung
 

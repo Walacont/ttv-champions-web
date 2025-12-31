@@ -1,4 +1,4 @@
-// Settings Club Management Page - Supabase Version
+// Vereinsverwaltung-Einstellungen - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 

@@ -1,4 +1,4 @@
-// SC Champions - Login Page (Supabase Version)
+// Login-Seite (Supabase-Version)
 // Ersetzt index.js für die Supabase-Migration
 
 import {

@@ -1,4 +1,4 @@
-// Leaderboard Modul - Supabase Version
+// Ranglisten-Modul - Supabase-Version
 // Verwaltet Ranglisten: Skill (ELO), Fleiß (XP), Season (Punkte)
 
 import { getSupabase } from './supabase-init.js';

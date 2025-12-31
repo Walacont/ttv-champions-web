@@ -1,4 +1,4 @@
-// Settings Privacy Page - Supabase Version
+// Datenschutz-Einstellungen - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 

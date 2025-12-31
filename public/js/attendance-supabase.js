@@ -1,4 +1,4 @@
-// Anwesenheits-Modul - Supabase Version
+// Anwesenheits-Modul - Supabase-Version
 // SC Champions - Multi-Sport-Unterstützung: Anwesenheit wird nach aktiver Sportart gefiltert
 
 import { getSupabase } from './supabase-init.js';

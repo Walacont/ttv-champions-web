@@ -1,4 +1,4 @@
-// Settings Notifications Page - Supabase Version
+// Benachrichtigungs-Einstellungen - Supabase-Version
 // Handles push notification preferences
 
 import { getSupabase } from './supabase-init.js';

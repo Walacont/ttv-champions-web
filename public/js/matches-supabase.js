@@ -1,4 +1,4 @@
-// Matches Module - Supabase Version
+// Match-Modul (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
 import {

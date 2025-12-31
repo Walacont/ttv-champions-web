@@ -1,4 +1,4 @@
-// Einstellungs-Seite für Benutzerprofil - Supabase Version
+// Einstellungs-Seite für Benutzerprofil - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
