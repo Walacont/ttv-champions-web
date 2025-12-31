@@ -178,7 +178,7 @@ function renderSinglesMatchCard(match, profileMap) {
 
     const eloChange = isWinner ? (match.winner_elo_change || match.elo_change || 0) : (match.loser_elo_change || match.elo_change || 0);
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -277,7 +277,7 @@ function renderDoublesMatchCard(match, profileMap) {
     const mySetWins = isTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isTeamA ? teamBSetWins : teamASetWins;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -456,7 +456,7 @@ export function showMatchDetails(matchId, matchType = 'singles') {
         ? (match.player_b_elo_before || rightPlayer.elo_rating || 800)
         : (match.player_a_elo_before || leftPlayer.elo_rating || 800);
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = matchDate.toLocaleDateString('de-DE', {
         weekday: 'long',
         day: '2-digit',
@@ -629,7 +629,7 @@ function showDoublesMatchDetails(match, profileMap) {
     const oppEloChange = isInTeamA ? teamBEloChange : teamAEloChange;
     const seasonPoints = match.season_points_awarded || 0;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = matchDate.toLocaleDateString('de-DE', {
         weekday: 'long',
         day: '2-digit',

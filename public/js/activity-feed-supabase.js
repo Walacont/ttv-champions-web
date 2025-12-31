@@ -1829,7 +1829,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const setScore = `${winnerSets}:${loserSets}`;
 
     // Format time
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -2000,7 +2000,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 
     const setScore = `${winnerSets}:${loserSets}`;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 

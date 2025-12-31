@@ -469,7 +469,7 @@ function renderProfileSinglesCard(match, profileMap) {
     const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
     const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
 
-    const matchDate = new Date(match.created_at || match.played_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -564,7 +564,7 @@ function renderProfileDoublesCard(match, profileMap) {
     const mySetWins = isInTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isInTeamA ? teamBSetWins : teamASetWins;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
