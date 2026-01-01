@@ -532,7 +532,7 @@ function setupPullToRefresh() {
         const pullDistance = currentY - startY;
 
         if (pullDistance >= pullThreshold) {
-            // Trigger refresh
+            // Aktualisierung auslösen
             isRefreshing = true;
 
             // Ladezustand anzeigen
@@ -880,7 +880,7 @@ async function fetchActivities(userIds) {
             const eventType = activity.activityType;
             const key = `${eventType}-${pairingId}-${activity.event_data?.new_position}`;
             if (seenPairingEvents.has(key)) {
-                return false; // Skip duplicate
+                return false; // Duplikat überspringen
             }
             seenPairingEvents.add(key);
         }
@@ -892,7 +892,7 @@ async function fetchActivities(userIds) {
     // Take page size for display
     const activities = deduplicatedActivities.slice(0, ACTIVITIES_PER_PAGE);
 
-    // Cache remaining activities for next load (prevents losing activities)
+    // Verbleibende Aktivitäten für nächstes Laden cachen (verhindert Aktivitätsverlust)
     pendingActivitiesCache = deduplicatedActivities.slice(ACTIVITIES_PER_PAGE);
     console.log('[ActivityFeed] Cached for next load:', pendingActivitiesCache.length);
 
@@ -912,10 +912,10 @@ async function fetchActivities(userIds) {
             playerIds.add(m.team_b_player1_id);
             playerIds.add(m.team_b_player2_id);
         } else if (m.activityType === 'post' || m.activityType === 'poll') {
-            // Posts and polls need user profile data
+            // Posts und Umfragen benötigen Benutzerprofil-Daten
             playerIds.add(m.user_id);
         }
-        // For events (club_join, rank_up), user data is in event_data
+        // Für Events (club_join, rank_up) sind Benutzerdaten in event_data
     });
 
     // Spielerprofile abrufen
@@ -952,7 +952,7 @@ async function fetchActivities(userIds) {
             poll.userVotedOptionIds = voteMap[poll.id] || [];
         });
 
-        // For non-anonymous polls, load all voters with their profiles
+        // Für nicht-anonyme Umfragen alle Wähler mit Profilen laden
         const nonAnonymousPolls = pollActivities.filter(p => p.is_anonymous === false);
         if (nonAnonymousPolls.length > 0) {
             const nonAnonPollIds = nonAnonymousPolls.map(p => p.id);
@@ -1057,7 +1057,7 @@ async function loadMoreActivities() {
         }
 
         // Prüfen ob mehr Aktivitäten vorhanden sind
-        // We have more if the cache has items OR if we returned a full page (meaning DB might have more)
+        // Wir haben mehr falls Cache Elemente hat ODER eine volle Seite zurückgegeben wurde (DB könnte mehr haben)
         hasMoreActivities = pendingActivitiesCache.length > 0 || activities.length >= ACTIVITIES_PER_PAGE;
 
     } catch (error) {
@@ -1107,11 +1107,11 @@ async function loadLikesForActivities(activities) {
     try {
         const activityIds = activities.map(a => a.id);
         const activityTypes = activities.map(a => {
-            // Convert match types to activity types for new schema
+            // Match-Typen zu Aktivitätstypen für neues Schema konvertieren
             const type = a.activityType || a.matchType;
             if (type === 'singles') return 'singles_match';
             if (type === 'doubles') return 'doubles_match';
-            // For other types, use directly
+            // Für andere Typen direkt verwenden
             return type || 'post';
         });
 
@@ -1162,7 +1162,7 @@ async function loadLikesForActivities(activities) {
  */
 async function loadLikesFallback(activities) {
     for (const activity of activities) {
-        // Convert match types to activity types for new schema
+        // Match-Typen zu Aktivitätstypen für neues Schema konvertieren
         let activityType = activity.activityType || activity.matchType;
         if (activityType === 'singles') activityType = 'singles_match';
         if (activityType === 'doubles') activityType = 'doubles_match';
@@ -1235,7 +1235,7 @@ async function loadCommentCountsForMatches(activities) {
             .filter(a => a.activityType === 'doubles' || a.matchType === 'doubles')
             .map(a => a.id);
 
-        // Try batch function first
+        // Zuerst Batch-Funktion versuchen
         const { data, error } = await supabase.rpc('get_activity_comment_counts_batch', {
             p_activity_ids: matchActivities.map(a => a.id),
             p_activity_types: matchActivities.map(a => {
@@ -1255,7 +1255,7 @@ async function loadCommentCountsForMatches(activities) {
             return;
         }
 
-        // Fallback: load counts individually
+        // Fallback: Zähler einzeln laden
         for (const match of matchActivities) {
             const activityType = match.activityType === 'singles' || match.matchType === 'singles'
                 ? 'singles_match' : 'doubles_match';
@@ -1281,7 +1281,7 @@ async function loadCommentCountsForMatches(activities) {
  * Toggle like on an activity
  */
 async function toggleActivityLike(activityId, activityType) {
-    // Convert legacy match types to new schema
+    // Legacy-Match-Typen zu neuem Schema konvertieren
     if (activityType === 'singles') activityType = 'singles_match';
     if (activityType === 'doubles') activityType = 'doubles_match';
 
@@ -1407,7 +1407,7 @@ function updateLikeUI(likeBtn, countEl, isLiked, count) {
  * Get like data for a specific activity
  */
 function getLikeData(matchId, matchType) {
-    // Convert match type to activity type for new schema
+    // Match-Typ zu Aktivitätstyp für neues Schema konvertieren
     const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
     const key = `${activityType}-${matchId}`;
     return likesDataCache[key] || { likeCount: 0, isLiked: false, recentLikers: [] };
@@ -1417,7 +1417,7 @@ function getLikeData(matchId, matchType) {
  * Render the like button HTML (for matches)
  */
 function renderLikeButton(matchId, matchType, activity = null) {
-    // Convert match type to activity type for new schema
+    // Match-Typ zu Aktivitätstyp für neues Schema konvertieren
     const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
     const key = `${activityType}-${matchId}`;
     const likeData = getLikeData(matchId, matchType);
@@ -1521,7 +1521,7 @@ async function injectMatchMedia(matchId, matchType) {
         const media = await loadMatchMedia(matchId, matchType);
 
         if (!media || media.length === 0) {
-            // No media - show nothing or upload button for participants
+            // Keine Medien - nichts oder Upload-Button für Teilnehmer anzeigen
             const isParticipant = await checkIfParticipant(matchId, matchType);
             if (isParticipant) {
                 container.innerHTML = `
@@ -1634,7 +1634,7 @@ async function injectMatchMedia(matchId, matchType) {
     }
 }
 
-// Cache for match media function availability
+// Cache für Match-Media-Funktionsverfügbarkeit
 let matchMediaFunctionsChecked = false;
 let matchMediaFunctionsAvailable = false;
 
@@ -1678,7 +1678,7 @@ async function checkIfParticipant(matchId, matchType) {
     if (!currentUser?.id) return false;
 
     try {
-        // Try RPC first if available
+        // Zuerst RPC versuchen falls verfügbar
         if (!matchMediaFunctionsChecked || matchMediaFunctionsAvailable) {
             const { data, error } = await supabase.rpc('can_upload_match_media', {
                 p_match_id: String(matchId),
@@ -1692,7 +1692,7 @@ async function checkIfParticipant(matchId, matchType) {
             }
         }
 
-        // Fallback: Check directly against match tables
+        // Fallback: Direkt gegen Match-Tabellen prüfen
         if (matchType === 'singles') {
             const { data: match } = await supabase
                 .from('matches')
@@ -1784,7 +1784,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     };
     const modeDisplay = modeLabels[match.match_mode] || match.match_mode || '';
 
-    // Store match data for details modal
+    // Match-Daten für Details-Modal speichern
     storeMatchForDetails(match, 'singles', profileMap);
 
     return `
@@ -1949,7 +1949,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     };
     const modeDisplay = modeLabels[match.match_mode] || match.match_mode || '';
 
-    // Store match data for details modal
+    // Match-Daten für Details-Modal speichern
     storeMatchForDetails(match, 'doubles', profileMap);
 
     return `
@@ -2296,7 +2296,7 @@ function getRankingText(key, params = {}) {
     const fullKey = `dashboard.activityFeed.events.${key}`;
     const translated = t(fullKey, params);
 
-    // If translation returns the key itself, use fallback
+    // Falls Übersetzung den Schlüssel selbst zurückgibt, Fallback verwenden
     if (translated === fullKey || translated.startsWith('dashboard.activityFeed.events.')) {
         return fallbacks[key] || translated;
     }
@@ -2867,7 +2867,7 @@ function renderPollCard(activity, profileMap) {
     const totalVotes = activity.total_votes || 0;
     const userVotedOptionIds = activity.userVotedOptionIds || [];
     const allowMultiple = activity.allow_multiple || false;
-    const isAnonymous = activity.is_anonymous !== false; // Default to true
+    const isAnonymous = activity.is_anonymous !== false; // Standard ist true
     const voters = activity.voters || {};
 
     const options = activity.options || [];
@@ -3059,7 +3059,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
             return;
         }
 
-        // Use the poll's allow_multiple setting if not provided
+        // Umfrage-Einstellung allow_multiple verwenden falls nicht angegeben
         const isMultipleChoice = poll.allow_multiple || allowMultiple;
 
         if (isMultipleChoice) {
@@ -3169,7 +3169,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
             }
         }
 
-        // Refresh the poll card to show updated results
+        // Umfrage-Karte aktualisieren um neue Ergebnisse anzuzeigen
         await refreshPollCard(pollId);
 
     } catch (error) {
@@ -3205,7 +3205,7 @@ async function refreshPollCard(pollId) {
         const allowMultiple = poll.allow_multiple || false;
         const isAnonymous = poll.is_anonymous !== false;
 
-        // For non-anonymous polls, load all voters with profiles
+        // Für nicht-anonyme Umfragen alle Wähler mit Profilen laden
         let votersMap = {};
         if (!isAnonymous) {
             const { data: allVotes } = await supabase
@@ -3375,7 +3375,7 @@ function initCarouselSwipe() {
                     const deltaX = touchEndX - touchStartX;
                     const deltaY = touchEndY - touchStartY;
 
-                    // Only trigger if horizontal swipe is dominant
+                    // Nur auslösen wenn horizontaler Swipe dominiert
                     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
                         if (deltaX > 0) {
                             // Swipe right - previous

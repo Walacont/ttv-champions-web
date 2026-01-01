@@ -1,5 +1,5 @@
 // Benachrichtigungs-Einstellungen - Supabase-Version
-// Handles push notification preferences
+// Verwaltet Push-Benachrichtigungs-Einstellungen
 
 import { getSupabase } from './supabase-init.js';
 import { initI18n, translatePage, setupAutoTranslate } from './i18n.js';
@@ -33,7 +33,7 @@ async function init() {
     setupAutoTranslate();
     translatePage();
 
-    // Check auth
+    // Auth prüfen
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
         window.location.href = '/index.html';
@@ -45,16 +45,16 @@ async function init() {
     // Initialize push notifications for this user
     await initPushNotifications(currentUserId);
 
-    // Update push permission status
+    // Push-Berechtigungsstatus aktualisieren
     await updatePushStatus();
 
-    // Load notification preferences
+    // Benachrichtigungs-Einstellungen laden
     await loadPreferences();
 
-    // Setup event listeners
+    // Event-Listener einrichten
     setupEventListeners();
 
-    // Hide loader and show content
+    // Loader ausblenden und Inhalt anzeigen
     document.getElementById('page-loader').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
 }
@@ -175,7 +175,7 @@ function showSaveStatus(type, message) {
         statusEl.classList.add('bg-red-100', 'text-red-700');
     }
 
-    // Hide after 3 seconds
+    // Nach 3 Sekunden ausblenden
     setTimeout(() => {
         statusEl.classList.add('hidden');
     }, 3000);

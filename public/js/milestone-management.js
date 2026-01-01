@@ -41,7 +41,7 @@ export function initializeExerciseMilestones() {
             // Initialen Meilenstein hinzufügen falls keine existieren
             const list = document.getElementById('exercise-milestones-list');
             if (list && list.children.length === 0) {
-                addExerciseMilestone(1, 3); // Default: 1× = 3 points
+                addExerciseMilestone(1, 3); // Standard: 1× = 3 Punkte
             }
         } else {
             container.classList.add('hidden');
@@ -83,7 +83,7 @@ export function initializeChallengeMilestones() {
             // Initialen Meilenstein hinzufügen falls keine existieren
             const list = document.getElementById('challenge-milestones-list');
             if (list && list.children.length === 0) {
-                addChallengeMilestone(1, 3); // Default: 1× = 3 points
+                addChallengeMilestone(1, 3); // Standard: 1× = 3 Punkte
             }
         } else {
             container.classList.add('hidden');

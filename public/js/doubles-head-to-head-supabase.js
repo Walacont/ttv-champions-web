@@ -101,7 +101,7 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
 
         // Matches filtern wo Benutzer gegen dieses Gegnerteam gespielt hat
         const relevantMatches = [];
-        const pairingHistory = new Map(); // Track which partners I played with
+        const pairingHistory = new Map(); // Verfolgen mit welchen Partnern ich gespielt habe
 
         (allMatches || []).forEach(match => {
             const teamAPlayers = [match.team_a_player1_id, match.team_a_player2_id];
@@ -123,7 +123,7 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
             if ((currentUserInTeamA && opponentTeamInTeamB) || (currentUserInTeamB && opponentTeamInTeamA)) {
                 relevantMatches.push(match);
 
-                // Track pairing
+                // Paarung verfolgen
                 const myPartnerId = currentUserInTeamA
                     ? teamAPlayers.find(p => p !== currentUserId)
                     : teamBPlayers.find(p => p !== currentUserId);
@@ -205,7 +205,7 @@ function calculateDoublesStats(matches, currentUserId) {
     let setsLost = 0;
 
     matches.forEach(match => {
-        // Determine if current user was in team A or B
+        // Bestimmen ob aktueller Benutzer in Team A oder B war
         const teamAPlayers = [match.team_a_player1_id, match.team_a_player2_id];
         const currentUserInTeamA = teamAPlayers.includes(currentUserId);
 

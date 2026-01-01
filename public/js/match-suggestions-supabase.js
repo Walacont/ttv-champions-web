@@ -243,7 +243,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
         const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0);
 
         if (neverPlayedPlayers.length > 0) {
-            // Only show never-played players (3-4 of them)
+            // Nur noch nie gespielte Spieler anzeigen (3-4 davon)
             return neverPlayedPlayers.slice(0, 4);
         } else {
             // All players have been played against - show random 3-4 suggestions

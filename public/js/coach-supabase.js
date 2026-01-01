@@ -428,7 +428,7 @@ async function initializeCoachPage(userData) {
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Coach ausschließen
     });
 
-    // Set-Eingabe für Singles und Doubles
+    // Satz-Eingabe für Einzel und Doppel
     const setScoreInput = await initializeCoachSetScoreInput(userData.id);
 
     initializeDoublesCoachUI();

@@ -478,7 +478,7 @@ function openSpontaneousSessionModal(dateStr = null) {
     if (!modal || !form) return;
 
     form.reset();
-    resetSessionPlanning(); // Reset exercise selection
+    resetSessionPlanning(); // Übungsauswahl zurücksetzen
 
     if (dateStr) {
         dateInput.value = dateStr;

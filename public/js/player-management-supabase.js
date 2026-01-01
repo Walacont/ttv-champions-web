@@ -281,14 +281,14 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 
         if (error) throw error;
 
-        // Convert RPC response to player object format
+        // RPC-Antwort in Spieler-Objektformat konvertieren
         const newPlayer = newPlayerData;
 
         // NEU: Handle optional invitation after player creation
         const result = await handlePostPlayerCreationInvitation(newPlayer.id, mapPlayerFromSupabase(newPlayer));
 
         if (result.type !== 'code') {
-            // For 'none' or 'email' types, close modal immediately
+            // Für 'none' oder 'email' Typen Modal sofort schließen
             alert('Offline Spieler erfolgreich erstellt!');
             form.reset();
             document.getElementById('add-offline-player-modal').classList.add('hidden');
@@ -298,7 +298,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
                 submitButton.textContent = 'Spieler erstellen';
             }
         } else {
-            // For 'code' type, modal stays open showing the generated code
+            // Für 'code' Typ bleibt Modal offen und zeigt generierten Code
             // Re-enable button so modal can be closed and form reused
             if (submitButton) {
                 submitButton.disabled = false;
@@ -401,7 +401,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
 
                 if (error) throw error;
 
-                // Log audit event
+                // Audit-Event loggen
                 await logAuditEvent(supabase, 'user_promoted', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
                     player_name: playerName,
                     new_role: 'coach',
@@ -429,7 +429,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
 
                 if (error) throw error;
 
-                // Log audit event
+                // Audit-Event loggen
                 await logAuditEvent(supabase, 'user_demoted', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
                     player_name: playerName,
                     new_role: 'player',
@@ -482,7 +482,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                         is_read: false
                     });
 
-                // Log audit event
+                // Audit-Event loggen
                 await logAuditEvent(supabase, 'user_kicked_from_club', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
                     player_name: playerName,
                     club_name: clubName,
@@ -514,7 +514,7 @@ function closePlayerDetailPanels() {
     const mobileModal = document.getElementById('player-detail-mobile-modal');
     if (mobileModal) mobileModal.classList.add('hidden');
 
-    // Remove active highlight
+    // Aktive Hervorhebung entfernen
     document
         .querySelectorAll('.player-list-item-active')
         .forEach(item => item.classList.remove('player-list-item-active'));
@@ -551,7 +551,7 @@ async function logAuditEvent(supabase, action, actorId, targetId, targetType, cl
  * @param {Object} currentUserData - Benutzerdaten mit role und activeSportId
  */
 export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData = null) {
-    // Store context for refresh functionality
+    // Kontext für Aktualisierungsfunktion speichern
     storedSupabase = supabase;
     storedClubId = clubId;
     storedUserData = currentUserData;
@@ -584,7 +584,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                 .eq('club_id', clubId)
                 .order('last_name');
 
-            // Filter by sport if specified
+            // Nach Sport filtern falls angegeben
             if (sportId) {
                 query = query.eq('active_sport_id', sportId);
             }
@@ -813,7 +813,7 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
                 .eq('club_id', clubId)
                 .in('role', ['player', 'coach', 'head_coach']);
 
-            // Filter by sport if specified
+            // Nach Sport filtern falls angegeben
             if (sportId) {
                 query = query.eq('active_sport_id', sportId);
             }
@@ -876,7 +876,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
     const select = document.getElementById('player-select');
     if (!select) return;
 
-    // Filter players based on subgroup, age group, or gender
+    // Spieler nach Untergruppe, Altersgruppe oder Geschlecht filtern
     let filteredPlayers;
     if (subgroupFilter === 'all') {
         filteredPlayers = clubPlayers;
@@ -891,7 +891,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
         });
     }
 
-    // Exclude the specified player (e.g., coach can't give points to themselves)
+    // Angegebenen Spieler ausschließen (z.B. Coach kann sich selbst keine Punkte geben)
     if (excludePlayerId) {
         filteredPlayers = filteredPlayers.filter(p => p.id !== excludePlayerId);
     }
@@ -945,7 +945,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
 
     // Lade Gruppen-Namen statt nur IDs
     const subgroups = player.subgroupIDs || [];
-    // Filter out old Firebase IDs (non-UUIDs) before querying
+    // Alte Firebase-IDs (nicht-UUIDs) vor Abfrage herausfiltern
     const validSubgroups = filterValidUUIDs(subgroups);
     let subgroupHtml = '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
 
@@ -1083,7 +1083,7 @@ export function updateCoachGrundlagenDisplay(playerId) {
         return;
     }
 
-    // Get data from selected option (for fallback)
+    // Daten von ausgewählter Option abrufen (als Fallback)
     const select = document.getElementById('player-select');
     const selectedOption = select.options[select.selectedIndex];
 

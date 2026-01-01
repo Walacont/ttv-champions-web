@@ -209,7 +209,7 @@ describe('Date Format Validation', () => {
         });
 
         describe('Edge Cases - Format Only (no semantic validation)', () => {
-            // Note: isValidDateFormat only checks format, not if date actually exists
+            // Hinweis: isValidDateFormat prüft nur Format, nicht ob Datum existiert
             test('should accept format even for non-existent dates (2024-02-30)', () => {
                 // This is format-only validation - 02-30 matches pattern
                 expect(isValidDateFormat('2024-02-30')).toBe(true);
@@ -573,7 +573,7 @@ describe('Integration Scenarios', () => {
         test('should generate week of sessions and format them', () => {
             const dates = getDatesInRange('2024-06-10', '2024-06-16');
 
-            // Should have 7 days
+            // Sollte 7 Tage haben
             expect(dates).toHaveLength(7);
 
             // Each date should be valid format

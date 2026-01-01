@@ -349,7 +349,7 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
     const feedbackEl = document.getElementById('subgroup-form-feedback');
 
     const name = nameInput.value.trim();
-    const color = colorInput ? colorInput.value : '#6366f1'; // Default to indigo
+    const color = colorInput ? colorInput.value : '#6366f1'; // Standard ist Indigo
 
     if (!name) {
         if (feedbackEl) {

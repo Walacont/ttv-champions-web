@@ -50,7 +50,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
         formedPairs = [];
         singlePlayers = [];
 
-        // Load player data
+        // Spielerdaten laden
         availablePlayers = [];
         for (const playerId of playerIds) {
             const { data, error } = await supabaseClient
@@ -72,11 +72,11 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
             }
         }
 
-        // Load existing pairings if provided (for editing)
+        // Bestehende Paarungen laden falls vorhanden (zum Bearbeiten)
         if (existingPairings) {
             console.log('[Exercise Pairing] Loading existing pairings:', existingPairings);
 
-            // Load formed pairs
+            // Gebildete Paare laden
             if (existingPairings.pairs && existingPairings.pairs.length > 0) {
                 existingPairings.pairs.forEach(pairData => {
                     const player1 = availablePlayers.find(p => p.id === pairData.player1Id);
@@ -92,7 +92,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                 });
             }
 
-            // Load single players
+            // Einzelspieler laden
             if (existingPairings.singlePlayers && existingPairings.singlePlayers.length > 0) {
                 existingPairings.singlePlayers.forEach(singleData => {
                     const player = availablePlayers.find(p => p.id === singleData.playerId);
@@ -101,7 +101,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                         singlePlayers.push({
                             ...player,
                             result: singleData.result,
-                            customExercise: singleData.customExercise || null, // Load custom exercise if exists
+                            customExercise: singleData.customExercise || null, // Benutzerdefinierte Übung laden falls vorhanden
                         });
                     }
                 });
@@ -111,7 +111,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
             console.log('[Exercise Pairing] Loaded singles:', singlePlayers);
         }
 
-        // Set exercise name
+        // Übungsname setzen
         document.getElementById('pairing-exercise-name').textContent = exercise.name;
 
         // Render available players
@@ -120,15 +120,15 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
         renderSinglePlayers();
         renderSinglePlayerOption();
 
-        // Show modal
+        // Modal anzeigen
         const modal = document.getElementById('partner-pairing-modal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
 
-        // Setup event listeners now that modal is in DOM
+        // Event-Listener einrichten jetzt da Modal im DOM ist
         const closeBtn = document.getElementById('close-partner-pairing-modal-button');
         if (closeBtn) {
-            // Remove old listener if exists
+            // Alten Listener entfernen falls vorhanden
             closeBtn.replaceWith(closeBtn.cloneNode(true));
             const newCloseBtn = document.getElementById('close-partner-pairing-modal-button');
             newCloseBtn.addEventListener('click', closePairingModal);
@@ -137,7 +137,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
         const confirmBtn = document.getElementById('confirm-pairing-button');
         if (confirmBtn) {
             console.log('[Exercise Pairing] Setting up confirm button listener');
-            // Remove old listener if exists
+            // Alten Listener entfernen falls vorhanden
             confirmBtn.replaceWith(confirmBtn.cloneNode(true));
             const newConfirmBtn = document.getElementById('confirm-pairing-button');
             newConfirmBtn.addEventListener('click', confirmPairingAndDistributePoints);
@@ -145,7 +145,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
             console.error('[Exercise Pairing] Confirm button not found in DOM!');
         }
 
-        // Update button state initially
+        // Button-Status initial aktualisieren
         updateConfirmButtonState();
     });
 }
@@ -157,7 +157,7 @@ function renderAvailablePlayers() {
     const container = document.getElementById('available-players-list');
     if (!container) return;
 
-    // Filter out players that are already paired or single
+    // Spieler herausfiltern die bereits gepaart oder einzeln sind
     const pairedPlayerIds = formedPairs.flatMap(p => [p.player1.id, p.player2.id]);
     const singlePlayerIds = singlePlayers.map(p => p.id);
     const available = availablePlayers.filter(
@@ -210,13 +210,13 @@ function handlePlayerClick(player) {
         console.log('[Exercise Pairing] Selecting player');
         selectedPlayers.push(player);
 
-        // If 2 players selected, form a pair
+        // Falls 2 Spieler ausgewählt, Paar bilden
         if (selectedPlayers.length === 2) {
             console.log('[Exercise Pairing] Forming pair automatically');
             formedPairs.push({
                 player1: selectedPlayers[0],
                 player2: selectedPlayers[1],
-                result: 'both_success', // Default
+                result: 'both_success', // Standard
             });
             selectedPlayers = [];
         }
@@ -238,7 +238,7 @@ window.addAsSinglePlayer = function () {
 
     const player = selectedPlayers[0];
 
-    // Show exercise selection options
+    // Übungsauswahl-Optionen anzeigen
     showSinglePlayerExerciseSelection(player);
 };
 
@@ -291,7 +291,7 @@ window.confirmSinglePlayerWithExercise = function (customExercise) {
     const player = selectedPlayers[0];
     singlePlayers.push({
         ...player,
-        result: 'success', // Default
+        result: 'success', // Standard
         customExercise: customExercise, // null = same exercise, otherwise custom exercise object
     });
     selectedPlayers = [];
@@ -314,7 +314,7 @@ window.cancelSinglePlayerSelection = function () {
  * Select different exercise for single player
  */
 window.selectDifferentExerciseForSinglePlayer = function () {
-    // Save the player reference before opening modal
+    // Spieler-Referenz vor Modal-Öffnung speichern
     const playerToAdd = selectedPlayers[0];
     if (!playerToAdd) {
         console.log('[Exercise Pairing] No player selected');
@@ -327,16 +327,16 @@ window.selectDifferentExerciseForSinglePlayer = function () {
         playerToAdd.lastName
     );
 
-    // Track if player was already added (callback is called for EACH selected exercise)
+    // Verfolgen ob Spieler bereits hinzugefügt wurde (Callback wird für JEDE ausgewählte Übung aufgerufen)
     let playerAlreadyAdded = false;
 
     // Open exercise selection modal with callback
     // NOTE: The callback is called ONCE PER SELECTED EXERCISE (can be called multiple times!)
-    // We only want to use the FIRST exercise and add the player only ONCE
+    // Wir wollen nur die ERSTE Übung verwenden und den Spieler nur EINMAL hinzufügen
     openExerciseSelectionModal(exercise => {
         console.log('[Exercise Pairing] Modal callback triggered with exercise:', exercise);
 
-        // Only process the first exercise, ignore subsequent calls
+        // Nur erste Übung verarbeiten, nachfolgende Aufrufe ignorieren
         if (exercise && !playerAlreadyAdded) {
             playerAlreadyAdded = true; // Mark as added to prevent duplicate additions
 
@@ -355,23 +355,23 @@ window.selectDifferentExerciseForSinglePlayer = function () {
                 tieredPoints: exercise.tieredPoints || false,
             };
 
-            // Add player to single players with custom exercise
+            // Spieler zu Einzelspielern mit benutzerdefinierter Übung hinzufügen
             singlePlayers.push({
                 ...playerToAdd,
-                result: 'success', // Default
+                result: 'success', // Standard
                 customExercise: customExercise,
             });
 
             console.log('[Exercise Pairing] Single players after adding:', singlePlayers.length);
             console.log('[Exercise Pairing] Custom exercise:', customExercise);
 
-            // Remove from selected players
+            // Aus ausgewählten Spielern entfernen
             const index = selectedPlayers.indexOf(playerToAdd);
             if (index > -1) {
                 selectedPlayers.splice(index, 1);
             }
 
-            // Update UI
+            // UI aktualisieren
             console.log('[Exercise Pairing] Updating UI...');
             renderAvailablePlayers();
             renderSinglePlayers();
@@ -528,7 +528,7 @@ function checkSinglePlayers() {
     if (available.length === 1 && selectedPlayers.length === 0) {
         singlePlayers.push({
             ...available[0],
-            result: 'success', // Default
+            result: 'success', // Standard
         });
         renderAvailablePlayers();
         renderSinglePlayers();
@@ -555,12 +555,12 @@ function renderSinglePlayers() {
         const div = document.createElement('div');
         div.className = 'p-4 bg-yellow-50 border border-yellow-200 rounded-lg';
 
-        // Check if player has custom exercise
+        // Prüfen ob Spieler benutzerdefinierte Übung hat
         const exerciseInfo = player.customExercise
             ? `<span class="text-xs text-blue-700 block mt-1">📝 Übung: ${player.customExercise.name} (+${player.customExercise.points} Pkt)</span>`
             : `<span class="text-xs text-gray-600 block mt-1">📝 Gleiche Übung wie alle</span>`;
 
-        // Determine if this specific player's exercise is a milestone
+        // Bestimmen ob diese spezifische Spieler-Übung ein Meilenstein ist
         const playerExerciseMilestone =
             player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
 
@@ -719,7 +719,7 @@ function updateConfirmButtonState() {
     console.log('[Exercise Pairing] Assigned players:', assignedPlayersCount);
     console.log('[Exercise Pairing] Remaining players:', remainingPlayers);
 
-    // Update button state
+    // Button-Status aktualisieren
     if (remainingPlayers === 0 && assignedPlayersCount > 0) {
         // All players assigned - enable button
         confirmBtn.disabled = false;
@@ -727,7 +727,7 @@ function updateConfirmButtonState() {
         confirmBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
         confirmBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Paarungen bestätigen';
     } else {
-        // Not all players assigned - disable button
+        // Nicht alle Spieler zugewiesen - Button deaktivieren
         confirmBtn.disabled = true;
         confirmBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
         confirmBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
@@ -776,7 +776,7 @@ async function confirmPairingAndDistributePoints() {
                 result: pair.result,
             };
 
-            // For milestone exercises, calculate completionCount from selected milestone
+            // Für Meilenstein-Übungen completionCount aus ausgewähltem Meilenstein berechnen
             if (currentExercise?.tieredPoints?.milestones && pair.milestoneIndex !== undefined) {
                 const milestones = currentExercise.tieredPoints.milestones.sort(
                     (a, b) => a.completions - b.completions
@@ -796,7 +796,7 @@ async function confirmPairingAndDistributePoints() {
                 customExercise: sp.customExercise || null,
             };
 
-            // For milestone exercises, calculate completionCount from selected milestone
+            // Für Meilenstein-Übungen completionCount aus ausgewähltem Meilenstein berechnen
             const exerciseMilestones =
                 sp.customExercise?.tieredPoints?.milestones ||
                 currentExercise?.tieredPoints?.milestones;
@@ -873,7 +873,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         // Determine success rate for history (only for awarded points)
         const successRate = pair.result === 'both_success' ? '100%' : '50%';
 
-        // Award to player 1
+        // An Spieler 1 vergeben
         if (points1 > 0 && player1Id) {
             await awardPointsToPlayer(
                 player1Id,
@@ -886,7 +886,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
             );
         }
 
-        // Award to player 2
+        // An Spieler 2 vergeben
         if (points2 > 0 && player2Id) {
             await awardPointsToPlayer(
                 player2Id,
@@ -906,7 +906,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         // Extract player ID (handle both formats: {id} and {playerId})
         const playerId = single.id || single.playerId;
 
-        // Check if player has custom exercise
+        // Prüfen ob Spieler benutzerdefinierte Übung hat
         const customExercise = single.customExercise;
         const exerciseToUse = customExercise || exercise;
         const customPoints = customExercise

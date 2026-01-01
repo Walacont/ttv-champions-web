@@ -325,7 +325,7 @@ async function initializeDashboard() {
         setLeaderboardSportFilter(currentSportContext.sportId);
     }
 
-    // Setup UI
+    // UI einrichten
     setupHeader();
     setupTabs();
     setupLogout();
@@ -436,7 +436,7 @@ async function initializeDashboard() {
 
     // Seite übersetzen nachdem alle Inhalte geladen sind
     // Stellt sicher dass dynamisch hinzugefügte Elemente mit data-i18n übersetzt werden
-    // Note: i18n is initialized by dashboard.html's inline script
+    // Hinweis: i18n wird durch das inline-Skript von dashboard.html initialisiert
     // translatePage() will safely skip if not ready yet
     translatePage();
 }
@@ -497,7 +497,7 @@ function initializeTabSystem() {
             headerTitle.textContent = tabTitle;
         }
 
-        // Show/hide tab contents
+        // Tab-Inhalte ein-/ausblenden
         tabContents.forEach(content => {
             content.classList.add('hidden');
             if (content.id === `tab-content-${tabId}`) {
@@ -505,7 +505,7 @@ function initializeTabSystem() {
             }
         });
 
-        // Initialize Community tab when activated
+        // Community-Tab bei Aktivierung initialisieren
         if (tabId === 'community') {
             initFriends().catch(err => console.error('Error initializing friends:', err));
             initCommunity().catch(err => console.error('Error initializing community:', err));
@@ -533,7 +533,7 @@ function initializeTabSystem() {
             });
         });
 
-        // Check URL parameters for tab and scrollTo (from push notifications)
+        // URL-Parameter für Tab und scrollTo prüfen (von Push-Benachrichtigungen)
         const urlParams = new URLSearchParams(window.location.search);
         const requestedTab = urlParams.get('tab');
         const scrollToId = urlParams.get('scrollTo');
@@ -698,7 +698,7 @@ function setupFilters() {
     const ageGroupFilter = document.getElementById('player-age-group-filter');
 
     if (subgroupFilter) {
-        // Note: Subgroups are loaded by populatePlayerSubgroupFilter() in initializeDashboard()
+        // Hinweis: Untergruppen werden durch populatePlayerSubgroupFilter() in initializeDashboard() geladen
         // Do NOT call loadSubgroupsForFilter here - it causes duplicates
 
         subgroupFilter.addEventListener('change', async () => {
@@ -938,7 +938,7 @@ async function loadRivalData() {
 
     if (!rivalSkillEl && !rivalEffortEl) return;
 
-    // Unsubscribe from previous subscription
+    // Von vorheriger Subscription abmelden
     if (rivalSubscription) {
         rivalSubscription.unsubscribe();
         rivalSubscription = null;
@@ -948,7 +948,7 @@ async function loadRivalData() {
         const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
         const sportId = currentSportContext?.sportId;
 
-        // Build query (single sport model - filter directly on profiles)
+        // Query erstellen (Einzelsport-Modell - direkt auf Profilen filtern)
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url, elo_rating, xp, club_id')
@@ -976,7 +976,7 @@ async function loadRivalData() {
                 query = query.eq('club_id', effectiveClubId);
             }
         }
-        // For 'global', only sport filter is applied
+        // Für 'global' wird nur Sportfilter angewandt
 
         const { data: players, error } = await query;
         if (error) throw error;
@@ -1065,7 +1065,7 @@ async function loadLeaderboards() {
         currentLeaderboardScope = 'global';
     }
 
-    // Render the leaderboard structure
+    // Ranglisten-Struktur rendern
     container.innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
@@ -1166,7 +1166,7 @@ async function loadLeaderboards() {
         </div>
     `;
 
-    // Setup tab listeners
+    // Tab-Listener einrichten
     document.querySelectorAll('.lb-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             // Support both old (lb-tab-*) and new (tab-*) ID formats
@@ -1177,7 +1177,7 @@ async function loadLeaderboards() {
         });
     });
 
-    // Setup scope listeners
+    // Scope-Listener einrichten
     document.querySelectorAll('.lb-scope-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const scope = btn.id.replace('lb-scope-', '');
@@ -1195,7 +1195,7 @@ async function loadLeaderboards() {
     await fetchLeaderboardData();
     updateLeaderboardContent();
 
-    // Load doubles leaderboard
+    // Doppel-Rangliste laden
     loadDoublesLeaderboardTab();
 
     // Apply leaderboard preferences (show/hide tabs based on settings)
@@ -1233,12 +1233,12 @@ function updateLeaderboardScope() {
 function updateLeaderboardContent() {
     const scopeToggle = document.getElementById('lb-scope-club')?.parentElement;
 
-    // Hide all tab content
+    // Alle Tab-Inhalte ausblenden
     document.querySelectorAll('.leaderboard-tab-content').forEach(content => {
         content.classList.add('hidden');
     });
 
-    // Show/hide scope toggle based on tab
+    // Scope-Toggle je nach Tab ein-/ausblenden
     if (scopeToggle) {
         if (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo' || currentLeaderboardTab === 'doubles') {
             scopeToggle.classList.remove('hidden');
@@ -1247,7 +1247,7 @@ function updateLeaderboardContent() {
         }
     }
 
-    // Show appropriate content based on current tab
+    // Passenden Inhalt je nach aktuellem Tab anzeigen
     const contentMap = {
         'xp': 'content-effort',
         'effort': 'content-effort',
@@ -1265,7 +1265,7 @@ function updateLeaderboardContent() {
         if (content) content.classList.remove('hidden');
     }
 
-    // Fallback: show appropriate legacy content
+    // Fallback: Passenden Legacy-Inhalt anzeigen
     if (currentLeaderboardTab === 'ranks') {
         const ranksList = document.getElementById('ranks-list');
         if (ranksList) ranksList.classList.remove('hidden');
@@ -1276,18 +1276,18 @@ function updateLeaderboardContent() {
         // Reload doubles leaderboard with current scope
         loadDoublesLeaderboardTab();
     } else {
-        // Render the leaderboard content (effort, season, skill)
+        // Ranglisten-Inhalt rendern (Fleiß, Saison, Skill)
         renderLeaderboardList();
     }
 }
 
-// Load doubles leaderboard tab
+// Doppel-Rangliste laden tab
 async function loadDoublesLeaderboardTab() {
     const container = document.getElementById('doubles-list');
     if (!container) return;
 
     try {
-        // Check if doubles_pairings table exists by making a simple query
+        // Prüfen ob doubles_pairings Tabelle existiert
         const { error } = await supabase
             .from('doubles_pairings')
             .select('id')
@@ -1330,7 +1330,7 @@ async function loadDoublesLeaderboardTab() {
     }
 }
 
-// Render ranks grouped by level
+// Ränge gruppiert nach Stufe rendern
 function renderRanksList() {
     const container = document.getElementById('ranks-list');
     if (!container) return;
@@ -1342,7 +1342,7 @@ function renderRanksList() {
         if (followingIdsCache && followingIdsCache.length > 0) {
             players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
         } else {
-            // No following users - show only current user
+            // Keine gefolgten Benutzer - nur aktuellen Benutzer anzeigen
             players = players.filter(p => p.id === currentUser.id);
         }
     }
@@ -1372,14 +1372,14 @@ function renderRanksList() {
 
     let html = '';
 
-    // Display ranks from highest to lowest
+    // Ränge von höchstem zu niedrigstem anzeigen
     for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
         const rank = RANK_ORDER[i];
         const playersInRank = grouped[rank.id] || [];
 
         if (playersInRank.length === 0) continue;
 
-        // Sort by XP within rank
+        // Nach XP innerhalb des Rangs sortieren
         playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
 
         html += `
@@ -1417,7 +1417,7 @@ function renderRanksList() {
 
 async function fetchLeaderboardData() {
     try {
-        // Load test club IDs for filtering (cache them for renderLeaderboardList)
+        // Test-Vereins-IDs für Filterung laden (für renderLeaderboardList cachen)
         await loadTestClubIds();
 
         // Benutzer der aktuellen Sportart für Multi-Sport-Filter abrufen
@@ -1426,20 +1426,20 @@ async function fetchLeaderboardData() {
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
         console.log('[Leaderboard] Using sport ID:', sportId, '(from context:', !!currentSportContext?.sportId, ', from profile:', !!currentUserData.active_sport_id, ')');
 
-        // Fetch club data - players in same sport AND club (single sport model)
+        // Vereinsdaten abrufen - Spieler in gleichem Sport UND Verein
         if (effectiveClubId) {
             let clubQuery = supabase
                 .from('profiles')
                 .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
                 .in('role', ['player', 'coach', 'head_coach']);
 
-            // Filter by sport
+            // Nach Sport filtern
             if (sportId) {
                 clubQuery = clubQuery.eq('active_sport_id', sportId);
                 console.log('[Leaderboard] Sport filter active:', sportId);
             }
 
-            // Filter by club
+            // Nach Verein filtern
             clubQuery = clubQuery.eq('club_id', effectiveClubId);
 
             const { data: clubPlayers, error: clubError } = await clubQuery;
@@ -1456,13 +1456,13 @@ async function fetchLeaderboardData() {
             leaderboardCache.club = [];
         }
 
-        // Fetch global data - ALL players in sport (to calculate user's rank, but display only top 100)
+        // Globale Daten abrufen - ALLE Spieler im Sport (für Rangberechnung, aber nur Top 100 anzeigen)
         let globalQuery = supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
             .in('role', ['player', 'coach', 'head_coach']);
 
-        // Filter by sport for global leaderboard
+        // Nach Sport filtern for global leaderboard
         if (sportId) {
             globalQuery = globalQuery.eq('active_sport_id', sportId);
         }
@@ -1512,7 +1512,7 @@ function renderLeaderboardList() {
         if (followingIdsCache && followingIdsCache.length > 0) {
             players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
         } else {
-            // No following users - show only current user
+            // Keine gefolgten Benutzer - nur aktuellen Benutzer anzeigen
             players = players.filter(p => p.id === currentUser.id);
         }
     }
@@ -1552,8 +1552,8 @@ function renderLeaderboardList() {
     let currentUserHidden = false;
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
-        const searchable = privacySettings.searchable || 'global'; // Default: global
+        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Standard: true
+        const searchable = privacySettings.searchable || 'global'; // Standard: global
 
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
@@ -1741,7 +1741,7 @@ async function loadPointsHistory() {
             const pointsClass = points > 0 ? 'text-green-600' : points < 0 ? 'text-red-600' : 'text-gray-600';
             const pointsSign = points > 0 ? '+' : points < 0 ? '' : '±';
 
-            // Build details (XP and Elo)
+            // Details erstellen (XP und Elo)
             const details = [];
             if (xp !== 0) {
                 const xpSign = xp > 0 ? '+' : '';
@@ -1913,7 +1913,7 @@ async function loadMatchRequests() {
 
         if (doublesError) throw doublesError;
 
-        // Debug: Log doubles requests received
+        // Debug: Empfangene Doppel-Anfragen loggen
         console.log('[Doubles] All doubles requests fetched:', allDoublesRequests?.length || 0, allDoublesRequests);
 
         // Doppel-Anfragen filtern wo aktueller Benutzer beteiligt ist (JSONB-Struktur)
@@ -1932,7 +1932,7 @@ async function loadMatchRequests() {
         const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
         const doubles = (doublesRequests || []).map(r => ({ ...r, _type: 'doubles' }));
 
-        // Combine and sort by created_at
+        // Kombinieren und nach created_at sortieren
         const allRequests = [...singles, ...doubles].sort((a, b) =>
             new Date(b.created_at) - new Date(a.created_at)
         ).slice(0, 10);
@@ -1978,7 +1978,7 @@ async function loadMatchRequests() {
             }
         }).join('');
 
-        // Update badge (count all pending requests for current user)
+        // Badge aktualisieren (alle ausstehenden Anfragen für aktuellen Benutzer zählen)
         const badge = document.getElementById('match-request-badge');
         if (badge) {
             const singlesPending = singles.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
@@ -2004,7 +2004,7 @@ async function loadMatchRequests() {
     }
 }
 
-// Helper to render singles request card
+// Hilfsfunktion zum Rendern von Einzel-Anfrage-Karten
 function renderSinglesRequestCard(req, profileMap, clubMap) {
     const isPlayerA = req.player_a_id === currentUser.id;
     const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
@@ -2069,7 +2069,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     `;
 }
 
-// Helper to render doubles request card
+// Hilfsfunktion zum Rendern von Doppel-Anfrage-Karten
 function renderDoublesRequestCard(req, profileMap) {
     // Use JSONB structure for team data
     const teamA = req.team_a || {};
@@ -2094,7 +2094,7 @@ function renderDoublesRequestCard(req, profileMap) {
         ? `${teamAName1} & ${teamAName2}`
         : `${teamBName1} & ${teamBName2}`;
 
-    // Format sets display for doubles
+    // Satzanzeige für Doppel formatieren
     const setsDisplay = (req.sets || []).map(set => {
         const scoreA = set.teamA ?? set.playerA ?? 0;
         const scoreB = set.teamB ?? set.playerB ?? 0;
@@ -2168,7 +2168,7 @@ async function loadCalendar() {
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    // Update month display
+    // Monatsanzeige aktualisieren
     const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
                         'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
     if (monthYearEl) monthYearEl.textContent = `${monthNames[month]} ${year}`;
@@ -2177,7 +2177,7 @@ async function loadCalendar() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
-    // Load attendance for this month
+    // Anwesenheit für diesen Monat laden
     let attendanceDates = [];
     if (currentUserData.club_id) {
         try {
@@ -2195,7 +2195,7 @@ async function loadCalendar() {
         }
     }
 
-    // Build calendar grid
+    // Kalender-Raster erstellen
     let html = '';
 
     // Empty cells for days before first of month
@@ -2221,7 +2221,7 @@ async function loadCalendar() {
 
     grid.innerHTML = html;
 
-    // Update stats
+    // Statistiken aktualisieren
     const trainingDaysEl = document.getElementById('stats-training-days');
     if (trainingDaysEl) trainingDaysEl.textContent = attendanceDates.length;
 
@@ -2230,7 +2230,7 @@ async function loadCalendar() {
 }
 
 // --- Season Countdown ---
-// Cache for season config
+// Cache für Saison-Konfiguration
 let cachedSeasonEnd = null;
 let cachedSeasonName = null;
 let cachedUserSportId = null;
@@ -2239,7 +2239,7 @@ const SEASON_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
 async function fetchSeasonEndDate() {
     try {
-        // Check cache first
+        // Zuerst Cache prüfen
         if (cachedSeasonEnd && lastSeasonFetchTime && Date.now() - lastSeasonFetchTime < SEASON_CACHE_DURATION) {
             return cachedSeasonEnd;
         }
@@ -2250,7 +2250,7 @@ async function fetchSeasonEndDate() {
             userSportId = currentUserData.active_sport_id;
             cachedUserSportId = userSportId;
         } else if (!userSportId && currentUser) {
-            // Fallback: Get sport from profile
+            // Fallback: Sport aus Profil abrufen
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('active_sport_id')
@@ -2263,13 +2263,13 @@ async function fetchSeasonEndDate() {
             }
         }
 
-        // Fetch active season for user's sport
+        // Aktive Saison für Benutzer-Sport abrufen
         let query = supabase
             .from('seasons')
             .select('id, name, start_date, end_date, sport_id')
             .eq('is_active', true);
 
-        // Filter by user's sport if available
+        // Nach Benutzer-Sport filtern falls verfügbar
         if (userSportId) {
             query = query.eq('sport_id', userSportId);
         }
@@ -2282,7 +2282,7 @@ async function fetchSeasonEndDate() {
             const activeSeason = activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
-            // Cache the result
+            // Ergebnis cachen
             cachedSeasonEnd = seasonEnd;
             cachedSeasonName = activeSeason.name;
             lastSeasonFetchTime = Date.now();
@@ -2291,7 +2291,7 @@ async function fetchSeasonEndDate() {
             return seasonEnd;
         }
 
-        // No active season found - return null to indicate season pause
+        // Keine aktive Saison gefunden - null zurückgeben für Saisonpause
         console.log('📅 No active season found for sport:', userSportId || 'all');
         cachedSeasonEnd = null;
         cachedSeasonName = null;
@@ -2305,14 +2305,14 @@ async function fetchSeasonEndDate() {
     }
 }
 
-// Stored season end date for efficient countdown
+// Gespeichertes Saison-Enddatum für effizienten Countdown
 let seasonEndDate = null;
 
 // Initial load of season end date (called once)
 async function initSeasonCountdown() {
     seasonEndDate = await fetchSeasonEndDate();
     updateSeasonCountdownDisplay();
-    // Update display every second (efficient - no async calls)
+    // Anzeige jede Sekunde aktualisieren (effizient - keine async Aufrufe)
     setInterval(updateSeasonCountdownDisplay, 1000);
     // Refresh season data every 5 minutes in case it changes
     setInterval(async () => {
@@ -2325,7 +2325,7 @@ function updateSeasonCountdownDisplay() {
     const countdownEl = document.getElementById('season-countdown');
     if (!countdownEl) return;
 
-    // No active season - show pause message
+    // Keine aktive Saison - Pausenmeldung anzeigen
     if (!seasonEndDate) {
         countdownEl.textContent = 'Saisonpause';
         countdownEl.title = 'Aktuell ist keine Saison aktiv für diese Sportart';
@@ -2395,7 +2395,7 @@ async function reconnectRealtime() {
     console.log('[Realtime] Reconnecting...');
 
     try {
-        // Unsubscribe all existing subscriptions
+        // Alle bestehenden Subscriptions abmelden
         for (const sub of realtimeSubscriptions) {
             try {
                 await supabase.removeChannel(sub);
@@ -2405,7 +2405,7 @@ async function reconnectRealtime() {
         }
         realtimeSubscriptions = [];
 
-        // Wait a moment before reconnecting
+        // Kurz warten vor Wiederverbindung
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Re-setup subscriptions
@@ -2425,7 +2425,7 @@ function setupVisibilityChangeHandler() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && currentUser) {
             console.log('[Realtime] App became visible, checking connections...');
-            // Check if any subscriptions are in error state
+            // Prüfen ob Subscriptions im Fehlerzustand sind
             const hasError = realtimeSubscriptions.some(sub =>
                 sub.state === 'errored' || sub.state === 'closed'
             );
@@ -2436,33 +2436,33 @@ function setupVisibilityChangeHandler() {
         }
     });
 
-    // Also handle online/offline events
+    // Auch Online/Offline-Events behandeln
     window.addEventListener('online', () => {
         console.log('[Realtime] Network came online, reconnecting...');
         setTimeout(() => reconnectRealtime(), 1000);
     });
 }
 
-// Initialize visibility handler once
+// Sichtbarkeits-Handler einmal initialisieren
 let visibilityHandlerInitialized = false;
 
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
 
-    // Setup visibility change handler (only once)
+    // Sichtbarkeits-Änderungs-Handler einrichten (nur einmal)
     if (!visibilityHandlerInitialized) {
         setupVisibilityChangeHandler();
         visibilityHandlerInitialized = true;
     }
 
-    // Listen for custom matchRequestUpdated events (from notifications, etc.)
+    // Auf benutzerdefinierte matchRequestUpdated-Events hören (von Benachrichtigungen, etc.)
     window.addEventListener('matchRequestUpdated', (event) => {
         console.log('[Realtime] matchRequestUpdated event received:', event.detail);
         loadMatchRequests();
         loadPendingRequests();
     });
 
-    // Subscribe to profile changes for current user
+    // Profiländerungen für aktuellen Benutzer abonnieren
     const profileSub = supabase
         .channel('profile_changes')
         .on('postgres_changes', {
@@ -2482,7 +2482,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(profileSub);
 
-    // Subscribe to match requests for current user (as player_a - sent requests)
+    // Match-Anfragen abonnieren (als player_a - gesendete Anfragen)
     const matchRequestSubA = supabase
         .channel('match_request_player_a')
         .on('postgres_changes', {
@@ -2501,7 +2501,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchRequestSubA);
 
-    // Subscribe to match requests for current user (as player_b - received requests)
+    // Match-Anfragen abonnieren (als player_b - empfangene Anfragen)
     const matchRequestSubB = supabase
         .channel('match_request_player_b')
         .on('postgres_changes', {
@@ -2513,14 +2513,14 @@ function setupRealtimeSubscriptions() {
             console.log('[Realtime] Match request update (player_b):', payload.eventType);
             loadMatchRequests();
             loadPendingRequests();
-            // Show notification for new incoming requests
+            // Benachrichtigung für neue eingehende Anfragen anzeigen
             if (payload.eventType === 'INSERT') {
                 showNewRequestNotification();
 
-                // Show bottom sheet for pending_player confirmations in real-time
+                // Bottom-Sheet für pending_player Bestätigungen in Echtzeit anzeigen
                 if (payload.new && payload.new.status === 'pending_player') {
                     console.log('[Realtime] New pending_player confirmation - showing bottom sheet');
-                    // Load all pending confirmations (singles + doubles) and show bottom sheet
+                    // Alle ausstehenden Bestätigungen laden (Einzel + Doppel) und Bottom-Sheet anzeigen
                     const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
                     if (pendingConfirmations && pendingConfirmations.length > 0) {
                         showMatchConfirmationBottomSheet(pendingConfirmations);
@@ -2534,7 +2534,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchRequestSubB);
 
-    // Subscribe to ALL match_requests DELETE events (without filter)
+    // ALLE match_requests DELETE-Events abonnieren (ohne Filter)
     // Row-level filters don't work for DELETE events in Supabase
     // so we listen to all deletes and refresh the lists
     const matchRequestDeleteSub = supabase
@@ -2555,7 +2555,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchRequestDeleteSub);
 
-    // Subscribe to doubles match requests - all events for any request
+    // Doppel-Match-Anfragen abonnieren - alle Events für jede Anfrage
     // Since we filter client-side anyway, subscribe to all changes
     const doublesRequestSub = supabase
         .channel('doubles_match_requests_updates')
@@ -2568,17 +2568,17 @@ function setupRealtimeSubscriptions() {
             // Reload match requests for all doubles request changes
             loadMatchRequests();
             loadPendingRequests();
-            // Show notification for new incoming requests
+            // Benachrichtigung für neue eingehende Anfragen anzeigen
             if (payload.eventType === 'INSERT') {
-                // Check if current user is in team_b (opponent)
+                // Prüfen ob aktueller Benutzer in team_b ist (Gegner)
                 const teamB = payload.new?.team_b || {};
                 if (teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id) {
                     showNewRequestNotification();
 
-                    // Show bottom sheet for pending_opponent confirmations in real-time
+                    // Bottom-Sheet für pending_opponent Bestätigungen in Echtzeit anzeigen
                     if (payload.new && payload.new.status === 'pending_opponent') {
                         console.log('[Realtime] New pending_opponent doubles confirmation - showing bottom sheet');
-                        // Load all pending confirmations (singles + doubles) and show bottom sheet
+                        // Alle ausstehenden Bestätigungen laden (Einzel + Doppel) und Bottom-Sheet anzeigen
                         const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
                         if (pendingConfirmations && pendingConfirmations.length > 0) {
                             showMatchConfirmationBottomSheet(pendingConfirmations);
@@ -2593,7 +2593,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(doublesRequestSub);
 
-    // Subscribe to ALL doubles_match_requests DELETE events (without filter)
+    // ALLE doubles_match_requests DELETE-Events abonnieren (ohne Filter)
     // Row-level filters don't work for DELETE events in Supabase
     const doublesRequestDeleteSub = supabase
         .channel('doubles_match_request_deletes')
@@ -2613,7 +2613,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(doublesRequestDeleteSub);
 
-    // Subscribe to matches table for history updates (singles)
+    // Matches-Tabelle für Verlauf-Updates abonnieren (Einzel)
     const matchesSub = supabase
         .channel('matches_updates')
         .on('postgres_changes', {
@@ -2621,7 +2621,7 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'matches'
         }, (payload) => {
-            // Check if current user is involved in this match
+            // Prüfen ob aktueller Benutzer an diesem Match beteiligt ist
             if (payload.new.player_a_id === currentUser.id ||
                 payload.new.player_b_id === currentUser.id ||
                 payload.new.winner_id === currentUser.id ||
@@ -2629,7 +2629,7 @@ function setupRealtimeSubscriptions() {
                 console.log('[Realtime] New singles match created, updating history');
                 loadMatchHistory();
                 loadPointsHistory();
-                // Also refresh match requests as the request may have been deleted
+                // Auch Match-Anfragen aktualisieren da Anfrage gelöscht sein könnte
                 loadMatchRequests();
                 loadPendingRequests();
                 // Refresh match suggestions (last played dates changed)
@@ -2645,7 +2645,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchesSub);
 
-    // Subscribe to doubles matches for history updates
+    // Doppel-Matches für Verlauf-Updates abonnieren
     const doublesMatchesSub = supabase
         .channel('doubles_matches_updates')
         .on('postgres_changes', {
@@ -2653,7 +2653,7 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'doubles_matches'
         }, (payload) => {
-            // Check if current user is involved in this doubles match
+            // Prüfen ob aktueller Benutzer an diesem Doppel-Match beteiligt ist
             if (payload.new.team_a_player1_id === currentUser.id ||
                 payload.new.team_a_player2_id === currentUser.id ||
                 payload.new.team_b_player1_id === currentUser.id ||
@@ -2661,7 +2661,7 @@ function setupRealtimeSubscriptions() {
                 console.log('[Realtime] New doubles match created, updating history');
                 loadMatchHistory();
                 loadPointsHistory();
-                // Also refresh match requests as the request may have been deleted
+                // Auch Match-Anfragen aktualisieren da Anfrage gelöscht sein könnte
                 loadMatchRequests();
                 loadPendingRequests();
             }
@@ -2672,7 +2672,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(doublesMatchesSub);
 
-    // Subscribe to ALL profile Elo changes for leaderboard updates
+    // ALLE Profil-Elo-Änderungen für Ranglisten-Updates abonnieren
     const leaderboardSub = supabase
         .channel('leaderboard_updates')
         .on('postgres_changes', {
@@ -2684,7 +2684,7 @@ function setupRealtimeSubscriptions() {
             if (payload.old?.elo_rating !== payload.new?.elo_rating) {
                 console.log('[Realtime] Elo rating changed, updating leaderboard');
                 loadLeaderboards();
-                // Also update own rank display if it might have changed
+                // Auch eigene Ranganzeige aktualisieren falls sie sich geändert haben könnte
                 updateRankDisplay();
             }
         })
@@ -2696,7 +2696,7 @@ function setupRealtimeSubscriptions() {
 
     console.log('[Realtime] All subscriptions set up');
 
-    // Listen for app resume events (Android/iOS native apps)
+    // Auf App-Resume-Events hören (Android/iOS native Apps)
     // WebSocket connections may be suspended when app is backgrounded
     window.addEventListener('app-resumed', () => {
         console.log('[Realtime] App resumed - refreshing match data');
@@ -2706,7 +2706,7 @@ function setupRealtimeSubscriptions() {
         loadMatchHistory();
     });
 
-    // Also listen for page visibility change (works on both web and native)
+    // Auch auf Seitensichtbarkeits-Änderung hören (funktioniert auf Web und Native)
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             console.log('[Realtime] Page became visible - refreshing match data');
@@ -2728,7 +2728,7 @@ function showNewRequestNotification() {
     }
 
     // Browser notification only if already permitted
-    // Note: requestPermission() can only be called from user gesture (click/tap)
+    // Hinweis: requestPermission() kann nur durch Benutzerinteraktion aufgerufen werden
     if (Notification.permission === 'granted') {
         try {
             new Notification('Neue Spielanfrage!', {
@@ -2833,7 +2833,7 @@ function setupModalHandlers() {
         });
     }
 
-    // Close modals on backdrop click
+    // Modals bei Hintergrund-Klick schließen
     document.getElementById('exercise-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'exercise-modal') {
             e.target.classList.add('hidden');
@@ -2869,7 +2869,7 @@ window.openExerciseModal = async (exerciseId) => {
     if (!modal) return;
 
     try {
-        // Fetch exercise data
+        // Übungsdaten abrufen
         const { data: exercise, error } = await supabase
             .from('exercises')
             .select('*')
@@ -2886,7 +2886,7 @@ window.openExerciseModal = async (exerciseId) => {
         const titleEl = document.getElementById('modal-exercise-title');
         if (titleEl) titleEl.textContent = exercise.name || exercise.title || '';
 
-        // Handle image
+        // Bild verarbeiten
         const imageEl = document.getElementById('modal-exercise-image');
         if (imageEl) {
             if (exercise.image_url) {
@@ -2899,12 +2899,12 @@ window.openExerciseModal = async (exerciseId) => {
             }
         }
 
-        // Handle description content (can be text or table)
+        // Beschreibungsinhalt verarbeiten (kann Text oder Tabelle sein)
         const descriptionEl = document.getElementById('modal-exercise-description');
         if (descriptionEl) {
             let descriptionContent = exercise.description_content || exercise.descriptionContent || exercise.description;
 
-            // Try to parse as JSON (for table or structured content)
+            // Versuchen als JSON zu parsen (für Tabelle oder strukturierten Inhalt)
             let descriptionData = null;
             try {
                 if (typeof descriptionContent === 'string') {
@@ -2913,7 +2913,7 @@ window.openExerciseModal = async (exerciseId) => {
                     descriptionData = descriptionContent;
                 }
             } catch (e) {
-                // Not JSON, treat as plain text
+                // Kein JSON, als Klartext behandeln
                 descriptionData = { type: 'text', text: descriptionContent || '' };
             }
 
@@ -2931,7 +2931,7 @@ window.openExerciseModal = async (exerciseId) => {
             }
         }
 
-        // Handle tags
+        // Tags verarbeiten
         const tagsContainer = document.getElementById('modal-exercise-tags');
         if (tagsContainer) {
             const tags = exercise.tags || [];
@@ -2946,11 +2946,11 @@ window.openExerciseModal = async (exerciseId) => {
             }
         }
 
-        // Handle points and milestones
+        // Punkte und Meilensteine verarbeiten
         const pointsEl = document.getElementById('modal-exercise-points');
         const milestonesContainer = document.getElementById('modal-exercise-milestones');
 
-        // Parse tieredPoints if it's a string
+        // tieredPoints parsen falls es ein String ist
         let tieredPointsData = exercise.tiered_points || exercise.tieredPoints;
         if (typeof tieredPointsData === 'string') {
             try {
@@ -2963,7 +2963,7 @@ window.openExerciseModal = async (exerciseId) => {
         const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
         const points = exercise.xp_reward || exercise.points || 0;
 
-        // Load player progress if milestones exist
+        // Spielerfortschritt laden falls Meilensteine existieren
         let playerProgress = null;
         if (hasTieredPoints && currentUser) {
             try {
@@ -2975,7 +2975,7 @@ window.openExerciseModal = async (exerciseId) => {
                     .single();
                 playerProgress = progressData;
             } catch (e) {
-                // No progress yet
+                // Noch kein Fortschritt
             }
         }
 
@@ -3072,7 +3072,7 @@ window.openExerciseModal = async (exerciseId) => {
             }
         }
 
-        // Show modal
+        // Modal anzeigen
         modal.classList.remove('hidden');
 
     } catch (error) {
@@ -3086,7 +3086,7 @@ window.openChallengeModal = async (challengeId) => {
     if (!modal) return;
 
     try {
-        // Fetch challenge data
+        // Challenge-Daten abrufen
         const { data: challenge, error } = await supabase
             .from('challenges')
             .select('*')
@@ -3111,7 +3111,7 @@ window.openChallengeModal = async (challengeId) => {
         const pointsEl = document.getElementById('modal-challenge-points');
         if (pointsEl) pointsEl.textContent = `+${challenge.xp_reward || 0} XP`;
 
-        // Show modal
+        // Modal anzeigen
         modal.classList.remove('hidden');
 
     } catch (error) {
@@ -3120,7 +3120,7 @@ window.openChallengeModal = async (challengeId) => {
     }
 };
 
-// Track in-progress requests to prevent double-clicks
+// Laufende Anfragen verfolgen um Doppelklicks zu verhindern
 const processingRequests = new Set();
 
 // Helper function to optimistically remove a request card from UI
@@ -3135,15 +3135,15 @@ function removeRequestCardOptimistically(requestId, type = 'singles') {
     cardIds.forEach(cardId => {
         const card = document.getElementById(cardId);
         if (card) {
-            // Add fade-out animation
+            // Fade-Out-Animation hinzufügen
             card.style.opacity = '0.5';
             card.style.pointerEvents = 'none';
-            // Disable all buttons in the card
+            // Alle Buttons in der Karte deaktivieren
             card.querySelectorAll('button').forEach(btn => {
                 btn.disabled = true;
                 btn.classList.add('opacity-50', 'cursor-not-allowed');
             });
-            // Remove after animation
+            // Nach Animation entfernen
             setTimeout(() => {
                 card.style.height = card.offsetHeight + 'px';
                 card.style.overflow = 'hidden';
@@ -3180,7 +3180,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
                 .eq('id', requestId)
                 .single();
 
-            // Check if already processed
+            // Prüfen ob bereits verarbeitet
             if (request?.status === 'approved' || request?.status === 'rejected') {
                 console.warn('[Match] Request already processed:', request.status);
                 processingRequests.delete(requestId);
@@ -3224,7 +3224,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         if (fetchError) throw fetchError;
 
-        // Check if already approved (prevent duplicate processing)
+        // Prüfen ob bereits genehmigt (doppelte Verarbeitung verhindern)
         if (request.status === 'approved') {
             console.warn('[Match] Request already approved, skipping');
             processingRequests.delete(requestId);
@@ -3243,7 +3243,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         console.log('[Match] Auto-approved: Player B confirmed');
 
-        // Update the request
+        // Anfrage aktualisieren
         const { error: updateError } = await supabase
             .from('match_requests')
             .update({
@@ -3254,7 +3254,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         if (updateError) throw updateError;
 
-        // Create the actual match (always auto-approved now)
+        // Das eigentliche Match erstellen (jetzt immer auto-genehmigt)
         await createMatchFromRequest(request);
 
         // loadMatchRequests() nicht sofort aufrufen - optimistisches UI-Update bereits
@@ -3267,7 +3267,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             loadPendingRequests();
         }, 800);
 
-        // Show feedback
+        // Feedback anzeigen
         alert('Match bestätigt!');
 
     } catch (error) {
@@ -3309,7 +3309,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Check if already processed
+        // Prüfen ob bereits verarbeitet
         if (request.status === 'approved' || request.status === 'rejected') {
             console.warn('[Doubles] Request already processed:', request.status);
             processingRequests.delete(`doubles-${requestId}`);
@@ -3342,16 +3342,16 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         }
 
         // Accepted - update approvals and approve
-        // Parse approvals
+        // Genehmigungen parsen
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
 
-        // Mark current user's approval
+        // Genehmigung des aktuellen Benutzers markieren
         approvals[currentUser.id] = true;
 
-        // For doubles, we auto-approve when one opponent confirms
+        // Bei Doppel automatisch genehmigen wenn ein Gegner bestätigt
         const newStatus = 'approved';
 
         const { error: updateError } = await supabase
@@ -3404,7 +3404,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
             const teamBPlayerIds = [teamB.player1_id, teamB.player2_id].filter(Boolean);
 
             for (const playerId of teamBPlayerIds) {
-                // Find and delete notifications with this request_id
+                // Benachrichtigungen mit dieser request_id finden und löschen
                 const { data: notifications } = await supabase
                     .from('notifications')
                     .select('id, data')
@@ -3456,7 +3456,7 @@ async function createMatchFromRequest(request) {
         // club_id aus Anfrage abrufen, oder aus Profil des Benutzers falls verfügbar
         let clubId = request.club_id || null;
         if (!clubId) {
-            // Try to get from player profiles (optional - players may not have a club)
+            // Versuchen aus Spielerprofilen zu holen (optional - Spieler haben evtl. keinen Verein)
             const { data: playerA } = await supabase
                 .from('profiles')
                 .select('club_id')
@@ -3465,7 +3465,7 @@ async function createMatchFromRequest(request) {
             clubId = playerA?.club_id || null;
         }
 
-        // Build match data - club_id is optional
+        // Match-Daten erstellen - club_id ist optional
         const matchData = {
             player_a_id: request.player_a_id,
             player_b_id: request.player_b_id,
@@ -3503,7 +3503,7 @@ async function loadPendingRequests() {
     if (!container) return;
 
     try {
-        // Load singles requests
+        // Einzel-Anfragen laden
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
             .select('*')
@@ -3513,7 +3513,7 @@ async function loadPendingRequests() {
 
         if (singlesError) throw singlesError;
 
-        // Load doubles requests
+        // Doppel-Anfragen laden
         const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
             .select('*')
@@ -3522,7 +3522,7 @@ async function loadPendingRequests() {
 
         if (doublesError) throw doublesError;
 
-        // Filter doubles where current user is involved
+        // Doppel filtern wo aktueller Benutzer beteiligt ist
         const doublesRequests = (allDoublesRequests || []).filter(r => {
             const teamA = r.team_a || {};
             const teamB = r.team_b || {};
@@ -3532,7 +3532,7 @@ async function loadPendingRequests() {
                    teamB.player2_id === currentUser.id;
         });
 
-        // Mark types and combine
+        // Typen markieren und kombinieren
         const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
         const doubles = doublesRequests.map(r => ({ ...r, _type: 'doubles' }));
         const allRequests = [...singles, ...doubles].sort((a, b) =>
@@ -3601,7 +3601,7 @@ async function checkPendingMatchConfirmations(userId) {
     }
 }
 
-// Helper to render pending singles request card
+// Hilfsfunktion zum Rendern von ausstehenden Einzel-Anfrage-Karten
 function renderPendingSinglesCard(req, profileMap, clubMap) {
     const isPlayerA = req.player_a_id === currentUser.id;
     const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
@@ -3665,12 +3665,12 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     `;
 }
 
-// Helper to render pending doubles request card
+// Hilfsfunktion zum Rendern von ausstehenden Doppel-Anfrage-Karten
 function renderPendingDoublesCard(req, profileMap) {
     const teamA = req.team_a || {};
     const teamB = req.team_b || {};
 
-    // Check if current user is in Team A (initiator side)
+    // Prüfen ob aktueller Benutzer in Team A ist (Initiator-Seite)
     const isTeamA = teamA.player1_id === currentUser.id || teamA.player2_id === currentUser.id;
     const isInitiator = teamA.player1_id === currentUser.id;
 
@@ -3771,7 +3771,7 @@ function setupMatchSuggestions() {
 }
 
 // --- Load Match Suggestions ---
-// Shows 5 players from the club:
+// Zeigt 5 Spieler aus dem Verein:
 // 1. Players never played against (priority)
 // 2. Players not played against for a long time
 // Includes: last match date, Elo handicap, H2H handicap
@@ -3805,14 +3805,14 @@ async function loadMatchSuggestions() {
             return;
         }
 
-        // Get ALL matches with current user to find last played date
+        // ALLE Matches mit aktuellem Benutzer abrufen für letztes Spieldatum
         const { data: allMatches } = await supabase
             .from('matches')
             .select('player_a_id, player_b_id, created_at')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false });
 
-        // Build map of opponent -> last match date
+        // Map von Gegner -> letztes Spieldatum erstellen
         const lastMatchMap = {};
         (allMatches || []).forEach(m => {
             const opponentId = m.player_a_id === currentUser.id ? m.player_b_id : m.player_a_id;
@@ -3821,7 +3821,7 @@ async function loadMatchSuggestions() {
             }
         });
 
-        // Get H2H data for all potential opponents
+        // H2H-Daten für alle potentiellen Gegner abrufen
         const h2hPromises = clubMembers.map(async (player) => {
             try {
                 const { data } = await supabase.rpc('get_h2h_handicap', {
@@ -3838,7 +3838,7 @@ async function loadMatchSuggestions() {
         const h2hMap = {};
         h2hResults.forEach(r => { h2hMap[r.playerId] = r.h2h; });
 
-        // Calculate suggestion data for each player
+        // Vorschlags-Daten für jeden Spieler berechnen
         const myElo = currentUserData.elo_rating || 1000;
         const sportName = currentSportContext?.sportName?.toLowerCase();
         const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
@@ -3885,7 +3885,7 @@ async function loadMatchSuggestions() {
             };
         });
 
-        // Sort: never played first, then by days since last match (descending)
+        // Sortieren: nie gespielt zuerst, dann nach Tagen seit letztem Match (absteigend)
         suggestions.sort((a, b) => {
             if (a.neverPlayed && !b.neverPlayed) return -1;
             if (!a.neverPlayed && b.neverPlayed) return 1;
@@ -3901,7 +3901,7 @@ async function loadMatchSuggestions() {
         }
 
         container.innerHTML = top5.map(player => {
-            // Format last match date
+            // Letztes Spieldatum formatieren
             let lastMatchText;
             if (player.neverPlayed) {
                 lastMatchText = '<span class="text-green-600 font-medium">Noch nie gespielt</span>';
@@ -3968,7 +3968,7 @@ window.quickSelectOpponent = function(playerId, playerName, playerElo) {
     document.getElementById('opponent-search-input').value = playerName;
     document.getElementById('opponent-search-results').innerHTML = '';
 
-    // Show the selected opponent display
+    // Ausgewählten Gegner anzeigen
     const display = document.getElementById('selected-opponent-display');
     if (display) {
         display.innerHTML = `
@@ -3986,10 +3986,10 @@ window.quickSelectOpponent = function(playerId, playerName, playerElo) {
         `;
     }
 
-    // Check handicap
+    // Handicap prüfen
     checkHandicap();
 
-    // Scroll to match form
+    // Zum Match-Formular scrollen
     document.getElementById('match-request-section')?.scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -4030,24 +4030,24 @@ async function populatePlayerSubgroupFilter(userData) {
     const hasClub = userData.club_id !== null && userData.club_id !== undefined;
     const subgroupIDs = userData.subgroup_ids || [];
 
-    // Save current selection
+    // Aktuelle Auswahl speichern
     const currentSelection = dropdown.value;
 
-    // Start building dropdown options
+    // Dropdown-Optionen erstellen
     dropdown.innerHTML = '';
 
-    // Add club option only if user has a club
+    // Vereins-Option nur hinzufügen wenn Benutzer einen Verein hat
     if (hasClub) {
         dropdown.appendChild(createOption('club', 'Mein Verein'));
     }
 
-    // Add following option (always available)
+    // Folge-Option hinzufügen (immer verfügbar)
     dropdown.appendChild(createOption('following', 'Abonniert'));
 
     // Global option always available
     dropdown.appendChild(createOption('global', 'Global'));
 
-    // Load and add custom subgroups if user has any (only for users with club)
+    // Benutzerdefinierte Untergruppen laden und hinzufügen (nur für Vereinsmitglieder)
     if (hasClub && subgroupIDs.length > 0) {
         try {
             const { data: subgroups, error } = await supabase
@@ -4076,14 +4076,14 @@ async function populatePlayerSubgroupFilter(userData) {
     if (validValues.includes(currentSelection)) {
         dropdown.value = currentSelection;
     } else {
-        // Default: club if available, otherwise global
+        // Standard: Verein falls verfügbar, sonst global
         dropdown.value = hasClub ? 'club' : 'global';
     }
 
     // Sync currentSubgroupFilter with dropdown value
     currentSubgroupFilter = dropdown.value;
 
-    // Also sync leaderboard scope
+    // Auch Ranglisten-Scope synchronisieren
     if (currentSubgroupFilter === 'global') {
         currentLeaderboardScope = 'global';
     } else if (currentSubgroupFilter === 'club') {

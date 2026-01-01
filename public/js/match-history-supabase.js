@@ -179,7 +179,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
 
         if (singlesAsBError) console.error('Error fetching singles as B:', singlesAsBError);
 
-        // Combine and dedupe singles matches
+        // Einzel-Matches kombinieren und deduplizieren
         const singlesMatchesMap = new Map();
         [...(singlesAsA || []), ...(singlesAsB || [])].forEach(match => {
             singlesMatchesMap.set(match.id, mapSinglesMatchFromSupabase(match));
@@ -423,7 +423,7 @@ async function enrichMatchData(supabase, match, userData) {
                         (historyEntry.reason.includes('Sieg im') ||
                             historyEntry.reason.includes('Niederlage im')));
 
-                // If timestamps are within 30 seconds and it's a match history, consider it a match
+                // Falls Zeitstempel innerhalb 30 Sekunden und es Match-Verlauf ist, als Match betrachten
                 if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
                     // Zusätzlich Gegnernamen prüfen (falls verfügbar)
                     if (
@@ -434,7 +434,7 @@ async function enrichMatchData(supabase, match, userData) {
                         pointsGained = historyEntry.points || 0;
                         break;
                     } else if (Math.abs(historyTime - matchTime) < 10000) {
-                        // If very close in time (within 10s), use it even without name match
+                        // Falls sehr nah in Zeit (innerhalb 10s), auch ohne Namensübereinstimmung verwenden
                         eloChange = historyEntry.elo_change || 0;
                         pointsGained = historyEntry.points || 0;
                         break;
@@ -445,7 +445,7 @@ async function enrichMatchData(supabase, match, userData) {
             console.warn('Could not fetch points history:', historyError);
         }
 
-        // If we couldn't find it in history, estimate from match data
+        // Falls nicht im Verlauf gefunden, aus Match-Daten schätzen
         if (eloChange === null) {
             if (match.pointsExchanged !== undefined) {
                 // Estimate based on whether user won or lost
@@ -539,11 +539,11 @@ function renderMatchHistory(container, matches, userData) {
         // Sätze formatieren
         let isPlayerA;
         if (isDoubles) {
-            // For doubles, check if user is in teamA
+            // Für Doppel prüfen ob Benutzer in teamA ist
             isPlayerA =
                 match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
         } else {
-            // For singles, check if user is playerA
+            // Für Einzel prüfen ob Benutzer playerA ist
             isPlayerA = match.playerAId === userData.id;
         }
         const setsDisplay = formatSets(match.sets, isPlayerA);

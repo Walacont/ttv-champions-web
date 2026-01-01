@@ -19,7 +19,7 @@ let currentSportId;
 let currentSubgroups = [];
 let lastGeneratedCode = null;
 let lastGeneratedFirstName = '';
-let currentPlayerId = null; // For send invitation modal
+let currentPlayerId = null; // Für Einladungs-Modal
 
 /**
  * Initialisiert das Player Invitation Management
@@ -51,7 +51,7 @@ function setupEventListeners() {
         radio.addEventListener('change', handleInvitationTypeChange);
     });
 
-    // Close after code generated
+    // Nach Code-Generierung schließen
     document
         .getElementById('close-after-code-button')
         ?.addEventListener('click', closeOfflinePlayerModal);
@@ -80,7 +80,7 @@ function setupEventListeners() {
         .getElementById('close-send-invitation-after-code-button')
         ?.addEventListener('click', closeSendInvitationModal);
 
-    // Code buttons for offline player modal
+    // Code-Buttons für Offline-Spieler-Modal
     document
         .getElementById('copy-code-button')
         ?.addEventListener('click', () => copyInvitationCode('offline'));
@@ -94,7 +94,7 @@ function setupEventListeners() {
  * (Email option removed - only 'none' and 'code' are available)
  */
 function handleInvitationTypeChange(e) {
-    // No email container anymore - function kept for compatibility
+    // Kein E-Mail-Container mehr - Funktion für Kompatibilität beibehalten
     // Only 'none' and 'code' options exist
 }
 
@@ -103,7 +103,7 @@ function handleInvitationTypeChange(e) {
  * (Email option removed - only 'code' is available)
  */
 function handleSendInvitationTypeChange(e) {
-    // No email container anymore - function kept for compatibility
+    // Kein E-Mail-Container mehr - Funktion für Kompatibilität beibehalten
     // Only 'code' option exists
 }
 
@@ -115,7 +115,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
     const invitationType = document.querySelector('input[name="invitation-type"]:checked').value;
 
     if (invitationType === 'none') {
-        // No invitation needed, just close modal
+        // Keine Einladung nötig, Modal einfach schließen
         closeOfflinePlayerModal();
         return { success: true, type: 'none' };
     }
@@ -154,7 +154,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
     let isUnique = false;
     let attempts = 0;
 
-    // Ensure code is unique
+    // Sicherstellen dass Code eindeutig ist
     while (!isUnique && attempts < 10) {
         const existingCode = await checkCodeExists(code);
         if (!existingCode) {
@@ -284,7 +284,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             lastName: playerData.lastName,
         });
 
-        // Don't throw - we still want to create the new code even if invalidation fails
+        // Nicht werfen - neuen Code trotzdem erstellen falls Invalidierung fehlschlägt
     }
 }
 
@@ -381,7 +381,7 @@ async function handleSendInvitation(e) {
             throw new Error('Spieler nicht gefunden');
         }
 
-        // Map from snake_case to camelCase for generateCodeForPlayer
+        // Von snake_case zu camelCase für generateCodeForPlayer mappen
         const mappedPlayerData = {
             firstName: playerData.first_name,
             lastName: playerData.last_name,

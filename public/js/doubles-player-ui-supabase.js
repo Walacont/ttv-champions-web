@@ -435,7 +435,7 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
             // Ausgewählten Spieler setzen
             selectedIdField.value = playerId;
             // Hinweis: Individuelles Elo-Feld veraltet - Paarungs-Elo wird verwendet
-            if (selectedEloField) selectedEloField.value = '800'; // Default, will be looked up from pairing
+            if (selectedEloField) selectedEloField.value = '800'; // Standard, wird aus Paarung nachgeschlagen
 
             // Sucheingabe aktualisieren um ausgewählten Spieler zu zeigen
             searchInput.value = playerName;
@@ -727,7 +727,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             ? `${opponent1Id}_${opponent2Id}`
             : `${opponent2Id}_${opponent1Id}`;
 
-        // Fetch PAIRING Elo from database (not individual player average!)
+        // PAARUNGS-Elo aus Datenbank abrufen (nicht individueller Spielerdurchschnitt!)
         let teamAElo = 800; // Standard für neue Paarung
         let teamBElo = 800; // Standard für neue Paarung
         let teamAIsNew = true;
@@ -735,7 +735,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
         if (supabaseClient) {
             try {
-                // Fetch Team A pairing
+                // Team A Paarung abrufen
                 const { data: teamAPairing } = await supabaseClient
                     .from('doubles_pairings')
                     .select('current_elo_rating')
@@ -747,7 +747,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
                     teamAIsNew = false;
                 }
 
-                // Fetch Team B pairing
+                // Team B Paarung abrufen
                 const { data: teamBPairing } = await supabaseClient
                     .from('doubles_pairings')
                     .select('current_elo_rating')
@@ -800,7 +800,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
             const weakerTeamName = handicapResult.team === 'A' ? teamAName.trim() : teamBName.trim();
 
-            // Store handicap details for later use when saving match
+            // Handicap-Details für spätere Verwendung beim Speichern speichern
             currentDoublesHandicapDetails = {
                 team: handicapResult.team,
                 team_name: weakerTeamName,
@@ -815,7 +815,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
                 handicapToggleContainer.classList.remove('hidden');
             }
         } else {
-            // No handicap needed
+            // Kein Handicap erforderlich
             currentDoublesHandicapDetails = null;
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
@@ -834,7 +834,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
     observer.observe(opponent1IdField, { attributes: true, attributeFilter: ['value'] });
     observer.observe(opponent2IdField, { attributes: true, attributeFilter: ['value'] });
 
-    // Also add direct event listener for when value is set programmatically
+    // Event-Listener für programmatische Wertänderung hinzufügen
     // Since MutationObserver doesn't always catch programmatic value changes,
     // we'll add a periodic check as a fallback
     let lastPartnerId = '';

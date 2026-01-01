@@ -1,6 +1,6 @@
 // ============================================
 // COMMUNITY POSTS & POLLS MANAGER
-// Handles creating and managing community posts and polls
+// Verwaltet das Erstellen und Bearbeiten von Community-Posts und Umfragen
 // ============================================
 
 import { getSupabase } from './supabase-init.js';
@@ -44,10 +44,10 @@ let selectedImageFiles = [];
 // ============================================
 
 export function initPostsManager() {
-    // Open modal
+    // Modal öffnen
     createPostBtn?.addEventListener('click', openCreatePostModal);
 
-    // Close modal
+    // Modal schließen
     closeModalBtn?.addEventListener('click', closeCreatePostModal);
     cancelPostBtn?.addEventListener('click', closeCreatePostModal);
     cancelPollBtn?.addEventListener('click', closeCreatePostModal);
@@ -70,7 +70,7 @@ export function initPostsManager() {
     // Poll option management
     addPollOptionBtn?.addEventListener('click', addPollOption);
 
-    // Form submissions
+    // Formular-Absendungen
     textPostForm?.addEventListener('submit', handleTextPostSubmit);
     pollForm?.addEventListener('submit', handlePollSubmit);
 
@@ -92,21 +92,21 @@ function closeCreatePostModal() {
 }
 
 function resetForms() {
-    // Reset text post form
+    // Text-Post-Formular zurücksetzen
     postContentTextarea.value = '';
     postVisibilitySelect.value = 'public';
     clearImages();
     postFormFeedback.innerHTML = '';
     postFormFeedback.classList.add('hidden');
 
-    // Reset poll form
+    // Umfrage-Formular zurücksetzen
     pollQuestionInput.value = '';
     pollDurationSelect.value = '7';
     pollVisibilitySelect.value = 'public';
     pollFormFeedback.innerHTML = '';
     pollFormFeedback.classList.add('hidden');
 
-    // Reset poll options to 2
+    // Umfrage-Optionen auf 2 zurücksetzen
     pollOptionsContainer.innerHTML = `
         <div class="poll-option-item flex gap-2">
             <input
@@ -130,7 +130,7 @@ function resetForms() {
 
 function switchPostType(type) {
     if (type === 'text') {
-        // Show text post form
+        // Text-Post-Formular anzeigen
         textPostForm?.classList.remove('hidden');
         pollForm?.classList.add('hidden');
 
@@ -140,7 +140,7 @@ function switchPostType(type) {
         postTypePollBtn?.classList.remove('bg-indigo-600', 'text-white');
         postTypePollBtn?.classList.add('text-gray-600');
     } else {
-        // Show poll form
+        // Umfrage-Formular anzeigen
         textPostForm?.classList.add('hidden');
         pollForm?.classList.remove('hidden');
 
@@ -183,7 +183,7 @@ function handleImagesSelect(e) {
         selectedImageFiles.push(file);
     }
 
-    // Update preview
+    // Vorschau aktualisieren
     updateImagePreviews();
 
     // Eingabe leeren um gleiche Dateien erneut auswählen zu können
@@ -315,7 +315,7 @@ async function handleTextPostSubmit(e) {
             return;
         }
 
-        // Get user's club_id
+        // Club-ID des Benutzers abrufen
         const { data: profile } = await supabase
             .from('profiles')
             .select('club_id')
@@ -343,7 +343,7 @@ async function handleTextPostSubmit(e) {
                     return;
                 }
 
-                // Get public URL
+                // Öffentliche URL abrufen
                 const { data: { publicUrl } } = supabase.storage
                     .from('post-images')
                     .getPublicUrl(fileName);
@@ -354,7 +354,7 @@ async function handleTextPostSubmit(e) {
             showFeedback(postFormFeedback, 'loading', 'Erstelle Beitrag...');
         }
 
-        // Create post
+        // Post erstellen
         const { data: post, error: postError } = await supabase
             .from('community_posts')
             .insert({
@@ -439,7 +439,7 @@ async function handlePollSubmit(e) {
             return;
         }
 
-        // Get user's club_id
+        // Club-ID des Benutzers abrufen
         const { data: profile } = await supabase
             .from('profiles')
             .select('club_id')
@@ -450,7 +450,7 @@ async function handlePollSubmit(e) {
         const endsAt = new Date();
         endsAt.setDate(endsAt.getDate() + durationDays);
 
-        // Create poll
+        // Umfrage erstellen
         const { data: poll, error: pollError } = await supabase
             .from('community_polls')
             .insert({

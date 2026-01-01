@@ -76,7 +76,7 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
     // Initial fetch
     fetchAndRender();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription einrichten
     const subscription = supabase
         .channel('season-stats-xp')
         .on(
@@ -134,7 +134,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
                 winCounts[winnerId] = (winCounts[winnerId] || 0) + 1;
             });
 
-            // Get unique winner IDs
+            // Eindeutige Gewinner-IDs abrufen
             const winnerIds = Object.keys(winCounts);
 
             if (winnerIds.length === 0) {
@@ -142,7 +142,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
                 return;
             }
 
-            // Fetch player names
+            // Spielernamen abrufen
             const { data: playersData, error: playersError } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name')
@@ -150,7 +150,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
 
             if (playersError) throw playersError;
 
-            // Build player names map
+            // Spielernamen-Map erstellen
             const playerNames = {};
             (playersData || []).forEach(player => {
                 playerNames[player.id] = `${player.first_name} ${player.last_name}`;
@@ -192,7 +192,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
     // Initial fetch
     fetchAndRender();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription einrichten
     const subscription = supabase
         .channel('season-stats-wins')
         .on(

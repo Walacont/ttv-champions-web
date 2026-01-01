@@ -84,7 +84,7 @@ describe('Set Score Validation', () => {
 
         describe('Invalid Sets - Deuce Rules', () => {
             test('should reject 11:10 and similar (deuce territory needs 2-point lead)', () => {
-                // Once both >= 10, must win by 2
+                // Bei beiden >= 10 muss mit 2 gewonnen werden
                 expect(isValidSet(11, 10)).toBe(false); // Deuce territory (both >= 10), need 2-point lead
                 expect(isValidSet(10, 11)).toBe(false); // Same
                 expect(isValidSet(13, 12)).toBe(false); // 1-point lead in deuce
@@ -94,7 +94,7 @@ describe('Set Score Validation', () => {
 
             test('should accept 12:10 but reject 12:11 in deuce', () => {
                 expect(isValidSet(12, 10)).toBe(true); // 2-point lead
-                expect(isValidSet(12, 11)).toBe(false); // Only 1-point lead
+                expect(isValidSet(12, 11)).toBe(false); // Nur 1 Punkt Vorsprung
             });
 
             test('should handle extended deuces correctly', () => {
@@ -142,7 +142,7 @@ describe('Set Score Validation', () => {
         });
 
         test('should return null for invalid sets', () => {
-            expect(getSetWinner(10, 9)).toBe(null); // Not enough points
+            expect(getSetWinner(10, 9)).toBe(null); // Nicht genug Punkte
             expect(getSetWinner(11, 11)).toBe(null); // Tie
             expect(getSetWinner(12, 11)).toBe(null); // Invalid deuce
         });
@@ -538,7 +538,7 @@ describe('Handicap Calculation', () => {
                 const playerB = { eloRating: 970 };
                 const result = calculateHandicap(playerA, playerB);
 
-                expect(result).toBe(null); // Only 20 Elo difference, below threshold
+                expect(result).toBe(null); // Nur 20 Elo Differenz, unter Schwellenwert
             });
         });
     });

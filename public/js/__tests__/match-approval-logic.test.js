@@ -38,16 +38,16 @@ function determineSinglesMatchClubId(playerA, playerB) {
     const playerBClubId = playerB?.clubId;
 
     if (hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
-        // Both without club → null (auto-approve)
+        // Beide ohne Verein → null (automatisch genehmigen)
         return null;
     } else if (!hasNoClub(playerAClubId) && !hasNoClub(playerBClubId) && playerAClubId === playerBClubId) {
         // Same club → use that club
         return playerAClubId;
     } else if (!hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
-        // Only PlayerA has club → use PlayerA's club
+        // Nur PlayerA hat Verein → PlayerA's Verein verwenden
         return playerAClubId;
     } else if (hasNoClub(playerAClubId) && !hasNoClub(playerBClubId)) {
-        // Only PlayerB has club → use PlayerB's club
+        // Nur PlayerB hat Verein → PlayerB's Verein verwenden
         return playerBClubId;
     } else {
         // Different clubs → null (cross-club, any coach can approve)
@@ -90,7 +90,7 @@ function determineDoublesMatchClubId(player1, player2, player3, player4) {
     const club3 = player3?.clubId || null;
     const club4 = player4?.clubId || null;
 
-    // Only set clubId if all 4 players are from the same club
+    // clubId nur setzen wenn alle 4 Spieler im selben Verein sind
     if (club1 && club1 === club2 && club1 === club3 && club1 === club4) {
         return club1;
     }

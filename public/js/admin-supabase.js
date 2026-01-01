@@ -514,7 +514,7 @@ async function performClubSearch(query) {
         searchResults.classList.remove('hidden');
         newClubInfo.classList.add('hidden');
     } else {
-        // No matching clubs - offer to create new
+        // Keine passenden Vereine - Neu erstellen anbieten
         searchResults.classList.add('hidden');
         newClubInfo.classList.remove('hidden');
     }
@@ -1588,7 +1588,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                 `;
             }
         } else {
-            // No sports defined yet
+            // Noch keine Sportarten definiert
             if (clubUsers.length > 0) {
                 // Alle Benutzer im Legacy-Modus anzeigen
                 sportsHtml += `
@@ -1603,7 +1603,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                     </div>
                 `;
             } else {
-                // No sports and no users
+                // Keine Sportarten und keine Benutzer
                 sportsHtml += `
                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
                         <p class="text-sm text-gray-500 text-center">
@@ -2684,7 +2684,7 @@ async function populateAuditFilters() {
 }
 
 function setupAuditListeners() {
-    // Refresh button
+    // Aktualisieren-Button
     const refreshBtn = document.getElementById('audit-refresh-btn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
@@ -2704,7 +2704,7 @@ function setupAuditListeners() {
         }
     });
 
-    // Pagination buttons
+    // Paginierungs-Buttons
     const prevBtn = document.getElementById('audit-prev-btn');
     const nextBtn = document.getElementById('audit-next-btn');
 

@@ -359,7 +359,7 @@ export async function uploadMedia() {
         // Verfügbarkeits-Cache zurücksetzen damit Medien geladen werden
         matchMediaAvailable = true;
 
-        // Also reset the cache in activity-feed if it exists
+        // Auch den Cache im Activity-Feed zurücksetzen falls vorhanden
         if (window.resetMatchMediaCache) {
             window.resetMatchMediaCache();
         }
@@ -386,7 +386,7 @@ async function checkMatchMediaAvailable() {
         return matchMediaAvailable;
     }
 
-    // Use a single promise to avoid multiple concurrent checks
+    // Einzelnes Promise verwenden um mehrere gleichzeitige Prüfungen zu vermeiden
     if (availabilityCheckPromise) {
         return availabilityCheckPromise;
     }
@@ -560,7 +560,7 @@ export async function deleteMedia(mediaId, filePath) {
             console.error('Storage deletion error:', storageError);
         }
 
-        // Refresh the activity feed
+        // Activity-Feed aktualisieren
         if (window.loadActivityFeed) {
             await window.loadActivityFeed();
         }

@@ -158,7 +158,7 @@ async function loadUpcomingEvents() {
         const today = new Date().toISOString().split('T')[0];
 
         // Get event invitations for current user
-        // Now includes occurrence_date for per-occurrence tracking
+        // Enthält jetzt occurrence_date für Nachverfolgung pro Termin
         const { data: invitations, error } = await supabase
             .from('event_invitations')
             .select(`
@@ -193,7 +193,7 @@ async function loadUpcomingEvents() {
             return;
         }
 
-        // Check for recurring events that need new invitations created
+        // Auf wiederkehrende Events prüfen die neue Einladungen benötigen
         // Group invitations by event
         const eventGroups = {};
         (invitations || []).forEach(inv => {
@@ -248,10 +248,10 @@ async function loadUpcomingEvents() {
             if (!inv.events) return false;
             const displayDate = inv.occurrence_date || inv.events.start_date;
 
-            // If event is in the future, include it
+            // Falls Event in der Zukunft, einbeziehen
             if (displayDate > today) return true;
 
-            // If event is today, check if it hasn't ended yet
+            // Falls Event heute, prüfen ob noch nicht beendet
             if (displayDate === today) {
                 // Use end_time if available, otherwise start_time
                 const eventTime = inv.events.end_time || inv.events.start_time;
@@ -259,10 +259,10 @@ async function loadUpcomingEvents() {
                     const [hours, minutes] = eventTime.split(':').map(Number);
                     const eventEndTime = new Date();
                     eventEndTime.setHours(hours, minutes, 0, 0);
-                    // Include if event hasn't ended yet
+                    // Einbeziehen falls Event noch nicht beendet
                     return nowTime < eventEndTime;
                 }
-                // If no time info, include today's events
+                // Falls keine Zeitinfo, heutige Events einbeziehen
                 return true;
             }
 
@@ -277,7 +277,7 @@ async function loadUpcomingEvents() {
             return dateA.localeCompare(dateB);
         });
 
-        // Limit to next 10 events
+        // Auf nächste 10 Events limitieren
         validInvitations = validInvitations.slice(0, 10);
 
         if (validInvitations.length === 0) {
@@ -289,7 +289,7 @@ async function loadUpcomingEvents() {
         section.classList.remove('hidden');
 
         // Get accepted count for each event/occurrence combination
-        // Now we count per occurrence_date, not just per event
+        // Jetzt zählen wir pro occurrence_date, nicht nur pro Event
         const eventIds = validInvitations.map(inv => inv.events.id);
         const occurrenceDates = validInvitations.map(inv => inv.occurrence_date).filter(Boolean);
 
@@ -299,7 +299,7 @@ async function loadUpcomingEvents() {
             .in('event_id', eventIds)
             .eq('status', 'accepted');
 
-        // Create a map with key = "eventId-occurrenceDate"
+        // Map erstellen mit Schlüssel = "eventId-occurrenceDate"
         const countMap = {};
         (acceptedCounts || []).forEach(item => {
             const key = `${item.event_id}-${item.occurrence_date || 'none'}`;
@@ -341,16 +341,16 @@ function getNextOccurrence(event, afterDate) {
     while (maxIterations > 0) {
         const dateStr = currentDate.toISOString().split('T')[0];
 
-        // Check if this date is valid
+        // Prüfen ob dieses Datum gültig ist
         if (currentDate >= afterDateObj && !excludedDates.includes(dateStr)) {
             if (!endDate || currentDate <= endDate) {
                 return dateStr;
             } else {
-                return null; // Past the end date
+                return null; // Nach dem Enddatum
             }
         }
 
-        // Move to next occurrence based on repeat type
+        // Zum nächsten Termin basierend auf Wiederholungstyp wechseln
         switch (event.repeat_type) {
             case 'daily':
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -388,7 +388,7 @@ function renderEventCard(invitation, acceptedCount) {
     // Fall back to displayDate or start_date for backwards compatibility
     const displayDate = invitation.occurrence_date || event.displayDate || event.start_date;
 
-    // Format date
+    // Datum formatieren
     const [year, month, day] = displayDate.split('-');
     const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
     const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
@@ -398,7 +398,7 @@ function renderEventCard(invitation, acceptedCount) {
     // Show recurring indicator
     const isRecurring = event.repeat_type && event.repeat_type !== 'none';
 
-    // Format time
+    // Uhrzeit formatieren
     const startTime = event.start_time?.slice(0, 5) || '';
     const endTime = event.end_time?.slice(0, 5) || '';
     const timeDisplay = endTime ? `${startTime} - ${endTime}` : startTime;
@@ -511,7 +511,7 @@ function renderEventCard(invitation, acceptedCount) {
  * Setup event listeners for event cards
  */
 function setupEventCardListeners() {
-    // Accept buttons
+    // Annehmen-Buttons
     document.querySelectorAll('.event-accept-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const invitationId = e.target.dataset.invitationId;
@@ -519,7 +519,7 @@ function setupEventCardListeners() {
         });
     });
 
-    // Reject buttons
+    // Ablehnen-Buttons
     document.querySelectorAll('.event-reject-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const invitationId = e.target.dataset.invitationId;
@@ -527,7 +527,7 @@ function setupEventCardListeners() {
         });
     });
 
-    // Cancel buttons (for already accepted)
+    // Absagen-Buttons (für bereits angenommene)
     document.querySelectorAll('.event-cancel-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const invitationId = e.target.dataset.invitationId;
@@ -535,7 +535,7 @@ function setupEventCardListeners() {
         });
     });
 
-    // Details buttons
+    // Details-Buttons
     document.querySelectorAll('.event-details-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const eventId = e.target.dataset.eventId;
@@ -585,7 +585,7 @@ async function respondToEvent(invitationId, status, reason = null) {
             response_at: new Date().toISOString()
         };
 
-        // Note: rejection_reason column needs to be added to the table if you want to use it
+        // Hinweis: rejection_reason Spalte muss zur Tabelle hinzugefügt werden falls benötigt
         // ALTER TABLE event_invitations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 
         const { error } = await supabase
@@ -630,7 +630,7 @@ async function respondToEvent(invitationId, status, reason = null) {
             });
         }
 
-        // Also notify all coaches/head_coaches of the club if organizer is not a coach
+        // Auch alle Coaches/Head-Coaches des Vereins benachrichtigen falls Organisator kein Coach ist
         // This ensures coaches always see responses
         if (invitation.events?.club_id) {
             const { data: coaches } = await supabase
@@ -771,7 +771,7 @@ async function showEventDetails(eventId) {
         const rejected = (participants || []).filter(p => p.status === 'rejected');
         const pending = (participants || []).filter(p => p.status === 'pending');
 
-        // Format date
+        // Datum formatieren
         const [year, month, day] = event.start_date.split('-');
         const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
         const dateDisplay = dateObj.toLocaleDateString('de-DE', {
@@ -908,7 +908,7 @@ async function showEventDetails(eventId) {
 
         document.body.appendChild(modal);
 
-        // Close button
+        // Schließen-Button
         document.getElementById('close-event-details').addEventListener('click', () => {
             modal.remove();
         });
@@ -932,7 +932,7 @@ async function showEventDetails(eventId) {
 function setupEventSubscription() {
     if (!currentUserId) return;
 
-    // Subscribe to invitation changes for this user
+    // Auf Einladungsänderungen für diesen Benutzer abonnieren
     const invitationsChannel = supabase
         .channel(`player_invitations_${currentUserId}`)
         .on(
@@ -949,7 +949,7 @@ function setupEventSubscription() {
         )
         .subscribe();
 
-    // Subscribe to events table changes (deletions, updates to excluded_dates)
+    // Auf Events-Tabellen-Änderungen abonnieren (Löschungen, Updates zu excluded_dates)
     // This ensures deleted events disappear immediately
     const eventsChannel = supabase
         .channel(`player_events_updates_${currentUserId}`)

@@ -31,7 +31,7 @@ const matchesClubOnly = document.getElementById('matches-club-only');
 const matchesFollowersOnly = document.getElementById('matches-followers-only');
 const matchesNone = document.getElementById('matches-none');
 
-// Save button
+// Speichern-Button
 const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-btn');
 const privacyFeedback = document.getElementById('privacy-feedback');
 
@@ -77,7 +77,7 @@ if (document.readyState === 'loading') {
     initializeAuth();
 }
 
-// Listen for auth state changes - only redirect on explicit sign out
+// Auf Auth-Status-Änderungen hören - nur bei explizitem Logout weiterleiten
 onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
