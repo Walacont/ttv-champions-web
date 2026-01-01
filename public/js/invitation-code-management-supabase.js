@@ -344,7 +344,7 @@ async function loadInvitationCodes() {
 
             if (aActive !== bActive) return aActive ? -1 : 1;
 
-            // Then by creation date (newest first)
+            // Dann nach Erstellungsdatum (neueste zuerst)
             const aTime = new Date(a.createdAt).getTime();
             const bTime = new Date(b.createdAt).getTime();
             return bTime - aTime;

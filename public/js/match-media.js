@@ -319,7 +319,7 @@ export async function uploadMedia() {
             const fileName = `${timestamp}-${randomStr}.${ext}`;
             const filePath = `${currentUser.id}/${currentMatchType}/${currentMatchId}/${fileName}`;
 
-            // Upload to storage
+            // In Storage hochladen
             const { error: uploadError } = await supabase.storage
                 .from('match-media')
                 .upload(filePath, file, {
@@ -347,7 +347,7 @@ export async function uploadMedia() {
 
             if (dbError) {
                 console.error('Database error:', dbError);
-                // Try to delete uploaded file
+                // Hochgeladene Datei löschen versuchen
                 await supabase.storage.from('match-media').remove([filePath]);
                 throw dbError;
             }
@@ -364,7 +364,7 @@ export async function uploadMedia() {
             window.resetMatchMediaCache();
         }
 
-        // Refresh the activity feed to show new media
+        // Aktivitäts-Feed aktualisieren um neue Medien zu zeigen
         if (window.loadActivityFeed) {
             await window.loadActivityFeed();
         }

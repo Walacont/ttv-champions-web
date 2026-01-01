@@ -78,7 +78,7 @@ async function updatePushStatus() {
     }
 
     if (enabled) {
-        // Push is enabled
+        // Push ist aktiviert
         statusIcon.className = 'w-10 h-10 bg-green-100 rounded-full flex items-center justify-center';
         statusIcon.innerHTML = '<i class="fas fa-bell text-green-600"></i>';
         statusText.textContent = 'Push-Benachrichtigungen sind aktiviert';
@@ -91,11 +91,11 @@ async function updatePushStatus() {
             if (toggle) toggle.disabled = false;
         });
     } else {
-        // Push is not enabled
+        // Push ist nicht aktiviert
         statusIcon.className = 'w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center';
         statusIcon.innerHTML = '<i class="fas fa-bell-slash text-gray-400"></i>';
 
-        // Check if it's denied or just not requested
+        // Prüfen ob abgelehnt oder nur nicht angefragt
         if (!isNative && 'Notification' in window && Notification.permission === 'denied') {
             statusText.textContent = 'Push-Benachrichtigungen wurden blockiert. Bitte aktiviere sie in den Geräteeinstellungen.';
             statusText.className = 'text-sm text-red-600';
@@ -124,7 +124,7 @@ async function loadPreferences() {
         PREFERENCE_KEYS.forEach(key => {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) {
-                toggle.checked = preferences[key] !== false; // Default to true if not set
+                toggle.checked = preferences[key] !== false; // Standard ist true wenn nicht gesetzt
             }
         });
     } catch (e) {
@@ -220,7 +220,7 @@ function setupEventListeners() {
     });
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+// Bei DOMContentLoaded initialisieren oder sofort falls bereits geladen (für SPA)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

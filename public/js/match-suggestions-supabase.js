@@ -223,7 +223,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             // Factor 3: Time since last match (if played before)
             if (history.lastMatchDate) {
                 const daysSinceLastMatch = (now - history.lastMatchDate) / (1000 * 60 * 60 * 24);
-                score += Math.min(daysSinceLastMatch / 7, 30); // Up to +30 for 30+ weeks
+                score += Math.min(daysSinceLastMatch / 7, 30); // Bis zu +30 für 30+ Wochen
             }
 
             // NO ELO filtering - everyone should play against everyone
@@ -416,7 +416,7 @@ export async function loadMatchSuggestions(
         allPlayers = filterTestClubPlayers(allPlayers, userData, clubsMap);
         console.log('[Match Suggestions] Players after test club filter:', allPlayers.length);
 
-        // Function to calculate and render suggestions
+        // Funktion zum Berechnen und Rendern von Vorschlägen
         const renderSuggestions = async () => {
             const suggestions = await calculateMatchSuggestions(userData, allPlayers, supabase);
 
@@ -438,7 +438,7 @@ export async function loadMatchSuggestions(
         // Initial render
         await renderSuggestions();
 
-        // Listen for changes to matches collection to update suggestions in real-time
+        // Auf Match-Änderungen hören um Vorschläge in Echtzeit zu aktualisieren
         const matchesSubscription = supabase
             .channel('match-suggestions')
             .on(

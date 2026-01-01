@@ -706,7 +706,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         const opponent1 = playersData.players.find(p => p.id === opponent1Id);
         const opponent2 = playersData.players.find(p => p.id === opponent2Id);
 
-        // If any player not found, hide handicap and team Elo
+        // Wenn Spieler nicht gefunden, Handicap und Team-Elo verstecken
         if (!partner || !opponent1 || !opponent2) {
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
@@ -728,8 +728,8 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             : `${opponent2Id}_${opponent1Id}`;
 
         // Fetch PAIRING Elo from database (not individual player average!)
-        let teamAElo = 800; // Default for new pairing
-        let teamBElo = 800; // Default for new pairing
+        let teamAElo = 800; // Standard für neue Paarung
+        let teamBElo = 800; // Standard für neue Paarung
         let teamAIsNew = true;
         let teamBIsNew = true;
 
@@ -772,7 +772,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
         // Team-Objekte für Handicap-Berechnung mit PAARUNGS-Elo erstellen
         const teamA = {
-            player1: { eloRating: teamAElo / 2 }, // Split for handicap calc formula
+            player1: { eloRating: teamAElo / 2 }, // Aufteilen für Handicap-Berechnungsformel
             player2: { eloRating: teamAElo / 2 }
         };
 
@@ -829,7 +829,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         calculateAndDisplayHandicap();
     });
 
-    // Observe all three hidden fields
+    // Alle drei versteckten Felder beobachten
     observer.observe(partnerIdField, { attributes: true, attributeFilter: ['value'] });
     observer.observe(opponent1IdField, { attributes: true, attributeFilter: ['value'] });
     observer.observe(opponent2IdField, { attributes: true, attributeFilter: ['value'] });

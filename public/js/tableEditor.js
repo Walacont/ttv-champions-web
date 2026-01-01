@@ -280,7 +280,7 @@ export function setupDescriptionEditor(config) {
         switchMode('table');
     });
 
-    // Initialize with current mode
+    // Mit aktuellem Modus initialisieren
     switchMode(currentMode);
 
     return {

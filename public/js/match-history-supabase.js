@@ -7,7 +7,7 @@
 // ===== LOAD AND DISPLAY MATCH HISTORY =====
 // ========================================================================
 
-// Store the subscription channels so we can clean up
+// Subscription-Kanäle speichern für Aufräumen
 let matchHistorySubscriptions = [];
 
 /**
@@ -262,7 +262,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
             filteredMatches = [...singlesMatches, ...doublesMatches];
         }
 
-        // Limit to 50 matches
+        // Auf 50 Matches begrenzen
         const allMatches = filteredMatches.slice(0, 50);
 
         if (allMatches.length === 0) {
@@ -346,7 +346,7 @@ async function enrichMatchData(supabase, match, userData) {
                 enriched.opponentName = 'Gegner-Team';
             }
 
-            // Determine if user's team won
+            // Bestimmen ob Benutzer-Team gewonnen hat
             enriched.isWinner =
                 (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
         } else {
@@ -385,7 +385,7 @@ async function enrichMatchData(supabase, match, userData) {
                     enriched.opponentName = 'Unbekannt';
                 }
             } catch (opponentError) {
-                // Failed to fetch opponent (probably from different club or deleted)
+                // Gegner abrufen fehlgeschlagen (vermutlich anderer Verein oder gelöscht)
                 console.warn('Could not fetch opponent data:', opponentError.message);
                 enriched.opponentName = 'Gegner';
             }
@@ -408,7 +408,7 @@ async function enrichMatchData(supabase, match, userData) {
             if (historyError) throw historyError;
 
             // Verlaufseintrag finden der zu diesem Match gehört
-            // Match by timestamp proximity (within 30 seconds) and check reason
+            // Nach Zeitstempel-Nähe matchen (innerhalb 30 Sekunden) und Grund prüfen
             const matchTime = new Date(match.timestamp || match.playedAt || 0).getTime();
 
             const opponentName = enriched.opponentName;

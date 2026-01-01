@@ -9,10 +9,10 @@ const DEFAULT_PREFERENCES = {
 };
 
 const DEFAULT_PREFERENCES_NO_CLUB = {
-    effort: false,    // Hidden for club-less players
-    season: false,    // Hidden for club-less players
+    effort: false,    // Für Spieler ohne Verein versteckt
+    season: false,    // Für Spieler ohne Verein versteckt
     skill: true,      // Visible (global skill ranking)
-    ranks: false,     // Hidden for club-less players
+    ranks: false,     // Für Spieler ohne Verein versteckt
     doubles: true,    // Visible (global doubles ranking)
 };
 

@@ -38,14 +38,14 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded
+// Bei DOMContentLoaded initialisieren oder sofort falls bereits geladen
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
     initializeAuth();
 }
 
-// Listen for auth state changes - only redirect on explicit sign out
+// Auth-Status-Änderungen beobachten - nur bei explizitem Logout weiterleiten
 onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';

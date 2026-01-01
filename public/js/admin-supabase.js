@@ -497,7 +497,7 @@ async function performClubSearch(query) {
             searchResults.appendChild(div);
         }
 
-        // Option to create new club with this name
+        // Option neuen Verein mit diesem Namen zu erstellen
         const createNewDiv = document.createElement('div');
         createNewDiv.className = 'px-4 py-3 hover:bg-green-50 cursor-pointer bg-green-25 border-t border-green-200';
         createNewDiv.innerHTML = `
@@ -1566,7 +1566,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                     const sportRoles = profileSportsMap.get(profileKey) || [];
                     // Prüfen ob Benutzer diese Sportart aktiv hat
                     const hasSport = sportRoles.some(sr => sr.sport_id === sport.id);
-                    // If no sport data, show all users
+                    // Wenn keine Sport-Daten, alle Benutzer anzeigen
                     if (profileSportsMap.size === 0) return true;
                     return hasSport;
                 });
@@ -1876,9 +1876,9 @@ async function handleCreateExercise(e) {
                 enabled: false,
                 milestones: [],
             },
-            // Admin can set specific club or null for global
+            // Admin kann spezifischen Verein oder null für global setzen
             club_id: exerciseClub || null,
-            // Admin can set specific sport or null for all sports
+            // Admin kann spezifische Sportart oder null für alle setzen
             sport_id: exerciseSport || null,
         };
 
@@ -1973,7 +1973,7 @@ async function loadAllExercises() {
         exercisesSubscription = supabase
             .channel('exercises_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'exercises' }, async () => {
-                // Reload with current filter
+                // Mit aktuellem Filter neu laden
                 let reloadQuery = supabase
                     .from('exercises')
                     .select('*')
@@ -2326,7 +2326,7 @@ async function handleStartNewSeason(e) {
     try {
         const user = await getCurrentUser();
 
-        // Call the start_new_season function
+        // start_new_season-Funktion aufrufen
         const { data, error } = await supabase.rpc('start_new_season', {
             p_sport_id: sportId,
             p_name: name,
@@ -2731,7 +2731,7 @@ async function initializeAuditSection() {
     await loadAuditLogs();
 }
 
-// Cleanup on page unload
+// Aufräumen beim Seiten-Entladen
 window.addEventListener('beforeunload', () => {
     if (usersSubscription) {
         supabase.removeChannel(usersSubscription);

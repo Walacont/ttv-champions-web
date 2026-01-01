@@ -30,7 +30,7 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
 
     async function fetchAndRender() {
         try {
-            // Get all players and coaches from club
+            // Alle Spieler und Trainer vom Verein abrufen
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, role, xp')
@@ -44,7 +44,7 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
                 return;
             }
 
-            // Sort by XP and take top 3
+            // Nach XP sortieren und Top 3 nehmen
             const players = data
                 .map(p => mapPlayerFromSupabase(p))
                 .sort((a, b) => (b.xp || 0) - (a.xp || 0))
@@ -112,7 +112,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
 
     async function fetchAndRender() {
         try {
-            // Get all processed matches from club
+            // Alle verarbeiteten Matches vom Verein abrufen
             const { data: matchesData, error: matchesError } = await supabase
                 .from('matches')
                 .select('winner_id')
@@ -156,7 +156,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
                 playerNames[player.id] = `${player.first_name} ${player.last_name}`;
             });
 
-            // Sort by win count and take top 3
+            // Nach Sieganzahl sortieren und Top 3 nehmen
             const topPlayers = Object.entries(winCounts)
                 .map(([playerId, wins]) => ({
                     playerId,

@@ -124,7 +124,7 @@ function resetForms() {
         </div>
     `;
 
-    // Switch to text post type by default
+    // Standardmäßig zu Text-Post-Typ wechseln
     switchPostType('text');
 }
 
@@ -166,7 +166,7 @@ function handleImagesSelect(e) {
         return;
     }
 
-    // Validate each file
+    // Jede Datei validieren
     for (const file of files) {
         // Validate file size (5MB max)
         if (file.size > 5 * 1024 * 1024) {
@@ -401,7 +401,7 @@ async function handlePollSubmit(e) {
     const visibility = pollVisibilitySelect.value;
     const durationDays = parseInt(pollDurationSelect.value);
     const allowMultiple = document.getElementById('poll-multiple-choice')?.checked || false;
-    const isAnonymous = document.getElementById('poll-anonymous')?.checked !== false; // Default to true
+    const isAnonymous = document.getElementById('poll-anonymous')?.checked !== false; // Standard ist true
 
     // Get poll options
     const optionInputs = pollOptionsContainer.querySelectorAll('.poll-option-input');
@@ -510,7 +510,7 @@ function showFeedback(element, type, message) {
     }
 }
 
-// Initialize on DOM load
+// Bei DOM-Load initialisieren
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initPostsManager);
 } else {

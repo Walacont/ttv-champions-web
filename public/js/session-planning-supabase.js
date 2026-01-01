@@ -539,17 +539,17 @@ function openCreateExerciseModal() {
         sessionModal.classList.remove('flex');
     }
 
-    // Switch to "Übungen verwalten" tab
+    // Zu "Übungen verwalten"-Tab wechseln
     const exercisesTab = document.querySelector('[data-tab="exercises"]');
     if (exercisesTab) {
         exercisesTab.click();
 
-        // Scroll to the create exercise form
+        // Zum Übung-erstellen-Formular scrollen
         setTimeout(() => {
             const createForm = document.getElementById('create-exercise-form');
             if (createForm) {
                 createForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // Focus on the title input
+                // Titel-Eingabe fokussieren
                 const titleInput = document.getElementById('exercise-title-form');
                 if (titleInput) titleInput.focus();
             }
