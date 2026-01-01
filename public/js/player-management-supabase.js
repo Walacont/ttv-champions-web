@@ -106,7 +106,7 @@ export function initOfflinePlayerBirthdateSelects() {
 
     if (!daySelect || !monthSelect || !yearSelect) return;
 
-    // Clear existing options except placeholder
+    // Bestehende Optionen außer Platzhalter löschen
     daySelect.innerHTML = '<option value="">Tag</option>';
     monthSelect.innerHTML = '<option value="">Monat</option>';
     yearSelect.innerHTML = '<option value="">Jahr</option>';
@@ -147,7 +147,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     e.preventDefault();
     const form = e.target;
 
-    // Get submit button and disable it immediately to prevent double-clicks
+    // Submit-Button abrufen und sofort deaktivieren um Doppelklicks zu verhindern
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton) {
         if (submitButton.disabled) {
@@ -200,7 +200,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         return;
     }
 
-    // Check for duplicate: same first name, last name, and club
+    // Auf Duplikat prüfen: gleicher Vorname, Nachname und Verein
     try {
         const { data: duplicates, error: dupError } = await supabase
             .from('profiles')
@@ -250,12 +250,12 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             subgroup_ids: subgroupIDs,
         };
 
-        // Add birthdate if provided
+        // Geburtsdatum hinzufügen falls angegeben
         if (birthdate) {
             playerData.birthdate = birthdate;
         }
 
-        // Add gender if provided
+        // Geschlecht hinzufügen falls angegeben
         if (gender) {
             playerData.gender = gender;
         }
@@ -332,21 +332,21 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (!playerId) return;
     const playerName = button.dataset.name || '';
 
-    // Handle new invitation button (opens modal with email/code choice)
+    // Neue Einladung-Button verarbeiten (öffnet Modal mit Email/Code-Auswahl)
     if (button.classList.contains('send-new-invitation-btn')) {
         const playerEmail = button.dataset.email || '';
         openSendInvitationModal(playerId, playerName, playerEmail);
         return;
     }
 
-    // Handle manage invitation button (email/code bearbeiten)
+    // Einladung verwalten-Button verarbeiten
     if (button.classList.contains('manage-invitation-btn')) {
         const playerEmail = button.dataset.email || '';
         openSendInvitationModal(playerId, playerName, playerEmail);
         return;
     }
 
-    // Handle set match-ready button (+ 50 XP, not reversible)
+    // Spielbereit setzen-Button verarbeiten (+50 XP, nicht umkehrbar)
     if (button.classList.contains('set-match-ready-btn')) {
         if (confirm(`Möchten Sie "${playerName}" als wettkampfsbereit markieren?\n\nDer Spieler erhält 50 XP. Diese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
@@ -359,7 +359,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
 
                 alert(`${playerName} ist jetzt wettkampfsbereit und hat 50 XP erhalten!`);
 
-                // Close panels to force refresh
+                // Panels schließen um Aktualisierung zu erzwingen
                 closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Setzen der Wettkampfsbereitschaft:', error);
@@ -369,7 +369,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
         return;
     }
 
-    // Handle delete button (only for head_coach and offline players)
+    // Löschen-Button verarbeiten (nur für Cheftrainer und Offline-Spieler)
     if (button.classList.contains('delete-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
@@ -390,7 +390,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
         return;
     }
 
-    // Handle promote to coach button
+    // Zum Trainer befördern-Button verarbeiten
     if (button.classList.contains('promote-coach-btn')) {
         if (confirm(`Möchten Sie "${playerName}" zum Coach ernennen?`)) {
             try {
@@ -418,7 +418,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
         return;
     }
 
-    // Handle demote to player button (remove coach rights)
+    // Zum Spieler herabstufen-Button verarbeiten (Trainer-Rechte entfernen)
     if (button.classList.contains('demote-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" die Coach-Rechte entziehen?\n\nDer Spieler wird wieder ein normaler Spieler.`)) {
             try {
@@ -446,11 +446,11 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
         return;
     }
 
-    // Handle kick from club button (head_coach only)
+    // Aus Verein entfernen-Button verarbeiten (nur Cheftrainer)
     if (button.classList.contains('kick-from-club-btn')) {
         if (confirm(`Möchten Sie "${playerName}" wirklich aus dem Verein werfen?\n\nDer Spieler wird aus dem Verein entfernt und erhält eine Benachrichtigung.`)) {
             try {
-                // Get club name for notification
+                // Vereinsnamen für Benachrichtigung abrufen
                 const { data: clubData } = await supabase
                     .from('clubs')
                     .select('name')

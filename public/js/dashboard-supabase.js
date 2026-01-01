@@ -199,10 +199,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentUser = session.user;
     console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
 
-    // Load user profile
+    // Benutzerprofil laden
     await loadUserProfile();
 
-    // Initialize notifications (loaded dynamically, non-blocking)
+    // Benachrichtigungen initialisieren (dynamisch geladen, nicht blockierend)
     try {
         notificationsModule = await import('./notifications-supabase.js');
         if (notificationsModule.initNotifications) {
@@ -212,14 +212,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Notifications not available:', e);
     }
 
-    // Initialize push notifications (loaded dynamically, non-blocking)
+    // Push-Benachrichtigungen initialisieren (dynamisch geladen, nicht blockierend)
     try {
         const pushModule = await import('./push-notifications-manager.js');
         if (pushModule.initPushNotifications) {
             pushModule.initPushNotifications(currentUser.id);
         }
 
-        // Show push permission prompt after a short delay (only if not already enabled)
+        // Push-Berechtigungsdialog nach kurzer Verzögerung anzeigen (nur wenn noch nicht aktiviert)
         setTimeout(async () => {
             if (pushModule.shouldShowPushPrompt && await pushModule.shouldShowPushPrompt()) {
                 await pushModule.showPushPermissionPrompt();
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Push notifications not available:', e);
     }
 
-    // Listen for auth changes - only redirect on explicit sign out
+    // Auth-Änderungen beobachten - nur bei explizitem Logout weiterleiten
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
         if (event === 'SIGNED_OUT') {
@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- Cleanup ---
 function cleanupSubscriptions() {
-    // Cleanup notification subscriptions (if available)
+    // Benachrichtigungs-Subscriptions aufräumen (falls verfügbar)
     if (notificationsModule && notificationsModule.cleanupNotifications) {
         notificationsModule.cleanupNotifications();
     }
@@ -264,25 +264,25 @@ async function loadUserProfile() {
                 club:clubs(id, name)
             `)
             .eq('id', currentUser.id)
-            .maybeSingle(); // Use maybeSingle to avoid error when no rows found
+            .maybeSingle(); // maybeSingle verwenden um Fehler bei keinen Zeilen zu vermeiden
 
         if (error) throw error;
 
         if (!profile) {
             console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
-            // Try to create a basic profile or redirect to onboarding
+            // Basis-Profil erstellen oder zum Onboarding weiterleiten
             window.location.href = '/onboarding.html';
             return;
         }
 
-        // Check onboarding
+        // Onboarding prüfen
         if (!profile.onboarding_complete) {
             console.log('[DASHBOARD-SUPABASE] Onboarding not complete');
             window.location.href = '/onboarding.html';
             return;
         }
 
-        // Check role - redirect admins
+        // Rolle prüfen - Admins weiterleiten
         if (profile.role === 'admin') {
             window.location.href = '/admin.html';
             return;
@@ -297,7 +297,7 @@ async function loadUserProfile() {
             club: currentClubData?.name
         });
 
-        // Initialize dashboard
+        // Dashboard initialisieren
         initializeDashboard();
 
     } catch (error) {
@@ -311,16 +311,16 @@ async function initializeDashboard() {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
 
-    // Hide loader, show content
+    // Lader ausblenden, Inhalt anzeigen
     if (pageLoader) pageLoader.style.display = 'none';
     if (mainContent) mainContent.style.display = 'block';
 
-    // Load sport context for multi-sport filtering
-    // This determines the active sport, club, and role
+    // Sport-Kontext für Multi-Sport-Filterung laden
+    // Bestimmt aktive Sportart, Verein und Rolle
     currentSportContext = await getSportContext(currentUser.id);
     console.log('[DASHBOARD-SUPABASE] Sport context loaded:', currentSportContext);
 
-    // Set leaderboard sport filter for multi-sport support
+    // Ranglisten-Sport-Filter für Multi-Sport-Unterstützung setzen
     if (currentSportContext?.sportId) {
         setLeaderboardSportFilter(currentSportContext.sportId);
     }
@@ -334,8 +334,8 @@ async function initializeDashboard() {
     setupSearchButton();
     setupModalHandlers();
 
-    // Initialize leaderboard preferences (must be after tabs are set up)
-    // Use club from sport context if available (user might be in different clubs for different sports)
+    // Ranglisten-Einstellungen initialisieren (muss nach Tab-Setup sein)
+    // Verein aus Sport-Kontext verwenden (Benutzer kann in verschiedenen Vereinen für verschiedene Sportarten sein)
     const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
     const userData = {
         id: currentUser.id,
@@ -344,47 +344,47 @@ async function initializeDashboard() {
     };
     initializeLeaderboardPreferences(userData, supabase);
 
-    // Load data
+    // Daten laden
     updateStatsDisplay();
     updateRankDisplay();
     loadRivalData();
     await loadLeaderboards();
-    setupFilters(); // Setup filters after leaderboard HTML is rendered
+    setupFilters(); // Filter nach Ranglisten-HTML-Rendering einrichten
     loadPointsHistory();
     loadChallenges();
     loadExercises();
     loadMatchRequests();
     loadPendingRequests();
     loadCalendar();
-    // Initialize season countdown (efficient: loads once, updates display every second)
+    // Saison-Countdown initialisieren (effizient: lädt einmal, aktualisiert Anzeige jede Sekunde)
     initSeasonCountdown();
 
-    // Initialize match modules with current user data (MUST be before loadMatchHistory and setupMatchForm)
+    // Match-Module mit aktuellen Benutzerdaten initialisieren (MUSS vor loadMatchHistory und setupMatchForm sein)
     initMatchFormModule(currentUser, currentUserData, currentSportContext);
     initMatchHistoryModule(currentUser, currentUserData);
 
-    // Initialize activity feed module
+    // Aktivitäts-Feed-Modul initialisieren
     initActivityFeedModule(currentUser, currentUserData);
 
-    // Initialize player events module
+    // Spieler-Events-Modul initialisieren
     initPlayerEvents(currentUser.id);
 
-    // Initialize comments module
+    // Kommentare-Modul initialisieren
     initComments(currentUserData);
 
-    // Initialize match media module
+    // Match-Medien-Modul initialisieren
     initMatchMedia(currentUserData);
 
-    // Load match history (after module initialization)
+    // Match-Verlauf laden (nach Modul-Initialisierung)
     loadMatchHistory();
 
-    // Load activity feed (shows matches from club + followed users)
+    // Aktivitäts-Feed laden (zeigt Matches von Verein + gefolgten Benutzern)
     loadActivityFeed();
 
-    // Check for pending match confirmations and show bottom sheet
+    // Ausstehende Match-Bestätigungen prüfen und Bottom-Sheet anzeigen
     checkPendingMatchConfirmations(currentUser.id);
 
-    // Setup match form (from extracted module)
+    // Match-Formular einrichten (aus extrahiertem Modul)
     setupMatchForm({
         onSuccess: () => {
             loadMatchRequests();
@@ -392,22 +392,22 @@ async function initializeDashboard() {
         }
     });
 
-    // Setup collapsible sections (match suggestions and leaderboard preferences toggles)
+    // Einklappbare Bereiche einrichten (Match-Vorschläge und Ranglisten-Einstellungen)
     setupMatchSuggestions();
     setupLeaderboardPreferences();
 
-    // Initialize widget system (customizable dashboard)
+    // Widget-System initialisieren (anpassbares Dashboard)
     initializeWidgetSystem(supabase, currentUser.id, currentUserData);
 
-    // Populate player subgroup filter with age groups
+    // Spieler-Untergruppen-Filter mit Altersgruppen befüllen
     await populatePlayerSubgroupFilter(currentUserData);
 
-    // Check if user is coach without a club - if so, downgrade to player
+    // Prüfen ob Benutzer Trainer ohne Verein ist - dann zu Spieler herabstufen
     const isCoachInActiveSport = currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
     const effectiveClub = currentSportContext?.clubId || currentUserData.club_id;
 
     if (isCoachInActiveSport && !effectiveClub) {
-        // Coach without club - downgrade role to player
+        // Trainer ohne Verein - Rolle zu Spieler herabstufen
         console.warn('[DASHBOARD] Coach without club detected, downgrading to player');
         const { error: updateError } = await supabase
             .from('profiles')
@@ -418,12 +418,12 @@ async function initializeDashboard() {
             console.error('[DASHBOARD] Failed to downgrade role:', updateError);
         } else {
             console.log('[DASHBOARD] Role successfully downgraded to player');
-            // Update local data
+            // Lokale Daten aktualisieren
             currentUserData.role = 'player';
         }
     }
 
-    // Show no-club info if needed (reuses effectiveClub from above)
+    // Kein-Verein-Info anzeigen falls nötig (verwendet effectiveClub von oben)
     if (!effectiveClub) {
         const noClubBox = document.getElementById('no-club-info-box');
         if (noClubBox && localStorage.getItem('noClubInfoDismissed') !== 'true') {
@@ -431,29 +431,29 @@ async function initializeDashboard() {
         }
     }
 
-    // Setup realtime subscriptions
+    // Echtzeit-Subscriptions einrichten
     setupRealtimeSubscriptions();
 
-    // Translate page after all content is loaded
-    // This ensures dynamically added elements with data-i18n are translated
+    // Seite übersetzen nachdem alle Inhalte geladen sind
+    // Stellt sicher dass dynamisch hinzugefügte Elemente mit data-i18n übersetzt werden
     // Note: i18n is initialized by dashboard.html's inline script
     // translatePage() will safely skip if not ready yet
     translatePage();
 }
 
 // --- Setup Header ---
-// Default avatar as data URL (simple gray circle with user icon)
+// Standard-Avatar als Data-URL (einfacher grauer Kreis mit Benutzer-Icon)
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOTRhM2I4Ii8+PHBhdGggZD0iTTIwIDg1YzAtMjAgMTMtMzAgMzAtMzBzMzAgMTAgMzAgMzAiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=';
 
 function setupHeader() {
-    // Profile picture - use avatar_url (saved by settings) or avatar_url (legacy)
+    // Profilbild - avatar_url verwenden (von Einstellungen gespeichert oder Legacy)
     const headerPic = document.getElementById('header-profile-pic');
     if (headerPic) {
         headerPic.src = currentUserData.avatar_url || currentUserData.avatar_url || DEFAULT_AVATAR;
         headerPic.onerror = () => { headerPic.src = DEFAULT_AVATAR; };
     }
 
-    // Club name - use sport context club if available (multi-sport support)
+    // Vereinsname - Sport-Kontext-Verein verwenden falls verfügbar (Multi-Sport)
     // A user might be in different clubs for different sports
     const clubName = document.getElementById('header-club-name');
     if (clubName) {
@@ -464,7 +464,7 @@ function setupHeader() {
 
 // --- Setup Tabs ---
 function setupTabs() {
-    // Use requestAnimationFrame to ensure DOM is fully rendered
+    // requestAnimationFrame verwenden um sicherzustellen dass DOM vollständig gerendert ist
     requestAnimationFrame(() => {
         initializeTabSystem();
     });
@@ -477,11 +477,11 @@ function initializeTabSystem() {
 
     console.log('[TABS] Initializing tab system, bottomNav:', bottomNav ? 'found' : 'NOT FOUND');
 
-    // Helper function to switch tabs - make it global so it can be called from anywhere
+    // Hilfsfunktion zum Tab-Wechsel - global für Aufruf von überall
     window.switchToTab = (tabId, tabTitle) => {
         console.log('[TABS] Switching to tab:', tabId);
 
-        // Update active states on ALL tab buttons
+        // Aktiv-Status auf ALLEN Tab-Buttons aktualisieren
         const allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
         allTabButtons.forEach(btn => {
             btn.classList.remove('tab-active', 'text-indigo-600');
@@ -492,7 +492,7 @@ function initializeTabSystem() {
             }
         });
 
-        // Update header title dynamically
+        // Header-Titel dynamisch aktualisieren
         if (headerTitle) {
             headerTitle.textContent = tabTitle;
         }
@@ -512,17 +512,17 @@ function initializeTabSystem() {
         }
     };
 
-    // Setup bottom navigation
+    // Untere Navigation einrichten
     if (bottomNav) {
         const buttons = bottomNav.querySelectorAll('.bottom-tab-button');
         console.log('[TABS] Found', buttons.length, 'bottom tab buttons');
 
         buttons.forEach(button => {
-            // Remove any existing listeners by cloning
+            // Bestehende Listener durch Klonen entfernen
             const newButton = button.cloneNode(true);
             button.parentNode.replaceChild(newButton, button);
 
-            // Add click handler
+            // Klick-Handler hinzufügen
             newButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -539,25 +539,25 @@ function initializeTabSystem() {
         const scrollToId = urlParams.get('scrollTo');
 
         if (requestedTab) {
-            // Find the button for the requested tab
+            // Button für angeforderten Tab finden
             const targetButton = bottomNav.querySelector(`.bottom-tab-button[data-tab="${requestedTab}"]`);
             if (targetButton) {
                 const tabTitle = targetButton.dataset.title || requestedTab;
                 console.log('[TABS] Switching to requested tab from URL:', requestedTab);
                 window.switchToTab(requestedTab, tabTitle);
 
-                // Clean up URL parameters after processing
+                // URL-Parameter nach Verarbeitung bereinigen
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, '', newUrl);
 
-                // Scroll to element after a delay to ensure content is loaded
+                // Nach Verzögerung zum Element scrollen um sicherzustellen dass Inhalt geladen ist
                 if (scrollToId) {
                     setTimeout(() => {
                         const scrollTarget = document.getElementById(scrollToId);
                         if (scrollTarget) {
                             console.log('[TABS] Scrolling to element:', scrollToId);
                             scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Highlight the element briefly
+                            // Element kurz hervorheben
                             scrollTarget.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2');
                             setTimeout(() => {
                                 scrollTarget.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2');
@@ -566,14 +566,14 @@ function initializeTabSystem() {
                     }, 500);
                 }
             } else {
-                // Fallback to first tab if requested tab not found
+                // Fallback zum ersten Tab wenn angeforderter Tab nicht gefunden
                 const firstButton = bottomNav.querySelector('.bottom-tab-button');
                 if (firstButton) {
                     window.switchToTab(firstButton.dataset.tab, firstButton.dataset.title || 'Start');
                 }
             }
         } else {
-            // No tab parameter, activate first tab
+            // Kein Tab-Parameter, ersten Tab aktivieren
             const firstButton = bottomNav.querySelector('.bottom-tab-button');
             if (firstButton) {
                 const tabId = firstButton.dataset.tab;
@@ -583,12 +583,12 @@ function initializeTabSystem() {
         }
     } else {
         console.error('[TABS] Bottom nav not found! Retrying in 100ms...');
-        // Retry after a short delay
+        // Nach kurzer Verzögerung erneut versuchen
         setTimeout(initializeTabSystem, 100);
         return;
     }
 
-    // Also add handlers to any inline tab buttons (for backwards compatibility)
+    // Auch Handler zu Inline-Tab-Buttons hinzufügen (für Abwärtskompatibilität)
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
             const tabId = button.dataset.tab;
@@ -606,11 +606,11 @@ function setupSearchButton() {
 
     if (searchBtn && communityFullscreen) {
         searchBtn.addEventListener('click', async () => {
-            // Show fullscreen community page
+            // Vollbild-Community-Seite anzeigen
             communityFullscreen.classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            document.body.style.overflow = 'hidden'; // Hintergrund-Scrollen verhindern
 
-            // Initialize community modules
+            // Community-Module initialisieren
             try {
                 await initFriends();
                 await initCommunity();
@@ -618,7 +618,7 @@ function setupSearchButton() {
                 console.error('Error initializing community modules:', error);
             }
 
-            // Focus search input after a short delay
+            // Sucheingabe nach kurzer Verzögerung fokussieren
             setTimeout(() => {
                 const searchInput = document.getElementById('player-search-input');
                 if (searchInput) {
@@ -628,15 +628,15 @@ function setupSearchButton() {
         });
     }
 
-    // Close button handler
+    // Schließen-Button-Handler
     if (closeBtn && communityFullscreen) {
         closeBtn.addEventListener('click', () => {
             communityFullscreen.classList.add('hidden');
-            document.body.style.overflow = ''; // Restore scrolling
+            document.body.style.overflow = ''; // Scrollen wiederherstellen
         });
     }
 
-    // Close on escape key
+    // Bei Escape-Taste schließen
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && communityFullscreen && !communityFullscreen.classList.contains('hidden')) {
             communityFullscreen.classList.add('hidden');
@@ -658,7 +658,7 @@ function setupCoachIndicator() {
     const indicator = document.getElementById('coach-player-indicator');
     if (!indicator || !currentUserData) return;
 
-    // Show indicator if user is a coach
+    // Indikator anzeigen wenn Benutzer Trainer ist
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
     if (isCoach) {
         indicator.classList.remove('hidden');
@@ -681,7 +681,7 @@ function setupLogout() {
         });
     }
 
-    // Close no-club info
+    // Kein-Verein-Info schließen
     const closeNoClubBtn = document.getElementById('close-no-club-info');
     if (closeNoClubBtn) {
         closeNoClubBtn.addEventListener('click', () => {
@@ -704,39 +704,39 @@ function setupFilters() {
         subgroupFilter.addEventListener('change', async () => {
             currentSubgroupFilter = subgroupFilter.value;
 
-            // Update leaderboard scope based on filter selection
+            // Ranglisten-Bereich basierend auf Filter-Auswahl aktualisieren
             if (currentSubgroupFilter === 'global') {
                 currentLeaderboardScope = 'global';
             } else if (currentSubgroupFilter === 'club') {
-                // Club filter - use club scope (only for users with club)
+                // Vereins-Filter - Vereins-Bereich verwenden (nur für Benutzer mit Verein)
                 currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             } else if (currentSubgroupFilter === 'following') {
-                // Following filter - use global scope to search across all players
+                // Gefolgten-Filter - globalen Bereich verwenden um alle Spieler zu suchen
                 currentLeaderboardScope = 'global';
                 // Pre-load following IDs
                 await loadFollowingIds();
             } else if (currentSubgroupFilter.startsWith('subgroup:')) {
-                // Custom subgroups - use club scope
+                // Benutzerdefinierte Untergruppen - Vereins-Bereich verwenden
                 currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             }
             updateLeaderboardScope();
 
             // Re-render the leaderboard with new filter
             updateLeaderboardContent();
-            loadRivalData(); // Update rivals when filter changes
+            loadRivalData(); // Rivalen aktualisieren wenn Filter sich ändert
         });
     }
 
     if (genderFilter) {
         genderFilter.addEventListener('change', () => {
             currentGenderFilter = genderFilter.value;
-            // Just re-render the leaderboard with new filter
+            // Rangliste mit neuem Filter neu rendern
             updateLeaderboardContent();
         });
     }
 
     if (ageGroupFilter) {
-        // Populate age groups - full list like original
+        // Altersgruppen befüllen - vollständige Liste wie Original
         ageGroupFilter.innerHTML = `
             <option value="all">Alle Altersgruppen</option>
             <optgroup label="Jugend (nach Alter)">
@@ -765,7 +765,7 @@ function setupFilters() {
 
         ageGroupFilter.addEventListener('change', () => {
             currentAgeGroupFilter = ageGroupFilter.value;
-            // Just re-render the leaderboard with new filter
+            // Rangliste mit neuem Filter neu rendern
             updateLeaderboardContent();
         });
     }
@@ -788,12 +788,12 @@ function calculateAge(birthdate) {
 function matchesAgeGroup(birthdate, ageGroupFilter) {
     if (ageGroupFilter === 'all') return true;
     const age = calculateAge(birthdate);
-    if (age === null) return false; // Exclude players without birthdate when filter is active
+    if (age === null) return false; // Spieler ohne Geburtsdatum ausschließen wenn Filter aktiv
 
-    // Youth groups (under X years) - stichtag-basiert like table tennis rules
+    // Jugendgruppen (unter X Jahren) - stichtag-basiert wie Tischtennis-Regeln
     // U11 means player turns 11 or younger in current year
     switch (ageGroupFilter) {
-        // Youth groups
+        // Jugendgruppen
         case 'u11': return age <= 10;
         case 'u13': return age <= 12;
         case 'u15': return age <= 14;
@@ -817,18 +817,18 @@ function matchesAgeGroup(birthdate, ageGroupFilter) {
 }
 
 // --- Update Stats Display ---
-// Uses sport-specific stats from user_sport_stats if available
+// Verwendet sport-spezifische Stats aus user_sport_stats falls verfügbar
 async function updateStatsDisplay() {
     const xpEl = document.getElementById('player-xp');
     const eloEl = document.getElementById('player-elo');
     const pointsEl = document.getElementById('player-points');
 
-    // Default values from profile
+    // Standardwerte aus Profil
     let xp = currentUserData.xp || 0;
     let elo = currentUserData.elo_rating || 1000;
     let points = currentUserData.points || 0;
 
-    // Try to get sport-specific stats
+    // Sport-spezifische Stats versuchen abzurufen
     const activeSportId = currentSportContext?.sportId || currentUserData.active_sport_id;
     if (activeSportId && currentUser?.id) {
         try {
@@ -846,12 +846,12 @@ async function updateStatsDisplay() {
                 console.log('[DASHBOARD] Using sport-specific stats:', { xp, elo, points });
             }
         } catch (err) {
-            // Table might not exist yet, use profile defaults
+            // Tabelle existiert möglicherweise noch nicht, Profil-Standardwerte verwenden
             console.log('[DASHBOARD] user_sport_stats not available, using profile stats');
         }
     }
 
-    // Update hidden elements (for compatibility with other modules)
+    // Versteckte Elemente aktualisieren (für Kompatibilität mit anderen Modulen)
     if (xpEl) xpEl.textContent = xp;
     if (eloEl) eloEl.textContent = elo;
     if (pointsEl) pointsEl.textContent = points;
@@ -1191,7 +1191,7 @@ async function loadLeaderboards() {
     updateLeaderboardTabs();
     updateLeaderboardScope();
 
-    // Load data
+    // Daten laden
     await fetchLeaderboardData();
     updateLeaderboardContent();
 
@@ -1347,12 +1347,12 @@ function renderRanksList() {
         }
     }
 
-    // Apply age group filter (exclude players without birthdate when filter is active)
+    // Altersgruppen-Filter anwenden (Spieler ohne Geburtsdatum ausschließen wenn Filter aktiv)
     if (currentAgeGroupFilter !== 'all') {
         players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
     }
 
-    // Apply gender filter (exclude players without gender when filter is active)
+    // Geschlechter-Filter anwenden (Spieler ohne Geschlecht ausschließen wenn Filter aktiv)
     if (currentGenderFilter !== 'all') {
         players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
@@ -1518,37 +1518,37 @@ function renderLeaderboardList() {
     }
     // 'club' and 'global' don't filter - they just set the scope (which is handled by leaderboardCache[currentLeaderboardScope])
 
-    // Apply age group filter (exclude players without birthdate when filter is active)
+    // Altersgruppen-Filter anwenden (Spieler ohne Geburtsdatum ausschließen wenn Filter aktiv)
     if (currentAgeGroupFilter !== 'all') {
         players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
     }
 
-    // Apply gender filter (exclude players without gender when filter is active)
+    // Geschlechter-Filter anwenden (Spieler ohne Geschlecht ausschließen wenn Filter aktiv)
     if (currentGenderFilter !== 'all') {
         players = players.filter(p => p.gender && p.gender === currentGenderFilter);
     }
 
-    // Filter out players from test clubs (unless current user is from a test club)
+    // Spieler aus Test-Vereinen ausfiltern (außer Benutzer ist aus Test-Verein)
     if (testClubIdsCache && testClubIdsCache.length > 0) {
         const isCurrentUserInTestClub = currentUserData?.club_id && testClubIdsCache.includes(currentUserData.club_id);
 
         players = players.filter(player => {
-            // If player is not in a test club, show them
+            // Wenn Spieler nicht in Test-Verein ist, anzeigen
             if (!player.club_id || !testClubIdsCache.includes(player.club_id)) {
                 return true;
             }
 
-            // Player is in a test club - only show if current user is from the same test club
+            // Spieler ist in Test-Verein - nur anzeigen wenn Benutzer aus demselben Test-Verein
             if (isCurrentUserInTestClub && currentUserData.club_id === player.club_id) {
                 return true;
             }
 
-            // Hide test club players for everyone else
+            // Test-Verein-Spieler für alle anderen ausblenden
             return false;
         });
     }
 
-    // Filter by privacy settings (applies to all users including coaches)
+    // Nach Datenschutz-Einstellungen filtern (gilt für alle inkl. Trainer)
     let currentUserHidden = false;
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
@@ -1558,32 +1558,32 @@ function renderLeaderboardList() {
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
 
-        // If player has disabled leaderboard visibility
+        // Wenn Spieler Ranglisten-Sichtbarkeit deaktiviert hat
         if (!showInLeaderboards) {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true; // Still show current user to themselves
+                return true; // Aktuellen Benutzer immer sich selbst anzeigen
             }
-            return false; // Hide from others
+            return false; // Von anderen verbergen
         }
 
-        // If player is only visible to club members
+        // Wenn Spieler nur für Vereinsmitglieder sichtbar
         if (searchable === 'club_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true; // Still show current user to themselves
+                return true; // Aktuellen Benutzer immer sich selbst anzeigen
             }
-            // Only show if viewer is in the same club
+            // Nur anzeigen wenn Betrachter im selben Verein
             if (isSameClub) {
                 return true;
             }
-            return false; // Hide from non-club members
+            return false; // Von Nicht-Vereinsmitgliedern verbergen
         }
 
         return true; // Global visibility
     });
 
-    // Sort by current tab - map tab names to field names
+    // Nach aktuellem Tab sortieren - Tab-Namen zu Feldnamen
     const fieldMap = {
         'xp': 'xp',
         'effort': 'xp',
@@ -1611,7 +1611,7 @@ function renderLeaderboardList() {
 
     let html = '';
 
-    // Show privacy notice if current user is hidden from others
+    // Datenschutz-Hinweis anzeigen wenn Benutzer vor anderen verborgen
     if (currentUserHidden) {
         html += `
             <div class="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg">
@@ -1627,11 +1627,11 @@ function renderLeaderboardList() {
         `;
     }
 
-    // Check if we should show club names (global scope + skill/elo tab)
+    // Prüfen ob Vereinsnamen angezeigt werden sollen (globaler Bereich + Skill/Elo-Tab)
     const showClubName = currentLeaderboardScope === 'global' &&
         (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo');
 
-    // Check if head-to-head is available (skill/elo tab only)
+    // Prüfen ob Head-to-Head verfügbar ist (nur Skill/Elo-Tab)
     const isH2HEnabled = currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo';
 
     displayPlayers.forEach((player, index) => {
@@ -1644,7 +1644,7 @@ function renderLeaderboardList() {
             ? `<div class="text-xs text-gray-500">${player.club_name}</div>`
             : '';
 
-        // Make row clickable for head-to-head (not for current user)
+        // Zeile für Head-to-Head klickbar machen (nicht für aktuellen Benutzer)
         const isClickable = isH2HEnabled && !isCurrentUser;
         const clickableClass = isClickable ? 'cursor-pointer' : '';
         const dataAttr = isClickable ? `data-player-id="${player.id}"` : '';
@@ -1669,7 +1669,7 @@ function renderLeaderboardList() {
         `;
     });
 
-    // Show current user if not in displayed list (for global view with top 100)
+    // Aktuellen Benutzer anzeigen wenn nicht in Liste (für globale Ansicht mit Top 100)
     if (!isCurrentUserInDisplayList && currentPlayerData && currentUserRank > 0) {
         const currentPlayerName = `${currentPlayerData.first_name || ''} ${currentPlayerData.last_name || ''}`.trim() || 'Du';
         const currentUserClubHtml = showClubName && currentPlayerData.club_name
@@ -1699,7 +1699,7 @@ function renderLeaderboardList() {
 
     container.innerHTML = html;
 
-    // Add click handlers for head-to-head modal (skill/elo tab only)
+    // Klick-Handler hinzufügens for head-to-head modal (skill/elo tab only)
     if (isH2HEnabled) {
         container.querySelectorAll('[data-player-id]').forEach(el => {
             el.addEventListener('click', () => {
@@ -1737,7 +1737,7 @@ async function loadPointsHistory() {
             const reason = entry.description || entry.reason || 'Punkte';
             const date = formatDate(entry.timestamp || entry.created_at);
 
-            // Build points display
+            // Punkte-Anzeige erstellen
             const pointsClass = points > 0 ? 'text-green-600' : points < 0 ? 'text-red-600' : 'text-gray-600';
             const pointsSign = points > 0 ? '+' : points < 0 ? '' : '±';
 
@@ -1751,7 +1751,7 @@ async function loadPointsHistory() {
             if (eloChange !== 0) {
                 const eloSign = eloChange > 0 ? '+' : '';
                 const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
-                // Check if this is a doubles match to show "Doppel-Elo"
+                // Prüfen ob Doppel-Match um "Doppel-Elo" anzuzeigen
                 const isDoubles = reason.toLowerCase().includes('doppel');
                 const eloLabel = isDoubles ? 'Doppel-Elo' : 'Elo';
                 details.push(`<span class="${eloClass}">${eloSign}${eloChange} ${eloLabel}</span>`);
@@ -1794,7 +1794,7 @@ async function loadChallenges() {
     const container = document.getElementById('challenges-list');
     if (!container) return;
 
-    // Skip if user has no club
+    // Überspringen wenn Benutzer keinen Verein hat
     if (!currentUserData.club_id) {
         container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Tritt einem Verein bei um Challenges zu sehen</p>';
         return;
@@ -1838,16 +1838,16 @@ async function loadExercises() {
     if (!container) return;
 
     try {
-        // Build query with optional sport filter
+        // Abfrage mit optionalem Sport-Filter erstellen
         let query = supabase
             .from('exercises')
             .select('*')
             .order('name');
 
-        // Filter by user's active sport if set
+        // Nach aktiver Sportart des Benutzers filtern falls gesetzt
         const activeSportId = currentUserData?.active_sport_id;
         if (activeSportId) {
-            // Show exercises that match the sport OR have no sport (global exercises)
+            // Übungen anzeigen die zur Sportart passen ODER keine Sportart haben (globale Übungen)
             query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
         }
 
@@ -1885,7 +1885,7 @@ async function loadExercises() {
 
 // --- Load Match Requests ---
 // NOTE: Match requests show ALL sports (not filtered by active sport)
-// This is intentional - user should see all pending requests regardless of sport
+// Absichtlich - Benutzer soll alle ausstehenden Anfragen sehen unabhängig von Sportart
 async function loadMatchRequests() {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
@@ -1903,7 +1903,7 @@ async function loadMatchRequests() {
         if (singlesError) throw singlesError;
 
         // Get pending DOUBLES requests where user is involved
-        // Fetch all pending doubles requests and filter in JS (Supabase or() with 4 conditions can fail)
+        // Alle ausstehenden Doppel-Anfragen abrufen und in JS filtern
         const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
             .select('*')
@@ -1916,7 +1916,7 @@ async function loadMatchRequests() {
         // Debug: Log doubles requests received
         console.log('[Doubles] All doubles requests fetched:', allDoublesRequests?.length || 0, allDoublesRequests);
 
-        // Filter doubles requests where current user is involved (using JSONB structure)
+        // Doppel-Anfragen filtern wo aktueller Benutzer beteiligt ist (JSONB-Struktur)
         const doublesRequests = (allDoublesRequests || []).filter(r => {
             const teamA = r.team_a || {};
             const teamB = r.team_b || {};
@@ -1928,7 +1928,7 @@ async function loadMatchRequests() {
             return isInvolved;
         }).slice(0, 10);
 
-        // Mark each request type
+        // Jeden Anfrage-Typ markieren
         const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
         const doubles = (doublesRequests || []).map(r => ({ ...r, _type: 'doubles' }));
 

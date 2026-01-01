@@ -65,34 +65,34 @@ function switchPlayerMatchType(type) {
     const teamEloDisplay = document.getElementById('doubles-team-elo-display');
 
     if (type === 'singles') {
-        // Update toggle buttons
+        // Toggle-Buttons aktualisieren
         singlesToggle.classList.add('active');
         doublesToggle.classList.remove('active');
 
-        // Show singles, hide doubles
+        // Einzel anzeigen, Doppel verstecken
         singlesContainer.classList.remove('hidden');
         doublesContainer.classList.add('hidden');
 
-        // Hide team Elo display
+        // Team-Elo-Anzeige verstecken
         if (teamEloDisplay) {
             teamEloDisplay.classList.add('hidden');
         }
 
-        // Clear doubles selections
+        // Doppel-Auswahlen löschen
         clearDoublesSelections();
     } else {
-        // Update toggle buttons
+        // Toggle-Buttons aktualisieren
         doublesToggle.classList.add('active');
         singlesToggle.classList.remove('active');
 
-        // Show doubles, hide singles
+        // Doppel anzeigen, Einzel verstecken
         doublesContainer.classList.remove('hidden');
         singlesContainer.classList.add('hidden');
 
-        // Clear singles selection
+        // Einzel-Auswahl löschen
         clearSinglesSelection();
 
-        // Hide handicap info when switching to doubles
+        // Handicap-Info beim Wechsel zu Doppel verstecken
         const handicapInfo = document.getElementById('match-handicap-info');
         if (handicapInfo) {
             handicapInfo.classList.add('hidden');
@@ -701,7 +701,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             return;
         }
 
-        // Get player data from playersData
+        // Spielerdaten aus playersData abrufen
         const partner = playersData.players.find(p => p.id === partnerId);
         const opponent1 = playersData.players.find(p => p.id === opponent1Id);
         const opponent2 = playersData.players.find(p => p.id === opponent2Id);
@@ -718,7 +718,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             return;
         }
 
-        // Calculate pairing IDs (sorted player IDs for consistency)
+        // Paarungs-IDs berechnen (sortierte Spieler-IDs für Konsistenz)
         const currentUserId = userData.id;
         const teamAPairingId = currentUserId < partnerId
             ? `${currentUserId}_${partnerId}`
@@ -763,14 +763,14 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             }
         }
 
-        // Display team Elo values with "Neu" indicator for new pairings
+        // Team-Elo-Werte mit "Neu"-Indikator für neue Paarungen anzeigen
         if (teamEloDisplay && teamAEloValue && teamBEloValue) {
             teamAEloValue.textContent = teamAIsNew ? `Neu (${teamAElo})` : teamAElo;
             teamBEloValue.textContent = teamBIsNew ? `Neu (${teamBElo})` : teamBElo;
             teamEloDisplay.classList.remove('hidden');
         }
 
-        // Build team objects for handicap calculation using PAIRING Elo
+        // Team-Objekte für Handicap-Berechnung mit PAARUNGS-Elo erstellen
         const teamA = {
             player1: { eloRating: teamAElo / 2 }, // Split for handicap calc formula
             player2: { eloRating: teamAElo / 2 }
@@ -781,11 +781,11 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             player2: { eloRating: teamBElo / 2 }
         };
 
-        // Calculate handicap
+        // Handicap berechnen
         const handicapResult = calculateDoublesHandicap(teamA, teamB);
 
         if (handicapResult && handicapText) {
-            // Build team names - handle both snake_case and camelCase
+            // Team-Namen erstellen - sowohl snake_case als auch camelCase
             const userFirstName = userData.first_name || userData.firstName || '';
             const userLastName = userData.last_name || userData.lastName || '';
             const partnerFirstName = partner.first_name || partner.firstName || '';
@@ -854,5 +854,5 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             lastOpponent2Id = currentOpponent2Id;
             calculateAndDisplayHandicap();
         }
-    }, 500); // Check every 500ms
+    }, 500); // Alle 500ms prüfen
 }
