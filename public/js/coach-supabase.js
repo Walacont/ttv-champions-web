@@ -469,6 +469,15 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
+    // Kalender neu laden bei Event-Änderung/Löschung
+    window.addEventListener('event-changed', () => {
+        console.log('[Coach] Event changed/deleted, reloading calendar...');
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
+    });
+
     // Bei Änderung der Spieler-Untergruppen: clubPlayers neu laden
     window.addEventListener('playerSubgroupsChanged', () => {
         console.log('[Coach] Player subgroups changed, reloading clubPlayers...');
