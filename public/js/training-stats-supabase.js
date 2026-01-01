@@ -10,10 +10,10 @@
  * @param {Object} currentUserData - Aktuelle Benutzerdaten
  */
 export function initializeTrainingStats(supabase, currentUserData) {
-    // Show loading state immediately
+    // Ladezustand sofort anzeigen
     displayLoadingState();
 
-    // Load data in background (non-blocking)
+    // Daten im Hintergrund laden (nicht blockierend)
     loadAndDisplayTrainingStats(supabase, currentUserData).catch(error => {
         console.error('[Training Stats] Error initializing:', error);
         displayError();
@@ -26,7 +26,7 @@ export function initializeTrainingStats(supabase, currentUserData) {
  */
 async function loadAndDisplayTrainingStats(supabase, currentUserData) {
     try {
-        // Get training dates for the last 12 months
+        // Trainingstermine der letzten 12 Monate abrufen
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
@@ -72,7 +72,7 @@ async function getTrainingDates(supabase, playerId, clubId, since) {
 
         if (error) throw error;
 
-        // Extract dates where player was present
+        // Termine extrahieren an denen Spieler anwesend war
         const dates = (data || [])
             .filter(record => record.present_player_ids?.includes(playerId))
             .map(record => record.date);
@@ -94,11 +94,11 @@ function calculateStatistics(trainingDates) {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Get last month
+    // Letzten Monat abrufen
     const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    // Count trainings per month
+    // Trainings pro Monat zählen
     let currentMonthCount = 0;
     let lastMonthCount = 0;
 
@@ -129,7 +129,7 @@ function calculateStatistics(trainingDates) {
         trendPercentage = 100;
     }
 
-    // Calculate weekly average (last 4 weeks)
+    // Wöchentlichen Durchschnitt berechnen (letzte 4 Wochen)
     const fourWeeksAgo = new Date();
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
@@ -152,13 +152,13 @@ function calculateStatistics(trainingDates) {
  * @param {Object} stats - Statistik-Objekt
  */
 function updateStatsUI(stats) {
-    // Current month count
+    // Aktueller Monat Anzahl
     const currentMonthEl = document.getElementById('stats-current-month');
     if (currentMonthEl) {
         currentMonthEl.textContent = stats.currentMonthCount;
     }
 
-    // Last month count
+    // Letzter Monat Anzahl
     const lastMonthEl = document.getElementById('stats-last-month');
     if (lastMonthEl) {
         lastMonthEl.textContent = stats.lastMonthCount;
@@ -205,13 +205,13 @@ function drawHeatmap(trainingDates) {
     const container = document.getElementById('training-heatmap');
     if (!container) return;
 
-    // Clear previous content
+    // Vorherigen Inhalt löschen
     container.innerHTML = '';
 
-    // Create date map for quick lookup
+    // Datum-Map für schnellen Lookup erstellen
     const dateMap = new Set(trainingDates);
 
-    // Calculate date range (last 52 weeks)
+    // Datumsbereich berechnen (letzte 52 Wochen)
     const now = new Date();
     const startDate = new Date(now);
     startDate.setDate(startDate.getDate() - 52 * 7); // 52 weeks ago
@@ -221,7 +221,7 @@ function drawHeatmap(trainingDates) {
         startDate.setDate(startDate.getDate() - 1);
     }
 
-    // Build heatmap data
+    // Heatmap-Daten erstellen
     const weeks = [];
     let currentWeek = [];
     const currentDate = new Date(startDate);
@@ -236,7 +236,7 @@ function drawHeatmap(trainingDates) {
             dayOfWeek: currentDate.getDay(),
         });
 
-        // Start new week on Sunday
+        // Neue Woche am Sonntag beginnen
         if (currentDate.getDay() === 6) {
             weeks.push(currentWeek);
             currentWeek = [];
@@ -245,7 +245,7 @@ function drawHeatmap(trainingDates) {
         currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Add remaining days
+    // Verbleibende Tage hinzufügen
     if (currentWeek.length > 0) {
         weeks.push(currentWeek);
     }
@@ -274,7 +274,7 @@ function drawHeatmap(trainingDates) {
             rect.setAttribute('height', cellSize);
             rect.setAttribute('rx', 2);
 
-            // Color based on training
+            // Farbe basierend auf Training
             if (day.hasTraining) {
                 rect.setAttribute('fill', '#10b981'); // green-500
                 rect.setAttribute('class', 'hover:opacity-80 cursor-pointer');
@@ -292,7 +292,7 @@ function drawHeatmap(trainingDates) {
         });
     });
 
-    // Add month labels
+    // Monatsbeschriftungen hinzufügen
     const monthLabels = [
         'Jan',
         'Feb',

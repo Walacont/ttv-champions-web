@@ -400,10 +400,10 @@ function switchSportFilter(sportId) {
         }
     }
 
-    // Reload data with new filter
+    // Daten mit neuem Filter neu laden
     loadStatistics();
     loadAllExercises();
-    loadClubsAndPlayers(); // Reload club overview with new filter
+    loadClubsAndPlayers(); // Vereinsübersicht mit neuem Filter neu laden
 }
 
 function getSportIcon(sportName) {
@@ -460,7 +460,7 @@ function setupClubSearchListeners() {
         });
     }
 
-    // Sport selection change - check if sport already exists
+    // Sportart-Auswahl geändert - prüfen ob Sportart bereits existiert
     if (sportSelect) {
         sportSelect.addEventListener('change', () => {
             checkExistingSport();
@@ -638,7 +638,7 @@ async function handleInviteCoach(e) {
         let isNewClub = false;
 
         if (selectedClubId) {
-            // Use selected existing club
+            // Ausgewählten existierenden Verein verwenden
             clubId = selectedClubId;
         } else {
             // Prüfen ob Verein mit diesem Namen bereits existiert (Sicherheitsprüfung)
@@ -765,7 +765,7 @@ async function handleInviteCoach(e) {
         document.getElementById('new-club-info').classList.add('hidden');
         document.getElementById('existing-sport-warning').classList.add('hidden');
 
-        // Reload clubs list to show updates
+        // Vereinsliste neu laden um Updates zu zeigen
         await loadSportsAndClubs();
         loadClubsAndPlayers();
 
@@ -968,7 +968,7 @@ async function loadStatistics() {
         // Benutzer laden (Test-Vereine ausgeschlossen, gefiltert nach Sportart)
         let usersQuery = supabase.from('profiles').select('*');
 
-        // Apply sport filter directly on profiles (single sport model)
+        // Sport-Filter direkt auf Profile anwenden (Single-Sport-Modell)
         if (currentSportFilter !== 'all') {
             usersQuery = usersQuery.eq('active_sport_id', currentSportFilter);
         }
@@ -1441,7 +1441,7 @@ async function loadClubsAndPlayers() {
             clubSportsMap.get(cs.club_id).push(cs.sports);
         });
 
-        // Single sport model: create profile sports map from profiles.active_sport_id and profiles.role
+        // Single-Sport-Modell: Profile-Sports-Map aus active_sport_id und role erstellen
         const profileSportsMap = new Map();
         (users || []).forEach(u => {
             if (u.club_id && u.active_sport_id) {
@@ -1479,7 +1479,7 @@ async function loadClubsAndPlayers() {
 }
 
 function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap, sportFilter = 'all') {
-    // Group users by club
+    // Benutzer nach Verein gruppieren
     const usersByClub = users.reduce((acc, user) => {
         if (user.club_id) {
             if (!acc[user.club_id]) {
@@ -1509,7 +1509,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         // Vereine nach Sportart filtern falls ausgewählt
         if (sportFilter !== 'all') {
             const hasSport = clubSports.some(sport => sport.id === sportFilter);
-            if (!hasSport) continue; // Skip clubs that don't offer the selected sport
+            if (!hasSport) continue; // Vereine überspringen die ausgewählte Sportart nicht anbieten
         }
 
         // Alle Vereine anzeigen - nicht überspringen außer nach Sportart gefiltert
@@ -1521,7 +1521,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         // Mitgliederzahl basierend auf Sport-Filter berechnen
         let memberCountText = '';
         if (sportFilter !== 'all') {
-            // Count users who have the filtered sport
+            // Benutzer zählen die gefilterte Sportart haben
             const filteredUserCount = clubUsers.filter(user => {
                 const profileKey = `${user.id}_${clubId}`;
                 const sportRoles = profileSportsMap.get(profileKey) || [];
@@ -1840,7 +1840,7 @@ async function handleCreateExercise(e) {
     try {
         let imageUrl = null;
 
-        // Upload image to Supabase Storage if provided
+        // Bild in Supabase Storage hochladen falls angegeben
         if (file) {
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -2007,7 +2007,7 @@ function renderExercises(exercises) {
         card.dataset.id = exercise.id;
         card.dataset.title = exercise.title;
 
-        // Support both old and new format
+        // Sowohl altes als auch neues Format unterstützen
         if (exercise.description_content) {
             card.dataset.descriptionContent = exercise.description_content;
         } else {
@@ -2084,7 +2084,7 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
             // Bild aus Storage löschen falls vorhanden
             if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
                 try {
-                    // Extract file path from URL
+                    // Dateipfad aus URL extrahieren
                     const url = new URL(imageUrl);
                     const pathParts = url.pathname.split('/');
                     const filePath = pathParts.slice(pathParts.indexOf('exercises')).join('/');
@@ -2132,7 +2132,7 @@ async function loadSeasons() {
             return;
         }
 
-        // Group seasons by sport
+        // Saisonen nach Sportart gruppieren
         const seasonsBySport = {};
         seasons.forEach(season => {
             const sportId = season.sport_id;
@@ -2353,10 +2353,10 @@ async function handleStartNewSeason(e) {
         // Formular zurücksetzen
         document.getElementById('season-sport').value = '';
 
-        // Reload seasons list
+        // Saisonliste neu laden
         await loadSeasons();
 
-        // Reload statistics to show updated points
+        // Statistiken neu laden um aktualisierte Punkte zu zeigen
         loadStatistics();
 
     } catch (error) {
@@ -2369,7 +2369,7 @@ async function handleStartNewSeason(e) {
     }
 }
 
-// End season early
+// Saison vorzeitig beenden
 async function handleEndSeason(seasonId, seasonName) {
     const confirmed = confirm(
         `Saison "${seasonName}" vorzeitig beenden?\n\n` +
@@ -2387,7 +2387,7 @@ async function handleEndSeason(seasonId, seasonName) {
             .eq('id', seasonId)
             .single();
 
-        // End season using RPC function (handles constraints properly)
+        // Saison mit RPC-Funktion beenden (behandelt Constraints korrekt)
         const { error } = await supabase.rpc('end_season', {
             p_season_id: seasonId
         });
@@ -2406,7 +2406,7 @@ async function handleEndSeason(seasonId, seasonName) {
 
         alert(`Saison "${seasonName}" wurde beendet.`);
 
-        // Reload seasons list
+        // Saisonliste neu laden
         await loadSeasons();
 
     } catch (error) {
@@ -2415,7 +2415,7 @@ async function handleEndSeason(seasonId, seasonName) {
     }
 }
 
-// Make handleEndSeason available globally for onclick
+// handleEndSeason global für onclick verfügbar machen
 window.handleEndSeason = handleEndSeason;
 
 // ============================================
@@ -2658,7 +2658,7 @@ function getTimeAgo(date) {
 }
 
 async function populateAuditFilters() {
-    // Populate club filter
+    // Vereins-Filter befüllen
     const clubFilter = document.getElementById('audit-filter-club');
     if (clubFilter && allClubs.length > 0) {
         clubFilter.innerHTML = '<option value="">Alle Vereine</option>';
@@ -2670,7 +2670,7 @@ async function populateAuditFilters() {
         });
     }
 
-    // Populate sport filter
+    // Sport-Filter befüllen
     const sportFilter = document.getElementById('audit-filter-sport');
     if (sportFilter && allSports.length > 0) {
         sportFilter.innerHTML = '<option value="">Alle Sportarten</option>';

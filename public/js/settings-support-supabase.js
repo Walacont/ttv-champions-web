@@ -17,7 +17,7 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
+        // Benutzerprofil von Supabase abrufen
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')

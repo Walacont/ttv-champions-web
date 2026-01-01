@@ -489,7 +489,7 @@ function setupPullToRefresh() {
     // Touch start
     feedContainer.addEventListener('touchstart', (e) => {
         if (isRefreshing) return;
-        if (getScrollTop() > 5) return; // Only trigger at top
+        if (getScrollTop() > 5) return; // Nur oben auslösen
 
         startY = e.touches[0].clientY;
         isPulling = true;
@@ -512,7 +512,7 @@ function setupPullToRefresh() {
             ptrIndicator.style.height = `${pullDistance}px`;
             ptrIndicator.style.opacity = progress;
 
-            // Rotate arrow icon based on progress
+            // Pfeil-Icon basierend auf Fortschritt rotieren
             if (pullDistance >= pullThreshold) {
                 ptrIcon.style.transform = 'rotate(180deg)';
                 ptrIcon.className = 'fas fa-arrow-up text-indigo-600 text-lg mb-1 transition-transform duration-200';
@@ -541,7 +541,7 @@ function setupPullToRefresh() {
             ptrIndicator.style.height = '60px';
 
             try {
-                // Reload activity feed
+                // Aktivitäts-Feed neu laden
                 await loadActivityFeed();
             } finally {
                 // Indikator ausblenden
@@ -587,7 +587,7 @@ async function loadMatchMediaForActivities(activities) {
         await checkMatchMediaAvailability();
     }
 
-    // Skip if functions aren't available
+    // Überspringen wenn Funktionen nicht verfügbar
     if (!matchMediaFunctionsAvailable) {
         return;
     }
@@ -615,7 +615,7 @@ export async function loadActivityFeed() {
     pendingActivitiesCache = []; // Gecachte Aktivitäten löschen
     typeOffsets = { singles: 0, doubles: 0, events: 0, posts: 0, polls: 0 }; // Typ-spezifische Offsets zurücksetzen
 
-    // Only show loading indicator if NOT triggered by pull-to-refresh
+    // Ladeindikator nur anzeigen wenn NICHT durch Pull-to-Refresh ausgelöst
     // (pull-to-refresh has its own indicator)
     if (!isRefreshing) {
         container.innerHTML = `
@@ -642,7 +642,7 @@ export async function loadActivityFeed() {
             return;
         }
 
-        // Cache for pagination
+        // Cache für Paginierung
         followingIdsCache = userIds;
 
         // Ersten Batch laden
@@ -781,7 +781,7 @@ async function fetchActivities(userIds) {
     let allActivities = [...pendingActivitiesCache];
     pendingActivitiesCache = []; // Cache leeren
 
-    // Only fetch more if we need more activities
+    // Nur mehr abrufen wenn mehr Aktivitäten benötigt
     const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
     if (needToFetch) {

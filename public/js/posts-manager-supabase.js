@@ -134,7 +134,7 @@ function switchPostType(type) {
         textPostForm?.classList.remove('hidden');
         pollForm?.classList.add('hidden');
 
-        // Update toggle buttons
+        // Toggle-Buttons aktualisieren
         postTypeTextBtn?.classList.add('bg-indigo-600', 'text-white');
         postTypeTextBtn?.classList.remove('text-gray-600');
         postTypePollBtn?.classList.remove('bg-indigo-600', 'text-white');
@@ -144,7 +144,7 @@ function switchPostType(type) {
         textPostForm?.classList.add('hidden');
         pollForm?.classList.remove('hidden');
 
-        // Update toggle buttons
+        // Toggle-Buttons aktualisieren
         postTypePollBtn?.classList.add('bg-indigo-600', 'text-white');
         postTypePollBtn?.classList.remove('text-gray-600');
         postTypeTextBtn?.classList.remove('bg-indigo-600', 'text-white');
@@ -160,7 +160,7 @@ function handleImagesSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    // Check total limit (max 10 images)
+    // Gesamtlimit prüfen (max 10 Bilder)
     if (selectedImageFiles.length + files.length > 10) {
         showFeedback(postFormFeedback, 'error', 'Maximal 10 Bilder erlaubt.');
         return;
@@ -168,13 +168,13 @@ function handleImagesSelect(e) {
 
     // Jede Datei validieren
     for (const file of files) {
-        // Validate file size (5MB max)
+        // Dateigröße validieren (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             showFeedback(postFormFeedback, 'error', `${file.name} ist zu groß. Max. 5MB erlaubt.`);
             continue;
         }
 
-        // Validate file type
+        // Dateityp validieren
         if (!file.type.startsWith('image/')) {
             showFeedback(postFormFeedback, 'error', `${file.name} ist kein Bild.`);
             continue;
@@ -186,7 +186,7 @@ function handleImagesSelect(e) {
     // Update preview
     updateImagePreviews();
 
-    // Clear input to allow selecting same files again
+    // Eingabe leeren um gleiche Dateien erneut auswählen zu können
     postImageInput.value = '';
 }
 
@@ -267,7 +267,7 @@ function addPollOption() {
         </button>
     `;
 
-    // Add remove button handler
+    // Entfernen-Button-Handler hinzufügen
     const removeBtn = newOption.querySelector('.remove-poll-option');
     removeBtn.addEventListener('click', () => {
         newOption.remove();
@@ -308,7 +308,7 @@ async function handleTextPostSubmit(e) {
     try {
         showFeedback(postFormFeedback, 'loading', 'Beitrag wird erstellt...');
 
-        // Get current user
+        // Aktuellen Benutzer abrufen
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             showFeedback(postFormFeedback, 'error', 'Du musst angemeldet sein.');
@@ -324,7 +324,7 @@ async function handleTextPostSubmit(e) {
 
         let imageUrls = [];
 
-        // Upload images if selected
+        // Bilder hochladen falls ausgewählt
         if (selectedImageFiles.length > 0) {
             showFeedback(postFormFeedback, 'loading', `Lade ${selectedImageFiles.length} Bild(er) hoch...`);
 
@@ -375,10 +375,10 @@ async function handleTextPostSubmit(e) {
 
         showFeedback(postFormFeedback, 'success', 'Beitrag erfolgreich erstellt!');
 
-        // Close modal after a short delay
+        // Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
             closeCreatePostModal();
-            // Refresh activity feed
+            // Aktivitäts-Feed aktualisieren
             if (window.loadActivities) {
                 window.loadActivities(true);
             }
@@ -403,7 +403,7 @@ async function handlePollSubmit(e) {
     const allowMultiple = document.getElementById('poll-multiple-choice')?.checked || false;
     const isAnonymous = document.getElementById('poll-anonymous')?.checked !== false; // Standard ist true
 
-    // Get poll options
+    // Umfrage-Optionen abrufen
     const optionInputs = pollOptionsContainer.querySelectorAll('.poll-option-input');
     const options = [];
 
@@ -432,7 +432,7 @@ async function handlePollSubmit(e) {
     try {
         showFeedback(pollFormFeedback, 'loading', 'Umfrage wird erstellt...');
 
-        // Get current user
+        // Aktuellen Benutzer abrufen
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             showFeedback(pollFormFeedback, 'error', 'Du musst angemeldet sein.');
@@ -446,7 +446,7 @@ async function handlePollSubmit(e) {
             .eq('id', user.id)
             .single();
 
-        // Calculate end date
+        // Enddatum berechnen
         const endsAt = new Date();
         endsAt.setDate(endsAt.getDate() + durationDays);
 
@@ -475,10 +475,10 @@ async function handlePollSubmit(e) {
 
         showFeedback(pollFormFeedback, 'success', 'Umfrage erfolgreich erstellt!');
 
-        // Close modal after a short delay
+        // Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
             closeCreatePostModal();
-            // Refresh activity feed
+            // Aktivitäts-Feed aktualisieren
             if (window.loadActivities) {
                 window.loadActivities(true);
             }

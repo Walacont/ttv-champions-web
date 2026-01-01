@@ -983,7 +983,7 @@ async function loadRivalData() {
 
         updateRivalDisplay(players || [], rivalSkillEl, rivalEffortEl);
 
-        // Set up real-time subscription for rival updates
+        // Echtzeit-Subscription für Rivalen-Updates einrichten
         const channel = supabase
             .channel('rival-updates')
             .on('postgres_changes', {
@@ -1060,7 +1060,7 @@ async function loadLeaderboards() {
     const container = document.getElementById('leaderboard-content-wrapper');
     if (!container) return;
 
-    // Set default scope to 'global' if user has no club
+    // Standard-Bereich auf 'global' setzen wenn Benutzer keinen Verein hat
     if (!currentUserData.club_id) {
         currentLeaderboardScope = 'global';
     }
@@ -1420,9 +1420,9 @@ async function fetchLeaderboardData() {
         // Load test club IDs for filtering (cache them for renderLeaderboardList)
         await loadTestClubIds();
 
-        // Get users in the current sport for multi-sport filtering
+        // Benutzer der aktuellen Sportart für Multi-Sport-Filter abrufen
         const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
-        // Use sport from context, falling back to profile's active_sport_id
+        // Sport aus Kontext verwenden, Fallback auf active_sport_id des Profils
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
         console.log('[Leaderboard] Using sport ID:', sportId, '(from context:', !!currentSportContext?.sportId, ', from profile:', !!currentUserData.active_sport_id, ')');
 
@@ -1891,7 +1891,7 @@ async function loadMatchRequests() {
     if (!container) return;
 
     try {
-        // Get pending SINGLES requests where user is involved
+        // Ausstehende EINZEL-Anfragen abrufen wo Benutzer beteiligt
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
             .select('*')
@@ -1902,7 +1902,7 @@ async function loadMatchRequests() {
 
         if (singlesError) throw singlesError;
 
-        // Get pending DOUBLES requests where user is involved
+        // Ausstehende DOPPEL-Anfragen abrufen wo Benutzer beteiligt
         // Alle ausstehenden Doppel-Anfragen abrufen und in JS filtern
         const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
@@ -1942,7 +1942,7 @@ async function loadMatchRequests() {
             return;
         }
 
-        // Get unique user IDs to fetch profiles with club info
+        // Eindeutige Benutzer-IDs abrufen um Profile mit Vereinsinfo zu laden
         const userIds = [...new Set(allRequests.flatMap(r => {
             if (r._type === 'singles') {
                 return [r.player_a_id, r.player_b_id];
@@ -1962,7 +1962,7 @@ async function loadMatchRequests() {
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
-        // Get club names
+        // Vereinsnamen abrufen
         const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
         const { data: clubs } = clubIds.length > 0
             ? await supabase.from('clubs').select('id, name').in('id', clubIds)
@@ -2078,7 +2078,7 @@ function renderDoublesRequestCard(req, profileMap) {
     // Determine which team the current user is on
     const isTeamA = teamA.player1_id === currentUser.id || teamA.player2_id === currentUser.id;
 
-    // Get player names
+    // Spielernamen abrufen
     const teamAPlayer1 = profileMap[teamA.player1_id];
     const teamAPlayer2 = profileMap[teamA.player2_id];
     const teamBPlayer1 = profileMap[teamB.player1_id];
@@ -2173,7 +2173,7 @@ async function loadCalendar() {
                         'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
     if (monthYearEl) monthYearEl.textContent = `${monthNames[month]} ${year}`;
 
-    // Get first and last day of month
+    // Ersten und letzten Tag des Monats abrufen
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
@@ -2244,7 +2244,7 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Get user's active sport from profile (single sport model)
+        // Aktive Sportart des Benutzers aus Profil abrufen (Single-Sport-Modell)
         let userSportId = cachedUserSportId;
         if (!userSportId && currentUserData?.active_sport_id) {
             userSportId = currentUserData.active_sport_id;
@@ -2680,7 +2680,7 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'profiles'
         }, (payload) => {
-            // Only reload if Elo changed (to avoid unnecessary reloads)
+            // Nur neu laden wenn Elo geändert (um unnötige Reloads zu vermeiden)
             if (payload.old?.elo_rating !== payload.new?.elo_rating) {
                 console.log('[Realtime] Elo rating changed, updating leaderboard');
                 loadLeaderboards();
@@ -2882,7 +2882,7 @@ window.openExerciseModal = async (exerciseId) => {
             return;
         }
 
-        // Set title
+        // Titel setzen
         const titleEl = document.getElementById('modal-exercise-title');
         if (titleEl) titleEl.textContent = exercise.name || exercise.title || '';
 
@@ -3099,15 +3099,15 @@ window.openChallengeModal = async (challengeId) => {
             return;
         }
 
-        // Set title
+        // Titel setzen
         const titleEl = document.getElementById('modal-challenge-title');
         if (titleEl) titleEl.textContent = challenge.name || '';
 
-        // Set description
+        // Beschreibung setzen
         const descriptionEl = document.getElementById('modal-challenge-description');
         if (descriptionEl) descriptionEl.textContent = challenge.description || '';
 
-        // Set points
+        // Punkte setzen
         const pointsEl = document.getElementById('modal-challenge-points');
         if (pointsEl) pointsEl.textContent = `+${challenge.xp_reward || 0} XP`;
 
@@ -3257,7 +3257,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // Create the actual match (always auto-approved now)
         await createMatchFromRequest(request);
 
-        // Don't call loadMatchRequests() immediately - the optimistic UI update already
+        // loadMatchRequests() nicht sofort aufrufen - optimistisches UI-Update bereits
         // removed the card, and calling loadMatchRequests() too soon can cause a race
         // condition where the card reappears briefly before the animation completes.
         // The realtime subscription will handle any further updates.
@@ -3450,10 +3450,10 @@ async function createMatchFromRequest(request) {
             console.warn('[Match] Error checking for duplicates:', checkError);
         } else if (existingMatches && existingMatches.length > 0) {
             console.warn('[Match] DUPLICATE PREVENTED: Match already exists from last 60 seconds', existingMatches);
-            return; // Don't create duplicate
+            return; // Kein Duplikat erstellen
         }
 
-        // Get club_id from request, or from current user's profile if available
+        // club_id aus Anfrage abrufen, oder aus Profil des Benutzers falls verfügbar
         let clubId = request.club_id || null;
         if (!clubId) {
             // Try to get from player profiles (optional - players may not have a club)
@@ -3479,7 +3479,7 @@ async function createMatchFromRequest(request) {
             played_at: new Date().toISOString()
         };
 
-        // Only add club_id if it exists
+        // club_id nur hinzufügen wenn vorhanden
         if (clubId) {
             matchData.club_id = clubId;
         }
@@ -3544,7 +3544,7 @@ async function loadPendingRequests() {
             return;
         }
 
-        // Get all user IDs for profiles
+        // Alle Benutzer-IDs für Profile abrufen
         const userIds = [...new Set(allRequests.flatMap(r => {
             if (r._type === 'singles') {
                 return [r.player_a_id, r.player_b_id];
@@ -3562,7 +3562,7 @@ async function loadPendingRequests() {
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
-        // Get club names
+        // Vereinsnamen abrufen
         const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
         const { data: clubs } = clubIds.length > 0
             ? await supabase.from('clubs').select('id, name').in('id', clubIds)
@@ -3674,7 +3674,7 @@ function renderPendingDoublesCard(req, profileMap) {
     const isTeamA = teamA.player1_id === currentUser.id || teamA.player2_id === currentUser.id;
     const isInitiator = teamA.player1_id === currentUser.id;
 
-    // Get player names
+    // Spielernamen abrufen
     const teamAPlayer1 = profileMap[teamA.player1_id];
     const teamAPlayer2 = profileMap[teamA.player2_id];
     const teamBPlayer1 = profileMap[teamB.player1_id];
@@ -3785,7 +3785,7 @@ async function loadMatchSuggestions() {
     container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
 
     try {
-        // Get potential opponents
+        // Potenzielle Gegner abrufen
         let query = supabase
             .from('profiles')
             .select('id, display_name, first_name, avatar_url, elo_rating')
@@ -3961,7 +3961,7 @@ async function loadMatchSuggestions() {
 
 // Quick select opponent from suggestions
 window.quickSelectOpponent = function(playerId, playerName, playerElo) {
-    // Set the opponent in the match request form
+    // Gegner im Match-Anfrage-Formular setzen
     selectedOpponent = { id: playerId, name: playerName, elo: playerElo };
     document.getElementById('selected-opponent-id').value = playerId;
     document.getElementById('selected-opponent-elo').value = playerElo;

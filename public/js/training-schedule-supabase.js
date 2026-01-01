@@ -500,7 +500,7 @@ export async function deleteTrainingSession(sessionId) {
                         `[Delete Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
                     );
 
-                    // Get current player data
+                    // Aktuelle Spielerdaten abrufen
                     const { data: playerData } = await supabaseClient
                         .from('profiles')
                         .select('points, xp')
