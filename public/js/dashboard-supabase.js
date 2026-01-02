@@ -954,24 +954,24 @@ async function loadRivalData() {
             .select('id, first_name, last_name, avatar_url, elo_rating, xp, club_id')
             .in('role', ['player', 'coach', 'head_coach']);
 
-        // Apply sport filter
+        // Sportfilter anwenden
         if (sportId) {
             query = query.eq('active_sport_id', sportId);
             console.log('[DASHBOARD] Rival filter: filtering by sport:', sportId);
         }
 
-        // Apply club/subgroup filter
+        // Vereins-/Untergruppenfilter anwenden
         if (currentSubgroupFilter === 'club' && effectiveClubId) {
             query = query.eq('club_id', effectiveClubId);
         } else if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
-            // Custom subgroup filter - filter by subgroup_ids array
+            // Benutzerdefinierter Untergruppenfilter - nach subgroup_ids Array filtern
             const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
             if (effectiveClubId) {
                 query = query.eq('club_id', effectiveClubId);
             }
             query = query.contains('subgroup_ids', [subgroupId]);
         } else if (currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
-            // Age group filter - apply club filter, age filtering done later
+            // Altersgruppen-Filter - Vereinsfilter anwenden, Altersfilterung später
             if (effectiveClubId) {
                 query = query.eq('club_id', effectiveClubId);
             }
@@ -991,7 +991,7 @@ async function loadRivalData() {
                 schema: 'public',
                 table: 'profiles'
             }, () => {
-                // Reload rival data on any profile change
+                // Rivalen-Daten bei jeder Profiländerung neu laden
                 loadRivalData();
             })
             .subscribe();
@@ -1169,7 +1169,7 @@ async function loadLeaderboards() {
     // Tab-Listener einrichten
     document.querySelectorAll('.lb-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            // Support both old (lb-tab-*) and new (tab-*) ID formats
+            // Alte (lb-tab-*) und neue (tab-*) ID-Formate unterstützen
             const tab = btn.getAttribute('data-tab') || btn.id.replace('lb-tab-', '').replace('tab-', '');
             currentLeaderboardTab = tab;
             updateLeaderboardTabs();
@@ -1198,13 +1198,13 @@ async function loadLeaderboards() {
     // Doppel-Rangliste laden
     loadDoublesLeaderboardTab();
 
-    // Apply leaderboard preferences (show/hide tabs based on settings)
+    // Ranglisten-Einstellungen anwenden (Tabs je nach Einstellungen ein-/ausblenden)
     applyPreferences();
 }
 
 function updateLeaderboardTabs() {
     document.querySelectorAll('.lb-tab-btn').forEach(btn => {
-        // Support both old (lb-tab-*) and new (tab-*) ID formats
+        // Alte (lb-tab-*) und neue (tab-*) ID-Formate unterstützen
         const tab = btn.getAttribute('data-tab') || btn.id.replace('lb-tab-', '').replace('tab-', '');
         if (tab === currentLeaderboardTab) {
             btn.classList.add('border-indigo-500', 'text-indigo-600');
@@ -1229,7 +1229,7 @@ function updateLeaderboardScope() {
     });
 }
 
-// Switch between different leaderboard content views
+// Zwischen verschiedenen Ranglisten-Inhaltsansichten wechseln
 function updateLeaderboardContent() {
     const scopeToggle = document.getElementById('lb-scope-club')?.parentElement;
 
@@ -1273,7 +1273,7 @@ function updateLeaderboardContent() {
     } else if (currentLeaderboardTab === 'doubles') {
         const doublesList = document.getElementById('doubles-list');
         if (doublesList) doublesList.classList.remove('hidden');
-        // Reload doubles leaderboard with current scope
+        // Doppel-Rangliste mit aktuellem Scope neu laden
         loadDoublesLeaderboardTab();
     } else {
         // Ranglisten-Inhalt rendern (Fleiß, Saison, Skill)
@@ -1294,7 +1294,7 @@ async function loadDoublesLeaderboardTab() {
             .limit(1);
 
         if (error && error.message.includes('does not exist')) {
-            // Table doesn't exist - show helpful message
+            // Tabelle existiert nicht - hilfreiche Nachricht anzeigen
             container.innerHTML = `
                 <div class="text-center py-8">
                     <p class="text-4xl mb-2">🏓</p>
@@ -1337,7 +1337,7 @@ function renderRanksList() {
 
     let players = leaderboardCache[currentLeaderboardScope] || leaderboardCache.global || [];
 
-    // Apply following filter if selected (includes current user)
+    // Folge-Filter anwenden falls ausgewählt (inkl. aktueller Benutzer)
     if (currentSubgroupFilter === 'following') {
         if (followingIdsCache && followingIdsCache.length > 0) {
             players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
@@ -1362,7 +1362,7 @@ function renderRanksList() {
         return;
     }
 
-    // Group players by rank using the imported function
+    // Spieler nach Rang gruppieren mit importierter Funktion
     const grouped = groupPlayersByRank(players.map(p => ({
         ...p,
         eloRating: p.elo_rating,
@@ -1483,7 +1483,7 @@ async function fetchLeaderboardData() {
 }
 
 function renderLeaderboardList() {
-    // Map tab names to container IDs
+    // Tab-Namen zu Container-IDs mappen
     const containerMap = {
         'xp': 'leaderboard-list-effort',
         'effort': 'leaderboard-list-effort',
@@ -1501,14 +1501,14 @@ function renderLeaderboardList() {
 
     let players = leaderboardCache[currentLeaderboardScope] || [];
 
-    // Apply scope/subgroup filter from Ansicht dropdown
-    // Values can be: 'club', 'global', 'following', or 'subgroup:xxx'
+    // Scope-/Untergruppenfilter vom Ansicht-Dropdown anwenden
+    // Werte können sein: 'club', 'global', 'following', oder 'subgroup:xxx'
     if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
-        // Apply custom subgroup filter
+        // Benutzerdefinierten Untergruppenfilter anwenden
         const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
         players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(subgroupId));
     } else if (currentSubgroupFilter === 'following') {
-        // Apply following filter - show players the user follows AND the user themselves
+        // Folge-Filter anwenden - gefolgten Spielern UND sich selbst anzeigen
         if (followingIdsCache && followingIdsCache.length > 0) {
             players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
         } else {
@@ -2011,7 +2011,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     const otherPlayer = profileMap[otherPlayerId];
     const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
 
-    // Club info - only show if different club
+    // Vereins-Info - nur anzeigen wenn anderer Verein
     const otherPlayerClubId = otherPlayer?.club_id;
     const myClubId = currentUserData?.club_id;
     const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
@@ -2204,7 +2204,7 @@ async function loadCalendar() {
         html += '<div></div>';
     }
 
-    // Days of month
+    // Tage des Monats
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isPresent = attendanceDates.includes(dateStr);
@@ -2556,7 +2556,7 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(matchRequestDeleteSub);
 
     // Doppel-Match-Anfragen abonnieren - alle Events für jede Anfrage
-    // Since we filter client-side anyway, subscribe to all changes
+    // Da wir sowieso clientseitig filtern, alle Änderungen abonnieren
     const doublesRequestSub = supabase
         .channel('doubles_match_requests_updates')
         .on('postgres_changes', {
@@ -2846,7 +2846,7 @@ function setupModalHandlers() {
         }
     });
 
-    // Abbreviations toggle
+    // Abkürzungen-Toggle
     const toggleAbbreviations = document.getElementById('toggle-abbreviations');
     const abbreviationsContent = document.getElementById('abbreviations-content');
     const abbreviationsIcon = document.getElementById('abbreviations-icon');
@@ -3398,7 +3398,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
 
         if (error) throw error;
 
-        // Delete notifications for Team B players
+        // Benachrichtigungen für Team B Spieler löschen
         if (request?.team_b) {
             const teamB = request.team_b;
             const teamBPlayerIds = [teamB.player1_id, teamB.player2_id].filter(Boolean);
@@ -3609,7 +3609,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const otherPlayerName = otherPlayer?.display_name ||
         `${otherPlayer?.first_name || ''} ${otherPlayer?.last_name || ''}`.trim() || 'Unbekannt';
 
-    // Club info
+    // Vereins-Info
     const otherPlayerClubId = otherPlayer?.club_id;
     const myClubId = currentUserData?.club_id;
     const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
@@ -3892,7 +3892,7 @@ async function loadMatchSuggestions() {
             return b.daysSinceLastMatch - a.daysSinceLastMatch;
         });
 
-        // Take top 5
+        // Top 5 nehmen
         const top5 = suggestions.slice(0, 5);
 
         if (top5.length === 0) {
@@ -3919,7 +3919,7 @@ async function loadMatchSuggestions() {
                 lastMatchText = `<span class="text-orange-600">Vor ${months} Monat${months > 1 ? 'en' : ''}</span>`;
             }
 
-            // Handicap info
+            // Handicap-Info
             let handicapHtml = '';
             if (player.eloHandicap > 0 || player.h2hHandicap > 0) {
                 const parts = [];

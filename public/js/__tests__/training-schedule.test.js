@@ -211,7 +211,7 @@ describe('Date Format Validation', () => {
         describe('Edge Cases - Format Only (no semantic validation)', () => {
             // Hinweis: isValidDateFormat prüft nur Format, nicht ob Datum existiert
             test('should accept format even for non-existent dates (2024-02-30)', () => {
-                // This is format-only validation - 02-30 matches pattern
+                // Dies ist nur Format-Validierung - 02-30 passt zum Muster
                 expect(isValidDateFormat('2024-02-30')).toBe(true);
             });
 
@@ -324,7 +324,7 @@ describe('Time Range Overlap Detection', () => {
             });
 
             test('should handle different subgroups by overlap logic alone', () => {
-                // Same time, same overlap - subgroup filtering is done elsewhere
+                // Gleiche Zeit, gleiche Überlappung - Untergruppen-Filterung erfolgt anderswo
                 expect(timeRangesOverlap('16:00', '18:00', '16:00', '18:00')).toBe(true);
             });
         });
@@ -576,7 +576,7 @@ describe('Integration Scenarios', () => {
             // Sollte 7 Tage haben
             expect(dates).toHaveLength(7);
 
-            // Each date should be valid format
+            // Jedes Datum sollte gültiges Format haben
             dates.forEach(date => {
                 expect(isValidDateFormat(date)).toBe(true);
             });
@@ -590,7 +590,7 @@ describe('Integration Scenarios', () => {
         });
 
         test('should allow back-to-back trainings for different subgroups', () => {
-            // First training ends exactly when second starts
+            // Erstes Training endet genau wenn zweites beginnt
             const training1End = '17:30';
             const training2Start = '17:30';
 

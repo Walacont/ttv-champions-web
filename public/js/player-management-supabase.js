@@ -9,7 +9,7 @@ import {
 } from './player-invitation-management-supabase.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
-// Keep track of the current Grundlagen listener to avoid duplicates
+// Aktuellen Grundlagen-Listener verfolgen um Duplikate zu vermeiden
 let currentGrundlagenListener = null;
 
 // Module-level storage for refresh functionality
@@ -169,7 +169,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     const birthdateYear = document.getElementById('offline-birthdate-year')?.value || '';
     const gender = document.getElementById('offline-gender')?.value || '';
 
-    // Combine birthdate into YYYY-MM-DD format if all fields are filled
+    // Geburtsdatum in YYYY-MM-DD Format kombinieren wenn alle Felder gefüllt
     let birthdate = null;
     if (birthdateDay && birthdateMonth && birthdateYear) {
         const paddedDay = birthdateDay.toString().padStart(2, '0');
@@ -178,12 +178,12 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     }
 
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
-    // Include both checked and disabled checkboxes (disabled = Hauptgruppe, always included)
+    // Aktivierte und deaktivierte Checkboxen einbeziehen (deaktiviert = Hauptgruppe, immer dabei)
     const subgroupCheckboxes = form.querySelectorAll(
         '#player-subgroups-checkboxes input[type="checkbox"]'
     );
     const subgroupIDs = Array.from(subgroupCheckboxes)
-        .filter(cb => cb.checked || cb.disabled) // Include checked OR disabled (Hauptgruppe)
+        .filter(cb => cb.checked || cb.disabled) // Aktivierte ODER deaktivierte einbeziehen (Hauptgruppe)
         .map(cb => cb.value);
 
     // === Wettkampfsbereit-Checkbox auslesen ===
@@ -466,7 +466,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
 
                 if (error) throw error;
 
-                // Send notification to kicked player
+                // Benachrichtigung an entfernten Spieler senden
                 await supabase
                     .from('notifications')
                     .insert({
@@ -504,13 +504,13 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
  * Helper function to close player detail panels
  */
 function closePlayerDetailPanels() {
-    // Close desktop detail panel
+    // Desktop-Detail-Panel schließen
     const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
     const detailPlaceholderDesktop = document.getElementById('player-detail-placeholder-desktop');
     if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
     if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
 
-    // Close mobile modal
+    // Mobile-Modal schließen
     const mobileModal = document.getElementById('player-detail-mobile-modal');
     if (mobileModal) mobileModal.classList.add('hidden');
 
@@ -577,7 +577,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
     // Initial load
     async function loadPlayers() {
         try {
-            // Query profiles directly - filter by club and sport
+            // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
                 .select('*')
@@ -646,7 +646,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                     </div>
                 `;
 
-                        // Click handler für Desktop und Mobile
+                        // Click-Handler für Desktop und Mobile
                         card.addEventListener('click', () => {
                             // Highlight aktiven Spieler
                             document
@@ -656,7 +656,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                 );
                             card.classList.add('player-list-item-active');
 
-                            // Determine current user's role
+                            // Rolle des aktuellen Benutzers bestimmen
                             const isHeadCoach = currentUserData?.role === 'head_coach';
                             const isCoachOrHigher = ['coach', 'head_coach', 'admin'].includes(currentUserData?.role);
 
@@ -788,7 +788,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
         )
         .subscribe();
 
-    // Return unsubscribe function
+    // Abmelde-Funktion zurückgeben
     setUnsubscribe(() => {
         subscription.unsubscribe();
     });
@@ -806,7 +806,7 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
 
     async function loadPlayers() {
         try {
-            // Query profiles directly - filter by club and sport
+            // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
                 .select('*')
@@ -860,7 +860,7 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
         )
         .subscribe();
 
-    // Return unsubscribe function for cleanup
+    // Abmelde-Funktion zurückgeben for cleanup
     return () => {
         subscription.unsubscribe();
     };
@@ -896,8 +896,8 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
         filteredPlayers = filteredPlayers.filter(p => p.id !== excludePlayerId);
     }
 
-    // Populate dropdown with filtered players
-    const currentValue = select.value; // Preserve selection if possible
+    // Dropdown mit gefilterten Spielern füllen
+    const currentValue = select.value; // Auswahl falls möglich beibehalten
     select.innerHTML = '<option value="">Spieler wählen...</option>';
 
     filteredPlayers
@@ -912,7 +912,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
             select.appendChild(option);
         });
 
-    // Restore selection if player still in filtered list
+    // Auswahl wiederherstellen falls Spieler noch in gefilterter Liste
     if (currentValue && filteredPlayers.some(p => p.id === currentValue)) {
         select.value = currentValue;
     }
@@ -927,7 +927,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
 export async function showPlayerDetails(player, detailContent, supabase) {
     if (!detailContent) return;
 
-    // Import ranks module functions
+    // Rangs-Modul-Funktionen importieren
     const { getRankProgress } = await import('./ranks.js');
     const grundlagenCount = player.grundlagenCompleted || 0;
     const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
@@ -1075,7 +1075,7 @@ export function updateCoachGrundlagenDisplay(playerId) {
     const grundlagenBar = document.getElementById('coach-grundlagen-bar');
 
     if (currentGrundlagenListener) {
-        currentGrundlagenListener(); // Stop previous listener
+        currentGrundlagenListener(); // Vorherigen Listener stoppen
     }
 
     if (!grundlagenInfo || !playerId) {

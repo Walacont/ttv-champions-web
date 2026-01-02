@@ -734,7 +734,7 @@ async function handleInviteCoach(e) {
                 first_name: '',
                 last_name: '',
                 subgroup_ids: [],
-                role: 'head_coach', // New role: Spartenleiter
+                role: 'head_coach', // Neue Rolle: Spartenleiter
             });
 
         if (error) throw error;
@@ -984,7 +984,7 @@ async function loadStatistics() {
 
         const attendances = (allAttendance || []).filter(a => !a.club_id || !testClubIds.has(a.club_id));
 
-        // Count non-test clubs
+        // Nicht-Test-Vereine zählen
         const realClubIds = new Set(
             users.map(u => u.club_id).filter(id => id && !testClubIds.has(id))
         );

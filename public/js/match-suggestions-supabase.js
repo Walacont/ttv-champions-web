@@ -246,7 +246,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
             // Nur noch nie gespielte Spieler anzeigen (3-4 davon)
             return neverPlayedPlayers.slice(0, 4);
         } else {
-            // All players have been played against - show random 3-4 suggestions
+            // Gegen alle Spieler bereits gespielt - zufällige 3-4 Vorschläge anzeigen
             const randomSuggestions = [...suggestions].sort(() => Math.random() - 0.5);
             return randomSuggestions.slice(0, 4);
         }

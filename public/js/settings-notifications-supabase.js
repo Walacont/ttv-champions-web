@@ -16,7 +16,7 @@ const supabase = getSupabase();
 let currentUserId = null;
 let saveTimeout = null;
 
-// Preference keys that map to toggle IDs
+// Einstellungs-Schlüssel die zu Toggle-IDs mappen
 const PREFERENCE_KEYS = [
     'match_requests',
     'doubles_match_requests',
@@ -28,7 +28,7 @@ const PREFERENCE_KEYS = [
 ];
 
 async function init() {
-    // Initialize i18n
+    // i18n initialisieren
     await initI18n();
     setupAutoTranslate();
     translatePage();
@@ -42,7 +42,7 @@ async function init() {
 
     currentUserId = session.user.id;
 
-    // Initialize push notifications for this user
+    // Push-Benachrichtigungen für diesen Benutzer initialisieren
     await initPushNotifications(currentUserId);
 
     // Push-Berechtigungsstatus aktualisieren
@@ -85,7 +85,7 @@ async function updatePushStatus() {
         statusText.className = 'text-sm text-green-600';
         enableBtn.classList.add('hidden');
 
-        // Enable preference toggles
+        // Einstellungs-Toggles aktivieren
         PREFERENCE_KEYS.forEach(key => {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) toggle.disabled = false;
@@ -106,7 +106,7 @@ async function updatePushStatus() {
             enableBtn.classList.remove('hidden');
         }
 
-        // Disable preference toggles when push is not enabled
+        // Einstellungs-Toggles deaktivieren wenn Push nicht aktiviert ist
         PREFERENCE_KEYS.forEach(key => {
             const toggle = document.getElementById(`pref-${key}`);
             if (toggle) toggle.disabled = true;
@@ -185,7 +185,7 @@ function showSaveStatus(type, message) {
  * Setup event listeners
  */
 function setupEventListeners() {
-    // Enable push button
+    // Push-Button aktivieren
     const enableBtn = document.getElementById('enable-push-btn');
     enableBtn.addEventListener('click', async () => {
         enableBtn.disabled = true;

@@ -88,7 +88,7 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
 async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
     if (!event.repeat_type || event.event_type !== 'recurring') return;
 
-    // Get existing invitations for this user/event
+    // Existierende Einladungen für diesen Benutzer/Event abrufen
     const { data: existingInvitations } = await supabase
         .from('event_invitations')
         .select('occurrence_date')
@@ -106,7 +106,7 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
         4
     );
 
-    // Find missing invitations
+    // Fehlende Einladungen finden
     const newInvitations = [];
     upcomingOccurrences.forEach(occurrenceDate => {
         if (!existingDates.has(occurrenceDate)) {
@@ -140,7 +140,7 @@ export async function initPlayerEvents(userId) {
 
     await loadUpcomingEvents();
 
-    // Set up real-time subscription for event invitations
+    // Echtzeit-Subscription für Event-Einladungen einrichten
     setupEventSubscription();
 }
 
@@ -157,7 +157,7 @@ async function loadUpcomingEvents() {
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        // Get event invitations for current user
+        // Event-Einladungen für aktuellen Benutzer abrufen
         // Enthält jetzt occurrence_date für Nachverfolgung pro Termin
         const { data: invitations, error } = await supabase
             .from('event_invitations')
@@ -208,7 +208,7 @@ async function loadUpcomingEvents() {
             }
         });
 
-        // Create missing invitations for upcoming occurrences
+        // Fehlende Einladungen für kommende Termine erstellen
         for (const eventId of Object.keys(eventGroups)) {
             const group = eventGroups[eventId];
             await ensureRecurringInvitationsForPlayer(eventId, group.event, currentUserId);
@@ -241,7 +241,7 @@ async function loadUpcomingEvents() {
             `)
             .eq('user_id', currentUserId);
 
-        // Filter out null events and past occurrences client-side
+        // Null-Events und vergangene Termine clientseitig herausfiltern
         // Use occurrence_date if available, otherwise fall back to start_date
         const nowTime = new Date();
         let validInvitations = (updatedInvitations || []).filter(inv => {

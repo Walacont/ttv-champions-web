@@ -81,7 +81,7 @@ export function loadMatchHistory(supabase, userData, matchType = 'all') {
     // Initiale Daten laden und Echtzeit-Listener einrichten
     loadAndSubscribe(supabase, userData, container, matchType);
 
-    // Return cleanup function
+    // Aufräum-Funktion zurückgeben
     return () => cleanupSubscriptions();
 }
 
@@ -212,7 +212,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
 
             if (doublesNullError) console.error('Error fetching null club doubles:', doublesNullError);
 
-            // Combine doubles
+            // Doppel kombinieren
             const doublesMatchesMap = new Map();
             [...(doublesOwnClub || []), ...(doublesNullClub || [])].forEach(match => {
                 doublesMatchesMap.set(match.id, mapDoublesMatchFromSupabase(match));

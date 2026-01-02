@@ -45,7 +45,7 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        // Get user profile from Supabase
+        // Benutzerprofil aus Supabase abrufen
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -59,7 +59,7 @@ async function initializeAuth() {
                 privacySettings: profile.privacy_settings || {},
             };
 
-            // Load privacy settings
+            // Datenschutz-Einstellungen laden
             loadPrivacySettings(currentUserData);
         }
 
@@ -70,7 +70,7 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+// Bei DOMContentLoaded initialisieren oder sofort wenn bereits geladen (für SPA-Navigation)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAuth);
 } else {
@@ -90,7 +90,7 @@ onAuthStateChange((event, session) => {
 function loadPrivacySettings(userData) {
     if (!userData) return;
 
-    // Load profile visibility setting (default: 'global')
+    // Profilsichtbarkeits-Einstellung laden (Standard: 'global')
     const profileVisibility = userData.privacySettings?.profile_visibility || 'global';
     if (profileGlobal && profileClubOnly && profileFollowersOnly) {
         if (profileVisibility === 'global') {
@@ -104,7 +104,7 @@ function loadPrivacySettings(userData) {
         }
     }
 
-    // Load searchable setting (default: 'global')
+    // Suchbar-Einstellung laden (Standard: 'global')
     const searchable = userData.privacySettings?.searchable || 'global';
     if (searchableGlobal && searchableClubOnly && searchableFollowersOnly && searchableNone) {
         if (searchable === 'global') {
@@ -120,7 +120,7 @@ function loadPrivacySettings(userData) {
         }
     }
 
-    // Load leaderboard visibility setting (default: 'global')
+    // Ranglisten-Sichtbarkeits-Einstellung laden (Standard: 'global')
     const leaderboardVisibility = userData.privacySettings?.leaderboard_visibility || 'global';
     if (leaderboardGlobal && leaderboardClubOnly && leaderboardFollowersOnly && leaderboardNone) {
         if (leaderboardVisibility === 'global') {
@@ -136,7 +136,7 @@ function loadPrivacySettings(userData) {
         }
     }
 
-    // Load matches visibility setting (default: 'global')
+    // Match-Sichtbarkeits-Einstellung laden (Standard: 'global')
     const matchesVisibility = userData.privacySettings?.matches_visibility || 'global';
     if (matchesGlobal && matchesClubOnly && matchesFollowersOnly && matchesNone) {
         if (matchesVisibility === 'global') {
@@ -152,10 +152,10 @@ function loadPrivacySettings(userData) {
         }
     }
 
-    // Show warning if user has no club and selects club_only
+    // Warnung zeigen falls Benutzer keinen Verein hat und club_only wählt
     updateNoClubWarning(userData.clubId);
 
-    // Add listeners to radio buttons to show/hide warning
+    // Listener zu Radio-Buttons hinzufügen um Warnung ein-/auszublenden
     if (searchableGlobal) searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     if (searchableClubOnly) searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     if (searchableFollowersOnly) searchableFollowersOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
@@ -189,7 +189,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
         privacyFeedback.textContent = '';
 
-        // Get profile visibility
+        // Profilsichtbarkeit abrufen
         let profileVisibility = 'global';
         if (profileGlobal?.checked) {
             profileVisibility = 'global';
@@ -199,7 +199,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
             profileVisibility = 'followers_only';
         }
 
-        // Get selected values
+        // Ausgewählte Werte abrufen
         let searchable = 'global';
         if (searchableGlobal?.checked) {
             searchable = 'global';
@@ -253,7 +253,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
 
         console.log('[Privacy Settings] Saved successfully!');
 
-        // Update local data
+        // Lokale Daten aktualisieren
         currentUserData.privacySettings = newPrivacySettings;
 
         privacyFeedback.textContent = '✓ Einstellungen erfolgreich gespeichert';

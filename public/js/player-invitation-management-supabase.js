@@ -95,7 +95,7 @@ function setupEventListeners() {
  */
 function handleInvitationTypeChange(e) {
     // Kein E-Mail-Container mehr - Funktion für Kompatibilität beibehalten
-    // Only 'none' and 'code' options exist
+    // Nur 'none' und 'code' Optionen existieren
 }
 
 /**
@@ -104,7 +104,7 @@ function handleInvitationTypeChange(e) {
  */
 function handleSendInvitationTypeChange(e) {
     // Kein E-Mail-Container mehr - Funktion für Kompatibilität beibehalten
-    // Only 'code' option exists
+    // Nur 'code' Option existiert
 }
 
 /**
@@ -127,7 +127,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
             lastGeneratedCode = code;
             lastGeneratedFirstName = playerData.firstName;
 
-            // Show code display, hide form
+            // Code-Anzeige zeigen, Formular ausblenden
             document.getElementById('add-offline-player-form').classList.add('hidden');
             document.getElementById('generated-code-display').classList.remove('hidden');
             document.getElementById('generated-code-text').textContent = code;
@@ -147,7 +147,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
  * @param {string} [playerId] - Optional: ID of existing offline player to link
  */
 async function generateCodeForPlayer(playerData, playerId = null) {
-    // First, invalidate any old unused codes for the same player
+    // Zuerst alte unbenutzte Codes für denselben Spieler invalidieren
     await invalidateOldCodesForPlayer(playerId, playerData);
 
     let code = generateInvitationCode();
@@ -169,7 +169,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         throw new Error('Konnte keinen eindeutigen Code generieren.');
     }
 
-    // Save code to Supabase
+    // Code in Supabase speichern
     const expiresAt = getExpirationDate();
     const codeData = {
         code,
@@ -187,12 +187,12 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         role: playerData.role || 'player',
     };
 
-    // Add birthdate if provided
+    // Geburtsdatum hinzufügen falls angegeben
     if (playerData.birthdate) {
         codeData.birthdate = playerData.birthdate;
     }
 
-    // Add gender if provided
+    // Geschlecht hinzufügen falls angegeben
     if (playerData.gender) {
         codeData.gender = playerData.gender;
     }
@@ -221,14 +221,14 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
         let query;
 
         if (playerId) {
-            // Find codes by playerId (for existing offline players)
+            // Codes nach playerId suchen (für existierende Offline-Spieler)
             query = supabaseClient
                 .from('invitation_codes')
                 .select('id, superseded, is_active')
                 .eq('player_id', playerId)
                 .eq('is_active', true);
         } else {
-            // Find codes by firstName + lastName + clubId (for new players)
+            // Codes nach Vorname + Nachname + clubId suchen (für neue Spieler)
             query = supabaseClient
                 .from('invitation_codes')
                 .select('id, superseded, is_active')
@@ -247,7 +247,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
                 `Gefunden: ${data.length} aktive Code(s) für ${playerData.firstName} ${playerData.lastName}`
             );
 
-            // Filter out already superseded codes
+            // Bereits ersetzte Codes herausfiltern
             const codesToInvalidate = data.filter(code => !code.superseded);
 
             if (codesToInvalidate.length === 0) {
@@ -314,7 +314,7 @@ function closeOfflinePlayerModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 
-    // Reset form
+    // Formular zurücksetzen
     document.getElementById('add-offline-player-form').reset();
     document.getElementById('add-offline-player-form').classList.remove('hidden');
     document.getElementById('generated-code-display').classList.add('hidden');
@@ -335,7 +335,7 @@ export function openSendInvitationModal(playerId, playerName, playerEmail = '') 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // Reset form
+    // Formular zurücksetzen
     document.getElementById('send-invitation-form').reset();
     document.getElementById('send-invitation-form').classList.remove('hidden');
     document.getElementById('send-invitation-code-display').classList.add('hidden');
@@ -366,9 +366,9 @@ async function handleSendInvitation(e) {
         return;
     }
 
-    // Only code option available now
+    // Nur Code-Option jetzt verfügbar
     try {
-        // Get player data from Supabase
+        // Spielerdaten aus Supabase abrufen
         const { data: playerData, error } = await supabaseClient
             .from('profiles')
             .select('*')
@@ -397,7 +397,7 @@ async function handleSendInvitation(e) {
         lastGeneratedCode = code;
         lastGeneratedFirstName = mappedPlayerData.firstName;
 
-        // Show code display
+        // Code-Anzeige zeigen
         document.getElementById('send-invitation-form').classList.add('hidden');
         document.getElementById('send-invitation-code-display').classList.remove('hidden');
         document.getElementById('send-invitation-code-text').textContent = code;

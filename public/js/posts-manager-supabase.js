@@ -63,7 +63,7 @@ export function initPostsManager() {
     postTypeTextBtn?.addEventListener('click', () => switchPostType('text'));
     postTypePollBtn?.addEventListener('click', () => switchPostType('poll'));
 
-    // Image upload
+    // Bild-Upload
     postImageInput?.addEventListener('change', handleImagesSelect);
     clearPostImagesBtn?.addEventListener('click', clearImages);
 

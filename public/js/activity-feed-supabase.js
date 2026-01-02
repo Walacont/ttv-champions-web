@@ -846,7 +846,7 @@ async function fetchActivities(userIds) {
         typeOffsets.posts += (communityPosts || []).length;
         typeOffsets.polls += (communityPolls || []).length;
 
-        // Combine new activities with any cached ones
+        // Neue Aktivitäten mit gecachten kombinieren
         allActivities = [
             ...allActivities,
             ...(singlesMatches || []).map(m => ({ ...m, activityType: 'singles' })),
@@ -860,7 +860,7 @@ async function fetchActivities(userIds) {
     // Nach Datum absteigend sortieren
     allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    // Deduplicate by ID to avoid showing the same activity twice
+    // Nach ID deduplizieren um gleiche Aktivität nicht zweimal anzuzeigen
     const seenIds = new Set();
     allActivities = allActivities.filter(activity => {
         const key = `${activity.activityType}-${activity.id}`;
@@ -871,7 +871,7 @@ async function fetchActivities(userIds) {
         return true;
     });
 
-    // Deduplicate doubles ranking events (one event per pairing, not per player)
+    // Doppel-Ranking-Events deduplizieren (ein Event pro Paarung, nicht pro Spieler)
     const seenPairingEvents = new Set();
     const deduplicatedActivities = allActivities.filter(activity => {
         if (activity.activityType === 'global_doubles_ranking_change' ||
@@ -939,7 +939,7 @@ async function fetchActivities(userIds) {
             .in('poll_id', pollIds)
             .eq('user_id', currentUser.id);
 
-        // Attach user votes to each poll (as array for multiple choice support)
+        // Benutzer-Stimmen an jede Umfrage anhängen (als Array für Mehrfachauswahl-Unterstützung)
         const voteMap = {};
         (userVotes || []).forEach(v => {
             if (!voteMap[v.poll_id]) {
@@ -1599,7 +1599,7 @@ async function injectMatchMedia(matchId, matchType) {
             }
         });
 
-        // Counter indicator for multiple items
+        // Zähler-Anzeige für mehrere Elemente
         const counterHTML = media.length > 1 ? `
             <div class="absolute top-3 right-3 px-2 py-1 bg-black/70 rounded-full text-white text-xs font-medium">
                 1/${media.length}
@@ -2255,7 +2255,7 @@ function renderRankUpCard(activity) {
 }
 
 // Helper function to get ranking translations with fallbacks
-// This ensures text is displayed even if i18n isn't loaded yet
+// Stellt sicher dass Text angezeigt wird auch wenn i18n noch nicht geladen
 function getRankingText(key, params = {}) {
     const fallbacks = {
         // Club ranking
@@ -2274,7 +2274,7 @@ function getRankingText(key, params = {}) {
         'globalRanking.positionsPlural': `${params.count || ''} Plätze`,
         'globalRanking.risen': 'gestiegen',
         'globalRanking.fallen': 'gefallen',
-        // Club doubles ranking
+        // Vereins-Doppel-Rangliste
         'clubDoublesRanking.title': 'Doppel-Rangliste',
         'clubDoublesRanking.enteredTop10': 'ist in die Doppel-Top 10 aufgestiegen!',
         'clubDoublesRanking.enteredPodium': 'ist auf das Doppel-Podium aufgestiegen!',
@@ -2284,7 +2284,7 @@ function getRankingText(key, params = {}) {
         'clubDoublesRanking.movedDown': 'fällt auf',
         'clubDoublesRanking.position': `Platz ${params.position || ''}`,
         'clubDoublesRanking.previousHolder': `vorher: ${params.name || ''} (${params.elo || ''} Elo)`,
-        // Global doubles ranking
+        // Globale Doppel-Rangliste
         'globalDoublesRanking.title': 'Globale Doppel-Rangliste',
         'globalDoublesRanking.position': `Platz ${params.position || ''}`,
         'globalDoublesRanking.positionsSingular': '1 Platz',
@@ -2351,7 +2351,7 @@ function renderClubRankingChangeCard(activity) {
         }
     }
 
-    // Previous holder info (only for moving up within top 10)
+    // Vorheriger Halter-Info (nur für Aufstieg innerhalb Top 10)
     let previousHolderHtml = '';
     if (previousHolderName && direction === 'up' && newPosition <= 10) {
         previousHolderHtml = `
@@ -2569,7 +2569,7 @@ function renderClubDoublesRankingChangeCard(activity) {
         }
     }
 
-    // Previous holder info (only for moving up within top 10)
+    // Vorheriger Halter-Info (nur für Aufstieg innerhalb Top 10)
     let previousHolderHtml = '';
     if (previousHolderName && direction === 'up' && newPosition <= 10) {
         previousHolderHtml = `
@@ -3149,7 +3149,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
                     throw insertError;
                 }
             } else {
-                // New vote
+                // Neue Stimme
                 const { error: voteError } = await supabase
                     .from('poll_votes')
                     .insert({

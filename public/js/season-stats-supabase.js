@@ -126,7 +126,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
                 return;
             }
 
-            // Count wins per player
+            // Siege pro Spieler zählen
             const winCounts = {};
             matchesData.forEach(match => {
                 const winnerId = match.winner_id;

@@ -29,7 +29,7 @@ export function initializePartnerPairing(supabaseInstance, userData) {
  * Setup event listeners
  */
 function setupEventListeners() {
-    // Event listeners will be set when modal opens
+    // Event-Listener werden gesetzt wenn Modal öffnet
     // to ensure elements are in DOM
 }
 
@@ -114,7 +114,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
         // Übungsname setzen
         document.getElementById('pairing-exercise-name').textContent = exercise.name;
 
-        // Render available players
+        // Verfügbare Spieler rendern
         renderAvailablePlayers();
         renderFormedPairs();
         renderSinglePlayers();
@@ -330,7 +330,7 @@ window.selectDifferentExerciseForSinglePlayer = function () {
     // Verfolgen ob Spieler bereits hinzugefügt wurde (Callback wird für JEDE ausgewählte Übung aufgerufen)
     let playerAlreadyAdded = false;
 
-    // Open exercise selection modal with callback
+    // Übungsauswahl-Modal mit Callback öffnen
     // NOTE: The callback is called ONCE PER SELECTED EXERCISE (can be called multiple times!)
     // Wir wollen nur die ERSTE Übung verwenden und den Spieler nur EINMAL hinzufügen
     openExerciseSelectionModal(exercise => {
@@ -338,7 +338,7 @@ window.selectDifferentExerciseForSinglePlayer = function () {
 
         // Nur erste Übung verarbeiten, nachfolgende Aufrufe ignorieren
         if (exercise && !playerAlreadyAdded) {
-            playerAlreadyAdded = true; // Mark as added to prevent duplicate additions
+            playerAlreadyAdded = true; // Als hinzugefügt markieren um Duplikate zu verhindern
 
             console.log(
                 '[Exercise Pairing] Selected exercise:',
@@ -347,7 +347,7 @@ window.selectDifferentExerciseForSinglePlayer = function () {
                 exercise.points
             );
 
-            // Exercise is already in the correct format from toggleExerciseSelection
+            // Übung ist bereits im korrekten Format von toggleExerciseSelection
             const customExercise = {
                 exerciseId: exercise.exerciseId,
                 name: exercise.name,
@@ -564,7 +564,7 @@ function renderSinglePlayers() {
         const playerExerciseMilestone =
             player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
 
-        // Get milestones for this player's exercise
+        // Meilensteine für Spieler-Übung abrufen
         let milestoneSelect = '';
         if (playerExerciseMilestone && player.result === 'success') {
             const exerciseMilestones =
@@ -633,7 +633,7 @@ function renderSinglePlayers() {
  */
 window.setPairResult = function (index, result) {
     formedPairs[index].result = result;
-    // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
+    // Meilenstein-Index auf 0 (erster Meilenstein) initialisieren bei Erfolgsmarkierung für Meilenstein-Übungen
     if (
         (result === 'both_success' || result === 'one_success') &&
         currentExercise?.tieredPoints &&
@@ -668,7 +668,7 @@ window.removePair = function (index) {
  */
 window.setSinglePlayerResult = function (index, result) {
     singlePlayers[index].result = result;
-    // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
+    // Meilenstein-Index auf 0 (erster Meilenstein) initialisieren bei Erfolgsmarkierung für Meilenstein-Übungen
     const playerExerciseMilestone =
         singlePlayers[index].customExercise?.tieredPoints || currentExercise?.tieredPoints;
     if (
@@ -706,12 +706,12 @@ function updateConfirmButtonState() {
     const confirmBtn = document.getElementById('confirm-pairing-button');
     if (!confirmBtn) return;
 
-    // Count assigned players
+    // Zugewiesene Spieler zählen
     const pairedPlayersCount = formedPairs.length * 2;
     const singlePlayersCount = singlePlayers.length;
     const assignedPlayersCount = pairedPlayersCount + singlePlayersCount;
 
-    // Count total players
+    // Gesamte Spieler zählen
     const totalPlayers = availablePlayers.length;
     const remainingPlayers = totalPlayers - assignedPlayersCount;
 
@@ -721,7 +721,7 @@ function updateConfirmButtonState() {
 
     // Button-Status aktualisieren
     if (remainingPlayers === 0 && assignedPlayersCount > 0) {
-        // All players assigned - enable button
+        // Alle Spieler zugewiesen - Button aktivieren
         confirmBtn.disabled = false;
         confirmBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
         confirmBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
@@ -754,7 +754,7 @@ async function confirmPairingAndDistributePoints() {
         return;
     }
 
-    // Validate all players are assigned
+    // Prüfen ob alle Spieler zugewiesen sind
     const pairedPlayersCount = formedPairs.length * 2;
     const singlePlayersCount = singlePlayers.length;
     const assignedPlayersCount = pairedPlayersCount + singlePlayersCount;
@@ -767,7 +767,7 @@ async function confirmPairingAndDistributePoints() {
 
     confirmBtn.disabled = true;
 
-    // Return pairing data without distributing points immediately
+    // Paarungs-Daten zurückgeben ohne Punkte sofort zu verteilen
     const pairingData = {
         pairs: formedPairs.map(pair => {
             const data = {
@@ -837,7 +837,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
     const date = sessionData.date;
     const subgroupId = sessionData.subgroupId;
 
-    // Get subgroup name
+    // Untergruppen-Namen abrufen
     const { data: subgroupData } = await supabaseClient
         .from('subgroups')
         .select('name')
@@ -870,7 +870,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         const player1Id = pair.player1?.id || pair.player1Id;
         const player2Id = pair.player2?.id || pair.player2Id;
 
-        // Determine success rate for history (only for awarded points)
+        // Erfolgsrate für Verlauf bestimmen (nur für vergebene Punkte)
         const successRate = pair.result === 'both_success' ? '100%' : '50%';
 
         // An Spieler 1 vergeben
@@ -900,7 +900,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         }
     }
 
-    // Process single players
+    // Einzelspieler verarbeiten
     for (const single of singles) {
         const points = single.result === 'success' ? maxPoints : 0;
         // Extract player ID (handle both formats: {id} and {playerId})
@@ -916,7 +916,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
             : points;
 
         if (customPoints > 0 && playerId) {
-            // Single players always get 100% when successful (they only get points when they succeed)
+            // Einzelspieler bekommen immer 100% bei Erfolg (sie bekommen nur Punkte bei Erfolg)
             await awardPointsToPlayer(
                 playerId,
                 customPoints,
@@ -945,7 +945,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
     const date = sessionData.date;
     const subgroupId = sessionData.subgroupId;
 
-    // Get subgroup name
+    // Untergruppen-Namen abrufen
     const { data: subgroupData } = await supabaseClient
         .from('subgroups')
         .select('name')
@@ -953,20 +953,20 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         .single();
     const subgroupName = subgroupData?.name || subgroupId;
 
-    // Get milestones from exercise
+    // Meilensteine aus Übung abrufen
     const milestones = exercise.tieredPoints?.milestones || [];
     if (milestones.length === 0) {
         console.warn('[Milestone Points] No milestones found for exercise:', exercise.name);
         return;
     }
 
-    // Sort milestones by completions (ascending)
+    // Meilensteine nach Abschlüssen sortieren (aufsteigend)
     const sortedMilestones = [...milestones].sort((a, b) => a.completions - b.completions);
 
-    // Get current season key
+    // Aktuellen Saison-Schlüssel abrufen
     const currentSeasonKey = await getCurrentSeasonKey();
 
-    // Collect all players who completed with their completion counts and success rate
+    // Alle Spieler sammeln die abgeschlossen haben mit Abschlusszählung und Erfolgsrate
     const successfulPlayers = [];
 
     // Process pairs
@@ -991,7 +991,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
                     successRate: '100%',
                 });
         } else if (pair.result === 'one_success') {
-            // Both get progress, but only 50% of points
+            // Beide bekommen Fortschritt, aber nur 50% der Punkte
             if (player1Id)
                 successfulPlayers.push({
                     playerId: player1Id,
@@ -1009,7 +1009,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         }
     }
 
-    // Process single players
+    // Einzelspieler verarbeiten
     for (const single of singles) {
         const playerId = single.id || single.playerId;
         const count = single.completionCount || 1;
@@ -1018,11 +1018,11 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         }
     }
 
-    // Process each successful player
+    // Jeden erfolgreichen Spieler verarbeiten
     for (const playerInfo of successfulPlayers) {
         const { playerId, count, pointsMultiplier, successRate } = playerInfo;
 
-        // Get or create milestone progress
+        // Meilenstein-Fortschritt abrufen oder erstellen
         const { data: milestoneData, error: milestoneError } = await supabaseClient
             .from('exercise_milestones')
             .select('*')
@@ -1034,24 +1034,24 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         let previousMilestoneIndex = -1;
 
         if (!milestoneError && milestoneData) {
-            // Only use progress from current season
+            // Nur Fortschritt aus aktueller Saison verwenden
             if (milestoneData.last_season_updated === currentSeasonKey) {
                 currentCount = milestoneData.current_count || 0;
                 previousMilestoneIndex = milestoneData.last_milestone_index ?? -1;
             }
         }
 
-        // Increment count by the number of completions
+        // Zähler um Anzahl der Abschlüsse erhöhen
         const newCount = currentCount + count;
 
-        // Find new milestone achieved (if any)
+        // Neuen erreichten Meilenstein finden (falls vorhanden)
         let newMilestoneIndex = previousMilestoneIndex;
         let pointsToAward = 0;
 
         for (let i = previousMilestoneIndex + 1; i < sortedMilestones.length; i++) {
             if (newCount >= sortedMilestones[i].completions) {
                 newMilestoneIndex = i;
-                // Award incremental points (difference from previous milestone)
+                // Inkrementelle Punkte vergeben (Differenz zum vorherigen Meilenstein)
                 if (i === 0) {
                     pointsToAward += sortedMilestones[i].points;
                 } else {
@@ -1062,7 +1062,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
             }
         }
 
-        // Update milestone progress
+        // Meilenstein-Fortschritt aktualisieren
         const { error: upsertError } = await supabaseClient
             .from('exercise_milestones')
             .upsert({
@@ -1081,12 +1081,12 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
             console.error('[Milestone Points] Error updating milestone:', upsertError);
         }
 
-        // Award points if milestone reached
+        // Punkte vergeben falls Meilenstein erreicht
         if (pointsToAward > 0) {
             const milestoneInfo = sortedMilestones[newMilestoneIndex];
             const milestoneName = `${exercise.name} (Meilenstein ${milestoneInfo.completions}×)`;
 
-            // Apply points multiplier for partial success (e.g., 50% for one_success)
+            // Punkte-Multiplikator für Teilerfolg anwenden (z.B. 50% für one_success)
             const finalPoints = Math.floor(pointsToAward * pointsMultiplier);
 
             await awardPointsToPlayer(
@@ -1148,7 +1148,7 @@ async function awardPointsToPlayer(
     subgroupName,
     successRate
 ) {
-    // Update player points and XP
+    // Spieler-Punkte und XP aktualisieren
     const { data: currentPlayer, error: fetchError } = await supabaseClient
         .from('profiles')
         .select('points, xp')
@@ -1173,10 +1173,10 @@ async function awardPointsToPlayer(
         return;
     }
 
-    // Create reason string with success rate
+    // Begründungstext mit Erfolgsrate erstellen
     const reason = `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseName} (${successRate})`;
 
-    // Create points history entry
+    // Punkte-Verlauf-Eintrag erstellen
     const { error: pointsHistoryError } = await supabaseClient
         .from('points_history')
         .insert({

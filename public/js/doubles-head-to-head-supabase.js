@@ -23,7 +23,7 @@ export async function showDoublesHeadToHeadModal(supabase, currentUserId, oppone
     const modal = document.createElement('div');
     modal.id = 'doubles-h2h-modal';
     modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
-    modal.style.cssText = 'z-index: 100001;'; // Higher than header (9999) and bottom nav (99999)
+    modal.style.cssText = 'z-index: 100001;'; // Höher als Header (9999) und Bottom-Nav (99999)
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto" style="max-height: calc(100vh - 140px); margin-top: 60px; margin-bottom: 80px;">
             <div class="p-6">
@@ -85,8 +85,8 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
         const opponentPlayer2Id = opponentTeam.player2Id;
         const opponentTeamName = `${opponentTeam.player1Name} & ${opponentTeam.player2Name}`;
 
-        // Query all doubles matches where current user participated
-        // Supabase uses flat field names: team_a_player1_id, team_a_player2_id, etc.
+        // Alle Doppel-Matches abfragen wo aktueller Benutzer teilgenommen hat
+        // Supabase verwendet flache Feldnamen: team_a_player1_id, team_a_player2_id, etc.
         const { data: allMatches, error } = await supabase
             .from('doubles_matches')
             .select('*')
@@ -118,7 +118,7 @@ async function loadDoublesHeadToHeadStats(supabase, currentUserId, opponentTeam)
                 teamBPlayers.includes(opponentPlayer1Id) &&
                 teamBPlayers.includes(opponentPlayer2Id);
 
-            // Match is relevant if:
+            // Match ist relevant wenn:
             // - Current user is in one team AND opponent team is in the other team
             if ((currentUserInTeamA && opponentTeamInTeamB) || (currentUserInTeamB && opponentTeamInTeamA)) {
                 relevantMatches.push(match);
@@ -219,7 +219,7 @@ function calculateDoublesStats(matches, currentUserId) {
             losses++;
         }
 
-        // Count sets
+        // Sätze zählen
         if (match.sets && Array.isArray(match.sets)) {
             match.sets.forEach(set => {
                 // Sätze können team_a/team_b oder teamA/teamB je nach Format verwenden

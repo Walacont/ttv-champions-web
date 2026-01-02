@@ -38,15 +38,15 @@ describe('Set Score Validation', () => {
                 expect(isValidSet(10, 12)).toBe(true); // Reverse
                 expect(isValidSet(14, 12)).toBe(true); // Extended deuce
                 expect(isValidSet(12, 14)).toBe(true); // Reverse
-                expect(isValidSet(20, 18)).toBe(true); // Very long deuce
+                expect(isValidSet(20, 18)).toBe(true); // Sehr langes Deuce
                 expect(isValidSet(18, 20)).toBe(true); // Reverse
             });
 
             test('should validate edge case: exactly 11 with lead (not deuce yet)', () => {
                 // 11:10 is valid - deuce only starts when BOTH are at 10 (10:10)
                 // Here, one player reached 11 before the other reached 10
-                expect(isValidSet(11, 10)).toBe(false); // This is deuce territory (both >= 10)
-                expect(isValidSet(10, 11)).toBe(false); // Same
+                expect(isValidSet(11, 10)).toBe(false); // Das ist Deuce-Bereich (beide >= 10)
+                expect(isValidSet(10, 11)).toBe(false); // Gleich
             });
         });
 
@@ -86,7 +86,7 @@ describe('Set Score Validation', () => {
             test('should reject 11:10 and similar (deuce territory needs 2-point lead)', () => {
                 // Bei beiden >= 10 muss mit 2 gewonnen werden
                 expect(isValidSet(11, 10)).toBe(false); // Deuce territory (both >= 10), need 2-point lead
-                expect(isValidSet(10, 11)).toBe(false); // Same
+                expect(isValidSet(10, 11)).toBe(false); // Gleich
                 expect(isValidSet(13, 12)).toBe(false); // 1-point lead in deuce
                 expect(isValidSet(12, 11)).toBe(false); // 1-point lead in deuce
                 expect(isValidSet(15, 14)).toBe(false); // 1-point lead in deuce
@@ -339,9 +339,9 @@ describe('Handicap Calculation', () => {
     describe('calculateHandicap()', () => {
         describe('Valid Handicaps', () => {
             test('should calculate 1-point handicap for exactly 40 Elo difference (threshold)', () => {
-                // Current config: threshold=40, pointsPer=40
+                // Aktuelle Konfiguration: threshold=40, pointsPer=40
                 const playerA = { eloRating: 800 };
-                const playerB = { eloRating: 840 }; // Exactly at threshold
+                const playerB = { eloRating: 840 }; // Genau am Schwellenwert
                 const result = calculateHandicap(playerA, playerB);
 
                 expect(result).not.toBe(null);
@@ -350,7 +350,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should calculate 1-point handicap for 40-79 Elo difference', () => {
-                // Current config: threshold=40, pointsPer=40
+                // Aktuelle Konfiguration: threshold=40, pointsPer=40
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 840 }; // 40 Elo difference
                 const result = calculateHandicap(playerA, playerB);
@@ -360,7 +360,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should calculate 2-point handicap for 80-119 Elo difference', () => {
-                // Current config: threshold=40, pointsPer=40
+                // Aktuelle Konfiguration: threshold=40, pointsPer=40
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 880 }; // 80 Elo difference
                 const result = calculateHandicap(playerA, playerB);
@@ -371,7 +371,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should calculate 6-point handicap for 240-279 Elo difference', () => {
-                // Current config: threshold=40, pointsPer=40
+                // Aktuelle Konfiguration: threshold=40, pointsPer=40
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 1040 }; // 240 Elo difference
                 const result = calculateHandicap(playerA, playerB);
@@ -381,7 +381,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should cap handicap at 7 points (maxPoints)', () => {
-                // Current config: maxPoints=7
+                // Aktuelle Konfiguration: maxPoints=7
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 1600 }; // 800 Elo difference
                 const result = calculateHandicap(playerA, playerB);
@@ -392,13 +392,13 @@ describe('Handicap Calculation', () => {
             });
 
             test('should cap handicap at 7 for extreme differences', () => {
-                // Current config: maxPoints=7
+                // Aktuelle Konfiguration: maxPoints=7
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 2000 }; // 1200 Elo difference
                 const result = calculateHandicap(playerA, playerB);
 
                 expect(result).not.toBe(null);
-                expect(result.points).toBe(7); // Capped at maxPoints
+                expect(result.points).toBe(7); // Begrenzt auf maxPoints
             });
 
             test('should identify weaker player correctly (reverse)', () => {
@@ -407,13 +407,13 @@ describe('Handicap Calculation', () => {
                 const result = calculateHandicap(playerA, playerB);
 
                 expect(result).not.toBe(null);
-                expect(result.player).toBe(playerB); // Weaker player gets handicap
+                expect(result.player).toBe(playerB); // Schwächerer Spieler bekommt Handicap
             });
         });
 
         describe('No Handicap Scenarios', () => {
             test('should return null for Elo difference < 40 (threshold)', () => {
-                // Current config: threshold=40
+                // Aktuelle Konfiguration: threshold=40
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 839 }; // 39 Elo difference
                 const result = calculateHandicap(playerA, playerB);
@@ -422,7 +422,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should return null for exactly 39 Elo difference', () => {
-                // Current config: threshold=40
+                // Aktuelle Konfiguration: threshold=40
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 839 };
                 const result = calculateHandicap(playerA, playerB);
@@ -476,7 +476,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should floor handicap points (79 Elo → 1 point)', () => {
-                // Current config: pointsPer=40, uses Math.floor
+                // Aktuelle Konfiguration: pointsPer=40, verwendet Math.floor
                 // 79 Elo diff → 79/40 = 1.975 → floor = 1
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 879 };
@@ -487,7 +487,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('should floor handicap points (80 Elo → 2 points)', () => {
-                // Current config: pointsPer=40, uses Math.floor
+                // Aktuelle Konfiguration: pointsPer=40, verwendet Math.floor
                 // 80 Elo diff → 80/40 = 2.0 → floor = 2
                 const playerA = { eloRating: 800 };
                 const playerB = { eloRating: 880 };
@@ -500,7 +500,7 @@ describe('Handicap Calculation', () => {
 
         describe('Real-World Scenarios', () => {
             test('Beginner (800) vs Intermediate (1000)', () => {
-                // Current config: pointsPer=40
+                // Aktuelle Konfiguration: pointsPer=40
                 const beginner = { eloRating: 800 };
                 const intermediate = { eloRating: 1000 };
                 const result = calculateHandicap(beginner, intermediate);
@@ -511,7 +511,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('Intermediate (1000) vs Advanced (1300)', () => {
-                // Current config: pointsPer=40, maxPoints=7
+                // Aktuelle Konfiguration: pointsPer=40, maxPoints=7
                 const intermediate = { eloRating: 1000 };
                 const advanced = { eloRating: 1300 };
                 const result = calculateHandicap(intermediate, advanced);
@@ -522,7 +522,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('Beginner (800) vs Expert (1600)', () => {
-                // Current config: maxPoints=7
+                // Aktuelle Konfiguration: maxPoints=7
                 const beginner = { eloRating: 800 };
                 const expert = { eloRating: 1600 };
                 const result = calculateHandicap(beginner, expert);
@@ -533,7 +533,7 @@ describe('Handicap Calculation', () => {
             });
 
             test('Closely matched players (950 vs 970)', () => {
-                // Current config: threshold=40
+                // Aktuelle Konfiguration: threshold=40
                 const playerA = { eloRating: 950 };
                 const playerB = { eloRating: 970 };
                 const result = calculateHandicap(playerA, playerB);
