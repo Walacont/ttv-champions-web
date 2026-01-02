@@ -426,7 +426,7 @@ export async function loadMatchMedia(matchId, matchType) {
     }
 
     try {
-        // Query table directly instead of using RPC
+        // Tabelle direkt abfragen statt RPC zu verwenden
         const { data, error } = await supabase
             .from('match_media')
             .select('id, match_id, match_type, uploaded_by, file_type, file_path, file_size, mime_type, created_at')
@@ -571,7 +571,7 @@ export async function deleteMedia(mediaId, filePath) {
     }
 }
 
-// Make functions available globally
+// Funktionen global verfügbar machen
 window.openMediaUpload = openMediaUpload;
 window.closeMediaUpload = closeMediaUpload;
 window.uploadMedia = uploadMedia;

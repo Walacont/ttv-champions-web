@@ -497,7 +497,7 @@ export function initializeSessionPlanningListeners() {
         closeModalButton.addEventListener('click', closeExerciseSelectionModal);
     }
 
-    // Done selecting exercises button
+    // Übungen-Auswahl-fertig Button
     const doneButton = document.getElementById('done-selecting-exercises-button');
     if (doneButton) {
         doneButton.addEventListener('click', confirmSelectionAndClose);
@@ -524,7 +524,7 @@ export function initializeSessionPlanningListeners() {
         );
     }
 
-    // Make remove function globally available
+    // Entfernen-Funktion global verfügbar machen
     window.removeExerciseFromSessionPlan = removeExerciseFromList;
 }
 

@@ -2075,7 +2075,7 @@ function renderDoublesRequestCard(req, profileMap) {
     const teamA = req.team_a || {};
     const teamB = req.team_b || {};
 
-    // Determine which team the current user is on
+    // Bestimmen in welchem Team der aktuelle Benutzer ist
     const isTeamA = teamA.player1_id === currentUser.id || teamA.player2_id === currentUser.id;
 
     // Spielernamen abrufen
@@ -2089,7 +2089,7 @@ function renderDoublesRequestCard(req, profileMap) {
     const teamBName1 = teamBPlayer1?.first_name || 'Spieler';
     const teamBName2 = teamBPlayer2?.first_name || 'Spieler';
 
-    // Determine winner team names
+    // Gewinner-Teamnamen bestimmen
     const winnerTeamName = req.winning_team === 'A'
         ? `${teamAName1} & ${teamAName2}`
         : `${teamBName1} & ${teamBName2}`;
@@ -2104,7 +2104,7 @@ function renderDoublesRequestCard(req, profileMap) {
     const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
     const statusText = req.status === 'pending_opponent' ? 'Warte auf Gegner' : 'Warte auf Coach';
 
-    // Request direction text
+    // Anfrage-Richtungstext
     let directionText;
     if (isTeamA) {
         directionText = `Doppel-Anfrage an ${teamBName1} & ${teamBName2}`;

@@ -194,7 +194,7 @@ async function loadUpcomingEvents() {
         }
 
         // Auf wiederkehrende Events prüfen die neue Einladungen benötigen
-        // Group invitations by event
+        // Einladungen nach Event gruppieren
         const eventGroups = {};
         (invitations || []).forEach(inv => {
             if (inv.events && inv.events.repeat_type && inv.events.event_type === 'recurring') {
@@ -214,7 +214,7 @@ async function loadUpcomingEvents() {
             await ensureRecurringInvitationsForPlayer(eventId, group.event, currentUserId);
         }
 
-        // Reload invitations after ensuring recurring ones exist
+        // Einladungen neu laden nachdem wiederkehrende erstellt wurden
         const { data: updatedInvitations, error: reloadError } = await supabase
             .from('event_invitations')
             .select(`
@@ -270,7 +270,7 @@ async function loadUpcomingEvents() {
             return false;
         });
 
-        // Sort by occurrence date
+        // Nach Terminsdatum sortieren
         validInvitations.sort((a, b) => {
             const dateA = a.occurrence_date || a.events.start_date;
             const dateB = b.occurrence_date || b.events.start_date;
@@ -288,7 +288,7 @@ async function loadUpcomingEvents() {
         // Show section
         section.classList.remove('hidden');
 
-        // Get accepted count for each event/occurrence combination
+        // Angenommen-Zähler für jede Event/Termin-Kombination abrufen
         // Jetzt zählen wir pro occurrence_date, nicht nur pro Event
         const eventIds = validInvitations.map(inv => inv.events.id);
         const occurrenceDates = validInvitations.map(inv => inv.occurrence_date).filter(Boolean);
@@ -306,7 +306,7 @@ async function loadUpcomingEvents() {
             countMap[key] = (countMap[key] || 0) + 1;
         });
 
-        // Render events with per-occurrence counts
+        // Events mit Pro-Termin-Zählern rendern
         list.innerHTML = validInvitations.map(inv => {
             const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
             return renderEventCard(inv, countMap[key] || 0);
@@ -385,7 +385,7 @@ function renderEventCard(invitation, acceptedCount) {
     const status = invitation.status;
 
     // Use occurrence_date from invitation (for per-occurrence tracking)
-    // Fall back to displayDate or start_date for backwards compatibility
+    // Auf displayDate oder start_date zurückfallen für Abwärtskompatibilität
     const displayDate = invitation.occurrence_date || event.displayDate || event.start_date;
 
     // Datum formatieren
@@ -552,7 +552,7 @@ function setupEventCardListeners() {
  */
 async function respondToEvent(invitationId, status, reason = null) {
     try {
-        // First get the invitation details including event info
+        // Zuerst Einladungsdetails inklusive Event-Info abrufen
         const { data: invitation, error: invError } = await supabase
             .from('event_invitations')
             .select(`
@@ -571,7 +571,7 @@ async function respondToEvent(invitationId, status, reason = null) {
 
         if (invError) throw invError;
 
-        // Get current user name for notification
+        // Aktuellen Benutzernamen für Benachrichtigung abrufen
         const { data: currentUser } = await supabase
             .from('profiles')
             .select('first_name, last_name')
@@ -596,7 +596,7 @@ async function respondToEvent(invitationId, status, reason = null) {
 
         if (error) throw error;
 
-        // Send notification to event organizer
+        // Benachrichtigung an Event-Organisator senden
         if (invitation.events?.organizer_id && invitation.events.organizer_id !== currentUserId) {
             const event = invitation.events;
             const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
@@ -631,7 +631,7 @@ async function respondToEvent(invitationId, status, reason = null) {
         }
 
         // Auch alle Coaches/Head-Coaches des Vereins benachrichtigen falls Organisator kein Coach ist
-        // This ensures coaches always see responses
+        // Stellt sicher dass Coaches immer Antworten sehen
         if (invitation.events?.club_id) {
             const { data: coaches } = await supabase
                 .from('profiles')
@@ -724,7 +724,7 @@ async function showRejectModal(invitationId) {
         modal.remove();
     });
 
-    // Close on background click
+    // Bei Hintergrund-Klick schließen
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.remove();
@@ -738,7 +738,7 @@ async function showRejectModal(invitationId) {
  */
 async function showEventDetails(eventId) {
     try {
-        // Load full event details
+        // Vollständige Event-Details laden
         const { data: event, error } = await supabase
             .from('events')
             .select(`
@@ -913,7 +913,7 @@ async function showEventDetails(eventId) {
             modal.remove();
         });
 
-        // Close on background click
+        // Bei Hintergrund-Klick schließen
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
@@ -950,7 +950,7 @@ function setupEventSubscription() {
         .subscribe();
 
     // Auf Events-Tabellen-Änderungen abonnieren (Löschungen, Updates zu excluded_dates)
-    // This ensures deleted events disappear immediately
+    // Stellt sicher dass gelöschte Events sofort verschwinden
     const eventsChannel = supabase
         .channel(`player_events_updates_${currentUserId}`)
         .on(

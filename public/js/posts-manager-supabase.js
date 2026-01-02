@@ -52,7 +52,7 @@ export function initPostsManager() {
     cancelPostBtn?.addEventListener('click', closeCreatePostModal);
     cancelPollBtn?.addEventListener('click', closeCreatePostModal);
 
-    // Click outside to close
+    // Außerhalb klicken zum Schließen
     createPostModal?.addEventListener('click', (e) => {
         if (e.target === createPostModal) {
             closeCreatePostModal();

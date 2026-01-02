@@ -196,7 +196,7 @@ export function setupDescriptionEditor(config) {
     let textContent = '';
     let tableContent = null;
 
-    // Load initial data if provided
+    // Initiale Daten laden falls vorhanden
     if (initialData) {
         if (initialData.type === 'table') {
             currentMode = 'table';
@@ -245,7 +245,7 @@ export function setupDescriptionEditor(config) {
             textArea.style.display = 'none';
             tableEditorContainer.style.display = 'block';
 
-            // Create table editor container structure
+            // Tabellen-Editor Container-Struktur erstellen
             tableEditorContainer.innerHTML = `
                 <div class="space-y-3">
                     <div>
