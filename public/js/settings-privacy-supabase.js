@@ -12,7 +12,7 @@ const profileGlobal = document.getElementById('profile-global');
 const profileClubOnly = document.getElementById('profile-club-only');
 const profileFollowersOnly = document.getElementById('profile-followers-only');
 
-// Searchable (Player Search)
+// Suchbar (Spielersuche)
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
 const searchableFollowersOnly = document.getElementById('searchable-followers-only');

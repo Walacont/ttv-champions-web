@@ -2017,7 +2017,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
     const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
 
-    // Match result
+    // Match-Ergebnis
     const setsDisplay = formatSetsDisplay(req.sets);
     const playerAProfile = profileMap[req.player_a_id];
     const playerBProfile = profileMap[req.player_b_id];
@@ -2700,7 +2700,7 @@ function setupRealtimeSubscriptions() {
     // WebSocket connections may be suspended when app is backgrounded
     window.addEventListener('app-resumed', () => {
         console.log('[Realtime] App resumed - refreshing match data');
-        // Refresh all match-related data when app comes to foreground
+        // Alle Match-bezogenen Daten aktualisieren wenn App in Vordergrund kommt
         loadMatchRequests();
         loadPendingRequests();
         loadMatchHistory();
@@ -2710,7 +2710,7 @@ function setupRealtimeSubscriptions() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             console.log('[Realtime] Page became visible - refreshing match data');
-            // Refresh all match-related data when page becomes visible
+            // Alle Match-bezogenen Daten aktualisieren wenn Seite sichtbar wird
             loadMatchRequests();
             loadPendingRequests();
             loadMatchHistory();
@@ -2720,7 +2720,7 @@ function setupRealtimeSubscriptions() {
 
 // --- Show notification for new incoming match request ---
 function showNewRequestNotification() {
-    // Visual notification
+    // Visuelle Benachrichtigung
     const requestsSection = document.querySelector('[data-section="match-requests"]');
     if (requestsSection) {
         requestsSection.classList.add('animate-pulse');
@@ -2740,7 +2740,7 @@ function showNewRequestNotification() {
         }
     }
 
-    // Toast notification
+    // Toast-Benachrichtigung
     showToast('Neue Spielanfrage erhalten!', 'info');
 }
 
@@ -2817,7 +2817,7 @@ function renderTableForDisplay(tableData) {
 
 // --- Setup Modal Handlers ---
 function setupModalHandlers() {
-    // Exercise modal close
+    // Übungs-Modal schließen
     const closeExerciseModal = document.getElementById('close-exercise-modal');
     if (closeExerciseModal) {
         closeExerciseModal.addEventListener('click', () => {
@@ -2825,7 +2825,7 @@ function setupModalHandlers() {
         });
     }
 
-    // Challenge modal close
+    // Challenge-Modal schließen
     const closeChallengeModal = document.getElementById('close-challenge-modal');
     if (closeChallengeModal) {
         closeChallengeModal.addEventListener('click', () => {
@@ -2985,7 +2985,7 @@ window.openExerciseModal = async (exerciseId) => {
             if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} P.`;
 
             if (milestonesContainer) {
-                // Player progress section
+                // Spielerfortschritt-Bereich
                 let progressHtml = '';
                 const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
                 const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
@@ -3010,7 +3010,7 @@ window.openExerciseModal = async (exerciseId) => {
                     </div>
                 `;
 
-                // Milestones list
+                // Meilensteine-Liste
                 const milestonesHtml = tieredPointsData.milestones
                     .sort((a, b) => a.count - b.count)
                     .map((milestone, index) => {
@@ -3126,8 +3126,8 @@ const processingRequests = new Set();
 // Hilfsfunktion um Anfrage-Karte optimistisch aus UI zu entfernen
 // Karten können an mehreren Stellen erscheinen (Übersicht und Matches-Tab), daher alle möglichen IDs prüfen
 function removeRequestCardOptimistically(requestId, type = 'singles') {
-    // Possible card IDs for singles: match-request-X (overview) and pending-match-request-X (matches tab)
-    // Possible card IDs for doubles: doubles-request-X (overview) and pending-doubles-request-X (matches tab)
+    // Mögliche Karten-IDs für Einzel: match-request-X (Übersicht) und pending-match-request-X (Matches-Tab)
+    // Mögliche Karten-IDs für Doppel: doubles-request-X (Übersicht) und pending-doubles-request-X (Matches-Tab)
     const cardIds = type === 'doubles'
         ? [`doubles-request-${requestId}`, `pending-doubles-request-${requestId}`]
         : [`match-request-${requestId}`, `pending-match-request-${requestId}`];
@@ -3172,8 +3172,8 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
     try {
         if (!accept) {
-            // Rejected - simple update
-            // First get player A info for notification
+            // Abgelehnt - einfaches Update
+            // Zuerst Spieler A Info für Benachrichtigung abrufen
             const { data: request } = await supabase
                 .from('match_requests')
                 .select('player_a_id, status')
@@ -3195,7 +3195,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
             if (error) throw error;
 
-            // Notify player A that player B rejected the match
+            // Spieler A benachrichtigen dass Spieler B das Match abgelehnt hat
             if (request?.player_a_id) {
                 const playerBName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Der Gegner';
                 await createNotification(
@@ -3215,7 +3215,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Accepted - get the match request details
+        // Angenommen - Match-Anfrage-Details abrufen
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
             .select('*')
@@ -3341,7 +3341,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Accepted - update approvals and approve
+        // Angenommen - Genehmigungen aktualisieren und genehmigen
         // Genehmigungen parsen
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
@@ -3428,7 +3428,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
     }
 };
 
-// Expose loadMatchRequests and loadPendingRequests for cross-module access
+// loadMatchRequests und loadPendingRequests für modulübergreifenden Zugriff freigeben
 window.loadMatchRequests = loadMatchRequests;
 window.loadPendingRequests = loadPendingRequests;
 
@@ -3615,7 +3615,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
     const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
 
-    // Match result
+    // Match-Ergebnis
     const setsDisplay = formatSetsDisplay(req.sets);
     const playerAProfile = profileMap[req.player_a_id];
     const playerBProfile = profileMap[req.player_b_id];
@@ -3698,7 +3698,7 @@ function renderPendingDoublesCard(req, profileMap) {
     const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
     const statusText = req.status === 'pending_opponent' ? 'Wartet auf Gegner' : 'Wartet auf Coach';
 
-    // Direction text
+    // Richtungstext
     let directionText;
     if (isTeamA) {
         directionText = `Doppel-Anfrage an ${teamBName1} & ${teamBName2}`;
@@ -3853,7 +3853,7 @@ async function loadMatchSuggestions() {
                 ? Math.floor((Date.now() - lastMatch.getTime()) / (1000 * 60 * 60 * 24))
                 : Infinity;
 
-            // Elo handicap
+            // Elo-Handicap
             const playerElo = player.elo_rating || 1000;
             const eloDiff = Math.abs(myElo - playerElo);
             let eloHandicap = 0;
@@ -4080,7 +4080,7 @@ async function populatePlayerSubgroupFilter(userData) {
         dropdown.value = hasClub ? 'club' : 'global';
     }
 
-    // Sync currentSubgroupFilter with dropdown value
+    // currentSubgroupFilter mit Dropdown-Wert synchronisieren
     currentSubgroupFilter = dropdown.value;
 
     // Auch Ranglisten-Scope synchronisieren

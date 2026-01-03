@@ -11,9 +11,9 @@ const DEFAULT_PREFERENCES = {
 const DEFAULT_PREFERENCES_NO_CLUB = {
     effort: false,    // Für Spieler ohne Verein versteckt
     season: false,    // Für Spieler ohne Verein versteckt
-    skill: true,      // Visible (global skill ranking)
+    skill: true,      // Sichtbar (globales Skill-Ranking)
     ranks: false,     // Für Spieler ohne Verein versteckt
-    doubles: true,    // Visible (global doubles ranking)
+    doubles: true,    // Sichtbar (globales Doppel-Ranking)
 };
 
 let supabaseClient = null;

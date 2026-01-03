@@ -111,7 +111,7 @@ export function initOfflinePlayerBirthdateSelects() {
     monthSelect.innerHTML = '<option value="">Monat</option>';
     yearSelect.innerHTML = '<option value="">Jahr</option>';
 
-    // Fill days (1-31)
+    // Tage füllen (1-31)
     for (let i = 1; i <= 31; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -119,7 +119,7 @@ export function initOfflinePlayerBirthdateSelects() {
         daySelect.appendChild(option);
     }
 
-    // Fill months (1-12)
+    // Monate füllen (1-12)
     for (let i = 1; i <= 12; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -127,7 +127,7 @@ export function initOfflinePlayerBirthdateSelects() {
         monthSelect.appendChild(option);
     }
 
-    // Fill years (current year down to 1900)
+    // Jahre füllen (aktuelles Jahr bis 1900)
     const currentYear = new Date().getFullYear();
     for (let i = currentYear; i >= 1900; i--) {
         const option = document.createElement('option');
@@ -152,7 +152,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     if (submitButton) {
         if (submitButton.disabled) {
             console.log('Form submission already in progress, ignoring...');
-            return; // Already processing
+            return; // Bereits in Verarbeitung
         }
         submitButton.disabled = true;
         submitButton.textContent = 'Erstelle Spieler...';
@@ -224,7 +224,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         }
     } catch (error) {
         console.error('Error checking for duplicates:', error);
-        // Continue anyway, better to create than to block
+        // Trotzdem fortfahren, besser erstellen als blockieren
     }
 
     // Alle Spieler starten mit 800 ELO
@@ -574,7 +574,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
 
     const sportId = currentUserData?.activeSportId;
 
-    // Initial load
+    // Initiales Laden
     async function loadPlayers() {
         try {
             // Profile direkt abfragen - nach Verein und Sport filtern
@@ -768,10 +768,10 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
         if (tableContainer) tableContainer.classList.remove('hidden');
     }
 
-    // Initial load
+    // Initiales Laden
     loadPlayers();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription einrichten
     const subscription = supabase
         .channel('player-list-changes')
         .on(
@@ -840,10 +840,10 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
         }
     }
 
-    // Initial load
+    // Initiales Laden
     loadPlayers();
 
-    // Set up real-time subscription
+    // Echtzeit-Subscription einrichten
     const subscription = supabase
         .channel('player-dropdown-changes')
         .on(

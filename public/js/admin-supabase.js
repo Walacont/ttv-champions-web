@@ -683,7 +683,7 @@ async function handleInviteCoach(e) {
 
             if (clubSportError) {
                 console.warn('Could not add sport to club_sports:', clubSportError);
-                // Continue anyway - the sport association is optional
+                // Trotzdem fortfahren - Sportart-Zuordnung ist optional
             }
         }
 

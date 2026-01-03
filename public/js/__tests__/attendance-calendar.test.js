@@ -240,7 +240,7 @@ describe('Second Training Detection', () => {
                 { date: '2025-01-03', sessionId: 'session-3' },
             ];
 
-            // Training on Jan 4, no other trainings on Jan 4
+            // Training am 4. Jan, keine anderen Trainings am 4. Jan
             const result = isSecondTrainingToday(attendanceRecords, '2025-01-04', 'session-4');
             expect(result).toBe(false);
         });

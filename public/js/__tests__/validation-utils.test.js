@@ -34,9 +34,9 @@ describe('Set Score Validation', () => {
             });
 
             test('should validate deuce scenarios (12:10, 14:12, etc.)', () => {
-                expect(isValidSet(12, 10)).toBe(true); // Deuce win
+                expect(isValidSet(12, 10)).toBe(true); // Deuce-Sieg
                 expect(isValidSet(10, 12)).toBe(true); // Reverse
-                expect(isValidSet(14, 12)).toBe(true); // Extended deuce
+                expect(isValidSet(14, 12)).toBe(true); // Verlängertes Deuce
                 expect(isValidSet(12, 14)).toBe(true); // Reverse
                 expect(isValidSet(20, 18)).toBe(true); // Sehr langes Deuce
                 expect(isValidSet(18, 20)).toBe(true); // Reverse
@@ -85,7 +85,7 @@ describe('Set Score Validation', () => {
         describe('Invalid Sets - Deuce Rules', () => {
             test('should reject 11:10 and similar (deuce territory needs 2-point lead)', () => {
                 // Bei beiden >= 10 muss mit 2 gewonnen werden
-                expect(isValidSet(11, 10)).toBe(false); // Deuce territory (both >= 10), need 2-point lead
+                expect(isValidSet(11, 10)).toBe(false); // Deuce-Bereich (beide >= 10), 2 Punkte Vorsprung nötig
                 expect(isValidSet(10, 11)).toBe(false); // Gleich
                 expect(isValidSet(13, 12)).toBe(false); // 1-point lead in deuce
                 expect(isValidSet(12, 11)).toBe(false); // 1-point lead in deuce
@@ -98,9 +98,9 @@ describe('Set Score Validation', () => {
             });
 
             test('should handle extended deuces correctly', () => {
-                expect(isValidSet(19, 17)).toBe(true); // Valid deuce
+                expect(isValidSet(19, 17)).toBe(true); // Gültiges Deuce
                 expect(isValidSet(20, 19)).toBe(false); // Invalid (1-point lead)
-                expect(isValidSet(21, 19)).toBe(true); // Valid deuce
+                expect(isValidSet(21, 19)).toBe(true); // Gültiges Deuce
             });
         });
 
@@ -144,7 +144,7 @@ describe('Set Score Validation', () => {
         test('should return null for invalid sets', () => {
             expect(getSetWinner(10, 9)).toBe(null); // Nicht genug Punkte
             expect(getSetWinner(11, 11)).toBe(null); // Tie
-            expect(getSetWinner(12, 11)).toBe(null); // Invalid deuce
+            expect(getSetWinner(12, 11)).toBe(null); // Ungültiges Deuce
         });
 
         test('should return null for ties', () => {
@@ -387,7 +387,7 @@ describe('Handicap Calculation', () => {
                 const result = calculateHandicap(playerA, playerB);
 
                 expect(result).not.toBe(null);
-                expect(result.points).toBe(7); // Capped at 7 (config maxPoints)
+                expect(result.points).toBe(7); // Begrenzt auf 7 (config maxPoints)
                 expect(result.player).toBe(playerA);
             });
 
@@ -528,7 +528,7 @@ describe('Handicap Calculation', () => {
                 const result = calculateHandicap(beginner, expert);
 
                 expect(result).not.toBe(null);
-                expect(result.points).toBe(7); // Capped at 7 (maxPoints)
+                expect(result.points).toBe(7); // Begrenzt auf 7 (maxPoints)
                 expect(result.player).toBe(beginner);
             });
 

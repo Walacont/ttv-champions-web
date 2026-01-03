@@ -2362,7 +2362,7 @@ function renderClubRankingChangeCard(activity) {
         `;
     }
 
-    // Position badge
+    // Positions-Badge
     let positionBadge;
     if (newPosition <= 3 && positionMedal) {
         positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
@@ -2453,7 +2453,7 @@ function renderGlobalRankingChangeCard(activity) {
         messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${getRankingText('globalRanking.fallen')}</span>`;
     }
 
-    // Position badge
+    // Positions-Badge
     let positionBadge;
     if (newPosition <= 3 && positionMedal) {
         positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
@@ -2580,7 +2580,7 @@ function renderClubDoublesRankingChangeCard(activity) {
         `;
     }
 
-    // Position badge
+    // Positions-Badge
     let positionBadge;
     if (newPosition <= 3 && positionMedal) {
         positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
@@ -2678,7 +2678,7 @@ function renderGlobalDoublesRankingChangeCard(activity) {
         messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} gefallen</span>`;
     }
 
-    // Position badge
+    // Positions-Badge
     let positionBadge;
     if (newPosition <= 3 && positionMedal) {
         positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
