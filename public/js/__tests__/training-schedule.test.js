@@ -605,7 +605,7 @@ describe('Integration Scenarios', () => {
             const templateEndDate = '2024-08-31';
             const checkDate = '2024-07-15';
 
-            // Simulate template date boundary check
+            // Vorlagen-Datumsgrenzen-Prüfung simulieren
             const isWithinRange = checkDate >= templateStartDate && checkDate <= templateEndDate;
             expect(isWithinRange).toBe(true);
         });

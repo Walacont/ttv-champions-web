@@ -889,7 +889,7 @@ async function fetchActivities(userIds) {
 
     console.log('[ActivityFeed] Total activities after combine:', deduplicatedActivities.length);
 
-    // Take page size for display
+    // Seitengröße für Anzeige nehmen
     const activities = deduplicatedActivities.slice(0, ACTIVITIES_PER_PAGE);
 
     // Verbleibende Aktivitäten für nächstes Laden cachen (verhindert Aktivitätsverlust)
@@ -900,7 +900,7 @@ async function fetchActivities(userIds) {
         return [];
     }
 
-    // Collect all player IDs from matches (not from events, those have embedded data)
+    // Alle Spieler-IDs aus Matches sammeln (nicht aus Events, die haben eingebettete Daten)
     const playerIds = new Set();
     activities.forEach(m => {
         if (m.activityType === 'singles') {
@@ -996,7 +996,7 @@ async function fetchActivities(userIds) {
                 }
             });
 
-            // Attach voters to non-anonymous polls
+            // Wähler an nicht-anonyme Umfragen anhängen
             nonAnonymousPolls.forEach(poll => {
                 poll.voters = votersMap[poll.id] || {};
             });
@@ -1095,7 +1095,7 @@ function renderActivityCard(activity) {
     } else if (activity.activityType === 'poll') {
         return renderPollCard(activity, activity.profileMap);
     }
-    return ''; // Unknown activity type
+    return ''; // Unbekannter Aktivitätstyp
 }
 
 /**
@@ -1442,7 +1442,7 @@ function renderLikeButton(matchId, matchType, activity = null) {
         `;
     }
 
-    // Regular like button for other users' activities
+    // Normaler Like-Button für Aktivitäten anderer Benutzer
     const iconClass = isLiked ? 'fas' : 'far';
     const colorClass = isLiked ? 'text-blue-500' : 'text-gray-400 hover:text-blue-500';
 
@@ -1488,7 +1488,7 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
         `;
     }
 
-    // Regular like button for other users' activities
+    // Normaler Like-Button für Aktivitäten anderer Benutzer
     return `
         <button
             onclick="toggleActivityLike('${activityId}', '${activityType}')"
@@ -1561,7 +1561,7 @@ async function injectMatchMedia(matchId, matchType) {
             ` : '';
 
             if (item.file_type === 'video') {
-                // Video item with play button overlay, plays inline on click
+                // Video-Element mit Play-Button-Overlay, spielt inline bei Klick
                 carouselItems += `
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
@@ -1895,7 +1895,7 @@ function storeMatchForDetails(match, matchType, profileMap) {
         }
     }
 
-    // Merge profile maps
+    // Profil-Maps zusammenführen
     Object.assign(window.matchHistoryData.profileMap, profileMap);
 }
 
@@ -2254,7 +2254,7 @@ function renderRankUpCard(activity) {
     `;
 }
 
-// Helper function to get ranking translations with fallbacks
+// Hilfsfunktion für Ranking-Übersetzungen mit Fallbacks
 // Stellt sicher dass Text angezeigt wird auch wenn i18n noch nicht geladen
 function getRankingText(key, params = {}) {
     const fallbacks = {
@@ -2323,7 +2323,7 @@ function renderClubRankingChangeCard(activity) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Color scheme based on position (gold, silver, bronze for top 3, blue for 4-10)
+    // Farbschema basierend auf Position (Gold, Silber, Bronze für Top 3, Blau für 4-10)
     const positionColors = {
         1: { bg: 'yellow', border: 'yellow', text: 'yellow' },
         2: { bg: 'gray', border: 'gray', text: 'gray' },
@@ -2541,7 +2541,7 @@ function renderClubDoublesRankingChangeCard(activity) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Color scheme based on position (gold, silver, bronze for top 3, teal for 4-10)
+    // Farbschema basierend auf Position (Gold, Silber, Bronze für Top 3, Türkis für 4-10)
     const positionColors = {
         1: { bg: 'yellow', border: 'yellow', text: 'yellow' },
         2: { bg: 'gray', border: 'gray', text: 'gray' },
@@ -2549,7 +2549,7 @@ function renderClubDoublesRankingChangeCard(activity) {
     };
     const colors = positionColors[newPosition] || { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Nachricht basierend auf Bewegung generieren (plural for pairings: "steigen" instead of "steigt")
+    // Nachricht basierend auf Bewegung generieren (Plural für Paarungen: "steigen" statt "steigt")
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
@@ -2756,7 +2756,7 @@ function renderPostCard(activity, profileMap) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Support both old single image and new multiple images
+    // Alte Einzelbild- und neue Mehrfachbild-Formate unterstützen
     const imageUrls = activity.image_urls || (activity.image_url ? [activity.image_url] : []);
     const hasImages = imageUrls.length > 0;
     const likesCount = activity.likes_count || 0;
@@ -3063,7 +3063,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
         const isMultipleChoice = poll.allow_multiple || allowMultiple;
 
         if (isMultipleChoice) {
-            // Multiple choice voting logic
+            // Mehrfachauswahl-Abstimmungslogik
             // Prüfen ob Benutzer bereits für diese Option gestimmt hat
             const { data: existingVoteForOption, error: checkError } = await supabase
                 .from('poll_votes')
@@ -3078,7 +3078,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
             }
 
             if (existingVoteForOption) {
-                // User clicked same option - remove the vote (toggle off)
+                // Benutzer klickte gleiche Option - Stimme entfernen (umschalten)
                 const { error: deleteError } = await supabase
                     .from('poll_votes')
                     .delete()
@@ -3104,7 +3104,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
                 }
             }
         } else {
-            // Single choice voting logic (original behavior)
+            // Einfachauswahl-Abstimmungslogik (ursprüngliches Verhalten)
             // Prüfen ob Benutzer bereits gestimmt hat
             const { data: existingVote, error: checkError } = await supabase
                 .from('poll_votes')
@@ -3119,12 +3119,12 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
 
             if (existingVote) {
                 if (existingVote.option_id === optionId) {
-                    // User clicked same option - show that they already voted
+                    // Benutzer klickte gleiche Option - zeigen dass bereits abgestimmt
                     alert('Du hast bereits für diese Option gestimmt.');
                     return;
                 }
 
-                // User wants to change vote - delete old and insert new
+                // Benutzer möchte Stimme ändern - alte löschen und neue einfügen
                 const { error: deleteError } = await supabase
                     .from('poll_votes')
                     .delete()
@@ -3135,7 +3135,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
                     throw deleteError;
                 }
 
-                // Insert new vote
+                // Neue Stimme einfügen
                 const { error: insertError } = await supabase
                     .from('poll_votes')
                     .insert({
@@ -3183,7 +3183,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
  */
 async function refreshPollCard(pollId) {
     try {
-        // Reload poll data
+        // Umfrage-Daten neu laden
         const { data: poll, error } = await supabase
             .from('community_polls')
             .select('*')

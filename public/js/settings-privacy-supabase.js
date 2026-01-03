@@ -38,7 +38,7 @@ const privacyFeedback = document.getElementById('privacy-feedback');
 let currentUser = null;
 let currentUserData = null;
 
-// Check auth state on load
+// Auth-Status beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 

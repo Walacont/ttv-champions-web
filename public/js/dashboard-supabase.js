@@ -2198,7 +2198,7 @@ async function loadCalendar() {
     // Kalender-Raster erstellen
     let html = '';
 
-    // Empty cells for days before first of month
+    // Leere Zellen für Tage vor Monatsersten
     const startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
     for (let i = 0; i < startDay; i++) {
         html += '<div></div>';
@@ -2308,7 +2308,7 @@ async function fetchSeasonEndDate() {
 // Gespeichertes Saison-Enddatum für effizienten Countdown
 let seasonEndDate = null;
 
-// Initial load of season end date (called once)
+// Initiales Laden des Saison-Enddatums (einmal aufgerufen)
 async function initSeasonCountdown() {
     seasonEndDate = await fetchSeasonEndDate();
     updateSeasonCountdownDisplay();
@@ -2565,7 +2565,7 @@ function setupRealtimeSubscriptions() {
             table: 'doubles_match_requests'
         }, async (payload) => {
             console.log('[Realtime] Doubles match request update:', payload.eventType, payload);
-            // Reload match requests for all doubles request changes
+            // Match-Anfragen für alle Doppel-Anfrage-Änderungen neu laden
             loadMatchRequests();
             loadPendingRequests();
             // Benachrichtigung für neue eingehende Anfragen anzeigen
@@ -2727,7 +2727,7 @@ function showNewRequestNotification() {
         setTimeout(() => requestsSection.classList.remove('animate-pulse'), 2000);
     }
 
-    // Browser notification only if already permitted
+    // Browser-Benachrichtigung nur wenn bereits erlaubt
     // Hinweis: requestPermission() kann nur durch Benutzerinteraktion aufgerufen werden
     if (Notification.permission === 'granted') {
         try {
@@ -3123,8 +3123,8 @@ window.openChallengeModal = async (challengeId) => {
 // Laufende Anfragen verfolgen um Doppelklicks zu verhindern
 const processingRequests = new Set();
 
-// Helper function to optimistically remove a request card from UI
-// Cards can appear in multiple locations (overview and matches tab), so we check all possible IDs
+// Hilfsfunktion um Anfrage-Karte optimistisch aus UI zu entfernen
+// Karten können an mehreren Stellen erscheinen (Übersicht und Matches-Tab), daher alle möglichen IDs prüfen
 function removeRequestCardOptimistically(requestId, type = 'singles') {
     // Possible card IDs for singles: match-request-X (overview) and pending-match-request-X (matches tab)
     // Possible card IDs for doubles: doubles-request-X (overview) and pending-doubles-request-X (matches tab)
@@ -3206,7 +3206,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
                 );
             }
 
-            // Delayed reload to let optimistic UI update complete
+            // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
             setTimeout(() => {
                 loadMatchRequests();
                 loadPendingRequests();
@@ -3260,8 +3260,8 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // loadMatchRequests() nicht sofort aufrufen - optimistisches UI-Update bereits
         // removed the card, and calling loadMatchRequests() too soon can cause a race
         // condition where the card reappears briefly before the animation completes.
-        // The realtime subscription will handle any further updates.
-        // Delayed reload as a safety net for any missed realtime events
+        // Die Echtzeit-Subscription behandelt weitere Updates.
+        // Verzögertes Neuladen als Sicherheitsnetz für verpasste Echtzeit-Events
         setTimeout(() => {
             loadMatchRequests();
             loadPendingRequests();
@@ -3291,7 +3291,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
     removeRequestCardOptimistically(requestId, 'doubles');
 
     try {
-        // First check if request still exists and isn't already processed
+        // Zuerst prüfen ob Anfrage noch existiert und nicht bereits verarbeitet
         const { data: request, error: fetchError } = await supabase
             .from('doubles_match_requests')
             .select('*')
@@ -3301,7 +3301,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         if (fetchError) {
             console.warn('[Doubles] Request not found or already deleted:', fetchError);
             processingRequests.delete(`doubles-${requestId}`);
-            // Delayed reload to let optimistic UI update complete
+            // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
             setTimeout(() => {
                 loadMatchRequests();
                 loadPendingRequests();
@@ -3313,7 +3313,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         if (request.status === 'approved' || request.status === 'rejected') {
             console.warn('[Doubles] Request already processed:', request.status);
             processingRequests.delete(`doubles-${requestId}`);
-            // Delayed reload to let optimistic UI update complete
+            // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
             setTimeout(() => {
                 loadMatchRequests();
                 loadPendingRequests();
@@ -3332,7 +3332,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
                 .eq('id', requestId);
 
             if (error) throw error;
-            // Delayed reload to let optimistic UI update complete
+            // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
             setTimeout(() => {
                 loadMatchRequests();
                 loadPendingRequests();
@@ -3365,7 +3365,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
 
         if (updateError) throw updateError;
 
-        // Delayed reload to let optimistic UI update complete
+        // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
         setTimeout(() => {
             loadMatchRequests();
             loadPendingRequests();
@@ -3384,7 +3384,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
     if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
 
     try {
-        // First get the request to find team B players for notification deletion
+        // Zuerst Anfrage abrufen um Team B Spieler für Benachrichtigungslöschung zu finden
         const { data: request } = await supabase
             .from('doubles_match_requests')
             .select('team_b')
@@ -3419,7 +3419,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
             }
         }
 
-        // Refresh lists immediately for Team A
+        // Listen sofort für Team A aktualisieren
         loadMatchRequests();
         loadPendingRequests();
     } catch (error) {
@@ -3591,7 +3591,7 @@ async function checkPendingMatchConfirmations(userId) {
     try {
         const pendingConfirmations = await loadAllPendingConfirmations(userId);
         if (pendingConfirmations && pendingConfirmations.length > 0) {
-            // Small delay to ensure page is fully loaded
+            // Kurze Verzögerung um sicherzustellen dass Seite vollständig geladen
             setTimeout(() => {
                 showMatchConfirmationBottomSheet(pendingConfirmations);
             }, 1000);
@@ -3779,7 +3779,7 @@ async function loadMatchSuggestions() {
     const container = document.getElementById('match-suggestions-list');
     if (!container) return;
 
-    // Allow suggestions even without club (show all players)
+    // Vorschläge auch ohne Verein erlauben (alle Spieler anzeigen)
     const hasClub = !!currentUserData.club_id;
 
     container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
@@ -3959,7 +3959,7 @@ async function loadMatchSuggestions() {
     }
 }
 
-// Quick select opponent from suggestions
+// Gegner schnell aus Vorschlägen auswählen
 window.quickSelectOpponent = function(playerId, playerName, playerElo) {
     // Gegner im Match-Anfrage-Formular setzen
     selectedOpponent = { id: playerId, name: playerName, elo: playerElo };
@@ -4012,7 +4012,7 @@ function setupLeaderboardPreferences() {
 // ========================================================================
 // ===== WIDGET SETTINGS =====
 // ========================================================================
-// Widget system now handled by dashboard-widgets-supabase.js module
+// Widget-System wird jetzt von dashboard-widgets-supabase.js Modul behandelt
 
 // ========================================================================
 // ===== PLAYER SUBGROUP FILTER =====
@@ -4044,7 +4044,7 @@ async function populatePlayerSubgroupFilter(userData) {
     // Folge-Option hinzufügen (immer verfügbar)
     dropdown.appendChild(createOption('following', 'Abonniert'));
 
-    // Global option always available
+    // Globale Option immer verfügbar
     dropdown.appendChild(createOption('global', 'Global'));
 
     // Benutzerdefinierte Untergruppen laden und hinzufügen (nur für Vereinsmitglieder)
@@ -4071,7 +4071,7 @@ async function populatePlayerSubgroupFilter(userData) {
         }
     }
 
-    // Restore selection if still valid
+    // Auswahl wiederherstellen falls noch gültig
     const validValues = Array.from(dropdown.options).map(opt => opt.value);
     if (validValues.includes(currentSelection)) {
         dropdown.value = currentSelection;
@@ -4089,7 +4089,7 @@ async function populatePlayerSubgroupFilter(userData) {
     } else if (currentSubgroupFilter === 'club') {
         currentLeaderboardScope = hasClub ? 'club' : 'global';
     } else {
-        // Age groups and subgroups - use global if no club
+        // Altersgruppen und Untergruppen - global nutzen wenn kein Verein
         currentLeaderboardScope = hasClub ? 'club' : 'global';
     }
 }

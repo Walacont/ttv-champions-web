@@ -72,7 +72,7 @@ export function loadMatchHistory(supabase, userData, matchType = 'all') {
         return;
     }
 
-    // Clean up existing subscriptions if any
+    // Bestehende Subscriptions aufräumen falls vorhanden
     cleanupSubscriptions();
 
     container.innerHTML =
@@ -159,7 +159,7 @@ async function loadAndSubscribe(supabase, userData, container, matchType) {
  */
 async function fetchAndRenderMatches(supabase, userData, container, matchType) {
     try {
-        // Query singles matches where user is playerA
+        // Einzel-Matches abfragen wo Benutzer playerA ist
         const { data: singlesAsA, error: singlesAsAError } = await supabase
             .from('matches')
             .select('*')
@@ -169,7 +169,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
 
         if (singlesAsAError) console.error('Error fetching singles as A:', singlesAsAError);
 
-        // Query singles matches where user is playerB
+        // Einzel-Matches abfragen wo Benutzer playerB ist
         const { data: singlesAsB, error: singlesAsBError } = await supabase
             .from('matches')
             .select('*')
@@ -192,7 +192,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
         let doublesMatches = [];
 
         if (hasClub) {
-            // Query own club doubles matches
+            // Eigene Vereins-Doppel-Matches abfragen
             const { data: doublesOwnClub, error: doublesOwnError } = await supabase
                 .from('doubles_matches')
                 .select('*')
@@ -202,7 +202,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
 
             if (doublesOwnError) console.error('Error fetching own club doubles:', doublesOwnError);
 
-            // Query null club doubles matches (cross-club)
+            // Null-Vereins-Doppel-Matches abfragen (vereinsübergreifend)
             const { data: doublesNullClub, error: doublesNullError } = await supabase
                 .from('doubles_matches')
                 .select('*')
@@ -228,7 +228,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
                 );
             });
         } else {
-            // Query null club doubles matches only
+            // Nur Null-Vereins-Doppel-Matches abfragen
             const { data: doublesNullClub, error: doublesNullError } = await supabase
                 .from('doubles_matches')
                 .select('*')
@@ -448,7 +448,7 @@ async function enrichMatchData(supabase, match, userData) {
         // Falls nicht im Verlauf gefunden, aus Match-Daten schätzen
         if (eloChange === null) {
             if (match.pointsExchanged !== undefined) {
-                // Estimate based on whether user won or lost
+                // Schätzung basierend ob Benutzer gewonnen oder verloren hat
                 if (match.winnerId === userData.id) {
                     eloChange = match.handicapUsed ? 8 : Math.round(match.pointsExchanged / 0.2);
                     pointsGained = match.pointsExchanged;
