@@ -1585,29 +1585,32 @@ async function loadProfileAttendance() {
 
     console.log('[ProfileView] Invitations loaded:', invitations?.length || 0, 'invited event IDs:', Array.from(invitedEventIds));
 
-    // Event-Attendance laden wo dieser User anwesend war
-    const { data: eventAttendance, error: attendanceError } = await supabase
-        .from('event_attendance')
-        .select('event_id, occurrence_date, present_user_ids')
-        .contains('present_user_ids', [profileId]);
+    // Event-Attendance für eingeladene Events laden
+    let attendedEventDates = new Set();
+    if (invitedEventIds.size > 0) {
+        const { data: eventAttendance, error: attendanceError } = await supabase
+            .from('event_attendance')
+            .select('event_id, occurrence_date, present_user_ids')
+            .in('event_id', Array.from(invitedEventIds))
+            .gte('occurrence_date', startDateStr)
+            .lte('occurrence_date', endDateStr);
 
-    if (attendanceError) {
-        console.warn('[ProfileView] Error loading event attendance:', attendanceError);
+        if (attendanceError) {
+            console.warn('[ProfileView] Error loading event attendance:', attendanceError);
+        }
+
+        // Filtern wo dieser User anwesend war
+        if (eventAttendance) {
+            eventAttendance.forEach(ea => {
+                if (ea.present_user_ids?.includes(profileId)) {
+                    const key = `${ea.event_id}-${ea.occurrence_date}`;
+                    attendedEventDates.add(key);
+                }
+            });
+        }
+
+        console.log('[ProfileView] Attended event dates:', Array.from(attendedEventDates));
     }
-
-    // Set von besuchten Event-Datum-Kombinationen
-    const attendedEventDates = new Set();
-    if (eventAttendance) {
-        eventAttendance.forEach(ea => {
-            const eventDate = ea.occurrence_date;
-            if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
-                const key = `${ea.event_id}-${eventDate}`;
-                attendedEventDates.add(key);
-            }
-        });
-    }
-
-    console.log('[ProfileView] Attended event dates:', Array.from(attendedEventDates));
 
     let allEventsForMonth = [];
     if (!clubId) {
