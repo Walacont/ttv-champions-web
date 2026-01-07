@@ -1549,55 +1549,77 @@ async function loadProfileAttendance() {
     const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
+    // Profil mit subgroup_ids laden
     const { data: profile } = await supabase
         .from('profiles')
-        .select('club_id')
+        .select('club_id, subgroup_ids')
         .eq('id', profileId)
         .single();
 
     const clubId = profile?.club_id;
-    console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
+    const playerSubgroups = profile?.subgroup_ids || [];
+    console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId, 'subgroups:', playerSubgroups);
 
-    // Nur Einladungen für diesen Spieler laden
-    const { data: invitations, error: invError } = await supabase
-        .from('event_invitations')
-        .select('id, event_id, status, occurrence_date')
-        .eq('user_id', profileId);
-
-    if (invError) {
-        console.warn('[ProfileView] Error loading invitations:', invError);
+    if (!clubId) {
+        console.warn('[ProfileView] No clubId found for profile, cannot load events');
+        return;
     }
 
-    // Map für schnellen Zugriff auf Einladungen
-    const invitationMap = {};
-    const invitedEventIds = new Set();
-    (invitations || []).forEach(inv => {
-        invitedEventIds.add(inv.event_id);
-        const key = inv.occurrence_date
-            ? `${inv.event_id}-${inv.occurrence_date}`
-            : inv.event_id;
-        invitationMap[key] = {
-            id: inv.id,
-            status: inv.status,
-            occurrence_date: inv.occurrence_date
-        };
+    // Alle Club-Events laden (nicht nur die mit Einladungen)
+    const { data: clubEvents, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+            id,
+            title,
+            description,
+            start_date,
+            start_time,
+            end_time,
+            location,
+            repeat_type,
+            repeat_end_date,
+            excluded_dates,
+            event_category,
+            target_type,
+            target_subgroup_ids
+        `)
+        .eq('club_id', clubId);
+
+    if (eventsError) {
+        console.warn('[ProfileView] Error loading club events:', eventsError);
+    }
+
+    console.log('[ProfileView] All club events loaded:', clubEvents?.length || 0);
+
+    // Events filtern wo der Spieler Teil der Zielgruppe ist
+    const relevantEvents = (clubEvents || []).filter(event => {
+        // target_type 'club' = alle Vereinsmitglieder
+        if (event.target_type === 'club') return true;
+
+        // target_type 'subgroups' = nur bestimmte Untergruppen
+        if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+            // Prüfen ob der Spieler in einer der Zielgruppen ist
+            return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
+        }
+
+        return false;
     });
 
-    console.log('[ProfileView] Invitations loaded:', invitations?.length || 0, 'invited event IDs:', Array.from(invitedEventIds));
+    console.log('[ProfileView] Relevant events for player:', relevantEvents.length);
 
-    // Event-Attendance für eingeladene Events laden (mit Event-Daten für das Datum)
+    // Event-Attendance laden
     let attendedEventIds = new Set();
-    if (invitedEventIds.size > 0) {
+    if (relevantEvents.length > 0) {
+        const eventIds = relevantEvents.map(e => e.id);
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
             .select('event_id, present_user_ids')
-            .in('event_id', Array.from(invitedEventIds));
+            .in('event_id', eventIds);
 
         if (attendanceError) {
             console.warn('[ProfileView] Error loading event attendance:', attendanceError);
         }
 
-        // Filtern wo dieser User anwesend war
         if (eventAttendance) {
             eventAttendance.forEach(ea => {
                 if (ea.present_user_ids?.includes(profileId)) {
@@ -1610,62 +1632,19 @@ async function loadProfileAttendance() {
     }
 
     let allEventsForMonth = [];
-    if (!clubId) {
-        console.warn('[ProfileView] No clubId found for profile, cannot load events');
-    } else if (invitedEventIds.size === 0) {
-        console.warn('[ProfileView] No invitations found for profile');
-    }
 
-    if (clubId && invitedEventIds.size > 0) {
-        // Erst alle Events laden um zu sehen welche Kategorien existieren
-        const { data: clubEvents, error: eventsError } = await supabase
-            .from('events')
-            .select(`
-                id,
-                title,
-                description,
-                start_date,
-                start_time,
-                end_time,
-                location,
-                repeat_type,
-                repeat_end_date,
-                excluded_dates,
-                event_category
-            `)
-            .eq('club_id', clubId)
-            .in('id', Array.from(invitedEventIds));
-
-        if (eventsError) {
-            console.warn('[ProfileView] Error loading club events:', eventsError);
-        }
-
-        console.log('[ProfileView] All invited events loaded:', clubEvents?.length || 0, 'for club', clubId);
-        if (clubEvents && clubEvents.length > 0) {
-            console.log('[ProfileView] Event categories:', clubEvents.map(e => ({ id: e.id, title: e.title, category: e.event_category })));
-        }
-
-        // Alle Events anzeigen (TODO: später nur Trainings wenn Kategorien korrekt gesetzt sind)
-        const trainingEvents = clubEvents || [];
-
-        console.log('[ProfileView] Events to show:', trainingEvents.length);
-
-        if (trainingEvents) {
-            trainingEvents.forEach(event => {
-                console.log('[ProfileView] Event details:', event.id, event.title, 'start_date:', event.start_date, 'repeat_type:', event.repeat_type, 'repeat_end_date:', event.repeat_end_date);
-                console.log('[ProfileView] Date range:', startDateStr, 'to', endDateStr);
-                const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
-                console.log('[ProfileView] Event', event.id, event.title, 'dates in range:', eventDates);
-                eventDates.forEach(dateStr => {
-                    // Spieler ist eingeladen (durch invitedEventIds Filter), also alle Termine zeigen
-                    allEventsForMonth.push({
-                        ...event,
-                        displayDate: dateStr
-                    });
-                });
+    // Events im aktuellen Monat sammeln
+    relevantEvents.forEach(event => {
+        const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
+        eventDates.forEach(dateStr => {
+            allEventsForMonth.push({
+                ...event,
+                displayDate: dateStr
             });
-        }
-    }
+        });
+    });
+
+    console.log('[ProfileView] Events in current month:', allEventsForMonth.length);
 
     const eventsByDate = {};
     allEventsForMonth.forEach(event => {
