@@ -776,7 +776,7 @@ async function initializeCoachPage(userData) {
 
                 const { data: recurringEvents, error: recurringError } = await supabase
                     .from('events')
-                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, start_date')
+                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, start_date, excluded_dates')
                     .eq('club_id', userData.clubId)
                     .eq('cancelled', false)
                     .eq('event_type', 'recurring')
@@ -786,6 +786,10 @@ async function initializeCoachPage(userData) {
                 if (recurringError) throw recurringError;
 
                 const matchingRecurringEvents = (recurringEvents || []).filter(event => {
+                    // Ausgeschlossene Termine prüfen
+                    const excludedDates = event.excluded_dates || [];
+                    if (excludedDates.includes(dateString)) return false;
+
                     const eventStartDate = new Date(event.start_date + 'T12:00:00');
                     const eventDayOfWeek = eventStartDate.getDay();
                     const eventDayOfMonth = eventStartDate.getDate();

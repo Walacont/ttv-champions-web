@@ -166,7 +166,7 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
                 // Wiederkehrende Veranstaltungen, die in diesem Monat stattfinden könnten
                 const { data: recurringEvents, error: recurringError } = await supabase
                     .from('events')
-                    .select('id, title, start_date, start_time, end_time, location, description, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+                    .select('id, title, start_date, start_time, end_time, location, description, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, excluded_dates')
                     .eq('club_id', currentUserData.clubId)
                     .eq('cancelled', false)
                     .eq('event_type', 'recurring')
