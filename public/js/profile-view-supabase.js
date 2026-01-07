@@ -1588,16 +1588,7 @@ async function loadProfileAttendance() {
     // Event-Attendance laden wo dieser User anwesend war
     const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
-        .select(`
-            event_id,
-            occurrence_date,
-            present_user_ids,
-            events (
-                start_date,
-                title,
-                event_category
-            )
-        `)
+        .select('event_id, occurrence_date, present_user_ids')
         .contains('present_user_ids', [profileId]);
 
     if (attendanceError) {
@@ -1608,17 +1599,15 @@ async function loadProfileAttendance() {
     const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            // Nur Trainings zählen (training oder null für ältere Events)
-            const category = ea.events?.event_category;
-            if (category && category !== 'training') return;
-
-            const eventDate = ea.occurrence_date || ea.events?.start_date;
+            const eventDate = ea.occurrence_date;
             if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
                 const key = `${ea.event_id}-${eventDate}`;
                 attendedEventDates.add(key);
             }
         });
     }
+
+    console.log('[ProfileView] Attended event dates:', Array.from(attendedEventDates));
 
     let allEventsForMonth = [];
     if (!clubId) {
