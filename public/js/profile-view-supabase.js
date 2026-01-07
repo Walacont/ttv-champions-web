@@ -1583,6 +1583,8 @@ async function loadProfileAttendance() {
         };
     });
 
+    console.log('[ProfileView] Invitations loaded:', invitations?.length || 0, 'invited event IDs:', Array.from(invitedEventIds));
+
     // Event-Attendance laden wo dieser User anwesend war
     const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
@@ -1606,8 +1608,9 @@ async function loadProfileAttendance() {
     const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            // Nur Trainings zählen
-            if (ea.events?.event_category !== 'training') return;
+            // Nur Trainings zählen (training oder null für ältere Events)
+            const category = ea.events?.event_category;
+            if (category && category !== 'training') return;
 
             const eventDate = ea.occurrence_date || ea.events?.start_date;
             if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
@@ -1619,7 +1622,7 @@ async function loadProfileAttendance() {
 
     let allEventsForMonth = [];
     if (clubId && invitedEventIds.size > 0) {
-        // Nur Trainings laden wo der Spieler eingeladen ist
+        // Trainings laden wo der Spieler eingeladen ist (training oder null für ältere Events)
         const { data: clubEvents, error: eventsError } = await supabase
             .from('events')
             .select(`
@@ -1636,8 +1639,8 @@ async function loadProfileAttendance() {
                 event_category
             `)
             .eq('club_id', clubId)
-            .eq('event_category', 'training')
-            .in('id', Array.from(invitedEventIds));
+            .in('id', Array.from(invitedEventIds))
+            .or('event_category.eq.training,event_category.is.null');
 
         if (eventsError) {
             console.warn('[ProfileView] Error loading club events:', eventsError);
