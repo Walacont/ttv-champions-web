@@ -1657,7 +1657,24 @@ async function loadProfileAttendance() {
     }
 
     // 2. Reguläre Training-Attendance laden (aus attendance Tabelle)
-    // Use select('*') to see all available columns since column name might differ
+    // First, query ALL attendance for this club to check if any exist
+    console.log('[ProfileView] Querying attendance table for club_id:', clubId, 'date range:', startDateStr, 'to', endDateStr);
+
+    const { data: allAttendance, error: allAttError } = await supabase
+        .from('attendance')
+        .select('date, present_player_ids')
+        .eq('club_id', clubId);
+
+    if (allAttError) {
+        console.warn('[ProfileView] Error loading ALL attendance:', allAttError);
+    } else {
+        console.log('[ProfileView] ALL attendance records for club:', allAttendance?.length || 0);
+        if (allAttendance && allAttendance.length > 0) {
+            console.log('[ProfileView] Available attendance dates:', allAttendance.map(a => a.date));
+        }
+    }
+
+    // Now query with date filter
     const { data: trainingAttendance, error: trainingAttError } = await supabase
         .from('attendance')
         .select('*')
@@ -1669,7 +1686,7 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading training attendance:', trainingAttError);
     }
 
-    console.log('[ProfileView] Training attendance records:', trainingAttendance?.length || 0);
+    console.log('[ProfileView] Training attendance records (filtered):', trainingAttendance?.length || 0);
     if (trainingAttendance && trainingAttendance.length > 0) {
         // Log first record to see all available columns
         console.log('[ProfileView] Sample attendance record columns:', Object.keys(trainingAttendance[0]));
