@@ -277,6 +277,16 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
             .subscribe();
 
         subscriptions.push(eventsSubscription);
+
+        // Auf manuelle Event-Änderungen reagieren (z.B. Löschen)
+        const eventChangedHandler = () => {
+            console.log('[Calendar] Event changed manually, reloading...');
+            loadEvents();
+        };
+        window.addEventListener('event-changed', eventChangedHandler);
+
+        // Handler bei Cleanup entfernen
+        subscriptions.push({ unsubscribe: () => window.removeEventListener('event-changed', eventChangedHandler) });
     });
 
     return () => {

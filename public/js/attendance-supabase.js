@@ -147,6 +147,7 @@ export async function renderCalendar(date, currentUserData) {
  * Lädt Anwesenheitsdaten und Events für einen Monat
  */
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
+    console.log(`[fetchMonthlyAttendance] Loading data for ${year}-${month + 1}`);
     monthlyAttendance.clear();
     monthlyEvents.clear();
 
@@ -238,6 +239,8 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
                 isRecurring: event.event_type === 'recurring'
             });
         };
+
+        console.log(`[fetchMonthlyAttendance] Loaded ${(singleEvents || []).length} single events, ${(recurringEvents || []).length} recurring events`);
 
         (singleEvents || []).forEach(e => {
             addEventToDate(e.start_date, e);
