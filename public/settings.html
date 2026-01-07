@@ -118,10 +118,11 @@
                     </div>
                 </a>
 
-                <!-- Benachrichtigungen -->
+                <!-- Benachrichtigungen (nur in PWA/native App sichtbar) -->
                 <a
+                    id="notifications-card"
                     href="/settings-notifications.html"
-                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
                 >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -316,6 +317,14 @@
             import { getSupabase } from '/js/supabase-init.js';
             import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
 
+            // Prüft ob Push-Benachrichtigungen unterstützt werden (PWA oder native App)
+            function isPushSupported() {
+                if (window.CapacitorUtils?.isNative()) return true;
+                if (window.matchMedia('(display-mode: standalone)').matches) return true;
+                if (window.navigator.standalone === true) return true;
+                return false;
+            }
+
             // Initialize immediately or on DOMContentLoaded
             async function init() {
                 // Initialize i18n first
@@ -325,6 +334,12 @@
 
                 // Update HTML lang attribute
                 document.documentElement.lang = getCurrentLanguage();
+
+                // Benachrichtigungen-Card nur in PWA/native anzeigen
+                const notificationsCard = document.getElementById('notifications-card');
+                if (notificationsCard && isPushSupported()) {
+                    notificationsCard.classList.remove('hidden');
+                }
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
