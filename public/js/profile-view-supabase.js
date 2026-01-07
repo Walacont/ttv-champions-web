@@ -1585,15 +1585,13 @@ async function loadProfileAttendance() {
 
     console.log('[ProfileView] Invitations loaded:', invitations?.length || 0, 'invited event IDs:', Array.from(invitedEventIds));
 
-    // Event-Attendance für eingeladene Events laden
-    let attendedEventDates = new Set();
+    // Event-Attendance für eingeladene Events laden (mit Event-Daten für das Datum)
+    let attendedEventIds = new Set();
     if (invitedEventIds.size > 0) {
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
-            .select('event_id, occurrence_date, present_user_ids')
-            .in('event_id', Array.from(invitedEventIds))
-            .gte('occurrence_date', startDateStr)
-            .lte('occurrence_date', endDateStr);
+            .select('event_id, present_user_ids')
+            .in('event_id', Array.from(invitedEventIds));
 
         if (attendanceError) {
             console.warn('[ProfileView] Error loading event attendance:', attendanceError);
@@ -1603,13 +1601,12 @@ async function loadProfileAttendance() {
         if (eventAttendance) {
             eventAttendance.forEach(ea => {
                 if (ea.present_user_ids?.includes(profileId)) {
-                    const key = `${ea.event_id}-${ea.occurrence_date}`;
-                    attendedEventDates.add(key);
+                    attendedEventIds.add(ea.event_id);
                 }
             });
         }
 
-        console.log('[ProfileView] Attended event dates:', Array.from(attendedEventDates));
+        console.log('[ProfileView] Attended event IDs:', Array.from(attendedEventIds));
     }
 
     let allEventsForMonth = [];
@@ -1707,8 +1704,7 @@ async function loadProfileAttendance() {
         let attendedCount = 0;
         if (hasEvents) {
             dayEvents.forEach(event => {
-                const key = `${event.id}-${dateStr}`;
-                if (attendedEventDates.has(key)) {
+                if (attendedEventIds.has(event.id)) {
                     attendedCount++;
                 }
             });
