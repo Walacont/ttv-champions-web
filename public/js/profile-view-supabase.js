@@ -1682,8 +1682,9 @@ async function loadProfileAttendance() {
     window.profileCalendarMonth = { year, month };
 
     const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = lastDayOfMonth;
+    const firstDayOfMonth = new Date(year, month, 1);
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
     let calendarHtml = `
         <h4 class="font-semibold text-gray-700 mb-3">${monthName}</h4>
