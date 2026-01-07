@@ -693,56 +693,27 @@ async function submitEvent() {
         if (eventError) throw eventError;
 
         // Einladungen IMMER erstellen (zum Tracken wer ausgewählt wurde)
-        // Nur Benachrichtigungen werden je nach Einstellung gesendet oder nicht
+        // Eine Einladung pro User pro Event (DB-Constraint: event_id + user_id)
         const invitations = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
 
         // Deduplizierung der ausgewählten Mitglieder
         const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
 
-        if (currentEventData.eventType === 'recurring' && repeatType) {
-            const occurrences = generateUpcomingOccurrences(
-                startDate,
-                repeatType,
-                repeatEnd,
-                [],
-                invitationLeadTimeValue,
-                invitationLeadTimeUnit,
-                4
-            );
-
-            // Deduplizierung der Occurrence-Daten
-            const uniqueOccurrences = [...new Set(occurrences)];
-
-            uniqueOccurrences.forEach(occurrenceDate => {
-                uniqueMembers.forEach(userId => {
-                    invitations.push({
-                        event_id: event.id,
-                        user_id: userId,
-                        occurrence_date: occurrenceDate,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    });
-                });
+        uniqueMembers.forEach(userId => {
+            invitations.push({
+                event_id: event.id,
+                user_id: userId,
+                occurrence_date: startDate,
+                status: 'pending',
+                created_at: new Date().toISOString()
             });
-        } else {
-            uniqueMembers.forEach(userId => {
-                invitations.push({
-                    event_id: event.id,
-                    user_id: userId,
-                    occurrence_date: startDate,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                });
-            });
-        }
+        });
 
         if (invitations.length > 0) {
             const { error: invError } = await supabase
                 .from('event_invitations')
                 .upsert(invitations, {
-                    onConflict: 'event_id,user_id,occurrence_date',
+                    onConflict: 'event_id,user_id',
                     ignoreDuplicates: true
                 });
 
