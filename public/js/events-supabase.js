@@ -353,7 +353,34 @@ function selectEventType(type) {
         recurringSettings?.classList.add('hidden');
     }
 
+    // Vorlaufzeit-Option nur für wiederkehrende Events anzeigen
+    updateSendInvitationOptions(type);
+
     showModal('event-target-modal');
+}
+
+/**
+ * Aktualisiert die Einladungs-Optionen basierend auf Event-Typ
+ * @param {string} eventType - 'single' oder 'recurring'
+ */
+function updateSendInvitationOptions(eventType) {
+    const sendInvitationSelect = document.getElementById('event-send-invitation');
+    if (!sendInvitationSelect) return;
+
+    const leadTimeOption = sendInvitationSelect.querySelector('option[value="lead_time"]');
+    if (leadTimeOption) {
+        if (eventType === 'recurring') {
+            leadTimeOption.style.display = '';
+        } else {
+            leadTimeOption.style.display = 'none';
+            // Falls Vorlaufzeit ausgewählt war, auf "Sofort" zurücksetzen
+            if (sendInvitationSelect.value === 'lead_time') {
+                sendInvitationSelect.value = 'now';
+                // Event triggern um UI zu aktualisieren
+                sendInvitationSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    }
 }
 
 /**
@@ -753,6 +780,9 @@ function resetEventData() {
     };
 
     document.getElementById('event-creation-form')?.reset();
+
+    // Vorlaufzeit-Option verstecken (Standard ist einzelnes Event)
+    updateSendInvitationOptions('single');
 }
 
 /**
