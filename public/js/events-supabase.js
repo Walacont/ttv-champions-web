@@ -367,18 +367,26 @@ function updateSendInvitationOptions(eventType) {
     const sendInvitationSelect = document.getElementById('event-send-invitation');
     if (!sendInvitationSelect) return;
 
-    const leadTimeOption = sendInvitationSelect.querySelector('option[value="lead_time"]');
-    if (leadTimeOption) {
-        if (eventType === 'recurring') {
-            leadTimeOption.style.display = '';
-        } else {
-            leadTimeOption.style.display = 'none';
+    const existingLeadTimeOption = sendInvitationSelect.querySelector('option[value="lead_time"]');
+
+    if (eventType === 'recurring') {
+        // Option hinzufügen falls nicht vorhanden
+        if (!existingLeadTimeOption) {
+            const noneOption = sendInvitationSelect.querySelector('option[value="none"]');
+            const leadTimeOption = document.createElement('option');
+            leadTimeOption.value = 'lead_time';
+            leadTimeOption.textContent = 'Vorlaufzeit';
+            sendInvitationSelect.insertBefore(leadTimeOption, noneOption);
+        }
+    } else {
+        // Option entfernen falls vorhanden
+        if (existingLeadTimeOption) {
             // Falls Vorlaufzeit ausgewählt war, auf "Sofort" zurücksetzen
             if (sendInvitationSelect.value === 'lead_time') {
                 sendInvitationSelect.value = 'now';
-                // Event triggern um UI zu aktualisieren
                 sendInvitationSelect.dispatchEvent(new Event('change'));
             }
+            existingLeadTimeOption.remove();
         }
     }
 }
