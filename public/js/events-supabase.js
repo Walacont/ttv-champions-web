@@ -829,9 +829,38 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         if (invError) console.warn('[Events] Could not load invitations:', invError);
 
-        const accepted = (invitations || []).filter(i => i.status === 'accepted');
-        const declined = (invitations || []).filter(i => i.status === 'rejected' || i.status === 'declined');
-        const pending = (invitations || []).filter(i => i.status === 'pending');
+        // Wenn keine Einladungen vorhanden, lade Club-Mitglieder für Anwesenheitserfassung
+        let attendeeList = invitations || [];
+        if (attendeeList.length === 0 && currentUserData?.clubId) {
+            let query = supabase
+                .from('profiles')
+                .select('id, first_name, last_name, subgroup_ids')
+                .eq('club_id', currentUserData.clubId)
+                .eq('is_active', true);
+
+            const { data: clubMembers } = await query;
+
+            if (clubMembers) {
+                // Filtere nach Zielgruppe falls gesetzt
+                let filteredMembers = clubMembers;
+                if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
+                    filteredMembers = clubMembers.filter(m =>
+                        m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg))
+                    );
+                }
+
+                // Konvertiere zu Einladungs-Format für einheitliche Darstellung
+                attendeeList = filteredMembers.map(m => ({
+                    user_id: m.id,
+                    status: 'none',
+                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+                }));
+            }
+        }
+
+        const accepted = attendeeList.filter(i => i.status === 'accepted');
+        const declined = attendeeList.filter(i => i.status === 'rejected' || i.status === 'declined');
+        const pending = attendeeList.filter(i => i.status === 'pending' || i.status === 'none');
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -985,13 +1014,15 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         <p class="text-sm text-gray-500 mb-4">Markiere die Teilnehmer, die anwesend waren:</p>
 
                         <div class="space-y-2 max-h-64 overflow-y-auto" id="event-attendance-list">
-                            ${(invitations || []).map(inv => {
+                            ${attendeeList.length > 0 ? attendeeList.map(inv => {
                                 const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
                                 const isPresent = presentIds.includes(inv.user_id);
                                 const statusBadge = inv.status === 'accepted'
                                     ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Zugesagt</span>'
                                     : inv.status === 'rejected' || inv.status === 'declined'
                                     ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Abgesagt</span>'
+                                    : inv.status === 'none'
+                                    ? ''
                                     : '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">Ausstehend</span>';
                                 return `
                                     <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
@@ -1003,7 +1034,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                                         ${statusBadge}
                                     </label>
                                 `;
-                            }).join('')}
+                            }).join('') : '<p class="text-gray-400 text-sm text-center py-4">Keine Teilnehmer gefunden</p>'}
                         </div>
 
                     </div>
