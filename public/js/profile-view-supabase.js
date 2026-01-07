@@ -1746,7 +1746,7 @@ async function loadProfileAttendance() {
 
     calendarHtml += '</div>';
 
-    const totalAttendances = attendedEventDates.size;
+    const totalAttendances = attendedEventIds.size;
     const todayStr = now.toISOString().split('T')[0];
     let pastEventsCount = 0;
     Object.keys(eventsByDate).forEach(dateStr => {
