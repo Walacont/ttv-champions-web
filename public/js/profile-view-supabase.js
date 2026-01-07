@@ -1616,20 +1616,16 @@ async function loadProfileAttendance() {
 
     console.log('[ProfileView] Relevant events for player:', relevantEvents.length);
 
-    // Event-Attendance laden
+    // Attendance aus BEIDEN Tabellen laden:
+    // 1. event_attendance - für Events aus dem Event-System
+    // 2. attendance - für reguläre Trainings aus dem Training-System
+
     let attendedEventIds = new Set();
+    let attendedDates = new Set(); // Für reguläre Trainings (nach Datum)
+
+    // 1. Event-Attendance laden
     if (relevantEvents.length > 0) {
         const eventIds = relevantEvents.map(e => e.id);
-        console.log('[ProfileView] Loading attendance for event IDs:', eventIds);
-
-        // Debug: Lade ALLE event_attendance Einträge um zu sehen ob überhaupt welche existieren
-        const { data: allAttendance, error: allAttError } = await supabase
-            .from('event_attendance')
-            .select('event_id, present_user_ids')
-            .limit(50);
-        console.log('[ProfileView] DEBUG - All attendance records in DB:', allAttendance?.length || 0, allAttendance);
-        if (allAttError) console.warn('[ProfileView] DEBUG - Error loading all attendance:', allAttError);
-
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
             .select('event_id, present_user_ids')
@@ -1639,21 +1635,42 @@ async function loadProfileAttendance() {
             console.warn('[ProfileView] Error loading event attendance:', attendanceError);
         }
 
-        console.log('[ProfileView] Raw attendance data:', eventAttendance);
-        console.log('[ProfileView] Looking for profileId:', profileId);
-
         if (eventAttendance) {
             eventAttendance.forEach(ea => {
-                console.log('[ProfileView] Attendance record:', ea.event_id, 'present_user_ids:', ea.present_user_ids);
                 if (ea.present_user_ids?.includes(profileId)) {
                     attendedEventIds.add(ea.event_id);
-                    console.log('[ProfileView] User was present at event:', ea.event_id);
                 }
             });
         }
-
-        console.log('[ProfileView] Attended event IDs:', Array.from(attendedEventIds));
+        console.log('[ProfileView] Attended event IDs (from event_attendance):', Array.from(attendedEventIds));
     }
+
+    // 2. Reguläre Training-Attendance laden (aus attendance Tabelle)
+    const { data: trainingAttendance, error: trainingAttError } = await supabase
+        .from('attendance')
+        .select('date, present_player_ids')
+        .eq('club_id', clubId)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
+
+    if (trainingAttError) {
+        console.warn('[ProfileView] Error loading training attendance:', trainingAttError);
+    }
+
+    console.log('[ProfileView] Training attendance records:', trainingAttendance?.length || 0);
+    if (trainingAttendance) {
+        trainingAttendance.forEach(ta => {
+            console.log('[ProfileView] Attendance record for date:', ta.date, 'present_player_ids:', ta.present_player_ids);
+            console.log('[ProfileView] Checking if profileId', profileId, 'is in present_player_ids');
+            if (ta.present_player_ids?.includes(profileId)) {
+                console.log('[ProfileView] ✓ Player WAS present on', ta.date);
+                attendedDates.add(ta.date);
+            } else {
+                console.log('[ProfileView] ✗ Player NOT in attendance for', ta.date);
+            }
+        });
+    }
+    console.log('[ProfileView] Attended dates (from attendance):', Array.from(attendedDates));
 
     let allEventsForMonth = [];
 
@@ -1712,26 +1729,46 @@ async function loadProfileAttendance() {
         const isPastDay = new Date(dateStr) < new Date(now.toISOString().split('T')[0]);
 
         let attendedCount = 0;
+        let totalForDay = 0;
+
+        // Check attendance from event_attendance table (event-based)
         if (hasEvents) {
             dayEvents.forEach(event => {
+                totalForDay++;
                 if (attendedEventIds.has(event.id)) {
                     attendedCount++;
                 }
             });
         }
 
-        let dayClass = '';
+        // Check attendance from attendance table (date-based regular trainings)
+        if (attendedDates.has(dateStr)) {
+            // If attended on this date via regular training attendance
+            if (!hasEvents) {
+                // No events but has attendance record - count as 1/1
+                totalForDay = 1;
+                attendedCount = 1;
+            } else {
+                // Has events AND attendance record - add the attendance
+                attendedCount = Math.max(attendedCount, 1);
+            }
+        }
 
-        if (isPastDay && hasEvents) {
+        let dayClass = '';
+        const hasAttendanceData = hasEvents || attendedDates.has(dateStr);
+
+        if (isPastDay && hasAttendanceData) {
             // Nur Farben, keine Icons
-            if (attendedCount === eventCount) {
+            if (attendedCount > 0 && attendedCount >= totalForDay) {
                 dayClass = 'bg-green-500 text-white font-medium';
             } else if (attendedCount > 0) {
                 dayClass = 'bg-yellow-400 text-white font-medium';
-            } else {
+            } else if (totalForDay > 0) {
                 dayClass = 'bg-red-500 text-white font-medium';
             }
-            dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
+            if (hasEvents) {
+                dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
+            }
         } else if (isToday) {
             dayClass = 'bg-indigo-100 text-indigo-700 font-bold';
         } else if (hasEvents && !isPastDay) {
@@ -1756,12 +1793,22 @@ async function loadProfileAttendance() {
 
     calendarHtml += '</div>';
 
-    const totalAttendances = attendedEventIds.size;
+    // Count total attendances from both sources
+    const totalEventAttendances = attendedEventIds.size;
+    const totalDateAttendances = attendedDates.size;
+    const totalAttendances = totalEventAttendances + totalDateAttendances;
+
     const todayStr = now.toISOString().split('T')[0];
     let pastEventsCount = 0;
     Object.keys(eventsByDate).forEach(dateStr => {
         if (dateStr < todayStr) {
             pastEventsCount += eventsByDate[dateStr].length;
+        }
+    });
+    // Also count dates that have attendance records but no events
+    attendedDates.forEach(dateStr => {
+        if (dateStr < todayStr && !eventsByDate[dateStr]) {
+            pastEventsCount++;
         }
     });
 
