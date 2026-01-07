@@ -831,10 +831,12 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         // Wenn keine Einladungen vorhanden, lade Club-Mitglieder für Anwesenheitserfassung
         let attendeeList = invitations || [];
+        let coachList = [];
+
         if (attendeeList.length === 0 && currentUserData?.clubId) {
             const { data: clubMembers } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, subgroup_ids')
+                .select('id, first_name, last_name, subgroup_ids, role')
                 .eq('club_id', currentUserData.clubId)
                 .in('role', ['player', 'coach', 'head_coach'])
                 .order('last_name', { ascending: true });
@@ -844,17 +846,42 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                 let filteredMembers = clubMembers;
                 if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
                     filteredMembers = clubMembers.filter(m =>
-                        m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg))
+                        m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg)) ||
+                        m.role === 'coach' || m.role === 'head_coach'
                     );
                 }
 
-                // Konvertiere zu Einladungs-Format für einheitliche Darstellung
-                attendeeList = filteredMembers.map(m => ({
+                // Spieler und Trainer trennen
+                const players = filteredMembers.filter(m => m.role === 'player');
+                const coaches = filteredMembers.filter(m => m.role === 'coach' || m.role === 'head_coach');
+
+                attendeeList = players.map(m => ({
                     user_id: m.id,
                     status: 'none',
+                    role: 'player',
+                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+                }));
+
+                coachList = coaches.map(m => ({
+                    user_id: m.id,
+                    role: m.role,
                     profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
                 }));
             }
+        } else {
+            // Lade Trainer separat wenn Einladungen existieren
+            const { data: coaches } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, role')
+                .eq('club_id', currentUserData.clubId)
+                .in('role', ['coach', 'head_coach'])
+                .order('last_name', { ascending: true });
+
+            coachList = (coaches || []).map(m => ({
+                user_id: m.id,
+                role: m.role,
+                profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+            }));
         }
 
         const accepted = attendeeList.filter(i => i.status === 'accepted');
@@ -905,6 +932,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100001] p-4';
 
         const presentIds = attendanceData?.present_user_ids || [];
+        const coachHours = attendanceData?.coach_hours || {};
         const existingExercisesHtml = eventExercises.length > 0
             ? eventExercises.map((ex, index) => `
                 <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -1038,6 +1066,47 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
                     </div>
 
+                    <!-- Coach Attendance with Hours -->
+                    ${coachList.length > 0 ? `
+                    <div class="border-t pt-6 mt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Trainer-Anwesenheit
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-4">Welche Trainer waren dabei und wie lange?</p>
+
+                        <div class="space-y-2" id="event-coach-attendance-list">
+                            ${coachList.map(coach => {
+                                const name = coach.profiles ? \`\${coach.profiles.first_name} \${coach.profiles.last_name}\` : 'Unbekannt';
+                                const hours = coachHours[coach.user_id] || 0;
+                                const roleBadge = coach.role === 'head_coach'
+                                    ? '<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Cheftrainer</span>'
+                                    : '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Trainer</span>';
+                                return \`
+                                    <div class="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
+                                        <span class="flex-1 font-medium text-gray-900">\${name}</span>
+                                        \${roleBadge}
+                                        <select class="coach-hours-select px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                                                data-coach-id="\${coach.user_id}">
+                                            <option value="0" \${hours === 0 ? 'selected' : ''}>Nicht da</option>
+                                            <option value="0.5" \${hours === 0.5 ? 'selected' : ''}>0,5 Std</option>
+                                            <option value="0.75" \${hours === 0.75 ? 'selected' : ''}>0,75 Std</option>
+                                            <option value="1" \${hours === 1 ? 'selected' : ''}>1 Std</option>
+                                            <option value="1.5" \${hours === 1.5 ? 'selected' : ''}>1,5 Std</option>
+                                            <option value="2" \${hours === 2 ? 'selected' : ''}>2 Std</option>
+                                            <option value="2.5" \${hours === 2.5 ? 'selected' : ''}>2,5 Std</option>
+                                            <option value="3" \${hours === 3 ? 'selected' : ''}>3 Std</option>
+                                            <option value="4" \${hours === 4 ? 'selected' : ''}>4 Std</option>
+                                        </select>
+                                    </div>
+                                \`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
                     <!-- Exercise Tracking for Coaches -->
                     <div class="border-t pt-6 mt-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">
@@ -1154,6 +1223,16 @@ window.saveEventAttendance = async function(eventId) {
 
         const totalExercisePoints = exerciseData.reduce((sum, ex) => sum + (ex.points || 0), 0);
 
+        // Trainer-Stunden sammeln
+        const coachHoursSelects = document.querySelectorAll('.coach-hours-select');
+        const coachHours = {};
+        coachHoursSelects.forEach(select => {
+            const hours = parseFloat(select.value);
+            if (hours > 0) {
+                coachHours[select.dataset.coachId] = hours;
+            }
+        });
+
         const { data: existing, error: existingError } = await supabase
             .from('event_attendance')
             .select('id, present_user_ids, points_awarded_to')
@@ -1197,6 +1276,7 @@ window.saveEventAttendance = async function(eventId) {
                     present_user_ids: presentUserIds,
                     completed_exercises: exerciseData,
                     points_awarded_to: updatedPointsAwardedTo,
+                    coach_hours: coachHours,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', existing.id);
@@ -1208,6 +1288,7 @@ window.saveEventAttendance = async function(eventId) {
                 .insert({
                     event_id: eventId,
                     present_user_ids: presentUserIds,
+                    coach_hours: coachHours,
                     completed_exercises: exerciseData,
                     points_awarded_to: updatedPointsAwardedTo,
                     created_at: new Date().toISOString()
