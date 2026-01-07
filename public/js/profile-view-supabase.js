@@ -1621,6 +1621,12 @@ async function loadProfileAttendance() {
     }
 
     let allEventsForMonth = [];
+    if (!clubId) {
+        console.warn('[ProfileView] No clubId found for profile, cannot load events');
+    } else if (invitedEventIds.size === 0) {
+        console.warn('[ProfileView] No invitations found for profile');
+    }
+
     if (clubId && invitedEventIds.size > 0) {
         // Trainings laden wo der Spieler eingeladen ist (training oder null für ältere Events)
         const { data: clubEvents, error: eventsError } = await supabase
@@ -1647,23 +1653,20 @@ async function loadProfileAttendance() {
         }
 
         console.log('[ProfileView] Training events loaded:', clubEvents?.length || 0, 'for club', clubId);
+        if (clubEvents && clubEvents.length > 0) {
+            console.log('[ProfileView] Event categories:', clubEvents.map(e => ({ id: e.id, title: e.title, category: e.event_category })));
+        }
 
         if (clubEvents) {
             clubEvents.forEach(event => {
                 const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
+                console.log('[ProfileView] Event', event.id, event.title, 'category:', event.event_category, 'dates in range:', eventDates);
                 eventDates.forEach(dateStr => {
-                    // Prüfen ob Einladung für dieses Datum existiert
-                    const occurrenceKey = `${event.id}-${dateStr}`;
-                    const hasInvitation = invitationMap[occurrenceKey] || invitationMap[event.id];
-
-                    if (hasInvitation) {
-                        allEventsForMonth.push({
-                            ...event,
-                            displayDate: dateStr,
-                            invitationStatus: hasInvitation.status,
-                            invitationId: hasInvitation.id
-                        });
-                    }
+                    // Spieler ist eingeladen (durch invitedEventIds Filter), also alle Termine zeigen
+                    allEventsForMonth.push({
+                        ...event,
+                        displayDate: dateStr
+                    });
                 });
             });
         }
