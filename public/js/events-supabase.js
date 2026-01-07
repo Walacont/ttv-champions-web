@@ -2283,37 +2283,87 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             month: 'long'
         });
 
+        console.log(`[Events] Deleting event ${eventId}, scope: ${deleteScope}, isRecurring: ${isRecurring}`);
+
         if (deleteScope === 'this') {
             if (isRecurring && event.repeat_type) {
+                // Wiederkehrendes Event: Datum zu excluded_dates hinzufügen
                 const exclusions = event.excluded_dates || [];
                 exclusions.push(targetDate);
+                console.log(`[Events] Adding ${targetDate} to excluded_dates`);
 
-                await supabase
+                const { error: updateError } = await supabase
                     .from('events')
                     .update({ excluded_dates: exclusions })
                     .eq('id', eventId);
+
+                if (updateError) {
+                    console.error('[Events] Error updating excluded_dates:', updateError);
+                    throw updateError;
+                }
             } else {
+                // Einmaliges Event: komplett löschen
+                console.log('[Events] Deleting single event completely');
+
                 // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
-                await revokeEventAttendancePoints(eventId, event);
-                await supabase.from('event_invitations').delete().eq('event_id', eventId);
-                await supabase.from('event_attendance').delete().eq('event_id', eventId);
-                await supabase.from('events').delete().eq('id', eventId);
+                try {
+                    await revokeEventAttendancePoints(eventId, event);
+                } catch (revokeError) {
+                    console.warn('[Events] Error revoking points (continuing with delete):', revokeError);
+                }
+
+                const { error: invError } = await supabase.from('event_invitations').delete().eq('event_id', eventId);
+                if (invError) console.warn('[Events] Error deleting invitations:', invError);
+
+                const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
+                if (attError) console.warn('[Events] Error deleting attendance:', attError);
+
+                const { error: eventDelError } = await supabase.from('events').delete().eq('id', eventId);
+                if (eventDelError) {
+                    console.error('[Events] Error deleting event:', eventDelError);
+                    throw eventDelError;
+                }
+
+                console.log('[Events] Event deleted successfully');
             }
         } else if (deleteScope === 'future') {
             const previousDay = new Date(targetDate);
             previousDay.setDate(previousDay.getDate() - 1);
             const newEndDate = previousDay.toISOString().split('T')[0];
+            console.log(`[Events] Setting repeat_end_date to ${newEndDate}`);
 
-            await supabase
+            const { error: updateError } = await supabase
                 .from('events')
                 .update({ repeat_end_date: newEndDate })
                 .eq('id', eventId);
+
+            if (updateError) {
+                console.error('[Events] Error updating repeat_end_date:', updateError);
+                throw updateError;
+            }
         } else if (deleteScope === 'all') {
+            console.log('[Events] Deleting all occurrences of recurring event');
+
             // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
-            await revokeEventAttendancePoints(eventId, event);
-            await supabase.from('event_invitations').delete().eq('event_id', eventId);
-            await supabase.from('event_attendance').delete().eq('event_id', eventId);
-            await supabase.from('events').delete().eq('id', eventId);
+            try {
+                await revokeEventAttendancePoints(eventId, event);
+            } catch (revokeError) {
+                console.warn('[Events] Error revoking points (continuing with delete):', revokeError);
+            }
+
+            const { error: invError } = await supabase.from('event_invitations').delete().eq('event_id', eventId);
+            if (invError) console.warn('[Events] Error deleting invitations:', invError);
+
+            const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
+            if (attError) console.warn('[Events] Error deleting attendance:', attError);
+
+            const { error: eventDelError } = await supabase.from('events').delete().eq('id', eventId);
+            if (eventDelError) {
+                console.error('[Events] Error deleting event:', eventDelError);
+                throw eventDelError;
+            }
+
+            console.log('[Events] Recurring event deleted successfully');
         }
 
         if (notifyParticipants && participantsToNotify.length > 0) {
@@ -2346,6 +2396,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
         const message = 'Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : '');
         showToastMessage(message, 'success');
 
+        console.log('[Events] Dispatching event-changed event to refresh calendar');
         window.dispatchEvent(new CustomEvent('event-changed', {
             detail: {
                 type: 'delete',
@@ -2354,6 +2405,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 deleteScope
             }
         }));
+        console.log('[Events] Delete completed successfully');
 
     } catch (error) {
         console.error('[Events] Error deleting event:', error);
