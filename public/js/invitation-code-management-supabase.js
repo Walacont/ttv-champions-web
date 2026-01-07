@@ -338,7 +338,7 @@ async function loadInvitationCodes() {
 
         // Sortiere: Aktive zuerst, dann supersedierte/verwendete, dann nach Erstellungsdatum
         codes.sort((a, b) => {
-            // Active codes first (not used and not superseded)
+            // Aktive Codes zuerst (nicht verwendet und nicht ersetzt)
             const aActive = !a.used && !a.superseded;
             const bActive = !b.used && !b.superseded;
 
@@ -453,7 +453,7 @@ async function deleteInvitationCode(codeId) {
 
         if (error) throw error;
 
-        await loadInvitationCodes(); // Reload list
+        await loadInvitationCodes(); // Liste neu laden
     } catch (error) {
         console.error('Fehler beim Löschen des Codes:', error);
         alert('Fehler beim Löschen des Codes');

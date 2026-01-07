@@ -2320,7 +2320,7 @@ async function initSeasonCountdown() {
     }, 5 * 60 * 1000);
 }
 
-// Efficient countdown update (synchronous, no DB calls)
+// Effizienter Countdown-Update (synchron, keine DB-Aufrufe)
 function updateSeasonCountdownDisplay() {
     const countdownEl = document.getElementById('season-countdown');
     if (!countdownEl) return;
@@ -2545,7 +2545,7 @@ function setupRealtimeSubscriptions() {
             table: 'match_requests'
         }, (payload) => {
             console.log('[Realtime] Match request deleted:', payload.old);
-            // Refresh lists - the deleted request might have involved current user
+            // Listen aktualisieren - die gelöschte Anfrage könnte aktuellen Benutzer betroffen haben
             loadMatchRequests();
             loadPendingRequests();
         })
@@ -2603,7 +2603,7 @@ function setupRealtimeSubscriptions() {
             table: 'doubles_match_requests'
         }, (payload) => {
             console.log('[Realtime] Doubles match request deleted:', payload.old);
-            // Refresh lists - the deleted request might have involved current user
+            // Listen aktualisieren - die gelöschte Anfrage könnte aktuellen Benutzer betroffen haben
             loadMatchRequests();
             loadPendingRequests();
         })
@@ -2632,7 +2632,7 @@ function setupRealtimeSubscriptions() {
                 // Auch Match-Anfragen aktualisieren da Anfrage gelöscht sein könnte
                 loadMatchRequests();
                 loadPendingRequests();
-                // Refresh match suggestions (last played dates changed)
+                // Match-Vorschläge aktualisieren (letzte Spieldaten geändert)
                 const suggestionsContent = document.getElementById('match-suggestions-content');
                 if (suggestionsContent && !suggestionsContent.classList.contains('hidden')) {
                     loadMatchSuggestions();

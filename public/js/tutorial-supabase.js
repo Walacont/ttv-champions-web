@@ -14,7 +14,7 @@ export class TutorialManager {
             onComplete: null,
             onSkip: null,
             supabaseClient: null, // Supabase client instance
-            userId: null, // Current user ID
+            userId: null, // Aktuelle Benutzer-ID
             ...options,
         };
 

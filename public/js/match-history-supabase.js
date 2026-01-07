@@ -310,7 +310,7 @@ async function enrichMatchData(supabase, match, userData) {
     try {
         // DOPPEL-Matches anders verarbeiten
         if (match.type === 'doubles') {
-            // Determine user's team and opponent team
+            // Benutzer-Team und Gegner-Team bestimmen
             const isTeamA =
                 match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
             const userTeam = isTeamA ? match.teamA : match.teamB;
@@ -665,12 +665,12 @@ function formatSets(sets, isPlayerA) {
         .map(set => {
             // Prüfen ob Doppel-Match (teamA/teamB) oder Einzel (playerA/playerB)
             if (set.teamA !== undefined && set.teamB !== undefined) {
-                // Doubles match
+                // Doppel-Match
                 const myScore = isPlayerA ? set.teamA : set.teamB;
                 const oppScore = isPlayerA ? set.teamB : set.teamA;
                 return `${myScore}:${oppScore}`;
             } else {
-                // Singles match
+                // Einzel-Match
                 const myScore = isPlayerA ? set.playerA : set.playerB;
                 const oppScore = isPlayerA ? set.playerB : set.playerA;
                 return `${myScore}:${oppScore}`;

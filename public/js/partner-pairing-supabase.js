@@ -866,7 +866,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
                 break;
         }
 
-        // Extract player IDs (handle both formats: {player1: {id}} and {player1Id})
+        // Spieler-IDs extrahieren (beide Formate: {player1: {id}} und {player1Id})
         const player1Id = pair.player1?.id || pair.player1Id;
         const player2Id = pair.player2?.id || pair.player2Id;
 
@@ -903,7 +903,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
     // Einzelspieler verarbeiten
     for (const single of singles) {
         const points = single.result === 'success' ? maxPoints : 0;
-        // Extract player ID (handle both formats: {id} and {playerId})
+        // Spieler-ID extrahieren (beide Formate: {id} und {playerId})
         const playerId = single.id || single.playerId;
 
         // Prüfen ob Spieler benutzerdefinierte Übung hat

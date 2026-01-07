@@ -2669,7 +2669,7 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     // Color scheme - teal for global doubles ranking
     const colors = { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Nachricht basierend auf Bewegung generieren (plural for pairings)
+    // Nachricht basierend auf Bewegung generieren (Plural für Paarungen)
     let messageHtml = '';
     const changeText = positionsChanged > 1 ? `${positionsChanged} Plätze` : '1 Platz';
     if (direction === 'up') {

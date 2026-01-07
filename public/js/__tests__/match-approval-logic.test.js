@@ -41,7 +41,7 @@ function determineSinglesMatchClubId(playerA, playerB) {
         // Beide ohne Verein → null (automatisch genehmigen)
         return null;
     } else if (!hasNoClub(playerAClubId) && !hasNoClub(playerBClubId) && playerAClubId === playerBClubId) {
-        // Same club → use that club
+        // Gleicher Verein → diesen Verein verwenden
         return playerAClubId;
     } else if (!hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
         // Nur PlayerA hat Verein → PlayerA's Verein verwenden
@@ -50,7 +50,7 @@ function determineSinglesMatchClubId(playerA, playerB) {
         // Nur PlayerB hat Verein → PlayerB's Verein verwenden
         return playerBClubId;
     } else {
-        // Different clubs → null (cross-club, any coach can approve)
+        // Verschiedene Vereine → null (vereinsübergreifend, jeder Coach kann genehmigen)
         return null;
     }
 }

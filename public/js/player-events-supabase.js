@@ -672,7 +672,7 @@ async function respondToEvent(invitationId, status, reason = null) {
             }
         }
 
-        // Reload events
+        // Events neu laden
         await loadUpcomingEvents();
 
     } catch (error) {
@@ -686,7 +686,7 @@ async function respondToEvent(invitationId, status, reason = null) {
  * @param {string} invitationId - Einladungs-ID
  */
 async function showRejectModal(invitationId) {
-    // Create modal
+    // Modal erstellen
     const modal = document.createElement('div');
     modal.id = 'event-reject-modal';
     modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4';
@@ -713,7 +713,7 @@ async function showRejectModal(invitationId) {
 
     document.body.appendChild(modal);
 
-    // Event listeners
+    // Event-Listener
     document.getElementById('confirm-reject-btn').addEventListener('click', async () => {
         const reason = document.getElementById('reject-reason-input').value.trim();
         modal.remove();
@@ -786,7 +786,7 @@ async function showEventDetails(eventId) {
         const endTime = event.end_time?.slice(0, 5) || '';
         const meetingTime = event.meeting_time?.slice(0, 5) || '';
 
-        // Create modal
+        // Modal erstellen
         const modal = document.createElement('div');
         modal.id = 'event-details-modal';
         modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-16';
