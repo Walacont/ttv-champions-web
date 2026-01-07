@@ -832,13 +832,12 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         // Wenn keine Einladungen vorhanden, lade Club-Mitglieder für Anwesenheitserfassung
         let attendeeList = invitations || [];
         if (attendeeList.length === 0 && currentUserData?.clubId) {
-            let query = supabase
+            const { data: clubMembers } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, subgroup_ids')
                 .eq('club_id', currentUserData.clubId)
-                .eq('is_active', true);
-
-            const { data: clubMembers } = await query;
+                .in('role', ['player', 'coach', 'head_coach'])
+                .order('last_name', { ascending: true });
 
             if (clubMembers) {
                 // Filtere nach Zielgruppe falls gesetzt
