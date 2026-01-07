@@ -1646,9 +1646,10 @@ async function loadProfileAttendance() {
     }
 
     // 2. Reguläre Training-Attendance laden (aus attendance Tabelle)
+    // Use select('*') to see all available columns since column name might differ
     const { data: trainingAttendance, error: trainingAttError } = await supabase
         .from('attendance')
-        .select('date, present_player_ids')
+        .select('*')
         .eq('club_id', clubId)
         .gte('date', startDateStr)
         .lte('date', endDateStr);
@@ -1658,11 +1659,18 @@ async function loadProfileAttendance() {
     }
 
     console.log('[ProfileView] Training attendance records:', trainingAttendance?.length || 0);
+    if (trainingAttendance && trainingAttendance.length > 0) {
+        // Log first record to see all available columns
+        console.log('[ProfileView] Sample attendance record columns:', Object.keys(trainingAttendance[0]));
+        console.log('[ProfileView] Sample attendance record:', trainingAttendance[0]);
+    }
     if (trainingAttendance) {
         trainingAttendance.forEach(ta => {
-            console.log('[ProfileView] Attendance record for date:', ta.date, 'present_player_ids:', ta.present_player_ids);
-            console.log('[ProfileView] Checking if profileId', profileId, 'is in present_player_ids');
-            if (ta.present_player_ids?.includes(profileId)) {
+            // Try both possible column names
+            const presentIds = ta.present_player_ids || ta.present_ids || ta.player_ids || [];
+            console.log('[ProfileView] Attendance record for date:', ta.date, 'presentIds:', presentIds);
+            console.log('[ProfileView] Checking if profileId', profileId, 'is in presentIds');
+            if (presentIds?.includes(profileId)) {
                 console.log('[ProfileView] ✓ Player WAS present on', ta.date);
                 attendedDates.add(ta.date);
             } else {
