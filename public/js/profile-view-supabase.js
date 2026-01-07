@@ -1645,12 +1645,10 @@ async function loadProfileAttendance() {
             console.log('[ProfileView] Event categories:', clubEvents.map(e => ({ id: e.id, title: e.title, category: e.event_category })));
         }
 
-        // Nur Trainings anzeigen (training oder null für ältere Events)
-        const trainingEvents = (clubEvents || []).filter(e =>
-            e.event_category === 'training' || e.event_category === null || e.event_category === undefined
-        );
+        // Alle Events anzeigen (TODO: später nur Trainings wenn Kategorien korrekt gesetzt sind)
+        const trainingEvents = clubEvents || [];
 
-        console.log('[ProfileView] Training events after filter:', trainingEvents.length);
+        console.log('[ProfileView] Events to show:', trainingEvents.length);
 
         if (trainingEvents) {
             trainingEvents.forEach(event => {
