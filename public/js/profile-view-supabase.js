@@ -1558,14 +1558,23 @@ async function loadProfileAttendance() {
 
     const clubId = profile?.club_id;
     const playerSubgroups = profile?.subgroup_ids || [];
-    console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId, 'subgroups:', playerSubgroups);
+    console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
     if (!clubId) {
         console.warn('[ProfileView] No clubId found for profile, cannot load events');
         return;
     }
 
-    // Alle Club-Events laden (nicht nur die mit Einladungen)
+    // Einladungen für diesen Spieler laden
+    const { data: invitations } = await supabase
+        .from('event_invitations')
+        .select('event_id')
+        .eq('user_id', profileId);
+
+    const invitedEventIds = new Set((invitations || []).map(inv => inv.event_id));
+    console.log('[ProfileView] Invited to events:', invitedEventIds.size);
+
+    // Alle Club-Events laden
     const { data: clubEvents, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -1591,14 +1600,14 @@ async function loadProfileAttendance() {
 
     console.log('[ProfileView] All club events loaded:', clubEvents?.length || 0);
 
-    // Events filtern wo der Spieler Teil der Zielgruppe ist
+    // Events filtern: Einladung ODER Teil der Zielgruppe (Fallback für alte Events)
     const relevantEvents = (clubEvents || []).filter(event => {
-        // target_type 'club' = alle Vereinsmitglieder
-        if (event.target_type === 'club') return true;
+        // Wenn eine Einladung existiert, ist der Spieler berechtigt
+        if (invitedEventIds.has(event.id)) return true;
 
-        // target_type 'subgroups' = nur bestimmte Untergruppen
+        // Fallback für alte Events ohne Einladungen: target_type prüfen
+        if (event.target_type === 'club') return true;
         if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
-            // Prüfen ob der Spieler in einer der Zielgruppen ist
             return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
         }
 

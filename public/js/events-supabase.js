@@ -657,70 +657,70 @@ async function submitEvent() {
 
         if (eventError) throw eventError;
 
-        // Einladungen nur erstellen wenn nicht "keine Einladung" gewählt
-        if (sendInvitation !== 'none') {
-            const invitations = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        // Einladungen IMMER erstellen (zum Tracken wer ausgewählt wurde)
+        // Nur Benachrichtigungen werden je nach Einstellung gesendet oder nicht
+        const invitations = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-            if (currentEventData.eventType === 'recurring' && repeatType) {
-                const occurrences = generateUpcomingOccurrences(
-                    startDate,
-                    repeatType,
-                    repeatEnd,
-                    [],
-                    invitationLeadTimeValue,
-                    invitationLeadTimeUnit,
-                    4
-                );
+        if (currentEventData.eventType === 'recurring' && repeatType) {
+            const occurrences = generateUpcomingOccurrences(
+                startDate,
+                repeatType,
+                repeatEnd,
+                [],
+                invitationLeadTimeValue,
+                invitationLeadTimeUnit,
+                4
+            );
 
-                occurrences.forEach(occurrenceDate => {
-                    currentEventData.selectedMembers.forEach(userId => {
-                        invitations.push({
-                            event_id: event.id,
-                            user_id: userId,
-                            occurrence_date: occurrenceDate,
-                            status: 'pending',
-                            created_at: new Date().toISOString()
-                        });
-                    });
-                });
-            } else {
+            occurrences.forEach(occurrenceDate => {
                 currentEventData.selectedMembers.forEach(userId => {
                     invitations.push({
                         event_id: event.id,
                         user_id: userId,
-                        occurrence_date: startDate,
+                        occurrence_date: occurrenceDate,
                         status: 'pending',
                         created_at: new Date().toISOString()
                     });
                 });
-            }
+            });
+        } else {
+            currentEventData.selectedMembers.forEach(userId => {
+                invitations.push({
+                    event_id: event.id,
+                    user_id: userId,
+                    occurrence_date: startDate,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+            });
+        }
 
-            if (invitations.length > 0) {
-                const { error: invError } = await supabase
-                    .from('event_invitations')
-                    .insert(invitations);
+        if (invitations.length > 0) {
+            const { error: invError } = await supabase
+                .from('event_invitations')
+                .insert(invitations);
 
-                if (invError) throw invError;
-            }
+            if (invError) throw invError;
+        }
 
-            if (sendInvitation === 'now') {
-                try {
-                    const notifications = currentEventData.selectedMembers.map(userId => ({
-                        user_id: userId,
-                        type: 'event_invitation',
-                        title: 'Neue Einladung',
-                        message: `Du wurdest zu "${title}" eingeladen`,
-                        data: { event_id: event.id },
-                        is_read: false,
-                        created_at: new Date().toISOString()
-                    }));
+        // Benachrichtigungen nur senden wenn "jetzt senden" gewählt wurde
+        if (sendInvitation === 'now') {
+            try {
+                const notifications = currentEventData.selectedMembers.map(userId => ({
+                    user_id: userId,
+                    type: 'event_invitation',
+                    title: 'Neue Einladung',
+                    message: `Du wurdest zu "${title}" eingeladen`,
+                    data: { event_id: event.id },
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                }));
 
-                    await supabase.from('notifications').insert(notifications);
-                } catch (notifError) {
-                    console.warn('[Events] Could not create notifications:', notifError);
-                }
+                await supabase.from('notifications').insert(notifications);
+            } catch (notifError) {
+                console.warn('[Events] Could not create notifications:', notifError);
             }
         }
 
