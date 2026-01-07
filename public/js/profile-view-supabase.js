@@ -1544,10 +1544,10 @@ async function loadProfileAttendance() {
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDateStr = firstDay.toISOString().split('T')[0];
-    const endDateStr = lastDay.toISOString().split('T')[0];
+    // Datumsstrings ohne Timezone-Probleme erstellen
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
     const { data: profile } = await supabase
         .from('profiles')
