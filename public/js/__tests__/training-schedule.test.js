@@ -594,7 +594,7 @@ describe('Integration Scenarios', () => {
             const training1End = '17:30';
             const training2Start = '17:30';
 
-            // Same time slot check (overlap logic only - subgroup filtering is separate)
+            // Gleiche Zeitfenster-Prüfung (nur Überlappungslogik - Untergruppenfilterung ist separat)
             expect(timeRangesOverlap('16:00', training1End, training2Start, '19:00')).toBe(false);
         });
     });

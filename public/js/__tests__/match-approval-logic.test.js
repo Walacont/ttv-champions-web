@@ -403,7 +403,7 @@ describe('Edge Cases', () => {
         const clubId = determineSinglesMatchClubId(playerA, playerB);
         const result = simulatePlayerBApproval(playerA, playerB);
 
-        // Empty strings are falsy, so should be treated as no club
+        // Leere Strings sind falsy, sollten als kein Verein behandelt werden
         expect(clubId).toBe(null);
         expect(result.isAutoApproved).toBe(true);
     });

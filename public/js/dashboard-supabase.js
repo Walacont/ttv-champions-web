@@ -2314,7 +2314,7 @@ async function initSeasonCountdown() {
     updateSeasonCountdownDisplay();
     // Anzeige jede Sekunde aktualisieren (effizient - keine async Aufrufe)
     setInterval(updateSeasonCountdownDisplay, 1000);
-    // Refresh season data every 5 minutes in case it changes
+    // Saison-Daten alle 5 Minuten aktualisieren falls sie sich ändern
     setInterval(async () => {
         seasonEndDate = await fetchSeasonEndDate();
     }, 5 * 60 * 1000);
@@ -2349,7 +2349,7 @@ function updateSeasonCountdownDisplay() {
     countdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
 }
 
-// Legacy function for compatibility
+// Legacy-Funktion für Kompatibilität
 async function updateSeasonCountdown() {
     if (!seasonEndDate) {
         seasonEndDate = await fetchSeasonEndDate();

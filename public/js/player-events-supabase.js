@@ -97,7 +97,7 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
 
     const existingDates = new Set((existingInvitations || []).map(inv => inv.occurrence_date));
 
-    // Generate upcoming occurrences
+    // Kommende Termine generieren
     const upcomingOccurrences = generateUpcomingOccurrences(
         event.start_date,
         event.repeat_type,
@@ -312,7 +312,7 @@ async function loadUpcomingEvents() {
             return renderEventCard(inv, countMap[key] || 0);
         }).join('');
 
-        // Add event listeners
+        // Event-Listener hinzufügen
         setupEventCardListeners();
 
     } catch (error) {
@@ -395,7 +395,7 @@ function renderEventCard(invitation, acceptedCount) {
     const dayNum = dateObj.getDate();
     const monthName = dateObj.toLocaleDateString('de-DE', { month: 'short' });
 
-    // Show recurring indicator
+    // Wiederkehrend-Indikator anzeigen
     const isRecurring = event.repeat_type && event.repeat_type !== 'none';
 
     // Uhrzeit formatieren
@@ -979,7 +979,7 @@ function setupEventSubscription() {
         )
         .subscribe();
 
-    // Store unsubscribe functions
+    // Abmelde-Funktionen speichern
     if (!window.playerEventsUnsubscribes) window.playerEventsUnsubscribes = [];
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
