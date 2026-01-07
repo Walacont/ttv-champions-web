@@ -1532,8 +1532,8 @@ async function loadProfileChallenges() {
 
 /**
  * Lädt Anwesenheitskalender basierend auf event_attendance
- * Zeigt alle Vereinsevents und macht Tage klickbar
- * Status: ✓ für alle teilgenommen, ◐ für teilweise, ✗ für keine Teilnahme
+ * Zeigt nur Trainings wo der Spieler eingeladen war
+ * Farben: grün = alle, gelb = teilweise, rot = keine Teilnahme
  */
 async function loadProfileAttendance() {
     const container = document.getElementById('profile-attendance-calendar');
@@ -1558,15 +1558,42 @@ async function loadProfileAttendance() {
     const clubId = profile?.club_id;
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
-    // Abfrage nach event_attendance wo dieser User anwesend war
+    // Nur Einladungen für diesen Spieler laden
+    const { data: invitations, error: invError } = await supabase
+        .from('event_invitations')
+        .select('id, event_id, status, occurrence_date')
+        .eq('user_id', profileId);
+
+    if (invError) {
+        console.warn('[ProfileView] Error loading invitations:', invError);
+    }
+
+    // Map für schnellen Zugriff auf Einladungen
+    const invitationMap = {};
+    const invitedEventIds = new Set();
+    (invitations || []).forEach(inv => {
+        invitedEventIds.add(inv.event_id);
+        const key = inv.occurrence_date
+            ? `${inv.event_id}-${inv.occurrence_date}`
+            : inv.event_id;
+        invitationMap[key] = {
+            id: inv.id,
+            status: inv.status,
+            occurrence_date: inv.occurrence_date
+        };
+    });
+
+    // Event-Attendance laden wo dieser User anwesend war
     const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
         .select(`
             event_id,
+            occurrence_date,
             present_user_ids,
             events (
                 start_date,
-                title
+                title,
+                event_category
             )
         `)
         .contains('present_user_ids', [profileId]);
@@ -1575,11 +1602,14 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading event attendance:', attendanceError);
     }
 
-    // Set von besuchten Event-Datum-Kombinationen: "eventId-date"
+    // Set von besuchten Event-Datum-Kombinationen
     const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            const eventDate = ea.events?.start_date;
+            // Nur Trainings zählen
+            if (ea.events?.event_category !== 'training') return;
+
+            const eventDate = ea.occurrence_date || ea.events?.start_date;
             if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
                 const key = `${ea.event_id}-${eventDate}`;
                 attendedEventDates.add(key);
@@ -1588,7 +1618,8 @@ async function loadProfileAttendance() {
     }
 
     let allEventsForMonth = [];
-    if (clubId) {
+    if (clubId && invitedEventIds.size > 0) {
+        // Nur Trainings laden wo der Spieler eingeladen ist
         const { data: clubEvents, error: eventsError } = await supabase
             .from('events')
             .select(`
@@ -1602,48 +1633,38 @@ async function loadProfileAttendance() {
                 repeat_type,
                 repeat_end_date,
                 excluded_dates,
-                invitation_send_at,
-                invitation_lead_time_value,
-                invitation_lead_time_unit,
-                organizer_id
+                event_category
             `)
-            .eq('club_id', clubId);
+            .eq('club_id', clubId)
+            .eq('event_category', 'training')
+            .in('id', Array.from(invitedEventIds));
 
         if (eventsError) {
             console.warn('[ProfileView] Error loading club events:', eventsError);
         }
 
-        console.log('[ProfileView] Club events loaded:', clubEvents?.length || 0, 'events for club', clubId);
+        console.log('[ProfileView] Training events loaded:', clubEvents?.length || 0, 'for club', clubId);
 
         if (clubEvents) {
             clubEvents.forEach(event => {
                 const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
                 eventDates.forEach(dateStr => {
-                    allEventsForMonth.push({
-                        ...event,
-                        displayDate: dateStr
-                    });
+                    // Prüfen ob Einladung für dieses Datum existiert
+                    const occurrenceKey = `${event.id}-${dateStr}`;
+                    const hasInvitation = invitationMap[occurrenceKey] || invitationMap[event.id];
+
+                    if (hasInvitation) {
+                        allEventsForMonth.push({
+                            ...event,
+                            displayDate: dateStr,
+                            invitationStatus: hasInvitation.status,
+                            invitationId: hasInvitation.id
+                        });
+                    }
                 });
             });
         }
     }
-
-    const { data: invitations } = await supabase
-        .from('event_invitations')
-        .select('id, event_id, status, occurrence_date')
-        .eq('user_id', profileId);
-
-    const invitationMap = {};
-    (invitations || []).forEach(inv => {
-        const key = inv.occurrence_date
-            ? `${inv.event_id}-${inv.occurrence_date}`
-            : inv.event_id;
-        invitationMap[key] = {
-            id: inv.id,
-            status: inv.status,
-            occurrence_date: inv.occurrence_date
-        };
-    });
 
     const eventsByDate = {};
     allEventsForMonth.forEach(event => {
@@ -1651,17 +1672,6 @@ async function loadProfileAttendance() {
         if (!eventsByDate[dateKey]) {
             eventsByDate[dateKey] = [];
         }
-
-        const occurrenceKey = `${event.id}-${dateKey}`;
-        let invitation = invitationMap[occurrenceKey];
-
-        if (!invitation) {
-            invitation = invitationMap[event.id];
-        }
-
-        event.invitationStatus = invitation?.status || null;
-        event.invitationId = invitation?.id || null;
-        event.occurrenceDate = dateKey;
         eventsByDate[dateKey].push(event);
     });
 
@@ -1707,38 +1717,34 @@ async function loadProfileAttendance() {
         }
 
         let dayClass = '';
-        let statusIcon = '';
 
         if (isPastDay && hasEvents) {
+            // Nur Farben, keine Icons
             if (attendedCount === eventCount) {
-                dayClass = 'bg-green-100 text-green-800';
-                statusIcon = '<i class="fas fa-check text-green-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+                dayClass = 'bg-green-500 text-white font-medium';
             } else if (attendedCount > 0) {
-                dayClass = 'bg-yellow-100 text-yellow-800';
-                statusIcon = '<i class="fas fa-adjust text-yellow-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+                dayClass = 'bg-yellow-400 text-white font-medium';
             } else {
-                dayClass = 'bg-red-100 text-red-800';
-                statusIcon = '<i class="fas fa-times text-red-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+                dayClass = 'bg-red-500 text-white font-medium';
             }
+            dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
         } else if (isToday) {
             dayClass = 'bg-indigo-100 text-indigo-700 font-bold';
+        } else if (hasEvents && !isPastDay) {
+            dayClass = 'cursor-pointer hover:ring-2 hover:ring-indigo-400 transition text-gray-600';
         } else {
             dayClass = 'text-gray-600';
         }
 
         let dotIndicator = '';
         if (hasEvents && !isPastDay) {
-            dayClass += ' cursor-pointer hover:ring-2 hover:ring-indigo-400 transition';
             dotIndicator = `<div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${eventCount > 1 ? 'bg-indigo-500' : 'bg-indigo-300'}"></div>`;
-        } else if (hasEvents && isPastDay) {
-            dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
         }
 
         calendarHtml += `
             <div class="aspect-square flex items-center justify-center rounded relative ${dayClass}"
                  ${hasEvents ? `onclick="showDayEvents('${dateStr}')"` : ''}>
                 ${day}
-                ${statusIcon}
                 ${dotIndicator}
             </div>
         `;
@@ -1747,8 +1753,6 @@ async function loadProfileAttendance() {
     calendarHtml += '</div>';
 
     const totalAttendances = attendedEventDates.size;
-    const totalEventsThisMonth = Object.values(eventsByDate).reduce((sum, events) => sum + events.length, 0);
-
     const todayStr = now.toISOString().split('T')[0];
     let pastEventsCount = 0;
     Object.keys(eventsByDate).forEach(dateStr => {
@@ -1765,32 +1769,22 @@ async function loadProfileAttendance() {
                 <span class="text-green-600 font-semibold">${totalAttendances}/${pastEventsCount}</span>
                 <span class="text-gray-500 text-sm">Anwesenheiten (${attendanceRate}%)</span>
             </div>
-            <div>
-                <span class="text-indigo-600 font-semibold">${totalEventsThisMonth}</span>
-                <span class="text-gray-500 text-sm">Veranstaltungen diesen Monat</span>
-            </div>
         </div>
     `;
 
     calendarHtml += `
-        <div class="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-500">
+        <div class="mt-3 flex flex-wrap justify-center gap-3 text-xs text-gray-500">
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-green-100 flex items-center justify-center">
-                    <i class="fas fa-check text-green-600 text-[7px]"></i>
-                </div>
-                <span>Alle</span>
+                <div class="w-4 h-4 rounded bg-green-500"></div>
+                <span>Alle Trainings</span>
             </div>
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-yellow-100 flex items-center justify-center">
-                    <i class="fas fa-adjust text-yellow-600 text-[7px]"></i>
-                </div>
+                <div class="w-4 h-4 rounded bg-yellow-400"></div>
                 <span>Teilweise</span>
             </div>
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-red-100 flex items-center justify-center">
-                    <i class="fas fa-times text-red-600 text-[7px]"></i>
-                </div>
-                <span>Keine</span>
+                <div class="w-4 h-4 rounded bg-red-500"></div>
+                <span>Nicht da</span>
             </div>
             <div class="flex items-center gap-1">
                 <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
