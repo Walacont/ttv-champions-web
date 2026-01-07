@@ -1662,7 +1662,7 @@ async function loadProfileAttendance() {
 
     const { data: allAttendance, error: allAttError } = await supabase
         .from('attendance')
-        .select('date, present_player_ids')
+        .select('*')
         .eq('club_id', clubId);
 
     if (allAttError) {
@@ -1671,6 +1671,8 @@ async function loadProfileAttendance() {
         console.log('[ProfileView] ALL attendance records for club:', allAttendance?.length || 0);
         if (allAttendance && allAttendance.length > 0) {
             console.log('[ProfileView] Available attendance dates:', allAttendance.map(a => a.date));
+            console.log('[ProfileView] First attendance record (all columns):', allAttendance[0]);
+            console.log('[ProfileView] Columns in attendance table:', Object.keys(allAttendance[0]));
         }
     }
 
