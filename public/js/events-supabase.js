@@ -698,6 +698,9 @@ async function submitEvent() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Deduplizierung der ausgewählten Mitglieder
+        const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
+
         if (currentEventData.eventType === 'recurring' && repeatType) {
             const occurrences = generateUpcomingOccurrences(
                 startDate,
@@ -709,8 +712,11 @@ async function submitEvent() {
                 4
             );
 
-            occurrences.forEach(occurrenceDate => {
-                currentEventData.selectedMembers.forEach(userId => {
+            // Deduplizierung der Occurrence-Daten
+            const uniqueOccurrences = [...new Set(occurrences)];
+
+            uniqueOccurrences.forEach(occurrenceDate => {
+                uniqueMembers.forEach(userId => {
                     invitations.push({
                         event_id: event.id,
                         user_id: userId,
@@ -721,7 +727,7 @@ async function submitEvent() {
                 });
             });
         } else {
-            currentEventData.selectedMembers.forEach(userId => {
+            uniqueMembers.forEach(userId => {
                 invitations.push({
                     event_id: event.id,
                     user_id: userId,
@@ -735,7 +741,10 @@ async function submitEvent() {
         if (invitations.length > 0) {
             const { error: invError } = await supabase
                 .from('event_invitations')
-                .insert(invitations);
+                .upsert(invitations, {
+                    onConflict: 'event_id,user_id,occurrence_date',
+                    ignoreDuplicates: true
+                });
 
             if (invError) throw invError;
         }
