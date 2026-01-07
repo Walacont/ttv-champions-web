@@ -1620,6 +1620,8 @@ async function loadProfileAttendance() {
     let attendedEventIds = new Set();
     if (relevantEvents.length > 0) {
         const eventIds = relevantEvents.map(e => e.id);
+        console.log('[ProfileView] Loading attendance for event IDs:', eventIds);
+
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
             .select('event_id, present_user_ids')
@@ -1629,10 +1631,15 @@ async function loadProfileAttendance() {
             console.warn('[ProfileView] Error loading event attendance:', attendanceError);
         }
 
+        console.log('[ProfileView] Raw attendance data:', eventAttendance);
+        console.log('[ProfileView] Looking for profileId:', profileId);
+
         if (eventAttendance) {
             eventAttendance.forEach(ea => {
+                console.log('[ProfileView] Attendance record:', ea.event_id, 'present_user_ids:', ea.present_user_ids);
                 if (ea.present_user_ids?.includes(profileId)) {
                     attendedEventIds.add(ea.event_id);
+                    console.log('[ProfileView] User was present at event:', ea.event_id);
                 }
             });
         }
