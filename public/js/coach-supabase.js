@@ -469,13 +469,16 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Kalender neu laden bei Event-Änderung/Löschung
-    window.addEventListener('event-changed', () => {
-        console.log('[Coach] Event changed/deleted, reloading calendar...');
+    // Kalender und Events-Liste neu laden bei Event-Änderung/Löschung
+    window.addEventListener('event-changed', async (e) => {
+        console.log('[Coach] Event changed/deleted, reloading calendar and events...', e?.detail);
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
+        calendarUnsubscribe = await renderCalendar(currentCalendarDate, userData);
+        // Auch die Upcoming-Events-Liste aktualisieren
+        loadUpcomingEventsForCoach('coach-upcoming-events', userData);
+        console.log('[Coach] Calendar and events reload complete');
     });
 
     // Bei Änderung der Spieler-Untergruppen: clubPlayers neu laden

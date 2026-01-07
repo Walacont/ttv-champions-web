@@ -2393,6 +2393,9 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
         const message = 'Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : '');
         showToastMessage(message, 'success');
 
+        // Kurze Verzögerung damit DB-Änderungen propagiert werden
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         console.log('[Events] Dispatching event-changed event to refresh calendar');
         window.dispatchEvent(new CustomEvent('event-changed', {
             detail: {

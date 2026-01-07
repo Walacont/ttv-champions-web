@@ -241,6 +241,7 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         };
 
         console.log(`[fetchMonthlyAttendance] Loaded ${(singleEvents || []).length} single events, ${(recurringEvents || []).length} recurring events`);
+        console.log('[fetchMonthlyAttendance] Single events:', (singleEvents || []).map(e => ({ id: e.id, title: e.title, date: e.start_date })));
 
         (singleEvents || []).forEach(e => {
             addEventToDate(e.start_date, e);
