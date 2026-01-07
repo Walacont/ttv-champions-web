@@ -1600,8 +1600,11 @@ async function loadProfileAttendance() {
 
     console.log('[ProfileView] All club events loaded:', clubEvents?.length || 0);
 
-    // Events filtern: Einladung ODER Teil der Zielgruppe (Fallback für alte Events)
+    // Events filtern: Nur TRAININGS wo Spieler eingeladen ist ODER Teil der Zielgruppe
     const relevantEvents = (clubEvents || []).filter(event => {
+        // NUR Trainings-Events anzeigen
+        if (event.event_category !== 'training') return false;
+
         // Wenn eine Einladung existiert, ist der Spieler berechtigt
         if (invitedEventIds.has(event.id)) return true;
 
@@ -1614,7 +1617,7 @@ async function loadProfileAttendance() {
         return false;
     });
 
-    console.log('[ProfileView] Relevant events for player:', relevantEvents.length);
+    console.log('[ProfileView] Relevant TRAINING events for player:', relevantEvents.length);
 
     // Attendance aus BEIDEN Tabellen laden:
     // 1. event_attendance - für Events aus dem Event-System

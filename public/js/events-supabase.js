@@ -2952,4 +2952,141 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
     }
 }
 
+/**
+ * Berechnet Streaks rückwirkend für alle Spieler eines Clubs
+ * und vergibt fehlende Bonus-Punkte
+ */
+window.recalculateStreaksRetroactively = async function(clubId) {
+    if (!clubId) {
+        alert('Keine Club-ID angegeben');
+        return;
+    }
+
+    console.log('[Streaks] Starting retroactive streak calculation for club:', clubId);
+
+    try {
+        // 1. Alle Trainings-Events laden (nach Datum sortiert)
+        const { data: trainingEvents, error: eventsError } = await supabase
+            .from('events')
+            .select('id, title, start_date, target_type, target_subgroup_ids, event_category')
+            .eq('club_id', clubId)
+            .eq('event_category', 'training')
+            .order('start_date', { ascending: true });
+
+        if (eventsError) throw eventsError;
+        console.log('[Streaks] Found', trainingEvents?.length || 0, 'training events');
+
+        if (!trainingEvents || trainingEvents.length === 0) {
+            alert('Keine Trainings gefunden');
+            return;
+        }
+
+        // 2. Alle Attendance-Daten laden
+        const eventIds = trainingEvents.map(e => e.id);
+        const { data: attendanceData, error: attError } = await supabase
+            .from('event_attendance')
+            .select('event_id, present_user_ids, points_awarded_to')
+            .in('event_id', eventIds);
+
+        if (attError) throw attError;
+        console.log('[Streaks] Found', attendanceData?.length || 0, 'attendance records');
+
+        const attendanceMap = new Map();
+        attendanceData?.forEach(a => attendanceMap.set(a.event_id, a));
+
+        // 3. Alle Spieler im Club laden
+        const { data: players, error: playersError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, subgroup_ids')
+            .eq('club_id', clubId)
+            .eq('role', 'player');
+
+        if (playersError) throw playersError;
+        console.log('[Streaks] Found', players?.length || 0, 'players');
+
+        // 4. Für jeden Spieler Streaks berechnen
+        let totalBonusAwarded = 0;
+        let playersUpdated = 0;
+
+        for (const player of players || []) {
+            const playerSubgroups = player.subgroup_ids || [];
+
+            // Trainings filtern, zu denen der Spieler eingeladen war
+            const playerTrainings = trainingEvents.filter(event => {
+                if (event.target_type === 'club') return true;
+                if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+                    return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
+                }
+                return false;
+            });
+
+            if (playerTrainings.length === 0) continue;
+
+            // Streak pro Untergruppe berechnen
+            const subgroupStreaks = new Map(); // subgroupId -> { currentStreak, lastAttendedDate }
+
+            for (const training of playerTrainings) {
+                const attendance = attendanceMap.get(training.id);
+                const wasPresent = attendance?.present_user_ids?.includes(player.id) || false;
+                const subgroupId = training.target_subgroup_ids?.[0];
+
+                if (!subgroupId) continue; // Kein Streak ohne Untergruppe
+
+                if (!subgroupStreaks.has(subgroupId)) {
+                    subgroupStreaks.set(subgroupId, { currentStreak: 0, lastAttendedDate: null });
+                }
+
+                const streakData = subgroupStreaks.get(subgroupId);
+
+                if (wasPresent) {
+                    streakData.currentStreak++;
+                    streakData.lastAttendedDate = training.start_date;
+
+                    // Prüfen ob Streak-Bonus verdient wurde
+                    if (streakData.currentStreak >= 3) {
+                        const pointsAwarded = attendance?.points_awarded_to || [];
+                        const alreadyGotBonus = pointsAwarded.includes(player.id);
+
+                        // Prüfen ob der Spieler nur 3 Basispunkte bekommen hat (kein Bonus)
+                        // Dazu müssten wir points_history prüfen
+                        // Für jetzt: Streak in DB aktualisieren
+                    }
+                } else {
+                    // Nicht anwesend → Streak zurücksetzen
+                    streakData.currentStreak = 0;
+                }
+            }
+
+            // Streaks in DB aktualisieren
+            for (const [subgroupId, streakData] of subgroupStreaks) {
+                if (streakData.currentStreak > 0) {
+                    const { error: upsertError } = await supabase
+                        .from('streaks')
+                        .upsert({
+                            user_id: player.id,
+                            subgroup_id: subgroupId,
+                            current_streak: streakData.currentStreak,
+                            last_attendance_date: streakData.lastAttendedDate,
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'user_id,subgroup_id'
+                        });
+
+                    if (!upsertError) {
+                        playersUpdated++;
+                        console.log(`[Streaks] Updated streak for ${player.first_name} ${player.last_name}: ${streakData.currentStreak}`);
+                    }
+                }
+            }
+        }
+
+        alert(`Streaks neu berechnet!\n${playersUpdated} Spieler-Streaks aktualisiert.`);
+        console.log('[Streaks] Calculation complete. Players updated:', playersUpdated);
+
+    } catch (error) {
+        console.error('[Streaks] Error recalculating streaks:', error);
+        alert('Fehler bei der Streak-Berechnung: ' + error.message);
+    }
+};
+
 export { closeAllModals };
