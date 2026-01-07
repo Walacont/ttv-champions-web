@@ -1617,7 +1617,7 @@ async function loadProfileAttendance() {
     }
 
     if (clubId && invitedEventIds.size > 0) {
-        // Trainings laden wo der Spieler eingeladen ist (training oder null für ältere Events)
+        // Erst alle Events laden um zu sehen welche Kategorien existieren
         const { data: clubEvents, error: eventsError } = await supabase
             .from('events')
             .select(`
@@ -1634,20 +1634,26 @@ async function loadProfileAttendance() {
                 event_category
             `)
             .eq('club_id', clubId)
-            .in('id', Array.from(invitedEventIds))
-            .or('event_category.eq.training,event_category.is.null');
+            .in('id', Array.from(invitedEventIds));
 
         if (eventsError) {
             console.warn('[ProfileView] Error loading club events:', eventsError);
         }
 
-        console.log('[ProfileView] Training events loaded:', clubEvents?.length || 0, 'for club', clubId);
+        console.log('[ProfileView] All invited events loaded:', clubEvents?.length || 0, 'for club', clubId);
         if (clubEvents && clubEvents.length > 0) {
             console.log('[ProfileView] Event categories:', clubEvents.map(e => ({ id: e.id, title: e.title, category: e.event_category })));
         }
 
-        if (clubEvents) {
-            clubEvents.forEach(event => {
+        // Nur Trainings anzeigen (training oder null für ältere Events)
+        const trainingEvents = (clubEvents || []).filter(e =>
+            e.event_category === 'training' || e.event_category === null || e.event_category === undefined
+        );
+
+        console.log('[ProfileView] Training events after filter:', trainingEvents.length);
+
+        if (trainingEvents) {
+            trainingEvents.forEach(event => {
                 const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
                 console.log('[ProfileView] Event', event.id, event.title, 'category:', event.event_category, 'dates in range:', eventDates);
                 eventDates.forEach(dateStr => {
