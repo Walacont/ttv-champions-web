@@ -1622,6 +1622,14 @@ async function loadProfileAttendance() {
         const eventIds = relevantEvents.map(e => e.id);
         console.log('[ProfileView] Loading attendance for event IDs:', eventIds);
 
+        // Debug: Lade ALLE event_attendance Einträge um zu sehen ob überhaupt welche existieren
+        const { data: allAttendance, error: allAttError } = await supabase
+            .from('event_attendance')
+            .select('event_id, present_user_ids')
+            .limit(50);
+        console.log('[ProfileView] DEBUG - All attendance records in DB:', allAttendance?.length || 0, allAttendance);
+        if (allAttError) console.warn('[ProfileView] DEBUG - Error loading all attendance:', allAttError);
+
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
             .select('event_id, present_user_ids')
