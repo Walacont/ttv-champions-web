@@ -1654,8 +1654,10 @@ async function loadProfileAttendance() {
 
         if (trainingEvents) {
             trainingEvents.forEach(event => {
+                console.log('[ProfileView] Event details:', event.id, event.title, 'start_date:', event.start_date, 'repeat_type:', event.repeat_type, 'repeat_end_date:', event.repeat_end_date);
+                console.log('[ProfileView] Date range:', startDateStr, 'to', endDateStr);
                 const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
-                console.log('[ProfileView] Event', event.id, event.title, 'category:', event.event_category, 'dates in range:', eventDates);
+                console.log('[ProfileView] Event', event.id, event.title, 'dates in range:', eventDates);
                 eventDates.forEach(dateStr => {
                     // Spieler ist eingeladen (durch invitedEventIds Filter), also alle Termine zeigen
                     allEventsForMonth.push({
