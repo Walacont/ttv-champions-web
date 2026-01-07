@@ -2315,13 +2315,28 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
                 if (attError) console.warn('[Events] Error deleting attendance:', attError);
 
-                const { error: eventDelError } = await supabase.from('events').delete().eq('id', eventId);
+                // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+                const { data: deletedData, error: eventDelError } = await supabase
+                    .from('events')
+                    .delete()
+                    .eq('id', eventId)
+                    .select();
+
                 if (eventDelError) {
                     console.error('[Events] Error deleting event:', eventDelError);
                     throw eventDelError;
                 }
 
-                console.log('[Events] Event deleted successfully');
+                // Prüfen ob wirklich gelöscht wurde (RLS könnte blockieren)
+                if (!deletedData || deletedData.length === 0) {
+                    console.error('[Events] Delete returned no data - RLS might be blocking. Checking if event still exists...');
+                    const { data: checkEvent } = await supabase.from('events').select('id').eq('id', eventId).single();
+                    if (checkEvent) {
+                        throw new Error('Event konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen.');
+                    }
+                }
+
+                console.log('[Events] Event deleted successfully, deleted:', deletedData);
             }
         } else if (deleteScope === 'future') {
             const previousDay = new Date(targetDate);
@@ -2354,10 +2369,25 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
             if (attError) console.warn('[Events] Error deleting attendance:', attError);
 
-            const { error: eventDelError } = await supabase.from('events').delete().eq('id', eventId);
+            // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+            const { data: deletedData, error: eventDelError } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', eventId)
+                .select();
+
             if (eventDelError) {
                 console.error('[Events] Error deleting event:', eventDelError);
                 throw eventDelError;
+            }
+
+            // Prüfen ob wirklich gelöscht wurde
+            if (!deletedData || deletedData.length === 0) {
+                console.error('[Events] Delete returned no data - RLS might be blocking');
+                const { data: checkEvent } = await supabase.from('events').select('id').eq('id', eventId).single();
+                if (checkEvent) {
+                    throw new Error('Event konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen.');
+                }
             }
 
             console.log('[Events] Recurring event deleted successfully');
