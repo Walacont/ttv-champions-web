@@ -524,7 +524,7 @@ function checkSinglePlayers() {
         p => !pairedPlayerIds.includes(p.id) && !singlePlayers.find(sp => sp.id === p.id)
     );
 
-    // Auto-assign single player if only one left
+    // Einzelnen Spieler automatisch zuweisen wenn nur noch einer übrig
     if (available.length === 1 && selectedPlayers.length === 0) {
         singlePlayers.push({
             ...available[0],

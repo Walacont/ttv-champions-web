@@ -450,7 +450,7 @@ export async function loadMatchSuggestions(
                 },
                 async (payload) => {
                     const match = payload.new || payload.old;
-                    // Re-render if this match involves the current user
+                    // Neu rendern wenn dieses Match den aktuellen Benutzer betrifft
                     if (match && (match.player_a_id === userData.id || match.player_b_id === userData.id)) {
                         await renderSuggestions();
                     }

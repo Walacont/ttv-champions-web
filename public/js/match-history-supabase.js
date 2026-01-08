@@ -140,7 +140,7 @@ async function loadAndSubscribe(supabase, userData, container, matchType) {
                     filter: `processed=eq.true`
                 },
                 async () => {
-                    // Re-fetch all matches when doubles changes
+                    // Alle Matches neu abrufen wenn Doppel sich ändert
                     await fetchAndRenderMatches(supabase, userData, container, matchType);
                 }
             )
