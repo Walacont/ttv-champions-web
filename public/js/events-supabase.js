@@ -1118,12 +1118,8 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             ${coachList.map(coach => {
                                 const name = coach.profiles ? (coach.profiles.first_name + ' ' + coach.profiles.last_name) : 'Unbekannt';
                                 const hours = coachHours[coach.user_id] || 0;
-                                const roleBadge = coach.role === 'head_coach'
-                                    ? '<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Cheftrainer</span>'
-                                    : '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Trainer</span>';
                                 return '<div class="flex items-center gap-3 p-3 rounded-lg border border-gray-200">' +
                                     '<span class="flex-1 font-medium text-gray-900">' + name + '</span>' +
-                                    roleBadge +
                                     '<select class="coach-hours-select px-2 py-1 border border-gray-300 rounded-lg text-sm" data-coach-id="' + coach.user_id + '">' +
                                     '<option value="0"' + (hours === 0 ? ' selected' : '') + '>Nicht da</option>' +
                                     '<option value="0.5"' + (hours === 0.5 ? ' selected' : '') + '>0,5 Std</option>' +
