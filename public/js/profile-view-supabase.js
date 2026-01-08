@@ -390,7 +390,7 @@ async function renderRecentActivity(profile) {
                 }
             });
 
-            // Load privacy settings and club_id for all players
+            // Datenschutzeinstellungen und club_id für alle Spieler laden
             let privacyMap = {};
             if (matchPlayerIds.size > 0) {
                 const { data: privacyProfiles } = await supabase
@@ -425,10 +425,10 @@ async function renderRecentActivity(profile) {
                 (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
             }
 
-            // Filter matches based on privacy settings of ALL players
+            // Matches basierend auf Datenschutzeinstellungen ALLER Spieler filtern
             allActivities = allActivities.filter(activity => {
                 if (activity.activityType === 'post') {
-                    return true; // Posts are not affected by matches_visibility
+                    return true; // Posts sind nicht von matches_visibility betroffen
                 }
 
                 // Get all player IDs for this match
@@ -1749,7 +1749,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
         let attendedCount = 0;
         let totalForDay = 0;
 
-        // Check attendance from event_attendance table (event-based)
+        // Anwesenheit aus event_attendance Tabelle prüfen (event-basiert)
         if (hasEvents) {
             dayEvents.forEach(event => {
                 totalForDay++;
@@ -1759,11 +1759,11 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
             });
         }
 
-        // Check attendance from attendance table (date-based regular trainings)
+        // Anwesenheit aus attendance Tabelle prüfen (datumsbasierte reguläre Trainings)
         if (attendedDates.has(dateStr)) {
-            // If attended on this date via regular training attendance
+            // Falls an diesem Datum über reguläre Trainingsanwesenheit teilgenommen
             if (!hasEvents) {
-                // No events but has attendance record - count as 1/1
+                // Keine Events aber Anwesenheitseintrag - als 1/1 zählen
                 totalForDay = 1;
                 attendedCount = 1;
             } else {
@@ -1811,7 +1811,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
 
     calendarHtml += '</div>';
 
-    // Count total attendances from both sources
+    // Gesamte Anwesenheiten aus beiden Quellen zählen
     const totalEventAttendances = attendedEventIds.size;
     const totalDateAttendances = attendedDates.size;
     const totalAttendances = totalEventAttendances + totalDateAttendances;
@@ -1823,7 +1823,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
             pastEventsCount += eventsByDate[dateStr].length;
         }
     });
-    // Also count dates that have attendance records but no events
+    // Auch Termine zählen die Anwesenheitseinträge aber keine Events haben
     attendedDates.forEach(dateStr => {
         if (dateStr < todayStr && !eventsByDate[dateStr]) {
             pastEventsCount++;

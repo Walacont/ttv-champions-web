@@ -921,7 +921,7 @@ async function fetchActivities(userIds) {
         ];
 
         // === PRIVACY FILTERING FOR MATCHES ===
-        // Collect all unique player IDs from singles and doubles matches for privacy check
+        // Alle eindeutigen Spieler-IDs aus Einzel- und Doppel-Matches für Datenschutzprüfung sammeln
         const matchPlayerIds = new Set();
         allActivities.forEach(activity => {
             if (activity.activityType === 'singles') {
@@ -935,7 +935,7 @@ async function fetchActivities(userIds) {
             }
         });
 
-        // Load privacy settings for all players involved in matches
+        // Datenschutzeinstellungen für alle an Matches beteiligten Spieler laden
         let privacyMap = {};
         if (matchPlayerIds.size > 0) {
             const { data: privacyProfiles } = await supabase
@@ -960,12 +960,12 @@ async function fetchActivities(userIds) {
             (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
         }
 
-        // Filter matches based on privacy settings
+        // Matches basierend auf Datenschutzeinstellungen filtern
         const viewerId = currentUser?.id;
         const viewerClubId = currentUserData?.club_id;
 
         allActivities = allActivities.filter(activity => {
-            // Only filter singles and doubles matches
+            // Nur Einzel- und Doppel-Matches filtern
             if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
                 return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
             }
