@@ -7,18 +7,18 @@ import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 
-// Modal elements
+// Modal-Elemente
 const createPostModal = document.getElementById('create-post-modal');
 const createPostBtn = document.getElementById('create-post-btn');
 const closeModalBtn = document.getElementById('close-create-post-modal');
 
-// Post type toggles
+// Post-Typ-Toggles
 const postTypeTextBtn = document.getElementById('post-type-text');
 const postTypePollBtn = document.getElementById('post-type-poll');
 const textPostForm = document.getElementById('text-post-form');
 const pollForm = document.getElementById('poll-form');
 
-// Text post elements
+// Text-Post-Elemente
 const postContentTextarea = document.getElementById('post-content');
 const postImageInput = document.getElementById('post-image-input');
 const postImagesPreview = document.getElementById('post-images-preview');
@@ -28,7 +28,7 @@ const postVisibilitySelect = document.getElementById('post-visibility');
 const cancelPostBtn = document.getElementById('cancel-post-btn');
 const postFormFeedback = document.getElementById('post-form-feedback');
 
-// Poll elements
+// Umfrage-Elemente
 const pollQuestionInput = document.getElementById('poll-question');
 const pollOptionsContainer = document.getElementById('poll-options-container');
 const addPollOptionBtn = document.getElementById('add-poll-option');
@@ -59,7 +59,7 @@ export function initPostsManager() {
         }
     });
 
-    // Post type toggle
+    // Post-Typ-Toggle
     postTypeTextBtn?.addEventListener('click', () => switchPostType('text'));
     postTypePollBtn?.addEventListener('click', () => switchPostType('poll'));
 
@@ -67,7 +67,7 @@ export function initPostsManager() {
     postImageInput?.addEventListener('change', handleImagesSelect);
     clearPostImagesBtn?.addEventListener('click', clearImages);
 
-    // Poll option management
+    // Umfrage-Optionen-Verwaltung
     addPollOptionBtn?.addEventListener('click', addPollOption);
 
     // Formular-Absendungen

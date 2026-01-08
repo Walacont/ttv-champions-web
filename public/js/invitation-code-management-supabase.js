@@ -371,7 +371,7 @@ function renderCodeItem(codeData) {
     const expired = isCodeExpired(codeData.expiresAt);
     const remainingDays = getRemainingDays(codeData.expiresAt);
 
-    // Determine status (superseded takes priority)
+    // Status bestimmen (ersetzt hat Priorität)
     let statusClass, statusIcon, statusText, badgeClass;
 
     if (codeData.superseded) {

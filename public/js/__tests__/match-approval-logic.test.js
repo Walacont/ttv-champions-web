@@ -443,7 +443,7 @@ describe('Complete Approval Workflow', () => {
         const playerA = { id: 'A', clubId: null };
         const playerB = { id: 'B', clubId: null };
 
-        // Initial status
+        // Anfangsstatus
         let matchRequest = {
             status: 'pending_player',
             playerAId: 'A',
