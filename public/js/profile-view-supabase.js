@@ -1598,8 +1598,6 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading club events:', eventsError);
     }
 
-    console.log('[ProfileView] All club events loaded:', clubEvents?.length || 0);
-
     // Events filtern: Nur TRAININGS wo Spieler eingeladen ist ODER Teil der Zielgruppe
     const relevantEvents = (clubEvents || []).filter(event => {
         // NUR Trainings-Events anzeigen
@@ -1617,8 +1615,6 @@ async function loadProfileAttendance() {
         return false;
     });
 
-    console.log('[ProfileView] Relevant TRAINING events for player:', relevantEvents.length);
-
     // Attendance aus BEIDEN Tabellen laden:
     // 1. event_attendance - für Events aus dem Event-System
     // 2. attendance - für reguläre Trainings aus dem Training-System
@@ -1629,7 +1625,6 @@ async function loadProfileAttendance() {
     // 1. Event-Attendance laden
     if (relevantEvents.length > 0) {
         const eventIds = relevantEvents.map(e => e.id);
-        console.log('[ProfileView] Querying event_attendance for event IDs:', eventIds);
 
         const { data: eventAttendance, error: attendanceError } = await supabase
             .from('event_attendance')
@@ -1640,46 +1635,16 @@ async function loadProfileAttendance() {
             console.warn('[ProfileView] Error loading event attendance:', attendanceError);
         }
 
-        console.log('[ProfileView] Raw event_attendance data:', eventAttendance);
-
-        if (eventAttendance && eventAttendance.length > 0) {
-            console.log('[ProfileView] event_attendance columns:', Object.keys(eventAttendance[0]));
-            console.log('[ProfileView] First event_attendance record:', eventAttendance[0]);
-        }
-
         if (eventAttendance) {
             eventAttendance.forEach(ea => {
-                console.log('[ProfileView] Checking event', ea.event_id, 'present_user_ids:', ea.present_user_ids, 'looking for profileId:', profileId);
                 if (ea.present_user_ids?.includes(profileId)) {
-                    console.log('[ProfileView] ✓ Player attended event:', ea.event_id);
                     attendedEventIds.add(ea.event_id);
                 }
             });
         }
-        console.log('[ProfileView] Attended event IDs (from event_attendance):', Array.from(attendedEventIds));
     }
 
     // 2. Reguläre Training-Attendance laden (aus attendance Tabelle)
-    // First, query ALL attendance for this club to check if any exist
-    console.log('[ProfileView] Querying attendance table for club_id:', clubId, 'date range:', startDateStr, 'to', endDateStr);
-
-    const { data: allAttendance, error: allAttError } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('club_id', clubId);
-
-    if (allAttError) {
-        console.warn('[ProfileView] Error loading ALL attendance:', allAttError);
-    } else {
-        console.log('[ProfileView] ALL attendance records for club:', allAttendance?.length || 0);
-        if (allAttendance && allAttendance.length > 0) {
-            console.log('[ProfileView] Available attendance dates:', allAttendance.map(a => a.date));
-            console.log('[ProfileView] First attendance record (all columns):', allAttendance[0]);
-            console.log('[ProfileView] Columns in attendance table:', Object.keys(allAttendance[0]));
-        }
-    }
-
-    // Now query with date filter
     const { data: trainingAttendance, error: trainingAttError } = await supabase
         .from('attendance')
         .select('*')
@@ -1691,27 +1656,15 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading training attendance:', trainingAttError);
     }
 
-    console.log('[ProfileView] Training attendance records (filtered):', trainingAttendance?.length || 0);
-    if (trainingAttendance && trainingAttendance.length > 0) {
-        // Log first record to see all available columns
-        console.log('[ProfileView] Sample attendance record columns:', Object.keys(trainingAttendance[0]));
-        console.log('[ProfileView] Sample attendance record:', trainingAttendance[0]);
-    }
     if (trainingAttendance) {
         trainingAttendance.forEach(ta => {
             // Try both possible column names
             const presentIds = ta.present_player_ids || ta.present_ids || ta.player_ids || [];
-            console.log('[ProfileView] Attendance record for date:', ta.date, 'presentIds:', presentIds);
-            console.log('[ProfileView] Checking if profileId', profileId, 'is in presentIds');
             if (presentIds?.includes(profileId)) {
-                console.log('[ProfileView] ✓ Player WAS present on', ta.date);
                 attendedDates.add(ta.date);
-            } else {
-                console.log('[ProfileView] ✗ Player NOT in attendance for', ta.date);
             }
         });
     }
-    console.log('[ProfileView] Attended dates (from attendance):', Array.from(attendedDates));
 
     let allEventsForMonth = [];
 
@@ -1725,8 +1678,6 @@ async function loadProfileAttendance() {
             });
         });
     });
-
-    console.log('[ProfileView] Events in current month:', allEventsForMonth.length);
 
     const eventsByDate = {};
     allEventsForMonth.forEach(event => {
@@ -1884,6 +1835,65 @@ async function loadProfileAttendance() {
             </div>
         </div>
     `;
+
+    // Streaks laden und anzeigen
+    const { data: playerStreaks } = await supabase
+        .from('streaks')
+        .select('subgroup_id, current_streak, last_attendance_date')
+        .eq('user_id', profileId);
+
+    if (playerStreaks && playerStreaks.length > 0) {
+        // Subgroup-Namen laden
+        const subgroupIds = playerStreaks.map(s => s.subgroup_id);
+        const { data: subgroups } = await supabase
+            .from('subgroups')
+            .select('id, name')
+            .in('id', subgroupIds);
+
+        const subgroupMap = new Map();
+        (subgroups || []).forEach(sg => subgroupMap.set(sg.id, sg.name));
+
+        calendarHtml += `
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h5 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                    🔥 Aktuelle Streaks
+                </h5>
+                <div class="space-y-2">
+        `;
+
+        for (const streak of playerStreaks) {
+            const subgroupName = subgroupMap.get(streak.subgroup_id) || 'Unbekannt';
+            const streakCount = streak.current_streak || 0;
+
+            // Streak-Styling basierend auf Höhe
+            let streakBadgeClass = 'bg-gray-100 text-gray-600';
+            let streakIcon = '';
+            if (streakCount >= 5) {
+                streakBadgeClass = 'bg-orange-100 text-orange-600';
+                streakIcon = '🔥';
+            } else if (streakCount >= 3) {
+                streakBadgeClass = 'bg-yellow-100 text-yellow-600';
+                streakIcon = '⚡';
+            }
+
+            calendarHtml += `
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">${subgroupName}</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${streakBadgeClass}">
+                        ${streakIcon} ${streakCount}x
+                    </span>
+                </div>
+            `;
+        }
+
+        calendarHtml += `
+                </div>
+                <p class="text-xs text-gray-400 mt-2">
+                    Ab 3x Streak: +2 Bonus | Ab 5x Streak: +3 Bonus
+                </p>
+            </div>
+        `;
+    }
 
     container.innerHTML = calendarHtml;
 }

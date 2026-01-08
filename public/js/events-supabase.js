@@ -1336,22 +1336,36 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 
     // Streak-Tracking für ALLE Trainings:
     // - Mit Untergruppe: erste Subgruppe verwenden
-    // - Ohne Untergruppe (ganzer Verein): spezielle ID 'club_training' verwenden
+    // - Ohne Untergruppe (ganzer Verein): Fallback-Subgroup suchen (z.B. "Hauptgruppe")
     let primarySubgroupId = null;
     if (isTraining) {
-        primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : 'club_training';
+        if (subgroupIds.length > 0) {
+            primarySubgroupId = subgroupIds[0];
+        } else {
+            // Fallback: Suche eine "Hauptgruppe" oder ähnliche Subgroup für Club-weite Trainings
+            const { data: fallbackSubgroup } = await supabase
+                .from('subgroups')
+                .select('id, name')
+                .eq('club_id', event.club_id)
+                .or('name.ilike.%hauptgruppe%,name.ilike.%vereinstraining%,name.ilike.%alle%')
+                .limit(1)
+                .maybeSingle();
+
+            if (fallbackSubgroup) {
+                primarySubgroupId = fallbackSubgroup.id;
+                console.log('[Events] Using fallback subgroup for club-wide training:', fallbackSubgroup.name);
+            }
+        }
     }
 
     let subgroupName = '';
-    if (primarySubgroupId && primarySubgroupId !== 'club_training') {
+    if (primarySubgroupId) {
         const { data: subgroup } = await supabase
             .from('subgroups')
             .select('name')
             .eq('id', primarySubgroupId)
             .maybeSingle();
         subgroupName = subgroup?.name || '';
-    } else if (primarySubgroupId === 'club_training') {
-        subgroupName = 'Vereinstraining';
     }
 
     let wasPresentAtLastEvent = false;
@@ -3011,8 +3025,23 @@ window.recalculateStreaksRetroactively = async function(clubId) {
         if (playersError) throw playersError;
         console.log('[Streaks] Found', players?.length || 0, 'players');
 
-        // 4. Für jeden Spieler Streaks berechnen
-        let totalBonusAwarded = 0;
+        // 4. Fallback-Subgroup für Club-weite Trainings finden
+        const { data: fallbackSubgroup } = await supabase
+            .from('subgroups')
+            .select('id, name')
+            .eq('club_id', clubId)
+            .or('name.ilike.%hauptgruppe%,name.ilike.%vereinstraining%,name.ilike.%alle%')
+            .limit(1)
+            .maybeSingle();
+
+        const fallbackSubgroupId = fallbackSubgroup?.id;
+        if (fallbackSubgroupId) {
+            console.log('[Streaks] Using fallback subgroup:', fallbackSubgroup.name);
+        } else {
+            console.log('[Streaks] No fallback subgroup found - club-wide trainings will be skipped');
+        }
+
+        // 5. Für jeden Spieler Streaks berechnen
         let playersUpdated = 0;
 
         for (const player of players || []) {
@@ -3024,20 +3053,33 @@ window.recalculateStreaksRetroactively = async function(clubId) {
                 if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
                     return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
                 }
+                // Club-weite Trainings ohne Untergruppe
+                if (!event.target_subgroup_ids || event.target_subgroup_ids.length === 0) return true;
                 return false;
             });
 
             if (playerTrainings.length === 0) continue;
 
-            // Streak pro Untergruppe berechnen (inkl. 'club_training' für Vereinstrainings)
-            const subgroupStreaks = new Map(); // subgroupId -> { currentStreak, lastAttendedDate }
+            // Nur Trainings berücksichtigen, wo Attendance eingetragen wurde
+            const playerTrainingsWithAttendance = playerTrainings.filter(t => {
+                const att = attendanceMap.get(t.id);
+                return att && att.present_user_ids && att.present_user_ids.length > 0;
+            });
 
-            for (const training of playerTrainings) {
+            // Streak pro Untergruppe berechnen
+            const subgroupStreaks = new Map();
+
+            for (const training of playerTrainingsWithAttendance) {
                 const attendance = attendanceMap.get(training.id);
                 const wasPresent = attendance?.present_user_ids?.includes(player.id) || false;
 
-                // Für Vereinstrainings (ohne Untergruppe) verwenden wir 'club_training' als ID
-                const subgroupId = training.target_subgroup_ids?.[0] || 'club_training';
+                // Für Vereinstrainings: Fallback-Subgroup verwenden
+                let subgroupId = training.target_subgroup_ids?.[0];
+                if (!subgroupId && fallbackSubgroupId) {
+                    subgroupId = fallbackSubgroupId;
+                }
+
+                if (!subgroupId) continue; // Kein gültiges Subgroup-ID
 
                 if (!subgroupStreaks.has(subgroupId)) {
                     subgroupStreaks.set(subgroupId, { currentStreak: 0, lastAttendedDate: null });
@@ -3049,7 +3091,6 @@ window.recalculateStreaksRetroactively = async function(clubId) {
                     streakData.currentStreak++;
                     streakData.lastAttendedDate = training.start_date;
                 } else {
-                    // Nicht anwesend → Streak zurücksetzen
                     streakData.currentStreak = 0;
                 }
             }
