@@ -2530,17 +2530,6 @@ window.openEditEventModal = async function(eventId) {
         const startTimeFormatted = formatTimeForInput(event.start_time);
         const endTimeFormatted = formatTimeForInput(event.end_time);
 
-        console.log('[Events] openEditEventModal - Original times:', {
-            meeting_time: event.meeting_time,
-            start_time: event.start_time,
-            end_time: event.end_time
-        });
-        console.log('[Events] openEditEventModal - Formatted times:', {
-            meetingTimeFormatted,
-            startTimeFormatted,
-            endTimeFormatted
-        });
-
         const existingModal = document.getElementById('edit-event-modal');
         if (existingModal) existingModal.remove();
 
@@ -2657,18 +2646,6 @@ window.openEditEventModal = async function(eventId) {
 
         document.body.appendChild(modal);
 
-        // Debug: Zeige die tatsächlichen Input-Werte nach DOM-Einfügung
-        setTimeout(() => {
-            const startInput = document.getElementById('edit-event-start-time');
-            const endInput = document.getElementById('edit-event-end-time');
-            const meetingInput = document.getElementById('edit-event-meeting-time');
-            console.log('[Events] openEditEventModal - Actual input values after render:', {
-                startTime: startInput?.value,
-                endTime: endInput?.value,
-                meetingTime: meetingInput?.value
-            });
-        }, 100);
-
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
@@ -2698,10 +2675,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
         const startTime = document.getElementById('edit-event-start-time')?.value;
         const endTime = document.getElementById('edit-event-end-time')?.value;
         const location = document.getElementById('edit-event-location')?.value?.trim();
-
-        console.log('[Events] executeEditEvent - Form values:', {
-            title, startDate, meetingTime, startTime, endTime, location, editScope, isRecurring
-        });
 
         if (!title) {
             alert('Bitte gib einen Titel ein');
@@ -2734,13 +2707,6 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             location: location || null,
             updated_at: new Date().toISOString()
         };
-
-        console.log('[Events] executeEditEvent - updateData:', updateData);
-        console.log('[Events] executeEditEvent - originalEvent times:', {
-            start_time: originalEvent.start_time,
-            end_time: originalEvent.end_time,
-            meeting_time: originalEvent.meeting_time
-        });
 
         if (startDate && startDate !== originalEvent.start_date) {
             if (editScope === 'this' && isRecurring) {
@@ -2797,19 +2763,12 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                 updateData.start_date = startDate || originalEvent.start_date;
             }
 
-            console.log('[Events] executeEditEvent - Executing update for eventId:', eventId);
             const { error: updateError } = await supabase
                 .from('events')
                 .update(updateData)
                 .eq('id', eventId);
 
-            if (updateError) {
-                console.error('[Events] executeEditEvent - Update error:', updateError);
-                throw updateError;
-            }
-            console.log('[Events] executeEditEvent - Update successful');
-        } else {
-            console.log('[Events] executeEditEvent - Update skipped due to condition');
+            if (updateError) throw updateError;
         }
 
         const formattedDate = new Date((startDate || originalEvent.start_date) + 'T12:00:00').toLocaleDateString('de-DE', {
