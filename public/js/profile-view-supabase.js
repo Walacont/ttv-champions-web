@@ -1881,9 +1881,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
 
         calendarHtml += `
             <div class="mt-4 pt-4 border-t border-gray-200">
-                <h5 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                    🔥 Aktuelle Streaks
-                </h5>
+                <h5 class="text-sm font-semibold text-gray-700 mb-2">Aktuelle Streaks</h5>
                 <div class="space-y-2">
         `;
 
@@ -1893,20 +1891,17 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
 
             // Streak-Styling basierend auf Höhe
             let streakBadgeClass = 'bg-gray-100 text-gray-600';
-            let streakIcon = '';
             if (streakCount >= 5) {
-                streakBadgeClass = 'bg-orange-100 text-orange-600';
-                streakIcon = '🔥';
+                streakBadgeClass = 'bg-orange-100 text-orange-600 font-bold';
             } else if (streakCount >= 3) {
-                streakBadgeClass = 'bg-yellow-100 text-yellow-600';
-                streakIcon = '⚡';
+                streakBadgeClass = 'bg-yellow-100 text-yellow-700';
             }
 
             calendarHtml += `
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-gray-600">${subgroupName}</span>
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${streakBadgeClass}">
-                        ${streakIcon} ${streakCount}x
+                        ${streakCount}x
                     </span>
                 </div>
             `;
