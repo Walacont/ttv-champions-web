@@ -87,6 +87,49 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
         console.log(`[Export] Loaded ${sessions.length} training sessions`);
 
+        // Events (neues System) laden
+        const { data: eventsData } = await supabase
+            .from('events')
+            .select('id, title, start_date, start_time, end_time, target_subgroup_ids, event_category')
+            .eq('club_id', clubId)
+            .eq('cancelled', false)
+            .gte('start_date', startDate)
+            .lte('start_date', endDate)
+            .order('start_date', { ascending: true });
+
+        const events = (eventsData || []).map(e => ({
+            id: e.id,
+            date: e.start_date,
+            startTime: e.start_time || '18:00',
+            endTime: e.end_time || '20:00',
+            title: e.title,
+            subgroupId: e.target_subgroup_ids?.[0] || null,
+            isEvent: true
+        }));
+
+        // Events als zusätzliche Sessions behandeln
+        sessions.push(...events);
+        sessions.sort((a, b) => a.date.localeCompare(b.date));
+
+        console.log(`[Export] Total sessions including events: ${sessions.length}`);
+
+        // Event-Attendance laden
+        const eventIds = events.map(e => e.id);
+        let eventAttendanceMap = new Map();
+        if (eventIds.length > 0) {
+            const { data: eventAttendanceData } = await supabase
+                .from('event_attendance')
+                .select('event_id, present_user_ids, coach_hours')
+                .in('event_id', eventIds);
+
+            (eventAttendanceData || []).forEach(ea => {
+                eventAttendanceMap.set(ea.event_id, {
+                    presentPlayerIds: ea.present_user_ids || [],
+                    coachHours: ea.coach_hours || {}
+                });
+            });
+        }
+
         let attendanceQuery = supabase
             .from('attendance')
             .select('*')
@@ -134,12 +177,12 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
             subgroupIDs: p.subgroup_ids || []
         }));
 
-        // Trainer laden für Namens-Mapping und Tracking
+        // Trainer laden für Namens-Mapping und Tracking (inkl. Cheftrainer)
         const { data: coachesData, error: coachesError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
             .eq('club_id', clubId)
-            .eq('role', 'coach')
+            .in('role', ['coach', 'head_coach'])
             .order('last_name', { ascending: true });
 
         if (coachesError) throw coachesError;
@@ -226,10 +269,13 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
                 month: '2-digit',
                 year: 'numeric',
             });
-            const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
+            // Für Events den Titel verwenden, sonst Untergruppen-Name
+            const sessionName = session.isEvent
+                ? session.title
+                : (subgroupsMap.get(session.subgroupId) || session.subgroupId);
 
             headerRow1.push(formattedDate);
-            headerRow2.push(`${subgroupName} (${session.startTime}-${session.endTime})`);
+            headerRow2.push(`${sessionName} (${session.startTime}-${session.endTime})`);
         }
 
         headerRow1.push('Gesamt');
@@ -244,17 +290,26 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
             for (const session of sessions) {
                 // Prüfen ob Spieler in der Untergruppe dieses Trainings ist
-                const isInSubgroup =
-                    player.subgroupIDs && player.subgroupIDs.includes(session.subgroupId);
+                const isInSubgroup = session.isEvent
+                    ? true // Bei Events alle Spieler anzeigen
+                    : (player.subgroupIDs && player.subgroupIDs.includes(session.subgroupId));
 
                 if (!isInSubgroup) {
                     row.push('');
                     continue;
                 }
 
-                const attendanceKey = `${session.date}_${session.id}`;
-                const attendance = attendanceRecords.get(attendanceKey);
-                const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
+                let presentPlayerIds = [];
+                if (session.isEvent) {
+                    // Event-Attendance aus eventAttendanceMap
+                    const eventAtt = eventAttendanceMap.get(session.id);
+                    presentPlayerIds = eventAtt?.presentPlayerIds || [];
+                } else {
+                    // Normale Session-Attendance
+                    const attendanceKey = `${session.date}_${session.id}`;
+                    const attendance = attendanceRecords.get(attendanceKey);
+                    presentPlayerIds = attendance?.presentPlayerIds || [];
+                }
 
                 const isPresent = presentPlayerIds.includes(player.id);
                 row.push(isPresent ? '☑' : '☐');
@@ -283,25 +338,34 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
             let coachTotalHours = 0;
 
             for (const session of sessions) {
-                const attendanceKey = `${session.date}_${session.id}`;
-                const attendance = attendanceRecords.get(attendanceKey);
-
                 let hours = 0;
 
-                // Neues Format: coaches Array mit {id, hours}
-                if (attendance && attendance.coaches && Array.isArray(attendance.coaches)) {
-                    const coachData = attendance.coaches.find(c => c.id === coach.id);
-                    if (coachData && coachData.hours) {
-                        hours = coachData.hours;
+                if (session.isEvent) {
+                    // Event-Attendance: coach_hours als Objekt {coach_id: hours}
+                    const eventAtt = eventAttendanceMap.get(session.id);
+                    if (eventAtt?.coachHours?.[coach.id]) {
+                        hours = eventAtt.coachHours[coach.id];
                     }
-                }
-                // Altes Format: coachIds Array (Rückwärtskompatibilität)
-                else if (attendance && attendance.coachIds && attendance.coachIds.includes(coach.id)) {
-                    hours = calculateSessionDuration(session.startTime, session.endTime);
-                }
-                // Sehr altes Format: einzelne coachId (Rückwärtskompatibilität)
-                else if (attendance && attendance.coachId === coach.id) {
-                    hours = calculateSessionDuration(session.startTime, session.endTime);
+                } else {
+                    // Normale Session-Attendance
+                    const attendanceKey = `${session.date}_${session.id}`;
+                    const attendance = attendanceRecords.get(attendanceKey);
+
+                    // Neues Format: coaches Array mit {id, hours}
+                    if (attendance && attendance.coaches && Array.isArray(attendance.coaches)) {
+                        const coachData = attendance.coaches.find(c => c.id === coach.id);
+                        if (coachData && coachData.hours) {
+                            hours = coachData.hours;
+                        }
+                    }
+                    // Altes Format: coachIds Array (Rückwärtskompatibilität)
+                    else if (attendance && attendance.coachIds && attendance.coachIds.includes(coach.id)) {
+                        hours = calculateSessionDuration(session.startTime, session.endTime);
+                    }
+                    // Sehr altes Format: einzelne coachId (Rückwärtskompatibilität)
+                    else if (attendance && attendance.coachId === coach.id) {
+                        hours = calculateSessionDuration(session.startTime, session.endTime);
+                    }
                 }
 
                 row.push(hours > 0 ? hours : '');
@@ -317,9 +381,15 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
         // Zählt nur Spieler, nicht Trainer
         const countRow = ['Spieler pro Tag (ohne Trainer)', ''];
         for (const session of sessions) {
-            const attendanceKey = `${session.date}_${session.id}`;
-            const attendance = attendanceRecords.get(attendanceKey);
-            const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
+            let presentPlayerIds = [];
+            if (session.isEvent) {
+                const eventAtt = eventAttendanceMap.get(session.id);
+                presentPlayerIds = eventAtt?.presentPlayerIds || [];
+            } else {
+                const attendanceKey = `${session.date}_${session.id}`;
+                const attendance = attendanceRecords.get(attendanceKey);
+                presentPlayerIds = attendance?.presentPlayerIds || [];
+            }
 
             const count = playersList.filter(p => presentPlayerIds.includes(p.id)).length;
             countRow.push(count);

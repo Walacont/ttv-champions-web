@@ -7,6 +7,7 @@ import {
     initPushNotifications,
     requestPushPermission,
     isPushEnabled,
+    isPushSupported,
     getNotificationPreferences,
     updateNotificationPreferences,
     disablePushNotifications
@@ -41,6 +42,28 @@ async function init() {
     }
 
     currentUserId = session.user.id;
+
+    // Push-Benachrichtigungen nur in PWA/native App verfügbar
+    if (!isPushSupported()) {
+        document.getElementById('page-loader').style.display = 'none';
+        document.getElementById('main-content').innerHTML = `
+            <div class="max-w-lg mx-auto p-6 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-mobile-alt text-gray-400 text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">Nur in der App verfügbar</h2>
+                <p class="text-gray-600 mb-6">
+                    Push-Benachrichtigungen sind nur in der installierten App oder PWA verfügbar.
+                    Installiere die App, um Benachrichtigungen zu erhalten.
+                </p>
+                <a href="/settings.html" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition">
+                    Zurück zu Einstellungen
+                </a>
+            </div>
+        `;
+        document.getElementById('main-content').style.display = 'block';
+        return;
+    }
 
     // Push-Benachrichtigungen für diesen Benutzer initialisieren
     await initPushNotifications(currentUserId);

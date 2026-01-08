@@ -374,10 +374,29 @@ export async function showPushPermissionPrompt() {
 }
 
 /**
+ * Prüft, ob Push-Benachrichtigungen unterstützt werden (nur PWA oder native App)
+ * @returns {boolean}
+ */
+export function isPushSupported() {
+    // Native App (Capacitor)
+    if (window.CapacitorUtils?.isNative()) return true;
+
+    // PWA im Standalone-Modus
+    if (window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.navigator.standalone === true) return true; // iOS Safari
+
+    // Regulärer Web-Browser - keine Push-Unterstützung anzeigen
+    return false;
+}
+
+/**
  * Prüft, ob der Berechtigungsdialog angezeigt werden soll
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
+    // Nicht anzeigen in regulärem Browser (nur PWA/native)
+    if (!isPushSupported()) return false;
+
     // Nicht anzeigen, wenn bereits Token vorhanden (native)
     if (window.pushToken) return false;
 

@@ -164,6 +164,70 @@ export function initActivityFeedModule(user, userData) {
     window.addEventListener('languageChanged', window.activityFeedLanguageListener);
 }
 
+/**
+ * Prüft ob ein Match für den aktuellen Benutzer basierend auf Datenschutzeinstellungen sichtbar ist.
+ * ALLE Spieler müssen Sichtbarkeit erlauben - die strengste Einstellung gewinnt.
+ *
+ * @param {Object} match - Das Match-Objekt (Einzel oder Doppel)
+ * @param {string} matchType - 'singles' oder 'doubles'
+ * @param {Object} privacyMap - Map von userId -> privacy_settings
+ * @param {string} viewerId - ID des aktuellen Benutzers
+ * @param {string|null} viewerClubId - Vereins-ID des aktuellen Benutzers
+ * @param {Set} viewerFollowingIds - Set von Benutzer-IDs denen der Betrachter folgt
+ * @returns {boolean} - Ob das Match sichtbar ist
+ */
+function canViewMatch(match, matchType, privacyMap, viewerId, viewerClubId, viewerFollowingIds) {
+    // Alle Spieler-IDs aus dem Match abrufen
+    let playerIds = [];
+    if (matchType === 'singles') {
+        playerIds = [match.player_a_id, match.player_b_id].filter(Boolean);
+    } else if (matchType === 'doubles') {
+        playerIds = [
+            match.team_a_player1_id,
+            match.team_a_player2_id,
+            match.team_b_player1_id,
+            match.team_b_player2_id
+        ].filter(Boolean);
+    }
+
+    // Falls Betrachter ein Spieler in diesem Match ist, immer sichtbar
+    if (playerIds.includes(viewerId)) {
+        return true;
+    }
+
+    // Prüfen ob ALLE Spieler Sichtbarkeit basierend auf ihren Datenschutzeinstellungen erlauben
+    // Die strengste Einstellung gewinnt - wenn ein Spieler blockiert, ist das Match versteckt
+    for (const playerId of playerIds) {
+        const privacy = privacyMap[playerId]?.privacy_settings || {};
+        const visibility = privacy.matches_visibility || 'global';
+        const playerClubId = privacyMap[playerId]?.club_id;
+
+        // Prüfen ob dieser Spieler Sichtbarkeit erlaubt
+        let playerAllows = false;
+
+        if (visibility === 'global') {
+            playerAllows = true;
+        } else if (visibility === 'club_only') {
+            // Betrachter muss im selben Verein wie dieser Spieler sein
+            playerAllows = viewerClubId && playerClubId && viewerClubId === playerClubId;
+        } else if (visibility === 'followers_only') {
+            // Betrachter muss diesem Spieler folgen
+            playerAllows = viewerFollowingIds.has(playerId);
+        } else if (visibility === 'none') {
+            // Nur Spieler selbst können sehen - Betrachter ist kein Spieler (oben geprüft)
+            playerAllows = false;
+        }
+
+        // Falls ein Spieler blockiert, ist das Match nicht sichtbar
+        if (!playerAllows) {
+            return false;
+        }
+    }
+
+    // Alle Spieler erlauben Sichtbarkeit
+    return true;
+}
+
 /** Richtet Likes-Modal ein */
 function setupLikesModal() {
     if (document.getElementById('likes-modal')) return;
@@ -855,6 +919,61 @@ async function fetchActivities(userIds) {
             ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
             ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
         ];
+
+        // === PRIVACY FILTERING FOR MATCHES ===
+        // Collect all unique player IDs from singles and doubles matches for privacy check
+        const matchPlayerIds = new Set();
+        allActivities.forEach(activity => {
+            if (activity.activityType === 'singles') {
+                if (activity.player_a_id) matchPlayerIds.add(activity.player_a_id);
+                if (activity.player_b_id) matchPlayerIds.add(activity.player_b_id);
+            } else if (activity.activityType === 'doubles') {
+                if (activity.team_a_player1_id) matchPlayerIds.add(activity.team_a_player1_id);
+                if (activity.team_a_player2_id) matchPlayerIds.add(activity.team_a_player2_id);
+                if (activity.team_b_player1_id) matchPlayerIds.add(activity.team_b_player1_id);
+                if (activity.team_b_player2_id) matchPlayerIds.add(activity.team_b_player2_id);
+            }
+        });
+
+        // Load privacy settings for all players involved in matches
+        let privacyMap = {};
+        if (matchPlayerIds.size > 0) {
+            const { data: privacyProfiles } = await supabase
+                .from('profiles')
+                .select('id, privacy_settings, club_id')
+                .in('id', [...matchPlayerIds]);
+
+            (privacyProfiles || []).forEach(p => {
+                privacyMap[p.id] = p;
+            });
+        }
+
+        // Get viewer's following list for privacy checks
+        let viewerFollowingIds = new Set();
+        if (currentUser) {
+            const { data: following } = await supabase
+                .from('friendships')
+                .select('addressee_id')
+                .eq('requester_id', currentUser.id)
+                .eq('status', 'accepted');
+
+            (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
+        }
+
+        // Filter matches based on privacy settings
+        const viewerId = currentUser?.id;
+        const viewerClubId = currentUserData?.club_id;
+
+        allActivities = allActivities.filter(activity => {
+            // Only filter singles and doubles matches
+            if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
+                return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
+            }
+            // Other activity types (posts, polls, events) pass through
+            return true;
+        });
+
+        console.log('[ActivityFeed] Activities after privacy filter:', allActivities.length);
     }
 
     // Nach Datum absteigend sortieren
@@ -1762,7 +1881,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const setScore = `${winnerSets}:${loserSets}`;
 
     // Zeit formatieren
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -1933,7 +2052,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 
     const setScore = `${winnerSets}:${loserSets}`;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 

@@ -26,6 +26,29 @@ let allExercises = [];
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
 /**
+ * Prüft ob ein Spieler zu einem Event eingeladen war
+ * @param {Array} playerSubgroups - Untergruppen des Spielers
+ * @param {Object} event - Event mit target_type und target_subgroup_ids
+ * @returns {boolean} true wenn eingeladen
+ */
+function isPlayerInvitedToEvent(playerSubgroups, event) {
+    // Wenn target_type 'all' oder nicht gesetzt → alle eingeladen
+    if (!event.target_type || event.target_type === 'all' || event.target_type === 'club') {
+        return true;
+    }
+
+    // Wenn target_type 'subgroups' → prüfe ob Spieler in einer der Ziel-Untergruppen ist
+    if (event.target_type === 'subgroups') {
+        const targetSubgroups = event.target_subgroup_ids || [];
+        if (targetSubgroups.length === 0) return true;
+
+        return playerSubgroups.some(sg => targetSubgroups.includes(sg));
+    }
+
+    return true;
+}
+
+/**
  * Toast-Benachrichtigung anzeigen
  * @param {string} message - Nachricht
  * @param {string} type - 'success', 'error' oder 'info'
@@ -330,7 +353,42 @@ function selectEventType(type) {
         recurringSettings?.classList.add('hidden');
     }
 
+    // Vorlaufzeit-Option nur für wiederkehrende Events anzeigen
+    updateSendInvitationOptions(type);
+
     showModal('event-target-modal');
+}
+
+/**
+ * Aktualisiert die Einladungs-Optionen basierend auf Event-Typ
+ * @param {string} eventType - 'single' oder 'recurring'
+ */
+function updateSendInvitationOptions(eventType) {
+    const sendInvitationSelect = document.getElementById('event-send-invitation');
+    if (!sendInvitationSelect) return;
+
+    const existingLeadTimeOption = sendInvitationSelect.querySelector('option[value="lead_time"]');
+
+    if (eventType === 'recurring') {
+        // Option hinzufügen falls nicht vorhanden
+        if (!existingLeadTimeOption) {
+            const noneOption = sendInvitationSelect.querySelector('option[value="none"]');
+            const leadTimeOption = document.createElement('option');
+            leadTimeOption.value = 'lead_time';
+            leadTimeOption.textContent = 'Vorlaufzeit';
+            sendInvitationSelect.insertBefore(leadTimeOption, noneOption);
+        }
+    } else {
+        // Option entfernen falls vorhanden
+        if (existingLeadTimeOption) {
+            // Falls Vorlaufzeit ausgewählt war, auf "Sofort" zurücksetzen
+            if (sendInvitationSelect.value === 'lead_time') {
+                sendInvitationSelect.value = 'now';
+                sendInvitationSelect.dispatchEvent(new Event('change'));
+            }
+            existingLeadTimeOption.remove();
+        }
+    }
 }
 
 /**
@@ -562,7 +620,10 @@ async function submitEvent() {
     let invitationLeadTimeValue = null;
     let invitationLeadTimeUnit = null;
 
-    if (sendInvitation === 'scheduled' && sendAt) {
+    // Bei "keine Einladung" → null setzen
+    if (sendInvitation === 'none') {
+        invitationSendAt = null;
+    } else if (sendInvitation === 'scheduled' && sendAt) {
         invitationSendAt = sendAt;
     } else if (sendInvitation === 'lead_time') {
         const eventDateTime = new Date(`${startDate}T${startTime}`);
@@ -590,6 +651,25 @@ async function submitEvent() {
         invitationLeadTimeUnit = leadTimeUnit;
     }
 
+    // Bei "Ganzer Verein" die Hauptgruppe (is_default) automatisch setzen
+    let targetSubgroupIds = [];
+    if (currentEventData.targetType === 'subgroups') {
+        targetSubgroupIds = currentEventData.selectedSubgroups;
+    } else if (currentEventData.targetType === 'club') {
+        // Hauptgruppe für den Verein holen
+        const { data: hauptgruppe } = await supabase
+            .from('subgroups')
+            .select('id')
+            .eq('club_id', currentUserData.clubId)
+            .eq('is_default', true)
+            .limit(1)
+            .maybeSingle();
+
+        if (hauptgruppe) {
+            targetSubgroupIds = [hauptgruppe.id];
+        }
+    }
+
     const eventData = {
         club_id: currentUserData.clubId,
         organizer_id: currentUserData.id,
@@ -603,7 +683,7 @@ async function submitEvent() {
         event_type: currentEventData.eventType,
         event_category: eventCategory,
         target_type: currentEventData.targetType,
-        target_subgroup_ids: currentEventData.targetType === 'subgroups' ? currentEventData.selectedSubgroups : [],
+        target_subgroup_ids: targetSubgroupIds,
         max_participants: maxParticipants ? parseInt(maxParticipants) : null,
         response_deadline: responseDeadline || null,
         invitation_send_at: invitationSendAt,
@@ -631,52 +711,35 @@ async function submitEvent() {
 
         if (eventError) throw eventError;
 
+        // Einladungen IMMER erstellen (zum Tracken wer ausgewählt wurde)
+        // Eine Einladung pro User pro Event (DB-Constraint: event_id + user_id)
         const invitations = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
 
-        if (currentEventData.eventType === 'recurring' && repeatType) {
-            const occurrences = generateUpcomingOccurrences(
-                startDate,
-                repeatType,
-                repeatEnd,
-                [],
-                invitationLeadTimeValue,
-                invitationLeadTimeUnit,
-                4
-            );
+        // Deduplizierung der ausgewählten Mitglieder
+        const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
 
-            occurrences.forEach(occurrenceDate => {
-                currentEventData.selectedMembers.forEach(userId => {
-                    invitations.push({
-                        event_id: event.id,
-                        user_id: userId,
-                        occurrence_date: occurrenceDate,
-                        status: 'pending',
-                        created_at: new Date().toISOString()
-                    });
-                });
+        uniqueMembers.forEach(userId => {
+            invitations.push({
+                event_id: event.id,
+                user_id: userId,
+                occurrence_date: startDate,
+                status: 'pending',
+                created_at: new Date().toISOString()
             });
-        } else {
-            currentEventData.selectedMembers.forEach(userId => {
-                invitations.push({
-                    event_id: event.id,
-                    user_id: userId,
-                    occurrence_date: startDate,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                });
-            });
-        }
+        });
 
         if (invitations.length > 0) {
             const { error: invError } = await supabase
                 .from('event_invitations')
-                .insert(invitations);
+                .upsert(invitations, {
+                    onConflict: 'event_id,user_id',
+                    ignoreDuplicates: true
+                });
 
             if (invError) throw invError;
         }
 
+        // Benachrichtigungen nur senden wenn "jetzt senden" gewählt wurde
         if (sendInvitation === 'now') {
             try {
                 const notifications = currentEventData.selectedMembers.map(userId => ({
@@ -724,6 +787,9 @@ function resetEventData() {
     };
 
     document.getElementById('event-creation-form')?.reset();
+
+    // Vorlaufzeit-Option verstecken (Standard ist einzelnes Event)
+    updateSendInvitationOptions('single');
 }
 
 /**
@@ -800,9 +866,64 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         if (invError) console.warn('[Events] Could not load invitations:', invError);
 
-        const accepted = (invitations || []).filter(i => i.status === 'accepted');
-        const declined = (invitations || []).filter(i => i.status === 'rejected' || i.status === 'declined');
-        const pending = (invitations || []).filter(i => i.status === 'pending');
+        // Wenn keine Einladungen vorhanden, lade Club-Mitglieder für Anwesenheitserfassung
+        let attendeeList = invitations || [];
+        let coachList = [];
+
+        if (attendeeList.length === 0 && currentUserData?.clubId) {
+            const { data: clubMembers } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, subgroup_ids, role')
+                .eq('club_id', currentUserData.clubId)
+                .in('role', ['player', 'coach', 'head_coach'])
+                .order('last_name', { ascending: true });
+
+            if (clubMembers) {
+                // Filtere nach Zielgruppe falls gesetzt
+                let filteredMembers = clubMembers;
+                if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
+                    filteredMembers = clubMembers.filter(m =>
+                        m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg)) ||
+                        m.role === 'coach' || m.role === 'head_coach'
+                    );
+                }
+
+                // Spieler und Trainer trennen
+                const players = filteredMembers.filter(m => m.role === 'player');
+                const coaches = filteredMembers.filter(m => m.role === 'coach' || m.role === 'head_coach');
+
+                attendeeList = players.map(m => ({
+                    user_id: m.id,
+                    status: 'none',
+                    role: 'player',
+                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+                }));
+
+                coachList = coaches.map(m => ({
+                    user_id: m.id,
+                    role: m.role,
+                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+                }));
+            }
+        } else {
+            // Lade Trainer separat wenn Einladungen existieren
+            const { data: coaches } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, role')
+                .eq('club_id', currentUserData.clubId)
+                .in('role', ['coach', 'head_coach'])
+                .order('last_name', { ascending: true });
+
+            coachList = (coaches || []).map(m => ({
+                user_id: m.id,
+                role: m.role,
+                profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+            }));
+        }
+
+        const accepted = attendeeList.filter(i => i.status === 'accepted');
+        const declined = attendeeList.filter(i => i.status === 'rejected' || i.status === 'declined');
+        const pending = attendeeList.filter(i => i.status === 'pending' || i.status === 'none');
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -848,6 +969,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100001] p-4';
 
         const presentIds = attendanceData?.present_user_ids || [];
+        const coachHours = attendanceData?.coach_hours || {};
         const existingExercisesHtml = eventExercises.length > 0
             ? eventExercises.map((ex, index) => `
                 <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -956,13 +1078,15 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         <p class="text-sm text-gray-500 mb-4">Markiere die Teilnehmer, die anwesend waren:</p>
 
                         <div class="space-y-2 max-h-64 overflow-y-auto" id="event-attendance-list">
-                            ${(invitations || []).map(inv => {
+                            ${attendeeList.length > 0 ? attendeeList.map(inv => {
                                 const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
                                 const isPresent = presentIds.includes(inv.user_id);
                                 const statusBadge = inv.status === 'accepted'
                                     ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Zugesagt</span>'
                                     : inv.status === 'rejected' || inv.status === 'declined'
                                     ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Abgesagt</span>'
+                                    : inv.status === 'none'
+                                    ? ''
                                     : '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">Ausstehend</span>';
                                 return `
                                     <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
@@ -974,10 +1098,44 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                                         ${statusBadge}
                                     </label>
                                 `;
-                            }).join('')}
+                            }).join('') : '<p class="text-gray-400 text-sm text-center py-4">Keine Teilnehmer gefunden</p>'}
                         </div>
 
                     </div>
+
+                    <!-- Coach Attendance with Hours -->
+                    ${coachList.length > 0 ? `
+                    <div class="border-t pt-6 mt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Trainer-Anwesenheit
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-4">Welche Trainer waren dabei und wie lange?</p>
+
+                        <div class="space-y-2" id="event-coach-attendance-list">
+                            ${coachList.map(coach => {
+                                const name = coach.profiles ? (coach.profiles.first_name + ' ' + coach.profiles.last_name) : 'Unbekannt';
+                                const hours = coachHours[coach.user_id] || 0;
+                                return '<div class="flex items-center gap-3 p-3 rounded-lg border border-gray-200">' +
+                                    '<span class="flex-1 font-medium text-gray-900">' + name + '</span>' +
+                                    '<select class="coach-hours-select px-2 py-1 border border-gray-300 rounded-lg text-sm" data-coach-id="' + coach.user_id + '">' +
+                                    '<option value="0"' + (hours === 0 ? ' selected' : '') + '>Nicht da</option>' +
+                                    '<option value="0.5"' + (hours === 0.5 ? ' selected' : '') + '>0,5 Std</option>' +
+                                    '<option value="0.75"' + (hours === 0.75 ? ' selected' : '') + '>0,75 Std</option>' +
+                                    '<option value="1"' + (hours === 1 ? ' selected' : '') + '>1 Std</option>' +
+                                    '<option value="1.5"' + (hours === 1.5 ? ' selected' : '') + '>1,5 Std</option>' +
+                                    '<option value="2"' + (hours === 2 ? ' selected' : '') + '>2 Std</option>' +
+                                    '<option value="2.5"' + (hours === 2.5 ? ' selected' : '') + '>2,5 Std</option>' +
+                                    '<option value="3"' + (hours === 3 ? ' selected' : '') + '>3 Std</option>' +
+                                    '<option value="4"' + (hours === 4 ? ' selected' : '') + '>4 Std</option>' +
+                                    '</select>' +
+                                    '</div>';
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
 
                     <!-- Exercise Tracking for Coaches -->
                     <div class="border-t pt-6 mt-6">
@@ -1095,6 +1253,16 @@ window.saveEventAttendance = async function(eventId) {
 
         const totalExercisePoints = exerciseData.reduce((sum, ex) => sum + (ex.points || 0), 0);
 
+        // Trainer-Stunden sammeln
+        const coachHoursSelects = document.querySelectorAll('.coach-hours-select');
+        const coachHours = {};
+        coachHoursSelects.forEach(select => {
+            const hours = parseFloat(select.value);
+            if (hours > 0) {
+                coachHours[select.dataset.coachId] = hours;
+            }
+        });
+
         const { data: existing, error: existingError } = await supabase
             .from('event_attendance')
             .select('id, present_user_ids, points_awarded_to')
@@ -1138,6 +1306,7 @@ window.saveEventAttendance = async function(eventId) {
                     present_user_ids: presentUserIds,
                     completed_exercises: exerciseData,
                     points_awarded_to: updatedPointsAwardedTo,
+                    coach_hours: coachHours,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', existing.id);
@@ -1149,6 +1318,7 @@ window.saveEventAttendance = async function(eventId) {
                 .insert({
                     event_id: eventId,
                     present_user_ids: presentUserIds,
+                    coach_hours: coachHours,
                     completed_exercises: exerciseData,
                     points_awarded_to: updatedPointsAwardedTo,
                     created_at: new Date().toISOString()
@@ -1179,8 +1349,29 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     const subgroupIds = event.target_subgroup_ids || [];
     const isTraining = event.event_category === 'training';
 
-    // Streak-Tracking nur für Trainings mit erster Subgruppe
-    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
+    // Streak-Tracking für ALLE Trainings:
+    // - Mit Untergruppe: erste Subgruppe verwenden
+    // - Ohne Untergruppe (ganzer Verein): Hauptgruppe verwenden (is_default = true)
+    let primarySubgroupId = null;
+    if (isTraining) {
+        if (subgroupIds.length > 0) {
+            primarySubgroupId = subgroupIds[0];
+        } else {
+            // Fallback: Verwende die Hauptgruppe (is_default = true) für Club-weite Trainings
+            const { data: hauptgruppe } = await supabase
+                .from('subgroups')
+                .select('id, name')
+                .eq('club_id', event.club_id)
+                .eq('is_default', true)
+                .limit(1)
+                .maybeSingle();
+
+            if (hauptgruppe) {
+                primarySubgroupId = hauptgruppe.id;
+                console.log('[Events] Using Hauptgruppe for club-wide training:', hauptgruppe.name);
+            }
+        }
+    }
 
     let subgroupName = '';
     if (primarySubgroupId) {
@@ -1197,23 +1388,47 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
+        // Spieler-Untergruppen holen, um zu prüfen zu welchen Events er eingeladen war
+        const { data: playerProfile } = await supabase
+            .from('profiles')
+            .select('subgroup_ids')
+            .eq('id', playerId)
+            .single();
+        const playerSubgroups = playerProfile?.subgroup_ids || [];
+
+        // Letzte Trainings holen (mehr als 1, um das richtige zu finden)
         const { data: previousEvents } = await supabase
             .from('events')
-            .select('id, start_date')
+            .select('id, start_date, target_type, target_subgroup_ids')
             .eq('club_id', event.club_id)
             .eq('event_category', 'training')
             .lt('start_date', date)
             .order('start_date', { ascending: false })
-            .limit(1);
+            .limit(10);
 
-        if (previousEvents && previousEvents.length > 0) {
+        // Finde das letzte Event, zu dem der Spieler EINGELADEN war
+        let lastInvitedEvent = null;
+        if (previousEvents) {
+            for (const prevEvent of previousEvents) {
+                const wasInvited = isPlayerInvitedToEvent(playerSubgroups, prevEvent);
+                if (wasInvited) {
+                    lastInvitedEvent = prevEvent;
+                    break;
+                }
+            }
+        }
+
+        if (lastInvitedEvent) {
             const { data: prevAttendance } = await supabase
                 .from('event_attendance')
                 .select('present_user_ids')
-                .eq('event_id', previousEvents[0].id)
+                .eq('event_id', lastInvitedEvent.id)
                 .maybeSingle();
 
             wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
+        } else {
+            // Kein vorheriges Event gefunden, zu dem Spieler eingeladen war → Streak startet neu
+            wasPresentAtLastEvent = true;
         }
 
         const { data: streakData } = await supabase
@@ -1365,24 +1580,14 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 
 /**
  * Zieht Punkte ab wenn Spieler nachträglich von Anwesenheit entfernt wird
- * @param {string} playerId - Spieler ID
- * @param {Object} event - Event-Daten
+ * Sucht die tatsächlich vergebenen Punkte und verringert Streak um 1
  */
 async function deductEventAttendancePoints(playerId, event) {
     const date = event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
+    const isTraining = event.event_category === 'training';
     const subgroupIds = event.target_subgroup_ids || [];
-    const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
-
-    let subgroupName = '';
-    if (primarySubgroupId) {
-        const { data: subgroup } = await supabase
-            .from('subgroups')
-            .select('name')
-            .eq('id', primarySubgroupId)
-            .single();
-        subgroupName = subgroup?.name || '';
-    }
+    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
 
     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
         day: '2-digit',
@@ -1390,8 +1595,18 @@ async function deductEventAttendancePoints(playerId, event) {
         year: 'numeric',
     });
 
-    const pointsToDeduct = EVENT_ATTENDANCE_POINTS_BASE;
-    const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate}${subgroupName ? ` - ${subgroupName}` : ''} (${pointsToDeduct} Punkte abgezogen)`;
+    // Tatsächlich vergebene Punkte aus History suchen
+    const { data: historyEntries } = await supabase
+        .from('points_history')
+        .select('points')
+        .eq('user_id', playerId)
+        .like('reason', `%${eventTitle}%${formattedDate}%`)
+        .gt('points', 0)
+        .order('timestamp', { ascending: false })
+        .limit(1);
+
+    const pointsToDeduct = historyEntries?.[0]?.points || EVENT_ATTENDANCE_POINTS_BASE;
+    const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate} (${pointsToDeduct} Punkte abgezogen)`;
 
     await supabase.rpc('deduct_player_points', {
         p_user_id: playerId,
@@ -1418,7 +1633,128 @@ async function deductEventAttendancePoints(playerId, event) {
         awarded_by: 'System (Veranstaltung)',
     });
 
+    // Streak um 1 verringern (nicht löschen) - nur bei Trainings
+    if (primarySubgroupId) {
+        const { data: streakData } = await supabase
+            .from('streaks')
+            .select('current_streak')
+            .eq('user_id', playerId)
+            .eq('subgroup_id', primarySubgroupId)
+            .maybeSingle();
+
+        if (streakData && streakData.current_streak > 0) {
+            const newStreak = Math.max(0, streakData.current_streak - 1);
+            await supabase.from('streaks').update({
+                current_streak: newStreak,
+                updated_at: new Date().toISOString()
+            })
+            .eq('user_id', playerId)
+            .eq('subgroup_id', primarySubgroupId);
+
+            console.log(`[Events] Streak decreased for ${playerId}: ${streakData.current_streak} -> ${newStreak}`);
+        }
+    }
+
     console.log(`[Events] Deducted ${pointsToDeduct} points from player ${playerId}`);
+}
+
+/**
+ * Zieht ALLE vergebenen Punkte eines Events ab und verringert Streaks um 1
+ * Wird beim Löschen eines Events aufgerufen
+ */
+async function revokeEventAttendancePoints(eventId, event) {
+    // Anwesenheitsdaten holen
+    const { data: attendance } = await supabase
+        .from('event_attendance')
+        .select('points_awarded_to')
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+    const awardedPlayers = attendance?.points_awarded_to || [];
+    if (awardedPlayers.length === 0) return;
+
+    const eventTitle = event.title || 'Veranstaltung';
+    const date = event.start_date;
+    const isTraining = event.event_category === 'training';
+    const subgroupIds = event.target_subgroup_ids || [];
+    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
+
+    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+
+    for (const playerId of awardedPlayers) {
+        try {
+            // Punkte aus points_history suchen (enthält Event-Titel und Datum)
+            const { data: historyEntries } = await supabase
+                .from('points_history')
+                .select('points')
+                .eq('user_id', playerId)
+                .like('reason', `%${eventTitle}%${formattedDate}%`)
+                .gt('points', 0)
+                .order('timestamp', { ascending: false })
+                .limit(1);
+
+            const pointsToDeduct = historyEntries?.[0]?.points || EVENT_ATTENDANCE_POINTS_BASE;
+
+            // Punkte abziehen
+            await supabase.rpc('deduct_player_points', {
+                p_user_id: playerId,
+                p_points: pointsToDeduct,
+                p_xp: pointsToDeduct
+            });
+
+            // Korrektur-Einträge erstellen
+            const correctionTime = new Date().toISOString();
+            const reason = `Veranstaltung gelöscht: ${eventTitle} am ${formattedDate} (${pointsToDeduct} Punkte abgezogen)`;
+
+            await supabase.from('points_history').insert({
+                user_id: playerId,
+                points: -pointsToDeduct,
+                xp: -pointsToDeduct,
+                elo_change: 0,
+                reason,
+                timestamp: correctionTime,
+                awarded_by: 'System (Veranstaltung gelöscht)',
+            });
+
+            await supabase.from('xp_history').insert({
+                player_id: playerId,
+                xp: -pointsToDeduct,
+                reason,
+                timestamp: correctionTime,
+                awarded_by: 'System (Veranstaltung gelöscht)',
+            });
+
+            // Streak um 1 verringern (nicht löschen) - nur bei Trainings
+            if (primarySubgroupId) {
+                const { data: streakData } = await supabase
+                    .from('streaks')
+                    .select('current_streak')
+                    .eq('user_id', playerId)
+                    .eq('subgroup_id', primarySubgroupId)
+                    .maybeSingle();
+
+                if (streakData && streakData.current_streak > 0) {
+                    const newStreak = Math.max(0, streakData.current_streak - 1);
+                    await supabase.from('streaks').update({
+                        current_streak: newStreak,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', playerId)
+                    .eq('subgroup_id', primarySubgroupId);
+
+                    console.log(`[Events] Streak decreased for ${playerId}: ${streakData.current_streak} -> ${newStreak}`);
+                }
+            }
+
+            console.log(`[Events] Revoked ${pointsToDeduct} points from player ${playerId} (event deleted)`);
+        } catch (err) {
+            console.warn(`[Events] Error revoking points for player ${playerId}:`, err);
+        }
+    }
 }
 
 /**
@@ -1998,33 +2334,117 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             month: 'long'
         });
 
+        console.log(`[Events] Deleting event ${eventId}, scope: ${deleteScope}, isRecurring: ${isRecurring}`);
+
         if (deleteScope === 'this') {
             if (isRecurring && event.repeat_type) {
+                // Wiederkehrendes Event: Datum zu excluded_dates hinzufügen
                 const exclusions = event.excluded_dates || [];
                 exclusions.push(targetDate);
+                console.log(`[Events] Adding ${targetDate} to excluded_dates`);
 
-                await supabase
+                const { error: updateError } = await supabase
                     .from('events')
                     .update({ excluded_dates: exclusions })
                     .eq('id', eventId);
+
+                if (updateError) {
+                    console.error('[Events] Error updating excluded_dates:', updateError);
+                    throw updateError;
+                }
             } else {
-                await supabase.from('event_invitations').delete().eq('event_id', eventId);
-                await supabase.from('event_attendance').delete().eq('event_id', eventId);
-                await supabase.from('events').delete().eq('id', eventId);
+                // Einmaliges Event: komplett löschen
+                console.log('[Events] Deleting single event completely');
+
+                // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
+                try {
+                    await revokeEventAttendancePoints(eventId, event);
+                } catch (revokeError) {
+                    console.warn('[Events] Error revoking points (continuing with delete):', revokeError);
+                }
+
+                const { error: invError } = await supabase.from('event_invitations').delete().eq('event_id', eventId);
+                if (invError) console.warn('[Events] Error deleting invitations:', invError);
+
+                const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
+                if (attError) console.warn('[Events] Error deleting attendance:', attError);
+
+                // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+                const { data: deletedData, error: eventDelError } = await supabase
+                    .from('events')
+                    .delete()
+                    .eq('id', eventId)
+                    .select();
+
+                if (eventDelError) {
+                    console.error('[Events] Error deleting event:', eventDelError);
+                    throw eventDelError;
+                }
+
+                // Prüfen ob wirklich gelöscht wurde (RLS könnte blockieren)
+                if (!deletedData || deletedData.length === 0) {
+                    console.error('[Events] Delete returned no data - RLS might be blocking. Checking if event still exists...');
+                    const { data: checkEvent } = await supabase.from('events').select('id').eq('id', eventId).single();
+                    if (checkEvent) {
+                        throw new Error('Event konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen.');
+                    }
+                }
+
+                console.log('[Events] Event deleted successfully, deleted:', deletedData);
             }
         } else if (deleteScope === 'future') {
             const previousDay = new Date(targetDate);
             previousDay.setDate(previousDay.getDate() - 1);
             const newEndDate = previousDay.toISOString().split('T')[0];
+            console.log(`[Events] Setting repeat_end_date to ${newEndDate}`);
 
-            await supabase
+            const { error: updateError } = await supabase
                 .from('events')
                 .update({ repeat_end_date: newEndDate })
                 .eq('id', eventId);
+
+            if (updateError) {
+                console.error('[Events] Error updating repeat_end_date:', updateError);
+                throw updateError;
+            }
         } else if (deleteScope === 'all') {
-            await supabase.from('event_invitations').delete().eq('event_id', eventId);
-            await supabase.from('event_attendance').delete().eq('event_id', eventId);
-            await supabase.from('events').delete().eq('id', eventId);
+            console.log('[Events] Deleting all occurrences of recurring event');
+
+            // Punkte abziehen und Streaks verringern bevor Daten gelöscht werden
+            try {
+                await revokeEventAttendancePoints(eventId, event);
+            } catch (revokeError) {
+                console.warn('[Events] Error revoking points (continuing with delete):', revokeError);
+            }
+
+            const { error: invError } = await supabase.from('event_invitations').delete().eq('event_id', eventId);
+            if (invError) console.warn('[Events] Error deleting invitations:', invError);
+
+            const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
+            if (attError) console.warn('[Events] Error deleting attendance:', attError);
+
+            // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+            const { data: deletedData, error: eventDelError } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', eventId)
+                .select();
+
+            if (eventDelError) {
+                console.error('[Events] Error deleting event:', eventDelError);
+                throw eventDelError;
+            }
+
+            // Prüfen ob wirklich gelöscht wurde
+            if (!deletedData || deletedData.length === 0) {
+                console.error('[Events] Delete returned no data - RLS might be blocking');
+                const { data: checkEvent } = await supabase.from('events').select('id').eq('id', eventId).single();
+                if (checkEvent) {
+                    throw new Error('Event konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen.');
+                }
+            }
+
+            console.log('[Events] Recurring event deleted successfully');
         }
 
         if (notifyParticipants && participantsToNotify.length > 0) {
@@ -2057,6 +2477,10 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
         const message = 'Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : '');
         showToastMessage(message, 'success');
 
+        // Kurze Verzögerung damit DB-Änderungen propagiert werden
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        console.log('[Events] Dispatching event-changed event to refresh calendar');
         window.dispatchEvent(new CustomEvent('event-changed', {
             detail: {
                 type: 'delete',
@@ -2065,12 +2489,24 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 deleteScope
             }
         }));
+        console.log('[Events] Delete completed successfully');
 
     } catch (error) {
         console.error('[Events] Error deleting event:', error);
         alert('Fehler beim Löschen: ' + error.message);
     }
 };
+
+/**
+ * Formatiert Zeit für HTML time input (HH:MM ohne Sekunden)
+ * @param {string} timeStr - Zeit-String (kann HH:MM:SS oder HH:MM sein)
+ * @returns {string} Formatierte Zeit (HH:MM)
+ */
+function formatTimeForInput(timeStr) {
+    if (!timeStr) return '';
+    // Nur die ersten 5 Zeichen nehmen (HH:MM)
+    return timeStr.substring(0, 5);
+}
 
 /**
  * Öffnet Bearbeitungs-Modal für eine Veranstaltung
@@ -2088,6 +2524,11 @@ window.openEditEventModal = async function(eventId) {
         if (error) throw error;
 
         const isRecurring = !!event.repeat_type;
+
+        // Zeiten für Input-Felder formatieren (ohne Sekunden)
+        const meetingTimeFormatted = formatTimeForInput(event.meeting_time);
+        const startTimeFormatted = formatTimeForInput(event.start_time);
+        const endTimeFormatted = formatTimeForInput(event.end_time);
 
         const existingModal = document.getElementById('edit-event-modal');
         if (existingModal) existingModal.remove();
@@ -2132,7 +2573,7 @@ window.openEditEventModal = async function(eventId) {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Treffzeit</label>
-                            <input type="time" id="edit-event-meeting-time" value="${event.meeting_time || ''}"
+                            <input type="time" id="edit-event-meeting-time" value="${meetingTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
@@ -2140,12 +2581,12 @@ window.openEditEventModal = async function(eventId) {
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Startzeit</label>
-                            <input type="time" id="edit-event-start-time" value="${event.start_time || ''}"
+                            <input type="time" id="edit-event-start-time" value="${startTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Endzeit</label>
-                            <input type="time" id="edit-event-end-time" value="${event.end_time || ''}"
+                            <input type="time" id="edit-event-end-time" value="${endTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
@@ -2322,10 +2763,12 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                 updateData.start_date = startDate || originalEvent.start_date;
             }
 
-            await supabase
+            const { error: updateError } = await supabase
                 .from('events')
                 .update(updateData)
                 .eq('id', eventId);
+
+            if (updateError) throw updateError;
         }
 
         const formattedDate = new Date((startDate || originalEvent.start_date) + 'T12:00:00').toLocaleDateString('de-DE', {
@@ -2562,5 +3005,159 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
         `;
     }
 }
+
+/**
+ * Berechnet Streaks rückwirkend für alle Spieler eines Clubs
+ * und vergibt fehlende Bonus-Punkte
+ */
+window.recalculateStreaksRetroactively = async function(clubId) {
+    if (!clubId) {
+        alert('Keine Club-ID angegeben');
+        return;
+    }
+
+    console.log('[Streaks] Starting retroactive streak calculation for club:', clubId);
+
+    try {
+        // 1. Alle Trainings-Events laden (nach Datum sortiert)
+        const { data: trainingEvents, error: eventsError } = await supabase
+            .from('events')
+            .select('id, title, start_date, target_type, target_subgroup_ids, event_category')
+            .eq('club_id', clubId)
+            .eq('event_category', 'training')
+            .order('start_date', { ascending: true });
+
+        if (eventsError) throw eventsError;
+        console.log('[Streaks] Found', trainingEvents?.length || 0, 'training events');
+
+        if (!trainingEvents || trainingEvents.length === 0) {
+            alert('Keine Trainings gefunden');
+            return;
+        }
+
+        // 2. Alle Attendance-Daten laden
+        const eventIds = trainingEvents.map(e => e.id);
+        const { data: attendanceData, error: attError } = await supabase
+            .from('event_attendance')
+            .select('event_id, present_user_ids, points_awarded_to')
+            .in('event_id', eventIds);
+
+        if (attError) throw attError;
+        console.log('[Streaks] Found', attendanceData?.length || 0, 'attendance records');
+
+        const attendanceMap = new Map();
+        attendanceData?.forEach(a => attendanceMap.set(a.event_id, a));
+
+        // 3. Alle Spieler im Club laden
+        const { data: players, error: playersError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, subgroup_ids')
+            .eq('club_id', clubId)
+            .eq('role', 'player');
+
+        if (playersError) throw playersError;
+        console.log('[Streaks] Found', players?.length || 0, 'players');
+
+        // 4. Hauptgruppe für Club-weite Trainings finden (is_default = true)
+        const { data: hauptgruppe } = await supabase
+            .from('subgroups')
+            .select('id, name')
+            .eq('club_id', clubId)
+            .eq('is_default', true)
+            .limit(1)
+            .maybeSingle();
+
+        const fallbackSubgroupId = hauptgruppe?.id;
+        if (fallbackSubgroupId) {
+            console.log('[Streaks] Using Hauptgruppe:', hauptgruppe.name);
+        } else {
+            console.log('[Streaks] No Hauptgruppe found - club-wide trainings will be skipped');
+        }
+
+        // 5. Für jeden Spieler Streaks berechnen
+        let playersUpdated = 0;
+
+        for (const player of players || []) {
+            const playerSubgroups = player.subgroup_ids || [];
+
+            // Trainings filtern, zu denen der Spieler eingeladen war
+            const playerTrainings = trainingEvents.filter(event => {
+                if (event.target_type === 'club') return true;
+                if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+                    return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
+                }
+                // Club-weite Trainings ohne Untergruppe
+                if (!event.target_subgroup_ids || event.target_subgroup_ids.length === 0) return true;
+                return false;
+            });
+
+            if (playerTrainings.length === 0) continue;
+
+            // Nur Trainings berücksichtigen, wo Attendance eingetragen wurde
+            const playerTrainingsWithAttendance = playerTrainings.filter(t => {
+                const att = attendanceMap.get(t.id);
+                return att && att.present_user_ids && att.present_user_ids.length > 0;
+            });
+
+            // Streak pro Untergruppe berechnen
+            const subgroupStreaks = new Map();
+
+            for (const training of playerTrainingsWithAttendance) {
+                const attendance = attendanceMap.get(training.id);
+                const wasPresent = attendance?.present_user_ids?.includes(player.id) || false;
+
+                // Für Vereinstrainings: Fallback-Subgroup verwenden
+                let subgroupId = training.target_subgroup_ids?.[0];
+                if (!subgroupId && fallbackSubgroupId) {
+                    subgroupId = fallbackSubgroupId;
+                }
+
+                if (!subgroupId) continue; // Kein gültiges Subgroup-ID
+
+                if (!subgroupStreaks.has(subgroupId)) {
+                    subgroupStreaks.set(subgroupId, { currentStreak: 0, lastAttendedDate: null });
+                }
+
+                const streakData = subgroupStreaks.get(subgroupId);
+
+                if (wasPresent) {
+                    streakData.currentStreak++;
+                    streakData.lastAttendedDate = training.start_date;
+                } else {
+                    streakData.currentStreak = 0;
+                }
+            }
+
+            // Streaks in DB aktualisieren
+            for (const [subgroupId, streakData] of subgroupStreaks) {
+                if (streakData.currentStreak > 0) {
+                    const { error: upsertError } = await supabase
+                        .from('streaks')
+                        .upsert({
+                            user_id: player.id,
+                            subgroup_id: subgroupId,
+                            current_streak: streakData.currentStreak,
+                            last_attendance_date: streakData.lastAttendedDate,
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'user_id,subgroup_id'
+                        });
+
+                    if (!upsertError) {
+                        playersUpdated++;
+                        console.log(`[Streaks] Updated streak for ${player.first_name} ${player.last_name}: ${streakData.currentStreak}`);
+                    }
+                }
+            }
+        }
+
+        alert(`Streaks neu berechnet!\n${playersUpdated} Spieler-Streaks aktualisiert.`);
+        console.log('[Streaks] Calculation complete. Players updated:', playersUpdated);
+
+    } catch (error) {
+        console.error('[Streaks] Error recalculating streaks:', error);
+        alert('Fehler bei der Streak-Berechnung: ' + error.message);
+    }
+};
 
 export { closeAllModals };

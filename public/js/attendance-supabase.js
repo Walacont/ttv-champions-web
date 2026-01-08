@@ -146,6 +146,7 @@ export async function renderCalendar(date, currentUserData) {
  * Lädt Anwesenheitsdaten und Events für einen Monat
  */
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
+    console.log(`[fetchMonthlyAttendance] Loading data for ${year}-${month + 1}`);
     monthlyAttendance.clear();
     monthlyEvents.clear();
 
@@ -201,7 +202,7 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
 
         const { data: recurringEvents, error: recurringError } = await supabase
             .from('events')
-            .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+            .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, excluded_dates')
             .eq('club_id', effectiveClubId)
             .eq('cancelled', false)
             .eq('event_type', 'recurring')
@@ -237,6 +238,9 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
                 isRecurring: event.event_type === 'recurring'
             });
         };
+
+        console.log(`[fetchMonthlyAttendance] Loaded ${(singleEvents || []).length} single events, ${(recurringEvents || []).length} recurring events`);
+        console.log('[fetchMonthlyAttendance] Single events:', (singleEvents || []).map(e => ({ id: e.id, title: e.title, date: e.start_date })));
 
         (singleEvents || []).forEach(e => {
             addEventToDate(e.start_date, e);

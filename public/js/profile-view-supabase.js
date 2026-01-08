@@ -364,11 +364,118 @@ async function renderRecentActivity(profile) {
                 .limit(ACTIVITY_LIMIT)
         ]);
 
-        const allActivities = [
+        let allActivities = [
             ...(singlesRes.data || []).map(m => ({ ...m, activityType: 'singles' })),
             ...(doublesRes.data || []).map(m => ({ ...m, activityType: 'doubles' })),
             ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' }))
         ];
+
+        // === PRIVACY FILTERING FOR MATCHES ===
+        // ALL players in a match must allow visibility - strictest setting wins
+        // Skip filtering for own profile - always show all matches
+        const viewerId = currentUser?.id;
+
+        if (!isOwnProfile) {
+            // Collect all player IDs from matches
+            const matchPlayerIds = new Set();
+            allActivities.forEach(activity => {
+                if (activity.activityType === 'singles') {
+                    if (activity.player_a_id) matchPlayerIds.add(activity.player_a_id);
+                    if (activity.player_b_id) matchPlayerIds.add(activity.player_b_id);
+                } else if (activity.activityType === 'doubles') {
+                    if (activity.team_a_player1_id) matchPlayerIds.add(activity.team_a_player1_id);
+                    if (activity.team_a_player2_id) matchPlayerIds.add(activity.team_a_player2_id);
+                    if (activity.team_b_player1_id) matchPlayerIds.add(activity.team_b_player1_id);
+                    if (activity.team_b_player2_id) matchPlayerIds.add(activity.team_b_player2_id);
+                }
+            });
+
+            // Load privacy settings and club_id for all players
+            let privacyMap = {};
+            if (matchPlayerIds.size > 0) {
+                const { data: privacyProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, privacy_settings, club_id')
+                    .in('id', [...matchPlayerIds]);
+
+                (privacyProfiles || []).forEach(p => {
+                    privacyMap[p.id] = p;
+                });
+            }
+
+            // Get viewer's club_id and following list
+            let viewerClubId = null;
+            let viewerFollowingIds = new Set();
+
+            if (currentUser) {
+                const { data: viewerProfile } = await supabase
+                    .from('profiles')
+                    .select('club_id')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                viewerClubId = viewerProfile?.club_id;
+
+                const { data: following } = await supabase
+                    .from('friendships')
+                    .select('addressee_id')
+                    .eq('requester_id', currentUser.id)
+                    .eq('status', 'accepted');
+
+                (following || []).forEach(f => viewerFollowingIds.add(f.addressee_id));
+            }
+
+            // Filter matches based on privacy settings of ALL players
+            allActivities = allActivities.filter(activity => {
+                if (activity.activityType === 'post') {
+                    return true; // Posts are not affected by matches_visibility
+                }
+
+                // Get all player IDs for this match
+                let playerIds = [];
+                if (activity.activityType === 'singles') {
+                    playerIds = [activity.player_a_id, activity.player_b_id].filter(Boolean);
+                } else if (activity.activityType === 'doubles') {
+                    playerIds = [
+                        activity.team_a_player1_id,
+                        activity.team_a_player2_id,
+                        activity.team_b_player1_id,
+                        activity.team_b_player2_id
+                    ].filter(Boolean);
+                }
+
+                // If viewer is a player, always visible
+                if (viewerId && playerIds.includes(viewerId)) {
+                    return true;
+                }
+
+                // Check if ALL players allow viewing
+                for (const playerId of playerIds) {
+                    const privacy = privacyMap[playerId]?.privacy_settings || {};
+                    const visibility = privacy.matches_visibility || 'global';
+                    const playerClubId = privacyMap[playerId]?.club_id;
+
+                    let playerAllows = false;
+
+                    if (visibility === 'global') {
+                        playerAllows = true;
+                    } else if (visibility === 'club_only') {
+                        playerAllows = viewerClubId && playerClubId && viewerClubId === playerClubId;
+                    } else if (visibility === 'followers_only') {
+                        playerAllows = viewerFollowingIds.has(playerId);
+                    } else if (visibility === 'none') {
+                        playerAllows = false;
+                    }
+
+                    // If any player blocks, match is not visible
+                    if (!playerAllows) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        }
 
         allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -469,7 +576,7 @@ function renderProfileSinglesCard(match, profileMap) {
     const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
     const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
 
-    const matchDate = new Date(match.created_at || match.played_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -564,7 +671,7 @@ function renderProfileDoublesCard(match, profileMap) {
     const mySetWins = isInTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isInTeamA ? teamBSetWins : teamASetWins;
 
-    const matchDate = new Date(match.created_at);
+    const matchDate = new Date(match.played_at || match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -1375,9 +1482,9 @@ async function loadProfileChallenges() {
                 completed_at,
                 challenges (
                     id,
-                    name,
+                    title,
                     description,
-                    xp_reward
+                    points
                 )
             `)
             .eq('user_id', profileId)
@@ -1409,9 +1516,9 @@ async function loadProfileChallenges() {
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-check-circle text-green-600"></i>
-                            <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.name)}</span>
+                            <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.title)}</span>
                         </div>
-                        <span class="text-xs text-green-600 font-semibold">+${challenge.xp_reward} XP</span>
+                        <span class="text-xs text-green-600 font-semibold">+${challenge.points} Punkte</span>
                     </div>
                     ${completedDate ? `<p class="text-xs text-gray-500 mt-1 ml-6">Abgeschlossen am ${completedDate}</p>` : ''}
                 </div>
@@ -1425,118 +1532,158 @@ async function loadProfileChallenges() {
 
 /**
  * Lädt Anwesenheitskalender basierend auf event_attendance
- * Zeigt alle Vereinsevents und macht Tage klickbar
- * Status: ✓ für alle teilgenommen, ◐ für teilweise, ✗ für keine Teilnahme
+ * Zeigt nur Trainings wo der Spieler eingeladen war
+ * Farben: grün = alle, gelb = teilweise, rot = keine Teilnahme
+ * @param {number} displayYear - Jahr (optional, Standard: aktuelles Jahr)
+ * @param {number} displayMonth - Monat 0-11 (optional, Standard: aktueller Monat)
  */
-async function loadProfileAttendance() {
+async function loadProfileAttendance(displayYear = null, displayMonth = null) {
     const container = document.getElementById('profile-attendance-calendar');
     if (!container) return;
 
     const supabase = getSupabase();
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
 
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDateStr = firstDay.toISOString().split('T')[0];
-    const endDateStr = lastDay.toISOString().split('T')[0];
+    // Wenn keine Parameter, aktuellen Monat verwenden
+    const year = displayYear !== null ? displayYear : now.getFullYear();
+    const month = displayMonth !== null ? displayMonth : now.getMonth();
 
+    // Aktuellen Anzeige-Monat speichern für Navigation
+    window.profileCalendarDisplayMonth = { year, month };
+
+    // Datumsstrings ohne Timezone-Probleme erstellen
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+    // Profil mit subgroup_ids laden
     const { data: profile } = await supabase
         .from('profiles')
-        .select('club_id')
+        .select('club_id, subgroup_ids')
         .eq('id', profileId)
         .single();
 
     const clubId = profile?.club_id;
+    const playerSubgroups = profile?.subgroup_ids || [];
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
-    // Abfrage nach event_attendance wo dieser User anwesend war
-    const { data: eventAttendance, error: attendanceError } = await supabase
-        .from('event_attendance')
-        .select(`
-            event_id,
-            occurrence_date,
-            present_user_ids,
-            events (
-                start_date,
-                title
-            )
-        `)
-        .contains('present_user_ids', [profileId]);
-
-    if (attendanceError) {
-        console.warn('[ProfileView] Error loading event attendance:', attendanceError);
+    if (!clubId) {
+        console.warn('[ProfileView] No clubId found for profile, cannot load events');
+        return;
     }
 
-    // Set von besuchten Event-Datum-Kombinationen: "eventId-date"
-    const attendedEventDates = new Set();
-    if (eventAttendance) {
-        eventAttendance.forEach(ea => {
-            const eventDate = ea.occurrence_date || ea.events?.start_date;
-            if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
-                const key = `${ea.event_id}-${eventDate}`;
-                attendedEventDates.add(key);
+    // Einladungen für diesen Spieler laden
+    const { data: invitations } = await supabase
+        .from('event_invitations')
+        .select('event_id')
+        .eq('user_id', profileId);
+
+    const invitedEventIds = new Set((invitations || []).map(inv => inv.event_id));
+    console.log('[ProfileView] Invited to events:', invitedEventIds.size);
+
+    // Alle Club-Events laden
+    const { data: clubEvents, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+            id,
+            title,
+            description,
+            start_date,
+            start_time,
+            end_time,
+            location,
+            repeat_type,
+            repeat_end_date,
+            excluded_dates,
+            event_category,
+            target_type,
+            target_subgroup_ids
+        `)
+        .eq('club_id', clubId);
+
+    if (eventsError) {
+        console.warn('[ProfileView] Error loading club events:', eventsError);
+    }
+
+    // Events filtern: Nur TRAININGS wo Spieler eingeladen ist ODER Teil der Zielgruppe
+    const relevantEvents = (clubEvents || []).filter(event => {
+        // NUR Trainings-Events anzeigen
+        if (event.event_category !== 'training') return false;
+
+        // Wenn eine Einladung existiert, ist der Spieler berechtigt
+        if (invitedEventIds.has(event.id)) return true;
+
+        // Fallback für alte Events ohne Einladungen: target_type prüfen
+        if (event.target_type === 'club') return true;
+        if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+            return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
+        }
+
+        return false;
+    });
+
+    // Attendance aus BEIDEN Tabellen laden:
+    // 1. event_attendance - für Events aus dem Event-System
+    // 2. attendance - für reguläre Trainings aus dem Training-System
+
+    let attendedEventIds = new Set();
+    let attendedDates = new Set(); // Für reguläre Trainings (nach Datum)
+
+    // 1. Event-Attendance laden
+    if (relevantEvents.length > 0) {
+        const eventIds = relevantEvents.map(e => e.id);
+
+        const { data: eventAttendance, error: attendanceError } = await supabase
+            .from('event_attendance')
+            .select('*')
+            .in('event_id', eventIds);
+
+        if (attendanceError) {
+            console.warn('[ProfileView] Error loading event attendance:', attendanceError);
+        }
+
+        if (eventAttendance) {
+            eventAttendance.forEach(ea => {
+                if (ea.present_user_ids?.includes(profileId)) {
+                    attendedEventIds.add(ea.event_id);
+                }
+            });
+        }
+    }
+
+    // 2. Reguläre Training-Attendance laden (aus attendance Tabelle)
+    const { data: trainingAttendance, error: trainingAttError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('club_id', clubId)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
+
+    if (trainingAttError) {
+        console.warn('[ProfileView] Error loading training attendance:', trainingAttError);
+    }
+
+    if (trainingAttendance) {
+        trainingAttendance.forEach(ta => {
+            // Try both possible column names
+            const presentIds = ta.present_player_ids || ta.present_ids || ta.player_ids || [];
+            if (presentIds?.includes(profileId)) {
+                attendedDates.add(ta.date);
             }
         });
     }
 
     let allEventsForMonth = [];
-    if (clubId) {
-        const { data: clubEvents, error: eventsError } = await supabase
-            .from('events')
-            .select(`
-                id,
-                title,
-                description,
-                start_date,
-                start_time,
-                end_time,
-                location,
-                repeat_type,
-                repeat_end_date,
-                excluded_dates,
-                invitation_send_at,
-                invitation_lead_time_value,
-                invitation_lead_time_unit,
-                organizer_id
-            `)
-            .eq('club_id', clubId);
 
-        if (eventsError) {
-            console.warn('[ProfileView] Error loading club events:', eventsError);
-        }
-
-        console.log('[ProfileView] Club events loaded:', clubEvents?.length || 0, 'events for club', clubId);
-
-        if (clubEvents) {
-            clubEvents.forEach(event => {
-                const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
-                eventDates.forEach(dateStr => {
-                    allEventsForMonth.push({
-                        ...event,
-                        displayDate: dateStr
-                    });
-                });
+    // Events im aktuellen Monat sammeln
+    relevantEvents.forEach(event => {
+        const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
+        eventDates.forEach(dateStr => {
+            allEventsForMonth.push({
+                ...event,
+                displayDate: dateStr
             });
-        }
-    }
-
-    const { data: invitations } = await supabase
-        .from('event_invitations')
-        .select('id, event_id, status, occurrence_date')
-        .eq('user_id', profileId);
-
-    const invitationMap = {};
-    (invitations || []).forEach(inv => {
-        const key = inv.occurrence_date
-            ? `${inv.event_id}-${inv.occurrence_date}`
-            : inv.event_id;
-        invitationMap[key] = {
-            id: inv.id,
-            status: inv.status,
-            occurrence_date: inv.occurrence_date
-        };
+        });
     });
 
     const eventsByDate = {};
@@ -1545,29 +1692,38 @@ async function loadProfileAttendance() {
         if (!eventsByDate[dateKey]) {
             eventsByDate[dateKey] = [];
         }
-
-        const occurrenceKey = `${event.id}-${dateKey}`;
-        let invitation = invitationMap[occurrenceKey];
-
-        if (!invitation) {
-            invitation = invitationMap[event.id];
-        }
-
-        event.invitationStatus = invitation?.status || null;
-        event.invitationId = invitation?.id || null;
-        event.occurrenceDate = dateKey;
         eventsByDate[dateKey].push(event);
     });
 
     window.profileCalendarEvents = eventsByDate;
     window.profileCalendarMonth = { year, month };
 
-    const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-    const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+    const displayDate = new Date(year, month, 1);
+    const monthName = displayDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    const daysInMonth = lastDayOfMonth;
+    const firstDayOfMonth = new Date(year, month, 1);
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+
+    // Prüfen ob aktueller Monat angezeigt wird (für "Heute" Button)
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
 
     let calendarHtml = `
-        <h4 class="font-semibold text-gray-700 mb-3">${monthName}</h4>
+        <div class="flex items-center justify-between mb-3">
+            <button onclick="navigateProfileCalendar(-1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="flex items-center gap-2">
+                <h4 class="font-semibold text-gray-700">${monthName}</h4>
+                ${!isCurrentMonth ? `<button onclick="navigateProfileCalendar(0)" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Heute</button>` : ''}
+            </div>
+            <button onclick="navigateProfileCalendar(1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
         <div class="grid grid-cols-7 gap-1 text-xs">
             <div class="text-gray-400 font-medium py-1">Mo</div>
             <div class="text-gray-400 font-medium py-1">Di</div>
@@ -1591,48 +1747,63 @@ async function loadProfileAttendance() {
         const isPastDay = new Date(dateStr) < new Date(now.toISOString().split('T')[0]);
 
         let attendedCount = 0;
+        let totalForDay = 0;
+
+        // Check attendance from event_attendance table (event-based)
         if (hasEvents) {
             dayEvents.forEach(event => {
-                const key = `${event.id}-${dateStr}`;
-                if (attendedEventDates.has(key)) {
+                totalForDay++;
+                if (attendedEventIds.has(event.id)) {
                     attendedCount++;
                 }
             });
         }
 
-        let dayClass = '';
-        let statusIcon = '';
-
-        if (isPastDay && hasEvents) {
-            if (attendedCount === eventCount) {
-                dayClass = 'bg-green-100 text-green-800';
-                statusIcon = '<i class="fas fa-check text-green-600 text-[8px] absolute top-0.5 right-0.5"></i>';
-            } else if (attendedCount > 0) {
-                dayClass = 'bg-yellow-100 text-yellow-800';
-                statusIcon = '<i class="fas fa-adjust text-yellow-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+        // Check attendance from attendance table (date-based regular trainings)
+        if (attendedDates.has(dateStr)) {
+            // If attended on this date via regular training attendance
+            if (!hasEvents) {
+                // No events but has attendance record - count as 1/1
+                totalForDay = 1;
+                attendedCount = 1;
             } else {
-                dayClass = 'bg-red-100 text-red-800';
-                statusIcon = '<i class="fas fa-times text-red-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+                // Has events AND attendance record - add the attendance
+                attendedCount = Math.max(attendedCount, 1);
+            }
+        }
+
+        let dayClass = '';
+        const hasAttendanceData = hasEvents || attendedDates.has(dateStr);
+
+        if (isPastDay && hasAttendanceData) {
+            // Nur Farben, keine Icons
+            if (attendedCount > 0 && attendedCount >= totalForDay) {
+                dayClass = 'bg-green-500 text-white font-medium';
+            } else if (attendedCount > 0) {
+                dayClass = 'bg-yellow-400 text-white font-medium';
+            } else if (totalForDay > 0) {
+                dayClass = 'bg-red-500 text-white font-medium';
+            }
+            if (hasEvents) {
+                dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
             }
         } else if (isToday) {
             dayClass = 'bg-indigo-100 text-indigo-700 font-bold';
+        } else if (hasEvents && !isPastDay) {
+            dayClass = 'cursor-pointer hover:ring-2 hover:ring-indigo-400 transition text-gray-600';
         } else {
             dayClass = 'text-gray-600';
         }
 
         let dotIndicator = '';
         if (hasEvents && !isPastDay) {
-            dayClass += ' cursor-pointer hover:ring-2 hover:ring-indigo-400 transition';
             dotIndicator = `<div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${eventCount > 1 ? 'bg-indigo-500' : 'bg-indigo-300'}"></div>`;
-        } else if (hasEvents && isPastDay) {
-            dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
         }
 
         calendarHtml += `
             <div class="aspect-square flex items-center justify-center rounded relative ${dayClass}"
                  ${hasEvents ? `onclick="showDayEvents('${dateStr}')"` : ''}>
                 ${day}
-                ${statusIcon}
                 ${dotIndicator}
             </div>
         `;
@@ -1640,14 +1811,22 @@ async function loadProfileAttendance() {
 
     calendarHtml += '</div>';
 
-    const totalAttendances = attendedEventDates.size;
-    const totalEventsThisMonth = Object.values(eventsByDate).reduce((sum, events) => sum + events.length, 0);
+    // Count total attendances from both sources
+    const totalEventAttendances = attendedEventIds.size;
+    const totalDateAttendances = attendedDates.size;
+    const totalAttendances = totalEventAttendances + totalDateAttendances;
 
     const todayStr = now.toISOString().split('T')[0];
     let pastEventsCount = 0;
     Object.keys(eventsByDate).forEach(dateStr => {
         if (dateStr < todayStr) {
             pastEventsCount += eventsByDate[dateStr].length;
+        }
+    });
+    // Also count dates that have attendance records but no events
+    attendedDates.forEach(dateStr => {
+        if (dateStr < todayStr && !eventsByDate[dateStr]) {
+            pastEventsCount++;
         }
     });
 
@@ -1659,32 +1838,22 @@ async function loadProfileAttendance() {
                 <span class="text-green-600 font-semibold">${totalAttendances}/${pastEventsCount}</span>
                 <span class="text-gray-500 text-sm">Anwesenheiten (${attendanceRate}%)</span>
             </div>
-            <div>
-                <span class="text-indigo-600 font-semibold">${totalEventsThisMonth}</span>
-                <span class="text-gray-500 text-sm">Veranstaltungen diesen Monat</span>
-            </div>
         </div>
     `;
 
     calendarHtml += `
-        <div class="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-500">
+        <div class="mt-3 flex flex-wrap justify-center gap-3 text-xs text-gray-500">
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-green-100 flex items-center justify-center">
-                    <i class="fas fa-check text-green-600 text-[7px]"></i>
-                </div>
-                <span>Alle</span>
+                <div class="w-4 h-4 rounded bg-green-500"></div>
+                <span>Alle Trainings</span>
             </div>
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-yellow-100 flex items-center justify-center">
-                    <i class="fas fa-adjust text-yellow-600 text-[7px]"></i>
-                </div>
+                <div class="w-4 h-4 rounded bg-yellow-400"></div>
                 <span>Teilweise</span>
             </div>
             <div class="flex items-center gap-1">
-                <div class="w-4 h-4 rounded bg-red-100 flex items-center justify-center">
-                    <i class="fas fa-times text-red-600 text-[7px]"></i>
-                </div>
-                <span>Keine</span>
+                <div class="w-4 h-4 rounded bg-red-500"></div>
+                <span>Nicht da</span>
             </div>
             <div class="flex items-center gap-1">
                 <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
@@ -1693,8 +1862,94 @@ async function loadProfileAttendance() {
         </div>
     `;
 
+    // Streaks laden und anzeigen
+    const { data: playerStreaks } = await supabase
+        .from('streaks')
+        .select('subgroup_id, current_streak, last_attendance_date')
+        .eq('user_id', profileId);
+
+    if (playerStreaks && playerStreaks.length > 0) {
+        // Subgroup-Namen laden
+        const subgroupIds = playerStreaks.map(s => s.subgroup_id);
+        const { data: subgroups } = await supabase
+            .from('subgroups')
+            .select('id, name')
+            .in('id', subgroupIds);
+
+        const subgroupMap = new Map();
+        (subgroups || []).forEach(sg => subgroupMap.set(sg.id, sg.name));
+
+        calendarHtml += `
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h5 class="text-sm font-semibold text-gray-700 mb-2">Aktuelle Streaks</h5>
+                <div class="space-y-2">
+        `;
+
+        for (const streak of playerStreaks) {
+            const subgroupName = subgroupMap.get(streak.subgroup_id) || 'Unbekannt';
+            const streakCount = streak.current_streak || 0;
+
+            // Streak-Styling basierend auf Höhe
+            let streakBadgeClass = 'bg-gray-100 text-gray-600';
+            if (streakCount >= 5) {
+                streakBadgeClass = 'bg-orange-100 text-orange-600 font-bold';
+            } else if (streakCount >= 3) {
+                streakBadgeClass = 'bg-yellow-100 text-yellow-700';
+            }
+
+            calendarHtml += `
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">${subgroupName}</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${streakBadgeClass}">
+                        ${streakCount}x
+                    </span>
+                </div>
+            `;
+        }
+
+        calendarHtml += `
+                </div>
+                <p class="text-xs text-gray-400 mt-2">
+                    Ab 3x Streak: +2 Bonus | Ab 5x Streak: +3 Bonus
+                </p>
+            </div>
+        `;
+    }
+
     container.innerHTML = calendarHtml;
 }
+
+/**
+ * Navigiert im Profil-Kalender vor/zurück
+ * @param {number} direction - -1 für vorherigen Monat, 1 für nächsten Monat, 0 für aktuellen Monat
+ */
+window.navigateProfileCalendar = function(direction) {
+    const now = new Date();
+
+    if (direction === 0) {
+        // Zum aktuellen Monat springen
+        loadProfileAttendance(now.getFullYear(), now.getMonth());
+        return;
+    }
+
+    // Aktuellen Anzeige-Monat holen
+    const current = window.profileCalendarDisplayMonth || { year: now.getFullYear(), month: now.getMonth() };
+
+    // Neuen Monat berechnen
+    let newMonth = current.month + direction;
+    let newYear = current.year;
+
+    if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+    } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+    }
+
+    // Kalender neu laden
+    loadProfileAttendance(newYear, newMonth);
+};
 
 /** Liefert alle Termine eines Events innerhalb eines Datumsbereichs (für wiederkehrende Events) */
 function getEventDatesInRange(event, startDate, endDate) {

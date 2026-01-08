@@ -3476,7 +3476,7 @@ async function createMatchFromRequest(request) {
             handicap_used: request.handicap_used || false,
             handicap: request.handicap || null,
             match_mode: request.match_mode || 'best-of-5',
-            played_at: new Date().toISOString()
+            played_at: request.created_at || new Date().toISOString()
         };
 
         // club_id nur hinzufügen wenn vorhanden

@@ -42,10 +42,6 @@ let currentUserDataCache = null;
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     let currentUserHidden = false;
 
-    console.log('[Privacy Filter] Starting filter with', players.length, 'players');
-    console.log('[Privacy Filter] Current user ID:', currentUserId);
-    console.log('[Privacy Filter] Current user club ID:', currentUserClubId);
-
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
         const showInLeaderboards = privacySettings.showInLeaderboards !== false;
@@ -53,18 +49,11 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
 
         const isCurrentUser = player.id === currentUserId;
 
-        console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
-            '| showInLeaderboards:', showInLeaderboards,
-            '| searchable:', searchable,
-            '| isCurrentUser:', isCurrentUser,
-            '| raw privacySettings:', JSON.stringify(privacySettings));
-
         if (!showInLeaderboards) {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true;
             }
-            console.log('[Privacy Filter] HIDING', player.firstName, '- showInLeaderboards is false');
             return false;
         }
 
@@ -74,17 +63,14 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
                 return true;
             }
             if (currentUserClubId && player.clubId === currentUserClubId) {
-                console.log('[Privacy Filter] SHOWING', player.firstName, '- same club');
                 return true;
             }
-            console.log('[Privacy Filter] HIDING', player.firstName, '- club_only and different club');
             return false;
         }
 
         return true;
     });
 
-    console.log('[Privacy Filter] Filtered from', players.length, 'to', filteredPlayers.length, 'players');
     return { filteredPlayers, currentUserHidden };
 }
 
@@ -149,15 +135,6 @@ async function filterTestClubPlayers(players, currentUserId) {
     const currentUserClubId = currentUser?.club_id;
     const isCurrentUserInTestClub = currentUserClubId && testClubIds.includes(currentUserClubId);
 
-    console.log('[Leaderboard] Filter context:', {
-        currentUserId,
-        currentUserClubId,
-        isCoach,
-        isCurrentUserInTestClub,
-        testClubIds,
-        totalPlayers: players.length
-    });
-
     const filteredPlayers = players.filter(player => {
         const playerClubId = player.clubId || player.club_id;
 
@@ -173,7 +150,6 @@ async function filterTestClubPlayers(players, currentUserId) {
         return false;
     });
 
-    console.log('[Leaderboard] Filtered players:', filteredPlayers.length, 'from', players.length);
     return filteredPlayers;
 }
 
