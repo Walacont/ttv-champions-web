@@ -1534,15 +1534,22 @@ async function loadProfileChallenges() {
  * Lädt Anwesenheitskalender basierend auf event_attendance
  * Zeigt nur Trainings wo der Spieler eingeladen war
  * Farben: grün = alle, gelb = teilweise, rot = keine Teilnahme
+ * @param {number} displayYear - Jahr (optional, Standard: aktuelles Jahr)
+ * @param {number} displayMonth - Monat 0-11 (optional, Standard: aktueller Monat)
  */
-async function loadProfileAttendance() {
+async function loadProfileAttendance(displayYear = null, displayMonth = null) {
     const container = document.getElementById('profile-attendance-calendar');
     if (!container) return;
 
     const supabase = getSupabase();
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+
+    // Wenn keine Parameter, aktuellen Monat verwenden
+    const year = displayYear !== null ? displayYear : now.getFullYear();
+    const month = displayMonth !== null ? displayMonth : now.getMonth();
+
+    // Aktuellen Anzeige-Monat speichern für Navigation
+    window.profileCalendarDisplayMonth = { year, month };
 
     // Datumsstrings ohne Timezone-Probleme erstellen
     const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
@@ -1691,13 +1698,32 @@ async function loadProfileAttendance() {
     window.profileCalendarEvents = eventsByDate;
     window.profileCalendarMonth = { year, month };
 
-    const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    const displayDate = new Date(year, month, 1);
+    const monthName = displayDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
     const daysInMonth = lastDayOfMonth;
     const firstDayOfMonth = new Date(year, month, 1);
     const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
+    // Prüfen ob aktueller Monat angezeigt wird (für "Heute" Button)
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+
     let calendarHtml = `
-        <h4 class="font-semibold text-gray-700 mb-3">${monthName}</h4>
+        <div class="flex items-center justify-between mb-3">
+            <button onclick="navigateProfileCalendar(-1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="flex items-center gap-2">
+                <h4 class="font-semibold text-gray-700">${monthName}</h4>
+                ${!isCurrentMonth ? `<button onclick="navigateProfileCalendar(0)" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Heute</button>` : ''}
+            </div>
+            <button onclick="navigateProfileCalendar(1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
         <div class="grid grid-cols-7 gap-1 text-xs">
             <div class="text-gray-400 font-medium py-1">Mo</div>
             <div class="text-gray-400 font-medium py-1">Di</div>
@@ -1897,6 +1923,38 @@ async function loadProfileAttendance() {
 
     container.innerHTML = calendarHtml;
 }
+
+/**
+ * Navigiert im Profil-Kalender vor/zurück
+ * @param {number} direction - -1 für vorherigen Monat, 1 für nächsten Monat, 0 für aktuellen Monat
+ */
+window.navigateProfileCalendar = function(direction) {
+    const now = new Date();
+
+    if (direction === 0) {
+        // Zum aktuellen Monat springen
+        loadProfileAttendance(now.getFullYear(), now.getMonth());
+        return;
+    }
+
+    // Aktuellen Anzeige-Monat holen
+    const current = window.profileCalendarDisplayMonth || { year: now.getFullYear(), month: now.getMonth() };
+
+    // Neuen Monat berechnen
+    let newMonth = current.month + direction;
+    let newYear = current.year;
+
+    if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+    } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+    }
+
+    // Kalender neu laden
+    loadProfileAttendance(newYear, newMonth);
+};
 
 /** Liefert alle Termine eines Events innerhalb eines Datumsbereichs (für wiederkehrende Events) */
 function getEventDatesInRange(event, startDate, endDate) {
