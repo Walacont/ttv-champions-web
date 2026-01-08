@@ -2530,6 +2530,17 @@ window.openEditEventModal = async function(eventId) {
         const startTimeFormatted = formatTimeForInput(event.start_time);
         const endTimeFormatted = formatTimeForInput(event.end_time);
 
+        console.log('[Events] openEditEventModal - Original times:', {
+            meeting_time: event.meeting_time,
+            start_time: event.start_time,
+            end_time: event.end_time
+        });
+        console.log('[Events] openEditEventModal - Formatted times:', {
+            meetingTimeFormatted,
+            startTimeFormatted,
+            endTimeFormatted
+        });
+
         const existingModal = document.getElementById('edit-event-modal');
         if (existingModal) existingModal.remove();
 
@@ -2645,6 +2656,18 @@ window.openEditEventModal = async function(eventId) {
         `;
 
         document.body.appendChild(modal);
+
+        // Debug: Zeige die tatsächlichen Input-Werte nach DOM-Einfügung
+        setTimeout(() => {
+            const startInput = document.getElementById('edit-event-start-time');
+            const endInput = document.getElementById('edit-event-end-time');
+            const meetingInput = document.getElementById('edit-event-meeting-time');
+            console.log('[Events] openEditEventModal - Actual input values after render:', {
+                startTime: startInput?.value,
+                endTime: endInput?.value,
+                meetingTime: meetingInput?.value
+            });
+        }, 100);
 
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
