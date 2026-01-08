@@ -1334,17 +1334,24 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     const subgroupIds = event.target_subgroup_ids || [];
     const isTraining = event.event_category === 'training';
 
-    // Streak-Tracking nur für Trainings mit erster Subgruppe
-    const primarySubgroupId = isTraining && subgroupIds.length > 0 ? subgroupIds[0] : null;
+    // Streak-Tracking für ALLE Trainings:
+    // - Mit Untergruppe: erste Subgruppe verwenden
+    // - Ohne Untergruppe (ganzer Verein): spezielle ID 'club_training' verwenden
+    let primarySubgroupId = null;
+    if (isTraining) {
+        primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : 'club_training';
+    }
 
     let subgroupName = '';
-    if (primarySubgroupId) {
+    if (primarySubgroupId && primarySubgroupId !== 'club_training') {
         const { data: subgroup } = await supabase
             .from('subgroups')
             .select('name')
             .eq('id', primarySubgroupId)
             .maybeSingle();
         subgroupName = subgroup?.name || '';
+    } else if (primarySubgroupId === 'club_training') {
+        subgroupName = 'Vereinstraining';
     }
 
     let wasPresentAtLastEvent = false;
@@ -3022,15 +3029,15 @@ window.recalculateStreaksRetroactively = async function(clubId) {
 
             if (playerTrainings.length === 0) continue;
 
-            // Streak pro Untergruppe berechnen
+            // Streak pro Untergruppe berechnen (inkl. 'club_training' für Vereinstrainings)
             const subgroupStreaks = new Map(); // subgroupId -> { currentStreak, lastAttendedDate }
 
             for (const training of playerTrainings) {
                 const attendance = attendanceMap.get(training.id);
                 const wasPresent = attendance?.present_user_ids?.includes(player.id) || false;
-                const subgroupId = training.target_subgroup_ids?.[0];
 
-                if (!subgroupId) continue; // Kein Streak ohne Untergruppe
+                // Für Vereinstrainings (ohne Untergruppe) verwenden wir 'club_training' als ID
+                const subgroupId = training.target_subgroup_ids?.[0] || 'club_training';
 
                 if (!subgroupStreaks.has(subgroupId)) {
                     subgroupStreaks.set(subgroupId, { currentStreak: 0, lastAttendedDate: null });
@@ -3041,16 +3048,6 @@ window.recalculateStreaksRetroactively = async function(clubId) {
                 if (wasPresent) {
                     streakData.currentStreak++;
                     streakData.lastAttendedDate = training.start_date;
-
-                    // Prüfen ob Streak-Bonus verdient wurde
-                    if (streakData.currentStreak >= 3) {
-                        const pointsAwarded = attendance?.points_awarded_to || [];
-                        const alreadyGotBonus = pointsAwarded.includes(player.id);
-
-                        // Prüfen ob der Spieler nur 3 Basispunkte bekommen hat (kein Bonus)
-                        // Dazu müssten wir points_history prüfen
-                        // Für jetzt: Streak in DB aktualisieren
-                    }
                 } else {
                     // Nicht anwesend → Streak zurücksetzen
                     streakData.currentStreak = 0;
