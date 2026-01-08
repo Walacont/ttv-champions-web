@@ -651,6 +651,25 @@ async function submitEvent() {
         invitationLeadTimeUnit = leadTimeUnit;
     }
 
+    // Bei "Ganzer Verein" die Hauptgruppe (is_default) automatisch setzen
+    let targetSubgroupIds = [];
+    if (currentEventData.targetType === 'subgroups') {
+        targetSubgroupIds = currentEventData.selectedSubgroups;
+    } else if (currentEventData.targetType === 'club') {
+        // Hauptgruppe für den Verein holen
+        const { data: hauptgruppe } = await supabase
+            .from('subgroups')
+            .select('id')
+            .eq('club_id', currentUserData.clubId)
+            .eq('is_default', true)
+            .limit(1)
+            .maybeSingle();
+
+        if (hauptgruppe) {
+            targetSubgroupIds = [hauptgruppe.id];
+        }
+    }
+
     const eventData = {
         club_id: currentUserData.clubId,
         organizer_id: currentUserData.id,
@@ -664,7 +683,7 @@ async function submitEvent() {
         event_type: currentEventData.eventType,
         event_category: eventCategory,
         target_type: currentEventData.targetType,
-        target_subgroup_ids: currentEventData.targetType === 'subgroups' ? currentEventData.selectedSubgroups : [],
+        target_subgroup_ids: targetSubgroupIds,
         max_participants: maxParticipants ? parseInt(maxParticipants) : null,
         response_deadline: responseDeadline || null,
         invitation_send_at: invitationSendAt,
