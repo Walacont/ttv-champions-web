@@ -1947,7 +1947,7 @@ async function loadMatchRequests() {
             if (r._type === 'singles') {
                 return [r.player_a_id, r.player_b_id];
             } else {
-                // Use JSONB structure for doubles
+                // JSONB-Struktur für Doppel verwenden
                 const teamA = r.team_a || {};
                 const teamB = r.team_b || {};
                 return [teamA.player1_id, teamA.player2_id, teamB.player1_id, teamB.player2_id].filter(id => id);
@@ -1983,7 +1983,7 @@ async function loadMatchRequests() {
         if (badge) {
             const singlesPending = singles.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
             const doublesPending = doubles.filter(r => {
-                // Use JSONB structure for doubles
+                // JSONB-Struktur für Doppel verwenden
                 const teamB = r.team_b || {};
                 const isTeamB = teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id;
                 return isTeamB && r.status === 'pending_opponent';
@@ -2071,7 +2071,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
 
 // Hilfsfunktion zum Rendern von Doppel-Anfrage-Karten
 function renderDoublesRequestCard(req, profileMap) {
-    // Use JSONB structure for team data
+    // JSONB-Struktur für Team-Daten verwenden
     const teamA = req.team_a || {};
     const teamB = req.team_b || {};
 

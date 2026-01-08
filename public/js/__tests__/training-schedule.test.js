@@ -356,7 +356,7 @@ describe('Date Range Generation', () => {
             });
 
             test('should return correct number of dates for a month', () => {
-                // June has 30 days
+                // Juni hat 30 Tage
                 const result = getDatesInRange('2024-06-01', '2024-06-30');
                 expect(result).toHaveLength(30);
                 expect(result[0]).toBe('2024-06-01');

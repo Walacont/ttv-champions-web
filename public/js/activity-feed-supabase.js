@@ -473,7 +473,7 @@ function setupPullToRefresh() {
     let startY = 0;
     let currentY = 0;
     let isPulling = false;
-    // Use module-level isRefreshing variable (declared at top of file)
+    // Modul-Level isRefreshing Variable verwenden (am Dateianfang deklariert)
     const pullThreshold = 80; // px needed to trigger refresh
     const maxPull = 120; // max pull distance
 
@@ -1630,7 +1630,7 @@ async function injectMatchMedia(matchId, matchType) {
         `;
 
     } catch (error) {
-        // Silently fail - match media functions may not be set up yet
+        // Stillschweigend fehlschlagen - Match-Media-Funktionen evtl. noch nicht eingerichtet
     }
 }
 

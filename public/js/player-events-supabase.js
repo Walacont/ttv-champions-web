@@ -242,7 +242,7 @@ async function loadUpcomingEvents() {
             .eq('user_id', currentUserId);
 
         // Null-Events und vergangene Termine clientseitig herausfiltern
-        // Use occurrence_date if available, otherwise fall back to start_date
+        // occurrence_date verwenden falls verfügbar, sonst auf start_date zurückfallen
         const nowTime = new Date();
         let validInvitations = (updatedInvitations || []).filter(inv => {
             if (!inv.events) return false;
@@ -253,7 +253,7 @@ async function loadUpcomingEvents() {
 
             // Falls Event heute, prüfen ob noch nicht beendet
             if (displayDate === today) {
-                // Use end_time if available, otherwise start_time
+                // end_time verwenden falls verfügbar, sonst start_time
                 const eventTime = inv.events.end_time || inv.events.start_time;
                 if (eventTime) {
                     const [hours, minutes] = eventTime.split(':').map(Number);
@@ -384,7 +384,7 @@ function renderEventCard(invitation, acceptedCount) {
     const event = invitation.events;
     const status = invitation.status;
 
-    // Use occurrence_date from invitation (for per-occurrence tracking)
+    // occurrence_date aus Einladung verwenden (für Pro-Termin-Tracking)
     // Auf displayDate oder start_date zurückfallen für Abwärtskompatibilität
     const displayDate = invitation.occurrence_date || event.displayDate || event.start_date;
 

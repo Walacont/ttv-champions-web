@@ -235,7 +235,7 @@ function clearImages() {
     postImagesPreviewGrid.innerHTML = '';
 }
 
-// Make removeImageAtIndex available globally for onclick
+// removeImageAtIndex global verfügbar machen für onclick
 window.removeImageAtIndex = removeImageAtIndex;
 
 // ============================================

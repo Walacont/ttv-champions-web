@@ -264,7 +264,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             playerData.email = email;
         }
 
-        // Use RPC function to create offline player (bypasses RLS)
+        // RPC-Funktion zum Erstellen von Offline-Spieler verwenden (umgeht RLS)
         const rpcParams = {
             p_first_name: firstName,
             p_last_name: lastName,
@@ -350,7 +350,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('set-match-ready-btn')) {
         if (confirm(`Möchten Sie "${playerName}" als wettkampfsbereit markieren?\n\nDer Spieler erhält 50 XP. Diese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
-                // Use RPC function to set match-ready (bypasses RLS)
+                // RPC-Funktion für Spielbereit-Setzen verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('set_player_match_ready', {
                     p_player_id: playerId
                 });
@@ -373,7 +373,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('delete-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
-                // Use RPC function to delete offline player (bypasses RLS)
+                // RPC-Funktion zum Löschen von Offline-Spieler verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('delete_offline_player', {
                     p_player_id: playerId
                 });
@@ -394,7 +394,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('promote-coach-btn')) {
         if (confirm(`Möchten Sie "${playerName}" zum Coach ernennen?`)) {
             try {
-                // Use RPC function to promote to coach (bypasses RLS)
+                // RPC-Funktion zum Befördern zum Coach verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('promote_to_coach', {
                     p_player_id: playerId
                 });
@@ -422,7 +422,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('demote-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" die Coach-Rechte entziehen?\n\nDer Spieler wird wieder ein normaler Spieler.`)) {
             try {
-                // Use RPC function to demote to player (bypasses RLS)
+                // RPC-Funktion zum Herabstufen zum Spieler verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('demote_to_player', {
                     p_player_id: playerId
                 });
@@ -458,7 +458,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                     .single();
                 const clubName = clubData?.name || 'dem Verein';
 
-                // Use RPC function to kick player from club (bypasses RLS)
+                // RPC-Funktion zum Entfernen aus Verein verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('kick_player_from_club', {
                     p_player_id: playerId,
                     p_head_coach_id: currentUserData?.id

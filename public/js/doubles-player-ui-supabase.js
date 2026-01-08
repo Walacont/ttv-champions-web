@@ -824,7 +824,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         }
     }
 
-    // Use MutationObserver to watch for changes to hidden fields
+    // MutationObserver verwenden um Änderungen an versteckten Feldern zu beobachten
     const observer = new MutationObserver(() => {
         calculateAndDisplayHandicap();
     });

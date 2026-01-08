@@ -190,7 +190,7 @@ function updateStatsUI(stats) {
         trendEl.className = `text-sm font-semibold ${trendColor}`;
     }
 
-    // Weekly average
+    // Wöchentlicher Durchschnitt
     const weeklyAvgEl = document.getElementById('stats-weekly-avg');
     if (weeklyAvgEl) {
         weeklyAvgEl.textContent = `${stats.weeklyAverage}x pro Woche`;
