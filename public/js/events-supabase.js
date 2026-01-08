@@ -2664,6 +2664,10 @@ window.executeEditEvent = async function(eventId, isRecurring) {
         const endTime = document.getElementById('edit-event-end-time')?.value;
         const location = document.getElementById('edit-event-location')?.value?.trim();
 
+        console.log('[Events] executeEditEvent - Form values:', {
+            title, startDate, meetingTime, startTime, endTime, location, editScope, isRecurring
+        });
+
         if (!title) {
             alert('Bitte gib einen Titel ein');
             return;
@@ -2695,6 +2699,13 @@ window.executeEditEvent = async function(eventId, isRecurring) {
             location: location || null,
             updated_at: new Date().toISOString()
         };
+
+        console.log('[Events] executeEditEvent - updateData:', updateData);
+        console.log('[Events] executeEditEvent - originalEvent times:', {
+            start_time: originalEvent.start_time,
+            end_time: originalEvent.end_time,
+            meeting_time: originalEvent.meeting_time
+        });
 
         if (startDate && startDate !== originalEvent.start_date) {
             if (editScope === 'this' && isRecurring) {
@@ -2751,10 +2762,19 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                 updateData.start_date = startDate || originalEvent.start_date;
             }
 
-            await supabase
+            console.log('[Events] executeEditEvent - Executing update for eventId:', eventId);
+            const { error: updateError } = await supabase
                 .from('events')
                 .update(updateData)
                 .eq('id', eventId);
+
+            if (updateError) {
+                console.error('[Events] executeEditEvent - Update error:', updateError);
+                throw updateError;
+            }
+            console.log('[Events] executeEditEvent - Update successful');
+        } else {
+            console.log('[Events] executeEditEvent - Update skipped due to condition');
         }
 
         const formattedDate = new Date((startDate || originalEvent.start_date) + 'T12:00:00').toLocaleDateString('de-DE', {
