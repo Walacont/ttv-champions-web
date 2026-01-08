@@ -366,7 +366,7 @@ describe('Real-World Attendance Scenarios', () => {
         const result2 = calculateAttendancePoints(3, isSecond2, '2025-01-15', 'Leistungstraining');
 
         expect(isSecond2).toBe(true);
-        expect(result2.points).toBe(3); // Half of 5 = 2.5 → 3
+        expect(result2.points).toBe(3); // Hälfte von 5 = 2.5 → 3
         expect(result2.reason).toContain('⚡ 3x Streak');
         expect(result2.reason).toContain('(2. Training heute)');
     });
@@ -401,7 +401,7 @@ describe('Real-World Attendance Scenarios', () => {
         const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-20', 'session-B');
         const result2 = calculateAttendancePoints(5, isSecond2, '2025-01-20', 'Leistungstraining');
 
-        expect(result2.points).toBe(3); // Half of 6
+        expect(result2.points).toBe(3); // Hälfte von 6
         expect(result2.reason).toContain('🔥 5x Streak!');
         expect(result2.reason).toContain('(2. Training heute)');
     });
@@ -415,7 +415,7 @@ describe('Real-World Attendance Scenarios', () => {
         const attendanceRecords2 = [{ date: '2025-01-25', sessionId: 'session-1' }];
         const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-25', 'session-2');
         const result2 = calculateAttendancePoints(1, isSecond2, '2025-01-25', 'Training 2');
-        expect(result2.points).toBe(2); // Half of 3 = 1.5 → 2
+        expect(result2.points).toBe(2); // Hälfte von 3 = 1.5 → 2
 
         // Drittes Training
         const attendanceRecords3 = [

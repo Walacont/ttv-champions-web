@@ -56,7 +56,7 @@ function setupEventListeners() {
         .getElementById('close-after-code-button')
         ?.addEventListener('click', closeOfflinePlayerModal);
 
-    // Send Invitation Modal
+    // Einladung-Senden-Modal
     const sendInvitationTypeRadios = document.querySelectorAll(
         'input[name="send-invitation-type"]'
     );
@@ -122,7 +122,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
 
     if (invitationType === 'code') {
         try {
-            // Generate code WITH playerId to enable migration
+            // Code MIT playerId generieren um Migration zu ermöglichen
             const code = await generateCodeForPlayer(playerData, playerId);
             lastGeneratedCode = code;
             lastGeneratedFirstName = playerData.firstName;

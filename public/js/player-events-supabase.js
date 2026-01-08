@@ -336,7 +336,7 @@ function getNextOccurrence(event, afterDate) {
     const excludedDates = event.excluded_dates || [];
 
     let currentDate = new Date(startDate);
-    let maxIterations = 365; // Prevent infinite loops
+    let maxIterations = 365; // Endlosschleifen verhindern
 
     while (maxIterations > 0) {
         const dateStr = currentDate.toISOString().split('T')[0];

@@ -37,7 +37,7 @@ async function loadAndDisplayTrainingStats(supabase, currentUserData) {
             oneYearAgo
         );
 
-        // Calculate statistics
+        // Statistiken berechnen
         const stats = calculateStatistics(trainingDates);
 
         // UI aktualisieren
@@ -77,7 +77,7 @@ async function getTrainingDates(supabase, playerId, clubId, since) {
             .filter(record => record.present_player_ids?.includes(playerId))
             .map(record => record.date);
 
-        return dates.sort(); // Sort chronologically
+        return dates.sort(); // Chronologisch sortieren
     } catch (error) {
         console.error('[Training Stats] Error fetching training dates:', error);
         return [];
@@ -114,7 +114,7 @@ function calculateStatistics(trainingDates) {
         }
     });
 
-    // Calculate trend
+    // Trend berechnen
     let trend = 'neutral';
     let trendPercentage = 0;
 
@@ -164,7 +164,7 @@ function updateStatsUI(stats) {
         lastMonthEl.textContent = stats.lastMonthCount;
     }
 
-    // Trend indicator
+    // Trend-Indikator
     const trendEl = document.getElementById('stats-trend');
     if (trendEl) {
         let trendHTML = '';

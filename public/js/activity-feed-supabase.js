@@ -1426,7 +1426,7 @@ async function toggleActivityLike(activityId, activityType) {
         if (error) {
             // Prüfen ob Benutzer eigene Aktivität liken wollte
             if (error.message && error.message.includes('cannot like your own activity')) {
-                // Revert UI changes
+                // UI-Änderungen rückgängig machen
                 updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
                 likesDataCache[key] = currentData;
                 // Benutzerfreundliche Nachricht anzeigen

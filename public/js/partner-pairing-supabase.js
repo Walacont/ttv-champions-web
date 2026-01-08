@@ -1250,7 +1250,7 @@ function closePairingModal() {
         modal.classList.remove('flex');
     }
 
-    // Reset state
+    // Zustand zurücksetzen
     selectedPlayers = [];
     formedPairs = [];
     singlePlayers = [];

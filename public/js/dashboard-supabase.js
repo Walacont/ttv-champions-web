@@ -3167,7 +3167,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
     }
     processingRequests.add(requestId);
 
-    // Optimistic UI update - immediately hide the card
+    // Optimistisches UI-Update - Karte sofort ausblenden
     removeRequestCardOptimistically(requestId, 'singles');
 
     try {
@@ -3287,7 +3287,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
     }
     processingRequests.add(`doubles-${requestId}`);
 
-    // Optimistic UI update - immediately hide the card
+    // Optimistisches UI-Update - Karte sofort ausblenden
     removeRequestCardOptimistically(requestId, 'doubles');
 
     try {
