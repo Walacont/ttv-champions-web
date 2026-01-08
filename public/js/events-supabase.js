@@ -1336,24 +1336,24 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 
     // Streak-Tracking für ALLE Trainings:
     // - Mit Untergruppe: erste Subgruppe verwenden
-    // - Ohne Untergruppe (ganzer Verein): Fallback-Subgroup suchen (z.B. "Hauptgruppe")
+    // - Ohne Untergruppe (ganzer Verein): Hauptgruppe verwenden (is_default = true)
     let primarySubgroupId = null;
     if (isTraining) {
         if (subgroupIds.length > 0) {
             primarySubgroupId = subgroupIds[0];
         } else {
-            // Fallback: Suche eine "Hauptgruppe" oder ähnliche Subgroup für Club-weite Trainings
-            const { data: fallbackSubgroup } = await supabase
+            // Fallback: Verwende die Hauptgruppe (is_default = true) für Club-weite Trainings
+            const { data: hauptgruppe } = await supabase
                 .from('subgroups')
                 .select('id, name')
                 .eq('club_id', event.club_id)
-                .or('name.ilike.%hauptgruppe%,name.ilike.%vereinstraining%,name.ilike.%alle%')
+                .eq('is_default', true)
                 .limit(1)
                 .maybeSingle();
 
-            if (fallbackSubgroup) {
-                primarySubgroupId = fallbackSubgroup.id;
-                console.log('[Events] Using fallback subgroup for club-wide training:', fallbackSubgroup.name);
+            if (hauptgruppe) {
+                primarySubgroupId = hauptgruppe.id;
+                console.log('[Events] Using Hauptgruppe for club-wide training:', hauptgruppe.name);
             }
         }
     }
@@ -3025,20 +3025,20 @@ window.recalculateStreaksRetroactively = async function(clubId) {
         if (playersError) throw playersError;
         console.log('[Streaks] Found', players?.length || 0, 'players');
 
-        // 4. Fallback-Subgroup für Club-weite Trainings finden
-        const { data: fallbackSubgroup } = await supabase
+        // 4. Hauptgruppe für Club-weite Trainings finden (is_default = true)
+        const { data: hauptgruppe } = await supabase
             .from('subgroups')
             .select('id, name')
             .eq('club_id', clubId)
-            .or('name.ilike.%hauptgruppe%,name.ilike.%vereinstraining%,name.ilike.%alle%')
+            .eq('is_default', true)
             .limit(1)
             .maybeSingle();
 
-        const fallbackSubgroupId = fallbackSubgroup?.id;
+        const fallbackSubgroupId = hauptgruppe?.id;
         if (fallbackSubgroupId) {
-            console.log('[Streaks] Using fallback subgroup:', fallbackSubgroup.name);
+            console.log('[Streaks] Using Hauptgruppe:', hauptgruppe.name);
         } else {
-            console.log('[Streaks] No fallback subgroup found - club-wide trainings will be skipped');
+            console.log('[Streaks] No Hauptgruppe found - club-wide trainings will be skipped');
         }
 
         // 5. Für jeden Spieler Streaks berechnen
