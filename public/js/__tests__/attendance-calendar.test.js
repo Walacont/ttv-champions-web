@@ -424,7 +424,7 @@ describe('Real-World Attendance Scenarios', () => {
         ];
         const isSecond3 = isSecondTrainingToday(attendanceRecords3, '2025-01-25', 'session-3');
         const result3 = calculateAttendancePoints(1, isSecond3, '2025-01-25', 'Training 3');
-        expect(result3.points).toBe(2); // Still half points (2nd+ training)
+        expect(result3.points).toBe(2); // Weiterhin halbe Punkte (2.+ Training)
     });
 
     test('Scenario 6: Trainings on consecutive days (streak building)', () => {
@@ -467,7 +467,7 @@ describe('Edge Cases & Boundary Conditions', () => {
 
     test('should handle streak 100+ (unrealistic but valid)', () => {
         const result = calculateAttendancePoints(100, false, '2025-01-15', 'Basistraining');
-        expect(result.points).toBe(6); // Still capped at 6
+        expect(result.points).toBe(6); // Weiterhin auf 6 begrenzt
         expect(result.reason).toContain('🔥 100x Streak!');
     });
 

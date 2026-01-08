@@ -835,7 +835,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
     observer.observe(opponent2IdField, { attributes: true, attributeFilter: ['value'] });
 
     // Event-Listener für programmatische Wertänderung hinzufügen
-    // Since MutationObserver doesn't always catch programmatic value changes,
+    // Da MutationObserver nicht immer programmatische Wertänderungen erfasst,
     // we'll add a periodic check as a fallback
     let lastPartnerId = '';
     let lastOpponent1Id = '';

@@ -371,7 +371,7 @@ async function renderRecentActivity(profile) {
         ];
 
         // === PRIVACY FILTERING FOR MATCHES ===
-        // ALL players in a match must allow visibility - strictest setting wins
+        // ALLE Spieler in einem Match müssen Sichtbarkeit erlauben - strengste Einstellung gewinnt
         // Filterung für eigenes Profil überspringen - immer alle Matches anzeigen
         const viewerId = currentUser?.id;
 
