@@ -2498,6 +2498,17 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
 };
 
 /**
+ * Formatiert Zeit für HTML time input (HH:MM ohne Sekunden)
+ * @param {string} timeStr - Zeit-String (kann HH:MM:SS oder HH:MM sein)
+ * @returns {string} Formatierte Zeit (HH:MM)
+ */
+function formatTimeForInput(timeStr) {
+    if (!timeStr) return '';
+    // Nur die ersten 5 Zeichen nehmen (HH:MM)
+    return timeStr.substring(0, 5);
+}
+
+/**
  * Öffnet Bearbeitungs-Modal für eine Veranstaltung
  * @param {string} eventId - Event ID
  */
@@ -2513,6 +2524,11 @@ window.openEditEventModal = async function(eventId) {
         if (error) throw error;
 
         const isRecurring = !!event.repeat_type;
+
+        // Zeiten für Input-Felder formatieren (ohne Sekunden)
+        const meetingTimeFormatted = formatTimeForInput(event.meeting_time);
+        const startTimeFormatted = formatTimeForInput(event.start_time);
+        const endTimeFormatted = formatTimeForInput(event.end_time);
 
         const existingModal = document.getElementById('edit-event-modal');
         if (existingModal) existingModal.remove();
@@ -2557,7 +2573,7 @@ window.openEditEventModal = async function(eventId) {
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Treffzeit</label>
-                            <input type="time" id="edit-event-meeting-time" value="${event.meeting_time || ''}"
+                            <input type="time" id="edit-event-meeting-time" value="${meetingTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
@@ -2565,12 +2581,12 @@ window.openEditEventModal = async function(eventId) {
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Startzeit</label>
-                            <input type="time" id="edit-event-start-time" value="${event.start_time || ''}"
+                            <input type="time" id="edit-event-start-time" value="${startTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Endzeit</label>
-                            <input type="time" id="edit-event-end-time" value="${event.end_time || ''}"
+                            <input type="time" id="edit-event-end-time" value="${endTimeFormatted}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
