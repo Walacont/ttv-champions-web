@@ -550,7 +550,7 @@ function setupPullToRefresh() {
         return window.scrollY || document.documentElement.scrollTop;
     }
 
-    // Touch start
+    // Touch-Start
     feedContainer.addEventListener('touchstart', (e) => {
         if (isRefreshing) return;
         if (getScrollTop() > 5) return; // Nur oben auslösen
@@ -631,7 +631,7 @@ function setupPullToRefresh() {
         currentY = 0;
     }, { passive: true });
 
-    // Touch cancel
+    // Touch-Abbruch
     feedContainer.addEventListener('touchcancel', () => {
         isPulling = false;
         isRefreshing = false;
@@ -948,7 +948,7 @@ async function fetchActivities(userIds) {
             });
         }
 
-        // Get viewer's following list for privacy checks
+        // Abonnenten-Liste des Betrachters für Datenschutzprüfungen abrufen
         let viewerFollowingIds = new Set();
         if (currentUser) {
             const { data: following } = await supabase
@@ -969,7 +969,7 @@ async function fetchActivities(userIds) {
             if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
                 return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
             }
-            // Other activity types (posts, polls, events) pass through
+            // Andere Aktivitätstypen (Posts, Umfragen, Events) durchlassen
             return true;
         });
 
@@ -1706,7 +1706,7 @@ async function injectMatchMedia(matchId, matchType) {
                     </div>
                 `;
             } else {
-                // Photo item - clickable to open gallery
+                // Foto-Element - klickbar zum Öffnen der Galerie
                 carouselItems += `
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">

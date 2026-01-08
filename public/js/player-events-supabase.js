@@ -285,7 +285,7 @@ async function loadUpcomingEvents() {
             return;
         }
 
-        // Show section
+        // Sektion anzeigen
         section.classList.remove('hidden');
 
         // Angenommen-Zähler für jede Event/Termin-Kombination abrufen
@@ -754,7 +754,7 @@ async function showEventDetails(eventId) {
 
         if (error) throw error;
 
-        // Get participants
+        // Teilnehmer abrufen
         const { data: participants } = await supabase
             .from('event_invitations')
             .select(`

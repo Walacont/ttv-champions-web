@@ -491,7 +491,7 @@ describe('Complete Approval Workflow', () => {
             clubId: determineDoublesMatchClubId(player1, player2, player3, player4),
         };
 
-        // Opponent approves
+        // Gegner genehmigt
         const approval = simulateDoublesOpponentApproval(player1, player2, player3, player4);
         doublesRequest.status = approval.status;
 
@@ -510,7 +510,7 @@ describe('Complete Approval Workflow', () => {
             clubId: determineDoublesMatchClubId(player1, player2, player3, player4),
         };
 
-        // Opponent approves
+        // Gegner genehmigt
         const approval = simulateDoublesOpponentApproval(player1, player2, player3, player4);
         doublesRequest.status = approval.status;
 

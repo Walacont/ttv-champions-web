@@ -15,7 +15,7 @@ export function initializeExerciseMilestones() {
     const container = document.getElementById('exercise-milestones-container');
     const addBtn = document.getElementById('add-exercise-milestone-btn');
 
-    // Points container (different IDs for admin vs coach)
+    // Punkte-Container (unterschiedliche IDs für Admin vs Coach)
     const pointsContainer =
         document.getElementById('exercise-points-container-admin') ||
         document.getElementById('exercise-standard-points-container');

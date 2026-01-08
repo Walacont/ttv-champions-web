@@ -208,7 +208,7 @@ export function setupDescriptionEditor(config) {
         }
     }
 
-    // Create toggle UI
+    // Toggle-UI erstellen
     toggleContainer.innerHTML = `
         <div class="mb-3">
             <label class="block text-sm font-medium text-gray-700 mb-2">Beschreibungsformat</label>

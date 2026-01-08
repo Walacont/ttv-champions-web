@@ -40,7 +40,7 @@ async function loadAndDisplayTrainingStats(supabase, currentUserData) {
         // Calculate statistics
         const stats = calculateStatistics(trainingDates);
 
-        // Update UI
+        // UI aktualisieren
         updateStatsUI(stats);
 
         // Draw heatmap
@@ -216,7 +216,7 @@ function drawHeatmap(trainingDates) {
     const startDate = new Date(now);
     startDate.setDate(startDate.getDate() - 52 * 7); // 52 weeks ago
 
-    // Find first Sunday
+    // Ersten Sonntag finden
     while (startDate.getDay() !== 0) {
         startDate.setDate(startDate.getDate() - 1);
     }
@@ -250,7 +250,7 @@ function drawHeatmap(trainingDates) {
         weeks.push(currentWeek);
     }
 
-    // Create SVG
+    // SVG erstellen
     const cellSize = 12;
     const cellGap = 3;
     const width = weeks.length * (cellSize + cellGap);
@@ -332,7 +332,7 @@ function drawHeatmap(trainingDates) {
 
     container.appendChild(svg);
 
-    // Add legend
+    // Legende hinzufügen
     const legend = document.createElement('div');
     legend.className = 'flex items-center gap-2 mt-3 text-xs text-gray-600';
     legend.innerHTML = `

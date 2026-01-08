@@ -847,7 +847,7 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
 
     const maxPoints = exercise.points || 0;
 
-    // Process pairs
+    // Paarungen verarbeiten
     for (const pair of pairs) {
         let points1, points2;
 
@@ -969,7 +969,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
     // Alle Spieler sammeln die abgeschlossen haben mit Abschlusszählung und Erfolgsrate
     const successfulPlayers = [];
 
-    // Process pairs
+    // Paarungen verarbeiten
     for (const pair of pairs) {
         const player1Id = pair.player1?.id || pair.player1Id;
         const player2Id = pair.player2?.id || pair.player2Id;
@@ -1195,7 +1195,7 @@ async function awardPointsToPlayer(
         console.error('[Award Points] Error creating points history:', pointsHistoryError);
     }
 
-    // Create XP history entry
+    // XP-Historieneintrag erstellen
     const { error: xpHistoryError } = await supabaseClient
         .from('xp_history')
         .insert({
@@ -1256,7 +1256,7 @@ function closePairingModal() {
     singlePlayers = [];
     currentExercise = null;
 
-    // Clear feedback
+    // Feedback zurücksetzen
     const feedbackElement = document.getElementById('pairing-feedback');
     if (feedbackElement) feedbackElement.textContent = '';
 }

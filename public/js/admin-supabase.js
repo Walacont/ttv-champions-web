@@ -2308,7 +2308,7 @@ async function handleStartNewSeason(e) {
     const sport = allSports.find(s => s.id === sportId);
     const sportName = sport?.display_name || 'Unbekannt';
 
-    // Confirm action
+    // Aktion bestätigen
     const confirmed = confirm(
         `Neue Saison starten?\n\n` +
         `Sportart: ${sportName}\n` +
@@ -2459,7 +2459,7 @@ async function loadAuditLogs() {
         const clubFilter = document.getElementById('audit-filter-club')?.value || null;
         const sportFilter = document.getElementById('audit-filter-sport')?.value || null;
 
-        // Call get_audit_logs RPC function
+        // get_audit_logs RPC-Funktion aufrufen
         const { data: logs, error } = await supabase.rpc('get_audit_logs', {
             p_limit: AUDIT_PAGE_SIZE,
             p_offset: auditCurrentPage * AUDIT_PAGE_SIZE,

@@ -232,7 +232,7 @@ function setupEventListeners() {
         enableBtn.innerHTML = 'Aktivieren';
     });
 
-    // Preference toggles
+    // Einstellungs-Toggles
     PREFERENCE_KEYS.forEach(key => {
         const toggle = document.getElementById(`pref-${key}`);
         if (toggle) {

@@ -233,7 +233,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
             matchesVisibility = 'none';
         }
 
-        // Update Supabase profiles table
+        // Supabase profiles-Tabelle aktualisieren
         const newPrivacySettings = {
             ...currentUserData.privacySettings,
             profile_visibility: profileVisibility,

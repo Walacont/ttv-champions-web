@@ -596,7 +596,7 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.add('hidden');
         document.getElementById('add-offline-player-modal').classList.remove('flex');
-        // Reset inklusive Checkboxen
+        // Zurücksetzen inklusive Checkboxen
         document.getElementById('add-offline-player-form').reset();
     });
 

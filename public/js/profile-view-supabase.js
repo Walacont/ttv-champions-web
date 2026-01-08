@@ -372,11 +372,11 @@ async function renderRecentActivity(profile) {
 
         // === PRIVACY FILTERING FOR MATCHES ===
         // ALL players in a match must allow visibility - strictest setting wins
-        // Skip filtering for own profile - always show all matches
+        // Filterung für eigenes Profil überspringen - immer alle Matches anzeigen
         const viewerId = currentUser?.id;
 
         if (!isOwnProfile) {
-            // Collect all player IDs from matches
+            // Alle Spieler-IDs aus Matches sammeln
             const matchPlayerIds = new Set();
             allActivities.forEach(activity => {
                 if (activity.activityType === 'singles') {
@@ -403,7 +403,7 @@ async function renderRecentActivity(profile) {
                 });
             }
 
-            // Get viewer's club_id and following list
+            // club_id und Abonnenten-Liste des Betrachters abrufen
             let viewerClubId = null;
             let viewerFollowingIds = new Set();
 
@@ -431,7 +431,7 @@ async function renderRecentActivity(profile) {
                     return true; // Posts sind nicht von matches_visibility betroffen
                 }
 
-                // Get all player IDs for this match
+                // Alle Spieler-IDs für dieses Match abrufen
                 let playerIds = [];
                 if (activity.activityType === 'singles') {
                     playerIds = [activity.player_a_id, activity.player_b_id].filter(Boolean);
@@ -449,7 +449,7 @@ async function renderRecentActivity(profile) {
                     return true;
                 }
 
-                // Check if ALL players allow viewing
+                // Prüfen ob ALLE Spieler Ansicht erlauben
                 for (const playerId of playerIds) {
                     const privacy = privacyMap[playerId]?.privacy_settings || {};
                     const visibility = privacy.matches_visibility || 'global';
@@ -467,7 +467,7 @@ async function renderRecentActivity(profile) {
                         playerAllows = false;
                     }
 
-                    // If any player blocks, match is not visible
+                    // Falls ein Spieler blockiert, Match ist nicht sichtbar
                     if (!playerAllows) {
                         return false;
                     }
@@ -1665,7 +1665,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
 
     if (trainingAttendance) {
         trainingAttendance.forEach(ta => {
-            // Try both possible column names
+            // Beide möglichen Spaltennamen versuchen
             const presentIds = ta.present_player_ids || ta.present_ids || ta.player_ids || [];
             if (presentIds?.includes(profileId)) {
                 attendedDates.add(ta.date);
