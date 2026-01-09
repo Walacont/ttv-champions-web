@@ -9,7 +9,6 @@ import {
  * Handles user preferences for which leaderboard tabs to show/hide
  */
 
-// Default preferences - all enabled
 const DEFAULT_PREFERENCES = {
     effort: true,
     season: true,
@@ -24,10 +23,8 @@ const DEFAULT_PREFERENCES = {
  * @param {Object} db - Firestore database instance
  */
 export function initializeLeaderboardPreferences(userData, db) {
-    // Load saved preferences
     loadPreferences(userData);
 
-    // Add change listeners to all checkboxes
     const checkboxes = document.querySelectorAll('.leaderboard-pref-checkbox');
     checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', async () => {
@@ -36,7 +33,6 @@ export function initializeLeaderboardPreferences(userData, db) {
         });
     });
 
-    // Apply preferences immediately
     applyPreferences();
 }
 
@@ -47,7 +43,6 @@ export function initializeLeaderboardPreferences(userData, db) {
 function loadPreferences(userData) {
     const prefs = userData.leaderboardPreferences || DEFAULT_PREFERENCES;
 
-    // Update checkboxes
     document.getElementById('pref-effort').checked = prefs.effort !== false;
     document.getElementById('pref-season').checked = prefs.season !== false;
     document.getElementById('pref-skill').checked = prefs.skill !== false;
@@ -92,7 +87,6 @@ export function applyPreferences() {
         doubles: document.getElementById('pref-doubles')?.checked ?? true,
     };
 
-    // Show/hide tab buttons
     const tabButtons = {
         effort: document.getElementById('tab-effort'),
         season: document.getElementById('tab-season'),
@@ -101,7 +95,6 @@ export function applyPreferences() {
         doubles: document.getElementById('tab-doubles'),
     };
 
-    // Apply visibility
     Object.keys(tabButtons).forEach(key => {
         const button = tabButtons[key];
         if (button) {
@@ -113,7 +106,6 @@ export function applyPreferences() {
         }
     });
 
-    // If the currently active tab was hidden, switch to the first visible tab
     ensureValidActiveTab(prefs);
 }
 
@@ -125,7 +117,6 @@ function ensureValidActiveTab(prefs) {
     const tabButtons = document.querySelectorAll('.leaderboard-tab-btn');
     let hasActiveVisibleTab = false;
 
-    // Check if current active tab is visible
     tabButtons.forEach(button => {
         if (
             button.classList.contains('border-indigo-600') &&
@@ -135,7 +126,6 @@ function ensureValidActiveTab(prefs) {
         }
     });
 
-    // If no visible tab is active, activate the first visible one
     if (!hasActiveVisibleTab) {
         const firstVisibleButton = Array.from(tabButtons).find(
             btn => !btn.classList.contains('hidden')

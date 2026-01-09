@@ -38,20 +38,17 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             : '';
         snapshot.forEach(doc => {
             const entry = doc.data();
-            // Fix: Use gray color for ±0 points instead of green
             const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
             const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
             const date = entry.timestamp
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
 
-            // Build detailed points breakdown
             const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
             const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
 
             let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
 
-            // Add XP and Elo details if they exist
             const details = [];
             if (xpChange !== 0) {
                 const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
@@ -68,7 +65,6 @@ export function loadPointsHistory(userData, db, unsubscribes) {
                 detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
             }
 
-            // Add partner badge if applicable
             let partnerBadge = '';
             if (entry.isActivePlayer) {
                 partnerBadge =
@@ -124,20 +120,17 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
         historyListEl.innerHTML = '';
         snapshot.forEach(doc => {
             const entry = doc.data();
-            // Fix: Use gray color for ±0 points instead of green
             const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
             const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
             const date = entry.timestamp
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
 
-            // Build detailed points breakdown
             const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
             const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
 
             let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
 
-            // Add XP and Elo details if they exist
             const details = [];
             if (xpChange !== 0) {
                 const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
@@ -154,7 +147,6 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
                 detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
             }
 
-            // Add partner badge if applicable
             let partnerBadge = '';
             if (entry.isActivePlayer) {
                 partnerBadge =
@@ -231,7 +223,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const penaltyReason = document.getElementById('penalty-reason').value;
                 if (!penaltyReason) throw new Error('Bitte einen Grund für die Strafe angeben.');
 
-                // Define penalty amounts according to new system
                 const penalties = {
                     light: { points: -10, xp: -5 },
                     medium: { points: -20, xp: -10 },
@@ -248,7 +239,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const cOption = cSelect.options[cSelect.selectedIndex];
                 if (!cOption || !cOption.value) throw new Error('Bitte eine Challenge auswählen.');
 
-                // Check if challenge has milestones
                 const challengeHasMilestones = cOption.dataset.hasMilestones === 'true';
                 if (challengeHasMilestones) {
                     const milestoneSelect = document.getElementById('milestone-select');
@@ -262,7 +252,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         throw new Error('Bitte einen Meilenstein auswählen.');
                     }
 
-                    // Get cumulative points
                     points = parseInt(selectedMilestone.dataset.cumulativePoints);
                     xpChange = points;
                     const milestoneCount = parseInt(selectedMilestone.dataset.count);
@@ -281,7 +270,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const eOption = eSelect.options[eSelect.selectedIndex];
                 if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
 
-                // Check if exercise has milestones
                 const exerciseHasMilestones = eOption.dataset.hasMilestones === 'true';
                 if (exerciseHasMilestones) {
                     const milestoneSelect = document.getElementById('milestone-select');
@@ -295,7 +283,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         throw new Error('Bitte einen Meilenstein auswählen.');
                     }
 
-                    // Get cumulative points
                     points = parseInt(selectedMilestone.dataset.cumulativePoints);
                     xpChange = points;
                     const milestoneCount = parseInt(selectedMilestone.dataset.count);
@@ -320,7 +307,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 break;
         }
 
-        // Check for partner system
         let partnerId = null;
         let partnerPercentage = 0;
         let hasPartnerSystem = false;
@@ -334,13 +320,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 partnerPercentage = parseInt(selectedOption.dataset.partnerPercentage) || 50;
                 partnerId = document.getElementById('partner-select')?.value;
 
-                // Validate partner selection (only if a partner is selected)
                 if (partnerId && partnerId === playerId) {
                     throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
                 }
             }
         } else if (reasonType === 'manual') {
-            // Check manual partner toggle
             const manualToggle = document.getElementById('manual-partner-toggle');
             hasPartnerSystem = manualToggle?.checked || false;
 
@@ -349,14 +333,12 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     parseInt(document.getElementById('manual-partner-percentage')?.value) || 50;
                 partnerId = document.getElementById('manual-partner-select')?.value;
 
-                // Validate partner selection (only if a partner is selected)
                 if (partnerId && partnerId === playerId) {
                     throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
                 }
             }
         }
 
-        // Validate challenge subgroup membership and repeatable status
         if (challengeId) {
             const playerDocRef = doc(db, 'users', playerId);
             const playerSnap = await getDoc(playerDocRef);
@@ -367,13 +349,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
             const playerData = playerSnap.data();
 
-            // Subgroup validation
             if (challengeSubgroupId && challengeSubgroupId !== 'all') {
                 const playerSubgroups = playerData.subgroupIDs || [];
 
-                // Check if player is in the challenge's subgroup
                 if (!playerSubgroups.includes(challengeSubgroupId)) {
-                    // Load subgroup name for helpful error message
                     const subgroupDocRef = doc(db, 'subgroups', challengeSubgroupId);
                     const subgroupSnap = await getDoc(subgroupDocRef);
 
@@ -390,7 +369,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Check if challenge is repeatable
             const challengeDocRef = doc(db, 'challenges', challengeId);
             const challengeSnap = await getDoc(challengeDocRef);
 
@@ -401,7 +379,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const lastReactivatedAt =
                     challengeData.lastReactivatedAt || challengeData.createdAt;
 
-                // If challenge is NOT repeatable, check if player already completed it
                 if (!isRepeatable) {
                     const completedChallengeRef = doc(
                         db,
@@ -414,7 +391,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         const completedData = completedChallengeSnap.data();
                         const completedAt = completedData.completedAt;
 
-                        // Check if completion was after last reactivation
                         if (
                             completedAt &&
                             lastReactivatedAt &&
@@ -439,7 +415,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let partnerName = ''; // For feedback
 
         await runTransaction(db, async transaction => {
-            // Read player document
             const playerDocRef = doc(db, 'users', playerId);
             const playerDoc = await transaction.get(playerDocRef);
             if (!playerDoc.exists()) throw new Error('Spieler nicht gefunden.');
@@ -448,7 +423,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             let grundlagenCount = playerData.grundlagenCompleted || 0;
             let isGrundlagenExercise = false;
 
-            // Read exercise document if needed
             if (exerciseId) {
                 const exerciseRef = doc(db, 'exercises', exerciseId);
                 const exerciseDoc = await transaction.get(exerciseRef);
@@ -458,14 +432,12 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     isGrundlagenExercise = tags.includes('Grundlage');
                 }
             }
-            // Also check if manual reason contains "Grundlage"
             else if (reasonType === 'manual') {
                 const lowerReason = reason.toLowerCase();
                 isGrundlagenExercise =
                     lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
             }
 
-            // Read partner document if partner system is enabled (MUST READ BEFORE ANY WRITES)
             let partnerDoc = null;
             let partnerDocRef = null;
             let partnerData = null;
@@ -477,7 +449,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Read milestone progress documents (if milestones are being awarded)
             let exerciseMilestoneDoc = null;
             let challengeMilestoneDoc = null;
             const currentSeasonKey = await getCurrentSeasonKey(db);
@@ -509,7 +480,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
 
 
-            // Validate milestone progression (exercise)
             if (exerciseMilestoneDoc && reasonType === 'exercise') {
                 const milestoneSelect = document.getElementById('milestone-select');
                 const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
@@ -520,7 +490,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         const progressData = exerciseMilestoneDoc.data();
                         const lastSeasonKey = progressData.lastSeasonUpdated || '';
 
-                        // If same season, validate that new milestone is higher
                         if (lastSeasonKey === currentSeasonKey) {
                             const currentCount = progressData.currentCount || 0;
                             if (newMilestoneCount <= currentCount) {
@@ -529,13 +498,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                                 );
                             }
                         }
-                        // If different season, milestone resets to 0 automatically (no validation needed)
                     }
-                    // If no previous progress, any milestone is allowed
                 }
             }
 
-            // Validate milestone progression (challenge)
             if (challengeMilestoneDoc && reasonType === 'challenge') {
                 const milestoneSelect = document.getElementById('milestone-select');
                 const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
@@ -546,7 +512,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         const progressData = challengeMilestoneDoc.data();
                         const lastSeasonKey = progressData.lastSeasonUpdated || '';
 
-                        // If same season, validate that new milestone is higher
                         if (lastSeasonKey === currentSeasonKey) {
                             const currentCount = progressData.currentCount || 0;
                             if (newMilestoneCount <= currentCount) {
@@ -555,21 +520,16 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                                 );
                             }
                         }
-                        // If different season, milestone resets to 0 automatically (no validation needed)
                     }
-                    // If no previous progress, any milestone is allowed
                 }
             }
 
-            // Get current values to ensure floors at 0
             const currentPoints = playerData.points || 0;
             const currentXP = playerData.xp || 0;
 
-            // Calculate actual changes (can't go below 0) - assign to outer scope variables
             actualPointsChange = Math.max(-currentPoints, points);
             actualXPChange = Math.max(-currentXP, xpChange);
 
-            // Calculate partner values if applicable
             if (partnerData) {
                 const partnerPoints = Math.round(actualPointsChange * (partnerPercentage / 100));
                 const partnerXP = Math.round(actualXPChange * (partnerPercentage / 100));
@@ -582,19 +542,16 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 partnerName = `${partnerData.firstName} ${partnerData.lastName}`;
             }
 
-            // Prepare update object for player
             const updateData = {
                 points: increment(actualPointsChange),
                 xp: increment(actualXPChange),
                 lastXPUpdate: serverTimestamp(),
             };
 
-            // Track Grundlagen exercises
             if (isGrundlagenExercise && grundlagenCount < 5) {
                 grundlagenCount++;
                 updateData.grundlagenCompleted = grundlagenCount;
 
-                // Set message for feedback
                 const remaining = 5 - grundlagenCount;
                 if (grundlagenCount >= 5) {
                     updateData.isMatchReady = true;
@@ -604,11 +561,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Update player document
             transaction.update(playerDocRef, updateData);
 
-            // Points history (use actual changes)
-            // Note: If partner system is enabled, this will be overwritten with partner info below
             if (!hasPartnerSystem || !partnerId) {
                 const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
                 transaction.set(doc(historyColRef), {
@@ -620,7 +574,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
                 });
 
-                // XP history (only if XP changed)
                 if (actualXPChange !== 0) {
                     const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
                     transaction.set(doc(xpHistoryColRef), {
@@ -632,7 +585,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Mark exercise as completed
             if (exerciseId) {
                 const completedExerciseRef = doc(
                     db,
@@ -645,7 +597,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 });
             }
 
-            // Mark challenge as completed
             if (challengeId) {
                 const completedChallengeRef = doc(
                     db,
@@ -658,7 +609,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 });
             }
 
-            // Update milestone progress for exercises
             if (exerciseId && reasonType === 'exercise') {
                 const eOption =
                     document.getElementById('exercise-select').options[
@@ -689,7 +639,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Update milestone progress for challenges
             if (challengeId && reasonType === 'challenge') {
                 const cOption =
                     document.getElementById('challenge-select').options[
@@ -720,20 +669,16 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // Award points to partner if partner system is enabled
             if (partnerData && partnerDocRef) {
-                // Update partner document
                 transaction.update(partnerDocRef, {
                     points: increment(actualPartnerPointsChange),
                     xp: increment(actualPartnerXPChange),
                     lastXPUpdate: serverTimestamp(),
                 });
 
-                // Get active player name for partner's history
                 const activePlayerName = `${playerData.firstName} ${playerData.lastName}`;
                 const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
 
-                // Partner points history
                 const partnerHistoryColRef = collection(db, `users/${partnerId}/pointsHistory`);
                 transaction.set(doc(partnerHistoryColRef), {
                     points: actualPartnerPointsChange,
@@ -746,7 +691,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     partnerId: playerId,
                 });
 
-                // Partner XP history (only if XP changed)
                 if (actualPartnerXPChange !== 0) {
                     const partnerXpHistoryColRef = collection(db, `users/${partnerId}/xpHistory`);
                     transaction.set(doc(partnerXpHistoryColRef), {
@@ -759,11 +703,9 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     });
                 }
 
-                // Also update active player's history to include partner info
                 const playerHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
                 const activeReason = `💪 ${reason} (Partner: ${partnerName})`;
 
-                // Update the player's history entry with partner info
                 transaction.set(playerHistoryRef, {
                     points: actualPointsChange,
                     xp: actualXPChange,
@@ -777,17 +719,14 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         });
 
-        // Build feedback message
         const sign = actualPointsChange >= 0 ? '+' : '';
         let feedbackText = `Erfolgreich ${sign}${actualPointsChange} Punkte vergeben!`;
 
-        // Add XP info if different from points
         if (actualXPChange !== actualPointsChange) {
             const xpSign = actualXPChange >= 0 ? '+' : '';
             feedbackText += ` (${xpSign}${actualXPChange} XP)`;
         }
 
-        // Add partner info if partner system was used
         if (hasPartnerSystem && partnerId && partnerName) {
             const partnerSign = actualPartnerPointsChange >= 0 ? '+' : '';
             feedbackText += ` | Partner ${partnerName}: ${partnerSign}${actualPartnerPointsChange} Punkte`;
@@ -806,7 +745,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 : 'mt-3 text-sm font-medium text-center text-orange-600';
         e.target.reset();
 
-        // Reset manual partner system
         const manualToggle = document.getElementById('manual-partner-toggle');
         const manualContainer = document.getElementById('manual-partner-container');
         const manualPercentage = document.getElementById('manual-partner-percentage');
@@ -840,16 +778,13 @@ export function handleReasonChange() {
     const exerciseSelect = document.getElementById('exercise-select');
     const penaltyReason = document.getElementById('penalty-reason');
 
-    // Show/hide containers
     if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
     if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
     if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
     if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
 
-    // Hide milestone container when switching reasons
     if (milestoneContainer) milestoneContainer.classList.add('hidden');
 
-    // Dynamically add/remove required attribute based on visibility
     if (challengeSelect) {
         if (value === 'challenge') {
             challengeSelect.setAttribute('required', 'required');
@@ -908,12 +843,10 @@ export function setupMilestoneSelectors(db) {
     }
 
     if (playerSelect) {
-        // Reload milestone progress and partner list when player changes
         playerSelect.addEventListener('change', () => {
             const reasonType = document.getElementById('reason-select').value;
             console.log('Player changed, reason type:', reasonType);
 
-            // Update active player name in partner info
             const activePlayerName = document.getElementById('active-player-name');
             if (activePlayerName) {
                 activePlayerName.textContent = playerSelect.value
@@ -928,7 +861,6 @@ export function setupMilestoneSelectors(db) {
     }
 
     if (partnerSelect) {
-        // Update passive player name when partner changes
         partnerSelect.addEventListener('change', () => {
             const passivePlayerName = document.getElementById('passive-player-name');
             if (passivePlayerName) {
@@ -974,12 +906,10 @@ async function handleExerciseChallengeChange(db, type) {
         milestonesData: selectedOption?.dataset.milestones,
     });
 
-    // Handle milestones
     if (!hasMilestones || !selectedOption.value) {
         console.log('❌ No milestones or no value, hiding milestone container');
         milestoneContainer.classList.add('hidden');
 
-        // Show completion status for exercises/challenges without milestones
         if (selectedOption.value) {
             await showCompletionStatus(db, type, selectedOption.value, playerSelect?.value);
         } else {
@@ -987,22 +917,17 @@ async function handleExerciseChallengeChange(db, type) {
         }
     } else {
         console.log('✅ Has milestones, showing container');
-        // Hide completion status when milestones are shown
         hideCompletionStatus();
 
-        // Show milestone container
         milestoneContainer.classList.remove('hidden');
 
-        // Parse milestones
         const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
         const itemId = selectedOption.value;
 
         console.log('Milestones:', milestones);
 
-        // Get player ID (may be null)
         const playerId = playerSelect?.value;
 
-        // Get player's current progress (only if player is selected)
         let playerProgress = { currentCount: 0 };
         if (playerId) {
             const collectionName =
@@ -1013,10 +938,8 @@ async function handleExerciseChallengeChange(db, type) {
             console.log('⚠️ No player selected yet, showing milestones without progress');
         }
 
-        // Populate milestone dropdown
         milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
 
-        // Check if progress is from current season
         const currentSeasonKey = await getCurrentSeasonKey(db);
         const progressSeasonKey = playerProgress.lastSeasonUpdated || '';
         const isCurrentSeason = progressSeasonKey === currentSeasonKey;
@@ -1032,7 +955,6 @@ async function handleExerciseChallengeChange(db, type) {
             option.dataset.points = milestone.points;
             option.dataset.isCompleted = isCompleted;
 
-            // Calculate cumulative points up to this milestone
             let cumulativePoints = 0;
             for (let i = 0; i <= index; i++) {
                 cumulativePoints += milestones[i].points;
@@ -1042,11 +964,9 @@ async function handleExerciseChallengeChange(db, type) {
             milestoneSelect.appendChild(option);
         });
 
-        // Update progress display
         await updateMilestoneProgressDisplay(playerProgress, milestones, db);
     }
 
-    // Handle partner system
     const partnerContainer = document.getElementById('partner-select-container');
     if (!partnerContainer) return;
 
@@ -1060,16 +980,13 @@ async function handleExerciseChallengeChange(db, type) {
     }
 
     console.log('✅ Has partner system, showing container');
-    // Show partner container
     partnerContainer.classList.remove('hidden');
 
-    // Update percentage display
     const percentageDisplay = document.getElementById('partner-percentage');
     if (percentageDisplay) {
         percentageDisplay.textContent = partnerPercentage;
     }
 
-    // Update active player name
     const playerId = playerSelect?.value;
     const activePlayerName = document.getElementById('active-player-name');
     if (activePlayerName) {
@@ -1079,7 +996,6 @@ async function handleExerciseChallengeChange(db, type) {
         activePlayerName.textContent = activePlayerText;
     }
 
-    // Populate partner dropdown with all players except the active player
     await populatePartnerDropdown(db, playerId);
 }
 
@@ -1123,14 +1039,12 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
         const currentSeasonKey = await getCurrentSeasonKey(db);
         const progressSeasonKey = progress.lastSeasonUpdated || '';
 
-        // Check if progress is from current season
         const isCurrentSeason = progressSeasonKey === currentSeasonKey;
         const currentCount = isCurrentSeason ? progress.currentCount || 0 : 0;
 
         const nextMilestone = milestones.find(m => m.count > currentCount);
 
         if (!isCurrentSeason && progress.currentCount > 0) {
-            // Progress from old season
             progressText.textContent = `Fortschritt: 0×`;
         } else if (nextMilestone) {
             progressText.textContent = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)`;
@@ -1141,7 +1055,6 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
         }
     }
 
-    // Update milestone select change event to show points
     const milestoneSelect = document.getElementById('milestone-select');
     if (milestoneSelect) {
         milestoneSelect.addEventListener('change', () => {
@@ -1165,7 +1078,6 @@ async function populatePartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('partner-select');
     if (!partnerSelect) return;
 
-    // Clear existing options except the first one
     partnerSelect.innerHTML =
         '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
 
@@ -1175,7 +1087,6 @@ async function populatePartnerDropdown(db, activePlayerId) {
     }
 
     try {
-        // Get active player's club
         const activePlayerDoc = await getDoc(doc(db, 'users', activePlayerId));
         if (!activePlayerDoc.exists()) {
             console.error('Active player document not found');
@@ -1184,7 +1095,6 @@ async function populatePartnerDropdown(db, activePlayerId) {
 
         const clubId = activePlayerDoc.data().clubId;
 
-        // Query all players from the same club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
@@ -1194,7 +1104,6 @@ async function populatePartnerDropdown(db, activePlayerId) {
         const playersSnapshot = await getDocs(playersQuery);
 
         playersSnapshot.forEach(doc => {
-            // Exclude the active player
             if (doc.id === activePlayerId) return;
 
             const player = doc.data();
@@ -1219,7 +1128,6 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('manual-partner-select');
     if (!partnerSelect) return;
 
-    // Clear existing options except the first one
     partnerSelect.innerHTML =
         '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
 
@@ -1229,7 +1137,6 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
     }
 
     try {
-        // Get active player's club
         const activePlayerDoc = await getDoc(doc(db, 'users', activePlayerId));
         if (!activePlayerDoc.exists()) {
             console.error('Active player document not found');
@@ -1238,7 +1145,6 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
 
         const clubId = activePlayerDoc.data().clubId;
 
-        // Query all players from the same club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
@@ -1248,7 +1154,6 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
         const playersSnapshot = await getDocs(playersQuery);
 
         playersSnapshot.forEach(doc => {
-            // Exclude the active player
             if (doc.id === activePlayerId) return;
 
             const player = doc.data();
@@ -1277,11 +1182,9 @@ export function setupManualPartnerSystem(db) {
 
     if (!toggle || !container) return;
 
-    // Toggle visibility
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
-            // Populate dropdown when enabled
             const playerId = playerSelect?.value;
             if (playerId) {
                 populateManualPartnerDropdown(db, playerId);
@@ -1291,7 +1194,6 @@ export function setupManualPartnerSystem(db) {
         }
     });
 
-    // Repopulate manual partner dropdown when player changes
     if (playerSelect) {
         playerSelect.addEventListener('change', () => {
             if (toggle.checked) {
@@ -1314,14 +1216,12 @@ async function showCompletionStatus(db, type, itemId, playerId) {
 
     if (!container || !statusText) return;
 
-    // If no player selected, hide container
     if (!playerId) {
         container.classList.add('hidden');
         return;
     }
 
     try {
-        // Get completion status
         const collectionName = type === 'exercise' ? 'completedExercises' : 'completedChallenges';
         const completionRef = doc(db, `users/${playerId}/${collectionName}`, itemId);
         const completionDoc = await getDoc(completionRef);
@@ -1334,7 +1234,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
             const isCurrentSeason = completedSeasonKey === currentSeasonKey;
 
             if (isCurrentSeason) {
-                // Completed in current season
                 const completedDate =
                     data.completedAt?.toDate().toLocaleDateString('de-DE') || '(unbekannt)';
                 statusText.innerHTML = `
@@ -1346,7 +1245,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
                     </div>
                 `;
             } else {
-                // Completed in old season - now available again
                 statusText.innerHTML = `
                     <div class="flex items-start gap-2">
                         <span class="text-xl">🆕</span>
@@ -1357,7 +1255,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
                 `;
             }
         } else {
-            // Not completed yet
             statusText.innerHTML = `
                 <div class="flex items-start gap-2">
                     <span class="text-xl">⭕</span>

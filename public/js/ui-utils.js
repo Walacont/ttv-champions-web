@@ -5,7 +5,6 @@
 
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-// Module-level cache for season end date
 let cachedSeasonEnd = null;
 let lastFetchTime = null;
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
@@ -17,7 +16,6 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
  */
 async function fetchSeasonEndDate(db) {
     try {
-        // Check cache first
         if (cachedSeasonEnd && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
             return cachedSeasonEnd;
         }
@@ -31,7 +29,6 @@ async function fetchSeasonEndDate(db) {
             const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
             const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
 
-            // Cache the result
             cachedSeasonEnd = seasonEnd;
             lastFetchTime = Date.now();
 
@@ -41,7 +38,6 @@ async function fetchSeasonEndDate(db) {
             );
             return seasonEnd;
         } else {
-            // Fallback: If no config exists, calculate from today + 6 weeks
             console.warn('⚠️ No season reset config found, using fallback calculation');
             const now = new Date();
             const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
@@ -55,7 +51,6 @@ async function fetchSeasonEndDate(db) {
     } catch (error) {
         console.error('Error fetching season end date:', error);
 
-        // Fallback calculation
         const now = new Date();
         const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
         return new Date(now.getTime() + sixWeeksInMs);
@@ -71,11 +66,9 @@ export function setupTabs(defaultTab = 'overview') {
     const tabContents = document.querySelectorAll('.tab-content');
     const defaultButton = document.querySelector(`.tab-button[data-tab="${defaultTab}"]`);
 
-    // First, hide all tabs and remove all active states
     tabButtons.forEach(btn => btn.classList.remove('tab-active'));
     tabContents.forEach(content => content.classList.add('hidden'));
 
-    // Then show only the default tab
     if (defaultButton) {
         defaultButton.classList.add('tab-active');
         const defaultContent = document.getElementById(`tab-content-${defaultTab}`);
@@ -176,10 +169,8 @@ export async function getCurrentSeasonKey(db) {
             const data = configDoc.data();
             const lastResetDate = data.lastResetDate.toDate();
 
-            // Season key is based on the month/year when the season started (lastResetDate)
             return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
         } else {
-            // Fallback: Use current month/year
             const now = new Date();
             return `${now.getMonth() + 1}-${now.getFullYear()}`;
         }

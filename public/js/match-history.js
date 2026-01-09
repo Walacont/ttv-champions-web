@@ -31,7 +31,6 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
         return;
     }
 
-    // Clean up existing listener if any
     if (matchHistoryUnsubscribe) {
         matchHistoryUnsubscribe();
     }
@@ -39,7 +38,6 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
     container.innerHTML =
         '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
-    // Query SINGLES matches for this club
     const singlesMatchesRef = collection(db, 'matches');
     const singlesQuery = query(
         singlesMatchesRef,
@@ -48,7 +46,6 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
         limit(100)
     );
 
-    // Query DOUBLES matches for this club
     const doublesMatchesRef = collection(db, 'doublesMatches');
     const doublesQuery = query(
         doublesMatchesRef,
@@ -57,19 +54,15 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
         limit(100)
     );
 
-    // Set up real-time listeners for BOTH singles and doubles
     const unsubscribeSingles = onSnapshot(
         singlesQuery,
         async singlesSnapshot => {
-            // Wait for doubles snapshot as well
             const unsubscribeDoubles = onSnapshot(
                 doublesQuery,
                 async doublesSnapshot => {
-                    // Combine and filter singles matches
                     const singlesMatches = singlesSnapshot.docs
                         .map(doc => ({ id: doc.id, type: 'singles', ...doc.data() }))
                         .filter(match => {
-                            // Check if user is involved in this singles match
                             return (
                                 match.playerAId === userData.id ||
                                 match.playerBId === userData.id ||
@@ -79,11 +72,9 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
                             );
                         });
 
-                    // Filter doubles matches where user is involved
                     const doublesMatches = doublesSnapshot.docs
                         .map(doc => ({ id: doc.id, type: 'doubles', ...doc.data() }))
                         .filter(match => {
-                            // Check if user is in any team
                             return (
                                 match.teamA?.player1Id === userData.id ||
                                 match.teamA?.player2Id === userData.id ||
@@ -92,18 +83,15 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
                             );
                         });
 
-                    // Filter matches based on matchType parameter
                     let filteredMatches = [];
                     if (matchType === 'singles') {
                         filteredMatches = singlesMatches;
                     } else if (matchType === 'doubles') {
                         filteredMatches = doublesMatches;
                     } else {
-                        // 'all' - combine both
                         filteredMatches = [...singlesMatches, ...doublesMatches];
                     }
 
-                    // Limit to 50 matches
                     const allMatches = filteredMatches.slice(0, 50);
 
                     if (allMatches.length === 0) {
@@ -117,19 +105,16 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
                         return;
                     }
 
-                    // Sort by timestamp descending
                     allMatches.sort((a, b) => {
                         const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
                         const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
                         return timeB - timeA;
                     });
 
-                    // Get player names and ELO changes for all matches
                     const matchesWithDetails = await Promise.all(
                         allMatches.map(match => enrichMatchData(db, match, userData))
                     );
 
-                    // Render matches with toggle button
                     renderMatchesWithToggle(container, matchesWithDetails, userData);
                 },
                 error => {
@@ -138,7 +123,6 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
                 }
             );
 
-            // Store the doubles unsubscribe function
             matchHistoryUnsubscribe = unsubscribeDoubles;
         },
         error => {
@@ -147,7 +131,6 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
         }
     );
 
-    // Return cleanup function that unsubscribes from both listeners
     return () => {
         if (matchHistoryUnsubscribe) {
             matchHistoryUnsubscribe();
@@ -167,19 +150,15 @@ async function enrichMatchData(db, match, userData) {
     const enriched = { ...match };
 
     try {
-        // Handle DOUBLES matches differently
         if (match.type === 'doubles') {
-            // Determine user's team and opponent team
             const isTeamA =
                 match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
             const userTeam = isTeamA ? match.teamA : match.teamB;
             const opponentTeam = isTeamA ? match.teamB : match.teamA;
 
-            // Get partner ID (the other player on user's team)
             const partnerId =
                 userTeam.player1Id === userData.id ? userTeam.player2Id : userTeam.player1Id;
 
-            // Fetch all player names
             try {
                 const [partnerDoc, opp1Doc, opp2Doc] = await Promise.all([
                     getDoc(doc(db, 'users', partnerId)),
@@ -200,7 +179,6 @@ async function enrichMatchData(db, match, userData) {
                 enriched.partnerName = partnerName;
                 enriched.opponentName = `${opp1Name} & ${opp2Name}`;
             } catch (error) {
-                // Only log non-permission errors (permission-denied is expected for offline players)
                 if (error.code !== 'permission-denied') {
                     console.warn('Could not fetch doubles player data:', error);
                 }
@@ -208,15 +186,11 @@ async function enrichMatchData(db, match, userData) {
                 enriched.opponentName = 'Gegner-Team';
             }
 
-            // Determine if user's team won
             enriched.isWinner =
                 (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
         } else {
-            // Handle SINGLES matches
-            // Determine opponent ID
             const opponentId = match.winnerId === userData.id ? match.loserId : match.winnerId;
 
-            // Check if opponentId is valid before attempting to fetch
             if (
                 !opponentId ||
                 opponentId === '' ||
@@ -229,7 +203,6 @@ async function enrichMatchData(db, match, userData) {
                 return enriched;
             }
 
-            // Get opponent data
             try {
                 const opponentDoc = await getDoc(doc(db, 'users', opponentId));
                 if (opponentDoc.exists()) {
@@ -241,8 +214,6 @@ async function enrichMatchData(db, match, userData) {
                     enriched.opponentName = 'Unbekannt';
                 }
             } catch (opponentError) {
-                // Failed to fetch opponent (probably from different club or deleted)
-                // Only log if it's not a permission-denied error (which is expected for cross-club matches)
                 if (opponentError.code !== 'permission-denied') {
                     console.warn(
                         'Could not fetch opponent data:',
@@ -255,7 +226,6 @@ async function enrichMatchData(db, match, userData) {
             enriched.isWinner = match.winnerId === userData.id;
         }
 
-        // Get ELO change from pointsHistory
         let eloChange = null;
         let pointsGained = null;
 
@@ -269,8 +239,6 @@ async function enrichMatchData(db, match, userData) {
 
             const historySnapshot = await getDocs(historyQuery);
 
-            // Find the history entry that corresponds to this match
-            // Match by timestamp proximity (within 30 seconds) and check reason
             const matchTime = match.timestamp?.toMillis() || match.playedAt?.toMillis() || 0;
 
             const opponentName = enriched.opponentName;
@@ -279,16 +247,13 @@ async function enrichMatchData(db, match, userData) {
                 const historyData = historyDoc.data();
                 const historyTime = historyData.timestamp?.toMillis() || 0;
 
-                // Check if this history entry is from a match
                 const isMatchHistory =
                     historyData.awardedBy === 'System (Wettkampf)' ||
                     (historyData.reason &&
                         (historyData.reason.includes('Sieg im') ||
                             historyData.reason.includes('Niederlage im')));
 
-                // If timestamps are within 30 seconds and it's a match history, consider it a match
                 if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
-                    // Additionally check if opponent name matches (if available)
                     if (
                         historyData.reason &&
                         historyData.reason.includes(opponentName.split(' ')[0])
@@ -297,7 +262,6 @@ async function enrichMatchData(db, match, userData) {
                         pointsGained = historyData.points || 0;
                         break;
                     } else if (Math.abs(historyTime - matchTime) < 10000) {
-                        // If very close in time (within 10s), use it even without name match
                         eloChange = historyData.eloChange || 0;
                         pointsGained = historyData.points || 0;
                         break;
@@ -308,10 +272,8 @@ async function enrichMatchData(db, match, userData) {
             console.warn('Could not fetch points history:', historyError);
         }
 
-        // If we couldn't find it in history, estimate from match data
         if (eloChange === null) {
             if (match.pointsExchanged !== undefined) {
-                // Estimate based on whether user won or lost
                 if (match.winnerId === userData.id) {
                     eloChange = match.handicapUsed ? 8 : Math.round(match.pointsExchanged / 0.2);
                     pointsGained = match.pointsExchanged;
@@ -320,7 +282,6 @@ async function enrichMatchData(db, match, userData) {
                     pointsGained = 0;
                 }
             } else {
-                // Fallback: use standard handicap values if match type is known
                 eloChange = match.handicapUsed ? (match.winnerId === userData.id ? 8 : -8) : null;
             }
         }
@@ -349,7 +310,6 @@ function renderMatchesWithToggle(container, allMatches, userData) {
         const matchesToShow = showingAll ? allMatches : allMatches.slice(0, 4);
         renderMatchHistory(container, matchesToShow, userData);
 
-        // Add toggle button if there are more than 4 matches
         if (allMatches.length > 4) {
             const toggleContainer = document.createElement('div');
             toggleContainer.className = 'text-center mt-4';
@@ -403,19 +363,15 @@ function renderMatchHistory(container, matches, userData) {
         const formattedTime = formatMatchTime(matchTime);
         const formattedDate = formatMatchDate(matchTime);
 
-        // Format sets
         let isPlayerA;
         if (isDoubles) {
-            // For doubles, check if user is in teamA
             isPlayerA =
                 match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
         } else {
-            // For singles, check if user is playerA
             isPlayerA = match.playerAId === userData.id;
         }
         const setsDisplay = formatSets(match.sets, isPlayerA);
 
-        // ELO change display
         const eloChangeDisplay =
             match.eloChange !== null
                 ? `${match.eloChange > 0 ? '+' : match.eloChange < 0 ? '' : '±'}${match.eloChange} ELO`
@@ -502,14 +458,11 @@ function formatSets(sets, isPlayerA) {
 
     return sets
         .map(set => {
-            // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
             if (set.teamA !== undefined && set.teamB !== undefined) {
-                // Doubles match
                 const myScore = isPlayerA ? set.teamA : set.teamB;
                 const oppScore = isPlayerA ? set.teamB : set.teamA;
                 return `${myScore}:${oppScore}`;
             } else {
-                // Singles match
                 const myScore = isPlayerA ? set.playerA : set.playerB;
                 const oppScore = isPlayerA ? set.playerB : set.playerA;
                 return `${myScore}:${oppScore}`;
@@ -539,7 +492,6 @@ function formatMatchDate(date) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time parts for comparison
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(

@@ -38,7 +38,6 @@ export function initPlayerInvitationManagement(
     coachId
 ) {
     db = firestore;
-    // auth and functions no longer needed (email invitations removed)
     currentClubId = clubId;
     currentCoachId = coachId;
 
@@ -49,18 +48,15 @@ export function initPlayerInvitationManagement(
  * Setzt alle Event Listeners auf
  */
 function setupEventListeners() {
-    // Offline Player Modal: Invitation Type Radio Buttons
     const invitationTypeRadios = document.querySelectorAll('input[name="invitation-type"]');
     invitationTypeRadios.forEach(radio => {
         radio.addEventListener('change', handleInvitationTypeChange);
     });
 
-    // Close after code generated
     document
         .getElementById('close-after-code-button')
         ?.addEventListener('click', closeOfflinePlayerModal);
 
-    // Send Invitation Modal
     const sendInvitationTypeRadios = document.querySelectorAll(
         'input[name="send-invitation-type"]'
     );
@@ -84,7 +80,6 @@ function setupEventListeners() {
         .getElementById('close-send-invitation-after-code-button')
         ?.addEventListener('click', closeSendInvitationModal);
 
-    // Code buttons for offline player modal
     document
         .getElementById('copy-code-button')
         ?.addEventListener('click', () => copyInvitationCode('offline'));
@@ -98,8 +93,6 @@ function setupEventListeners() {
  * (Email option removed - only 'none' and 'code' are available)
  */
 function handleInvitationTypeChange(e) {
-    // No email container anymore - function kept for compatibility
-    // Only 'none' and 'code' options exist
 }
 
 /**
@@ -107,8 +100,6 @@ function handleInvitationTypeChange(e) {
  * (Email option removed - only 'code' is available)
  */
 function handleSendInvitationTypeChange(e) {
-    // No email container anymore - function kept for compatibility
-    // Only 'code' option exists
 }
 
 /**
@@ -119,19 +110,16 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
     const invitationType = document.querySelector('input[name="invitation-type"]:checked').value;
 
     if (invitationType === 'none') {
-        // No invitation needed, just close modal
         closeOfflinePlayerModal();
         return { success: true, type: 'none' };
     }
 
     if (invitationType === 'code') {
         try {
-            // Generate code WITH playerId to enable migration
             const code = await generateCodeForPlayer(playerData, playerId);
             lastGeneratedCode = code;
             lastGeneratedFirstName = playerData.firstName;
 
-            // Show code display, hide form
             document.getElementById('add-offline-player-form').classList.add('hidden');
             document.getElementById('generated-code-display').classList.remove('hidden');
             document.getElementById('generated-code-text').textContent = code;
@@ -151,14 +139,12 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
  * @param {string} [playerId] - Optional: ID of existing offline player to link
  */
 async function generateCodeForPlayer(playerData, playerId = null) {
-    // First, invalidate any old unused codes for the same player
     await invalidateOldCodesForPlayer(playerId, playerData);
 
     let code = generateInvitationCode();
     let isUnique = false;
     let attempts = 0;
 
-    // Ensure code is unique
     while (!isUnique && attempts < 10) {
         const existingCode = await checkCodeExists(code);
         if (!existingCode) {
@@ -173,7 +159,6 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         throw new Error('Konnte keinen eindeutigen Code generieren.');
     }
 
-    // Save code to Firestore
     const expiresAt = getExpirationDate();
     const codeData = {
         code,
@@ -191,7 +176,6 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         role: playerData.role || 'player',
     };
 
-    // IMPORTANT: Store playerId if this is for an existing offline player
     if (playerId) {
         codeData.playerId = playerId;
     }
@@ -218,14 +202,12 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
     let q;
 
     if (playerId) {
-        // Find codes by playerId (for existing offline players)
         q = query(
             firestoreCollection(db, 'invitationCodes'),
             where('playerId', '==', playerId),
             where('used', '==', false)
         );
     } else {
-        // Find codes by firstName + lastName + clubId (for new players)
         q = query(
             firestoreCollection(db, 'invitationCodes'),
             where('firstName', '==', playerData.firstName),
@@ -243,7 +225,6 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
                 `🔍 Gefunden: ${snapshot.size} Code(s) für ${playerData.firstName} ${playerData.lastName}`
             );
 
-            // Filter out already superseded codes
             const codesToInvalidate = snapshot.docs.filter(doc => !doc.data().superseded);
 
             if (codesToInvalidate.length === 0) {
@@ -275,7 +256,6 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             lastName: playerData.lastName,
         });
 
-        // Check if it's a missing index error
         if (error.message && error.message.includes('index')) {
             console.error(
                 '⚠️ Firestore Index fehlt! Bitte erstelle den Index über die Firebase Console.'
@@ -283,7 +263,6 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             console.error('Index-Link könnte in der Fehlermeldung sein:', error.message);
         }
 
-        // Don't throw - we still want to create the new code even if invalidation fails
     }
 }
 
@@ -307,7 +286,6 @@ function closeOfflinePlayerModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 
-    // Reset form
     document.getElementById('add-offline-player-form').reset();
     document.getElementById('add-offline-player-form').classList.remove('hidden');
     document.getElementById('generated-code-display').classList.add('hidden');
@@ -328,7 +306,6 @@ export function openSendInvitationModal(playerId, playerName, playerEmail = '') 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // Reset form
     document.getElementById('send-invitation-form').reset();
     document.getElementById('send-invitation-form').classList.remove('hidden');
     document.getElementById('send-invitation-code-display').classList.add('hidden');
@@ -359,9 +336,7 @@ async function handleSendInvitation(e) {
         return;
     }
 
-    // Only code option available now
     try {
-        // Get player data
         const playerDoc = await import(
             'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
         ).then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
@@ -372,13 +347,11 @@ async function handleSendInvitation(e) {
 
         const playerData = playerDoc.data();
 
-        // IMPORTANT: Pass playerId to link code with existing offline player
         const code = await generateCodeForPlayer(playerData, currentPlayerId);
 
         lastGeneratedCode = code;
         lastGeneratedFirstName = playerData.firstName;
 
-        // Show code display
         document.getElementById('send-invitation-form').classList.add('hidden');
         document.getElementById('send-invitation-code-display').classList.remove('hidden');
         document.getElementById('send-invitation-code-text').textContent = code;

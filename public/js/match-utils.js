@@ -1,4 +1,3 @@
-// Match-Utilities für Satz-Formatierung und Sieger-Bestimmung
 
 export function formatMatchSets(sets, options = {}) {
     const {

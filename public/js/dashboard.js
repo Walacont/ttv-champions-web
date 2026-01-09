@@ -52,7 +52,6 @@ import {
 import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
-// Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
 import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
 import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
@@ -68,19 +67,17 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const analytics = getAnalytics(app);
 
-// --- State ---
 let currentUserData = null;
-let clubPlayers = []; // Store club players for match request form
+let clubPlayers = [];
 let unsubscribes = [];
 let currentDisplayDate = new Date();
-let currentSubgroupFilter = 'club'; // Default: show club view
-let matchSuggestionsUnsubscribes = []; // Array to store match suggestions listeners
-let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
-let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
-let subgroupFilterListener = null; // Listener for subgroup filter dropdown
-let streaksListener = null; // Listener for player streaks (real-time updates)
+let currentSubgroupFilter = 'club';
+let matchSuggestionsUnsubscribes = [];
+let rivalListener = null;
+let calendarListener = null;
+let subgroupFilterListener = null;
+let streaksListener = null;
 
-// --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     onAuthStateChanged(auth, async user => {
         if (user) {
@@ -98,9 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     signOut(auth);
                     return;
                 }
-
-                // Season resets are now handled by Cloud Function (every 6 weeks)
-                // No frontend reset logic needed anymore
 
                 const userListener = onSnapshot(userDocRef, docSnap => {
                     if (docSnap.exists()) {
@@ -127,17 +121,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 signOut(auth);
             }
         } else {
-            // User logged out - use replace() to prevent back-button access
             window.location.replace('/index.html');
         }
     });
 });
 
-/**
- * Check and start player tutorial if not completed
- */
 async function checkAndStartTutorial(userData) {
-    // Check sessionStorage flag first (from settings page restart)
     const startTutorialFlag = sessionStorage.getItem('startTutorial');
     if (startTutorialFlag === 'player') {
         sessionStorage.removeItem('startTutorial');
@@ -145,11 +134,9 @@ async function checkAndStartTutorial(userData) {
         return;
     }
 
-    // Check if tutorial was already completed
     const tutorialCompleted = userData.tutorialCompleted?.player || false;
 
     if (!tutorialCompleted) {
-        // Start tutorial after a short delay to let page fully load
         setTimeout(() => {
             const tutorial = new TutorialManager(playerTutorialSteps, {
                 tutorialKey: 'player',
@@ -161,9 +148,6 @@ async function checkAndStartTutorial(userData) {
     }
 }
 
-/**
- * Global function to start player tutorial (callable from settings)
- */
 window.startPlayerTutorial = function () {
     const tutorial = new TutorialManager(playerTutorialSteps, {
         tutorialKey: 'player',
@@ -181,28 +165,18 @@ async function initializeDashboard(userData) {
 
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
 
-    // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
-        showToggle: false, // No toggle needed, global filter controls everything
+        showToggle: false,
     });
 
-    // Populate subgroup options in global filter dropdown
     await populatePlayerSubgroupFilter(userData, db);
-
-    // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
     loadOverviewData(userData, db, unsubscribes, null, loadChallenges, loadPointsHistory);
-
-    // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(db, userData.id);
-
-    // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
-    // Load profile data and setup calendar with real-time listener
     streaksListener = loadProfileData(
         userData,
         date => {
-            // Unsubscribe old calendar listener if exists
             if (calendarListener && typeof calendarListener === 'function') {
                 try {
                     calendarListener();
@@ -210,7 +184,6 @@ async function initializeDashboard(userData) {
                     console.error('Error unsubscribing calendar listener:', e);
                 }
             }
-            // Setup new calendar listener
             calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
         },
         currentDisplayDate,
@@ -220,7 +193,6 @@ async function initializeDashboard(userData) {
     setExerciseContext(db, userData.id, userData.role);
     loadExercises(db, unsubscribes);
 
-    // Set leaderboard filter to 'all' for initial load (club view)
     import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
         setLeaderboardSubgroupFilter('all');
     });
@@ -228,46 +200,36 @@ async function initializeDashboard(userData) {
     loadGlobalLeaderboard(userData, db, unsubscribes);
     loadTodaysMatches(userData, db, unsubscribes);
 
-    // Load season statistics
     loadTopXPPlayers(userData.clubId, db);
     loadTopWinsPlayers(userData.clubId, db);
 
-    // Load club players for match requests
     await loadClubPlayers(userData, db);
 
-    // Initialize match request functionality
     initializeMatchRequestForm(userData, db, clubPlayers);
 
-    // Initialize doubles match UI
     initializeDoublesPlayerUI();
     populateDoublesPlayerDropdowns(clubPlayers, userData.id);
 
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
 
-    // Load match history (competition results) - initially show singles
     loadMatchHistory(db, userData, 'singles');
 
-    // Create a global function to reload match history with different filter
     window.reloadMatchHistory = matchType => {
         loadMatchHistory(db, userData, matchType);
     };
 
-    // Initialize match suggestions (Gegnervorschläge)
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 
-    // Start season countdown timer
     updateSeasonCountdown('season-countdown', true, db);
     setInterval(() => updateSeasonCountdown('season-countdown', true, db), 1000);
 
     logoutButton.addEventListener('click', async () => {
         try {
             await signOut(auth);
-            // Clear SPA cache to prevent back-button access to authenticated pages
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
             }
-            // Use replace() instead of href to clear history and prevent back navigation
             window.location.replace('/index.html');
         } catch (error) {
             console.error('Logout error:', error);
@@ -276,11 +238,9 @@ async function initializeDashboard(userData) {
     setupTabs('overview'); // 'overview' is default tab for dashboard
     setupLeaderboardTabs(); // Setup 3-tab navigation
 
-    // Initialize leaderboard preferences
     initializeLeaderboardPreferences(userData, db);
     applyPreferences();
 
-    // Setup global subgroup filter change handler
     const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
     if (subgroupFilterDropdown) {
         subgroupFilterDropdown.addEventListener('change', () => {
@@ -288,14 +248,12 @@ async function initializeDashboard(userData) {
         });
     }
 
-    // Event Listeners for Modals
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
     document.getElementById('close-exercise-modal').addEventListener('click', closeExerciseModal);
     document.getElementById('exercise-modal').addEventListener('click', e => {
         if (e.target === document.getElementById('exercise-modal')) closeExerciseModal();
     });
 
-    // Toggle abbreviations in exercise modal
     const toggleAbbreviations = document.getElementById('toggle-abbreviations');
     const abbreviationsContent = document.getElementById('abbreviations-content');
     const abbreviationsIcon = document.getElementById('abbreviations-icon');
@@ -328,7 +286,6 @@ async function initializeDashboard(userData) {
             document.getElementById('challenge-modal').classList.add('hidden')
         );
 
-    // Toggle match suggestions
     document.getElementById('toggle-match-suggestions').addEventListener('click', () => {
         const content = document.getElementById('match-suggestions-content');
         const chevron = document.getElementById('suggestions-chevron');
@@ -343,7 +300,6 @@ async function initializeDashboard(userData) {
         }
     });
 
-    // Toggle leaderboard preferences
     const togglePreferencesBtn = document.getElementById('toggle-leaderboard-preferences');
     if (togglePreferencesBtn) {
         togglePreferencesBtn.addEventListener('click', () => {
@@ -361,10 +317,8 @@ async function initializeDashboard(userData) {
         });
     }
 
-    // Calendar listeners with proper listener management
     document.getElementById('prev-month').addEventListener('click', () => {
         currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-        // Unsubscribe old listener
         if (calendarListener && typeof calendarListener === 'function') {
             try {
                 calendarListener();
@@ -372,7 +326,6 @@ async function initializeDashboard(userData) {
                 console.error('Error unsubscribing calendar listener:', e);
             }
         }
-        // Setup new listener
         calendarListener = renderCalendar(
             currentDisplayDate,
             currentUserData,
@@ -382,7 +335,6 @@ async function initializeDashboard(userData) {
     });
     document.getElementById('next-month').addEventListener('click', () => {
         currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-        // Unsubscribe old listener
         if (calendarListener && typeof calendarListener === 'function') {
             try {
                 calendarListener();
@@ -390,7 +342,6 @@ async function initializeDashboard(userData) {
                 console.error('Error unsubscribing calendar listener:', e);
             }
         }
-        // Setup new listener
         calendarListener = renderCalendar(
             currentDisplayDate,
             currentUserData,
@@ -399,7 +350,6 @@ async function initializeDashboard(userData) {
         );
     });
 
-    // Track page view in Google Analytics
     logEvent(analytics, 'page_view', {
         page_title: 'Player Dashboard',
         page_location: window.location.href,
@@ -412,7 +362,6 @@ async function initializeDashboard(userData) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
 
-    // Check and start tutorial if needed
     checkAndStartTutorial(userData);
 }
 
@@ -421,41 +370,23 @@ function updateDashboard(userData) {
     const playerXpEl = document.getElementById('player-xp');
     const playerEloEl = document.getElementById('player-elo');
 
-    // Diese Elemente werden direkt aus dem userData-Objekt aktualisiert
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
-    // Note: Streak is now loaded via real-time listener in loadProfileData()
-    // and displays all subgroup streaks instead of a single global streak
 
     updateRankDisplay(userData); // Aktualisiert die Rang-Karte
     updateGrundlagenDisplay(userData); // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
 
-    // Update subgroup filter dropdown when user's subgroups change
     populatePlayerSubgroupFilter(userData, db);
 
-    // *** KORREKTUR: ***
-    // Die folgenden Zeilen wurden entfernt.
-    // Sie sind nicht nötig, da 'initializeDashboard' bereits 'onSnapshot'-Listener
-    // (Echtzeit-Updates) für Rivalen und Ranglisten eingerichtet hat.
-    // Ein erneuter Aufruf hier würde unnötig neue Listener erstellen (Memory Leak).
 
-    // loadRivalData(userData, db); <-- ENTFERNT
-    // loadLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
-    // loadGlobalLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
 }
 
-// --- Navigation ---
-// setupTabs now in ui-utils.js
 
-// --- Season reset & countdown now in season.js and ui-utils.js ---
 
-// --- Profile, Overview, Calendar, Challenges now in separate modules ---
 
-// --- Übungs-Tab Funktionen ---
 
-// --- Player Global Subgroup Filter Functions ---
 
 /**
  * Populates the global player subgroup filter with user's subgroups using real-time listener
@@ -468,10 +399,8 @@ function populatePlayerSubgroupFilter(userData, db) {
 
     const subgroupIDs = userData.subgroupIDs || [];
 
-    // Save current selection
     const currentSelection = dropdown.value;
 
-    // Unsubscribe old listener if exists
     if (subgroupFilterListener && typeof subgroupFilterListener === 'function') {
         try {
             subgroupFilterListener();
@@ -481,7 +410,6 @@ function populatePlayerSubgroupFilter(userData, db) {
     }
 
     if (subgroupIDs.length === 0) {
-        // User not in any subgroups, keep just club and global
         const clubOption =
             dropdown.querySelector('option[value="club"]') ||
             createOption('club', '🏠 Mein Verein');
@@ -495,7 +423,6 @@ function populatePlayerSubgroupFilter(userData, db) {
     }
 
     try {
-        // Setup real-time listener for all club subgroups
         const q = query(
             collection(db, 'subgroups'),
             where('clubId', '==', userData.clubId),
@@ -510,17 +437,14 @@ function populatePlayerSubgroupFilter(userData, db) {
                     ...doc.data(),
                 }));
 
-                // Filter to only user's subgroups and exclude default
                 const userSubgroups = allSubgroups.filter(
                     sg => subgroupIDs.includes(sg.id) && !sg.isDefault
                 );
 
-                // Update dropdown
                 const clubOption = createOption('club', '🏠 Mein Verein');
                 const globalOption = createOption('global', '🌍 Global');
                 dropdown.innerHTML = '';
 
-                // Add subgroup options first (if any)
                 if (userSubgroups.length > 0) {
                     userSubgroups.forEach(subgroup => {
                         const option = createOption(
@@ -531,11 +455,9 @@ function populatePlayerSubgroupFilter(userData, db) {
                     });
                 }
 
-                // Add club and global options
                 dropdown.appendChild(clubOption);
                 dropdown.appendChild(globalOption);
 
-                // Restore selection if still valid
                 const validValues = Array.from(dropdown.options).map(opt => opt.value);
                 if (validValues.includes(currentSelection)) {
                     dropdown.value = currentSelection;
@@ -574,7 +496,6 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 
     const selectedValue = dropdown.value;
 
-    // Update current filter
     if (selectedValue === 'club') {
         currentSubgroupFilter = 'club';
     } else if (selectedValue === 'global') {
@@ -585,7 +506,6 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 
     console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);
 
-    // Unsubscribe old rival listener and reload with new filter
     if (rivalListener && typeof rivalListener === 'function') {
         try {
             rivalListener();
@@ -595,7 +515,6 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     }
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
-    // Reload leaderboard with correct filter
     import('./leaderboard.js').then(
         ({
             setLeaderboardSubgroupFilter,
@@ -603,21 +522,17 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
             loadGlobalLeaderboard: loadGlobalLB,
         }) => {
             if (currentSubgroupFilter === 'club') {
-                // Reset to 'all' for club view
                 setLeaderboardSubgroupFilter('all');
                 loadLB(userData, db, unsubscribes);
             } else if (currentSubgroupFilter === 'global') {
-                // Global view doesn't use subgroup filter
                 loadGlobalLB(userData, db, unsubscribes);
             } else {
-                // Specific subgroup - set the filter
                 setLeaderboardSubgroupFilter(currentSubgroupFilter);
                 loadLB(userData, db, unsubscribes);
             }
         }
     );
 
-    // Reload calendar with new filter and proper listener management
     if (calendarListener && typeof calendarListener === 'function') {
         try {
             calendarListener();
@@ -627,8 +542,6 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     }
     calendarListener = renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
 
-    // Reload match suggestions with new filter
-    // Unsubscribe old listeners
     matchSuggestionsUnsubscribes.forEach(unsub => {
         try {
             if (typeof unsub === 'function') unsub();
@@ -638,7 +551,6 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     });
     matchSuggestionsUnsubscribes = [];
 
-    // Reload with new filter
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 }
 
@@ -677,29 +589,24 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     let allItems = [];
     let showAll = false;
 
-    // Query for SINGLES match result requests (incoming, need my approval)
     const incomingRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
         where('status', '==', 'pending_player')
     );
 
-    // Query for DOUBLES requests where user is opponent (teamB)
     const doublesRequestsQuery = query(
         collection(db, 'doublesMatchRequests'),
         where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_opponent')
     );
 
-    // Store data from both listeners
     let singlesData = [];
     let doublesData = [];
 
-    // Real-time listener for singles requests
     const unsubSingles = onSnapshot(incomingRequestsQuery, async singlesSnapshot => {
         singlesData = [];
 
-        // Add singles match result requests
         for (const docSnap of singlesSnapshot.docs) {
             const data = docSnap.data();
             const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
@@ -714,19 +621,15 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
             });
         }
 
-        // Combine and render
         combineAndRender();
     });
 
-    // Real-time listener for doubles requests (PARALLEL, not nested!)
     const unsubDoubles = onSnapshot(doublesRequestsQuery, async doublesSnapshot => {
         doublesData = [];
 
-        // Add doubles match requests (only where current user is opponent)
         for (const docSnap of doublesSnapshot.docs) {
             const data = docSnap.data();
 
-            // Check if current user is one of the opponents (teamB)
             if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
                 const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
@@ -749,15 +652,12 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
             }
         }
 
-        // Combine and render
         combineAndRender();
     });
 
-    // Function to combine both data sources and render
     function combineAndRender() {
         allItems = [...singlesData, ...doublesData];
 
-        // Sort by creation date (newest first)
         allItems.sort((a, b) => {
             const timeA = a.createdAt?.toMillis?.() || 0;
             const timeB = b.createdAt?.toMillis?.() || 0;
@@ -786,7 +686,6 @@ function renderCombinedOverview(items, userData, db, showAll) {
         return;
     }
 
-    // Show only first 3 unless showAll is true
     const itemsToShow = showAll ? items : items.slice(0, 3);
 
     itemsToShow.forEach(item => {
@@ -794,9 +693,6 @@ function renderCombinedOverview(items, userData, db, showAll) {
         card.className = 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
 
         if (item.matchType === 'doubles') {
-            // Doubles match request
-            // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
-            // Support both old (playerA/playerB) and new (teamA/teamB) format
             const convertedSets = item.data.sets
                 ? item.data.sets.map(s => ({
                       playerA: s.teamA !== undefined ? s.teamA : s.playerA,
@@ -829,7 +725,6 @@ function renderCombinedOverview(items, userData, db, showAll) {
                 </div>
             `;
         } else {
-            // Singles match request
             const setsDisplay = formatSetsDisplaySimple(item.data.sets);
             const playerName = item.playerAData?.firstName || 'Unbekannt';
 
@@ -878,7 +773,6 @@ function renderCombinedOverview(items, userData, db, showAll) {
         container.appendChild(card);
     });
 
-    // Add "Show more" button if there are more than 3 items
     if (items.length > 3 && !showAll) {
         const showMoreBtn = document.createElement('button');
         showMoreBtn.className =

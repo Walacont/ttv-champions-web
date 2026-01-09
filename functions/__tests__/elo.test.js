@@ -133,10 +133,8 @@ describe('ELO Calculation System', () => {
         });
 
         test('should use highestElo even if currentElo is lower', () => {
-            // Player had 1000 Elo, now at 950 → gate is 1000
             expect(getHighestEloGate(950, 1000)).toBe(1000);
 
-            // Player had 1300 Elo, now at 1100 → gate is 1300
             expect(getHighestEloGate(1100, 1300)).toBe(1300);
         });
 
@@ -158,72 +156,56 @@ describe('ELO Calculation System', () => {
 
     describe('applyEloGate()', () => {
         test('should not protect Elo if no gate reached', () => {
-            // Player below 800 (hypothetically), loses match → no gate protection
             expect(applyEloGate(750, 799, 799)).toBe(750);
         });
 
         test('should protect Elo at absolute floor gate (800)', () => {
-            // Player at 800, loses match → 784, but gate protects at 800
             expect(applyEloGate(784, 800, 800)).toBe(800);
-            // Player at 820, loses match → 790, but gate protects at 800
             expect(applyEloGate(790, 820, 820)).toBe(800);
         });
 
         test('should protect Elo at first gate (850)', () => {
-            // Player at 870, loses → should be 854, but gate protects at 850
             expect(applyEloGate(854, 870, 870)).toBe(854); // Above gate
 
-            // Player at 855, loses → should be 840, but gate protects at 850
             expect(applyEloGate(840, 855, 855)).toBe(850); // Gate protection!
         });
 
         test('should protect Elo at second gate (900)', () => {
-            // Player at 920, loses → should be 880, but gate protects at 900
             expect(applyEloGate(880, 920, 920)).toBe(900);
 
-            // Player at 950, loses → should be 905, gate doesn't apply (above 900)
             expect(applyEloGate(905, 950, 950)).toBe(905);
         });
 
         test('should protect Elo at third gate (1000)', () => {
-            // Player at 1020, loses → should be 990, but gate protects at 1000
             expect(applyEloGate(990, 1020, 1020)).toBe(1000);
         });
 
         test('should protect Elo at highest gate (1600)', () => {
-            // Player at 1700, loses → should be 1550, but gate protects at 1600
             expect(applyEloGate(1550, 1700, 1700)).toBe(1600);
 
-            // Player at 2000, loses → should be 1500, but gate protects at 1600
             expect(applyEloGate(1500, 2000, 2000)).toBe(1600);
         });
 
         test('should use highestElo for gate calculation', () => {
-            // Player had 1000 Elo peak, now at 950, loses → should be 930
             // Gate is 1000 (based on highestElo), but 930 is below → no protection needed
             expect(applyEloGate(930, 950, 1000)).toBe(1000); // Gate protects!
 
-            // Player had 1300 Elo peak, now at 1200, loses → should be 1180
             // Gate is 1300, protects at 1300
             expect(applyEloGate(1180, 1200, 1300)).toBe(1300);
         });
 
         test('should not protect if new Elo is above gate', () => {
-            // Player at 870, loses → 854, gate is 850 → no protection needed (still above)
             expect(applyEloGate(854, 870, 870)).toBe(854);
         });
 
         test('should handle winning scenarios (Elo increase)', () => {
-            // Player wins, Elo goes up → no gate protection needed
             expect(applyEloGate(916, 900, 900)).toBe(916);
             expect(applyEloGate(1016, 1000, 1000)).toBe(1016);
         });
 
         test('should handle extreme loss scenarios', () => {
-            // Player at 1600, loses massively → should go to 1500, but gate protects
             expect(applyEloGate(1500, 1600, 1600)).toBe(1600);
 
-            // Player at 800 → cannot fall below 800 (absolute floor)
             expect(applyEloGate(750, 800, 800)).toBe(800);
         });
 
@@ -245,10 +227,8 @@ describe('ELO Calculation System', () => {
                 CONFIG.ELO.K_FACTOR
             );
 
-            // Apply gate protection for loser
             const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
 
-            // Calculate Season Points
             const seasonPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
 
             expect(newWinnerElo).toBe(816);
@@ -294,7 +274,6 @@ describe('ELO Calculation System', () => {
             const winnerElo = 800;
             const loserElo = 1000;
 
-            // Handicap matches use fixed changes
             const newWinnerElo = winnerElo + CONFIG.ELO.HANDICAP_SEASON_POINTS; // +8
             const newLoserElo = loserElo - CONFIG.ELO.HANDICAP_SEASON_POINTS; // -8
 
@@ -303,7 +282,6 @@ describe('ELO Calculation System', () => {
             expect(newWinnerElo).toBe(808);
             expect(protectedLoserElo).toBe(1000); // Protected at 1000 gate
 
-            // Season Points for handicap = 8 (fixed)
             expect(CONFIG.ELO.HANDICAP_SEASON_POINTS).toBe(8);
         });
 
@@ -324,7 +302,6 @@ describe('ELO Calculation System', () => {
             const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
             expect(protectedLoserElo).toBeGreaterThanOrEqual(1100);
 
-            // Season Points should be high due to large Elo delta
             const seasonPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
             expect(seasonPoints).toBeGreaterThan(3);
         });
@@ -340,7 +317,6 @@ describe('ELO Calculation System', () => {
                 CONFIG.ELO.K_FACTOR
             );
 
-            // If this player loses next match
             const { newLoserElo: potentialNewElo } = calculateElo(
                 1200,
                 currentElo,
@@ -355,7 +331,6 @@ describe('ELO Calculation System', () => {
 
     describe('Edge Cases & Boundary Conditions', () => {
         test('should handle 0 Elo (old system migration)', () => {
-            // Old players might have 0 Elo before migration
             const result = calculateElo(800, 0, 32);
 
             // Against 0 Elo, winner wins ~100% expected, so gains almost 0 Elo
@@ -381,12 +356,10 @@ describe('ELO Calculation System', () => {
         });
 
         test('should protect at exact gate boundary', () => {
-            // Player exactly at 1000, loses → protected
             expect(applyEloGate(984, 1000, 1000)).toBe(1000);
         });
 
         test('should handle multiple gates', () => {
-            // Player who peaked at 1600, now at 1400, should be protected at 1600
             expect(applyEloGate(1380, 1400, 1600)).toBe(1600);
         });
     });

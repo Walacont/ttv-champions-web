@@ -11,7 +11,6 @@ import {
     serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-// Widget definitions with metadata
 const WIDGETS = [
     {
         id: 'info-banner',
@@ -92,20 +91,16 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
     db = firestoreInstance;
     currentUserId = userId;
 
-    // Use default settings immediately (non-blocking)
     currentSettings = getDefaultSettings();
     applyWidgetSettings();
 
-    // Setup event listeners
     setupWidgetControls();
 
-    // Load user's saved settings in background (non-blocking)
     loadWidgetSettings()
         .then(() => {
             applyWidgetSettings();
         })
         .catch(error => {
-            // Use defaults if loading fails
         });
 }
 
@@ -120,7 +115,6 @@ async function loadWidgetSettings() {
         if (settingsDoc.exists()) {
             currentSettings = settingsDoc.data().widgets || {};
         } else {
-            // Use default settings
             currentSettings = getDefaultSettings();
         }
     } catch (error) {
@@ -179,25 +173,21 @@ function applyWidgetSettings() {
  * Setup event listeners for widget controls
  */
 function setupWidgetControls() {
-    // Open modal button
     const editButton = document.getElementById('edit-dashboard-button');
     if (editButton) {
         editButton.addEventListener('click', openWidgetSettingsModal);
     }
 
-    // Close modal buttons
     const closeButton = document.getElementById('close-widget-settings-modal');
     const cancelButton = document.getElementById('cancel-widget-settings-button');
     if (closeButton) closeButton.addEventListener('click', closeWidgetSettingsModal);
     if (cancelButton) cancelButton.addEventListener('click', closeWidgetSettingsModal);
 
-    // Save button
     const saveButton = document.getElementById('save-widget-settings-button');
     if (saveButton) {
         saveButton.addEventListener('click', saveWidgetSettingsFromModal);
     }
 
-    // Reset button
     const resetButton = document.getElementById('reset-widgets-button');
     if (resetButton) {
         resetButton.addEventListener('click', resetWidgetSettings);
@@ -213,10 +203,8 @@ function openWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     const listContainer = document.getElementById('widget-settings-list');
 
-    // Clear previous content
     listContainer.innerHTML = '';
 
-    // Generate widget toggles
     WIDGETS.forEach(widget => {
         const isEnabled = currentSettings[widget.id] !== false;
         const isEssential = widget.essential;
@@ -244,7 +232,6 @@ function openWidgetSettingsModal() {
         listContainer.appendChild(widgetItem);
     });
 
-    // Show modal
     modal.classList.remove('hidden');
 }
 
@@ -255,7 +242,6 @@ function closeWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     modal.classList.add('hidden');
 
-    // Clear feedback
     const feedback = document.getElementById('widget-settings-feedback');
     feedback.classList.add('hidden');
     feedback.textContent = '';
@@ -272,7 +258,6 @@ async function saveWidgetSettingsFromModal() {
     feedback.className = 'mt-4 text-center text-sm font-medium text-gray-600';
     feedback.textContent = 'Speichere Einstellungen...';
 
-    // Collect settings from checkboxes
     const toggles = document.querySelectorAll('.widget-toggle');
     const newSettings = {};
 
@@ -281,26 +266,20 @@ async function saveWidgetSettingsFromModal() {
         newSettings[widgetId] = toggle.checked;
     });
 
-    // Save to Firestore
     const success = await saveWidgetSettings(newSettings);
 
     if (success) {
-        // Update current settings
         currentSettings = newSettings;
 
-        // Apply to dashboard
         applyWidgetSettings();
 
-        // Show success message
         feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
         feedback.textContent = '✓ Einstellungen gespeichert!';
 
-        // Close modal after delay
         setTimeout(() => {
             closeWidgetSettingsModal();
         }, 1500);
     } else {
-        // Show error message
         feedback.className = 'mt-4 text-center text-sm font-medium text-red-600';
         feedback.textContent = '✗ Fehler beim Speichern. Bitte versuche es erneut.';
     }
@@ -318,21 +297,16 @@ async function resetWidgetSettings() {
 
     const defaultSettings = getDefaultSettings();
 
-    // Save defaults to Firestore
     const success = await saveWidgetSettings(defaultSettings);
 
     if (success) {
-        // Update current settings
         currentSettings = defaultSettings;
 
-        // Apply to dashboard
         applyWidgetSettings();
 
-        // Refresh modal
         closeWidgetSettingsModal();
         openWidgetSettingsModal();
 
-        // Show feedback
         const feedback = document.getElementById('widget-settings-feedback');
         feedback.classList.remove('hidden');
         feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';

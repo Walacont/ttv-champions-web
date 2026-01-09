@@ -28,7 +28,6 @@ async function listCollections() {
         for (const collection of collections) {
             console.log(`📁 ${collection.id}`);
 
-            // Count documents in collection
             const snapshot = await collection.limit(1).get();
             const count = snapshot.size;
 

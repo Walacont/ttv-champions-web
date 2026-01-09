@@ -1,5 +1,3 @@
-// Rang-System basierend auf Elo + XP
-// Elo startet bei 800, XP-Schwellenwerte reduziert für schnelleren Fortschritt
 
 export const RANKS = {
     REKRUT: {

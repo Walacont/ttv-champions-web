@@ -1,4 +1,3 @@
-// NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -172,7 +171,6 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// NEU: Der Emulator-Block
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log('Coach.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
@@ -181,7 +179,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
-// --- State ---
 let currentUserData = null;
 let unsubscribePlayerList = null;
 let unsubscribeLeaderboard = null;
@@ -193,7 +190,6 @@ let currentSubgroupFilter = 'all';
 let calendarUnsubscribe = null;
 let descriptionEditor = null;
 
-// --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     onAuthStateChanged(auth, async user => {
         const pageLoader = document.getElementById('page-loader');
@@ -210,8 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const userData = userDocSnap.data();
                     if (userData.role === 'coach' || userData.role === 'admin') {
                         currentUserData = { id: user.uid, ...userData };
-
-                        // Check for season reset
                         await checkAndResetClubSeason(userData.clubId, db);
 
                         initializeCoachPage(currentUserData);
@@ -225,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAuthError(`DB-Fehler: ${error.message}`);
             }
         } else {
-            // User logged out - use replace() to prevent back-button access
             window.location.replace('/index.html');
         }
 
@@ -244,7 +237,6 @@ async function initializeCoachPage(userData) {
     const mainContent = document.getElementById('main-content');
     const loaderText = document.getElementById('loader-text');
 
-    // Run migration if needed
     if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
     try {
         const migrationResult = await checkAndMigrate(userData.clubId, db);
@@ -270,7 +262,6 @@ async function initializeCoachPage(userData) {
     document.getElementById('welcome-message').textContent =
         `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
 
-    // Track page view in Google Analytics
     logEvent(analytics, 'page_view', {
         page_title: 'Coach Dashboard',
         page_location: window.location.href,
@@ -278,9 +269,7 @@ async function initializeCoachPage(userData) {
         user_role: 'coach',
         club_id: userData.clubId,
     });
-    console.log('[Analytics] Coach page view tracked');
 
-    // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
         showToggle: true,
     });
@@ -289,30 +278,20 @@ async function initializeCoachPage(userData) {
     setupLeaderboardTabs();
     setupLeaderboardToggle();
 
-    // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
             if (tabName === 'matches') {
-                // Load saved pairings when Wettkampf tab is opened
                 loadSavedPairings(db, userData.clubId);
             }
         });
     });
 
-    // Initialize Invitation Code Management
     initInvitationCodeManagement(db, userData.clubId, userData.id);
-
-    // Initialize Player Invitation Management
     initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
-
-    // Initialize Spontaneous Sessions (for creating trainings from calendar)
     initializeSpontaneousSessions(userData, db);
-
-    // Initialize Training Completion (for intelligent points distribution)
     initializeTrainingCompletion(db, userData);
 
-    // Bridge function: Connect training-schedule-ui to attendance module
     window.openAttendanceForSessionFromSchedule = async function (sessionId, dateStr) {
         await openAttendanceModalForSession(
             sessionId,
@@ -325,10 +304,8 @@ async function initializeCoachPage(userData) {
         );
     };
 
-    // Load statistics initially (since it's the default tab)
     loadStatistics(userData, db, currentSubgroupFilter);
 
-    // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
@@ -336,7 +313,6 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Setup Subgroups Tab
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {
         subgroupsTabButton.addEventListener('click', () => {
@@ -347,7 +323,6 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Load initial data
     loadPlayersForDropdown(userData.clubId, db);
     loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
     loadExercisesForDropdown(db);
@@ -355,21 +330,17 @@ async function initializeCoachPage(userData) {
     loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
 
-    // Populate subgroup dropdowns for challenge forms
     populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', db);
     populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', db);
     loadPlayersForAttendance(userData.clubId, db, players => {
-        clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
+        clubPlayers = players;
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
-        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter); // Populate doubles dropdowns
+        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
-    // Initialize set score input for coach match form (used by both singles and doubles)
     const setScoreInput = initializeCoachSetScoreInput();
-
-    // Initialize doubles match UI and set the same set score input
     initializeDoublesCoachUI();
     if (setScoreInput) {
         setDoublesSetScoreInput(setScoreInput);
@@ -377,15 +348,11 @@ async function initializeCoachPage(userData) {
 
     loadLeaderboard(userData, db, []);
     loadGlobalLeaderboard(userData, db, []);
-
-    // Load coach match requests (singles and doubles)
-    // Load combined match requests (singles + doubles)
     loadCoachMatchRequests(userData, db);
     loadCoachProcessedRequests(userData, db);
 
     calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
-    // Listen for training cancellation events to reload calendar
     window.addEventListener('trainingCancelled', () => {
         console.log('[Coach] Training cancelled, reloading calendar...');
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -394,7 +361,6 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
-    // Listen for training creation events to reload calendar
     window.addEventListener('trainingCreated', () => {
         console.log('[Coach] Training created, reloading calendar...');
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -403,15 +369,12 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
-    // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', async () => {
         try {
             await signOut(auth);
-            // Clear SPA cache to prevent back-button access to authenticated pages
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
             }
-            // Use replace() instead of href to clear history and prevent back navigation
             window.location.replace('/index.html');
         } catch (error) {
             console.error('Logout error:', error);
@@ -429,7 +392,6 @@ async function initializeCoachPage(userData) {
         }
     });
 
-    // Player Modal Listeners
     document.getElementById('open-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.remove('hidden');
         loadPlayerList(userData.clubId, db, unsub => {
@@ -442,12 +404,10 @@ async function initializeCoachPage(userData) {
         if (unsubscribePlayerList) unsubscribePlayerList();
     });
 
-    // Add Player/Code Modal Listeners
     document.getElementById('add-offline-player-button').addEventListener('click', async () => {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
         document.getElementById('add-offline-player-modal').classList.add('flex');
 
-        // Lade Subgroups
         const subgroupsQuery = query(
             collection(db, 'subgroups'),
             where('clubId', '==', userData.clubId)
@@ -460,25 +420,20 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.add('hidden');
         document.getElementById('add-offline-player-modal').classList.remove('flex');
-        // Reset form to clear all inputs including checkboxes
         document.getElementById('add-offline-player-form').reset();
-        // Hide QTTR input when modal closes
         document.getElementById('qttr-input-container').classList.add('hidden');
     });
 
-    // Toggle QTTR input based on match-ready checkbox
     document.getElementById('is-match-ready-checkbox').addEventListener('change', e => {
         const qttrContainer = document.getElementById('qttr-input-container');
         if (e.target.checked) {
             qttrContainer.classList.remove('hidden');
         } else {
             qttrContainer.classList.add('hidden');
-            // Clear QTTR input when unchecked
             document.getElementById('qttr-points').value = '';
         }
     });
 
-    // Edit Player Modal Listeners
     document
         .getElementById('close-edit-player-modal-button')
         .addEventListener('click', () =>
@@ -488,19 +443,14 @@ async function initializeCoachPage(userData) {
         .getElementById('save-player-subgroups-button')
         .addEventListener('click', () => handleSavePlayerSubgroups(db));
 
-    // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => {
         document.getElementById('attendance-modal').classList.add('hidden');
-        // Reload calendar when closing attendance modal without saving
-        // This ensures newly created sessions are visible even if attendance wasn't recorded
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
-    // Form Submissions
-    // Initialize description editor for exercise creation BEFORE registering event handlers
     descriptionEditor = setupDescriptionEditor({
         textAreaId: 'exercise-description-form',
         toggleContainerId: 'description-toggle-container-coach',
@@ -537,22 +487,16 @@ async function initializeCoachPage(userData) {
         }
     });
 
-    // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
 
-    // Setup exercise milestones system
     setupExerciseMilestones();
 
-    // Initialize partner system for exercises
     initializeExercisePartnerSystemCoach();
 
-    // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
 
-    // Setup challenge milestones system
     setupChallengeMilestones();
 
-    // Initialize partner system for challenges
     initializeChallengePartnerSystemCoach();
 
     document
@@ -568,13 +512,10 @@ async function initializeCoachPage(userData) {
         .getElementById('cancel-edit-subgroup-button')
         .addEventListener('click', closeEditSubgroupModal);
 
-    // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
 
-    // Setup milestone selectors for exercise/challenge points awarding
     setupMilestoneSelectors(db);
 
-    // Setup manual partner system for manual points awarding
     setupManualPartnerSystem(db);
 
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
@@ -594,7 +535,6 @@ async function initializeCoachPage(userData) {
         .getElementById('close-exercise-modal-button')
         .addEventListener('click', closeExerciseModal);
 
-    // Toggle abbreviations in exercise modal (Coach)
     const toggleAbbreviationsCoach = document.getElementById('toggle-abbreviations-coach');
     const abbreviationsContentCoach = document.getElementById('abbreviations-content-coach');
     const abbreviationsIconCoach = document.getElementById('abbreviations-icon-coach');
@@ -630,7 +570,6 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
-    // Export buttons for attendance
     document.getElementById('export-attendance-btn').addEventListener('click', async () => {
         await exportAttendanceToExcel(db, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
@@ -650,7 +589,6 @@ async function initializeCoachPage(userData) {
             )
         );
 
-    // Event delegation for attendance checkboxes - listen on the container
     document.getElementById('attendance-player-list').addEventListener('change', e => {
         if (e.target.type === 'checkbox') {
             updateAttendanceCount();
@@ -669,19 +607,13 @@ async function initializeCoachPage(userData) {
         .getElementById('subgroups-list')
         .addEventListener('click', e => handleSubgroupActions(e, db, userData.clubId));
 
-    // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
-    // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
-    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions)); // <--- ALT & FALSCH
 
-    // Event-Handler für Aktions-Buttons (Desktop)
     const handleActionClick = async e => {
         const button = e.target.closest('button');
         if (!button) return;
 
-        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern)
         await handlePlayerListActions(e, db, auth, functions);
 
-        // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {
             const playerId = button.dataset.id;
             const player = clubPlayers.find(p => p.id === playerId);
@@ -695,19 +627,16 @@ async function initializeCoachPage(userData) {
         }
     };
 
-    // Listener für Desktop Aktions-Panel
     const actionsDesktop = document.getElementById('player-detail-actions-desktop');
     if (actionsDesktop) {
         actionsDesktop.addEventListener('click', handleActionClick);
     }
 
-    // Listener für Mobile Aktions-Panel
     const actionsMobile = document.getElementById('player-detail-actions-mobile');
     if (actionsMobile) {
         actionsMobile.addEventListener('click', handleActionClick);
     }
 
-    // Mobile Modal Close Button
     const closeMobileBtn = document.getElementById('close-player-detail-mobile');
     if (closeMobileBtn) {
         closeMobileBtn.addEventListener('click', () => {
@@ -715,7 +644,6 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // NEU: Listener für die Suchleiste im Spieler-Modal
     document.getElementById('player-search-input').addEventListener('keyup', e => {
         const searchTerm = e.target.value.toLowerCase();
         const items = document.querySelectorAll('#modal-player-list .player-list-item');
@@ -728,9 +656,7 @@ async function initializeCoachPage(userData) {
             }
         });
     });
-    // === KORREKTUR ENDE ===
 
-    // Filter Listeners
     document.getElementById('history-player-filter').addEventListener('change', e => {
         loadPointsHistoryForCoach(e.target.value, db, unsub => {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
@@ -739,23 +665,19 @@ async function initializeCoachPage(userData) {
     });
 
     document.getElementById('player-select').addEventListener('change', e => {
-        // === KORREKTUR 3: 'db' Instanz übergeben ===
         updateCoachGrundlagenDisplay(e.target.value, db);
     });
 
-    // Subgroup Filter
     populateSubgroupFilter(userData.clubId, db);
     document.getElementById('subgroup-filter').addEventListener('change', e => {
         currentSubgroupFilter = e.target.value;
         handleSubgroupFilterChange(userData);
     });
 
-    // Intervals
     updateSeasonCountdown('season-countdown-coach', false, db);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
     setInterval(updateAllCountdowns, 1000);
 
-    // Check if tutorial should be shown (first time coach login)
     checkAndStartTutorial(userData);
 }
 
@@ -763,22 +685,18 @@ async function initializeCoachPage(userData) {
  * Check if tutorial should be shown and start it
  */
 async function checkAndStartTutorial(userData) {
-    // Check if tutorial should be started manually (from settings)
     const startTutorialFlag = sessionStorage.getItem('startTutorial');
     if (startTutorialFlag === 'coach') {
         sessionStorage.removeItem('startTutorial');
-        // Start tutorial after a delay
         setTimeout(() => {
             window.startCoachTutorial();
         }, 1000);
         return;
     }
 
-    // Check if tutorial was already completed
     const tutorialCompleted = userData.tutorialCompleted?.coach || false;
 
     if (!tutorialCompleted) {
-        // Wait a bit to ensure all content is loaded
         setTimeout(() => {
             const tutorial = new TutorialManager(coachTutorialSteps, {
                 tutorialKey: 'coach',
@@ -815,13 +733,11 @@ function populateSubgroupFilter(clubId, db) {
     onSnapshot(
         q,
         snapshot => {
-            // Keep the "Alle" option
             const currentValue = select.value;
             select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
 
             snapshot.forEach(doc => {
                 const subgroup = doc.data();
-                // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
                 if (subgroup.isDefault) {
                     return;
                 }
@@ -831,7 +747,6 @@ function populateSubgroupFilter(clubId, db) {
                 select.appendChild(option);
             });
 
-            // Restore previous selection if it still exists
             if (
                 currentValue &&
                 Array.from(select.options).some(opt => opt.value === currentValue)
@@ -852,43 +767,33 @@ function populateSubgroupFilter(clubId, db) {
 function handleSubgroupFilterChange(userData) {
     console.log(`[Coach] Subgroup filter changed to: ${currentSubgroupFilter}`);
 
-    // Update attendance module's filter
     setAttendanceSubgroupFilter(currentSubgroupFilter);
 
-    // Update leaderboard module's filter
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
 
-    // Reload calendar/attendance view
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
         calendarUnsubscribe();
     }
     calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
-    // Reload leaderboards
     loadLeaderboard(userData, db, []);
     loadGlobalLeaderboard(userData, db, []);
 
-    // Reload challenges for current subgroup
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
 
-    // Reload match dropdowns with new filter
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
 
-    // Update points player dropdown with new filter
     updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
 
-    // Update pairings button state with new filter
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
 
-    // Reload statistics if the tab is active
     const statisticsTab = document.getElementById('tab-content-statistics');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, db, currentSubgroupFilter);
     }
 }
 
-// Global challenge handlers (called from onclick in HTML)
 let currentChallengeId = null;
 
 window.showReactivateModal = function (challengeId, title) {
@@ -943,7 +848,6 @@ window.confirmDeleteChallenge = async function (challengeId, title) {
     }
 };
 
-// Close reactivate modal
 document.getElementById('close-reactivate-modal')?.addEventListener('click', () => {
     document.getElementById('reactivate-challenge-modal').classList.add('hidden');
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');

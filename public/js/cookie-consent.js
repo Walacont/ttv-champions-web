@@ -1,15 +1,10 @@
-/**
- * GDPR-konformes Cookie-Consent-Management für Google Analytics 4
- */
-
 (function() {
     'use strict';
 
     const CONSENT_KEY = 'cookie_consent';
-    const CONSENT_EXPIRY_DAYS = 365; // Gültigkeit der Einwilligung
+    const CONSENT_EXPIRY_DAYS = 365;
     const GA_MEASUREMENT_ID = 'G-Z3R3M51GJX';
 
-    /** Gespeicherte Einwilligung aus localStorage abrufen */
     function getConsent() {
         try {
             const consent = localStorage.getItem(CONSENT_KEY);
@@ -26,7 +21,6 @@
         }
     }
 
-    /** Einwilligung in localStorage speichern */
     function saveConsent(accepted) {
         const expiry = new Date().getTime() + (CONSENT_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         const data = {
@@ -37,7 +31,6 @@
         localStorage.setItem(CONSENT_KEY, JSON.stringify(data));
     }
 
-    /** Google Analytics 4 laden */
     function loadGA4() {
         if (window.gtag) return;
 
@@ -54,7 +47,6 @@
         console.log('[Cookie Consent] Google Analytics 4 loaded');
     }
 
-    /** GA4-Cookies entfernen bei Ablehnung */
     function removeGA4Cookies() {
         const cookies = document.cookie.split(';');
         for (let cookie of cookies) {
@@ -66,7 +58,6 @@
         }
     }
 
-    /** Cookie-Banner erstellen und anzeigen */
     function showBanner() {
         if (document.getElementById('cookie-banner')) return;
 
@@ -196,7 +187,6 @@
         });
     }
 
-    /** Cookie-Banner ausblenden */
     function hideBanner() {
         const banner = document.getElementById('cookie-banner');
         if (banner) {
@@ -207,7 +197,6 @@
         }
     }
 
-    /** Consent-Manager initialisieren */
     function init() {
         const consent = getConsent();
 
@@ -220,17 +209,14 @@
         } else if (consent.analytics === true) {
             loadGA4();
         }
-        // Bei Ablehnung (false) wird GA4 nicht geladen
     }
 
-    /** Einwilligung zurücksetzen - kann von Einstellungsseite aufgerufen werden */
     window.resetCookieConsent = function() {
         localStorage.removeItem(CONSENT_KEY);
         removeGA4Cookies();
         showBanner();
     };
 
-    /** Prüfen, ob Analytics aktiviert ist */
     window.isAnalyticsEnabled = function() {
         const consent = getConsent();
         return consent && consent.analytics === true;

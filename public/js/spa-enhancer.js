@@ -1,7 +1,3 @@
-// SPA-Enhancer für SC Champions
-// Wandelt Multi-Page-Application in SPA um durch Abfangen von Navigation
-// und dynamisches Laden von Seiten ohne vollständige Seitenneuladen
-
 class SPAEnhancer {
     constructor() {
         this.currentPageScripts = [];
@@ -15,7 +11,6 @@ class SPAEnhancer {
     }
 
     init() {
-        // Link-Klicks abfangen
         document.addEventListener('click', e => {
             const link = e.target.closest('a');
             if (link) {
@@ -27,7 +22,6 @@ class SPAEnhancer {
             }
         });
 
-        // Browser Zurück/Vorwärts behandeln
         window.addEventListener('popstate', e => {
             if (e.state && e.state.url) {
                 const url = e.state.url.split('?')[0];
@@ -50,17 +44,14 @@ class SPAEnhancer {
             }
         });
 
-        // Initialen State speichern
         const currentPath =
             window.location.pathname + window.location.search + window.location.hash;
         history.replaceState({ url: currentPath }, '', currentPath);
     }
 
-    // Prüft ob Link abgefangen werden soll
     shouldIntercept(link) {
         const href = link.getAttribute('href');
 
-        // Nicht abfangen bei: externen Links, target-Attribut, Download, Hash-Links, mailto:/tel:
         if (
             !href ||
             href.startsWith('http') ||
@@ -73,7 +64,6 @@ class SPAEnhancer {
             return false;
         }
 
-        // Seiten die vollständigen Reload benötigen (Auth-State, Haupt-Einstiegspunkte)
         const noInterceptPages = [
             '/index.html',
             '/',
@@ -110,7 +100,6 @@ class SPAEnhancer {
         await this.loadPage(urlObj.pathname, true);
     }
 
-    // Seite dynamisch laden
     async loadPage(url, updateHistory = true) {
         if (this.isNavigating) return;
         this.isNavigating = true;
@@ -202,7 +191,6 @@ class SPAEnhancer {
         }
     }
 
-    // Alte Seiten-Ressourcen bereinigen
     cleanup() {
         this.currentPageScripts.forEach(script => {
             if (script instanceof HTMLElement && script.parentNode) {
@@ -308,7 +296,6 @@ class SPAEnhancer {
     }
 }
 
-// SPA-Enhancer initialisieren (nur einmal)
 if (!window.spaEnhancer) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {

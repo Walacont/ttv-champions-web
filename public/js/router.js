@@ -1,5 +1,3 @@
-// Einfacher Client-Side Router für SC Champions SPA
-
 class Router {
     constructor() {
         this.routes = {};

@@ -22,7 +22,6 @@ import {
  * Handles offline player creation, player list management, and player dropdowns for coaches
  */
 
-// Keep track of the current Grundlagen listener to avoid duplicates
 let currentGrundlagenListener = null;
 
 /**
@@ -35,7 +34,6 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     e.preventDefault();
     const form = e.target;
 
-    // Get submit button and disable it immediately to prevent double-clicks
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton) {
         if (submitButton.disabled) {
@@ -51,8 +49,6 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     const emailField = form.querySelector('#email');
     const email = emailField ? emailField.value.trim() : '';
 
-    // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
-    // Include both checked and disabled checkboxes (disabled = Hauptgruppe, always included)
     const subgroupCheckboxes = form.querySelectorAll(
         '#player-subgroups-checkboxes input[type="checkbox"]'
     );
@@ -60,18 +56,15 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         .filter(cb => cb.checked || cb.disabled) // Include checked OR disabled (Hauptgruppe)
         .map(cb => cb.value);
 
-    // === NEU: Wettkampfsbereit-Checkbox auslesen ===
     const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
     const isMatchReady = isMatchReadyCheckbox ? isMatchReadyCheckbox.checked : false;
 
-    // === NEU: QTTR-Punkte auslesen ===
     const qttrPointsField = form.querySelector('#qttr-points');
     const qttrPoints =
         qttrPointsField && qttrPointsField.value ? parseInt(qttrPointsField.value) : null;
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
-        // Re-enable button
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Spieler erstellen';
@@ -79,7 +72,6 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         return;
     }
 
-    // Check for duplicate: same first name, last name, and club
     try {
         const duplicateQuery = query(
             collection(db, 'users'),
@@ -93,7 +85,6 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             alert(
                 `Ein Spieler mit dem Namen "${firstName} ${lastName}" existiert bereits in deinem Verein.`
             );
-            // Re-enable button
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
@@ -102,25 +93,20 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         }
     } catch (error) {
         console.error('Error checking for duplicates:', error);
-        // Continue anyway, better to create than to block
     }
 
-    // QTTR zu ELO Umrechnung
     let initialElo = 800; // Standard Start-ELO
     let initialHighestElo = 800;
 
     if (isMatchReady && qttrPoints) {
-        // Validierung: QTTR sollte zwischen 800 und 2500 liegen
         if (qttrPoints < 800 || qttrPoints > 2500) {
             alert('QTTR-Punkte müssen zwischen 800 und 2500 liegen.');
-            // Re-enable button
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
             }
             return;
         }
-        // Konservative Umrechnung: ELO = QTTR * 0.9, mindestens 800
         initialElo = Math.max(800, Math.round(qttrPoints * 0.9));
         initialHighestElo = initialElo;
     }
@@ -138,13 +124,11 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             eloRating: initialElo,
             highestElo: initialHighestElo,
             xp: 0,
-            // Wenn bereits wettkampfsbereit, setze grundlagenCompleted auf 5 (erfüllt Anforderung)
             grundlagenCompleted: isMatchReady ? 5 : 0,
             subgroupIDs: subgroupIDs,
             createdAt: serverTimestamp(),
         };
 
-        // Optional: QTTR-Punkte speichern für Referenz
         if (qttrPoints) {
             playerData.qttrPoints = qttrPoints;
         }
@@ -154,22 +138,17 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
 
         const docRef = await addDoc(collection(db, 'users'), playerData);
 
-        // NEU: Handle optional invitation after player creation
         const result = await handlePostPlayerCreationInvitation(docRef.id, playerData);
 
         if (result.type !== 'code') {
-            // For 'none' or 'email' types, close modal immediately
             alert('Offline Spieler erfolgreich erstellt!');
             form.reset();
             document.getElementById('add-offline-player-modal').classList.add('hidden');
-            // Re-enable button for next use
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
             }
         } else {
-            // For 'code' type, modal stays open showing the generated code
-            // Re-enable button so modal can be closed and form reused
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
@@ -178,7 +157,6 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     } catch (error) {
         console.error('Fehler beim Erstellen des Spielers:', error);
         alert('Fehler: Der Spieler konnte nicht erstellt werden.');
-        // Re-enable button on error
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Spieler erstellen';
@@ -201,7 +179,6 @@ export async function handlePlayerListActions(e, db, auth, functions) {
     const playerId = button.dataset.id;
     if (!playerId) return;
 
-    // Handle new invitation button (opens modal with email/code choice)
     if (button.classList.contains('send-new-invitation-btn')) {
         const playerName = button.dataset.name;
         const playerEmail = button.dataset.email || '';
@@ -209,7 +186,6 @@ export async function handlePlayerListActions(e, db, auth, functions) {
         return;
     }
 
-    // Handle manage invitation button (email/code bearbeiten)
     if (button.classList.contains('manage-invitation-btn')) {
         const playerName = button.dataset.name;
         const playerEmail = button.dataset.email || '';
@@ -217,16 +193,13 @@ export async function handlePlayerListActions(e, db, auth, functions) {
         return;
     }
 
-    // Old email invite button removed - now using code-based invitations only
 
-    // Handle delete button
     if (button.classList.contains('delete-player-btn')) {
         if (confirm('Möchten Sie diesen Spieler wirklich löschen?')) {
             try {
                 await deleteDoc(doc(db, 'users', playerId));
                 alert('Spieler gelöscht.');
 
-                // Close desktop detail panel
                 const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
                 const detailPlaceholderDesktop = document.getElementById(
                     'player-detail-placeholder-desktop'
@@ -234,11 +207,9 @@ export async function handlePlayerListActions(e, db, auth, functions) {
                 if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
                 if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
 
-                // Close mobile modal
                 const mobileModal = document.getElementById('player-detail-mobile-modal');
                 if (mobileModal) mobileModal.classList.add('hidden');
 
-                // Remove active highlight
                 document
                     .querySelectorAll('.player-list-item-active')
                     .forEach(item => item.classList.remove('player-list-item-active'));
@@ -249,7 +220,6 @@ export async function handlePlayerListActions(e, db, auth, functions) {
         }
     }
 
-    // Handle promote to coach button
     if (button.classList.contains('promote-coach-btn')) {
         if (confirm('Möchten Sie diesen Spieler zum Coach ernennen?')) {
             try {
@@ -333,9 +303,7 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         </div>
                     `;
 
-                            // Click handler für Desktop und Mobile
                             card.addEventListener('click', () => {
-                                // Highlight aktiven Spieler
                                 document
                                     .querySelectorAll('.player-list-item')
                                     .forEach(item =>
@@ -343,12 +311,10 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                                     );
                                 card.classList.add('player-list-item-active');
 
-                                // Erstelle Aktions-Buttons HTML
                                 let actionsHtml = '';
                                 if (player.isOffline) {
                                     actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung versenden</button>`;
                                 }
-                                // Email/Code-Verwaltung für ALLE Spieler (auch online)
                                 actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="manage-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-100 hover:text-blue-900"><i class="fas fa-envelope-open-text w-5 mr-2"></i> Email/Code bearbeiten</button>`;
 
                                 if (player.role === 'player') {
@@ -357,7 +323,6 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                                 actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="edit-subgroups-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"><i class="fas fa-users-cog w-5 mr-2"></i> Gruppen bearbeiten</button>`;
                                 actionsHtml += `<button data-id="${player.id}" class="delete-player-btn block w-full text-left mt-4 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-trash-alt w-5 mr-2"></i> Spieler löschen</button>`;
 
-                                // Desktop: Zeige Details im rechten Panel
                                 const detailPanelDesktop = document.getElementById(
                                     'player-detail-panel-desktop'
                                 );
@@ -383,7 +348,6 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                                     detailPlaceholderDesktop.classList.add('hidden');
                                 }
 
-                                // Mobile: Öffne Modal
                                 const mobileModal = document.getElementById(
                                     'player-detail-mobile-modal'
                                 );
@@ -468,7 +432,6 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
-    // Filter players based on subgroup
     const filteredPlayers =
         subgroupFilter === 'all'
             ? clubPlayers
@@ -477,7 +440,6 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
                   return subgroupIDs.includes(subgroupFilter);
               });
 
-    // Populate dropdown with filtered players
     const currentValue = select.value; // Preserve selection if possible
     select.innerHTML = '<option value="">Spieler wählen...</option>';
 
@@ -492,7 +454,6 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
             select.appendChild(option);
         });
 
-    // Restore selection if player still in filtered list
     if (currentValue && filteredPlayers.some(p => p.id === currentValue)) {
         select.value = currentValue;
     }
@@ -507,7 +468,6 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
 export async function showPlayerDetails(player, detailContent, db) {
     if (!detailContent) return;
 
-    // Import ranks module functions
     const { getRankProgress } = await import('./ranks.js');
     const grundlagenCount = player.grundlagenCompleted || 0;
     const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
@@ -523,7 +483,6 @@ export async function showPlayerDetails(player, detailContent, db) {
         isMaxRank,
     } = progress;
 
-    // Lade Gruppen-Namen statt nur IDs
     const subgroups = player.subgroupIDs || [];
     let subgroupHtml = '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
 
@@ -660,7 +619,6 @@ export function updateCoachGrundlagenDisplay(playerId) {
         return;
     }
 
-    // Get data from selected option (for fallback)
     const select = document.getElementById('player-select');
     const selectedOption = select.options[select.selectedIndex];
 
@@ -669,9 +627,6 @@ export function updateCoachGrundlagenDisplay(playerId) {
         return;
     }
 
-    // === KORRIGIERTE LOGIK ===
-    // Wir verwenden die Original-Logik, die den Wert aus dem Dataset liest.
-    // Das ist effizienter, da die Daten bereits in `loadPlayersForDropdown` geladen wurden.
 
     const grundlagenCount = parseInt(selectedOption.dataset.grundlagen) || 0;
     const grundlagenRequired = 5;
@@ -726,9 +681,6 @@ export function loadSubgroupsForPlayerForm(clubId, db, containerId, existingSubg
         orderBy('createdAt', 'asc')
     );
 
-    // WICHTIG: onSnapshot hier ist vielleicht zu viel.
-    // Wir verwenden getDocs für eine einmalige Abfrage, da sich die Gruppen nicht
-    // ändern, während das Modal geöffnet ist.
     getDocs(q)
         .then(snapshot => {
             if (snapshot.empty) {
@@ -776,21 +728,17 @@ export function openEditPlayerModal(player, db, clubId) {
     const modal = document.getElementById('edit-player-modal');
     if (!modal) return;
 
-    // Spielername und Button-Daten setzen
     document.getElementById('edit-player-name').textContent =
         `${player.firstName} ${player.lastName}`;
     const saveButton = document.getElementById('save-player-subgroups-button');
     saveButton.dataset.playerId = player.id;
     saveButton.disabled = false;
 
-    // Feedback-Text zurücksetzen
     document.getElementById('edit-player-feedback').textContent = '';
 
-    // Checkboxen laden und vorab ankreuzen
     const existingSubgroups = player.subgroupIDs || [];
     loadSubgroupsForPlayerForm(clubId, db, 'edit-player-subgroups-checkboxes', existingSubgroups);
 
-    // Modal anzeigen
     modal.classList.remove('hidden');
 }
 
@@ -813,14 +761,11 @@ export async function handleSavePlayerSubgroups(db) {
     feedbackEl.textContent = '';
 
     try {
-        // 1. Finde alle angehakten Checkboxen
         const container = document.getElementById('edit-player-subgroups-checkboxes');
         const checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
 
-        // 2. Erstelle ein Array aus den Werten (den subgroupIDs)
         const newSubgroupIDs = Array.from(checkedBoxes).map(cb => cb.value);
 
-        // 3. Aktualisiere das Spieler-Dokument
         const playerRef = doc(db, 'users', playerId);
         await updateDoc(playerRef, {
             subgroupIDs: newSubgroupIDs,
@@ -829,16 +774,13 @@ export async function handleSavePlayerSubgroups(db) {
         feedbackEl.textContent = 'Erfolgreich gespeichert!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
-        // 4. Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
             document.getElementById('edit-player-modal').classList.add('hidden');
             saveButton.disabled = false;
             saveButton.textContent = 'Änderungen speichern';
 
-            // 5. Detailansicht aktualisieren (Placeholder anzeigen, damit Klick neu lädt)
             document.getElementById('player-detail-panel').classList.add('hidden');
             document.getElementById('player-detail-placeholder').classList.remove('hidden');
-            // Aktives Highlight entfernen
             document
                 .querySelectorAll('.player-list-item-active')
                 .forEach(item => item.classList.remove('player-list-item-active'));

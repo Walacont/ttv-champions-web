@@ -10,10 +10,8 @@ import {
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 
-// Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
 
-// Module state for leaderboard limits
 const DEFAULT_LIMIT = 15;
 let showFullLeaderboards = {
     skillClub: false,
@@ -24,26 +22,14 @@ let showFullLeaderboards = {
     seasonGlobal: false,
 };
 
-/**
- * Helper function to get display name for a player (handles deleted accounts)
- * @param {Object} player - Player data object
- * @returns {string} Display name
- */
 function getPlayerDisplayName(player) {
-    // Check if player is deleted (firstName/lastName are null or deleted flag is set)
     if (player.deleted || !player.firstName || !player.lastName) {
         return player.displayName || 'Gelöschter Nutzer';
     }
     return `${player.firstName} ${player.lastName}`;
 }
 
-/**
- * Helper function to get initials for a player (handles deleted accounts)
- * @param {Object} player - Player data object
- * @returns {string} Initials (1-2 characters)
- */
 function getPlayerInitials(player) {
-    // Check if player is deleted
     if (player.deleted || !player.firstName || !player.lastName) {
         const displayName = player.displayName || 'GN';
         return displayName.substring(0, 2).toUpperCase();
@@ -51,20 +37,10 @@ function getPlayerInitials(player) {
     return (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
 }
 
-/**
- * Sets the current subgroup filter for leaderboard
- * @param {string} subgroupId - Subgroup ID or 'all'
- */
 export function setLeaderboardSubgroupFilter(subgroupId) {
     currentLeaderboardSubgroupFilter = subgroupId || 'all';
 }
 
-/**
- * Renders the new 3-tab leaderboard HTML into a container
- * @param {string} containerId - ID of the container element
- * @param {Object} options - Configuration options
- * @param {boolean} options.showToggle - Show Club/Global toggle (default: true)
- */
 export function renderLeaderboardHTML(containerId, options = {}) {
     const { showToggle = true } = options;
 
@@ -186,7 +162,6 @@ export function renderLeaderboardHTML(containerId, options = {}) {
     `;
 }
 
-// --- Leaderboard Constants (deprecated for new rank system) ---
 export const LEAGUES = {
     Bronze: {
         color: 'text-orange-500',
@@ -227,29 +202,24 @@ export function setupLeaderboardTabs() {
     const switchTab = tabName => {
         currentActiveTab = tabName;
 
-        // Hide all tab contents
         document
             .querySelectorAll('.leaderboard-tab-content')
             .forEach(el => el.classList.add('hidden'));
 
-        // Remove active state from all tabs
         document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
             btn.classList.remove('border-indigo-600', 'text-indigo-600');
             btn.classList.add('border-transparent', 'text-gray-600');
         });
 
-        // Show selected tab content
         const selectedContent = document.getElementById(`content-${tabName}`);
         if (selectedContent) selectedContent.classList.remove('hidden');
 
-        // Add active state to selected tab
         const selectedTab = document.getElementById(`tab-${tabName}`);
         if (selectedTab) {
             selectedTab.classList.add('border-indigo-600', 'text-indigo-600');
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
         if (scopeToggleContainer) {
             if (tabName === 'ranks' || tabName === 'doubles') {
                 scopeToggleContainer.classList.add('hidden');
@@ -265,7 +235,6 @@ export function setupLeaderboardTabs() {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
-    // Activate first tab by default
     switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
 }
 
@@ -303,7 +272,6 @@ export function setupLeaderboardToggle() {
     toggleClubBtn.addEventListener('click', () => switchScope('club'));
     toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
 
-    // Activate club view by default
     switchScope('club');
 }
 
@@ -365,7 +333,6 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             players = players.filter(
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
@@ -385,7 +352,6 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             renderSkillRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,
@@ -428,7 +394,6 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             players = players.filter(
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
@@ -448,7 +413,6 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
             renderEffortRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,
@@ -491,7 +455,6 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             players = players.filter(
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
@@ -511,7 +474,6 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
             renderSeasonRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,
@@ -553,7 +515,6 @@ function loadRanksView(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             players = players.filter(
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
@@ -569,14 +530,12 @@ function loadRanksView(userData, db, unsubscribes) {
 
         listEl.innerHTML = '';
 
-        // Display ranks from highest to lowest
         for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
             const rank = RANK_ORDER[i];
             const playersInRank = grouped[rank.id] || [];
 
             if (playersInRank.length === 0) continue;
 
-            // Sort by XP within rank
             playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
 
             const rankSection = document.createElement('div');
@@ -660,7 +619,6 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             renderSkillRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,
@@ -702,7 +660,6 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             renderEffortRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,
@@ -748,7 +705,6 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
             renderSeasonRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(
                 listEl,

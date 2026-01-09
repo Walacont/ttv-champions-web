@@ -1,4 +1,3 @@
-// NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -38,21 +37,11 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log('Settings.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
-
-    // Functions Emulator
     connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
@@ -92,17 +81,14 @@ onAuthStateChanged(auth, async user => {
             firstNameInput.value = userData.firstName || '';
             lastNameInput.value = userData.lastName || '';
 
-            // Synchronisiere Email zwischen Firebase Auth und Firestore
             if (user.email !== userData.email) {
                 console.log('Email-Adresse hat sich geändert, aktualisiere Firestore...');
                 await updateDoc(userDocRef, { email: user.email });
             }
 
-            // Tutorial-Status anzeigen
             updateTutorialStatus(userData);
         }
 
-        // Email-Adresse anzeigen und Verifizierungs-Status
         currentEmailDisplay.textContent = user.email || 'Keine Email hinterlegt';
         updateEmailVerificationStatus(user.emailVerified);
 
@@ -113,7 +99,6 @@ onAuthStateChanged(auth, async user => {
     }
 });
 
-// Zeigt den Email-Verifizierungs-Status an
 function updateEmailVerificationStatus(isVerified) {
     if (isVerified) {
         emailVerificationStatus.innerHTML = `
@@ -135,14 +120,10 @@ function updateEmailVerificationStatus(isVerified) {
             </div>
         `;
 
-        // Event Listener für Verifizierungs-Email
-        document
-            .getElementById('send-verification-btn')
-            ?.addEventListener('click', sendVerificationEmail);
+        document.getElementById('send-verification-btn')?.addEventListener('click', sendVerificationEmail);
     }
 }
 
-// Sendet eine Email-Verifikation
 async function sendVerificationEmail() {
     try {
         await sendEmailVerification(currentUser);
@@ -225,7 +206,6 @@ updateNameForm.addEventListener('submit', async e => {
     }
 });
 
-// Email-Änderung mit Re-Authentication
 updateEmailForm.addEventListener('submit', async e => {
     e.preventDefault();
     const newEmail = newEmailInput.value.trim();
@@ -234,7 +214,6 @@ updateEmailForm.addEventListener('submit', async e => {
     emailFeedback.textContent = '';
     emailFeedback.className = 'text-sm';
 
-    // Validierung
     if (newEmail === currentUser.email) {
         emailFeedback.textContent = 'Die neue Email-Adresse ist identisch mit der aktuellen.';
         emailFeedback.className = 'text-sm text-amber-600';
@@ -242,15 +221,10 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 
     try {
-        // Schritt 1: Re-Authentication (Sicherheit)
         const credential = EmailAuthProvider.credential(currentUser.email, password);
         await reauthenticateWithCredential(currentUser, credential);
-
-        // Schritt 2: Verifizierungs-Email an NEUE Email senden
-        // Firebase ändert die Email automatisch nachdem der User den Link klickt
         await verifyBeforeUpdateEmail(currentUser, newEmail);
 
-        // Erfolg!
         emailFeedback.innerHTML = `
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div class="flex items-start">
@@ -271,7 +245,6 @@ updateEmailForm.addEventListener('submit', async e => {
             </div>
         `;
 
-        // Formular zurücksetzen
         newEmailInput.value = '';
         currentPasswordInput.value = '';
     } catch (error) {
@@ -279,7 +252,6 @@ updateEmailForm.addEventListener('submit', async e => {
 
         let errorMessage = 'Ein unbekannter Fehler ist aufgetreten.';
 
-        // Spezifische Fehlermeldungen
         if (error.code === 'auth/wrong-password') {
             errorMessage = 'Das eingegebene Passwort ist falsch.';
         } else if (error.code === 'auth/email-already-in-use') {
@@ -307,7 +279,6 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 });
 
-/** Tutorial-Status anzeigen */
 function updateTutorialStatus(userData) {
     const role = userData?.role;
     const tutorialSection = document.getElementById('tutorial-section');
@@ -315,7 +286,6 @@ function updateTutorialStatus(userData) {
 
     tutorialSection.style.display = 'block';
 
-    // Coach Tutorial Status
     const coachTutorialCompleted = userData?.tutorialCompleted?.coach || false;
     const coachBadge = document.getElementById('tutorial-badge-coach');
     const coachButton = document.getElementById('start-coach-tutorial-btn');
@@ -343,7 +313,6 @@ function updateTutorialStatus(userData) {
         }
     }
 
-    // Player Tutorial Status
     const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
     const playerBadge = document.getElementById('tutorial-badge-player');
     const playerButton = document.getElementById('start-player-tutorial-btn');
@@ -372,49 +341,28 @@ function updateTutorialStatus(userData) {
     }
 }
 
-/**
- * Coach-Tutorial starten
- */
 document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', () => {
-    // Zur Coach-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('coach.html')) {
-        // Bereits auf der Coach-Seite
         if (typeof window.startCoachTutorial === 'function') {
             window.startCoachTutorial();
         }
     } else {
-        // Zur Coach-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'coach');
         window.location.href = '/coach.html';
     }
 });
 
-/**
- * Player-Tutorial starten
- */
 document.getElementById('start-player-tutorial-btn')?.addEventListener('click', () => {
-    // Zur Dashboard-Seite navigieren und Tutorial starten
     if (window.location.pathname.includes('dashboard.html')) {
-        // Bereits auf der Dashboard-Seite
         if (typeof window.startPlayerTutorial === 'function') {
             window.startPlayerTutorial();
         }
     } else {
-        // Zur Dashboard-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'player');
         window.location.href = '/dashboard.html';
     }
 });
 
-/**
- * ===============================================
- * GDPR DATA EXPORT & ACCOUNT DELETION
- * ===============================================
- */
-
-/**
- * Export all user data as JSON file (GDPR Art. 20)
- */
 document.getElementById('export-data-btn')?.addEventListener('click', async () => {
     const exportBtn = document.getElementById('export-data-btn');
     const feedbackEl = document.getElementById('export-feedback');
@@ -430,12 +378,10 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
         feedbackEl.textContent = '';
 
-        // Get user data
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDoc = await getDoc(userDocRef);
         const userData = userDoc.exists() ? userDoc.data() : {};
 
-        // Get all matches (singles)
         const matchesQuery = query(
             collection(db, 'matches'),
             where('playerIds', 'array-contains', currentUser.uid)
@@ -446,7 +392,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             matches.push({ id: doc.id, ...doc.data() });
         });
 
-        // Get all doubles matches (requires clubId filter for security rules)
         const doublesMatches = [];
         if (userData.clubId) {
             const doublesQuery = query(
@@ -460,10 +405,8 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             });
         }
 
-        // Get attendance records (role-aware)
         let attendance = [];
         if (userData.role === 'player') {
-            // Players: query by their presence in attendance
             const attendanceQuery = query(
                 collection(db, 'attendance'),
                 where('presentPlayerIds', 'array-contains', currentUser.uid)
@@ -473,7 +416,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 attendance.push({ id: doc.id, ...doc.data() });
             });
         } else if (userData.role === 'coach' && userData.clubId) {
-            // Coaches: query by club (they can see all club attendance)
             const attendanceQuery = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', userData.clubId)
@@ -484,7 +426,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             });
         }
 
-        // Compile all data
         const exportData = {
             exportDate: new Date().toISOString(),
             profile: {
@@ -513,7 +454,6 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             attendance: attendance,
         };
 
-        // Create and download JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
@@ -536,16 +476,12 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/**
- * Delete account with anonymization
- */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
         return;
     }
 
-    // Show confirmation dialog
     const confirmed = confirm(
         '⚠️ WARNUNG: Account-Löschung\n\n' +
         'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
@@ -561,7 +497,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     if (!confirmed) return;
 
-    // Second confirmation
     const doubleConfirm = prompt(
         'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
     );
@@ -577,7 +512,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
         deleteBtn.disabled = true;
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
 
-        // Call Cloud Function to anonymize account
         const anonymizeAccount = httpsCallable(functions, 'anonymizeAccount');
         const result = await anonymizeAccount({ userId: currentUser.uid });
 
@@ -587,7 +521,6 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
                 'Du wirst jetzt abgemeldet.'
             );
 
-            // Sign out user
             await auth.signOut();
             window.location.href = '/index.html';
         } else {

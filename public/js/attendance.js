@@ -14,19 +14,6 @@ import {
     setDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Attendance Module
- * Handles calendar rendering and attendance tracking for coaches
- * Now also tracks XP (Experience Points) for the new rank system
- * Updated to support subgroups with separate streaks per subgroup
- */
-
-/**
- * Calculates the duration in hours between two time strings
- * @param {string} startTime - Start time in HH:MM format (e.g., "18:00")
- * @param {string} endTime - End time in HH:MM format (e.g., "20:00")
- * @returns {number} Duration in hours (e.g., 2.0)
- */
 function calculateTrainingDuration(startTime, endTime) {
     try {
         const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -38,49 +25,32 @@ function calculateTrainingDuration(startTime, endTime) {
         const durationMinutes = endTotalMinutes - startTotalMinutes;
         const durationHours = durationMinutes / 60;
 
-        // Round to 1 decimal place
         return Math.round(durationHours * 10) / 10;
     } catch (error) {
         console.error('Error calculating training duration:', error);
-        return 2.0; // Default to 2 hours
+        return 2.0;
     }
 }
 
-// Module state
 let monthlyAttendance = new Map();
-let monthlySessions = new Map(); // NEW: Store sessions by date
-let subgroupsMap = new Map(); // Store subgroups with their colors
-let currentSubgroupFilter = 'all'; // Current active subgroup filter
-let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
-let currentSessionId = null; // NEW: Track current session being edited
+let monthlySessions = new Map();
+let subgroupsMap = new Map();
+let currentSubgroupFilter = 'all';
+let isRenderingAttendance = false;
+let currentSessionId = null;
 
-// Store callbacks for current session
 let currentClubPlayers = [];
 let currentUpdateAttendanceCount = null;
 let currentUpdatePairingsButtonState = null;
 
-/**
- * Sets the current subgroup filter for attendance operations
- * @param {string} subgroupId - Subgroup ID or 'all' for all subgroups
- */
 export function setAttendanceSubgroupFilter(subgroupId) {
     currentSubgroupFilter = subgroupId || 'all';
 }
 
-/**
- * Gets the current session ID being edited
- * @returns {string|null} Current session ID or null
- */
 export function getCurrentSessionId() {
     return currentSessionId;
 }
 
-/**
- * Renders the calendar for a given month and year
- * @param {Date} date - The date to render the calendar for
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user's data
- */
 export async function renderCalendar(date, db, currentUserData) {
     const calendarGrid = document.getElementById('calendar-grid');
     if (!calendarGrid) return;
@@ -112,7 +82,6 @@ export async function renderCalendar(date, db, currentUserData) {
         const dayCell = document.createElement('div');
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-        // Base styling
         dayCell.className =
             'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
 
@@ -123,18 +92,14 @@ export async function renderCalendar(date, db, currentUserData) {
 
         dayCell.dataset.date = dateString;
 
-        // NEW: Check for sessions on this day
         const sessionsOnDay = monthlySessions.get(dateString) || [];
 
         if (sessionsOnDay.length > 0) {
-            // Add subtle border to indicate sessions exist
             dayCell.classList.add('border-indigo-300');
 
-            // Add indicator dots for sessions
             const dotsContainer = document.createElement('div');
             dotsContainer.className = 'flex gap-1 justify-center mt-1';
 
-            // Show up to 3 dots, or a "3+" indicator
             const dotsToShow = Math.min(sessionsOnDay.length, 3);
             for (let i = 0; i < dotsToShow; i++) {
                 const session = sessionsOnDay[i];
@@ -157,14 +122,10 @@ export async function renderCalendar(date, db, currentUserData) {
             dayCell.appendChild(dotsContainer);
         }
 
-        // Remove the green background - we only show colored dots now
-        // monthlyAttendance is no longer used for background color
 
         calendarGrid.appendChild(dayCell);
     }
 
-    // Return a no-op unsubscribe function for compatibility with coach.js
-    // (attendance.js doesn't use real-time listeners, so no cleanup needed)
     return () => {};
 }
 
@@ -183,7 +144,6 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 
     try {
         console.log('[fetchMonthlyAttendance] Loading subgroups...');
-        // Load subgroups for color mapping
         const subgroupsSnapshot = await getDocs(
             query(collection(db, 'subgroups'), where('clubId', '==', currentUserData.clubId))
         );
@@ -201,7 +161,6 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
         throw error;
     }
 
-    // NEW: Fetch training sessions for the month
     try {
         console.log('[fetchMonthlyAttendance] Loading training sessions...');
         let sessionsQuery;
@@ -246,12 +205,10 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
         throw error;
     }
 
-    // Build query based on subgroup filter
     try {
         console.log('[fetchMonthlyAttendance] Loading attendance records...');
         let q;
         if (currentSubgroupFilter === 'all') {
-            // Show all attendance events for the club
             q = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', currentUserData.clubId),
@@ -259,7 +216,6 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
                 where('date', '<=', endDate)
             );
         } else {
-            // Show only attendance events for the selected subgroup
             q = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', currentUserData.clubId),
@@ -271,19 +227,15 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 
         const querySnapshot = await getDocs(q);
 
-        // When filter is "all", we might have multiple events per day (different subgroups)
-        // We'll mark a day as present if ANY subgroup had a training that day
         querySnapshot.forEach(doc => {
             const data = doc.data();
             const dateKey = data.date;
 
             if (currentSubgroupFilter === 'all') {
-                // For "all" view, just mark the day - don't store specific event data
                 if (!monthlyAttendance.has(dateKey)) {
                     monthlyAttendance.set(dateKey, { id: doc.id, ...data });
                 }
             } else {
-                // For specific subgroup, store the event data
                 monthlyAttendance.set(dateKey, { id: doc.id, ...data });
             }
         });
@@ -317,7 +269,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
             `[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`
         );
 
-        // Load recent history entries (no complex query to avoid index issues)
         const historyQuery = query(
             collection(db, `users/${playerId}/pointsHistory`),
             orderBy('timestamp', 'desc'),
@@ -332,11 +283,9 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
         let totalPositivePoints = 0;
         let foundEntries = 0;
 
-        // Find all POSITIVE attendance entries for this date and subgroup
         historySnapshot.forEach(historyDoc => {
             const historyData = historyDoc.data();
 
-            // Check if this is a positive attendance entry (not a correction)
             if (
                 historyData.points > 0 &&
                 historyData.reason &&
@@ -345,7 +294,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
                 let matchesDate = false;
                 let matchesSubgroup = false;
 
-                // Check if date matches (try stored field first, then extract from timestamp)
                 if (historyData.date === date) {
                     matchesDate = true;
                 } else if (historyData.timestamp) {
@@ -359,7 +307,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
                     }
                 }
 
-                // Check if subgroup matches (try stored field first, then name in reason)
                 if (historyData.subgroupId === subgroupId) {
                     matchesSubgroup = true;
                 } else if (historyData.reason.includes(subgroupName)) {
@@ -383,7 +330,6 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
             return totalPositivePoints;
         }
 
-        // If not found, return base points
         console.warn(
             `[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`
         );
@@ -417,7 +363,6 @@ async function recalculateSubsequentDays(
     const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
     try {
-        // Find all training days AFTER the removed date for this subgroup
         const subsequentTrainingsQuery = query(
             collection(db, 'attendance'),
             where('clubId', '==', clubId),
@@ -431,7 +376,6 @@ async function recalculateSubsequentDays(
             `[recalculateSubsequentDays] Found ${subsequentSnapshot.size} training days after ${removedDate}`
         );
 
-        // Filter to only days where this player was present
         const playerPresentDays = [];
         subsequentSnapshot.forEach(trainingDoc => {
             const trainingData = trainingDoc.data();
@@ -449,7 +393,6 @@ async function recalculateSubsequentDays(
             return;
         }
 
-        // Get all trainings in chronological order (to calculate streaks correctly)
         const allTrainingsQuery = query(
             collection(db, 'attendance'),
             where('clubId', '==', clubId),
@@ -471,29 +414,21 @@ async function recalculateSubsequentDays(
             `[recalculateSubsequentDays] All training dates (player present): ${allTrainingDates.join(', ')}`
         );
 
-        // Get ALL trainings for this subgroup (to check for gaps)
         const allSubgroupTrainings = allTrainingsSnapshot.docs
             .map(doc => ({ date: doc.data().date, presentPlayerIds: doc.data().presentPlayerIds }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // For each subsequent day where player was present, recalculate
         for (const currentDate of playerPresentDays) {
-            // Calculate what the streak SHOULD be for this date
-            // We need to count backwards from currentDate and check for consecutive attendance
             let newStreak = 1;
 
-            // Find index of current date in ALL trainings (not just player's)
             const currentIndex = allSubgroupTrainings.findIndex(t => t.date === currentDate);
 
-            // Count backwards - player must have been present at EVERY previous training
             for (let i = currentIndex - 1; i >= 0; i--) {
                 const training = allSubgroupTrainings[i];
 
                 if (training.presentPlayerIds && training.presentPlayerIds.includes(playerId)) {
-                    // Player was present - streak continues
                     newStreak++;
                 } else {
-                    // Player was NOT present - streak is broken
                     break;
                 }
             }
@@ -502,7 +437,6 @@ async function recalculateSubsequentDays(
                 `[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`
             );
 
-            // Calculate NEW points based on new streak (New System)
             let newPoints = ATTENDANCE_POINTS_BASE; // 3 points default
             if (newStreak >= 5) {
                 newPoints = 6; // 3 base + 3 bonus
@@ -510,8 +444,6 @@ async function recalculateSubsequentDays(
                 newPoints = 5; // 3 base + 2 bonus
             }
 
-            // NEW: Check if player attended another training on the same day
-            // If yes, apply half points for second training
             const otherTrainingsQuery = query(
                 collection(db, 'attendance'),
                 where('clubId', '==', clubId),
@@ -519,7 +451,6 @@ async function recalculateSubsequentDays(
                 where('presentPlayerIds', 'array-contains', playerId)
             );
             const otherTrainingsSnapshot = await getDocs(otherTrainingsQuery);
-            // If there are 2+ trainings on this day, this is a second/third training
             const isSecondTrainingOrMore = otherTrainingsSnapshot.size > 1;
 
             if (isSecondTrainingOrMore) {
@@ -529,7 +460,6 @@ async function recalculateSubsequentDays(
                 );
             }
 
-            // Find OLD points that were awarded
             const oldPoints = await findOriginalAttendancePoints(
                 playerId,
                 currentDate,
@@ -542,7 +472,6 @@ async function recalculateSubsequentDays(
                 `[recalculateSubsequentDays] Date ${currentDate}: old points = ${oldPoints}, new points = ${newPoints}`
             );
 
-            // If points changed, create correction entry
             if (oldPoints !== newPoints) {
                 const pointsDifference = newPoints - oldPoints;
 
@@ -550,7 +479,6 @@ async function recalculateSubsequentDays(
                     `[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`
                 );
 
-                // Format date for display in history
                 const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString(
                     'de-DE',
                     {
@@ -560,14 +488,12 @@ async function recalculateSubsequentDays(
                     }
                 );
 
-                // Update player's points and XP
                 const playerRef = doc(db, 'users', playerId);
                 batch.update(playerRef, {
                     points: increment(pointsDifference),
                     xp: increment(pointsDifference),
                 });
 
-                // Create history entry for the correction
                 const historyRef = doc(collection(db, `users/${playerId}/pointsHistory`));
                 batch.set(historyRef, {
                     points: pointsDifference,
@@ -580,7 +506,6 @@ async function recalculateSubsequentDays(
                     awardedBy: 'System (Neuberechnung)',
                 });
 
-                // XP history
                 const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
                 batch.set(xpHistoryRef, {
                     xp: pointsDifference,
@@ -592,7 +517,6 @@ async function recalculateSubsequentDays(
                 });
             }
 
-            // Always update the streak count for the latest day (to keep it in sync)
             if (currentDate === playerPresentDays[playerPresentDays.length - 1]) {
                 const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
                 batch.set(streakRef, {
@@ -609,7 +533,6 @@ async function recalculateSubsequentDays(
         console.log(`[recalculateSubsequentDays] Recalculation complete`);
     } catch (error) {
         console.error('[recalculateSubsequentDays] Error during recalculation:', error);
-        // Don't throw - let the main operation continue even if recalculation fails
     }
 }
 
@@ -625,7 +548,6 @@ async function recalculateSubsequentDays(
  */
 async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubId, db, batch) {
     try {
-        // Get all trainings for this subgroup (in order)
         const allTrainingsQuery = query(
             collection(db, 'attendance'),
             where('clubId', '==', clubId),
@@ -635,7 +557,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
 
         const allTrainingsSnapshot = await getDocs(allTrainingsQuery);
 
-        // Get all trainings WITH present status
         const allTrainings = allTrainingsSnapshot.docs
             .map(doc => ({
                 date: doc.data().date,
@@ -643,7 +564,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
             }))
             .sort((a, b) => b.date.localeCompare(a.date)); // Sort descending (newest first)
 
-        // Find the MOST RECENT training where player was present
         let latestPresentDate = null;
         for (const training of allTrainings) {
             if (training.presentPlayerIds.includes(playerId)) {
@@ -653,7 +573,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
         }
 
         if (!latestPresentDate) {
-            // Player has no remaining attendance records - set streak to 0
             console.log(
                 `[updateStreakAfterRemoval] No remaining attendance records, setting streak to 0`
             );
@@ -668,21 +587,16 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
 
         console.log(`[updateStreakAfterRemoval] Latest present date: ${latestPresentDate}`);
 
-        // Calculate streak for the latest present date
-        // Sort all trainings in ascending order for streak calculation
         const sortedTrainings = [...allTrainings].sort((a, b) => a.date.localeCompare(b.date));
 
-        // Find index of latest present date
         const latestIndex = sortedTrainings.findIndex(t => t.date === latestPresentDate);
         let streak = 1;
 
-        // Count backwards from latest date
         for (let i = latestIndex - 1; i >= 0; i--) {
             const training = sortedTrainings[i];
             if (training.presentPlayerIds.includes(playerId)) {
                 streak++;
             } else {
-                // Gap found - streak breaks
                 break;
             }
         }
@@ -691,7 +605,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
             `[updateStreakAfterRemoval] Calculated streak: ${streak} for date ${latestPresentDate}`
         );
 
-        // Update streak subcollection
         const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
         batch.set(streakRef, {
             count: streak,
@@ -700,7 +613,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
         });
     } catch (error) {
         console.error('[updateStreakAfterRemoval] Error:', error);
-        // Don't throw - let the main operation continue
     }
 }
 
@@ -724,7 +636,6 @@ export async function handleCalendarDayClick(
     const dayCell = e.target.closest('.calendar-day');
     if (!dayCell || dayCell.classList.contains('disabled')) return;
 
-    // Prevent multiple simultaneous executions
     if (isRenderingAttendance) {
         console.log('[Attendance Modal] Already rendering, skipping duplicate call');
         return;
@@ -734,11 +645,9 @@ export async function handleCalendarDayClick(
     try {
         const date = dayCell.dataset.date;
 
-        // Check for sessions on this day
         const sessionsOnDay = monthlySessions.get(date) || [];
 
         if (sessionsOnDay.length === 0) {
-            // No sessions - directly show modal to create one
             isRenderingAttendance = false;
             if (window.openSpontaneousSessionModalFromCalendar) {
                 window.openSpontaneousSessionModalFromCalendar(date);
@@ -747,8 +656,6 @@ export async function handleCalendarDayClick(
             }
             return;
         } else {
-            // One or more sessions - always show selection modal
-            // Coach can choose: record attendance for a session OR add another training
             isRenderingAttendance = false;
             if (window.openSessionSelectionModalFromCalendar) {
                 window.openSessionSelectionModalFromCalendar(date, sessionsOnDay);
@@ -783,12 +690,10 @@ export async function openAttendanceModalForSession(
     try {
         currentSessionId = sessionId;
 
-        // Store callbacks for later use
         currentClubPlayers = clubPlayers;
         currentUpdateAttendanceCount = updateAttendanceCount;
         currentUpdatePairingsButtonState = updatePairingsButtonState;
 
-        // Get session data
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
         if (!sessionDoc.exists()) {
             alert('Session nicht gefunden!');
@@ -799,7 +704,6 @@ export async function openAttendanceModalForSession(
         const sessionData = sessionDoc.data();
         const subgroupId = sessionData.subgroupId;
 
-        // Check if attendance already exists for this session
         const attendanceQuery = query(
             collection(db, 'attendance'),
             where('sessionId', '==', sessionId)
@@ -812,7 +716,6 @@ export async function openAttendanceModalForSession(
                   ...attendanceSnapshot.docs[0].data(),
               };
 
-        // Load coaches for the club
         const coachesQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
@@ -832,7 +735,6 @@ export async function openAttendanceModalForSession(
             ? attendanceData.id
             : '';
 
-        // Store sessionId in a hidden field
         let sessionIdInput = document.getElementById('attendance-session-id-input');
         if (!sessionIdInput) {
             sessionIdInput = document.createElement('input');
@@ -842,22 +744,18 @@ export async function openAttendanceModalForSession(
         }
         sessionIdInput.value = sessionId;
 
-        // Populate coach checkboxes with hours input
         const coachListContainer = document.getElementById('attendance-coach-list');
         coachListContainer.innerHTML = '';
 
-        // Calculate default training duration in hours
         const defaultDuration = calculateTrainingDuration(sessionData.startTime, sessionData.endTime);
 
         if (coaches.length === 0) {
             coachListContainer.innerHTML = '<p class="text-sm text-gray-400">Keine Trainer gefunden</p>';
         } else {
             coaches.forEach(coach => {
-                // Check if coach was present (supports both old and new format)
                 let isChecked = false;
                 let savedHours = defaultDuration;
 
-                // New format: coaches array with {id, hours}
                 if (attendanceData && attendanceData.coaches && Array.isArray(attendanceData.coaches)) {
                     const coachData = attendanceData.coaches.find(c => c.id === coach.id);
                     if (coachData) {
@@ -865,12 +763,10 @@ export async function openAttendanceModalForSession(
                         savedHours = coachData.hours || defaultDuration;
                     }
                 }
-                // Old format: coachIds array (backward compatibility)
                 else if (attendanceData && attendanceData.coachIds && attendanceData.coachIds.includes(coach.id)) {
                     isChecked = true;
                     savedHours = defaultDuration;
                 }
-                // Very old format: single coachId (backward compatibility)
                 else if (attendanceData && attendanceData.coachId === coach.id) {
                     isChecked = true;
                     savedHours = defaultDuration;
@@ -913,7 +809,6 @@ export async function openAttendanceModalForSession(
 
         const playerListContainer = document.getElementById('attendance-player-list');
 
-        // Force clear the container - remove all children
         while (playerListContainer.firstChild) {
             playerListContainer.removeChild(playerListContainer.firstChild);
         }
@@ -924,7 +819,6 @@ export async function openAttendanceModalForSession(
         console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
         console.log(`[Attendance Modal] Session subgroup: ${subgroupId}`);
 
-        // Filter players: Only show players who are members of the session's subgroup
         const playersInCurrentSubgroup = clubPlayers.filter(
             player => player.subgroupIDs && player.subgroupIDs.includes(subgroupId)
         );
@@ -933,7 +827,6 @@ export async function openAttendanceModalForSession(
             `[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`
         );
 
-        // Deduplicate players by ID to prevent duplicates in the UI
         const playersMap = new Map();
         let dedupCount = 0;
         playersInCurrentSubgroup.forEach(player => {
@@ -959,7 +852,6 @@ export async function openAttendanceModalForSession(
             return;
         }
 
-        // Render players
         for (const player of uniquePlayers) {
             const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
 
@@ -982,14 +874,12 @@ export async function openAttendanceModalForSession(
 
         modal.classList.remove('hidden');
 
-        // Initialen Zustand für Zähler und Button setzen
         if (currentUpdateAttendanceCount) currentUpdateAttendanceCount();
         if (currentUpdatePairingsButtonState)
             currentUpdatePairingsButtonState(currentClubPlayers, subgroupId);
     } catch (error) {
         console.error('[Attendance Modal] Error rendering attendance:', error);
     } finally {
-        // Always release the guard
         isRenderingAttendance = false;
     }
 }
@@ -1022,7 +912,6 @@ export async function handleAttendanceSave(
     const sessionId = sessionIdInput ? sessionIdInput.value : null; // NEW: Get session ID
     const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
-    // NEW: If no sessionId, we can't save (must have a training session)
     if (!sessionId) {
         feedbackEl.textContent =
             'Keine Training-Session gefunden. Bitte erstelle zuerst ein Training.';
@@ -1030,7 +919,6 @@ export async function handleAttendanceSave(
         return;
     }
 
-    // NEW: Load session to get subgroup
     let subgroupId, subgroupName;
     try {
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
@@ -1041,7 +929,6 @@ export async function handleAttendanceSave(
         }
         subgroupId = sessionDoc.data().subgroupId;
 
-        // Load subgroup name for history
         const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
         if (subgroupDoc.exists()) {
             subgroupName = subgroupDoc.data().name;
@@ -1062,7 +949,6 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    // Get selected coaches with their hours
     const coachCheckboxes = document
         .getElementById('attendance-coach-list')
         .querySelectorAll('input[type="checkbox"]');
@@ -1075,11 +961,8 @@ export async function handleAttendanceSave(
             return { id: coachId, hours };
         });
 
-    // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
-    // We need to distinguish between different training sessions on the same day
     let previouslyPresentIdsOnThisDay = [];
     if (docId) {
-        // If docId exists, load the previous attendance data for this session
         try {
             const attendanceDoc = await getDoc(doc(db, 'attendance', docId));
             if (attendanceDoc.exists()) {
@@ -1099,7 +982,6 @@ export async function handleAttendanceSave(
     try {
         const batch = writeBatch(db);
 
-        // Find the last training day for THIS SUBGROUP before the current date
         const attendanceColl = collection(db, 'attendance');
         const q = query(
             attendanceColl,
@@ -1117,17 +999,13 @@ export async function handleAttendanceSave(
                 previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
         }
 
-        // Handle attendance document: delete if empty, create/update otherwise
         const attendanceRef = docId ? doc(db, 'attendance', docId) : doc(attendanceColl);
 
         if (presentPlayerIds.length === 0) {
-            // If no players are present and an attendance entry exists, delete it
             if (docId) {
                 batch.delete(attendanceRef);
             }
-            // If no entry exists and no players present, we don't need to do anything
         } else {
-            // Update/create attendance document for this session
             const attendanceData = {
                 date,
                 clubId: currentUserData.clubId,
@@ -1137,7 +1015,6 @@ export async function handleAttendanceSave(
                 updatedAt: serverTimestamp(),
             };
 
-            // Add coaches with hours if selected
             if (coaches && coaches.length > 0) {
                 attendanceData.coaches = coaches;
             }
@@ -1145,8 +1022,6 @@ export async function handleAttendanceSave(
             batch.set(attendanceRef, attendanceData, { merge: true });
         }
 
-        // Process EVERY player in the club and update their subgroup-specific streak and points
-        // Filter to only process players who are members of this subgroup
         const playersInSubgroup = clubPlayers.filter(
             p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId) // CHANGED: Use subgroupId from session
         );
@@ -1158,20 +1033,15 @@ export async function handleAttendanceSave(
             const isPresentToday = presentPlayerIds.includes(player.id);
             const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
 
-            // CASE 1: Player is present today
             if (isPresentToday) {
-                // Only execute if player was NEWLY marked as present for this day
                 if (!wasPresentPreviouslyOnThisDay) {
-                    // Get current streak from subcollection
                     const streakDoc = await getDoc(streakRef);
                     const currentStreak = streakDoc.exists() ? streakDoc.data().count || 0 : 0;
 
                     const wasPresentLastTraining = previousTrainingPresentIds.includes(player.id);
 
-                    // Streak logic
                     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
-                    // NEW: Check if player already attended another training on the same day
                     const otherTrainingsToday = query(
                         collection(db, 'attendance'),
                         where('clubId', '==', currentUserData.clubId),
@@ -1180,16 +1050,10 @@ export async function handleAttendanceSave(
                     );
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
 
-                    // IMPORTANT: Exclude the CURRENT session/document from the count!
-                    // We need to filter out both:
-                    // 1. The current sessionId (to exclude this session)
-                    // 2. The current docId (if editing an existing document, to exclude this specific record)
                     const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
                         docSnapshot => {
                             const docData = docSnapshot.data();
 
-                            // Only count documents that have a sessionId
-                            // This prevents old documents without sessionId from being counted
                             if (!docData.sessionId) {
                                 console.warn(
                                     `[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`
@@ -1197,13 +1061,10 @@ export async function handleAttendanceSave(
                                 return false; // Skip documents without sessionId
                             }
 
-                            // Exclude if it's the same session
                             if (docData.sessionId === sessionId) {
                                 return false;
                             }
 
-                            // ALSO exclude if it's the current document being edited
-                            // This handles the case where we're updating an existing attendance record
                             if (docId && docSnapshot.id === docId) {
                                 return false;
                             }
@@ -1213,14 +1074,12 @@ export async function handleAttendanceSave(
                     ).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
-                    // Format date for display in history
                     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric',
                     });
 
-                    // Bonus points logic (New System)
                     let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
                     let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
@@ -1234,7 +1093,6 @@ export async function handleAttendanceSave(
 
                     console.log(`  - Points BEFORE half-points check: ${pointsToAdd}`);
 
-                    // NEW: If player already attended another training today, give half points
                     if (alreadyAttendedToday) {
                         const originalPoints = pointsToAdd;
                         pointsToAdd = Math.ceil(pointsToAdd / 2); // Half points, rounded up
@@ -1244,14 +1102,12 @@ export async function handleAttendanceSave(
 
                     console.log(`  - FINAL points to add: ${pointsToAdd}`);
 
-                    // Update streak in subcollection
                     batch.set(streakRef, {
                         count: newStreak,
                         subgroupId: subgroupId,
                         lastUpdated: serverTimestamp(),
                     });
 
-                    // Update global player points and XP
                     batch.update(playerRef, {
                         points: increment(pointsToAdd),
                         xp: increment(pointsToAdd), // XP = same as points for attendance
@@ -1270,7 +1126,6 @@ export async function handleAttendanceSave(
                         awardedBy: 'System (Anwesenheit)',
                     });
 
-                    // Track XP in separate history
                     const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
                     batch.set(xpHistoryRef, {
                         xp: pointsToAdd,
@@ -1282,11 +1137,8 @@ export async function handleAttendanceSave(
                     });
                 }
             }
-            // CASE 2: Player is NOT present today
             else {
-                // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
-                    // Find the original points awarded for this date by searching pointsHistory
                     const pointsToDeduct = await findOriginalAttendancePoints(
                         player.id,
                         date,
@@ -1295,20 +1147,17 @@ export async function handleAttendanceSave(
                         subgroupId
                     );
 
-                    // Format date for display in history
                     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric',
                     });
 
-                    // Deduct both points and XP
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
                         xp: increment(-pointsToDeduct),
                     });
 
-                    // Create negative entry in history
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
                         points: -pointsToDeduct,
@@ -1321,7 +1170,6 @@ export async function handleAttendanceSave(
                         awardedBy: 'System (Anwesenheit)',
                     });
 
-                    // Track XP deduction in xpHistory as well
                     const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
                     batch.set(xpHistoryRef, {
                         xp: -pointsToDeduct,
@@ -1332,9 +1180,6 @@ export async function handleAttendanceSave(
                         awardedBy: 'System (Anwesenheit)',
                     });
 
-                    // IMPORTANT: Recalculate all subsequent training days
-                    // When we remove a day, all future days need to be recalculated
-                    // because their streaks might have changed
                     await recalculateSubsequentDays(
                         player.id,
                         date,
@@ -1345,9 +1190,6 @@ export async function handleAttendanceSave(
                         subgroupName
                     );
 
-                    // IMPORTANT: Update the streak subcollection
-                    // If we removed the last day, recalculateSubsequentDays won't update the streak
-                    // So we need to calculate the correct streak based on remaining trainings
                     await updateStreakAfterRemoval(
                         player.id,
                         date,
@@ -1384,7 +1226,6 @@ export async function handleAttendanceSave(
  * @param {Function} onPlayersLoaded - Callback when players are loaded
  */
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
-    // PAGINATION: Limit to 300 players for performance (covers 99% of clubs)
     const PLAYER_LIMIT = 300;
     const q = query(
         collection(db, 'users'),
@@ -1394,7 +1235,6 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         limit(PLAYER_LIMIT) // Limit for scalability
     );
 
-    // Helper function to process players (deduplication logic)
     const processPlayers = snapshot => {
         const totalLoaded = snapshot.docs.length;
         const hitLimit = totalLoaded === PLAYER_LIMIT;
@@ -1403,8 +1243,6 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
             `[Attendance] Loaded ${totalLoaded} player documents from Firestore${hitLimit ? ' (limit reached)' : ''}`
         );
 
-        // Use Map to prevent duplicate players
-        // Deduplicate by document ID first, then by email or name combination
         const playersMap = new Map();
         const seenIdentifiers = new Set();
         let duplicateCount = 0;
@@ -1412,11 +1250,9 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         snapshot.docs.forEach(doc => {
             const playerData = { id: doc.id, ...doc.data() };
 
-            // Create unique identifier based on email or name combination
             const emailKey = playerData.email?.toLowerCase()?.trim();
             const nameKey = `${playerData.firstName?.toLowerCase()?.trim()}_${playerData.lastName?.toLowerCase()?.trim()}`;
 
-            // Skip if we've already seen this player (by email or name)
             if (emailKey && seenIdentifiers.has(emailKey)) {
                 duplicateCount++;
                 return;
@@ -1426,7 +1262,6 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
                 return;
             }
 
-            // Add to map and tracking sets
             playersMap.set(doc.id, playerData);
             if (emailKey) seenIdentifiers.add(emailKey);
             seenIdentifiers.add(nameKey);
@@ -1437,7 +1272,6 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
             `[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`
         );
 
-        // Warn if we hit the limit (club might have more players)
         if (hitLimit) {
             console.warn(
                 `[Attendance] ⚠️ Player limit (${PLAYER_LIMIT}) reached! Club may have more players.`
@@ -1451,24 +1285,20 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         return players;
     };
 
-    // OPTIMIZATION: Initial load with getDocs (fast, one-time)
     getDocs(q)
         .then(snapshot => {
             console.log('[Attendance] ⚡ Initial load complete (getDocs - optimized)');
             const players = processPlayers(snapshot);
             onPlayersLoaded(players);
 
-            // OPTIMIZATION: Then activate live updates with debouncing
             let debounceTimeout = null;
             const unsubscribe = onSnapshot(
                 q,
                 snapshot => {
                     console.log('[Attendance] 🔄 Live update received, debouncing...');
 
-                    // Clear existing timeout
                     if (debounceTimeout) clearTimeout(debounceTimeout);
 
-                    // Debounce updates (500ms) - bundles rapid changes
                     debounceTimeout = setTimeout(() => {
                         console.log('[Attendance] ✅ Processing debounced live update');
                         const players = processPlayers(snapshot);
@@ -1480,7 +1310,6 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
                 }
             );
 
-            // Store unsubscribe function for cleanup
             if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
             window.attendanceUnsubscribes.push(unsubscribe);
         })

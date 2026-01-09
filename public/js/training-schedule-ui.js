@@ -52,14 +52,11 @@ export function initializeSpontaneousSessions(userData, firestoreInstance) {
     initializeSessionPlanning(firestoreInstance);
     currentUserData = userData;
 
-    // Load subgroups for dropdown
     loadSubgroups();
 
-    // Setup event listeners
     setupEventListeners();
     initializeSessionPlanningListeners();
 
-    // Load exercises for selection modal
     loadExercisesForSelection(firestoreInstance);
 }
 
@@ -73,13 +70,10 @@ export function initializeTrainingSchedule(userData, firestoreInstance) {
     initTrainingScheduleModule(firestoreInstance);
     currentUserData = userData;
 
-    // Load subgroups
     loadSubgroups();
 
-    // Setup event listeners
     setupEventListeners();
 
-    // Load recurring templates when schedule tab is opened
     const scheduleTab = document.querySelector('[data-tab="schedule"]');
     if (scheduleTab) {
         scheduleTab.addEventListener('click', () => {
@@ -105,7 +99,6 @@ async function loadSubgroups() {
             ...doc.data(),
         }));
 
-        // Populate dropdowns
         populateSubgroupDropdowns();
     } catch (error) {
         console.error('Error loading subgroups:', error);
@@ -125,10 +118,8 @@ function populateSubgroupDropdowns() {
     dropdowns.forEach(dropdown => {
         if (!dropdown) return;
 
-        // Clear existing options (keep first "Bitte wählen" option)
         dropdown.innerHTML = '<option value="">Bitte wählen...</option>';
 
-        // Add subgroup options
         subgroups.forEach(subgroup => {
             const option = document.createElement('option');
             option.value = subgroup.id;
@@ -142,19 +133,16 @@ function populateSubgroupDropdowns() {
  * Setup all event listeners
  */
 function setupEventListeners() {
-    // Add recurring training button
     const addBtn = document.getElementById('add-recurring-training-btn');
     if (addBtn) {
         addBtn.addEventListener('click', openRecurringTrainingModal);
     }
 
-    // Recurring training form
     const recurringForm = document.getElementById('recurring-training-form');
     if (recurringForm) {
         recurringForm.addEventListener('submit', handleRecurringTrainingSubmit);
     }
 
-    // Cancel buttons
     const cancelBtns = [
         document.getElementById('cancel-recurring-training-button'),
         document.getElementById('close-recurring-training-modal-button'),
@@ -163,13 +151,11 @@ function setupEventListeners() {
         if (btn) btn.addEventListener('click', closeRecurringTrainingModal);
     });
 
-    // Spontaneous session form
     const spontaneousForm = document.getElementById('spontaneous-session-form');
     if (spontaneousForm) {
         spontaneousForm.addEventListener('submit', handleSpontaneousSessionSubmit);
     }
 
-    // Spontaneous session cancel buttons
     const spontaneousCancelBtns = [
         document.getElementById('cancel-spontaneous-session-button'),
         document.getElementById('close-spontaneous-session-modal-button'),
@@ -178,13 +164,11 @@ function setupEventListeners() {
         if (btn) btn.addEventListener('click', closeSpontaneousSessionModal);
     });
 
-    // Toggle exercise planning section
     const toggleExercisePlanningBtn = document.getElementById('toggle-exercise-planning-button');
     if (toggleExercisePlanningBtn) {
         toggleExercisePlanningBtn.addEventListener('click', toggleExercisePlanningSection);
     }
 
-    // Session selection modal close
     const closeSessionSelectionBtn = document.getElementById(
         'close-session-selection-modal-button'
     );
@@ -192,7 +176,6 @@ function setupEventListeners() {
         closeSessionSelectionBtn.addEventListener('click', closeSessionSelectionModal);
     }
 
-    // Add spontaneous session from session selection modal
     const addSpontaneousBtn = document.getElementById('add-spontaneous-session-button');
     if (addSpontaneousBtn) {
         addSpontaneousBtn.addEventListener('click', () => {
@@ -203,7 +186,6 @@ function setupEventListeners() {
         });
     }
 
-    // Training info modal close buttons
     const closeTrainingInfoBtns = [
         document.getElementById('close-training-info-modal-button'),
         document.getElementById('close-training-info-button'),
@@ -212,15 +194,12 @@ function setupEventListeners() {
         if (btn) btn.addEventListener('click', closeTrainingInfoModal);
     });
 
-    // Listen for training completion events to reload session selection modal
     window.addEventListener('trainingCompleted', async event => {
-        // Reload the modal with fresh data from server (bypass cache)
         const dateDisplay = document.getElementById('session-selection-date');
         const dateStr = dateDisplay?.getAttribute('data-date');
 
         if (dateStr) {
             try {
-                // Force server fetch to get latest completed status
                 const sessions = await getSessionsForDate(currentUserData.clubId, dateStr, true);
                 window.openSessionSelectionModalFromCalendar(dateStr, sessions);
             } catch (error) {
@@ -264,7 +243,6 @@ function renderRecurringTemplates(templates) {
 
     if (noTemplatesMessage) noTemplatesMessage.classList.add('hidden');
 
-    // Group by day of week
     const grouped = {};
     templates.forEach(template => {
         if (!grouped[template.dayOfWeek]) {
@@ -273,10 +251,8 @@ function renderRecurringTemplates(templates) {
         grouped[template.dayOfWeek].push(template);
     });
 
-    // Render grouped templates
     let html = '';
     [1, 2, 3, 4, 5, 6, 0].forEach(dayOfWeek => {
-        // Monday to Sunday
         if (!grouped[dayOfWeek]) return;
 
         grouped[dayOfWeek].forEach(template => {
@@ -328,16 +304,13 @@ function openRecurringTrainingModal(templateId = null) {
 
     if (!modal || !form) return;
 
-    // Reset form
     form.reset();
     idInput.value = '';
 
-    // Set today as default start date
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('recurring-training-start-date').value = today;
 
     if (templateId) {
-        // Edit mode
         const template = recurringTemplates.find(t => t.id === templateId);
         if (template) {
             title.textContent = 'Wiederkehrendes Training bearbeiten';
@@ -351,7 +324,6 @@ function openRecurringTrainingModal(templateId = null) {
             document.getElementById('recurring-training-end-date').value = template.endDate || '';
         }
     } else {
-        // Create mode
         title.textContent = 'Wiederkehrendes Training erstellen';
     }
 
@@ -389,7 +361,6 @@ async function handleRecurringTrainingSubmit(e) {
         showFeedback('recurring-training-feedback', 'Speichere...', 'info');
 
         if (templateId) {
-            // Update existing template
             await updateRecurringTemplate(templateId, {
                 dayOfWeek,
                 startTime,
@@ -400,7 +371,6 @@ async function handleRecurringTrainingSubmit(e) {
             });
             showFeedback('recurring-training-feedback', 'Training aktualisiert!', 'success');
         } else {
-            // Create new template
             await createRecurringTemplate(
                 {
                     dayOfWeek,
@@ -416,10 +386,8 @@ async function handleRecurringTrainingSubmit(e) {
             showFeedback('recurring-training-feedback', 'Training erstellt!', 'success');
         }
 
-        // Reload templates
         await loadRecurringTemplates();
 
-        // Generate sessions for next 14 days
         const today = new Date().toISOString().split('T')[0];
         const endDateGenerate = new Date();
         endDateGenerate.setDate(endDateGenerate.getDate() + 14);
@@ -553,11 +521,9 @@ window.handleCancelSession = async function (sessionId) {
     try {
         await cancelTrainingSession(sessionId);
 
-        // Reload the modal
         const dateStr = document.getElementById('session-selection-date').textContent;
         await openSessionSelectionModal(dateStr);
 
-        // Trigger calendar reload event for real-time updates
         window.dispatchEvent(new CustomEvent('trainingCancelled', { detail: { sessionId } }));
     } catch (error) {
         console.error('Error canceling session:', error);
@@ -570,12 +536,10 @@ window.handleCancelSession = async function (sessionId) {
  * This will be handled by attendance.js
  */
 window.handleOpenAttendanceForSession = async function (sessionId, dateStr) {
-    // Call the attendance function FIRST (it loads data)
     if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
         await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
     }
 
-    // THEN close the session selection modal (no delay!)
     closeSessionSelectionModal();
 };
 
@@ -613,7 +577,6 @@ function closeSpontaneousSessionModal() {
     }
     clearFeedback('spontaneous-session-feedback');
 
-    // Reset exercise planning section to hidden
     const exercisePlanningSection = document.getElementById('exercise-planning-section');
     const toggleIcon = document.getElementById('toggle-exercise-planning-icon');
     if (exercisePlanningSection) {
@@ -635,12 +598,10 @@ function toggleExercisePlanningSection() {
     if (!section || !icon) return;
 
     if (section.classList.contains('hidden')) {
-        // Show section
         section.classList.remove('hidden');
         icon.classList.remove('fa-chevron-down');
         icon.classList.add('fa-chevron-up');
     } else {
-        // Hide section
         section.classList.add('hidden');
         icon.classList.remove('fa-chevron-up');
         icon.classList.add('fa-chevron-down');
@@ -658,7 +619,6 @@ async function handleSpontaneousSessionSubmit(e) {
     const endTime = document.getElementById('spontaneous-session-end-time').value;
     const subgroupId = document.getElementById('spontaneous-session-subgroup-select').value;
 
-    // Get planned exercises from session planning module
     const plannedExercises = getPlannedExercises();
 
     try {
@@ -683,13 +643,11 @@ async function handleSpontaneousSessionSubmit(e) {
             'success'
         );
 
-        // Trigger calendar reload event so the new session appears in the calendar
         window.dispatchEvent(new CustomEvent('trainingCreated', { detail: { sessionId, date } }));
 
         setTimeout(() => {
             closeSpontaneousSessionModal();
 
-            // Automatically open attendance modal for the newly created session
             if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
                 window.openAttendanceForSessionFromSchedule(sessionId, date);
             }
@@ -752,11 +710,9 @@ window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions
 
     if (!modal || !listContainer) return;
 
-    // Store both formatted date (for display) and original date (for programmatic access)
     dateDisplay.textContent = formatDateGerman(dateStr);
     dateDisplay.setAttribute('data-date', dateStr);
 
-    // Render session list
     let html = '';
     sessions.forEach(session => {
         const subgroup = subgroups.find(s => s.id === session.subgroupId);
@@ -764,14 +720,12 @@ window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions
         const isCompleted = session.completed || false;
         const hasPlannedExercises = session.plannedExercises && session.plannedExercises.length > 0;
 
-        // Status badge
         let statusBadge = '';
         if (isCompleted) {
             statusBadge =
                 '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full ml-2">✓ Abgeschlossen</span>';
         }
 
-        // Planned exercises info
         let exercisesInfo = '';
         if (hasPlannedExercises) {
             exercisesInfo = `<p class="text-xs text-gray-500 mt-1">📋 ${session.plannedExercises.length} Übung(en) geplant</p>`;
@@ -837,7 +791,6 @@ window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions
 window.handleSelectSessionForAttendance = async function (sessionId, dateStr) {
     closeSessionSelectionModal();
 
-    // Call the attendance module to open the modal for this session
     if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
         await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
     }
@@ -862,17 +815,14 @@ window.handleCancelSessionFromModal = async function (sessionId) {
     try {
         await cancelTrainingSession(sessionId);
 
-        // Reload the current modal with fresh data
         const dateDisplay = document.getElementById('session-selection-date');
         const dateStr =
             dateDisplay.getAttribute('data-date') || parseDateGerman(dateDisplay.textContent);
         if (dateStr) {
-            // Force server fetch to get updated cancelled status
             const sessions = await getSessionsForDate(currentUserData.clubId, dateStr, true);
             window.openSessionSelectionModalFromCalendar(dateStr, sessions);
         }
 
-        // Trigger calendar reload event for real-time updates
         window.dispatchEvent(new CustomEvent('trainingCancelled', { detail: { sessionId } }));
     } catch (error) {
         console.error('Error canceling session:', error);
@@ -886,7 +836,6 @@ window.handleCancelSessionFromModal = async function (sessionId) {
 window.handleCompleteTraining = async function (sessionId, dateStr) {
     closeSessionSelectionModal();
 
-    // Call the training completion module
     if (typeof window.openTrainingCompletionModal === 'function') {
         await window.openTrainingCompletionModal(sessionId, dateStr);
     } else {
@@ -906,7 +855,6 @@ window.openSpontaneousSessionModalFromCalendar = function (dateStr) {
  */
 window.showTrainingInfo = async function (sessionId, dateStr) {
     try {
-        // Load session data
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
         if (!sessionDoc.exists()) {
             alert('Training-Session nicht gefunden!');
@@ -918,11 +866,9 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
             ...sessionDoc.data(),
         };
 
-        // Get subgroup name
         const subgroup = subgroups.find(s => s.id === session.subgroupId);
         const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
 
-        // Populate modal
         document.getElementById('training-info-subgroup').textContent = subgroupName;
         document.getElementById('training-info-time').textContent = formatTimeRange(
             session.startTime,
@@ -930,7 +876,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
         );
         document.getElementById('training-info-date').textContent = formatDateGerman(dateStr);
 
-        // Status
         const statusElement = document.getElementById('training-info-status');
         if (session.completed) {
             statusElement.innerHTML =
@@ -940,7 +885,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                 '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Noch nicht abgeschlossen</span>';
         }
 
-        // Render exercises list
         const exercisesList = document.getElementById('training-info-exercises-list');
         if (!session.plannedExercises || session.plannedExercises.length === 0) {
             exercisesList.innerHTML =
@@ -972,7 +916,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
             exercisesList.innerHTML = html;
         }
 
-        // Render completed exercises if training is completed
         const completedSection = document.getElementById('training-info-completed-section');
         const completedExercisesList = document.getElementById('training-info-completed-exercises');
 
@@ -983,10 +926,8 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
         ) {
             completedSection.classList.remove('hidden');
 
-            // Collect all exercises including single player custom exercises
             const allExercises = [];
 
-            // Add main completed exercises
             for (const exercise of session.completedExercises) {
                 const isPlanned = session.plannedExercises?.some(
                     ex => ex.exerciseId === exercise.exerciseId
@@ -999,7 +940,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                     tieredPoints: exercise.tieredPoints || false,
                 });
 
-                // Check for single players with custom exercises in this exercise
                 if (
                     exercise.pairingData &&
                     exercise.pairingData.singlePlayers &&
@@ -1008,7 +948,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                     for (const single of exercise.pairingData.singlePlayers) {
                         if (single.customExercise) {
                             try {
-                                // Load player data
                                 const playerDoc = await getDoc(doc(db, 'users', single.playerId));
                                 if (playerDoc.exists()) {
                                     const playerData = playerDoc.data();
@@ -1032,12 +971,10 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                 }
             }
 
-            // Render all exercises
             let html = '';
             allExercises.forEach((exercise, index) => {
                 let badges = '';
 
-                // Type badge
                 if (exercise.type === 'planned') {
                     badges +=
                         '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>';
@@ -1048,7 +985,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                     badges += `<span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded ml-2">👤 Alleine (${exercise.playerName})</span>`;
                 }
 
-                // Milestone badge
                 if (exercise.tieredPoints) {
                     badges +=
                         '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊 Meilenstein</span>';
@@ -1070,7 +1006,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
             completedSection.classList.add('hidden');
         }
 
-        // Render single players if training is completed and has single player data
         const singlePlayersSection = document.getElementById(
             'training-info-single-players-section'
         );
@@ -1081,7 +1016,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
             session.completedExercises &&
             session.completedExercises.length > 0
         ) {
-            // Collect all single players from all exercises
             const allSinglePlayers = [];
 
             for (const exercise of session.completedExercises) {
@@ -1092,7 +1026,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
                 ) {
                     for (const single of exercise.pairingData.singlePlayers) {
                         try {
-                            // Load player data
                             const playerDoc = await getDoc(doc(db, 'users', single.playerId));
                             if (playerDoc.exists()) {
                                 const playerData = playerDoc.data();
@@ -1144,7 +1077,6 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
             singlePlayersSection.classList.add('hidden');
         }
 
-        // Show modal
         const modal = document.getElementById('training-info-modal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');

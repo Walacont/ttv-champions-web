@@ -13,7 +13,6 @@ export async function handleLogout(auth) {
     try {
         await signOut(auth);
 
-        // Clear SPA cache if available
         if (window.spaEnhancer) {
             window.spaEnhancer.clearCache();
         }
@@ -62,7 +61,6 @@ export function requireRole(auth, db, allowedRoles = []) {
                         `Access denied. Required roles: ${allowedRoles.join(', ')}, user role: ${userData.role}`
                     );
 
-                    // Redirect based on user's actual role
                     if (userData.role === 'coach') {
                         window.location.replace('/coach.html');
                     } else if (userData.role === 'admin') {

@@ -1,24 +1,19 @@
-// Validierungs-Utilities für Match-Daten (ohne Firebase-Abhängigkeiten)
-
-/** Validiert einen Satz nach offiziellen Tischtennis-Regeln */
 export function isValidSet(scoreA, scoreB) {
     const a = parseInt(scoreA) || 0;
     const b = parseInt(scoreB) || 0;
 
-    // Mindestens eine Seite muss 11+ Punkte haben
     if (a < 11 && b < 11) return false;
 
     if (a === b) return false;
 
+    // Ab 10:10 genau 2 Punkte Vorsprung erforderlich
     if (a >= 10 && b >= 10) {
-        // Ab 10:10 genau 2 Punkte Vorsprung erforderlich
         return Math.abs(a - b) === 2;
     }
 
     return (a >= 11 && a > b) || (b >= 11 && b > a);
 }
 
-/** Ermittelt den Gewinner eines Satzes */
 export function getSetWinner(scoreA, scoreB) {
     if (!isValidSet(scoreA, scoreB)) return null;
 
@@ -30,7 +25,6 @@ export function getSetWinner(scoreA, scoreB) {
     return null;
 }
 
-/** Validiert ein vollständiges Match (alle Sätze) */
 export function validateMatch(sets) {
     const minSets = 3;
 
@@ -38,7 +32,6 @@ export function validateMatch(sets) {
         return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
     }
 
-    // Jeden Satz nach offiziellen Tischtennis-Regeln validieren
     for (let i = 0; i < sets.length; i++) {
         const set = sets[i];
         const scoreA = parseInt(set.playerA) || 0;
@@ -85,7 +78,6 @@ export function validateMatch(sets) {
     return { valid: true, winner };
 }
 
-// Handicap-Konfiguration pro Sportart
 const HANDICAP_CONFIG = {
     'table_tennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
     'tischtennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
@@ -95,7 +87,6 @@ const HANDICAP_CONFIG = {
     'default': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' }
 };
 
-/** Berechnet Handicap-Punkte basierend auf Elo-Unterschied und Sportart */
 export function calculateHandicap(playerA, playerB, sportName = 'table_tennis') {
     const eloA = playerA.eloRating || playerA.elo_rating || 0;
     const eloB = playerB.eloRating || playerB.elo_rating || 0;
@@ -126,7 +117,6 @@ export function calculateHandicap(playerA, playerB, sportName = 'table_tennis') 
     };
 }
 
-/** Berechnet Handicap-Punkte für Doppel basierend auf durchschnittlichem Team-Elo */
 export function calculateDoublesHandicap(teamA, teamB, sportName = 'table_tennis') {
     const eloA1 = teamA.player1?.eloRating || teamA.player1?.elo_rating || 0;
     const eloA2 = teamA.player2?.eloRating || teamA.player2?.elo_rating || 0;

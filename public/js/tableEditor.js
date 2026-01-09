@@ -1,5 +1,3 @@
-// Tabellen-Editor Modul
-// Erstellt und bearbeitet Tabellen in Übungsbeschreibungen
 
 import { escapeHtml } from './utils/security.js';
 
@@ -53,7 +51,6 @@ export function createTableEditor(containerId, initialData = null) {
     const removeRowBtn = container.querySelector('.remove-row-btn');
 
     function renderTable() {
-        // Render headers
         headerRow.innerHTML = '';
         tableData.headers.forEach((header, colIndex) => {
             const th = document.createElement('th');
@@ -71,7 +68,6 @@ export function createTableEditor(containerId, initialData = null) {
             headerRow.appendChild(th);
         });
 
-        // Render rows
         tableBody.innerHTML = '';
         tableData.rows.forEach((row, rowIndex) => {
             const tr = document.createElement('tr');
@@ -155,14 +151,12 @@ export function renderTableForDisplay(tableData) {
 
     let html = '<table class="exercise-display-table border-collapse w-full my-3">';
 
-    // Headers
     html += '<thead><tr>';
     tableData.headers.forEach(header => {
         html += `<th class="border border-gray-400 bg-gray-100 px-3 py-2 font-semibold text-left">${escapeHtml(header)}</th>`;
     });
     html += '</tr></thead>';
 
-    // Rows
     html += '<tbody>';
     tableData.rows.forEach(row => {
         html += '<tr>';
@@ -196,7 +190,6 @@ export function setupDescriptionEditor(config) {
     let textContent = '';
     let tableContent = null;
 
-    // Load initial data if provided
     if (initialData) {
         if (initialData.type === 'table') {
             currentMode = 'table';
@@ -208,7 +201,6 @@ export function setupDescriptionEditor(config) {
         }
     }
 
-    // Create toggle UI
     toggleContainer.innerHTML = `
         <div class="mb-3">
             <label class="block text-sm font-medium text-gray-700 mb-2">Beschreibungsformat</label>
@@ -245,7 +237,6 @@ export function setupDescriptionEditor(config) {
             textArea.style.display = 'none';
             tableEditorContainer.style.display = 'block';
 
-            // Create table editor container structure
             tableEditorContainer.innerHTML = `
                 <div class="space-y-3">
                     <div>
@@ -280,7 +271,6 @@ export function setupDescriptionEditor(config) {
         switchMode('table');
     });
 
-    // Initialize with current mode
     switchMode(currentMode);
 
     return {

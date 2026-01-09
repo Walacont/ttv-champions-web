@@ -31,9 +31,6 @@ export function loadOverviewData(
     loadChallengesCallback,
     loadPointsHistoryCallback
 ) {
-    // ⚠️ WICHTIG: Wir setzen KEINEN Listener für das User-Dokument hier auf,
-    // da das bereits in dashboard.js passiert!
-    // Wir zeigen nur die initialen Werte an:
 
     const playerPointsEl = document.getElementById('player-points');
     const playerXpEl = document.getElementById('player-xp');
@@ -43,14 +40,9 @@ export function loadOverviewData(
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
-    // Display current rank (wird automatisch durch dashboard.js aktualisiert)
     updateRankDisplay(userData);
 
-    // Display Grundlagen progress (wird jetzt in updateRankDisplay behandelt)
-    // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
 
-    // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
-    // Check if callback is provided before calling (rival data is loaded separately in dashboard.js)
     if (typeof loadRivalDataCallback === 'function') {
         loadRivalDataCallback(userData, db, unsubscribes);
     }
@@ -71,7 +63,6 @@ export function updateRankDisplay(userData) {
 
     if (!rankInfoEl) return;
 
-    // Get Grundlagen count from user data (defaults to 0)
     const grundlagenCount = userData.grundlagenCompleted || 0;
 
     const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
@@ -87,7 +78,6 @@ export function updateRankDisplay(userData) {
         isMaxRank,
     } = progress;
 
-    // Update rank badge
     rankInfoEl.innerHTML = `
         <div class="flex items-center justify-center space-x-2 mb-2">
             <span class="text-4xl">${currentRank.emoji}</span>
@@ -151,10 +141,8 @@ export function updateRankDisplay(userData) {
         }
     `;
 
-    // Update Elo display if element exists
     if (eloDisplayEl) eloDisplayEl.textContent = userData.eloRating || 0;
 
-    // Update XP display if element exists
     if (xpDisplayEl) xpDisplayEl.textContent = userData.xp || 0;
 }
 
@@ -171,7 +159,6 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
     if (!el) return;
 
     if (myRankIndex === 0) {
-        // Spieler ist auf Platz 1
         el.innerHTML = `
             <p class="text-lg text-green-600 font-semibold">
                 🎉 Glückwunsch!
@@ -179,7 +166,6 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
             <p class="text-sm">Du bist auf dem 1. Platz in ${metric}!</p>
         `;
     } else if (myRankIndex > 0) {
-        // Spieler ist nicht auf Platz 1
         const rival = ranking[myRankIndex - 1];
         const rivalValue = (unit === 'Elo' ? rival.eloRating : rival.xp) || 0;
         const pointsDiff = rivalValue - myValue;
@@ -192,7 +178,6 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
             </p>
         `;
     } else {
-        // Spieler nicht gefunden (sollte nicht passieren)
         el.innerHTML = `<p>Keine Ranglistendaten gefunden.</p>`;
     }
 }
@@ -209,20 +194,16 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     const rivalSkillEl = document.getElementById('rival-skill-info');
     const rivalEffortEl = document.getElementById('rival-effort-info');
 
-    // 1. Determine query based on filter
     let q;
     if (currentSubgroupFilter === 'club') {
-        // Show all players in club
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
             where('role', '==', 'player')
         );
     } else if (currentSubgroupFilter === 'global') {
-        // Show all players globally
         q = query(collection(db, 'users'), where('role', '==', 'player'));
     } else {
-        // Show players in specific subgroup
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
@@ -231,16 +212,12 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         );
     }
 
-    // *** onSnapshot für Echtzeit-Updates ***
     const rivalListener = onSnapshot(q, querySnapshot => {
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // 2. Erstelle zwei separate Ranglisten
 
-        // Skill-Rangliste (sortiert nach eloRating)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
 
-        // Finde den aktuellen User in der Liste (für aktuelle Werte)
         const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
         displayRivalInfo(
@@ -252,7 +229,6 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
             'Elo'
         );
 
-        // Effort-Rangliste (sortiert nach xp)
         const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
         const myEffortIndex = effortRanking.findIndex(p => p.id === userData.id);
         displayRivalInfo(
@@ -265,7 +241,6 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         );
     });
 
-    // Return the unsubscribe function so caller can manage it
     return rivalListener;
 }
 
@@ -279,13 +254,11 @@ export function updateGrundlagenDisplay(userData) {
     const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
     const grundlagenStatus = document.getElementById('grundlagen-status');
 
-    // ⚠️ Die 'grundlagen-card' existiert nicht mehr im neuen Design
     if (!grundlagenCard) return;
 
     const grundlagenCount = userData.grundlagenCompleted || 0;
     const grundlagenRequired = 5;
 
-    // Only show card if player hasn't completed all Grundlagen
     if (grundlagenCount < grundlagenRequired) {
         grundlagenCard.classList.remove('hidden');
         const progress = (grundlagenCount / grundlagenRequired) * 100;
@@ -318,7 +291,6 @@ export function updateGrundlagenDisplay(userData) {
 export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
 
-    // Setup real-time listener for all streaks from subcollection
     if (streakEl && userData.id && db) {
         const streaksQuery = collection(db, `users/${userData.id}/streaks`);
 
@@ -328,7 +300,6 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                 if (snapshot.empty) {
                     streakEl.innerHTML = `<p class="text-sm text-gray-400">Noch keine Streaks</p>`;
                 } else {
-                    // Get all streaks with subgroup names
                     const streaksWithNames = [];
 
                     for (const streakDoc of snapshot.docs) {
@@ -336,7 +307,6 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                         const subgroupId = streakDoc.id;
                         const count = streakData.count || 0;
 
-                        // Load subgroup name
                         let subgroupName = 'Unbekannte Gruppe';
                         try {
                             const subgroupDocRef = doc(db, 'subgroups', subgroupId);
@@ -355,10 +325,8 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
                         });
                     }
 
-                    // Sort by count (highest first)
                     streaksWithNames.sort((a, b) => b.count - a.count);
 
-                    // Display all streaks
                     streakEl.innerHTML = streaksWithNames
                         .map(streak => {
                             const iconSize =
@@ -393,7 +361,6 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
 
         return streaksListener;
     } else if (streakEl) {
-        // Fallback if no db provided
         streakEl.innerHTML = `<p class="text-sm text-gray-400">Keine Daten verfügbar</p>`;
     }
 

@@ -1,4 +1,3 @@
-// State Manager - Zentralisierte Zustandsverwaltung für die Anwendung
 
 const initialState = {
     user: {

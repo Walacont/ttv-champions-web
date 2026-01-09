@@ -21,7 +21,6 @@ import {
     increment,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-// DB instance will be passed to functions instead of module-level initialization
 let db = null;
 
 /**
@@ -48,7 +47,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         endDate = null,
     } = templateData;
 
-    // Validation
     if (dayOfWeek < 0 || dayOfWeek > 6) {
         throw new Error('dayOfWeek must be between 0 (Sunday) and 6 (Saturday)');
     }
@@ -61,7 +59,6 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping templates
     const overlapping = await checkTemplateOverlap(
         dayOfWeek,
         startTime,
@@ -159,7 +156,6 @@ async function checkTemplateOverlap(
         if (template.dayOfWeek !== dayOfWeek) continue;
         if (template.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, template.startTime, template.endTime)) {
             return true;
         }
@@ -184,7 +180,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         plannedExercises = [],
     } = sessionData;
 
-    // Validation
     if (!isValidDateFormat(date)) {
         throw new Error('Date must be in YYYY-MM-DD format');
     }
@@ -197,7 +192,6 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         throw new Error('Start time must be before end time');
     }
 
-    // Check for overlapping sessions on same date
     const overlapping = await checkSessionOverlap(date, startTime, endTime, subgroupId, clubId);
     if (overlapping) {
         throw new Error(
@@ -265,7 +259,6 @@ export async function getSessionsForDate(clubId, date, forceServerFetch = false)
         orderBy('startTime', 'asc')
     );
 
-    // Use getDocsFromServer to bypass cache when needed (e.g., after updating a session)
     const snapshot = forceServerFetch ? await getDocsFromServer(q) : await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -311,21 +304,18 @@ export async function cancelTrainingSession(sessionId) {
         `[Cancel Training] Cancelling session ${sessionId} and correcting player points...`
     );
 
-    // Find associated attendance records
     const attendanceQuery = query(
         collection(db, 'attendance'),
         where('sessionId', '==', sessionId)
     );
     const attendanceSnapshot = await getDocs(attendanceQuery);
 
-    // For each attendance record, reverse the points awarded to players
     for (const attendanceDoc of attendanceSnapshot.docs) {
         const attendanceData = attendanceDoc.data();
         const { presentPlayerIds, date, subgroupId } = attendanceData;
 
         if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
 
-        // Get subgroup name for history entries
         let subgroupName = subgroupId;
         try {
             const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
@@ -346,13 +336,10 @@ export async function cancelTrainingSession(sessionId) {
             `[Cancel Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
         );
 
-        // Use a batch for atomic updates
         const batch = writeBatch(db);
 
-        // For each player who attended, find and reverse their points
         for (const playerId of presentPlayerIds) {
             try {
-                // Find the original points awarded for this training
                 const pointsHistoryQuery = query(
                     collection(db, `users/${playerId}/pointsHistory`),
                     where('date', '==', date),
@@ -362,10 +349,8 @@ export async function cancelTrainingSession(sessionId) {
 
                 const historySnapshot = await getDocs(pointsHistoryQuery);
 
-                // Find the specific history entry for this training
                 const historyEntry = historySnapshot.docs.find(doc => {
                     const data = doc.data();
-                    // Match by date and subgroup, and it should be a positive entry (not a correction)
                     return (
                         data.points > 0 &&
                         data.reason &&
@@ -383,14 +368,12 @@ export async function cancelTrainingSession(sessionId) {
                         `[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
                     );
 
-                    // Deduct points and XP from player
                     const playerRef = doc(db, 'users', playerId);
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
                         xp: increment(-xpToDeduct),
                     });
 
-                    // Create negative entry in points history
                     const correctionHistoryRef = doc(
                         collection(db, `users/${playerId}/pointsHistory`)
                     );
@@ -405,7 +388,6 @@ export async function cancelTrainingSession(sessionId) {
                         awardedBy: 'System (Training abgesagt)',
                     });
 
-                    // Create negative entry in XP history
                     const correctionXpHistoryRef = doc(
                         collection(db, `users/${playerId}/xpHistory`)
                     );
@@ -418,7 +400,6 @@ export async function cancelTrainingSession(sessionId) {
                         awardedBy: 'System (Training abgesagt)',
                     });
 
-                    // Delete the original history entry
                     batch.delete(historyEntry.ref);
                 } else {
                     console.warn(
@@ -430,15 +411,12 @@ export async function cancelTrainingSession(sessionId) {
             }
         }
 
-        // Commit all player updates
         await batch.commit();
     }
 
-    // Delete all attendance records for this session
     const deletePromises = attendanceSnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
 
-    // Mark the session as cancelled
     await updateTrainingSession(sessionId, { cancelled: true });
 
     console.log(`[Cancel Training] Session ${sessionId} cancelled successfully`);
@@ -451,21 +429,18 @@ export async function cancelTrainingSession(sessionId) {
 export async function deleteTrainingSession(sessionId) {
     console.log(`[Delete Training] Deleting session ${sessionId} and correcting player points...`);
 
-    // Find associated attendance records
     const attendanceQuery = query(
         collection(db, 'attendance'),
         where('sessionId', '==', sessionId)
     );
     const attendanceSnapshot = await getDocs(attendanceQuery);
 
-    // For each attendance record, reverse the points awarded to players
     for (const attendanceDoc of attendanceSnapshot.docs) {
         const attendanceData = attendanceDoc.data();
         const { presentPlayerIds, date, subgroupId } = attendanceData;
 
         if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
 
-        // Get subgroup name for history entries
         let subgroupName = subgroupId;
         try {
             const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
@@ -486,13 +461,10 @@ export async function deleteTrainingSession(sessionId) {
             `[Delete Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
         );
 
-        // Use a batch for atomic updates
         const batch = writeBatch(db);
 
-        // For each player who attended, find and reverse their points
         for (const playerId of presentPlayerIds) {
             try {
-                // Find the original points awarded for this training
                 const pointsHistoryQuery = query(
                     collection(db, `users/${playerId}/pointsHistory`),
                     where('date', '==', date),
@@ -502,11 +474,8 @@ export async function deleteTrainingSession(sessionId) {
 
                 const historySnapshot = await getDocs(pointsHistoryQuery);
 
-                // Find the specific history entry for this training
-                // There might be multiple entries if player attended multiple trainings
                 const historyEntry = historySnapshot.docs.find(doc => {
                     const data = doc.data();
-                    // Match by date and subgroup, and it should be a positive entry (not a correction)
                     return data.points > 0 && data.reason && !data.reason.includes('korrigiert');
                 });
 
@@ -519,14 +488,12 @@ export async function deleteTrainingSession(sessionId) {
                         `[Delete Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
                     );
 
-                    // Deduct points and XP from player
                     const playerRef = doc(db, 'users', playerId);
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
                         xp: increment(-xpToDeduct),
                     });
 
-                    // Create negative entry in points history
                     const correctionHistoryRef = doc(
                         collection(db, `users/${playerId}/pointsHistory`)
                     );
@@ -541,7 +508,6 @@ export async function deleteTrainingSession(sessionId) {
                         awardedBy: 'System (Training gelöscht)',
                     });
 
-                    // Create negative entry in XP history
                     const correctionXpHistoryRef = doc(
                         collection(db, `users/${playerId}/xpHistory`)
                     );
@@ -554,7 +520,6 @@ export async function deleteTrainingSession(sessionId) {
                         awardedBy: 'System (Training gelöscht)',
                     });
 
-                    // Delete the original history entry
                     batch.delete(historyEntry.ref);
                 } else {
                     console.warn(
@@ -566,15 +531,12 @@ export async function deleteTrainingSession(sessionId) {
             }
         }
 
-        // Commit all player updates
         await batch.commit();
     }
 
-    // Delete all attendance records
     const deletePromises = attendanceSnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
 
-    // Delete the session
     const docRef = doc(db, 'trainingSessions', sessionId);
     await deleteDoc(docRef);
 
@@ -599,7 +561,6 @@ async function checkSessionOverlap(
         if (excludeSessionId && session.id === excludeSessionId) continue;
         if (session.subgroupId !== subgroupId) continue;
 
-        // Check time overlap
         if (timeRangesOverlap(startTime, endTime, session.startTime, session.endTime)) {
             return true;
         }
@@ -618,14 +579,12 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
     const templates = await getRecurringTemplates(clubId);
     let createdCount = 0;
 
-    // Get all dates in range
     const dates = getDatesInRange(startDate, endDate);
 
     for (const date of dates) {
         const dateObj = new Date(date + 'T00:00:00');
         const dayOfWeek = dateObj.getDay();
 
-        // Find templates for this day of week
         const templatesForDay = templates.filter(t => {
             if (t.dayOfWeek !== dayOfWeek) return false;
             if (t.startDate && date < t.startDate) return false;
@@ -633,9 +592,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
             return true;
         });
 
-        // Create sessions from templates
         for (const template of templatesForDay) {
-            // Check if session already exists
             const existingSession = await checkExistingSession(
                 clubId,
                 date,

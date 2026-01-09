@@ -1,4 +1,3 @@
-// Toast-Benachrichtigungssystem
 
 class NotificationManager {
     constructor() {

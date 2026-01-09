@@ -1,4 +1,3 @@
-// NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -28,17 +27,10 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
 
-// NEU: Der Emulator-Block
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log('Onboarding.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
@@ -49,16 +41,14 @@ const photoUpload = document.getElementById('photo-upload');
 const profileImagePreview = document.getElementById('profile-image-preview');
 
 let currentUser = null;
-let currentUserData = null; // Wir speichern die Daten aus Firestore hier
+let currentUserData = null;
 let selectedFile = null;
 
-// Initialize date select fields
 function initializeDateSelects() {
     const daySelect = document.getElementById('birthdate-day');
     const monthSelect = document.getElementById('birthdate-month');
     const yearSelect = document.getElementById('birthdate-year');
 
-    // Fill days (1-31)
     for (let i = 1; i <= 31; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -66,7 +56,6 @@ function initializeDateSelects() {
         daySelect.appendChild(option);
     }
 
-    // Fill months (1-12)
     for (let i = 1; i <= 12; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -74,7 +63,6 @@ function initializeDateSelects() {
         monthSelect.appendChild(option);
     }
 
-    // Fill years (1900 to current year)
     const currentYear = new Date().getFullYear();
     for (let i = currentYear; i >= 1900; i--) {
         const option = document.createElement('option');
@@ -84,14 +72,11 @@ function initializeDateSelects() {
     }
 }
 
-// Initialize the date selects when the page loads
 initializeDateSelects();
 
 onAuthStateChanged(auth, async user => {
     if (user) {
         currentUser = user;
-
-        // WICHTIG: Erzwinge die Aktualisierung des Tokens, um die neuen Custom Claims zu erhalten.
         await user.getIdToken(true);
 
         const userDocRef = doc(db, 'users', user.uid);
@@ -105,11 +90,9 @@ onAuthStateChanged(auth, async user => {
                 return;
             }
 
-            // Fülle das Formular mit den Daten, die vom Coach/Admin angelegt wurden
             document.getElementById('firstName').value = currentUserData.firstName || '';
             document.getElementById('lastName').value = currentUserData.lastName || '';
 
-            // Fill birthdate selects if data exists
             if (currentUserData.birthdate) {
                 const dateParts = currentUserData.birthdate.split('-');
                 if (dateParts.length === 3) {
@@ -124,7 +107,6 @@ onAuthStateChanged(auth, async user => {
             submitButton.disabled = true;
         }
     } else {
-        // Use SPA navigation if available
         if (window.spaNavigate) {
             window.spaNavigate('/index.html');
         } else {
@@ -165,12 +147,10 @@ onboardingForm.addEventListener('submit', async e => {
             photoURL = await getDownloadURL(snapshot.ref);
         }
 
-        // Combine the three date select values into YYYY-MM-DD format
         const day = document.getElementById('birthdate-day').value;
         const month = document.getElementById('birthdate-month').value;
         const year = document.getElementById('birthdate-year').value;
 
-        // Pad day and month with leading zeros if needed
         const paddedDay = day.padStart(2, '0');
         const paddedMonth = month.padStart(2, '0');
         const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
@@ -207,6 +187,5 @@ function redirectToDashboard(role) {
     }
 
     console.log('[ONBOARDING] Onboarding complete, redirecting to:', targetUrl);
-    // Use normal navigation after onboarding (not SPA) to ensure fresh state
     window.location.href = targetUrl;
 }

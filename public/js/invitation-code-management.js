@@ -1,8 +1,3 @@
-/**
- * Invitation Code Management für Coach Dashboard
- * Verwaltet Code-Generierung, Anzeige und WhatsApp-Sharing
- */
-
 import {
     collection,
     addDoc,
@@ -30,9 +25,6 @@ let currentSubgroups = [];
 let lastGeneratedCode = null;
 let lastGeneratedFirstName = '';
 
-/**
- * Initialisiert das Code-Management-System
- */
 export function initInvitationCodeManagement(firestore, clubId, coachId) {
     db = firestore;
     currentClubId = clubId;
@@ -41,11 +33,7 @@ export function initInvitationCodeManagement(firestore, clubId, coachId) {
     setupEventListeners();
 }
 
-/**
- * Setzt alle Event Listeners auf
- */
 function setupEventListeners() {
-    // Tab-Switching
     const emailTab = document.getElementById('email-invite-tab');
     const codeTab = document.getElementById('code-invite-tab');
     const emailForm = document.getElementById('add-offline-player-form');
@@ -53,29 +41,14 @@ function setupEventListeners() {
 
     emailTab?.addEventListener('click', () => switchTab('email'));
     codeTab?.addEventListener('click', () => switchTab('code'));
-
-    // Code-Generierung
     codeForm?.addEventListener('submit', handleCodeGeneration);
-
-    // Code-Aktionen
     document.getElementById('copy-code-button')?.addEventListener('click', handleCopyCode);
-    document
-        .getElementById('whatsapp-share-button')
-        ?.addEventListener('click', handleWhatsAppShare);
+    document.getElementById('whatsapp-share-button')?.addEventListener('click', handleWhatsAppShare);
     document.getElementById('create-another-code-button')?.addEventListener('click', resetCodeForm);
-
-    // Code-Verwaltung Modal
-    document
-        .getElementById('manage-invitation-codes-button')
-        ?.addEventListener('click', openCodesManagementModal);
-    document
-        .getElementById('close-invitation-codes-modal-button')
-        ?.addEventListener('click', closeCodesManagementModal);
+    document.getElementById('manage-invitation-codes-button')?.addEventListener('click', openCodesManagementModal);
+    document.getElementById('close-invitation-codes-modal-button')?.addEventListener('click', closeCodesManagementModal);
 }
 
-/**
- * Wechselt zwischen Email und Code Tabs
- */
 function switchTab(tab) {
     const emailTab = document.getElementById('email-invite-tab');
     const codeTab = document.getElementById('code-invite-tab');
@@ -98,9 +71,6 @@ function switchTab(tab) {
     }
 }
 
-/**
- * Lädt die Subgroups-Checkboxen für Code-Form
- */
 export function loadSubgroupsForCodeForm(subgroups) {
     currentSubgroups = subgroups;
     const container = document.getElementById('code-player-subgroups-checkboxes');
@@ -124,26 +94,19 @@ export function loadSubgroupsForCodeForm(subgroups) {
         .join('');
 }
 
-/**
- * Generiert einen neuen Einladungscode
- */
 async function handleCodeGeneration(e) {
     e.preventDefault();
 
     const firstName = document.getElementById('code-firstName').value.trim();
     const lastName = document.getElementById('code-lastName').value.trim();
-
-    // Ausgewählte Subgroups
     const selectedCheckboxes = document.querySelectorAll('.code-subgroup-checkbox:checked');
     const subgroupIds = Array.from(selectedCheckboxes).map(cb => cb.value);
 
     try {
-        // Generiere eindeutigen Code
         let code = generateInvitationCode();
         let isUnique = false;
         let attempts = 0;
 
-        // Stelle sicher, dass Code eindeutig ist
         while (!isUnique && attempts < 10) {
             const existingCode = await checkCodeExists(code);
             if (!existingCode) {
@@ -158,7 +121,6 @@ async function handleCodeGeneration(e) {
             throw new Error('Konnte keinen eindeutigen Code generieren. Bitte versuche es erneut.');
         }
 
-        // Speichere Code in Firestore
         const expiresAt = getExpirationDate();
         const codeData = {
             code,
@@ -176,8 +138,6 @@ async function handleCodeGeneration(e) {
         };
 
         await addDoc(collection(db, 'invitationCodes'), codeData);
-
-        // Zeige Code an
         lastGeneratedCode = code;
         lastGeneratedFirstName = firstName;
         displayGeneratedCode(code);
@@ -187,18 +147,12 @@ async function handleCodeGeneration(e) {
     }
 }
 
-/**
- * Prüft ob ein Code bereits existiert
- */
 async function checkCodeExists(code) {
     const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
     const snapshot = await getDocs(q);
     return !snapshot.empty;
 }
 
-/**
- * Zeigt den generierten Code an
- */
 function displayGeneratedCode(code) {
     const codeForm = document.getElementById('generate-code-form');
     const codeDisplay = document.getElementById('generated-code-display');
@@ -211,9 +165,6 @@ function displayGeneratedCode(code) {
     validityDays.textContent = `${CODE_CONFIG.VALIDITY_DAYS} Tage`;
 }
 
-/**
- * Kopiert den Code in die Zwischenablage
- */
 async function handleCopyCode() {
     if (!lastGeneratedCode) return;
 
@@ -234,9 +185,6 @@ async function handleCopyCode() {
     }
 }
 
-/**
- * Öffnet WhatsApp zum Teilen des Codes
- */
 function handleWhatsAppShare() {
     if (!lastGeneratedCode) return;
 
@@ -244,9 +192,6 @@ function handleWhatsAppShare() {
     window.open(url, '_blank');
 }
 
-/**
- * Setzt das Code-Formular zurück für neuen Code
- */
 function resetCodeForm() {
     const codeForm = document.getElementById('generate-code-form');
     const codeDisplay = document.getElementById('generated-code-display');
@@ -259,9 +204,6 @@ function resetCodeForm() {
     lastGeneratedFirstName = '';
 }
 
-/**
- * Öffnet das Code-Verwaltung Modal
- */
 async function openCodesManagementModal() {
     const modal = document.getElementById('invitation-codes-modal');
     modal.classList.remove('hidden');
@@ -270,18 +212,12 @@ async function openCodesManagementModal() {
     await loadInvitationCodes();
 }
 
-/**
- * Schließt das Code-Verwaltung Modal
- */
 function closeCodesManagementModal() {
     const modal = document.getElementById('invitation-codes-modal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
 
-/**
- * Lädt alle Einladungscodes für den Club
- */
 async function loadInvitationCodes() {
     const container = document.getElementById('invitation-codes-list');
     container.innerHTML = '<p class="text-center text-gray-500">Lade Codes...</p>';
@@ -306,21 +242,15 @@ async function loadInvitationCodes() {
             codes.push({ id: doc.id, ...doc.data() });
         });
 
-        // Sortiere: Aktive zuerst, dann supersedierte/verwendete, dann nach Erstellungsdatum
         codes.sort((a, b) => {
-            // Active codes first (not used and not superseded)
             const aActive = !a.used && !a.superseded;
             const bActive = !b.used && !b.superseded;
-
             if (aActive !== bActive) return aActive ? -1 : 1;
-
-            // Then by creation date (newest first)
             return b.createdAt?.seconds - a.createdAt?.seconds;
         });
 
         container.innerHTML = codes.map(code => renderCodeItem(code)).join('');
 
-        // Event Listeners für Delete-Buttons
         codes.forEach(code => {
             document
                 .getElementById(`delete-code-${code.id}`)
@@ -332,14 +262,9 @@ async function loadInvitationCodes() {
     }
 }
 
-/**
- * Rendert ein Code-Item
- */
 function renderCodeItem(codeData) {
     const expired = isCodeExpired(codeData.expiresAt);
     const remainingDays = getRemainingDays(codeData.expiresAt);
-
-    // Determine status (superseded takes priority)
     let statusClass, statusIcon, statusText, badgeClass;
 
     if (codeData.superseded) {
@@ -407,24 +332,18 @@ function renderCodeItem(codeData) {
     `;
 }
 
-/**
- * Löscht einen Einladungscode
- */
 async function deleteInvitationCode(codeId) {
     if (!confirm('Möchtest du diesen Code wirklich löschen?')) return;
 
     try {
         await deleteDoc(doc(db, 'invitationCodes', codeId));
-        await loadInvitationCodes(); // Reload list
+        await loadInvitationCodes();
     } catch (error) {
         console.error('Fehler beim Löschen des Codes:', error);
         alert('Fehler beim Löschen des Codes');
     }
 }
 
-/**
- * Formatiert ein Firestore Timestamp zu lesbarem Datum
- */
 function formatDate(timestamp) {
     if (!timestamp) return 'Unbekannt';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);

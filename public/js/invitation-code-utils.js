@@ -4,7 +4,6 @@
  * Gültigkeit: 7 Tage
  */
 
-// Erlaubte Zeichen (keine verwechselbaren: 0/O, 1/I/l)
 const ALLOWED_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CODE_PREFIX = 'TTV';
 const CODE_SEGMENT_LENGTH = 3;
@@ -42,7 +41,6 @@ function generateRandomSegment(length) {
 export function validateCodeFormat(code) {
     if (!code) return false;
 
-    // Format: TTV-XXX-YYY
     const regex = /^TTV-[2-9A-HJ-NP-Z]{3}-[2-9A-HJ-NP-Z]{3}$/;
     return regex.test(code.toUpperCase());
 }
@@ -53,10 +51,8 @@ export function validateCodeFormat(code) {
  * @returns {string} Formatierter Code
  */
 export function formatCode(code) {
-    // Entfernt alle Nicht-Alphanumerischen Zeichen
     const cleaned = code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-    // TTV + 6 Zeichen = 9 Zeichen total
     if (cleaned.length === 9 && cleaned.startsWith('TTV')) {
         return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 9)}`;
     }

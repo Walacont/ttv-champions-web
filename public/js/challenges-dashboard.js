@@ -9,22 +9,10 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateExpiry } from './challenges.js';
 
-/**
- * Challenges Dashboard Module
- * Handles challenge loading and display for player dashboard
- */
-
-/**
- * Loads active challenges for a player
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
 export async function loadChallenges(userData, db, unsubscribes) {
     const challengesListEl = document.getElementById('challenges-list');
     if (!challengesListEl) return;
 
-    // Load completed challenges with error handling
     let completedChallengeIds = [];
     try {
         const completedChallengesSnap = await getDocs(
@@ -36,7 +24,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
             'Could not load completed challenges (this is normal for new users):',
             error.message
         );
-        // Continue with empty array - user hasn't completed any challenges yet
     }
 
     const q = query(
@@ -49,7 +36,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
         const now = new Date();
         const playerSubgroups = userData.subgroupIDs || [];
 
-        // Load subgroup info to filter out default subgroups
         const subgroupDocs = await Promise.all(
             playerSubgroups.map(async subgroupId => {
                 try {
@@ -64,7 +50,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
             })
         );
 
-        // Filter to only non-default subgroups (specialized subgroups like U10, U13, etc.)
         const specializedSubgroups = subgroupDocs
             .filter(sg => sg !== null && !sg.isDefault)
             .map(sg => sg.id);
@@ -74,10 +59,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
             .filter(challenge => {
                 const isCompleted = completedChallengeIds.includes(challenge.id);
                 const isExpired = calculateExpiry(challenge.createdAt, challenge.type) < now;
-
-                // Only show challenges for:
-                // 1. subgroupId === 'all' (for entire club), OR
-                // 2. subgroupId matches one of player's specialized (non-default) subgroups
                 const subgroupId = challenge.subgroupId || 'all';
                 const isForPlayer =
                     subgroupId === 'all' || specializedSubgroups.includes(subgroupId);
@@ -92,7 +73,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
             return;
         }
 
-        // Load subgroup names for badges
         const subgroupNamesMap = {};
         for (const challenge of activeChallenges) {
             if (
@@ -122,7 +102,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
             card.dataset.points = challenge.points;
             card.dataset.type = challenge.type;
 
-            // Add tieredPoints data
             if (challenge.tieredPoints) {
                 card.dataset.tieredPoints = JSON.stringify(challenge.tieredPoints);
             }
@@ -132,7 +111,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
                     ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
                     : '';
 
-            // Check if challenge has tiered points
             const hasTieredPoints =
                 challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
             const pointsBadge = hasTieredPoints
@@ -158,10 +136,6 @@ export async function loadChallenges(userData, db, unsubscribes) {
     unsubscribes.push(challengesListener);
 }
 
-/**
- * Opens the challenge modal
- * @param {Object} dataset - Challenge data from card dataset
- */
 export function openChallengeModal(dataset) {
     const { title, description, points, tieredPoints } = dataset;
     const titleEl = document.getElementById('modal-challenge-title');
@@ -172,15 +146,13 @@ export function openChallengeModal(dataset) {
     if (titleEl) titleEl.textContent = title;
     if (descEl) descEl.textContent = description;
 
-    // Handle points display with milestones
     let tieredPointsData = null;
     try {
         if (tieredPoints) {
             tieredPointsData = JSON.parse(tieredPoints);
         }
-    } catch (e) {
-        // Invalid JSON, ignore
-    }
+    } catch (e) {}
+
 
     const milestonesContainer = document.getElementById('modal-challenge-milestones');
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
@@ -188,7 +160,6 @@ export function openChallengeModal(dataset) {
     if (hasTieredPoints) {
         if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} Punkte`;
 
-        // Display milestones if container exists
         if (milestonesContainer) {
             const milestonesHtml = tieredPointsData.milestones
                 .sort((a, b) => a.count - b.count)

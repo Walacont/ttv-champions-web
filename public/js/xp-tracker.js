@@ -44,13 +44,11 @@ export async function awardXP(playerId, xpAmount, reason, db, awardedBy = 'Syste
     try {
         const playerRef = doc(db, 'users', playerId);
 
-        // Update player's total XP
         await updateDoc(playerRef, {
             xp: increment(xpAmount),
             lastXPUpdate: serverTimestamp(),
         });
 
-        // Log XP in history (optional, for transparency)
         const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
         await updateDoc(xpHistoryRef, {
             xp: xpAmount,
@@ -97,7 +95,6 @@ export async function awardAttendanceXP(playerId, streak, db) {
  * @param {Object} db - Firestore database instance
  */
 export async function awardMatchXP(playerId, pointsAwarded, isHandicap, db) {
-    // Match XP = participation + win bonus (matches current point system)
     const xp = XP_VALUES.MATCH_PARTICIPATION + pointsAwarded;
     const reason = isHandicap
         ? `Handicap-Wettkampf gewonnen (+${pointsAwarded} Punkte)`
@@ -122,7 +119,6 @@ export async function awardExerciseXP(
     db,
     awardedBy = 'Coach'
 ) {
-    // Exercise XP = exercise points (they're already well-balanced)
     const xp = exercisePoints;
     const reason = `Übung abgeschlossen: ${exerciseTitle}`;
 
@@ -145,7 +141,6 @@ export async function awardChallengeXP(
     db,
     awardedBy = 'Coach'
 ) {
-    // Challenge XP = challenge points
     const xp = challengePoints;
     const reason = `Challenge abgeschlossen: ${challengeTitle}`;
 
@@ -178,7 +173,5 @@ export function getPlayerXPInfo(userData) {
     return {
         xp,
         eloRating,
-        // We'll need to import ranks.js to calculate rank
-        // For now, just return the raw values
     };
 }

@@ -1,4 +1,3 @@
-// TTV Champions Service Worker
 const CACHE_NAME = 'ttv-champions-v10';
 const STATIC_CACHE = 'ttv-static-v10';
 const DYNAMIC_CACHE = 'ttv-dynamic-v10';
@@ -134,7 +133,6 @@ self.addEventListener('fetch', (event) => {
             if (isStaticAsset(url)) {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
-                    // Cache im Hintergrund aktualisieren (stale-while-revalidate)
                     event.waitUntil(updateCache(event.request));
                     return cachedResponse;
                 }

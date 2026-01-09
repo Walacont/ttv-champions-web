@@ -1,5 +1,4 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
-// NEU: Zusätzliche Imports für die Emulatoren
 import {
     getAuth,
     onAuthStateChanged,
@@ -55,31 +54,18 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
-// NEU: Functions-Dienst initialisieren
 const functions = getFunctions(app);
 
-// NEU: Der Emulator-Block
-// Dieser Code verbindet sich nur dann mit den Emulatoren,
-// wenn die Seite lokal (z.B. über Live Server) ausgeführt wird.
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log('Admin.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Functions Emulator
     connectFunctionsEmulator(functions, 'localhost', 5001);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
-// ... (der Rest deines Codes bleibt unverändert) ...
 const authErrorContainer = document.getElementById('auth-error-container');
 const authErrorMessage = document.getElementById('auth-error-message');
 const errorLogoutButton = document.getElementById('error-logout-button');
@@ -93,7 +79,6 @@ const clubsListEl = document.getElementById('clubs-list');
 const createExerciseForm = document.getElementById('create-exercise-form');
 const exercisesListAdminEl = document.getElementById('exercises-list-admin');
 
-// Modals
 const playerModal = document.getElementById('player-modal');
 const closePlayerModalButton = document.getElementById('close-player-modal-button');
 const modalClubIdEl = document.getElementById('modal-club-id');
@@ -144,7 +129,6 @@ onAuthStateChanged(auth, async user => {
             showAuthError(`Datenbankfehler: ${error.message}`);
         }
     } else {
-        // User logged out - use replace() to prevent back-button access
         window.location.replace('/index.html');
     }
 });
@@ -153,14 +137,12 @@ function initializeAdminPage(userData, user) {
     try {
         welcomeMessage.textContent = `Willkommen, ${userData.firstName || user.email}!`;
 
-        // Track page view in Google Analytics
         logEvent(analytics, 'page_view', {
             page_title: 'Admin Dashboard',
             page_location: window.location.href,
             page_path: '/admin',
             user_role: 'admin',
         });
-        console.log('[Analytics] Admin page view tracked');
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
@@ -168,11 +150,9 @@ function initializeAdminPage(userData, user) {
         logoutButton.addEventListener('click', async () => {
             try {
                 await signOut(auth);
-                // Clear SPA cache to prevent back-button access to authenticated pages
                 if (window.spaEnhancer) {
                     window.spaEnhancer.clearCache();
                 }
-                // Use replace() instead of href to clear history and prevent back navigation
                 window.location.replace('/index.html');
             } catch (error) {
                 console.error('Logout error:', error);
@@ -193,7 +173,6 @@ function initializeAdminPage(userData, user) {
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
 
-        // Initialize description editors
         descriptionEditor = setupDescriptionEditor({
             textAreaId: 'exercise-description',
             toggleContainerId: 'description-toggle-container',
@@ -206,13 +185,10 @@ function initializeAdminPage(userData, user) {
             tableEditorContainerId: 'edit-description-table-editor',
         });
 
-        // Initialize milestone management
         initializeExerciseMilestones();
 
-        // Initialize partner system
         initializeExercisePartnerSystem();
 
-        // Modal Listeners
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
         closeExerciseModalButton.addEventListener('click', () =>
             exerciseModal.classList.add('hidden')
@@ -221,7 +197,6 @@ function initializeAdminPage(userData, user) {
             editExerciseModal.classList.add('hidden')
         );
 
-        // Toggle abbreviations in exercise modal
         const toggleAbbreviationsAdmin = document.getElementById('toggle-abbreviations-admin');
         const abbreviationsContentAdmin = document.getElementById('abbreviations-content-admin');
         const abbreviationsIconAdmin = document.getElementById('abbreviations-icon-admin');
@@ -255,7 +230,6 @@ function initializeAdminPage(userData, user) {
             }
         });
 
-        // *** HIER WURDE DER FEHLENDE LISTENER HINZUGEFÜGT ***
         modalEditExerciseButton.addEventListener('click', e => {
             openEditExerciseModal(e.target.dataset);
         });
@@ -280,7 +254,6 @@ async function handleInviteCoach(e) {
     if (!clubId) return alert('Bitte eine Vereins-ID angeben.');
 
     try {
-        // Generate unique code
         let code = generateInvitationCode();
         let isUnique = false;
         let attempts = 0;
@@ -300,7 +273,6 @@ async function handleInviteCoach(e) {
             throw new Error('Konnte keinen eindeutigen Code generieren.');
         }
 
-        // Create code document
         const expiresAt = getExpirationDate();
         await addDoc(collection(db, 'invitationCodes'), {
             code,
@@ -315,11 +287,9 @@ async function handleInviteCoach(e) {
             firstName: '',
             lastName: '',
             subgroupIds: [],
-            // WICHTIG: Für Coach-Registrierung speichern
             role: 'coach',
         });
 
-        // Display code
         inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
     } catch (error) {
@@ -339,12 +309,10 @@ function openExerciseModal(dataset) {
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl;
 
-    // Render description content
     let descriptionData;
     try {
         descriptionData = JSON.parse(descriptionContent);
     } catch (e) {
-        // Fallback for old format
         descriptionData = { type: 'text', text: descriptionContent || '' };
     }
 
@@ -361,14 +329,12 @@ function openExerciseModal(dataset) {
         modalExerciseDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    // Handle points display with milestones
     let tieredPointsData = null;
     try {
         if (tieredPoints) {
             tieredPointsData = JSON.parse(tieredPoints);
         }
     } catch (e) {
-        // Invalid JSON, ignore
     }
 
     const milestonesContainer = document.getElementById('modal-exercise-milestones-admin');
@@ -377,7 +343,6 @@ function openExerciseModal(dataset) {
     if (hasTieredPoints) {
         modalExercisePoints.textContent = `🎯 Bis zu ${points} P.`;
 
-        // Display milestones if container exists
         if (milestonesContainer) {
             const milestonesHtml = tieredPointsData.milestones
                 .sort((a, b) => a.count - b.count)
@@ -417,7 +382,6 @@ function openExerciseModal(dataset) {
         }
     }
 
-    // Set data for both buttons
     modalDeleteExerciseButton.dataset.id = id;
     modalDeleteExerciseButton.dataset.imageUrl = imageUrl;
     modalEditExerciseButton.dataset.id = id;
@@ -451,24 +415,20 @@ function escapeHtml(text) {
 function openEditExerciseModal(dataset) {
     const { id, title, descriptionContent, points, tags } = dataset;
 
-    // Populate form fields
     document.getElementById('edit-exercise-id').value = id;
     document.getElementById('edit-exercise-title').value = title;
     document.getElementById('edit-exercise-points').value = points;
     const tagsArray = JSON.parse(tags || '[]');
     document.getElementById('edit-exercise-tags').value = tagsArray.join(', ');
 
-    // Load description content into editor
     let descriptionData;
     try {
         descriptionData = JSON.parse(descriptionContent);
     } catch (e) {
-        // Fallback for old format
         descriptionData = { type: 'text', text: descriptionContent || '' };
     }
     editDescriptionEditor.setContent(descriptionData);
 
-    // Show the edit modal and hide the view modal
     exerciseModal.classList.add('hidden');
     editExerciseModal.classList.remove('hidden');
 }
@@ -691,7 +651,6 @@ async function handleCreateExercise(e) {
         .map(tag => tag.trim())
         .filter(tag => tag);
 
-    // Get milestone data and calculate points
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
 
@@ -704,7 +663,6 @@ async function handleCreateExercise(e) {
             submitBtn.textContent = 'Übung speichern';
             return;
         }
-        // Total points is sum of all milestones
         points = milestones.reduce((sum, m) => sum + m.points, 0);
     } else {
         points = parseInt(document.getElementById('exercise-points').value);
@@ -732,7 +690,6 @@ async function handleCreateExercise(e) {
     try {
         let imageUrl = null;
 
-        // Upload image only if provided
         if (file) {
             const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
             const snapshot = await uploadBytes(storageRef, file);
@@ -747,12 +704,10 @@ async function handleCreateExercise(e) {
             tags,
         };
 
-        // Add imageUrl only if provided
         if (imageUrl) {
             exerciseData.imageUrl = imageUrl;
         }
 
-        // Add tieredPoints if enabled
         if (tieredPoints && milestones) {
             exerciseData.tieredPoints = {
                 enabled: true,
@@ -765,7 +720,6 @@ async function handleCreateExercise(e) {
             };
         }
 
-        // Add partner system settings if enabled
         const partnerSettings = getExercisePartnerSettings();
         if (partnerSettings) {
             exerciseData.partnerSystem = {
@@ -785,16 +739,13 @@ async function handleCreateExercise(e) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         createExerciseForm.reset();
 
-        // Reset points field
         document.getElementById('exercise-points').value = '';
 
-        // Reset milestones
         document.getElementById('exercise-milestones-list').innerHTML = '';
         document.getElementById('exercise-tiered-points-toggle').checked = false;
         document.getElementById('exercise-points-container-admin').classList.remove('hidden');
         document.getElementById('exercise-milestones-container').classList.add('hidden');
 
-        // Reset partner system
         const partnerToggle = document.getElementById('exercise-partner-system-toggle');
         const partnerContainer = document.getElementById('exercise-partner-container');
         const partnerPercentageInput = document.getElementById('exercise-partner-percentage');
@@ -802,7 +753,6 @@ async function handleCreateExercise(e) {
         if (partnerContainer) partnerContainer.classList.add('hidden');
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
-        // Clear description editor
         descriptionEditor.clear();
     } catch (error) {
         console.error('Fehler beim Erstellen der Übung:', error);
@@ -834,11 +784,9 @@ function loadAllExercises() {
                     'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
                 card.dataset.id = exercise.id;
                 card.dataset.title = exercise.title;
-                // Support both old and new format
                 if (exercise.descriptionContent) {
                     card.dataset.descriptionContent = exercise.descriptionContent;
                 } else {
-                    // Backwards compatibility: convert old description to new format
                     card.dataset.descriptionContent = JSON.stringify({
                         type: 'text',
                         text: exercise.description || '',
@@ -850,7 +798,6 @@ function loadAllExercises() {
                 card.dataset.points = exercise.points;
                 card.dataset.tags = JSON.stringify(exercise.tags || []);
 
-                // Add tieredPoints data
                 if (exercise.tieredPoints) {
                     card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
                 }
@@ -862,7 +809,6 @@ function loadAllExercises() {
                     )
                     .join('');
 
-                // Image or subtle placeholder
                 const imageHtml = exercise.imageUrl
                     ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
                     : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
@@ -895,7 +841,6 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
         try {
             await deleteDoc(doc(db, 'exercises', exerciseId));
 
-            // Only delete image if it exists and is a valid URL
             if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
                 try {
                     const imageRef = ref(storage, imageUrl);

@@ -24,7 +24,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
     const sets = existingSets.length > 0 ? [...existingSets] : [];
 
-    // Determine min/max sets and winning sets based on mode
     let minSets, maxSets, setsToWin;
     switch (mode) {
         case 'single-set':
@@ -53,7 +52,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             setsToWin = 3;
     }
 
-    // Ensure at least minSets
     while (sets.length < minSets) {
         sets.push({ playerA: '', playerB: '' });
     }
@@ -91,35 +89,27 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             container.appendChild(setDiv);
         });
 
-        // Add event listeners for auto-adding 4th and 5th set
         const inputs = container.querySelectorAll('input');
         inputs.forEach(input => {
             input.addEventListener('input', handleSetInput);
         });
     }
 
-    // Helper function to validate a set according to official table tennis rules
     function isValidSet(scoreA, scoreB) {
         const a = parseInt(scoreA) || 0;
         const b = parseInt(scoreB) || 0;
 
-        // At least one side must have 11+ points
         if (a < 11 && b < 11) return false;
 
-        // No winner (tie)
         if (a === b) return false;
 
-        // Determine if we're in deuce territory (both >= 10)
         if (a >= 10 && b >= 10) {
-            // Require exactly 2-point difference
             return Math.abs(a - b) === 2;
         }
 
-        // Below 10:10, just need 11+ on winning side and lead
         return (a >= 11 && a > b) || (b >= 11 && b > a);
     }
 
-    // Helper function to determine set winner (returns 'A', 'B', or null)
     function getSetWinner(scoreA, scoreB) {
         if (!isValidSet(scoreA, scoreB)) return null;
 
@@ -138,7 +128,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
         sets[setIndex][`player${player}`] = value;
 
-        // Calculate wins for auto-add logic (use lenient check during input)
         let playerAWins = 0;
         let playerBWins = 0;
 
@@ -146,35 +135,16 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             const setA = parseInt(sets[i].playerA) || 0;
             const setB = parseInt(sets[i].playerB) || 0;
 
-            // Lenient check for auto-add: just need 11+ and be ahead
-            // This allows auto-add to work during input, even if final validation is stricter
             if (setA > setB && setA >= 11) playerAWins++;
             if (setB > setA && setB >= 11) playerBWins++;
         }
 
-        // Calculate how many fields we need based on current score
-        // Formula: gespielte Sätze + (Sätze zum Sieg - höchste Satzgewinne)
         //
-        // Best of 5 Examples (setsToWin = 3):
-        //   1:0 → 1 + (3-1) = 3 Felder
-        //   2:0 → 2 + (3-2) = 3 Felder
-        //   3:0 → 3 + (3-3) = 3 Felder (Match beendet)
-        //   1:1 → 2 + (3-1) = 4 Felder
-        //   2:1 → 3 + (3-2) = 4 Felder
-        //   2:2 → 4 + (3-2) = 5 Felder
         //
-        // Best of 7 Examples (setsToWin = 4):
-        //   1:0 → 1 + (4-1) = 4 Felder
-        //   2:0 → 2 + (4-2) = 4 Felder
-        //   3:0 → 3 + (4-3) = 4 Felder
-        //   4:0 → 4 + (4-4) = 4 Felder (Match beendet)
-        //   2:2 → 4 + (4-2) = 6 Felder
-        //   3:3 → 6 + (4-3) = 7 Felder
         const totalSetsPlayed = playerAWins + playerBWins;
         const maxWins = Math.max(playerAWins, playerBWins);
         const fieldsNeeded = totalSetsPlayed + (setsToWin - maxWins);
 
-        // For single set mode, always keep exactly 1 field
         if (mode === 'single-set') {
             if (sets.length > 1) {
                 sets.length = 1;
@@ -183,28 +153,20 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return;
         }
 
-        // Check if someone has already won
         const matchIsWon = playerAWins >= setsToWin || playerBWins >= setsToWin;
 
         if (matchIsWon) {
-            // Match is decided, keep only the sets that were played
             if (sets.length > totalSetsPlayed) {
-                // Remove empty trailing sets
                 sets.length = Math.max(totalSetsPlayed, minSets);
                 renderSets();
             }
         } else {
-            // Match is ongoing, dynamically adjust fields
             if (sets.length < fieldsNeeded && sets.length < maxSets) {
-                // Add fields if needed
                 sets.push({ playerA: '', playerB: '' });
                 renderSets();
             } else if (sets.length > fieldsNeeded && sets.length > minSets) {
-                // Remove excess fields if score changed (e.g., 2:1 → 3:0)
-                // Only remove empty sets beyond what's needed
                 const newLength = Math.max(fieldsNeeded, minSets);
                 if (sets.length > newLength) {
-                    // Check if sets beyond newLength are empty
                     let canTrim = true;
                     for (let i = newLength; i < sets.length; i++) {
                         if (sets[i].playerA !== '' || sets[i].playerB !== '') {
@@ -232,14 +194,12 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
         }
 
-        // Validate each set according to official table tennis rules
         for (let i = 0; i < filledSets.length; i++) {
             const set = filledSets[i];
             const scoreA = parseInt(set.playerA) || 0;
             const scoreB = parseInt(set.playerB) || 0;
 
             if (!isValidSet(scoreA, scoreB)) {
-                // Provide specific error message based on the issue
                 if (scoreA < 11 && scoreB < 11) {
                     return {
                         valid: false,
@@ -265,7 +225,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             }
         }
 
-        // Calculate wins
         let playerAWins = 0;
         let playerBWins = 0;
 
@@ -275,7 +234,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             if (winner === 'B') playerBWins++;
         });
 
-        // Check if someone won (setsToWin sets)
         if (playerAWins < setsToWin && playerBWins < setsToWin) {
             const errorMsg =
                 mode === 'single-set'
@@ -284,9 +242,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { valid: false, error: errorMsg };
         }
 
-        // Check if match is finished (no need for more sets)
         if (playerAWins === setsToWin || playerBWins === setsToWin) {
-            // Valid match result
             return {
                 valid: true,
                 winnerId: playerAWins === setsToWin ? 'A' : 'B',
@@ -299,7 +255,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     }
 
     function reset() {
-        // Reset to minimum 3 sets with empty values
         sets.length = 0;
         for (let i = 0; i < minSets; i++) {
             sets.push({ playerA: '', playerB: '' });
@@ -307,15 +262,12 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
-    // Function to set handicap for a player
     function setHandicap(player, points) {
         sets.forEach((set, index) => {
             if (player === 'A') {
-                // Set minimum for player A
                 const currentValue = parseInt(set.playerA) || 0;
                 sets[index].playerA = Math.max(currentValue, points);
             } else if (player === 'B') {
-                // Set minimum for player B
                 const currentValue = parseInt(set.playerB) || 0;
                 sets[index].playerB = Math.max(currentValue, points);
             }
@@ -323,7 +275,6 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
-    // Function to clear handicap for a player
     function clearHandicap(player) {
         sets.forEach((set, index) => {
             if (player === 'A') {
@@ -349,23 +300,19 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
 /** Laedt und rendert Spieler-Match-Anfragen */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
-    // Updated to use new two-section layout: pending (to respond) and history (completed)
     const pendingRequestsList = document.getElementById('pending-result-requests-list');
     const historyRequestsList = document.getElementById('history-result-requests-list');
 
-    // If neither container exists, nothing to do
     if (!pendingRequestsList && !historyRequestsList) {
         return;
     }
 
-    // Query for requests created by me (playerA)
     const myRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerAId', '==', userData.id),
         orderBy('createdAt', 'desc')
     );
 
-    // Query for requests sent to me (playerB) - still pending
     const incomingRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
@@ -373,29 +320,24 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for requests I processed as playerB - no longer pending_player
     const processedRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
         orderBy('createdAt', 'desc')
     );
 
-    // DOUBLES QUERIES
-    // Query for doubles requests created by me (initiatedBy)
     const myDoublesRequestsQuery = query(
         collection(db, 'doublesMatchRequests'),
         where('initiatedBy', '==', userData.id),
         orderBy('createdAt', 'desc')
     );
 
-    // Query for all doubles requests in my club (we'll filter client-side for involvement)
     const doublesInvolvedQuery = query(
         collection(db, 'doublesMatchRequests'),
         where('clubId', '==', userData.clubId),
         orderBy('createdAt', 'desc')
     );
 
-    // Store all requests for combined rendering
     let myRequests = [];
     let incomingRequests = [];
     let processedRequests = [];
@@ -406,26 +348,19 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     const debouncedRenderAll = () => {
         if (renderTimeout) clearTimeout(renderTimeout);
         renderTimeout = setTimeout(async () => {
-            // Pending SINGLES:
-            // - Incoming requests that need my response
-            // - My sent requests that are still pending (waiting for opponent or coach)
             const pendingMyRequests = myRequests.filter(
                 r => r.status === 'pending_player' || r.status === 'pending_coach'
             );
 
-            // Pending DOUBLES:
-            // - My created doubles requests that are still pending
             const pendingMyDoublesRequests = myDoublesRequests
                 .filter(r => r.status === 'pending_opponent' || r.status === 'pending_coach')
                 .map(r => ({ ...r, matchType: 'doubles' }));
 
-            // - Doubles requests where I need to confirm (I'm in teamB and status is pending_opponent)
             const pendingDoublesIncoming = doublesInvolvedRequests
                 .filter(r => {
                     const isInTeamB =
                         r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
                     const isInitiator = r.initiatedBy === userData.id;
-                    // Show if: I'm in TeamB AND status is pending_opponent AND I'm not the initiator
                     return isInTeamB && r.status === 'pending_opponent' && !isInitiator;
                 })
                 .map(r => ({ ...r, matchType: 'doubles' }));
@@ -441,9 +376,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
                 return bTime - aTime; // Most recent first
             });
 
-            // History SINGLES:
-            // - My created requests: only approved/rejected (pending_coach stays in "Ausstehend")
-            // - Requests I responded to: approved/rejected/pending_coach (I'm done with them)
             const completedMyRequests = myRequests.filter(
                 r => r.status === 'approved' || r.status === 'rejected'
             );
@@ -454,13 +386,10 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
                     r.status === 'pending_coach'
             );
 
-            // History DOUBLES:
-            // - My created doubles requests: only approved/rejected
             const completedMyDoublesRequests = myDoublesRequests
                 .filter(r => r.status === 'approved' || r.status === 'rejected')
                 .map(r => ({ ...r, matchType: 'doubles' }));
 
-            // - Doubles requests I'm involved in (as partner or opponent): approved/rejected/pending_coach
             const completedDoublesInvolved = doublesInvolvedRequests
                 .filter(r => {
                     const isInTeamA =
@@ -469,7 +398,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
                         r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
                     const isInvolved = isInTeamA || isInTeamB;
                     const isInitiator = r.initiatedBy === userData.id;
-                    // Only show if: involved AND NOT initiator AND completed/pending_coach
                     return (
                         isInvolved &&
                         !isInitiator &&
@@ -494,13 +422,11 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
             await renderPendingRequests(pendingRequests, userData, db);
             await renderHistoryRequests(historyRequests, userData, db);
 
-            // Update badge count (only incoming requests that need my action)
             const actionRequiredCount = incomingRequests.length + pendingDoublesIncoming.length;
             updateMatchRequestBadge(actionRequiredCount);
         }, 100);
     };
 
-    // Listen to my requests
     const myRequestsUnsubscribe = onSnapshot(myRequestsQuery, async snapshot => {
         myRequests = [];
         for (const docSnap of snapshot.docs) {
@@ -510,7 +436,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    // Listen to incoming requests (pending_player)
     const incomingRequestsUnsubscribe = onSnapshot(incomingRequestsQuery, async snapshot => {
         incomingRequests = [];
         for (const docSnap of snapshot.docs) {
@@ -520,12 +445,10 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    // Listen to processed requests (playerB, not pending_player)
     const processedRequestsUnsubscribe = onSnapshot(processedRequestsQuery, async snapshot => {
         processedRequests = [];
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
-            // Only include requests that are NOT pending_player (i.e., already processed)
             if (data.status !== 'pending_player') {
                 processedRequests.push({ id: docSnap.id, ...data });
             }
@@ -533,7 +456,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    // Listen to my doubles requests
     const myDoublesUnsubscribe = onSnapshot(myDoublesRequestsQuery, async snapshot => {
         myDoublesRequests = [];
         for (const docSnap of snapshot.docs) {
@@ -543,7 +465,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    // Listen to doubles requests I'm involved in
     const doublesInvolvedUnsubscribe = onSnapshot(doublesInvolvedQuery, async snapshot => {
         doublesInvolvedRequests = [];
         for (const docSnap of snapshot.docs) {
@@ -580,11 +501,9 @@ async function renderMyRequests(requests, userData, db) {
 
     container.innerHTML = '';
 
-    // Determine how many to show
     const maxInitial = 3;
     const requestsToShow = showAllMyRequests ? requests : requests.slice(0, maxInitial);
 
-    // Render request cards
     for (const request of requestsToShow) {
         const playerBData = {
             id: request.playerBId,
@@ -595,7 +514,6 @@ async function renderMyRequests(requests, userData, db) {
         container.appendChild(card);
     }
 
-    // Add "Show more" / "Show less" button if needed
     if (requests.length > maxInitial) {
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'text-center mt-4';
@@ -634,11 +552,9 @@ async function renderIncomingRequests(requests, userData, db) {
 
     container.innerHTML = '';
 
-    // Determine how many to show
     const maxInitial = 3;
     const requestsToShow = showAllIncomingRequests ? requests : requests.slice(0, maxInitial);
 
-    // Render request cards
     for (const request of requestsToShow) {
         const playerAData = {
             id: request.playerAId,
@@ -649,7 +565,6 @@ async function renderIncomingRequests(requests, userData, db) {
         container.appendChild(card);
     }
 
-    // Add "Show more" / "Show less" button if needed
     if (requests.length > maxInitial) {
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'text-center mt-4';
@@ -688,11 +603,9 @@ async function renderProcessedRequests(requests, userData, db) {
 
     container.innerHTML = '';
 
-    // Determine how many to show
     const maxInitial = 3;
     const requestsToShow = showAllProcessedRequests ? requests : requests.slice(0, maxInitial);
 
-    // Render request cards
     for (const request of requestsToShow) {
         const playerAData = {
             id: request.playerAId,
@@ -703,7 +616,6 @@ async function renderProcessedRequests(requests, userData, db) {
         container.appendChild(card);
     }
 
-    // Add "Show more" / "Show less" button if needed
     if (requests.length > maxInitial) {
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'text-center mt-4';
@@ -770,7 +682,6 @@ function createMyRequestCard(request, playerB, userData, db) {
     </div>
   `;
 
-    // Event listeners
     const editBtn = div.querySelector('.edit-request-btn');
     const deleteBtn = div.querySelector('.delete-request-btn');
 
@@ -818,7 +729,6 @@ function createIncomingRequestCard(request, playerA, userData, db) {
     </div>
   `;
 
-    // Event listeners
     const approveBtn = div.querySelector('.approve-request-btn');
     const rejectBtn = div.querySelector('.reject-request-btn');
 
@@ -839,7 +749,6 @@ function createIncomingRequestCard(request, playerA, userData, db) {
 function createProcessedRequestCard(request, playerA, userData, db) {
     const div = document.createElement('div');
 
-    // Different styling based on status
     let borderColor = 'border-gray-200';
     if (request.status === 'approved' || request.status === 'pending_coach') {
         borderColor = 'border-green-200 bg-green-50';
@@ -933,7 +842,6 @@ function getStatusDescription(status, approvals) {
 function createDoublesHistoryCard(request, playersData, userData, db) {
     const div = document.createElement('div');
 
-    // Determine status styling
     let borderColor = 'border-gray-200';
     let bgColor = 'bg-white';
 
@@ -950,7 +858,6 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
 
     div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-sm`;
 
-    // Format player names
     const teamAPlayer1Name = playersData.teamAPlayer1
         ? `${playersData.teamAPlayer1.firstName}`
         : 'Unbekannt';
@@ -964,10 +871,8 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
         ? `${playersData.teamBPlayer2.firstName}`
         : 'Unbekannt';
 
-    // Format sets display (doubles sets use teamA/teamB)
     const setsDisplay = formatDoublesSetDisplay(request.sets);
 
-    // Get winner
     const winner = getDoublesWinner(
         request.sets,
         teamAPlayer1Name,
@@ -977,13 +882,10 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
         request.matchMode
     );
 
-    // Format timestamp
     const timeAgo = formatTimestamp(request.createdAt);
 
-    // Get status badge
     const statusBadge = getDoublesStatusBadge(request.status);
 
-    // Build HTML
     div.innerHTML = `
     <div class="mb-3">
       <div class="flex justify-between items-start mb-2">
@@ -1020,22 +922,18 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
 function createPendingDoublesCard(request, playersData, userData, db) {
     const div = document.createElement('div');
 
-    // Check if current user needs to respond (is in TeamB and status is pending_opponent)
     const isInTeamB =
         request.teamB.player1Id === userData.id || request.teamB.player2Id === userData.id;
     const needsMyResponse =
         isInTeamB && request.status === 'pending_opponent' && request.initiatedBy !== userData.id;
 
-    // Check if current user is the initiator
     const isMyRequest = request.initiatedBy === userData.id;
 
-    // Determine status styling
     let borderColor = needsMyResponse ? 'border-indigo-200' : 'border-yellow-200';
     let bgColor = needsMyResponse ? 'bg-white' : 'bg-yellow-50';
 
     div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-md`;
 
-    // Format player names
     const teamAPlayer1Name = playersData.teamAPlayer1
         ? `${playersData.teamAPlayer1.firstName}`
         : 'Unbekannt';
@@ -1049,10 +947,8 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         ? `${playersData.teamBPlayer2.firstName}`
         : 'Unbekannt';
 
-    // Format sets display
     const setsDisplay = formatDoublesSetDisplay(request.sets);
 
-    // Get winner
     const winner = getDoublesWinner(
         request.sets,
         teamAPlayer1Name,
@@ -1062,10 +958,8 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         request.matchMode
     );
 
-    // Format timestamp
     const timeAgo = formatTimestamp(request.createdAt);
 
-    // Status message
     let statusMessage = '';
     if (request.status === 'pending_opponent') {
         if (needsMyResponse) {
@@ -1080,7 +974,6 @@ function createPendingDoublesCard(request, playersData, userData, db) {
             '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-hourglass-half mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
     }
 
-    // Build HTML
     div.innerHTML = `
     <div class="mb-3">
       <div class="flex justify-between items-start mb-2">
@@ -1127,7 +1020,6 @@ function createPendingDoublesCard(request, playersData, userData, db) {
     }
   `;
 
-    // Add event listeners for buttons if they exist
     if (needsMyResponse) {
         const approveBtn = div.querySelector('.approve-doubles-btn');
         const rejectBtn = div.querySelector('.reject-doubles-btn');
@@ -1153,7 +1045,6 @@ function createPendingDoublesCard(request, playersData, userData, db) {
                 const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
                 const reason = prompt('Grund für Ablehnung (optional):');
                 if (reason !== null) {
-                    // null means user cancelled
                     try {
                         await rejectDoublesMatchRequest(
                             request.id,
@@ -1171,7 +1062,6 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         }
     }
 
-    // Add event listener for delete button if it exists
     if (isMyRequest && request.status === 'pending_opponent') {
         const deleteBtn = div.querySelector('.delete-doubles-request-btn');
         if (deleteBtn) {
@@ -1210,7 +1100,6 @@ function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'bes
     const winsA = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
     const winsB = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
-    // Determine required wins based on match mode
     let setsToWin;
     switch (matchMode) {
         case 'single-set':
@@ -1302,7 +1191,6 @@ function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
     const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
     const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
 
-    // Determine required wins based on match mode
     let setsToWin;
     switch (matchMode) {
         case 'single-set':
@@ -1452,7 +1340,6 @@ async function deleteDoublesMatchRequest(requestId, db) {
  * Opens edit request modal
  */
 function openEditRequestModal(request, userData, db) {
-    // TODO: Implement edit modal if needed
     showFeedback('Bearbeiten-Funktion wird bald verfügbar sein.', 'info');
 }
 
@@ -1469,23 +1356,19 @@ function formatTimestamp(timestamp) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    // Less than 1 hour ago
     if (diffMins < 60) {
         if (diffMins < 1) return 'gerade eben';
         return `vor ${diffMins} Min.`;
     }
 
-    // Less than 24 hours ago
     if (diffHours < 24) {
         return `vor ${diffHours} Std.`;
     }
 
-    // Less than 7 days ago
     if (diffDays < 7) {
         return `vor ${diffDays} ${diffDays === 1 ? 'Tag' : 'Tagen'}`;
     }
 
-    // Format as date and time
     return new Intl.DateTimeFormat('de-DE', {
         day: '2-digit',
         month: '2-digit',
@@ -1568,17 +1451,14 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const matchModeSelect = document.getElementById('match-mode-select');
     const setScoreLabel = document.getElementById('set-score-label');
 
-    // Create a map of player IDs to player data for easy lookup
     const playersMap = new Map();
     clubPlayers.forEach(player => {
         playersMap.set(player.id, player);
     });
 
-    // Check if player has completed Grundlagen requirement
     const grundlagenCompleted = userData.grundlagenCompleted || 0;
     const isMatchReady = grundlagenCompleted >= 5;
 
-    // If player hasn't completed Grundlagen, show warning and disable form
     if (!isMatchReady) {
         const warningDiv = document.createElement('div');
         warningDiv.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4';
@@ -1602,7 +1482,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
         form.insertBefore(warningDiv, form.firstChild);
 
-        // Disable all form inputs
         form.querySelectorAll('input, select, button[type="submit"]').forEach(el => {
             el.disabled = true;
             el.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1611,11 +1490,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         return; // Exit early, don't initialize form
     }
 
-    // Populate opponent dropdown (only match-ready players)
     opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
     clubPlayers
         .filter(p => {
-            // Filter: not self, is player role, and has completed Grundlagen
             const playerGrundlagen = p.grundlagenCompleted || 0;
             return p.id !== userData.id && p.role === 'player' && playerGrundlagen >= 5;
         })
@@ -1627,11 +1504,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             opponentSelect.appendChild(option);
         });
 
-    // Initialize set score input with current mode
     let currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
     let setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
 
-    // Function to update label text based on mode
     function updateSetScoreLabel(mode) {
         if (!setScoreLabel) return;
         switch (mode) {
@@ -1652,31 +1527,24 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         }
     }
 
-    // Update label on page load
     updateSetScoreLabel(currentMode);
 
-    // Handle match mode changes
     if (matchModeSelect) {
         matchModeSelect.addEventListener('change', () => {
             currentMode = matchModeSelect.value;
-            // Recreate the set score input with new mode
             setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
             updateSetScoreLabel(currentMode);
 
-            // Update global reference for doubles to use
             window.playerSetScoreInput = setScoreInput;
 
-            // Reapply handicap if it was active
             if (currentHandicapData && handicapToggle && handicapToggle.checked) {
                 setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
             }
         });
     }
 
-    // Store current handicap data
     let currentHandicapData = null;
 
-    // Handicap calculation
     opponentSelect.addEventListener('change', () => {
         const selectedOption = opponentSelect.selectedOptions[0];
         if (!selectedOption || !selectedOption.value) {
@@ -1695,7 +1563,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 myElo < opponentElo ? 'Du' : selectedOption.textContent.split(' (')[0];
             const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'; // A = me, B = opponent
 
-            // Store handicap data
             currentHandicapData = {
                 player: weakerPlayerSide,
                 points: handicapPoints,
@@ -1705,7 +1572,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
             handicapInfo.classList.remove('hidden');
 
-            // Apply handicap if toggle is checked
             if (handicapToggle && handicapToggle.checked) {
                 setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
             }
@@ -1715,40 +1581,31 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         }
     });
 
-    // Handicap toggle event listener
     handicapToggle.addEventListener('change', () => {
         if (!currentHandicapData) return;
 
         if (handicapToggle.checked) {
-            // Apply handicap
             setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
         } else {
-            // Clear handicap
             setScoreInput.clearHandicap(currentHandicapData.player);
         }
     });
 
-    // Store setScoreInput reference globally so doubles-player-ui can access it
     window.playerSetScoreInput = setScoreInput;
 
-    // Form submission
     form.addEventListener('submit', async e => {
-        // IMPORTANT: Prevent default IMMEDIATELY to avoid page reload
         e.preventDefault();
 
-        // Check if this is a doubles match request
         const matchType = window.getCurrentPlayerMatchType
             ? window.getCurrentPlayerMatchType()
             : 'singles';
 
         if (matchType === 'doubles') {
-            // Handle doubles match request
             const { handleDoublesPlayerMatchRequest } = await import('./doubles-player-ui.js');
             await handleDoublesPlayerMatchRequest(e, db, userData);
             return;
         }
 
-        // Handle singles match request (existing logic)
 
         const opponentId = opponentSelect.value;
         const handicapUsed = handicapToggle.checked;
@@ -1768,7 +1625,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         const winnerId = validation.winnerId === 'A' ? userData.id : opponentId;
         const loserId = validation.winnerId === 'A' ? opponentId : userData.id;
 
-        // Get opponent data from the map
         const opponentData = playersMap.get(opponentId);
 
         try {
@@ -1798,17 +1654,14 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             showFeedback('Anfrage erfolgreich erstellt! Warte auf Bestätigung.', 'success');
             form.reset();
 
-            // Reset match mode dropdown to default (form.reset() sets it to the selected value in HTML)
             if (matchModeSelect) {
                 matchModeSelect.value = 'best-of-5';
             }
 
-            // Recreate set score input with default mode to keep fields and dropdown in sync
             currentMode = 'best-of-5';
             setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
             updateSetScoreLabel(currentMode);
 
-            // Update global reference for doubles-player-ui
             window.playerSetScoreInput = setScoreInput;
 
             handicapInfo.classList.add('hidden');
@@ -1844,7 +1697,6 @@ async function renderPendingRequests(requests, userData, db) {
         let card;
 
         if (request.matchType === 'doubles') {
-            // DOUBLES REQUEST - use stored names
             const playersData = {
                 teamAPlayer1: {
                     id: request.teamA.player1Id,
@@ -1886,9 +1738,7 @@ async function renderPendingRequests(requests, userData, db) {
 
             card = createPendingDoublesCard(request, playersData, userData, db);
         } else {
-            // SINGLES REQUEST
             if (request.playerBId === userData.id) {
-                // Incoming request - I need to respond
                 const playerAData = {
                     id: request.playerAId,
                     firstName: request.playerAName
@@ -1900,7 +1750,6 @@ async function renderPendingRequests(requests, userData, db) {
                 };
                 card = createIncomingRequestCard(request, playerAData, userData, db);
             } else {
-                // My sent request - waiting for response
                 const playerBData = {
                     id: request.playerBId,
                     firstName: request.playerBName
@@ -1962,7 +1811,6 @@ async function renderHistoryRequests(requests, userData, db) {
         let card;
 
         if (request.matchType === 'doubles') {
-            // DOUBLES REQUEST - use stored names
             const playersData = {
                 teamAPlayer1: {
                     id: request.teamA.player1Id,
@@ -2004,9 +1852,7 @@ async function renderHistoryRequests(requests, userData, db) {
 
             card = createDoublesHistoryCard(request, playersData, userData, db);
         } else {
-            // SINGLES REQUEST
             if (request.playerAId === userData.id) {
-                // My sent request
                 const playerBData = {
                     id: request.playerBId,
                     firstName: request.playerBName
@@ -2018,7 +1864,6 @@ async function renderHistoryRequests(requests, userData, db) {
                 };
                 card = createMyRequestCard(request, playerBData, userData, db);
             } else {
-                // Incoming request - use processed card for history (always completed)
                 const playerAData = {
                     id: request.playerAId,
                     firstName: request.playerAName
@@ -2064,7 +1909,6 @@ export async function loadCombinedPendingRequests(userData, db) {
     const container = document.getElementById('pending-requests-list');
     if (!container) return;
 
-    // Query for singles requests where user is playerB
     const singlesQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
@@ -2072,7 +1916,6 @@ export async function loadCombinedPendingRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for doubles requests where user is opponent (teamB)
     const doublesQuery = query(
         collection(db, 'doublesMatchRequests'),
         where('clubId', '==', userData.clubId),
@@ -2080,12 +1923,10 @@ export async function loadCombinedPendingRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    // Listen to both query types
     const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
         const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
             const allRequests = [];
 
-            // Process singles requests
             for (const docSnap of singlesSnapshot.docs) {
                 const data = docSnap.data();
                 const playerAData = {
@@ -2104,7 +1945,6 @@ export async function loadCombinedPendingRequests(userData, db) {
                 });
             }
 
-            // Process doubles requests (only where current user is opponent)
 
             for (const docSnap of doublesSnapshot.docs) {
                 const data = docSnap.data();
@@ -2152,7 +1992,6 @@ export async function loadCombinedPendingRequests(userData, db) {
                 });
             }
 
-            // Sort by createdAt
             allRequests.sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
@@ -2191,7 +2030,6 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
             : 'Unbekannt';
 
         if (request.type === 'doubles') {
-            // Doubles request
             const teamAName1 = request.teamAPlayer1?.firstName || '?';
             const teamAName2 = request.teamAPlayer2?.firstName || '?';
             const teamBName1 = request.teamBPlayer1?.firstName || '?';
@@ -2285,7 +2123,6 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
                 }
             });
         } else {
-            // Singles request
             const playerAName = request.playerAData?.firstName || 'Unbekannt';
             const setsDisplay = formatSets(request.sets);
 

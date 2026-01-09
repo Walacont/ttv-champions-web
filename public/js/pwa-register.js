@@ -1,4 +1,3 @@
-// PWA Service Worker Registrierung
 (function () {
     'use strict';
 
@@ -11,7 +10,6 @@
 
                 console.log('[PWA] Service Worker registriert:', registration.scope);
 
-                // Stündliche Update-Prüfung
                 setInterval(() => {
                     registration.update();
                 }, 60 * 60 * 1000);
@@ -39,7 +37,6 @@
         });
     }
 
-    // Installation-Prompt Handling
     let deferredPrompt = null;
 
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -78,8 +75,6 @@
         );
     };
 
-    // iOS Safari unterstützt kein display-mode: standalone Media Query,
-    // daher müssen wir die Klasse per JavaScript setzen
     if (window.isPWAInstalled()) {
         document.documentElement.classList.add('pwa-standalone');
         if (document.body) {

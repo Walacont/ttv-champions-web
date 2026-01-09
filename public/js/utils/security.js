@@ -55,7 +55,6 @@ export function sanitizeImageUrl(url, fallback = '/icons/icon-192x192.png') {
 
     const trimmed = url.trim().toLowerCase();
 
-    // Nur http, https und relative URLs erlauben
     if (trimmed.startsWith('http://') ||
         trimmed.startsWith('https://') ||
         trimmed.startsWith('/') ||

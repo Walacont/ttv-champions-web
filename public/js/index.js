@@ -1,4 +1,3 @@
-// NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -24,15 +23,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log('Login-Script: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
 }
 
@@ -48,22 +41,17 @@ const forgotPasswordButton = document.getElementById('forgot-password-button');
 const backToLoginButton = document.getElementById('back-to-login-button');
 const invitationCodeInput = document.getElementById('invitation-code');
 
-// Check URL for code parameter (direct link from WhatsApp/etc)
 const urlParams = new URLSearchParams(window.location.search);
 const codeFromUrl = urlParams.get('code');
 if (codeFromUrl) {
-    // Switch to code tab and prefill
     switchToCodeTab();
     invitationCodeInput.value = codeFromUrl;
-
-    // NEU: Auch das Modal direkt öffnen, wenn ein Code in der URL ist
     const loginModal = document.getElementById('login-modal');
     if (loginModal) {
         loginModal.classList.remove('hidden');
     }
 }
 
-// Tab Switching
 emailLoginTab.addEventListener('click', switchToEmailTab);
 codeLoginTab.addEventListener('click', switchToCodeTab);
 
@@ -93,7 +81,6 @@ function switchToCodeTab() {
     feedbackMessage.textContent = '';
 }
 
-// Auto-format code input (add dashes)
 invitationCodeInput?.addEventListener('input', e => {
     let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     if (value.length > 3 && value.length <= 6) {
@@ -104,27 +91,22 @@ invitationCodeInput?.addEventListener('input', e => {
     e.target.value = value;
 });
 
-// *** VEREINFACHTE LOGIK ***
-// Dieser Listener ist jetzt NUR für bereits eingeloggte Nutzer, die die Seite neu laden.
 onAuthStateChanged(auth, async user => {
     if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
             const userData = userDoc.data();
-            // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
             if (!userData.onboardingComplete) {
                 console.log('[LOGIN] User not onboarded, redirecting to onboarding');
                 window.location.href = '/onboarding.html';
                 return;
             }
-            // Ansonsten, normale Weiterleitung basierend auf der Rolle.
             let targetUrl;
             if (userData.role === 'admin') targetUrl = '/admin.html';
             else if (userData.role === 'coach') targetUrl = '/coach.html';
             else targetUrl = '/dashboard.html';
 
             console.log('[LOGIN] User already logged in, redirecting to:', targetUrl);
-            // Use normal navigation for initial login redirect (not SPA navigation)
             window.location.href = targetUrl;
         }
     }
@@ -141,7 +123,6 @@ loginForm.addEventListener('submit', async e => {
 
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
     } catch (error) {
         console.error('Login-Fehler:', error);
         feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
@@ -183,14 +164,12 @@ resetForm.addEventListener('submit', async e => {
     }
 });
 
-// Code Form Handler
 codeForm.addEventListener('submit', async e => {
     e.preventDefault();
     const code = invitationCodeInput.value.trim().toUpperCase();
     feedbackMessage.textContent = '';
     feedbackMessage.className = 'mt-2 text-center text-sm';
 
-    // Validiere Format
     if (!validateCodeFormat(code)) {
         feedbackMessage.textContent = 'Ungültiges Code-Format. Format: TTV-XXX-YYY';
         feedbackMessage.classList.add('text-red-600');
@@ -198,7 +177,6 @@ codeForm.addEventListener('submit', async e => {
     }
 
     try {
-        // Suche Code in Firestore
         const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
         const snapshot = await getDocs(q);
 
@@ -211,14 +189,12 @@ codeForm.addEventListener('submit', async e => {
         const codeData = snapshot.docs[0].data();
         const codeId = snapshot.docs[0].id;
 
-        // Prüfe ob Code bereits verwendet wurde
         if (codeData.used) {
             feedbackMessage.textContent = 'Dieser Code wurde bereits verwendet.';
             feedbackMessage.classList.add('text-red-600');
             return;
         }
 
-        // Prüfe ob Code abgelaufen ist
         if (isCodeExpired(codeData.expiresAt)) {
             feedbackMessage.textContent =
                 'Dieser Code ist leider abgelaufen. Bitte fordere einen neuen Code an.';
@@ -226,21 +202,14 @@ codeForm.addEventListener('submit', async e => {
             return;
         }
 
-        // Code ist gültig! Weiterleitung zur Registrierung
         feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
         feedbackMessage.classList.add('text-green-600');
 
         setTimeout(() => {
             const targetUrl = `/register.html?code=${code}`;
-            console.log('[INDEX] Navigating to:', targetUrl);
-            console.log('[INDEX] spaNavigate available?', !!window.spaNavigate);
-
-            // Use SPA navigation if available, otherwise fallback to normal navigation
             if (window.spaNavigate) {
-                console.log('[INDEX] Using SPA navigation');
                 window.spaNavigate(targetUrl);
             } else {
-                console.log('[INDEX] Using normal navigation');
                 window.location.href = targetUrl;
             }
         }, 1000);
@@ -256,20 +225,15 @@ const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');
 
 if (loginModal && openLoginBtn && closeLoginBtn) {
-    // Modal öffnen (Klick auf "Login" im Header)
     openLoginBtn.addEventListener('click', () => {
         loginModal.classList.remove('hidden');
     });
 
-    // Modal schließen (Klick auf 'X' im Modal)
     closeLoginBtn.addEventListener('click', () => {
         loginModal.classList.add('hidden');
     });
 
-    // Modal schließen (Klick auf den dunklen Hintergrund)
     loginModal.addEventListener('click', e => {
-        // Prüfen, ob der Klick direkt auf den Hintergrund (loginModal)
-        // und nicht auf ein Kind-Element (das weiße Panel) erfolgte.
         if (e.target === loginModal) {
             loginModal.classList.add('hidden');
         }
