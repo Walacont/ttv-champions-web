@@ -25,7 +25,7 @@ let currentCoachId;
 let currentSubgroups = [];
 let lastGeneratedCode = null;
 let lastGeneratedFirstName = '';
-let currentPlayerId = null; // For send invitation modal
+let currentPlayerId = null;
 
 /**
  * Initialisiert das Player Invitation Management

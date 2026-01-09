@@ -38,7 +38,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     if (submitButton) {
         if (submitButton.disabled) {
             console.log('Form submission already in progress, ignoring...');
-            return; // Already processing
+            return;
         }
         submitButton.disabled = true;
         submitButton.textContent = 'Erstelle Spieler...';
@@ -53,7 +53,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         '#player-subgroups-checkboxes input[type="checkbox"]'
     );
     const subgroupIDs = Array.from(subgroupCheckboxes)
-        .filter(cb => cb.checked || cb.disabled) // Include checked OR disabled (Hauptgruppe)
+        .filter(cb => cb.checked || cb.disabled)
         .map(cb => cb.value);
 
     const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
@@ -95,7 +95,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         console.error('Error checking for duplicates:', error);
     }
 
-    let initialElo = 800; // Standard Start-ELO
+    let initialElo = 800;
     let initialHighestElo = 800;
 
     if (isMatchReady && qttrPoints) {
@@ -440,7 +440,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
                   return subgroupIDs.includes(subgroupFilter);
               });
 
-    const currentValue = select.value; // Preserve selection if possible
+    const currentValue = select.value;
     select.innerHTML = '<option value="">Spieler wählen...</option>';
 
     filteredPlayers
@@ -611,7 +611,7 @@ export function updateCoachGrundlagenDisplay(playerId) {
     const grundlagenBar = document.getElementById('coach-grundlagen-bar');
 
     if (currentGrundlagenListener) {
-        currentGrundlagenListener(); // Stop previous listener
+        currentGrundlagenListener();
     }
 
     if (!grundlagenInfo || !playerId) {

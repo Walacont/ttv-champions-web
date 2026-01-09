@@ -17,14 +17,14 @@ import {
  * These match the current point system but are tracked separately as XP
  */
 export const XP_VALUES = {
-    ATTENDANCE_BASE: 10, // Base XP for showing up
-    ATTENDANCE_STREAK_3: 15, // Bonus for 3+ day streak
-    ATTENDANCE_STREAK_5: 20, // Bonus for 5+ day streak
-    MATCH_PARTICIPATION: 10, // Just for playing a match
-    MATCH_WIN_BASE: 25, // Base bonus for winning
-    EXERCISE_BASE: 30, // Average exercise XP (will use actual exercise points)
-    CHALLENGE_MIN: 5, // Minimum challenge XP
-    CHALLENGE_MAX: 100, // Maximum challenge XP
+    ATTENDANCE_BASE: 10,
+    ATTENDANCE_STREAK_3: 15,
+    ATTENDANCE_STREAK_5: 20,
+    MATCH_PARTICIPATION: 10,
+    MATCH_WIN_BASE: 25,
+    EXERCISE_BASE: 30,
+    CHALLENGE_MIN: 5,
+    CHALLENGE_MAX: 100,
 };
 
 /**

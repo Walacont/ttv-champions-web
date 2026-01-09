@@ -182,7 +182,7 @@ exports.processMatchResult = onDocumentCreated(
             const winnerHistoryRef = winnerRef.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
             batch.set(winnerHistoryRef, {
                 points: seasonPointChange,
-                xp: winnerXPGain, // XP only for standard matches, 0 for handicap
+                xp: winnerXPGain,
                 eloChange: winnerEloChange,
                 reason: `Sieg im ${matchTypeReason} gegen ${loserData.firstName || 'Gegner'}`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -380,9 +380,9 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
             const migratedUserData = {
                 ...oldUserData,
                 email: request.auth.token.email || oldUserData.email || '',
-                onboardingComplete: false, // User needs to complete onboarding
-                isOffline: true, // Will be set to false after onboarding
-                migratedFrom: codeData.playerId, // Track migration for debugging
+                onboardingComplete: false,
+                isOffline: true,
+                migratedFrom: codeData.playerId,
                 migratedAt: now,
             };
 
@@ -407,7 +407,7 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
 
                         if (batchCount >= 500) {
                             await batch.commit();
-                            batch = db.batch(); // Create new batch
+                            batch = db.batch();
                             batchCount = 0;
                         }
                     }
@@ -441,16 +441,16 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                 highestElo: CONFIG.ELO.DEFAULT_RATING,
                 wins: 0,
                 losses: 0,
-                grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
+                grundlagenCompleted: 0,
                 grundlagenCompleted: 0,
                 onboardingComplete: false,
-                isOffline: true, // User is offline until they complete onboarding
+                isOffline: true,
                 createdAt: now,
                 photoURL: '',
                 clubRequestStatus: null,
                 clubRequestId: null,
                 privacySettings: {
-                    searchable: 'global', // Default: globally searchable
+                    searchable: 'global',
                     showInLeaderboards: true,
                 },
                 clubJoinedAt: now,
@@ -537,10 +537,10 @@ exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request =
             highestElo: CONFIG.ELO.DEFAULT_RATING,
             wins: 0,
             losses: 0,
-            grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
+            grundlagenCompleted: 0,
             grundlagenCompleted: 0,
             onboardingComplete: false,
-            isOffline: true, // User is offline until they complete onboarding
+            isOffline: true,
             createdAt: now,
             photoURL: '',
         };
@@ -654,17 +654,17 @@ exports.processApprovedMatchRequest = onDocumentWritten(
             const matchRef = await db.collection(CONFIG.COLLECTIONS.MATCHES).add({
                 playerAId,
                 playerBId,
-                playerIds: [playerAId, playerBId], // For match history queries
+                playerIds: [playerAId, playerBId],
                 winnerId,
                 loserId,
                 handicapUsed: handicapUsed || false,
-                matchMode: matchMode || 'best-of-5', // Use matchMode from request, default to best-of-5
+                matchMode: matchMode || 'best-of-5',
                 sets: sets || [],
                 reportedBy: requestedBy,
                 clubId,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 processed: false,
-                source: 'player_request', // Mark as player-initiated
+                source: 'player_request',
             });
 
             await db.collection(CONFIG.COLLECTIONS.MATCH_REQUESTS).doc(requestId).update({
@@ -688,7 +688,7 @@ exports.processApprovedMatchRequest = onDocumentWritten(
  */
 exports.autoGenerateTrainingSessions = onSchedule(
     {
-        schedule: '0 0 * * *', // Every day at midnight UTC
+        schedule: '0 0 * * *',
         timeZone: 'Europe/Berlin',
         region: CONFIG.REGION,
     },
@@ -798,7 +798,7 @@ exports.autoGenerateTrainingSessions = onSchedule(
 exports.migrateAttendanceToSessions = onCall(
     {
         region: CONFIG.REGION,
-        enforceAppCheck: false, // Set to true in production
+        enforceAppCheck: false,
     },
     async request => {
         logger.info('🔄 Starting attendance migration to sessions...');
@@ -847,7 +847,7 @@ exports.migrateAttendanceToSessions = onCall(
 
                     batch.set(sessionRef, {
                         date: attendance.date,
-                        startTime: '18:00', // Default time for migrated sessions
+                        startTime: '18:00',
                         endTime: '20:00',
                         subgroupId: attendance.subgroupId,
                         clubId: attendance.clubId,
@@ -986,7 +986,7 @@ exports.migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async re
  */
 exports.autoSeasonReset = onSchedule(
     {
-        schedule: '0 0 * * *', // Every day at midnight
+        schedule: '0 0 * * *',
         timeZone: 'Europe/Berlin',
         region: CONFIG.REGION,
     },
@@ -999,7 +999,7 @@ exports.autoSeasonReset = onSchedule(
             const configRef = db.collection('config').doc('seasonReset');
             const configDoc = await configRef.get();
 
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000; // 6 weeks in milliseconds
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
 
             if (configDoc.exists) {
                 const lastReset = configDoc.data().lastResetDate;
@@ -1040,8 +1040,8 @@ exports.autoSeasonReset = onSchedule(
                 Diamant: { name: 'Diamant', color: '#B9F2FF', icon: '💠' },
                 Champion: { name: 'Champion', color: '#FF4500', icon: '👑' },
             };
-            const PROMOTION_COUNT = 2; // Top 2 players get promoted
-            const DEMOTION_COUNT = 2; // Bottom 2 players get demoted
+            const PROMOTION_COUNT = 2;
+            const DEMOTION_COUNT = 2;
 
             for (const clubDoc of clubsSnapshot.docs) {
                 const clubId = clubDoc.id;
@@ -1322,13 +1322,13 @@ exports.processDoublesMatchResult = onDocumentCreated(
             let matchTypeReason = 'Doppel-Wettkampf';
 
             if (handicapUsed) {
-                seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
+                seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS;
 
                 const pairingEloChange = CONFIG.ELO.HANDICAP_SEASON_POINTS / 2;
 
                 newWinningTeamElo = winningTeamElo + pairingEloChange;
                 newLosingTeamElo = losingTeamElo - pairingEloChange;
-                seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
+                seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS;
 
                 const eloChangePerPlayer = CONFIG.ELO.HANDICAP_SEASON_POINTS / 2;
 
@@ -1368,7 +1368,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 loser2NewElo = Math.round(loser2Elo + losingEloChange / 2);
 
                 const fullPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
-                seasonPointChange = Math.max(1, Math.round(fullPoints / 2)); // At least 1 point
+                seasonPointChange = Math.max(1, Math.round(fullPoints / 2));
 
                 winnerXPGain = seasonPointChange;
 
@@ -1470,12 +1470,12 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(winner1HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-                pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
+                pairingEloChange: pairingEloChange,
                 eloChange: winner1NewElo - winner1Elo,
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
-                isPartner: true, // Flag to indicate this was a doubles match
+                isPartner: true,
             });
 
             const winner2HistoryRef = winner2Doc.ref
@@ -1484,7 +1484,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(winner2HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-                pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
+                pairingEloChange: pairingEloChange,
                 eloChange: winner2NewElo - winner2Elo,
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -1499,7 +1499,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(loser1HistoryRef, {
                 points: 0,
                 xp: 0,
-                pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
+                pairingEloChange: losingPairingEloChange,
                 eloChange: loser1NewElo - loser1Elo,
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -1513,7 +1513,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(loser2HistoryRef, {
                 points: 0,
                 xp: 0,
-                pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
+                pairingEloChange: losingPairingEloChange,
                 eloChange: loser2NewElo - loser2Elo,
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -1548,9 +1548,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesWon: 1,
                     matchesLost: 0,
                     winRate: 1.0,
-                    pairingEloRating: newWinningTeamElo, // Pairing-specific ELO
+                    pairingEloRating: newWinningTeamElo,
                     highestPairingElo: newWinningTeamElo,
-                    currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
+                    currentEloRating: newWinningTeamElo,
                     currentEloRating: newWinningTeamElo,
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
@@ -1566,9 +1566,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesWon: newMatchesWon,
                     winRate: newMatchesWon / newMatchesPlayed,
-                    pairingEloRating: newWinningTeamElo, // Update pairing ELO
+                    pairingEloRating: newWinningTeamElo,
                     highestPairingElo: newWinningPairingHighestElo,
-                    currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
+                    currentEloRating: newWinningTeamElo,
                     currentEloRating: newWinningTeamElo,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
@@ -1587,9 +1587,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesWon: 0,
                     matchesLost: 1,
                     winRate: 0.0,
-                    pairingEloRating: newLosingTeamElo, // Pairing-specific ELO
+                    pairingEloRating: newLosingTeamElo,
                     highestPairingElo: newLosingTeamElo,
-                    currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
+                    currentEloRating: newLosingTeamElo,
                     currentEloRating: newLosingTeamElo,
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
@@ -1606,9 +1606,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesLost: newMatchesLost,
                     winRate: newMatchesPlayed > 0 ? newMatchesWon / newMatchesPlayed : 0,
-                    pairingEloRating: newLosingTeamElo, // Update pairing ELO
+                    pairingEloRating: newLosingTeamElo,
                     highestPairingElo: newLosingPairingHighestElo,
-                    currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
+                    currentEloRating: newLosingTeamElo,
                     currentEloRating: newLosingTeamElo,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
@@ -1685,7 +1685,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
                 winningPairingId,
                 losingPairingId,
                 handicapUsed: handicapUsed || false,
-                matchMode: matchMode || 'best-of-5', // Use matchMode from request, default to best-of-5
+                matchMode: matchMode || 'best-of-5',
                 sets: sets || [],
                 reportedBy: initiatedBy,
                 clubId,
@@ -1910,7 +1910,7 @@ exports.notifyCoachesSinglesRequest = onDocumentWritten(
             const smtpConfig = {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
                 port: parseInt(process.env.SMTP_PORT || '587'),
-                secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+                secure: process.env.SMTP_SECURE === 'true',
                 auth: {
                     user: process.env.SMTP_USER || process.env.EMAIL_USER,
                     pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
@@ -2135,7 +2135,7 @@ exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request =>
             email: request.auth.token.email || '',
             firstName: firstName,
             lastName: lastName,
-            clubId: null, // No club yet
+            clubId: null,
             role: 'player',
             subgroupIds: [],
             points: 0,
@@ -2144,15 +2144,15 @@ exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request =>
             highestElo: CONFIG.ELO.DEFAULT_RATING,
             wins: 0,
             losses: 0,
-            grundlagenCompleted: 5, // Direkt wettkampfsbereit
+            grundlagenCompleted: 5,
             onboardingComplete: false,
-            isOffline: true, // Will be set to false after onboarding
+            isOffline: true,
             createdAt: now,
             photoURL: '',
             clubRequestStatus: null,
             clubRequestId: null,
             privacySettings: {
-                searchable: 'global', // Default: globally searchable
+                searchable: 'global',
                 showInLeaderboards: true,
             },
         };
@@ -2181,7 +2181,7 @@ exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
     }
 
     const coachId = request.auth.uid;
-    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+    const { requestId, action } = request.data;
 
     if (!requestId || !action) {
         throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
@@ -2297,7 +2297,7 @@ exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => 
     }
 
     const coachId = request.auth.uid;
-    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+    const { requestId, action } = request.data;
 
     if (!requestId || !action) {
         throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
@@ -2353,8 +2353,8 @@ exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => 
             batch.update(playerRef, {
                 previousClubId: playerData.clubId,
                 clubId: null,
-                points: 0, // Reset season points
-                subgroupIds: [], // Remove from subgroups
+                points: 0,
+                subgroupIds: [],
             });
 
             batch.update(requestRef, {
@@ -2430,11 +2430,11 @@ exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request
             if (!clubsMap.has(clubId)) {
                 clubsMap.set(clubId, {
                     id: clubId,
-                    name: clubId, // Default: use clubId as name
+                    name: clubId,
                     members: [],
                     coaches: [],
                     createdAt: admin.firestore.Timestamp.now(),
-                    isTestClub: false, // Default: not a test club (must be set manually later)
+                    isTestClub: false,
                 });
             }
 
@@ -2551,10 +2551,10 @@ exports.autoCreateClubOnInvitation = onDocumentCreated(
             }
 
             const newClub = {
-                name: clubId, // Default name is the clubId
+                name: clubId,
                 createdAt: admin.firestore.Timestamp.now(),
-                isTestClub: false, // Default: not a test club
-                memberCount: 0, // Will be updated as members join
+                isTestClub: false,
+                memberCount: 0,
                 ownerId: ownerId,
             };
 
@@ -2623,10 +2623,10 @@ exports.autoCreateClubOnToken = onDocumentCreated(
             }
 
             const newClub = {
-                name: clubId, // Default name is the clubId
+                name: clubId,
                 createdAt: admin.firestore.Timestamp.now(),
-                isTestClub: false, // Default: not a test club
-                memberCount: 0, // Will be updated as members join
+                isTestClub: false,
+                memberCount: 0,
                 ownerId: ownerId,
             };
 

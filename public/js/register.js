@@ -217,7 +217,7 @@ function displayError(message) {
 
         const icon = tokenRequiredMessageContainer.querySelector('i');
         if (icon) {
-            icon.className = 'fas fa-exclamation-triangle text-4xl text-red-600'; // Rotes Fehler-Icon
+            icon.className = 'fas fa-exclamation-triangle text-4xl text-red-600';
         }
 
         const title = tokenRequiredMessageContainer.querySelector('h1');
@@ -232,7 +232,7 @@ function displayError(message) {
         if (paragraphs[0]) {
             paragraphs[0].textContent = message;
             paragraphs[0].classList.remove('text-gray-600');
-            paragraphs[0].classList.add('text-gray-800', 'font-medium'); // Deutlicher hervorheben
+            paragraphs[0].classList.add('text-gray-800', 'font-medium');
         }
 
         if (paragraphs[1]) paragraphs[1].classList.add('hidden');
@@ -241,7 +241,7 @@ function displayError(message) {
 
         const homeLink = tokenRequiredMessageContainer.querySelector('a');
         if (homeLink) {
-            homeLink.href = '/'; // Sicherstellen, dass es zur Startseite geht
+            homeLink.href = '/';
         }
 
         tokenRequiredMessageContainer.classList.remove('hidden');

@@ -140,7 +140,7 @@ export function setupChallengePointRecommendations() {
     };
 
     typeSelect.addEventListener('change', updateRecommendation);
-    updateRecommendation(); // Set initial value
+    updateRecommendation();
 }
 
 /**
@@ -410,7 +410,7 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(challenge => {
                 const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-                return expiresAt > now; // Only show non-expired challenges
+                return expiresAt > now;
             });
 
         if (currentSubgroupFilter !== 'all') {
@@ -607,7 +607,7 @@ export async function reactivateChallenge(challengeId, duration, subgroupId, db)
             type: duration,
             subgroupId: subgroupId,
             isActive: true,
-            lastReactivatedAt: serverTimestamp(), // Update reactivation timestamp
+            lastReactivatedAt: serverTimestamp(),
         });
         return { success: true };
     } catch (error) {

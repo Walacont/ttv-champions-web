@@ -80,7 +80,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
             const myElo = userData.eloRating || 1000;
             const eloDiff = Math.abs(myElo - playerElo);
 
-            let score = 100; // Base score
+            let score = 100;
 
             if (history.matchCount === 0) {
                 score += 50;
@@ -90,7 +90,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
 
             if (history.lastMatchDate) {
                 const daysSinceLastMatch = (now - history.lastMatchDate) / (1000 * 60 * 60 * 24);
-                score += Math.min(daysSinceLastMatch / 7, 30); // Up to +30 for 30+ weeks
+                score += Math.min(daysSinceLastMatch / 7, 30);
             }
 
 
@@ -151,7 +151,7 @@ export async function loadMatchSuggestions(
         </div>
       </div>
     `;
-        return; // Exit early
+        return;
     }
 
     container.innerHTML =

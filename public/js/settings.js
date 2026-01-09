@@ -198,7 +198,7 @@ updateNameForm.addEventListener('submit', async e => {
             lastName,
         });
         nameFeedback.textContent = 'Name erfolgreich gespeichert!';
-        nameFeedback.className = 'mt-2 text-sm text-green-600'; // Erfolgsmeldung grün machen
+        nameFeedback.className = 'mt-2 text-sm text-green-600';
     } catch (error) {
         console.error('Fehler beim Speichern des Namens:', error);
         nameFeedback.textContent = 'Fehler beim Speichern des Namens.';

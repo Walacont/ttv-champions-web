@@ -602,7 +602,7 @@ async function initializeCoachPage(userData) {
     document
         .getElementById('player-b-select')
         .addEventListener('change', () => updateMatchUI(clubPlayers));
-    initializeHandicapToggle(); // Initialize handicap toggle for automatic score setting
+    initializeHandicapToggle();
     document
         .getElementById('subgroups-list')
         .addEventListener('click', e => handleSubgroupActions(e, db, userData.clubId));
@@ -648,7 +648,7 @@ async function initializeCoachPage(userData) {
         const searchTerm = e.target.value.toLowerCase();
         const items = document.querySelectorAll('#modal-player-list .player-list-item');
         items.forEach(item => {
-            const name = item.dataset.playerName; // Benutzt das data-Attribut
+            const name = item.dataset.playerName;
             if (name.includes(searchTerm)) {
                 item.style.display = 'block';
             } else {

@@ -365,5 +365,5 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
     }
 
     renderCalendarCallback(currentDisplayDate);
-    return () => {}; // Empty unsubscribe function
+    return () => {};
 }

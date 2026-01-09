@@ -184,7 +184,7 @@ export const LEAGUES = {
 export const PROMOTION_COUNT = 4;
 export const DEMOTION_COUNT = 4;
 
-let currentActiveTab = 'effort'; // GEÄNDERT: Standard-Tab ist jetzt 'effort'
+let currentActiveTab = 'effort';
 
 /**
  * Sets up the tab navigation for the new 3-tab leaderboard
@@ -235,7 +235,7 @@ export function setupLeaderboardTabs() {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
-    switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
+    switchTab('effort');
 }
 
 /**

@@ -61,7 +61,7 @@ export async function loadExercises(db, unsubscribes) {
         exercisesListEl.innerHTML = '';
         const allTags = new Set();
         const exercises = [];
-        exercisesData = []; // Reset
+        exercisesData = [];
 
         for (const docSnap of snapshot.docs) {
             const exercise = docSnap.data();
@@ -903,10 +903,10 @@ export function calculateExercisePoints(level, difficulty) {
     };
 
     if (level === 'fortgeschritten' && difficulty === 'easy') {
-        return pointsMatrix.fortgeschritten.normal; // Default to normal
+        return pointsMatrix.fortgeschritten.normal;
     }
 
-    return pointsMatrix[level]?.[difficulty] || 10; // Default fallback
+    return pointsMatrix[level]?.[difficulty] || 10;
 }
 
 /**
@@ -932,7 +932,7 @@ export function setupExercisePointsCalculation() {
                 easyOption.disabled = true;
                 if (difficulty === 'easy') {
                     difficultySelect.value = 'normal';
-                    updatePoints(); // Recalculate
+                    updatePoints();
                 }
             } else {
                 easyOption.disabled = false;

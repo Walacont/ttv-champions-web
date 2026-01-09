@@ -236,7 +236,7 @@ async function initializeDashboard(userData) {
         }
     });
     setupTabs('overview'); // 'overview' is default tab for dashboard
-    setupLeaderboardTabs(); // Setup 3-tab navigation
+    setupLeaderboardTabs();
 
     initializeLeaderboardPreferences(userData, db);
     applyPreferences();
@@ -375,8 +375,8 @@ function updateDashboard(userData) {
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
 
-    updateRankDisplay(userData); // Aktualisiert die Rang-Karte
-    updateGrundlagenDisplay(userData); // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
+    updateRankDisplay(userData);
+    updateGrundlagenDisplay(userData);
 
     populatePlayerSubgroupFilter(userData, db);
 

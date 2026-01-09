@@ -17,7 +17,7 @@ const WIDGETS = [
         name: '📚 Info-Banner',
         description: 'Erklärt die drei Systeme: XP, Elo und Saisonpunkte',
         default: true,
-        essential: true, // Cannot be disabled
+        essential: true,
     },
     {
         id: 'statistics',
@@ -38,7 +38,7 @@ const WIDGETS = [
         name: '🏓 Wettkampf-Anfragen',
         description: 'Ausstehende und eingegangene Match-Anfragen',
         default: true,
-        essential: true, // Cannot be disabled - required for match system
+        essential: true,
     },
     {
         id: 'rank',
@@ -159,7 +159,7 @@ function applyWidgetSettings() {
 
     widgets.forEach(widget => {
         const widgetId = widget.getAttribute('data-widget-id');
-        const isVisible = currentSettings[widgetId] !== false; // Default to visible if not set
+        const isVisible = currentSettings[widgetId] !== false;
 
         if (isVisible) {
             widget.classList.remove('hidden');

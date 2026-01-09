@@ -33,7 +33,7 @@ function calculateSessionDuration(startTime, endTime) {
         return Math.round(durationHours * 10) / 10;
     } catch (error) {
         console.error('Error calculating session duration:', error);
-        return 2.0; // Default to 2 hours
+        return 2.0;
     }
 }
 
@@ -192,10 +192,10 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         });
 
         const multiSessionColors = [
-            'FFFFEB99', // Light yellow
-            'FFB3E5FC', // Light blue
-            'FFC8E6C9', // Light green
-            'FFFFCCBC', // Light orange
+            'FFFFEB99',
+            'FFB3E5FC',
+            'FFC8E6C9',
+            'FFFFCCBC',
         ];
 
         const dateColorMap = new Map();
@@ -213,8 +213,8 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             }
         });
 
-        const headerRow1 = ['Nachname', 'Vorname']; // First header row (dates)
-        const headerRow2 = ['', '']; // Second header row (group + time)
+        const headerRow1 = ['Nachname', 'Vorname'];
+        const headerRow2 = ['', ''];
 
         for (const session of sessions) {
             const sessionDate = new Date(session.date + 'T12:00:00');
@@ -237,14 +237,14 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
 
         for (const player of playersList) {
             const row = [player.lastName || '', player.firstName || ''];
-            let playerTotal = 0; // Count attendance for this player
+            let playerTotal = 0;
 
             for (const session of sessions) {
                 const isInSubgroup =
                     player.subgroupIDs && player.subgroupIDs.includes(session.subgroupId);
 
                 if (!isInSubgroup) {
-                    row.push(''); // Not in this subgroup
+                    row.push('');
                     continue;
                 }
 
@@ -271,12 +271,12 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         for (let i = 0; i < sessions.length; i++) {
             trainerLabelRow.push('');
         }
-        trainerLabelRow.push(''); // Empty cell for Gesamt column
+        trainerLabelRow.push('');
         excelData.push(trainerLabelRow);
 
         for (const coach of allCoaches) {
             const row = [coach.lastName || '', coach.firstName || ''];
-            let coachTotalHours = 0; // Total hours for this coach
+            let coachTotalHours = 0;
 
             for (const session of sessions) {
                 const attendanceKey = `${session.date}_${session.id}`;
@@ -387,10 +387,10 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         });
 
         worksheet.columns = [
-            { width: 15 }, // Nachname
-            { width: 15 }, // Vorname
-            ...Array(sessions.length).fill({ width: 20 }), // Date columns
-            { width: 10 }, // Gesamt
+            { width: 15 },
+            { width: 15 },
+            ...Array(sessions.length).fill({ width: 20 }),
+            { width: 10 },
         ];
 
         const filename = `Anwesenheit_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;
@@ -534,9 +534,9 @@ export async function exportAttendanceSummary(db, clubId, date, subgroupFilter =
         });
 
         worksheet.columns = [
-            { width: 25 }, // Spieler
-            { width: 20 }, // Trainingsteilnahmen
-            { width: 18 }, // Anwesenheitsrate
+            { width: 25 },
+            { width: 20 },
+            { width: 18 },
         ];
 
         const filename = `Anwesenheit_Zusammenfassung_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;

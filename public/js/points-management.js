@@ -44,7 +44,7 @@ export function loadPointsHistory(userData, db, unsubscribes) {
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
 
-            const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points;
             const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
 
             let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
@@ -126,7 +126,7 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
 
-            const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points;
             const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
 
             let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
@@ -210,7 +210,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     }
 
     let points = 0;
-    let xpChange = 0; // Separate XP change (for penalties)
+    let xpChange = 0;
     let reason = '';
     let challengeId = null;
     let exerciseId = null;
@@ -258,7 +258,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     reason = `Challenge: ${cOption.dataset.title} (${milestoneCount}× Meilenstein)`;
                 } else {
                     points = parseInt(cOption.dataset.points);
-                    xpChange = points; // XP = points for challenges
+                    xpChange = points;
                     reason = `Challenge: ${cOption.dataset.title}`;
                 }
 
@@ -289,7 +289,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     reason = `Übung: ${eOption.dataset.title} (${milestoneCount}× Meilenstein)`;
                 } else {
                     points = parseInt(eOption.dataset.points);
-                    xpChange = points; // XP = points for exercises
+                    xpChange = points;
                     reason = `Übung: ${eOption.dataset.title}`;
                 }
 
@@ -298,7 +298,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             case 'manual':
                 points = parseInt(document.getElementById('manual-points').value);
                 const manualXpInput = document.getElementById('manual-xp').value;
-                xpChange = manualXpInput ? parseInt(manualXpInput) : points; // Use manual XP if provided, else same as points
+                xpChange = manualXpInput ? parseInt(manualXpInput) : points;
                 reason = document.getElementById('manual-reason').value;
                 if (!reason || isNaN(points))
                     throw new Error('Grund und gültige Punkte müssen angegeben werden.');
@@ -375,7 +375,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             if (challengeSnap.exists()) {
                 const challengeData = challengeSnap.data();
                 const isRepeatable =
-                    challengeData.isRepeatable !== undefined ? challengeData.isRepeatable : true; // Default to true for backwards compatibility
+                    challengeData.isRepeatable !== undefined ? challengeData.isRepeatable : true;
                 const lastReactivatedAt =
                     challengeData.lastReactivatedAt || challengeData.createdAt;
 
@@ -408,11 +408,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         }
 
         let grundlagenMessage = '';
-        let actualPointsChange = 0; // Declare outside transaction
-        let actualXPChange = 0; // Declare outside transaction
-        let actualPartnerPointsChange = 0; // For partner feedback
-        let actualPartnerXPChange = 0; // For partner feedback
-        let partnerName = ''; // For feedback
+        let actualPointsChange = 0;
+        let actualXPChange = 0;
+        let actualPartnerPointsChange = 0;
+        let actualPartnerXPChange = 0;
+        let partnerName = '';
 
         await runTransaction(db, async transaction => {
             const playerDocRef = doc(db, 'users', playerId);
@@ -567,8 +567,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
                 transaction.set(doc(historyColRef), {
                     points: actualPointsChange,
-                    xp: actualXPChange, // Track actual XP change
-                    eloChange: 0, // No Elo change for manual points
+                    xp: actualXPChange,
+                    eloChange: 0,
                     reason,
                     timestamp: serverTimestamp(),
                     awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
@@ -631,7 +631,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                             {
                                 currentCount: milestoneCount,
                                 lastUpdated: serverTimestamp(),
-                                lastSeasonUpdated: currentSeasonKey, // Track season
+                                lastSeasonUpdated: currentSeasonKey,
                             },
                             { merge: true }
                         );
@@ -661,7 +661,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                             {
                                 currentCount: milestoneCount,
                                 lastUpdated: serverTimestamp(),
-                                lastSeasonUpdated: currentSeasonKey, // Track season
+                                lastSeasonUpdated: currentSeasonKey,
                             },
                             { merge: true }
                         );

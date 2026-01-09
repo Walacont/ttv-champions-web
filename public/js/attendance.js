@@ -104,7 +104,7 @@ export async function renderCalendar(date, db, currentUserData) {
             for (let i = 0; i < dotsToShow; i++) {
                 const session = sessionsOnDay[i];
                 const subgroup = subgroupsMap.get(session.subgroupId);
-                const color = subgroup ? subgroup.color : '#6366f1'; // Default to indigo
+                const color = subgroup ? subgroup.color : '#6366f1';
 
                 const dot = document.createElement('div');
                 dot.className = 'w-2 h-2 rounded-full';
@@ -138,7 +138,7 @@ export async function renderCalendar(date, db, currentUserData) {
  */
 export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     monthlyAttendance.clear();
-    monthlySessions.clear(); // NEW: Clear sessions
+    monthlySessions.clear();
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
@@ -152,7 +152,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
             const data = doc.data();
             subgroupsMap.set(doc.id, {
                 name: data.name,
-                color: data.color || '#6366f1', // Default to indigo if no color set
+                color: data.color || '#6366f1',
             });
         });
         console.log(`[fetchMonthlyAttendance] Loaded ${subgroupsMap.size} subgroups`);
@@ -360,7 +360,7 @@ async function recalculateSubsequentDays(
     batch,
     subgroupName
 ) {
-    const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
+    const ATTENDANCE_POINTS_BASE = 3;
 
     try {
         const subsequentTrainingsQuery = query(
@@ -454,7 +454,7 @@ async function recalculateSubsequentDays(
             const isSecondTrainingOrMore = otherTrainingsSnapshot.size > 1;
 
             if (isSecondTrainingOrMore) {
-                newPoints = Math.ceil(newPoints / 2); // Half points for 2nd+ training
+                newPoints = Math.ceil(newPoints / 2);
                 console.log(
                     `[recalculateSubsequentDays] Date ${currentDate}: is 2nd+ training, reducing to ${newPoints} points`
                 );
@@ -562,7 +562,7 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
                 date: doc.data().date,
                 presentPlayerIds: doc.data().presentPlayerIds || [],
             }))
-            .sort((a, b) => b.date.localeCompare(a.date)); // Sort descending (newest first)
+            .sort((a, b) => b.date.localeCompare(a.date));
 
         let latestPresentDate = null;
         for (const training of allTrainings) {
@@ -909,8 +909,8 @@ export async function handleAttendanceSave(
     const date = document.getElementById('attendance-date-input').value;
     const docId = document.getElementById('attendance-doc-id-input').value;
     const sessionIdInput = document.getElementById('attendance-session-id-input');
-    const sessionId = sessionIdInput ? sessionIdInput.value : null; // NEW: Get session ID
-    const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
+    const sessionId = sessionIdInput ? sessionIdInput.value : null;
+    const ATTENDANCE_POINTS_BASE = 3;
 
     if (!sessionId) {
         feedbackEl.textContent =
@@ -986,7 +986,7 @@ export async function handleAttendanceSave(
         const q = query(
             attendanceColl,
             where('clubId', '==', currentUserData.clubId),
-            where('subgroupId', '==', subgroupId), // CHANGED: Use subgroupId from session
+            where('subgroupId', '==', subgroupId),
             where('date', '<', date),
             orderBy('date', 'desc'),
             limit(1)
@@ -1009,8 +1009,8 @@ export async function handleAttendanceSave(
             const attendanceData = {
                 date,
                 clubId: currentUserData.clubId,
-                subgroupId, // CHANGED: Use subgroupId from session
-                sessionId, // NEW: Add sessionId
+                subgroupId,
+                sessionId,
                 presentPlayerIds,
                 updatedAt: serverTimestamp(),
             };
@@ -1023,12 +1023,12 @@ export async function handleAttendanceSave(
         }
 
         const playersInSubgroup = clubPlayers.filter(
-            p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId) // CHANGED: Use subgroupId from session
+            p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
         );
 
         for (const player of playersInSubgroup) {
             const playerRef = doc(db, 'users', player.id);
-            const streakRef = doc(db, `users/${player.id}/streaks`, subgroupId); // CHANGED: Use subgroupId from session
+            const streakRef = doc(db, `users/${player.id}/streaks`, subgroupId);
 
             const isPresentToday = presentPlayerIds.includes(player.id);
             const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
@@ -1058,7 +1058,7 @@ export async function handleAttendanceSave(
                                 console.warn(
                                     `[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`
                                 );
-                                return false; // Skip documents without sessionId
+                                return false;
                             }
 
                             if (docData.sessionId === sessionId) {
@@ -1095,7 +1095,7 @@ export async function handleAttendanceSave(
 
                     if (alreadyAttendedToday) {
                         const originalPoints = pointsToAdd;
-                        pointsToAdd = Math.ceil(pointsToAdd / 2); // Half points, rounded up
+                        pointsToAdd = Math.ceil(pointsToAdd / 2);
                         reason += ` (2. Training heute)`;
                         console.log(`  - APPLYING HALF POINTS: ${originalPoints} → ${pointsToAdd}`);
                     }
@@ -1110,18 +1110,18 @@ export async function handleAttendanceSave(
 
                     batch.update(playerRef, {
                         points: increment(pointsToAdd),
-                        xp: increment(pointsToAdd), // XP = same as points for attendance
+                        xp: increment(pointsToAdd),
                         lastXPUpdate: serverTimestamp(),
                     });
 
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
                         points: pointsToAdd,
-                        xp: pointsToAdd, // Track XP change (same as points for attendance)
-                        eloChange: 0, // No Elo change for attendance
+                        xp: pointsToAdd,
+                        eloChange: 0,
                         reason,
-                        date: date, // Store date for easier lookup when correcting
-                        subgroupId: subgroupId, // Store subgroup ID for precise matching
+                        date: date,
+                        subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: 'System (Anwesenheit)',
                     });
@@ -1130,7 +1130,7 @@ export async function handleAttendanceSave(
                     batch.set(xpHistoryRef, {
                         xp: pointsToAdd,
                         reason,
-                        date: date, // Store date for easier lookup
+                        date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: 'System (Anwesenheit)',
@@ -1164,7 +1164,7 @@ export async function handleAttendanceSave(
                         xp: -pointsToDeduct,
                         eloChange: 0,
                         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
-                        date: date, // Store date for tracking
+                        date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: 'System (Anwesenheit)',
@@ -1174,7 +1174,7 @@ export async function handleAttendanceSave(
                     batch.set(xpHistoryRef, {
                         xp: -pointsToDeduct,
                         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
-                        date: date, // Store date for tracking
+                        date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: 'System (Anwesenheit)',
@@ -1210,7 +1210,7 @@ export async function handleAttendanceSave(
         setTimeout(() => {
             document.getElementById('attendance-modal').classList.add('hidden');
             feedbackEl.textContent = '';
-            renderCalendarCallback(currentCalendarDate); // Kalender neu laden
+            renderCalendarCallback(currentCalendarDate);
         }, 1500);
     } catch (error) {
         console.error('Fehler beim Speichern der Anwesenheit:', error);
@@ -1231,8 +1231,8 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         collection(db, 'users'),
         where('clubId', '==', clubId),
         where('role', '==', 'player'),
-        orderBy('lastName', 'asc'), // Consistent ordering for pagination
-        limit(PLAYER_LIMIT) // Limit for scalability
+        orderBy('lastName', 'asc'),
+        limit(PLAYER_LIMIT)
     );
 
     const processPlayers = snapshot => {

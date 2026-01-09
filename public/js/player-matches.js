@@ -373,7 +373,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
             ].sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
-                return bTime - aTime; // Most recent first
+                return bTime - aTime;
             });
 
             const completedMyRequests = myRequests.filter(
@@ -416,7 +416,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
             ].sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
-                return bTime - aTime; // Most recent first
+                return bTime - aTime;
             });
 
             await renderPendingRequests(pendingRequests, userData, db);
@@ -486,7 +486,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 /**
  * Renders my match requests with "show more" functionality
  */
-let showAllMyRequests = false; // State for showing all or limited
+let showAllMyRequests = false;
 
 async function renderMyRequests(requests, userData, db) {
     const container = document.getElementById('my-result-requests-list');
@@ -537,7 +537,7 @@ async function renderMyRequests(requests, userData, db) {
 /**
  * Renders incoming match requests with "show more" functionality
  */
-let showAllIncomingRequests = false; // State for showing all or limited
+let showAllIncomingRequests = false;
 
 async function renderIncomingRequests(requests, userData, db) {
     const container = document.getElementById('incoming-result-requests-list');
@@ -588,7 +588,7 @@ async function renderIncomingRequests(requests, userData, db) {
 /**
  * Renders processed match requests with "show more" functionality
  */
-let showAllProcessedRequests = false; // State for showing all or limited
+let showAllProcessedRequests = false;
 
 async function renderProcessedRequests(requests, userData, db) {
     const container = document.getElementById('processed-result-requests-list');
@@ -1253,13 +1253,13 @@ async function approveMatchRequest(requestId, db, role) {
                 status: 'approved',
                 timestamp: serverTimestamp(),
             };
-            updateData.status = 'pending_coach'; // Move to coach approval
+            updateData.status = 'pending_coach';
         } else if (role === 'coach') {
             updateData['approvals.coach'] = {
                 status: 'approved',
                 timestamp: serverTimestamp(),
             };
-            updateData.status = 'approved'; // Final approval
+            updateData.status = 'approved';
         }
 
         updateData.updatedAt = serverTimestamp();
@@ -1487,7 +1487,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             el.classList.add('opacity-50', 'cursor-not-allowed');
         });
 
-        return; // Exit early, don't initialize form
+        return;
     }
 
     opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
@@ -1561,7 +1561,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
             const weakerPlayer =
                 myElo < opponentElo ? 'Du' : selectedOption.textContent.split(' (')[0];
-            const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'; // A = me, B = opponent
+            const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B';
 
             currentHandicapData = {
                 player: weakerPlayerSide,

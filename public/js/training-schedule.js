@@ -207,9 +207,9 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         clubId,
         recurringTemplateId,
         cancelled: false,
-        plannedExercises: plannedExercises || [], // Array of planned exercises
-        completed: false, // Tracking whether training has been completed
-        completedAt: null, // Timestamp when training was completed
+        plannedExercises: plannedExercises || [],
+        completed: false,
+        completedAt: null,
         createdAt: serverTimestamp(),
         createdBy: userId,
     };

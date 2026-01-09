@@ -137,7 +137,7 @@ onboardingForm.addEventListener('submit', async e => {
             throw new Error('Benutzerdaten nicht geladen. Bitte Seite neu laden.');
         }
 
-        let photoURL = currentUserData.photoURL || null; // Behalte altes Foto, falls keins ausgewählt
+        let photoURL = currentUserData.photoURL || null;
         if (selectedFile) {
             const storageRef = ref(
                 storage,
@@ -161,8 +161,8 @@ onboardingForm.addEventListener('submit', async e => {
             birthdate: birthdate,
             gender: document.getElementById('gender').value,
             photoURL: photoURL,
-            onboardingComplete: true, // Wichtig: Onboarding abschließen
-            isOffline: false, // User is now online after completing onboarding
+            onboardingComplete: true,
+            isOffline: false,
         };
 
         const userDocRef = doc(db, 'users', currentUser.uid);

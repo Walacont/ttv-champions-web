@@ -432,7 +432,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         await addDoc(collection(db, 'matches'), {
             playerAId,
             playerBId,
-            playerIds: [playerAId, playerBId], // For match history queries
+            playerIds: [playerAId, playerBId],
             winnerId,
             loserId,
             handicapUsed: handicapUsed,
@@ -762,7 +762,7 @@ export async function loadCoachProcessedRequests(userData, db) {
 /**
  * Renders processed match request cards for coach with "show more" functionality
  */
-let showAllCoachProcessed = false; // State for showing all or limited
+let showAllCoachProcessed = false;
 
 function renderCoachProcessedCards(requests, db) {
     const container = document.getElementById('coach-processed-requests-list');
@@ -869,7 +869,7 @@ function renderCoachProcessedCards(requests, db) {
 /**
  * Renders match request cards for coach with "show more" functionality
  */
-let showAllCoachRequests = false; // State for showing all or limited
+let showAllCoachRequests = false;
 
 function renderCoachRequestCards(requests, db, userData) {
     const container = document.getElementById('coach-pending-requests-list');

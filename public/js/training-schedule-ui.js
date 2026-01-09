@@ -554,7 +554,7 @@ function openSpontaneousSessionModal(dateStr = null) {
     if (!modal || !form) return;
 
     form.reset();
-    resetSessionPlanning(); // Reset exercise selection
+    resetSessionPlanning();
 
     if (dateStr) {
         dateInput.value = dateStr;
@@ -632,7 +632,7 @@ async function handleSpontaneousSessionSubmit(e) {
                 subgroupId,
                 clubId: currentUserData.clubId,
                 recurringTemplateId: null,
-                plannedExercises, // Add planned exercises to session
+                plannedExercises,
             },
             currentUserData.id
         );

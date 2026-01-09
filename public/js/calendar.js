@@ -14,7 +14,7 @@ import {
  * Handles calendar rendering and attendance tracking for dashboard
  */
 
-let subgroupsMap = new Map(); // Store subgroups with their colors
+let subgroupsMap = new Map();
 
 /**
  * Gets club attendance data for a specific period
@@ -119,7 +119,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
         const presentDatesSet = new Set();
         const missedDatesSet = new Set();
-        const sessionsPerDay = new Map(); // Track sessions per day
+        const sessionsPerDay = new Map();
 
         allSessionsCache.forEach(session => {
             const dateKey = session.date;
@@ -155,7 +155,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             if (presentDatesSet.has(training.date)) {
                 streakDates.add(training.date);
             } else {
-                break; // Streak is broken
+                break;
             }
         }
 

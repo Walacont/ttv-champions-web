@@ -234,7 +234,7 @@ async function enrichMatchData(db, match, userData) {
             const historyQuery = query(
                 pointsHistoryRef,
                 orderBy('timestamp', 'desc'),
-                limit(200) // Get recent history to find this match
+                limit(200)
             );
 
             const historySnapshot = await getDocs(historyQuery);

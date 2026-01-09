@@ -211,7 +211,7 @@ router
 
 router.beforeNavigate(async path => {
     console.log('Navigating to:', path);
-    return true; // Allow navigation
+    return true;
 });
 
 router.afterNavigate(async path => {
