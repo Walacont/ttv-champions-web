@@ -73,7 +73,7 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
         }
     }
 
-    // Initial fetch
+    // Initiales Laden
     fetchAndRender();
 
     // Echtzeit-Subscription einrichten
@@ -189,7 +189,7 @@ export function loadTopWinsPlayers(clubId, supabase, setUnsubscribeCallback = nu
         }
     }
 
-    // Initial fetch
+    // Initiales Laden
     fetchAndRender();
 
     // Echtzeit-Subscription einrichten

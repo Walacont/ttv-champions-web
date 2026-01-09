@@ -53,7 +53,7 @@ export function createTableEditor(containerId, initialData = null) {
     const removeRowBtn = container.querySelector('.remove-row-btn');
 
     function renderTable() {
-        // Render headers
+        // Kopfzeilen rendern
         headerRow.innerHTML = '';
         tableData.headers.forEach((header, colIndex) => {
             const th = document.createElement('th');
@@ -71,7 +71,7 @@ export function createTableEditor(containerId, initialData = null) {
             headerRow.appendChild(th);
         });
 
-        // Render rows
+        // Zeilen rendern
         tableBody.innerHTML = '';
         tableData.rows.forEach((row, rowIndex) => {
             const tr = document.createElement('tr');

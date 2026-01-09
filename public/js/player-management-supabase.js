@@ -12,7 +12,7 @@ import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayer
 // Aktuellen Grundlagen-Listener verfolgen um Duplikate zu vermeiden
 let currentGrundlagenListener = null;
 
-// Module-level storage for refresh functionality
+// Modul-Speicher für Aktualisierungsfunktionalität
 let storedSupabase = null;
 let storedClubId = null;
 let storedUserData = null;
@@ -192,7 +192,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
-        // Re-enable button
+        // Button wieder aktivieren
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Spieler erstellen';
@@ -215,7 +215,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             alert(
                 `Ein Spieler mit dem Namen "${firstName} ${lastName}" existiert bereits in deinem Verein.`
             );
-            // Re-enable button
+            // Button wieder aktivieren
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
@@ -292,14 +292,14 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             alert('Offline Spieler erfolgreich erstellt!');
             form.reset();
             document.getElementById('add-offline-player-modal').classList.add('hidden');
-            // Re-enable button for next use
+            // Button wieder aktivieren für nächste Verwendung
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
             }
         } else {
             // Für 'code' Typ bleibt Modal offen und zeigt generierten Code
-            // Re-enable button so modal can be closed and form reused
+            // Button wieder aktivieren damit Modal geschlossen und Formular wiederverwendet werden kann
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
@@ -309,7 +309,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         console.error('Fehler beim Erstellen des Spielers:', error);
         console.error('Error details:', JSON.stringify(error, null, 2));
         alert('Fehler: ' + (error.message || 'Der Spieler konnte nicht erstellt werden.'));
-        // Re-enable button on error
+        // Button bei Fehler wieder aktivieren
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Spieler erstellen';

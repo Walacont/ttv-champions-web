@@ -713,7 +713,7 @@ function setupFilters() {
             } else if (currentSubgroupFilter === 'following') {
                 // Gefolgten-Filter - globalen Bereich verwenden um alle Spieler zu suchen
                 currentLeaderboardScope = 'global';
-                // Pre-load following IDs
+                // Abonnenten-IDs vorladen
                 await loadFollowingIds();
             } else if (currentSubgroupFilter.startsWith('subgroup:')) {
                 // Benutzerdefinierte Untergruppen - Vereins-Bereich verwenden
@@ -721,7 +721,7 @@ function setupFilters() {
             }
             updateLeaderboardScope();
 
-            // Re-render the leaderboard with new filter
+            // Rangliste mit neuem Filter neu rendern
             updateLeaderboardContent();
             loadRivalData(); // Rivalen aktualisieren wenn Filter sich ändert
         });
@@ -1006,13 +1006,13 @@ async function loadRivalData() {
 }
 
 function updateRivalDisplay(players, rivalSkillEl, rivalEffortEl) {
-    // Skill ranking (sorted by elo)
+    // Skill-Ranking (sortiert nach Elo)
     const skillRanking = [...players].sort((a, b) => (b.elo_rating || 0) - (a.elo_rating || 0));
     const mySkillIndex = skillRanking.findIndex(p => p.id === currentUser.id);
 
     displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, currentUserData.elo_rating || 0, 'Elo');
 
-    // Effort ranking (sorted by xp)
+    // Effort-Ranking (sortiert nach XP)
     const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
     const myEffortIndex = effortRanking.findIndex(p => p.id === currentUser.id);
 
@@ -1187,7 +1187,7 @@ async function loadLeaderboards() {
         });
     });
 
-    // Initial state
+    // Initialzustand
     updateLeaderboardTabs();
     updateLeaderboardScope();
 
@@ -1306,7 +1306,7 @@ async function loadDoublesLeaderboardTab() {
             return;
         }
 
-        // Table exists, use the imported function
+        // Tabelle existiert, importierte Funktion verwenden
         const clubId = currentUserData.club_id;
         const isGlobal = currentLeaderboardScope === 'global' || !clubId;
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
@@ -1580,7 +1580,7 @@ function renderLeaderboardList() {
             return false; // Von Nicht-Vereinsmitgliedern verbergen
         }
 
-        return true; // Global visibility
+        return true; // Globale Sichtbarkeit
     });
 
     // Nach aktuellem Tab sortieren - Tab-Namen zu Feldnamen
@@ -1761,7 +1761,7 @@ async function loadPointsHistory() {
                 ? `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`
                 : '';
 
-            // Partner badge
+            // Partner-Badge
             let partnerBadge = '';
             if (entry.is_active_player) {
                 partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Aktiv</span>';
@@ -2408,7 +2408,7 @@ async function reconnectRealtime() {
         // Kurz warten vor Wiederverbindung
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Re-setup subscriptions
+        // Subscriptions neu einrichten
         setupRealtimeSubscriptions();
         console.log('[Realtime] Reconnection complete');
     } catch (e) {
@@ -2535,7 +2535,7 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(matchRequestSubB);
 
     // ALLE match_requests DELETE-Events abonnieren (ohne Filter)
-    // Row-level filters don't work for DELETE events in Supabase
+    // Zeilenfilter funktionieren nicht für DELETE-Events in Supabase
     // so we listen to all deletes and refresh the lists
     const matchRequestDeleteSub = supabase
         .channel('match_request_deletes')
@@ -2594,7 +2594,7 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(doublesRequestSub);
 
     // ALLE doubles_match_requests DELETE-Events abonnieren (ohne Filter)
-    // Row-level filters don't work for DELETE events in Supabase
+    // Zeilenfilter funktionieren nicht für DELETE-Events in Supabase
     const doublesRequestDeleteSub = supabase
         .channel('doubles_match_request_deletes')
         .on('postgres_changes', {
@@ -3167,7 +3167,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
     }
     processingRequests.add(requestId);
 
-    // Optimistic UI update - immediately hide the card
+    // Optimistisches UI-Update - Karte sofort ausblenden
     removeRequestCardOptimistically(requestId, 'singles');
 
     try {
@@ -3233,7 +3233,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Auto-approve when Player B confirms (no coach approval needed)
+        // Automatisch genehmigen wenn Spieler B bestätigt (keine Trainer-Genehmigung nötig)
         let newStatus = 'approved';
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
@@ -3287,7 +3287,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
     }
     processingRequests.add(`doubles-${requestId}`);
 
-    // Optimistic UI update - immediately hide the card
+    // Optimistisches UI-Update - Karte sofort ausblenden
     removeRequestCardOptimistically(requestId, 'doubles');
 
     try {

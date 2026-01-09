@@ -451,7 +451,7 @@ function renderFormedPairs() {
         const div = document.createElement('div');
         div.className = 'p-4 bg-gray-50 border border-gray-200 rounded-lg';
 
-        // Milestone selection (for milestone exercises and successful results)
+        // Meilenstein-Auswahl (für Meilenstein-Übungen und erfolgreiche Ergebnisse)
         const showMilestoneSelect =
             isMilestoneExercise &&
             (pair.result === 'both_success' || pair.result === 'one_success');
@@ -524,7 +524,7 @@ function checkSinglePlayers() {
         p => !pairedPlayerIds.includes(p.id) && !singlePlayers.find(sp => sp.id === p.id)
     );
 
-    // Auto-assign single player if only one left
+    // Einzelnen Spieler automatisch zuweisen wenn nur noch einer übrig
     if (available.length === 1 && selectedPlayers.length === 0) {
         singlePlayers.push({
             ...available[0],
@@ -1250,7 +1250,7 @@ function closePairingModal() {
         modal.classList.remove('flex');
     }
 
-    // Reset state
+    // Zustand zurücksetzen
     selectedPlayers = [];
     formedPairs = [];
     singlePlayers = [];

@@ -2369,7 +2369,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
                 const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
                 if (attError) console.warn('[Events] Error deleting attendance:', attError);
 
-                // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+                // Löschen mit select() um zu prüfen ob wirklich gelöscht wurde
                 const { data: deletedData, error: eventDelError } = await supabase
                     .from('events')
                     .delete()
@@ -2423,7 +2423,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate 
             const { error: attError } = await supabase.from('event_attendance').delete().eq('event_id', eventId);
             if (attError) console.warn('[Events] Error deleting attendance:', attError);
 
-            // Delete mit select() um zu prüfen ob wirklich gelöscht wurde
+            // Löschen mit select() um zu prüfen ob wirklich gelöscht wurde
             const { data: deletedData, error: eventDelError } = await supabase
                 .from('events')
                 .delete()

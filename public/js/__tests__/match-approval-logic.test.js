@@ -64,7 +64,7 @@ function determineSinglesMatchClubId(playerA, playerB) {
 function simulatePlayerBApproval(playerA, playerB) {
     const clubId = determineSinglesMatchClubId(playerA, playerB);
 
-    // Auto-approve if both players have no club
+    // Automatisch genehmigen wenn beide Spieler keinen Verein haben
     const isAutoApproved = hasNoClub(playerA.clubId) && hasNoClub(playerB.clubId);
     const status = isAutoApproved ? 'approved' : 'pending_coach';
 
@@ -108,7 +108,7 @@ function determineDoublesMatchClubId(player1, player2, player3, player4) {
 function simulateDoublesOpponentApproval(player1, player2, player3, player4) {
     const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
 
-    // Auto-approve if at least one team has no club
+    // Automatisch genehmigen wenn mindestens ein Team keinen Verein hat
     const teamANoClub = hasNoClub(player1.clubId) && hasNoClub(player2.clubId);
     const teamBNoClub = hasNoClub(player3.clubId) && hasNoClub(player4.clubId);
     const isAutoApproved = teamANoClub || teamBNoClub;

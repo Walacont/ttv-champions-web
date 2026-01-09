@@ -371,7 +371,7 @@ async function renderRecentActivity(profile) {
         ];
 
         // === PRIVACY FILTERING FOR MATCHES ===
-        // ALL players in a match must allow visibility - strictest setting wins
+        // ALLE Spieler in einem Match müssen Sichtbarkeit erlauben - strengste Einstellung gewinnt
         // Filterung für eigenes Profil überspringen - immer alle Matches anzeigen
         const viewerId = currentUser?.id;
 
@@ -444,7 +444,7 @@ async function renderRecentActivity(profile) {
                     ].filter(Boolean);
                 }
 
-                // If viewer is a player, always visible
+                // Falls Betrachter ein Spieler ist, immer sichtbar
                 if (viewerId && playerIds.includes(viewerId)) {
                     return true;
                 }
@@ -1767,7 +1767,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
                 totalForDay = 1;
                 attendedCount = 1;
             } else {
-                // Has events AND attendance record - add the attendance
+                // Hat Events UND Anwesenheitseintrag - Anwesenheit hinzufügen
                 attendedCount = Math.max(attendedCount, 1);
             }
         }

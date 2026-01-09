@@ -621,7 +621,7 @@ function setupPullToRefresh() {
                 }, 300);
             }
         } else {
-            // Cancel - hide indicator
+            // Abbrechen - Indikator ausblenden
             ptrIndicator.style.height = '0';
             ptrIndicator.style.opacity = '0';
         }
@@ -1426,7 +1426,7 @@ async function toggleActivityLike(activityId, activityType) {
         if (error) {
             // Prüfen ob Benutzer eigene Aktivität liken wollte
             if (error.message && error.message.includes('cannot like your own activity')) {
-                // Revert UI changes
+                // UI-Änderungen rückgängig machen
                 updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
                 likesDataCache[key] = currentData;
                 // Benutzerfreundliche Nachricht anzeigen
@@ -2386,7 +2386,7 @@ function getRankingText(key, params = {}) {
         'clubRanking.movedDown': 'fällt auf',
         'clubRanking.position': `Platz ${params.position || ''}`,
         'clubRanking.previousHolder': `vorher: ${params.name || ''} (${params.elo || ''} Elo)`,
-        // Global ranking
+        // Globales Ranking
         'globalRanking.title': 'Globale Rangliste',
         'globalRanking.position': `Platz ${params.position || ''}`,
         'globalRanking.positionsSingular': '1 Platz',
@@ -2558,7 +2558,7 @@ function renderGlobalRankingChangeCard(activity) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Color scheme - purple for global ranking (to distinguish from club)
+    // Farbschema - Lila für globales Ranking (zur Unterscheidung vom Verein)
     const colors = { bg: 'purple', border: 'purple', text: 'purple' };
 
     // Nachricht basierend auf Bewegung generieren
@@ -2785,7 +2785,7 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Color scheme - teal for global doubles ranking
+    // Farbschema - Türkis für globales Doppel-Ranking
     const colors = { bg: 'teal', border: 'teal', text: 'teal' };
 
     // Nachricht basierend auf Bewegung generieren (Plural für Paarungen)
@@ -3497,10 +3497,10 @@ function initCarouselSwipe() {
                     // Nur auslösen wenn horizontaler Swipe dominiert
                     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
                         if (deltaX > 0) {
-                            // Swipe right - previous
+                            // Nach rechts wischen - vorheriges
                             window.carouselPrev(carousel.id);
                         } else {
-                            // Swipe left - next
+                            // Nach links wischen - nächstes
                             window.carouselNext(carousel.id);
                         }
                     }

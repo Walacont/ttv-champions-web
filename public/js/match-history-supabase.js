@@ -140,7 +140,7 @@ async function loadAndSubscribe(supabase, userData, container, matchType) {
                     filter: `processed=eq.true`
                 },
                 async () => {
-                    // Re-fetch all matches when doubles changes
+                    // Alle Matches neu abrufen wenn Doppel sich ändert
                     await fetchAndRenderMatches(supabase, userData, container, matchType);
                 }
             )
@@ -186,7 +186,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
         });
         const singlesMatches = Array.from(singlesMatchesMap.values());
 
-        // Query doubles matches
+        // Doppel-Matches abfragen
         const hasClub = userData.clubId !== null && userData.clubId !== undefined && userData.clubId !== '';
 
         let doublesMatches = [];
