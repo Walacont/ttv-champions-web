@@ -186,7 +186,7 @@ async function fetchAndRenderMatches(supabase, userData, container, matchType) {
         });
         const singlesMatches = Array.from(singlesMatchesMap.values());
 
-        // Query doubles matches
+        // Doppel-Matches abfragen
         const hasClub = userData.clubId !== null && userData.clubId !== undefined && userData.clubId !== '';
 
         let doublesMatches = [];

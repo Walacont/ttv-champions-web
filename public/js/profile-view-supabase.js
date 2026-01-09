@@ -444,7 +444,7 @@ async function renderRecentActivity(profile) {
                     ].filter(Boolean);
                 }
 
-                // If viewer is a player, always visible
+                // Falls Betrachter ein Spieler ist, immer sichtbar
                 if (viewerId && playerIds.includes(viewerId)) {
                     return true;
                 }

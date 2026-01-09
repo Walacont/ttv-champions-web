@@ -389,7 +389,7 @@ export function getExercisePartnerSettings() {
 
     return {
         enabled: true,
-        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
+        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Auf 0-100 begrenzen
     };
 }
 
@@ -442,7 +442,7 @@ export function getChallengePartnerSettings() {
 
     return {
         enabled: true,
-        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
+        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Auf 0-100 begrenzen
     };
 }
 

@@ -292,14 +292,14 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             alert('Offline Spieler erfolgreich erstellt!');
             form.reset();
             document.getElementById('add-offline-player-modal').classList.add('hidden');
-            // Button wieder aktivieren for next use
+            // Button wieder aktivieren für nächste Verwendung
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
             }
         } else {
             // Für 'code' Typ bleibt Modal offen und zeigt generierten Code
-            // Button wieder aktivieren so modal can be closed and form reused
+            // Button wieder aktivieren damit Modal geschlossen und Formular wiederverwendet werden kann
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = 'Spieler erstellen';
@@ -309,7 +309,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         console.error('Fehler beim Erstellen des Spielers:', error);
         console.error('Error details:', JSON.stringify(error, null, 2));
         alert('Fehler: ' + (error.message || 'Der Spieler konnte nicht erstellt werden.'));
-        // Button wieder aktivieren on error
+        // Button bei Fehler wieder aktivieren
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.textContent = 'Spieler erstellen';
