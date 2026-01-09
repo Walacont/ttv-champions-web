@@ -266,7 +266,7 @@ async function loadUpcomingEvents() {
                 return true;
             }
 
-            // Past dates - exclude
+            // Vergangene Daten - ausschließen
             return false;
         });
 
