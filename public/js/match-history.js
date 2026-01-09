@@ -15,11 +15,6 @@ import {
  * Displays competition history with match results and ELO changes
  */
 
-// ========================================================================
-// ===== LOAD AND DISPLAY MATCH HISTORY =====
-// ========================================================================
-
-// Store the unsubscribe function globally so we can clean up
 let matchHistoryUnsubscribe = null;
 
 /**

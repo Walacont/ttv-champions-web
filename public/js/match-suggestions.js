@@ -12,18 +12,7 @@ import {
  * Provides opponent suggestions based on match history and player ratings
  */
 
-// ========================================================================
-// ===== MATCH SUGGESTIONS ALGORITHM =====
-// ========================================================================
-
-/**
- * Calculates match suggestions for a player
- * Prioritizes players they haven't played against or haven't played in a while
- * @param {Object} userData - Current user data
- * @param {Array} allPlayers - All players in the club
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Array>} Array of suggested players with priority scores
- */
+/** Berechnet Gegner-Vorschlaege basierend auf Spielhistorie */
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
     try {
         // Filter eligible players
@@ -144,17 +133,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
     }
 }
 
-// ========================================================================
-// ===== LOAD AND RENDER MATCH SUGGESTIONS =====
-// ========================================================================
-
-/**
- * Loads and renders match suggestions
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {String} subgroupFilter - Filter by subgroup ('club', 'global', or subgroup ID)
- */
+/** Laedt und rendert Gegner-Vorschlaege */
 export async function loadMatchSuggestions(
     userData,
     db,

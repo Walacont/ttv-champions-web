@@ -744,14 +744,7 @@ function formatDate(dateStr) {
     return formatDateGerman(dateStr);
 }
 
-// ============================================================================
-// WINDOW FUNCTIONS (called from attendance.js)
-// ============================================================================
-
-/**
- * Open session selection modal from calendar click
- * Called by attendance.js when multiple sessions exist on a day
- */
+/** Session-Auswahl-Modal von Kalenderklick oeffnen */
 window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions) {
     const modal = document.getElementById('session-selection-modal');
     const dateDisplay = document.getElementById('session-selection-date');

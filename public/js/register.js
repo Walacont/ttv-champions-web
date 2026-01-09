@@ -1,4 +1,3 @@
-// ===== IMPORTS =====
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
     getAuth,
@@ -25,7 +24,6 @@ import {
 import { firebaseConfig } from './firebase-config.js';
 import { isCodeExpired, validateCodeFormat } from './invitation-code-utils.js';
 
-// ===== INITIALISIERUNG =====
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -40,7 +38,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
-// ===== UI ELEMENTE =====
 const loader = document.getElementById('loader');
 const registrationFormContainer = document.getElementById('registration-form-container');
 const registrationForm = document.getElementById('registration-form');
@@ -54,8 +51,7 @@ let invitationCode = null;
 let invitationCodeData = null;
 let registrationType = null; // 'token' or 'code'
 
-// ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
-// Function to initialize registration (works for both normal load and SPA navigation)
+/** Initialisiert die Registrierung */
 async function initializeRegistration() {
     const urlParams = new URLSearchParams(window.location.search);
     tokenId = urlParams.get('token');
@@ -75,7 +71,6 @@ async function initializeRegistration() {
     loader.classList.remove('hidden'); // Loader jetzt sichtbar machen
 
     try {
-        // ===== CODE-FLOW =====
         if (invitationCode) {
             registrationType = 'code';
             invitationCode = invitationCode.trim().toUpperCase();
@@ -113,7 +108,6 @@ async function initializeRegistration() {
             loader.classList.add('hidden');
             registrationFormContainer.classList.remove('hidden');
         }
-        // ===== TOKEN-FLOW (Bisheriger Flow) =====
         else if (tokenId) {
             registrationType = 'token';
             const tokenDocRef = doc(db, 'invitationTokens', tokenId);
@@ -145,7 +139,6 @@ if (document.readyState === 'loading') {
     initializeRegistration();
 }
 
-// ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener('submit', async e => {
     e.preventDefault();
     errorMessage.textContent = '';
@@ -186,7 +179,6 @@ registrationForm.addEventListener('submit', async e => {
         // 3️⃣ Sicherheitshalber frisches Auth-Token abrufen
         await user.getIdToken(true);
 
-        // ===== CODE-FLOW =====
         if (registrationType === 'code') {
             // 4️⃣ Callable Cloud Function aufrufen für Code-basierte Registrierung
             const claimInvitationCode = httpsCallable(functions, 'claimInvitationCode');
@@ -207,7 +199,6 @@ registrationForm.addEventListener('submit', async e => {
                 throw new Error('Ein unbekannter Fehler ist aufgetreten.');
             }
         }
-        // ===== TOKEN-FLOW (Bisheriger Flow) =====
         else if (registrationType === 'token') {
             // 4️⃣ Callable Cloud Function aufrufen
             const claimInvitationToken = httpsCallable(functions, 'claimInvitationToken');
@@ -247,7 +238,7 @@ registrationForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== FEHLERANZEIGE (NICHT-ZERSTÖRERISCHE VERSION) =====
+/** Zeigt eine Fehlermeldung an */
 function displayError(message) {
     // 1. Verstecke alle Haupt-Container
     loader.classList.add('hidden');

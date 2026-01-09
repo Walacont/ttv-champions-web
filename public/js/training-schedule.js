@@ -32,12 +32,7 @@ export function initializeTrainingSchedule(firestoreInstance) {
     db = firestoreInstance;
 }
 
-// ============================================================================
-// RECURRING TRAINING TEMPLATES
-// ============================================================================
-
-/**
- * Create a recurring training template
+/** Erstellt eine wiederkehrende Trainingsvorlage
  * @param {Object} templateData - Template configuration
  * @param {string} userId - ID of user creating the template
  * @returns {Promise<string>} Template ID
@@ -173,12 +168,7 @@ async function checkTemplateOverlap(
     return false;
 }
 
-// ============================================================================
-// TRAINING SESSIONS
-// ============================================================================
-
-/**
- * Create a training session
+/** Erstellt eine Trainingseinheit
  * @param {Object} sessionData - Session configuration
  * @param {string} userId - ID of user creating the session
  * @returns {Promise<string>} Session ID
@@ -618,12 +608,7 @@ async function checkSessionOverlap(
     return false;
 }
 
-// ============================================================================
-// AUTO-GENERATION OF SESSIONS FROM TEMPLATES
-// ============================================================================
-
-/**
- * Generate training sessions from recurring templates
+/** Generiert Trainingseinheiten aus wiederkehrenden Vorlagen
  * @param {string} clubId
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
@@ -692,13 +677,7 @@ async function checkExistingSession(clubId, date, startTime, subgroupId) {
     return !snapshot.empty;
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/**
- * Check if time format is valid (HH:MM)
- */
+/** Prüft Zeit-Format (HH:MM) */
 function isValidTimeFormat(time) {
     return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 }

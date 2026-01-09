@@ -251,9 +251,6 @@ codeForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== CODE FÜR MODAL-STEUERUNG (HINZUFÜGEN) =====
-
-// Alle Elemente für das Modal holen
 const loginModal = document.getElementById('login-modal');
 const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');

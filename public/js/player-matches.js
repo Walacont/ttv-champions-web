@@ -18,17 +18,7 @@ import {
  * Handles player-initiated match requests with approval workflow
  */
 
-// ========================================================================
-// ===== SET SCORE INPUT COMPONENT =====
-// ========================================================================
-
-/**
- * Creates dynamic set score input fields
- * @param {HTMLElement} container - Container element for set inputs
- * @param {Array} existingSets - Existing set scores (for edit mode)
- * @param {String} mode - Match mode ('single-set', 'best-of-3', 'best-of-5', 'best-of-7')
- * @returns {Object} Object with getSets() and validate() methods
- */
+/** Erstellt dynamische Satz-Eingabefelder */
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
     container.innerHTML = '';
 
@@ -357,16 +347,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     };
 }
 
-// ========================================================================
-// ===== MATCH REQUEST MANAGEMENT =====
-// ========================================================================
-
-/**
- * Loads and renders player match requests
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+/** Laedt und rendert Spieler-Match-Anfragen */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     // Updated to use new two-section layout: pending (to respond) and history (completed)
     const pendingRequestsList = document.getElementById('pending-result-requests-list');

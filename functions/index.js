@@ -1,6 +1,3 @@
-// ========================================================================
-// ===== IMPORTS =====
-// ========================================================================
 const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -10,9 +7,6 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.firestore();
 
-// ========================================================================
-// ===== CONFIG =====
-// ========================================================================
 const CONFIG = {
     COLLECTIONS: {
         USERS: 'users',
@@ -35,9 +29,6 @@ const CONFIG = {
     REGION: 'europe-west3',
 };
 
-// ========================================================================
-// ===== FUNKTION: Elo-Gates =====
-// ========================================================================
 /**
  * Find the highest Elo gate a player has reached
  * @param {number} currentElo - Player's current Elo
@@ -68,9 +59,6 @@ function applyEloGate(newElo, currentElo, highestElo) {
     return Math.max(newElo, gate);
 }
 
-// ========================================================================
-// ===== FUNKTION: Elo-Berechnung =====
-// ========================================================================
 /**
  * Berechnet neue Elo-Ratings für Gewinner und Verlierer.
  * @param {number} winnerElo - Aktuelles Elo-Rating des Gewinners.
@@ -97,9 +85,6 @@ exports._testOnly = {
     CONFIG,
 };
 
-// ========================================================================
-// ===== FUNKTION 1: Verarbeitet ein gemeldetes Match =====
-// ========================================================================
 exports.processMatchResult = onDocumentCreated(
     {
         region: CONFIG.REGION,
@@ -296,9 +281,6 @@ exports.processMatchResult = onDocumentCreated(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 2: Alte Invitation-Tokens automatisch löschen =====
-// ========================================================================
 exports.cleanupInvitationTokens = onSchedule(
     {
         schedule: 'every 24 hours',
@@ -331,9 +313,6 @@ exports.cleanupInvitationTokens = onSchedule(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 3: Setzt Custom Claims bei User-Änderung =====
-// ========================================================================
 exports.setCustomUserClaims = onDocumentWritten(
     {
         region: CONFIG.REGION,
@@ -366,9 +345,6 @@ exports.setCustomUserClaims = onDocumentWritten(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 4: Claim Invitation Code (Code-basierte Registrierung) =====
-// ========================================================================
 exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request => {
     // 1. Check if user is authenticated
     if (!request.auth) {
@@ -525,16 +501,12 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                 highestElo: CONFIG.ELO.DEFAULT_RATING,
                 wins: 0,
                 losses: 0,
-<<<<<<< HEAD
                 grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
-=======
                 grundlagenCompleted: 0,
->>>>>>> origin/main-ersatz
                 onboardingComplete: false,
                 isOffline: true, // User is offline until they complete onboarding
                 createdAt: now,
                 photoURL: '',
-<<<<<<< HEAD
                 clubRequestStatus: null,
                 clubRequestId: null,
                 privacySettings: {
@@ -542,8 +514,6 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                     showInLeaderboards: true,
                 },
                 clubJoinedAt: now,
-=======
->>>>>>> origin/main-ersatz
             };
 
             await userRef.set(userData);
@@ -574,9 +544,6 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
     }
 });
 
-// ========================================================================
-// ===== FUNKTION 5: Claim Invitation Token (Email-basierte Registrierung) =====
-// ========================================================================
 exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request => {
     // 1. Check if user is authenticated
     if (!request.auth) {
@@ -636,11 +603,8 @@ exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request =
             highestElo: CONFIG.ELO.DEFAULT_RATING,
             wins: 0,
             losses: 0,
-<<<<<<< HEAD
             grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
-=======
             grundlagenCompleted: 0,
->>>>>>> origin/main-ersatz
             onboardingComplete: false,
             isOffline: true, // User is offline until they complete onboarding
             createdAt: now,
@@ -674,9 +638,6 @@ exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request =
     }
 });
 
-// ========================================================================
-// ===== FUNKTION 6: Cleanup Expired Invitation Codes (Scheduled) =====
-// ========================================================================
 exports.cleanupExpiredInvitationCodes = onSchedule(
     {
         schedule: 'every 24 hours',
@@ -714,9 +675,6 @@ exports.cleanupExpiredInvitationCodes = onSchedule(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 7: Process Approved Match Request =====
-// ========================================================================
 /**
  * Processes approved match requests by creating a match document
  * Triggered when a matchRequest document is updated to status='approved'
@@ -796,9 +754,6 @@ exports.processApprovedMatchRequest = onDocumentWritten(
     }
 );
 
-// ========================================================================
-// ===== SCHEDULED FUNCTION: Auto-Generate Training Sessions =====
-// ========================================================================
 /**
  * Scheduled function that runs daily at 00:00 UTC
  * Generates training sessions for the next 14 days from recurring templates
@@ -918,9 +873,6 @@ exports.autoGenerateTrainingSessions = onSchedule(
     }
 );
 
-// ========================================================================
-// ===== CALLABLE FUNCTION: Migrate Attendance to Sessions =====
-// ========================================================================
 /**
  * One-time migration function to convert existing attendance data
  * to the new session-based system
@@ -1123,9 +1075,6 @@ exports.migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async re
     }
 });
 
-// ========================================================================
-// ===== SCHEDULED FUNCTION: Auto Season Reset (Every 6 Weeks) =====
-// ========================================================================
 /**
  * Scheduled function that runs every 6 weeks to reset seasons
  * - Resets season points to 0
@@ -1362,9 +1311,6 @@ exports.autoSeasonReset = onSchedule(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 8: Process Doubles Match Result =====
-// ========================================================================
 /**
  * Processes doubles match results
  * - Updates separate doublesEloRating for all 4 players
@@ -1412,7 +1358,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 : [teamA.player1Id, teamA.player2Id];
 
         try {
-<<<<<<< HEAD
             // Fetch all 4 players AND both pairings
             const [
                 winner1Doc,
@@ -1422,19 +1367,14 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 winningPairingDoc,
                 losingPairingDoc,
             ] = await Promise.all([
-=======
             // Fetch all 4 players
             const [winner1Doc, winner2Doc, loser1Doc, loser2Doc] = await Promise.all([
->>>>>>> origin/main-ersatz
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(winningPlayerIds[0]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(winningPlayerIds[1]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(losingPlayerIds[0]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(losingPlayerIds[1]).get(),
-<<<<<<< HEAD
                 db.collection('doublesPairings').doc(winningPairingId).get(),
                 db.collection('doublesPairings').doc(losingPairingId).get(),
-=======
->>>>>>> origin/main-ersatz
             ]);
 
             if (
@@ -1451,7 +1391,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
             const loser1Data = loser1Doc.data();
             const loser2Data = loser2Doc.data();
 
-<<<<<<< HEAD
             // Get individual doubles Elo ratings (used as fallback for new pairings)
             const winner1IndividualElo = winner1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
             const winner2IndividualElo = winner2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
@@ -1483,7 +1422,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     `New losing pairing, using average of individual ELOs: ${losingTeamElo}`
                 );
             }
-=======
             // Get doubles Elo ratings (separate from singles Elo!)
             const winner1Elo = winner1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
             const winner2Elo = winner2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
@@ -1493,25 +1431,20 @@ exports.processDoublesMatchResult = onDocumentCreated(
             // Calculate team Elos
             const winningTeamElo = Math.round((winner1Elo + winner2Elo) / 2);
             const losingTeamElo = Math.round((loser1Elo + loser2Elo) / 2);
->>>>>>> origin/main-ersatz
 
             logger.info(
                 `Doubles match ${matchId}: Team Elos - Winners: ${winningTeamElo}, Losers: ${losingTeamElo}`
             );
 
-<<<<<<< HEAD
             // Calculate new PAIRING ELOs (not individual player ELOs)
             let newWinningTeamElo;
             let newLosingTeamElo;
-=======
             let winner1NewElo, winner2NewElo, loser1NewElo, loser2NewElo;
->>>>>>> origin/main-ersatz
             let seasonPointChange;
             let winnerXPGain = 0;
             let matchTypeReason = 'Doppel-Wettkampf';
 
             if (handicapUsed) {
-<<<<<<< HEAD
                 // Handicap matches: Fixed changes to PAIRING ELO
                 seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
 
@@ -1520,7 +1453,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
 
                 newWinningTeamElo = winningTeamElo + pairingEloChange;
                 newLosingTeamElo = losingTeamElo - pairingEloChange;
-=======
                 // Handicap matches: Fixed changes
                 seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
 
@@ -1531,12 +1463,10 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 winner2NewElo = winner2Elo + eloChangePerPlayer;
                 loser1NewElo = loser1Elo - eloChangePerPlayer;
                 loser2NewElo = loser2Elo - eloChangePerPlayer;
->>>>>>> origin/main-ersatz
 
                 // No XP for handicap matches
                 winnerXPGain = 0;
 
-<<<<<<< HEAD
                 logger.info(
                     `Handicap Doubles Match: Fixed ±${pairingEloChange} Pairing ELO change`
                 );
@@ -1550,7 +1480,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
 
                 newWinningTeamElo = newWinnerElo;
                 newLosingTeamElo = newLoserElo;
-=======
                 logger.info(`Handicap Doubles Match: Fixed ±${eloChangePerPlayer} Elo per player`);
             } else {
                 // Standard matches: Calculate Elo dynamically based on team averages
@@ -1568,7 +1497,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 winner2NewElo = Math.round(winner2Elo + winningEloChange / 2);
                 loser1NewElo = Math.round(loser1Elo + losingEloChange / 2);
                 loser2NewElo = Math.round(loser2Elo + losingEloChange / 2);
->>>>>>> origin/main-ersatz
 
                 // Season points: eloDelta × 0.2 × 0.5 (half for each player)
                 const fullPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
@@ -1578,7 +1506,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 winnerXPGain = seasonPointChange;
 
                 logger.info(
-<<<<<<< HEAD
                     `Standard Doubles Match: Pairing ELO change - Winners: ${newWinningTeamElo - winningTeamElo}, Losers: ${newLosingTeamElo - losingTeamElo}`
                 );
                 logger.info(
@@ -1609,7 +1536,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
 
             // Update winner 1 (stats and points, NO individual ELO)
             const winner1Update = {
-=======
                     `Standard Doubles Match: Season points per player: ${seasonPointChange}, XP: ${winnerXPGain}`
                 );
             }
@@ -1639,7 +1565,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
             const winner1Update = {
                 doublesEloRating: winner1NewElo,
                 highestDoublesElo: winner1HighestDoublesElo,
->>>>>>> origin/main-ersatz
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesWon: admin.firestore.FieldValue.increment(1),
                 points: admin.firestore.FieldValue.increment(seasonPointChange),
@@ -1649,15 +1574,12 @@ exports.processDoublesMatchResult = onDocumentCreated(
             }
             batch.update(winner1Doc.ref, winner1Update);
 
-<<<<<<< HEAD
             // Update winner 2 (stats and points, NO individual ELO)
             const winner2Update = {
-=======
             // Update winner 2
             const winner2Update = {
                 doublesEloRating: winner2NewElo,
                 highestDoublesElo: winner2HighestDoublesElo,
->>>>>>> origin/main-ersatz
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesWon: admin.firestore.FieldValue.increment(1),
                 points: admin.firestore.FieldValue.increment(seasonPointChange),
@@ -1667,49 +1589,37 @@ exports.processDoublesMatchResult = onDocumentCreated(
             }
             batch.update(winner2Doc.ref, winner2Update);
 
-<<<<<<< HEAD
             // Update loser 1 (only stats, no points deduction, NO individual ELO)
             batch.update(loser1Doc.ref, {
-=======
             // Update loser 1 (only Elo changes, no points deduction)
             batch.update(loser1Doc.ref, {
                 doublesEloRating: loser1NewElo,
                 highestDoublesElo: loser1HighestDoublesEloNew,
->>>>>>> origin/main-ersatz
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesLost: admin.firestore.FieldValue.increment(1),
             });
 
-<<<<<<< HEAD
             // Update loser 2 (only stats, no points deduction, NO individual ELO)
             batch.update(loser2Doc.ref, {
-=======
             // Update loser 2 (only Elo changes, no points deduction)
             batch.update(loser2Doc.ref, {
                 doublesEloRating: loser2NewElo,
                 highestDoublesElo: loser2HighestDoublesEloNew,
->>>>>>> origin/main-ersatz
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesLost: admin.firestore.FieldValue.increment(1),
             });
 
-<<<<<<< HEAD
             // Create points history entries for winners (showing PAIRING ELO change)
             const pairingEloChange = newWinningTeamElo - winningTeamElo;
-=======
             // Create points history entries for winners
->>>>>>> origin/main-ersatz
             const winner1HistoryRef = winner1Doc.ref
                 .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
                 .doc();
             batch.set(winner1HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-<<<<<<< HEAD
                 pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
-=======
                 eloChange: winner1NewElo - winner1Elo,
->>>>>>> origin/main-ersatz
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1722,34 +1632,25 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(winner2HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-<<<<<<< HEAD
                 pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
-=======
                 eloChange: winner2NewElo - winner2Elo,
->>>>>>> origin/main-ersatz
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
                 isPartner: true,
             });
 
-<<<<<<< HEAD
             // Create history entries for losers (showing PAIRING ELO change)
             const losingPairingEloChange = newLosingTeamElo - losingTeamElo;
-=======
             // Create history entries for losers
->>>>>>> origin/main-ersatz
             const loser1HistoryRef = loser1Doc.ref
                 .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
                 .doc();
             batch.set(loser1HistoryRef, {
                 points: 0,
                 xp: 0,
-<<<<<<< HEAD
                 pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
-=======
                 eloChange: loser1NewElo - loser1Elo,
->>>>>>> origin/main-ersatz
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1762,11 +1663,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(loser2HistoryRef, {
                 points: 0,
                 xp: 0,
-<<<<<<< HEAD
                 pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
-=======
                 eloChange: loser2NewElo - loser2Elo,
->>>>>>> origin/main-ersatz
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1774,13 +1672,11 @@ exports.processDoublesMatchResult = onDocumentCreated(
             });
 
             // Update doublesPairings collection for both teams
-<<<<<<< HEAD
             // Note: We already fetched these docs earlier in the function
             const winningPairingRef = db.collection('doublesPairings').doc(winningPairingId);
             const losingPairingRef = db.collection('doublesPairings').doc(losingPairingId);
 
             // Create or update winning pairing
-=======
             const winningPairingRef = db.collection('doublesPairings').doc(winningPairingId);
             const losingPairingRef = db.collection('doublesPairings').doc(losingPairingId);
 
@@ -1793,30 +1689,23 @@ exports.processDoublesMatchResult = onDocumentCreated(
             const newWinningTeamElo = Math.round((winner1NewElo + winner2NewElo) / 2);
             const newLosingTeamElo = Math.round((loser1NewElo + loser2NewElo) / 2);
 
->>>>>>> origin/main-ersatz
             if (!winningPairingDoc.exists) {
                 batch.set(winningPairingRef, {
                     player1Id: winningPlayerIds[0],
                     player2Id: winningPlayerIds[1],
                     player1Name: `${winner1Data.firstName} ${winner1Data.lastName}`,
                     player2Name: `${winner2Data.firstName} ${winner2Data.lastName}`,
-<<<<<<< HEAD
                     player1ClubIdAtMatch: winner1Data.clubId || null,
                     player2ClubIdAtMatch: winner2Data.clubId || null,
-=======
->>>>>>> origin/main-ersatz
                     pairingId: winningPairingId,
                     matchesPlayed: 1,
                     matchesWon: 1,
                     matchesLost: 0,
                     winRate: 1.0,
-<<<<<<< HEAD
                     pairingEloRating: newWinningTeamElo, // Pairing-specific ELO
                     highestPairingElo: newWinningTeamElo,
                     currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
-=======
                     currentEloRating: newWinningTeamElo,
->>>>>>> origin/main-ersatz
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1831,44 +1720,32 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesWon: newMatchesWon,
                     winRate: newMatchesWon / newMatchesPlayed,
-<<<<<<< HEAD
                     pairingEloRating: newWinningTeamElo, // Update pairing ELO
                     highestPairingElo: newWinningPairingHighestElo,
                     currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
-=======
                     currentEloRating: newWinningTeamElo,
->>>>>>> origin/main-ersatz
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
 
-<<<<<<< HEAD
             // Create or update losing pairing
-=======
->>>>>>> origin/main-ersatz
             if (!losingPairingDoc.exists) {
                 batch.set(losingPairingRef, {
                     player1Id: losingPlayerIds[0],
                     player2Id: losingPlayerIds[1],
                     player1Name: `${loser1Data.firstName} ${loser1Data.lastName}`,
                     player2Name: `${loser2Data.firstName} ${loser2Data.lastName}`,
-<<<<<<< HEAD
                     player1ClubIdAtMatch: loser1Data.clubId || null,
                     player2ClubIdAtMatch: loser2Data.clubId || null,
-=======
->>>>>>> origin/main-ersatz
                     pairingId: losingPairingId,
                     matchesPlayed: 1,
                     matchesWon: 0,
                     matchesLost: 1,
                     winRate: 0.0,
-<<<<<<< HEAD
                     pairingEloRating: newLosingTeamElo, // Pairing-specific ELO
                     highestPairingElo: newLosingTeamElo,
                     currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
-=======
                     currentEloRating: newLosingTeamElo,
->>>>>>> origin/main-ersatz
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1884,13 +1761,10 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesLost: newMatchesLost,
                     winRate: newMatchesPlayed > 0 ? newMatchesWon / newMatchesPlayed : 0,
-<<<<<<< HEAD
                     pairingEloRating: newLosingTeamElo, // Update pairing ELO
                     highestPairingElo: newLosingPairingHighestElo,
                     currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
-=======
                     currentEloRating: newLosingTeamElo,
->>>>>>> origin/main-ersatz
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
@@ -1916,9 +1790,6 @@ exports.processDoublesMatchResult = onDocumentCreated(
     }
 );
 
-// ========================================================================
-// ===== FUNKTION 9: Process Approved Doubles Match Request =====
-// ========================================================================
 /**
  * Processes approved doubles match requests by creating a doublesMatch document
  * Triggered when a doublesMatchRequest document is updated to status='approved'
@@ -1999,9 +1870,6 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
     }
 );
 
-// ========================================================================
-// ===== EMAIL NOTIFICATIONS =====
-// ========================================================================
 
 const nodemailer = require('nodemailer');
 
@@ -2302,19 +2170,10 @@ exports.notifyCoachesSinglesRequest = onDocumentWritten(
     }
 );
 
-// ========================================================================
-// ===== TODO: Additional Email Notifications =====
-// ========================================================================
 // Future enhancement: Send email notifications when:
 // 1. Coach approves/rejects → notify both players
 // 2. PlayerB rejects → notify playerA
-// ========================================================================
-// ===== PUSH NOTIFICATIONS =====
-// ========================================================================
 
-// ========================================================================
-// ===== GDPR: ANONYMIZE ACCOUNT =====
-// ========================================================================
 /**
  * Anonymize user account (GDPR Art. 17)
  * - Deletes personal data
@@ -2445,11 +2304,7 @@ exports.anonymizeAccount = onCall({ region: CONFIG.REGION }, async request => {
         );
     }
 });
-<<<<<<< HEAD
 
-// ========================================================================
-// ===== FUNKTION: Registrierung ohne Einladungscode =====
-// ========================================================================
 exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request => {
     // 1. Check if user is authenticated
     if (!request.auth) {
@@ -2524,9 +2379,6 @@ exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request =>
     }
 });
 
-// ========================================================================
-// ===== FUNKTION: Club-Beitrittsanfrage bearbeiten =====
-// ========================================================================
 exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
     // 1. Check if user is authenticated and is a coach/admin
     if (!request.auth) {
@@ -2653,9 +2505,6 @@ exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
     }
 });
 
-// ========================================================================
-// ===== FUNKTION: Austrittsanfrage bearbeiten =====
-// ========================================================================
 exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => {
     // 1. Check if user is authenticated and is a coach/admin
     if (!request.auth) {
@@ -2765,9 +2614,6 @@ exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => 
     }
 });
 
-// ========================================================================
-// ===== MIGRATION: Create clubs collection from existing clubId values =====
-// ========================================================================
 exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request => {
     // Only admins can run this migration
     if (!request.auth) {
@@ -2876,9 +2722,6 @@ exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request
     }
 });
 
-// ========================================================================
-// ===== AUTO-CREATE CLUB: When invitation code is created by admin with new clubId =====
-// ========================================================================
 exports.autoCreateClubOnInvitation = onDocumentCreated(
     { document: 'invitationCodes/{codeId}', region: CONFIG.REGION },
     async event => {
@@ -3035,5 +2878,3 @@ exports.autoCreateClubOnToken = onDocumentCreated(
         }
     }
 );
-=======
->>>>>>> origin/main-ersatz

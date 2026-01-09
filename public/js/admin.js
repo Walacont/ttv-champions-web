@@ -917,10 +917,6 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
     }
 }
 
-// ========================================================================
-// ===== MIGRATIONS =====
-// ========================================================================
-
 const migrateDoublesNamesBtn = document.getElementById('migrate-doubles-names-btn');
 const migrationStatus = document.getElementById('migration-status');
 

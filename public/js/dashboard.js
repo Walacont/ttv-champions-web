@@ -455,9 +455,6 @@ function updateDashboard(userData) {
 
 // --- Übungs-Tab Funktionen ---
 
-// =============================================================
-// ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
-// =============================================================
 // --- Player Global Subgroup Filter Functions ---
 
 /**

@@ -307,11 +307,7 @@ updateEmailForm.addEventListener('submit', async e => {
     }
 });
 
-// ===== TUTORIAL FUNCTIONS =====
-
-/**
- * Tutorial-Status anzeigen
- */
+/** Tutorial-Status anzeigen */
 function updateTutorialStatus(userData) {
     const role = userData?.role;
     const tutorialSection = document.getElementById('tutorial-section');

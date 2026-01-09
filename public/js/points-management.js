@@ -439,7 +439,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let partnerName = ''; // For feedback
 
         await runTransaction(db, async transaction => {
-            // ===== PHASE 1: ALL READS FIRST =====
             // Read player document
             const playerDocRef = doc(db, 'users', playerId);
             const playerDoc = await transaction.get(playerDocRef);
@@ -509,7 +508,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // ===== PHASE 2: VALIDATE & CALCULATE ALL VALUES =====
 
             // Validate milestone progression (exercise)
             if (exerciseMilestoneDoc && reasonType === 'exercise') {
@@ -606,7 +604,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // ===== PHASE 3: ALL WRITES =====
             // Update player document
             transaction.update(playerDocRef, updateData);
 
