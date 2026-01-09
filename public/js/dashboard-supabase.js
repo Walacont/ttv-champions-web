@@ -1306,7 +1306,7 @@ async function loadDoublesLeaderboardTab() {
             return;
         }
 
-        // Table exists, use the imported function
+        // Tabelle existiert, importierte Funktion verwenden
         const clubId = currentUserData.club_id;
         const isGlobal = currentLeaderboardScope === 'global' || !clubId;
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
