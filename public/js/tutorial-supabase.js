@@ -13,7 +13,7 @@ export class TutorialManager {
             scrollOffset: 100,
             onComplete: null,
             onSkip: null,
-            supabaseClient: null, // Supabase client instance
+            supabaseClient: null, // Supabase-Client-Instanz
             userId: null, // Aktuelle Benutzer-ID
             ...options,
         };

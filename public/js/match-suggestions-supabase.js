@@ -435,7 +435,7 @@ export async function loadMatchSuggestions(
             });
         };
 
-        // Initial render
+        // Initiales Rendern
         await renderSuggestions();
 
         // Auf Match-Änderungen hören um Vorschläge in Echtzeit zu aktualisieren

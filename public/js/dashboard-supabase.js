@@ -1187,7 +1187,7 @@ async function loadLeaderboards() {
         });
     });
 
-    // Initial state
+    // Initialzustand
     updateLeaderboardTabs();
     updateLeaderboardScope();
 
@@ -1580,7 +1580,7 @@ function renderLeaderboardList() {
             return false; // Von Nicht-Vereinsmitgliedern verbergen
         }
 
-        return true; // Global visibility
+        return true; // Globale Sichtbarkeit
     });
 
     // Nach aktuellem Tab sortieren - Tab-Namen zu Feldnamen
@@ -1761,7 +1761,7 @@ async function loadPointsHistory() {
                 ? `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`
                 : '';
 
-            // Partner badge
+            // Partner-Badge
             let partnerBadge = '';
             if (entry.is_active_player) {
                 partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Aktiv</span>';

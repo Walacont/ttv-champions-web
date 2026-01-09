@@ -120,7 +120,7 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
         }
     });
 
-    // Insert new invitations
+    // Neue Einladungen einfügen
     if (newInvitations.length > 0) {
         try {
             await supabase.from('event_invitations').insert(newInvitations);

@@ -1767,7 +1767,7 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
                 totalForDay = 1;
                 attendedCount = 1;
             } else {
-                // Has events AND attendance record - add the attendance
+                // Hat Events UND Anwesenheitseintrag - Anwesenheit hinzufügen
                 attendedCount = Math.max(attendedCount, 1);
             }
         }
