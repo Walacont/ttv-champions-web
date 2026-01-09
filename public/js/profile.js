@@ -9,20 +9,9 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
-/**
- * Profile Module
- * Handles player overview data, rival information, and profile statistics
- */
 
-/**
- * Loads overview data for the player (points, rivals, challenges, rank)
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {Function} loadRivalDataCallback - Callback to load rival data
- * @param {Function} loadChallengesCallback - Callback to load challenges
- * @param {Function} loadPointsHistoryCallback - Callback to load points history
- */
+
+
 export function loadOverviewData(
     userData,
     db,
@@ -51,11 +40,7 @@ export function loadOverviewData(
     loadChallengesCallback(userData, db, unsubscribes);
 }
 
-/**
- * Updates the rank display in the overview section
- * ⚠️ Diese Funktion wird von dashboard.js aufgerufen, wenn sich userData ändert!
- * @param {Object} userData - User data with eloRating and xp
- */
+
 export function updateRankDisplay(userData) {
     const rankInfoEl = document.getElementById('rank-info');
     const eloDisplayEl = document.getElementById('elo-display');
@@ -146,15 +131,7 @@ export function updateRankDisplay(userData) {
     if (xpDisplayEl) xpDisplayEl.textContent = userData.xp || 0;
 }
 
-/**
- * Zeigt die Rivalen-Information für einen bestimmten Metrik (Skill oder Effort) an.
- * @param {string} metric - 'Skill' or 'Fleiß'
- * @param {Array} ranking - Die sortierte Spielerliste
- * @param {number} myRankIndex - Der Index des aktuellen Spielers (0-basiert)
- * @param {HTMLElement} el - Das HTML-Element, das befüllt werden soll
- * @param {number} myValue - Der Wert des aktuellen Spielers (z.B. seine Elo-Zahl)
- * @param {string} unit - Die Einheit (z.B. "Elo" oder "XP")
- */
+
 function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
     if (!el) return;
 
@@ -182,14 +159,7 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
     }
 }
 
-/**
- * Lädt Rivalen-Daten für Skill (Elo) und Effort (XP)
- * *** JETZT MIT onSnapshot FÜR ECHTZEIT-UPDATES ***
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {string} currentSubgroupFilter - Current subgroup filter ("club", "global", or subgroupId)
- * @returns {Function} Unsubscribe function for the listener
- */
+
 export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     const rivalSkillEl = document.getElementById('rival-skill-info');
     const rivalEffortEl = document.getElementById('rival-effort-info');
@@ -244,11 +214,7 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     return rivalListener;
 }
 
-/**
- * Updates the Grundlagen progress display
- * ⚠️ DEPRECATED: Diese Funktion wird nicht mehr verwendet, da Grundlagen jetzt in updateRankDisplay() angezeigt werden
- * @param {Object} userData - User data with grundlagenCompleted
- */
+
 export function updateGrundlagenDisplay(userData) {
     const grundlagenCard = document.getElementById('grundlagen-card');
     const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
@@ -280,14 +246,7 @@ export function updateGrundlagenDisplay(userData) {
     }
 }
 
-/**
- * Loads profile data (streaks with real-time updates and renders calendar)
- * @param {Object} userData - User data
- * @param {Function} renderCalendarCallback - Callback to render calendar
- * @param {Date} currentDisplayDate - Current display date for calendar
- * @param {Object} db - Firestore database instance
- * @returns {Function} Unsubscribe function for the streaks listener
- */
+
 export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
 

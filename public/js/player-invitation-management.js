@@ -1,8 +1,4 @@
-/**
- * Player Invitation Management
- * Handles offline player creation with code-based invitations
- * and sending invitations to existing offline players
- */
+
 
 import {
     collection,
@@ -27,9 +23,7 @@ let lastGeneratedCode = null;
 let lastGeneratedFirstName = '';
 let currentPlayerId = null;
 
-/**
- * Initialisiert das Player Invitation Management
- */
+
 export function initPlayerInvitationManagement(
     firestore,
     authInstance,
@@ -44,9 +38,7 @@ export function initPlayerInvitationManagement(
     setupEventListeners();
 }
 
-/**
- * Setzt alle Event Listeners auf
- */
+
 function setupEventListeners() {
     const invitationTypeRadios = document.querySelectorAll('input[name="invitation-type"]');
     invitationTypeRadios.forEach(radio => {
@@ -88,24 +80,15 @@ function setupEventListeners() {
         ?.addEventListener('click', () => shareInvitationWhatsApp('offline'));
 }
 
-/**
- * Handle radio button change for invitation type in offline player modal
- * (Email option removed - only 'none' and 'code' are available)
- */
+
 function handleInvitationTypeChange(e) {
 }
 
-/**
- * Handle radio button change for send invitation modal
- * (Email option removed - only 'code' is available)
- */
+
 function handleSendInvitationTypeChange(e) {
 }
 
-/**
- * Handle invitation sending after offline player creation
- * (Email option removed - only 'none' and 'code' are available)
- */
+
 export async function handlePostPlayerCreationInvitation(playerId, playerData) {
     const invitationType = document.querySelector('input[name="invitation-type"]:checked').value;
 
@@ -133,11 +116,7 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
     }
 }
 
-/**
- * Generate invitation code for a player
- * @param {Object} playerData - Player data (firstName, lastName, subgroupIDs, etc.)
- * @param {string} [playerId] - Optional: ID of existing offline player to link
- */
+
 async function generateCodeForPlayer(playerData, playerId = null) {
     await invalidateOldCodesForPlayer(playerId, playerData);
 
@@ -184,11 +163,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
     return code;
 }
 
-/**
- * Invalidate old unused codes for the same player
- * @param {string} [playerId] - ID of the player (if existing offline player)
- * @param {Object} playerData - Player data with firstName, lastName
- */
+
 async function invalidateOldCodesForPlayer(playerId, playerData) {
     const {
         query,
@@ -266,9 +241,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
     }
 }
 
-/**
- * Check if code already exists
- */
+
 async function checkCodeExists(code) {
     const { query, where, getDocs, collection } = await import(
         'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
@@ -278,9 +251,7 @@ async function checkCodeExists(code) {
     return !snapshot.empty;
 }
 
-/**
- * Close offline player modal
- */
+
 function closeOfflinePlayerModal() {
     const modal = document.getElementById('add-offline-player-modal');
     modal.classList.add('hidden');
@@ -294,9 +265,7 @@ function closeOfflinePlayerModal() {
     lastGeneratedFirstName = '';
 }
 
-/**
- * Open send invitation modal for existing player
- */
+
 export function openSendInvitationModal(playerId, playerName, playerEmail = '') {
     currentPlayerId = playerId;
     const modal = document.getElementById('send-invitation-modal');
@@ -311,9 +280,7 @@ export function openSendInvitationModal(playerId, playerName, playerEmail = '') 
     document.getElementById('send-invitation-code-display').classList.add('hidden');
 }
 
-/**
- * Close send invitation modal
- */
+
 function closeSendInvitationModal() {
     const modal = document.getElementById('send-invitation-modal');
     modal.classList.add('hidden');
@@ -324,10 +291,7 @@ function closeSendInvitationModal() {
     lastGeneratedFirstName = '';
 }
 
-/**
- * Handle send invitation form submission
- * (Email option removed - only 'code' is available)
- */
+
 async function handleSendInvitation(e) {
     e.preventDefault();
 
@@ -361,9 +325,7 @@ async function handleSendInvitation(e) {
     }
 }
 
-/**
- * Copy invitation code to clipboard
- */
+
 async function copyInvitationCode(type) {
     if (!lastGeneratedCode) return;
 
@@ -383,9 +345,7 @@ async function copyInvitationCode(type) {
     }
 }
 
-/**
- * Share invitation code via WhatsApp
- */
+
 function shareInvitationWhatsApp(type) {
     if (!lastGeneratedCode) return;
 
@@ -393,9 +353,7 @@ function shareInvitationWhatsApp(type) {
     window.open(url, '_blank');
 }
 
-/**
- * Load subgroups for offline player form
- */
+
 export function loadSubgroupsForOfflinePlayerForm(subgroups) {
     currentSubgroups = subgroups;
     const container = document.getElementById('player-subgroups-checkboxes');

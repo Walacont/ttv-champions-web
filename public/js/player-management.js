@@ -17,19 +17,11 @@ import {
     openSendInvitationModal,
 } from './player-invitation-management.js';
 
-/**
- * Player Management Module
- * Handles offline player creation, player list management, and player dropdowns for coaches
- */
+
 
 let currentGrundlagenListener = null;
 
-/**
- * Handles offline player creation
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data with clubId
- */
+
 export async function handleAddOfflinePlayer(e, db, currentUserData) {
     e.preventDefault();
     const form = e.target;
@@ -164,13 +156,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     }
 }
 
-/**
- * Handles player list actions (toggle match-ready, send invite, delete, promote)
- * @param {Event} e - Click event
- * @param {Object} db - Firestore database instance
- * @param {Object} auth - Firebase auth instance
- * @param {Object} functions - Firebase functions instance
- */
+
 export async function handlePlayerListActions(e, db, auth, functions) {
     const target = e.target;
     const button = target.closest('button');
@@ -233,12 +219,7 @@ export async function handlePlayerListActions(e, db, auth, functions) {
     }
 }
 
-/**
- * Loads player list for the player management modal (NEW MASTER-DETAIL LAYOUT)
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {Function} setUnsubscribe - Callback to set unsubscribe function
- */
+
 export function loadPlayerList(clubId, db, setUnsubscribe) {
     const modalPlayerList = document.getElementById('modal-player-list');
     const tableContainer = document.getElementById('modal-player-list-container');
@@ -386,11 +367,7 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
     setUnsubscribe(unsubscribe);
 }
 
-/**
- * Loads players for dropdown selection (for points awarding)
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- */
+
 export function loadPlayersForDropdown(clubId, db) {
     const select = document.getElementById('player-select');
     if (!select) return;
@@ -423,11 +400,7 @@ export function loadPlayersForDropdown(clubId, db) {
     );
 }
 
-/**
- * Updates the points player dropdown based on subgroup filter
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} subgroupFilter - Current subgroup filter ('all' or subgroup ID)
- */
+
 export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     const select = document.getElementById('player-select');
     if (!select) return;
@@ -459,12 +432,7 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     }
 }
 
-/**
- * Shows detailed player information in the player management modal
- * @param {Object} player - Player data object
- * @param {HTMLElement} detailContent - Target element for content
- * @param {Object} db - Firestore database instance
- */
+
 export async function showPlayerDetails(player, detailContent, db) {
     if (!detailContent) return;
 
@@ -600,11 +568,7 @@ export async function showPlayerDetails(player, detailContent, db) {
         `;
 }
 
-/**
- * Updates the Grundlagen progress display for a selected player (coach view)
- * @param {string} playerId - The selected player ID
- * @param {Object} db - Firestore database instance
- */
+
 export function updateCoachGrundlagenDisplay(playerId) {
     const grundlagenInfo = document.getElementById('coach-grundlagen-info');
     const grundlagenText = document.getElementById('coach-grundlagen-text');
@@ -655,20 +619,9 @@ export function updateCoachGrundlagenDisplay(playerId) {
     }
 }
 
-/**
- * ========================================================================
- * NEUE FUNKTIONEN FÜR SUBGROUP-MANAGEMENT (Hinzufügen)
- * ========================================================================
- */
 
-/**
- * Lädt alle verfügbaren Untergruppen als Checkboxen in ein Container-Element.
- * Wird für "Spieler erstellen" UND "Spieler bearbeiten" verwendet.
- * @param {string} clubId - Die ID des Vereins
- * @param {Object} db - Firestore-Instanz
- * @param {string} containerId - Die ID des HTML-Elements (z.B. 'player-subgroups-checkboxes')
- * @param {Array} [existingSubgroups=[]] - (Optional) Array mit IDs von Gruppen, die vorab angehakt sein sollen.
- */
+
+
 export function loadSubgroupsForPlayerForm(clubId, db, containerId, existingSubgroups = []) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -718,12 +671,7 @@ export function loadSubgroupsForPlayerForm(clubId, db, containerId, existingSubg
         });
 }
 
-/**
- * Öffnet das "Spieler bearbeiten"-Modal und befüllt es mit den Gruppen-Checkboxen.
- * @param {Object} player - Das Spieler-Objekt
- * @param {Object} db - Firestore-Instanz
- * @param {string} clubId - Die ID des Vereins
- */
+
 export function openEditPlayerModal(player, db, clubId) {
     const modal = document.getElementById('edit-player-modal');
     if (!modal) return;
@@ -742,10 +690,7 @@ export function openEditPlayerModal(player, db, clubId) {
     modal.classList.remove('hidden');
 }
 
-/**
- * Speichert die geänderten Untergruppen-Zuweisungen für einen Spieler.
- * @param {Object} db - Firestore-Instanz
- */
+
 export async function handleSavePlayerSubgroups(db) {
     const saveButton = document.getElementById('save-player-subgroups-button');
     const playerId = saveButton.dataset.playerId;

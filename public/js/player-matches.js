@@ -13,12 +13,9 @@ import {
     orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Player Matches Module
- * Handles player-initiated match requests with approval workflow
- */
 
-/** Erstellt dynamische Satz-Eingabefelder */
+
+
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
     container.innerHTML = '';
 
@@ -298,7 +295,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     };
 }
 
-/** Laedt und rendert Spieler-Match-Anfragen */
+
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     const pendingRequestsList = document.getElementById('pending-result-requests-list');
     const historyRequestsList = document.getElementById('history-result-requests-list');
@@ -483,9 +480,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     );
 }
 
-/**
- * Renders my match requests with "show more" functionality
- */
+
 let showAllMyRequests = false;
 
 async function renderMyRequests(requests, userData, db) {
@@ -534,9 +529,7 @@ async function renderMyRequests(requests, userData, db) {
     }
 }
 
-/**
- * Renders incoming match requests with "show more" functionality
- */
+
 let showAllIncomingRequests = false;
 
 async function renderIncomingRequests(requests, userData, db) {
@@ -585,9 +578,7 @@ async function renderIncomingRequests(requests, userData, db) {
     }
 }
 
-/**
- * Renders processed match requests with "show more" functionality
- */
+
 let showAllProcessedRequests = false;
 
 async function renderProcessedRequests(requests, userData, db) {
@@ -636,9 +627,7 @@ async function renderProcessedRequests(requests, userData, db) {
     }
 }
 
-/**
- * Creates a card for my requests
- */
+
 function createMyRequestCard(request, playerB, userData, db) {
     const div = document.createElement('div');
     div.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
@@ -696,9 +685,7 @@ function createMyRequestCard(request, playerB, userData, db) {
     return div;
 }
 
-/**
- * Creates a card for incoming requests
- */
+
 function createIncomingRequestCard(request, playerA, userData, db) {
     const div = document.createElement('div');
     div.className = 'bg-white border border-indigo-200 rounded-lg p-4 shadow-md';
@@ -743,9 +730,7 @@ function createIncomingRequestCard(request, playerA, userData, db) {
     return div;
 }
 
-/**
- * Creates a card for processed requests (read-only)
- */
+
 function createProcessedRequestCard(request, playerA, userData, db) {
     const div = document.createElement('div');
 
@@ -786,9 +771,7 @@ function createProcessedRequestCard(request, playerA, userData, db) {
     return div;
 }
 
-/**
- * Gets status badge for processed requests
- */
+
 function getProcessedStatusBadge(status, approvals) {
     if (status === 'pending_coach') {
         return '<span class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">⏳ Wartet auf Coach</span>';
@@ -811,9 +794,7 @@ function getProcessedStatusBadge(status, approvals) {
     return '';
 }
 
-/**
- * Gets status description text
- */
+
 function getStatusDescription(status, approvals) {
     if (status === 'pending_coach') {
         return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Du hast diese Anfrage akzeptiert. Wartet jetzt auf Coach-Genehmigung.</p>';
@@ -836,9 +817,7 @@ function getStatusDescription(status, approvals) {
     return '';
 }
 
-/**
- * Creates a card for doubles requests in history
- */
+
 function createDoublesHistoryCard(request, playersData, userData, db) {
     const div = document.createElement('div');
 
@@ -916,9 +895,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
     return div;
 }
 
-/**
- * Creates a card for pending doubles requests
- */
+
 function createPendingDoublesCard(request, playersData, userData, db) {
     const div = document.createElement('div');
 
@@ -1072,9 +1049,7 @@ function createPendingDoublesCard(request, playersData, userData, db) {
     return div;
 }
 
-/**
- * Formats doubles sets display (teamA/teamB format)
- */
+
 function formatDoublesSetDisplay(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -1085,15 +1060,7 @@ function formatDoublesSetDisplay(sets) {
     return `${winsA}:${winsB} (${setsStr})`;
 }
 
-/**
- * Gets winner for doubles match
- * @param {Array} sets - Array of set scores
- * @param {String} p1Name - Team A player 1 name
- * @param {String} p2Name - Team A player 2 name
- * @param {String} p3Name - Team B player 1 name
- * @param {String} p4Name - Team B player 2 name
- * @param {String} matchMode - Optional match mode (single-set, best-of-3, best-of-5, best-of-7)
- */
+
 function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'best-of-5') {
     if (!sets || sets.length === 0) return null;
 
@@ -1123,9 +1090,7 @@ function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'bes
     return null;
 }
 
-/**
- * Gets status badge for doubles requests
- */
+
 function getDoublesStatusBadge(status) {
     if (status === 'pending_opponent') {
         return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Wartet auf Gegner</span>';
@@ -1146,9 +1111,7 @@ function getDoublesStatusBadge(status) {
     return '';
 }
 
-/**
- * Gets status description for doubles requests
- */
+
 function getDoublesStatusDescription(status) {
     if (status === 'pending_coach') {
         return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
@@ -1165,9 +1128,7 @@ function getDoublesStatusDescription(status) {
     return '';
 }
 
-/**
- * Formats sets display
- */
+
 function formatSetsDisplay(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -1178,13 +1139,7 @@ function formatSetsDisplay(sets) {
     return `${winsA}:${winsB} (${setsStr})`;
 }
 
-/**
- * Gets winner name
- * @param {Array} sets - Array of set scores
- * @param {Object} playerA - Player A data
- * @param {Object} playerB - Player B data
- * @param {String} matchMode - Optional match mode (single-set, best-of-3, best-of-5, best-of-7)
- */
+
 function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
     if (!sets || sets.length === 0) return 'Unbekannt';
 
@@ -1214,9 +1169,7 @@ function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
     return 'Unbekannt';
 }
 
-/**
- * Gets status badge HTML
- */
+
 function getStatusBadge(status, approvals) {
     if (status === 'pending_player') {
         if (approvals?.playerB?.status === 'approved') {
@@ -1240,9 +1193,7 @@ function getStatusBadge(status, approvals) {
     return '';
 }
 
-/**
- * Approves a match request
- */
+
 async function approveMatchRequest(requestId, db, role) {
     try {
         const requestRef = doc(db, 'matchRequests', requestId);
@@ -1273,9 +1224,7 @@ async function approveMatchRequest(requestId, db, role) {
     }
 }
 
-/**
- * Rejects a match request
- */
+
 async function rejectMatchRequest(requestId, db, role) {
     try {
         const requestRef = doc(db, 'matchRequests', requestId);
@@ -1306,9 +1255,7 @@ async function rejectMatchRequest(requestId, db, role) {
     }
 }
 
-/**
- * Deletes a match request
- */
+
 async function deleteMatchRequest(requestId, db) {
     if (!confirm('Möchtest du diese Anfrage wirklich löschen?')) return;
 
@@ -1321,9 +1268,7 @@ async function deleteMatchRequest(requestId, db) {
     }
 }
 
-/**
- * Deletes a doubles match request
- */
+
 async function deleteDoublesMatchRequest(requestId, db) {
     if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
 
@@ -1336,16 +1281,12 @@ async function deleteDoublesMatchRequest(requestId, db) {
     }
 }
 
-/**
- * Opens edit request modal
- */
+
 function openEditRequestModal(request, userData, db) {
     showFeedback('Bearbeiten-Funktion wird bald verfügbar sein.', 'info');
 }
 
-/**
- * Formats timestamp for display
- */
+
 function formatTimestamp(timestamp) {
     if (!timestamp) return '';
 
@@ -1378,9 +1319,7 @@ function formatTimestamp(timestamp) {
     }).format(date);
 }
 
-/**
- * Gets user data by ID
- */
+
 async function getUserData(userId, db) {
     try {
         const userDoc = await getDocs(
@@ -1396,9 +1335,7 @@ async function getUserData(userId, db) {
     }
 }
 
-/**
- * Updates match request badge count
- */
+
 function updateMatchRequestBadge(count) {
     const badge = document.getElementById('match-request-badge');
     if (!badge) return;
@@ -1411,9 +1348,7 @@ function updateMatchRequestBadge(count) {
     }
 }
 
-/**
- * Shows feedback message
- */
+
 function showFeedback(message, type = 'success') {
     const feedbackEl = document.getElementById('match-request-feedback');
     if (!feedbackEl) {
@@ -1437,9 +1372,7 @@ function showFeedback(message, type = 'success') {
     }, 3000);
 }
 
-/**
- * Initializes the match request form
- */
+
 export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const form = document.getElementById('match-request-form');
     if (!form) return;
@@ -1672,9 +1605,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     });
 }
 
-/**
- * Renders pending result requests (incoming, need response) with "show more" functionality
- */
+
 let showAllPendingRequests = false;
 
 async function renderPendingRequests(requests, userData, db) {
@@ -1786,9 +1717,7 @@ async function renderPendingRequests(requests, userData, db) {
     }
 }
 
-/**
- * Renders history result requests (all completed) with "show more" functionality
- */
+
 let showAllHistoryRequests = false;
 
 async function renderHistoryRequests(requests, userData, db) {
@@ -1899,12 +1828,7 @@ async function renderHistoryRequests(requests, userData, db) {
     }
 }
 
-/**
- * Loads combined pending requests for player (singles + doubles)
- * Displays all requests in one list with type tags
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 export async function loadCombinedPendingRequests(userData, db) {
     const container = document.getElementById('pending-requests-list');
     if (!container) return;
@@ -2011,9 +1935,7 @@ export async function loadCombinedPendingRequests(userData, db) {
     return unsubscribe1;
 }
 
-/**
- * Renders combined pending requests (singles + doubles) with type tags
- */
+
 function renderCombinedPendingRequests(requests, container, db, userData) {
     container.innerHTML = '';
 

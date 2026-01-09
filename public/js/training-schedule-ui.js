@@ -1,7 +1,4 @@
-/**
- * Training Schedule UI Management
- * Handles the UI for recurring training templates and training sessions
- */
+
 
 import {
     collection,
@@ -41,11 +38,7 @@ let currentUserData = null;
 let subgroups = [];
 let recurringTemplates = [];
 
-/**
- * Initialize minimal functionality for spontaneous sessions only
- * @param {Object} userData - Current user data
- * @param {Object} firestoreInstance - Firestore database instance
- */
+
 export function initializeSpontaneousSessions(userData, firestoreInstance) {
     db = firestoreInstance;
     initTrainingScheduleModule(firestoreInstance);
@@ -60,11 +53,7 @@ export function initializeSpontaneousSessions(userData, firestoreInstance) {
     loadExercisesForSelection(firestoreInstance);
 }
 
-/**
- * Initialize the training schedule UI (full version with recurring trainings)
- * @param {Object} userData - Current user data
- * @param {Object} firestoreInstance - Firestore database instance
- */
+
 export function initializeTrainingSchedule(userData, firestoreInstance) {
     db = firestoreInstance;
     initTrainingScheduleModule(firestoreInstance);
@@ -82,9 +71,7 @@ export function initializeTrainingSchedule(userData, firestoreInstance) {
     }
 }
 
-/**
- * Load subgroups for dropdowns
- */
+
 async function loadSubgroups() {
     try {
         const q = query(
@@ -106,9 +93,7 @@ async function loadSubgroups() {
     }
 }
 
-/**
- * Populate subgroup dropdowns
- */
+
 function populateSubgroupDropdowns() {
     const dropdowns = [
         document.getElementById('recurring-training-subgroup-select'),
@@ -129,9 +114,7 @@ function populateSubgroupDropdowns() {
     });
 }
 
-/**
- * Setup all event listeners
- */
+
 function setupEventListeners() {
     const addBtn = document.getElementById('add-recurring-training-btn');
     if (addBtn) {
@@ -212,9 +195,7 @@ function setupEventListeners() {
     });
 }
 
-/**
- * Load and display recurring templates
- */
+
 export async function loadRecurringTemplates() {
     try {
         const templates = await getRecurringTemplates(currentUserData.clubId);
@@ -226,9 +207,7 @@ export async function loadRecurringTemplates() {
     }
 }
 
-/**
- * Render recurring templates in the list
- */
+
 function renderRecurringTemplates(templates) {
     const listContainer = document.getElementById('recurring-trainings-list');
     const noTemplatesMessage = document.getElementById('no-trainings-message');
@@ -293,9 +272,7 @@ function renderRecurringTemplates(templates) {
     listContainer.innerHTML = html;
 }
 
-/**
- * Open recurring training modal
- */
+
 function openRecurringTrainingModal(templateId = null) {
     const modal = document.getElementById('recurring-training-modal');
     const title = document.getElementById('recurring-training-modal-title');
@@ -331,9 +308,7 @@ function openRecurringTrainingModal(templateId = null) {
     modal.classList.add('flex');
 }
 
-/**
- * Close recurring training modal
- */
+
 function closeRecurringTrainingModal() {
     const modal = document.getElementById('recurring-training-modal');
     if (modal) {
@@ -343,9 +318,7 @@ function closeRecurringTrainingModal() {
     clearFeedback('recurring-training-feedback');
 }
 
-/**
- * Handle recurring training form submission
- */
+
 async function handleRecurringTrainingSubmit(e) {
     e.preventDefault();
 
@@ -406,9 +379,7 @@ async function handleRecurringTrainingSubmit(e) {
     }
 }
 
-/**
- * Delete recurring template with confirmation
- */
+
 window.deleteRecurringTemplateConfirm = async function (templateId) {
     if (
         !confirm(
@@ -427,17 +398,12 @@ window.deleteRecurringTemplateConfirm = async function (templateId) {
     }
 };
 
-/**
- * Edit recurring template
- */
+
 window.editRecurringTemplate = function (templateId) {
     openRecurringTrainingModal(templateId);
 };
 
-/**
- * Open session selection modal for a specific date
- * @param {string} dateStr - Date in YYYY-MM-DD format
- */
+
 export async function openSessionSelectionModal(dateStr) {
     const modal = document.getElementById('session-selection-modal');
     const dateDisplay = document.getElementById('session-selection-date');
@@ -465,9 +431,7 @@ export async function openSessionSelectionModal(dateStr) {
     }
 }
 
-/**
- * Render session list in selection modal
- */
+
 function renderSessionList(sessions, container, dateStr) {
     let html = '';
 
@@ -499,9 +463,7 @@ function renderSessionList(sessions, container, dateStr) {
     container.innerHTML = html;
 }
 
-/**
- * Close session selection modal
- */
+
 function closeSessionSelectionModal() {
     const modal = document.getElementById('session-selection-modal');
     if (modal) {
@@ -510,9 +472,7 @@ function closeSessionSelectionModal() {
     }
 }
 
-/**
- * Cancel a training session
- */
+
 window.handleCancelSession = async function (sessionId) {
     if (!confirm('Möchten Sie dieses Training wirklich absagen?')) {
         return;
@@ -531,10 +491,7 @@ window.handleCancelSession = async function (sessionId) {
     }
 };
 
-/**
- * Open attendance modal for specific session
- * This will be handled by attendance.js
- */
+
 window.handleOpenAttendanceForSession = async function (sessionId, dateStr) {
     if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
         await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
@@ -543,9 +500,7 @@ window.handleOpenAttendanceForSession = async function (sessionId, dateStr) {
     closeSessionSelectionModal();
 };
 
-/**
- * Open spontaneous session modal
- */
+
 function openSpontaneousSessionModal(dateStr = null) {
     const modal = document.getElementById('spontaneous-session-modal');
     const form = document.getElementById('spontaneous-session-form');
@@ -566,9 +521,7 @@ function openSpontaneousSessionModal(dateStr = null) {
     modal.classList.add('flex');
 }
 
-/**
- * Close spontaneous session modal
- */
+
 function closeSpontaneousSessionModal() {
     const modal = document.getElementById('spontaneous-session-modal');
     if (modal) {
@@ -588,9 +541,7 @@ function closeSpontaneousSessionModal() {
     }
 }
 
-/**
- * Toggle exercise planning section visibility
- */
+
 function toggleExercisePlanningSection() {
     const section = document.getElementById('exercise-planning-section');
     const icon = document.getElementById('toggle-exercise-planning-icon');
@@ -608,9 +559,7 @@ function toggleExercisePlanningSection() {
     }
 }
 
-/**
- * Handle spontaneous session form submission
- */
+
 async function handleSpontaneousSessionSubmit(e) {
     e.preventDefault();
 
@@ -658,9 +607,7 @@ async function handleSpontaneousSessionSubmit(e) {
     }
 }
 
-/**
- * Show feedback message
- */
+
 function showFeedback(elementId, message, type) {
     const feedbackElement = document.getElementById(elementId);
     if (!feedbackElement) return;
@@ -677,9 +624,7 @@ function showFeedback(elementId, message, type) {
     }
 }
 
-/**
- * Clear feedback message
- */
+
 function clearFeedback(elementId) {
     const feedbackElement = document.getElementById(elementId);
     if (feedbackElement) {
@@ -687,22 +632,18 @@ function clearFeedback(elementId) {
     }
 }
 
-/**
- * Format date for display (DD.MM.YYYY)
- */
+
 function formatDateGerman(dateStr) {
     const [year, month, day] = dateStr.split('-');
     return `${day}.${month}.${year}`;
 }
 
-/**
- * Format date for display
- */
+
 function formatDate(dateStr) {
     return formatDateGerman(dateStr);
 }
 
-/** Session-Auswahl-Modal von Kalenderklick oeffnen */
+
 window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions) {
     const modal = document.getElementById('session-selection-modal');
     const dateDisplay = document.getElementById('session-selection-date');
@@ -785,9 +726,7 @@ window.openSessionSelectionModalFromCalendar = async function (dateStr, sessions
     modal.classList.add('flex');
 };
 
-/**
- * Handle session selection for attendance
- */
+
 window.handleSelectSessionForAttendance = async function (sessionId, dateStr) {
     closeSessionSelectionModal();
 
@@ -796,17 +735,13 @@ window.handleSelectSessionForAttendance = async function (sessionId, dateStr) {
     }
 };
 
-/**
- * Handle adding another training from the session selection modal
- */
+
 window.handleAddAnotherTrainingFromModal = function (dateStr) {
     closeSessionSelectionModal();
     window.openSpontaneousSessionModalFromCalendar(dateStr);
 };
 
-/**
- * Cancel a session from the selection modal
- */
+
 window.handleCancelSessionFromModal = async function (sessionId) {
     if (!confirm('Möchten Sie dieses Training wirklich absagen?')) {
         return;
@@ -830,9 +765,7 @@ window.handleCancelSessionFromModal = async function (sessionId) {
     }
 };
 
-/**
- * Handle training completion
- */
+
 window.handleCompleteTraining = async function (sessionId, dateStr) {
     closeSessionSelectionModal();
 
@@ -843,16 +776,12 @@ window.handleCompleteTraining = async function (sessionId, dateStr) {
     }
 };
 
-/**
- * Open spontaneous session modal from calendar
- */
+
 window.openSpontaneousSessionModalFromCalendar = function (dateStr) {
     openSpontaneousSessionModal(dateStr);
 };
 
-/**
- * Show training information modal
- */
+
 window.showTrainingInfo = async function (sessionId, dateStr) {
     try {
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
@@ -1086,9 +1015,7 @@ window.showTrainingInfo = async function (sessionId, dateStr) {
     }
 };
 
-/**
- * Close training info modal
- */
+
 function closeTrainingInfoModal() {
     const modal = document.getElementById('training-info-modal');
     if (modal) {
@@ -1097,9 +1024,7 @@ function closeTrainingInfoModal() {
     }
 }
 
-/**
- * Helper: Parse German date format back to YYYY-MM-DD
- */
+
 function parseDateGerman(dateStr) {
     const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
     if (!match) return null;

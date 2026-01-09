@@ -8,17 +8,9 @@ import {
     doc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Attendance Export Module
- * Handles exporting attendance data to Excel format
- */
 
-/**
- * Calculates the duration in hours between two time strings
- * @param {string} startTime - Start time in HH:MM format (e.g., "18:00")
- * @param {string} endTime - End time in HH:MM format (e.g., "20:00")
- * @returns {number} Duration in hours (e.g., 2.0)
- */
+
+
 function calculateSessionDuration(startTime, endTime) {
     try {
         const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -37,13 +29,7 @@ function calculateSessionDuration(startTime, endTime) {
     }
 }
 
-/**
- * Exports attendance data for a specific month to Excel
- * @param {Object} db - Firestore database instance
- * @param {string} clubId - Club ID
- * @param {Date} date - The month to export (year/month will be extracted)
- * @param {string} subgroupFilter - Subgroup ID or 'all' for all subgroups
- */
+
 export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter = 'all') {
     try {
         const loadingEl = document.getElementById('export-loading');
@@ -339,9 +325,9 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
         const worksheet = workbook.addWorksheet(monthName);
 
-        const trainerLabelRowIndex = 2 + playersList.length + 1; // +2 for headers, +1 for empty row
-        const countRowIndex = 2 + playersList.length + 2 + allCoaches.length; // +2 for empty + "Trainer" label
-        const legendStartIndex = countRowIndex + 2; // +1 for count row, +1 for empty row
+        const trainerLabelRowIndex = 2 + playersList.length + 1;
+        const countRowIndex = 2 + playersList.length + 2 + allCoaches.length;
+        const legendStartIndex = countRowIndex + 2;
 
         excelData.forEach((rowData, rowIndex) => {
             const row = worksheet.addRow(rowData);
@@ -349,7 +335,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             if (rowIndex === 0 || rowIndex === 1) {
                 row.eachCell((cell, colNumber) => {
                     if (colNumber > 2 && colNumber <= sessions.length + 2) {
-                        const sessionIndex = colNumber - 3; // 0-indexed session
+                        const sessionIndex = colNumber - 3;
                         const session = sessions[sessionIndex];
                         const color = dateColorMap.get(session.date);
 
@@ -423,13 +409,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
     }
 }
 
-/**
- * Exports a summary view with totals per player
- * @param {Object} db - Firestore database instance
- * @param {string} clubId - Club ID
- * @param {Date} date - The month to export
- * @param {string} subgroupFilter - Subgroup ID or 'all'
- */
+
 export async function exportAttendanceSummary(db, clubId, date, subgroupFilter = 'all') {
     try {
         const loadingEl = document.getElementById('export-loading');

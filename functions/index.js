@@ -102,7 +102,7 @@ exports.processMatchResult = onDocumentCreated(
             const winnerData = winnerDoc.data();
             const loserData = loserDoc.data();
 
-            // Nullish Coalescing: 0 wird als gültiger Wert behandelt
+            // 0 ist ein gültiger Wert
             const winnerElo = winnerData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
             const loserElo = loserData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
 
@@ -608,10 +608,7 @@ exports.cleanupExpiredInvitationCodes = onSchedule(
     }
 );
 
-/**
- * Processes approved match requests by creating a match document
- * Triggered when a matchRequest document is updated to status='approved'
- */
+
 exports.processApprovedMatchRequest = onDocumentWritten(
     {
         region: CONFIG.REGION,
@@ -682,10 +679,7 @@ exports.processApprovedMatchRequest = onDocumentWritten(
     }
 );
 
-/**
- * Scheduled function that runs daily at 00:00 UTC
- * Generates training sessions for the next 14 days from recurring templates
- */
+
 exports.autoGenerateTrainingSessions = onSchedule(
     {
         schedule: '0 0 * * *',
@@ -790,11 +784,7 @@ exports.autoGenerateTrainingSessions = onSchedule(
     }
 );
 
-/**
- * One-time migration function to convert existing attendance data
- * to the new session-based system
- * Creates a generic training session for each attendance record that lacks a sessionId
- */
+
 exports.migrateAttendanceToSessions = onCall(
     {
         region: CONFIG.REGION,
@@ -893,10 +883,7 @@ exports.migrateAttendanceToSessions = onCall(
     }
 );
 
-/**
- * Migrates existing doublesPairings documents to add player names
- * Call this once to fix old documents without names
- */
+
 exports.migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async request => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'Must be authenticated');
@@ -978,12 +965,7 @@ exports.migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async re
     }
 });
 
-/**
- * Scheduled function that runs every 6 weeks to reset seasons
- * - Resets season points to 0
- * - Handles league promotions/demotions
- * - Deletes milestone progress and completion status
- */
+
 exports.autoSeasonReset = onSchedule(
     {
         schedule: '0 0 * * *',
@@ -1196,13 +1178,7 @@ exports.autoSeasonReset = onSchedule(
     }
 );
 
-/**
- * Processes doubles match results
- * - Updates separate doublesEloRating for all 4 players
- * - Awards season points × 0.5 to each player
- * - Awards XP × 0.5 to each winner
- * - Updates doublesPairings collection with team stats
- */
+
 exports.processDoublesMatchResult = onDocumentCreated(
     {
         region: CONFIG.REGION,
@@ -1634,10 +1610,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
     }
 );
 
-/**
- * Processes approved doubles match requests by creating a doublesMatch document
- * Triggered when a doublesMatchRequest document is updated to status='approved'
- */
+
 exports.processApprovedDoublesMatchRequest = onDocumentWritten(
     {
         region: CONFIG.REGION,
@@ -1712,10 +1685,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
 
 const nodemailer = require('nodemailer');
 
-/**
- * Sends email notification to coaches when a doubles match request is pending
- * Triggered when doublesMatchRequests document status changes to 'pending_coach'
- */
+
 exports.notifyCoachesDoublesRequest = onDocumentWritten(
     {
         region: CONFIG.REGION,
@@ -1852,11 +1822,7 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
     }
 );
 
-/**
- * Sends email notification to coaches when a singles match request is pending
- * Triggered when matchRequests document status changes to 'pending_coach'
- * Uses flexible SMTP configuration (not Gmail-specific)
- */
+
 exports.notifyCoachesSinglesRequest = onDocumentWritten(
     {
         region: CONFIG.REGION,
@@ -1991,14 +1957,7 @@ exports.notifyCoachesSinglesRequest = onDocumentWritten(
 );
 
 
-/**
- * Anonymize user account (GDPR Art. 17)
- * - Deletes personal data
- * - Replaces name with "Gelöschter Nutzer"
- * - Marks account as deleted
- * - Deletes Firebase Auth account
- * - Match history remains (anonymized)
- */
+
 exports.anonymizeAccount = onCall({ region: CONFIG.REGION }, async request => {
     const requestingUserId = request.auth?.uid;
     const { userId } = request.data;

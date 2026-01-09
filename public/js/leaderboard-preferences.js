@@ -4,10 +4,7 @@ import {
     getDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Leaderboard Preferences Module
- * Handles user preferences for which leaderboard tabs to show/hide
- */
+
 
 const DEFAULT_PREFERENCES = {
     effort: true,
@@ -17,11 +14,7 @@ const DEFAULT_PREFERENCES = {
     doubles: true,
 };
 
-/**
- * Initializes leaderboard preferences UI and event listeners
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 export function initializeLeaderboardPreferences(userData, db) {
     loadPreferences(userData);
 
@@ -36,10 +29,7 @@ export function initializeLeaderboardPreferences(userData, db) {
     applyPreferences();
 }
 
-/**
- * Loads preferences from userData and updates UI
- * @param {Object} userData - User data containing preferences
- */
+
 function loadPreferences(userData) {
     const prefs = userData.leaderboardPreferences || DEFAULT_PREFERENCES;
 
@@ -50,11 +40,7 @@ function loadPreferences(userData) {
     document.getElementById('pref-doubles').checked = prefs.doubles !== false;
 }
 
-/**
- * Saves current preferences to Firestore
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 async function savePreferences(userData, db) {
     const prefs = {
         effort: document.getElementById('pref-effort').checked,
@@ -75,9 +61,7 @@ async function savePreferences(userData, db) {
     }
 }
 
-/**
- * Applies preferences by showing/hiding leaderboard tabs
- */
+
 export function applyPreferences() {
     const prefs = {
         effort: document.getElementById('pref-effort')?.checked ?? true,
@@ -109,10 +93,7 @@ export function applyPreferences() {
     ensureValidActiveTab(prefs);
 }
 
-/**
- * Ensures that a visible tab is active
- * @param {Object} prefs - Current preferences
- */
+
 function ensureValidActiveTab(prefs) {
     const tabButtons = document.querySelectorAll('.leaderboard-tab-btn');
     let hasActiveVisibleTab = false;
@@ -136,10 +117,7 @@ function ensureValidActiveTab(prefs) {
     }
 }
 
-/**
- * Gets current user preferences
- * @returns {Object} Current preferences
- */
+
 export function getCurrentPreferences() {
     return {
         effort: document.getElementById('pref-effort')?.checked ?? true,

@@ -186,9 +186,7 @@ export const DEMOTION_COUNT = 4;
 
 let currentActiveTab = 'effort';
 
-/**
- * Sets up the tab navigation for the new 3-tab leaderboard
- */
+
 export function setupLeaderboardTabs() {
     const tabSkillBtn = document.getElementById('tab-skill');
     const tabEffortBtn = document.getElementById('tab-effort');
@@ -238,9 +236,7 @@ export function setupLeaderboardTabs() {
     switchTab('effort');
 }
 
-/**
- * Sets up the club/global toggle for Skill and Effort tabs
- */
+
 export function setupLeaderboardToggle() {
     const toggleClubBtn = document.getElementById('toggle-club');
     const toggleGlobalBtn = document.getElementById('toggle-global');
@@ -275,12 +271,7 @@ export function setupLeaderboardToggle() {
     switchScope('club');
 }
 
-/**
- * Loads all 5 leaderboard tabs (Skill, Effort, Season, Ranks, Doubles)
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 export function loadLeaderboard(userData, db, unsubscribes) {
     loadSkillLeaderboard(userData, db, unsubscribes);
     loadEffortLeaderboard(userData, db, unsubscribes);
@@ -289,12 +280,7 @@ export function loadLeaderboard(userData, db, unsubscribes) {
     loadDoublesLeaderboardTab(userData, db, unsubscribes);
 }
 
-/**
- * Loads the Doubles leaderboard with real-time updates
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
     const listEl = document.getElementById('doubles-list');
     if (!listEl) return;
@@ -308,12 +294,7 @@ function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
     }
 }
 
-/**
- * Loads the Skill leaderboard (sorted by Elo) - Club view
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-club');
     if (!listEl) return;
@@ -369,12 +350,7 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the Effort leaderboard (sorted by XP) - Club view
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-club');
     if (!listEl) return;
@@ -430,12 +406,7 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the Season leaderboard (sorted by points) - Club view
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-club');
     if (!listEl) return;
@@ -491,12 +462,7 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the Ranks view (grouped by rank) - Club view only
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadRanksView(userData, db, unsubscribes) {
     const listEl = document.getElementById('ranks-list');
     if (!listEl) return;
@@ -579,21 +545,14 @@ function loadRanksView(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the global leaderboards (Skill, Effort, and Season)
- * @param {Object} userData - The current user's data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 export function loadGlobalLeaderboard(userData, db, unsubscribes) {
     loadGlobalSkillLeaderboard(userData, db, unsubscribes);
     loadGlobalEffortLeaderboard(userData, db, unsubscribes);
     loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
 }
 
-/**
- * Loads the global Skill leaderboard (sorted by Elo)
- */
+
 function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-global');
     if (!listEl) return;
@@ -636,9 +595,7 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the global Effort leaderboard (sorted by XP)
- */
+
 function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-global');
     if (!listEl) return;
@@ -677,9 +634,7 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * Loads the global Season leaderboard (sorted by points)
- */
+
 function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-global');
     if (!listEl) return;
@@ -722,24 +677,14 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     if (unsubscribes) unsubscribes.push(listener);
 }
 
-/**
- * @deprecated This function is deprecated and will be removed in future versions.
- * Use the new 3-tab leaderboard system instead.
- */
+
 export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
     console.warn(
         'loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.'
     );
 }
 
-/**
- * Renders a "Show more/less" button to toggle leaderboard view
- * @param {HTMLElement} container - Container to append the button to
- * @param {string} leaderboardKey - Key for the leaderboard state
- * @param {number} totalCount - Total number of players
- * @param {Function} onClick - Callback when button is clicked
- * @param {boolean} isExpanded - Whether the list is currently expanded
- */
+
 function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, isExpanded) {
     const buttonDiv = document.createElement('div');
     buttonDiv.className = 'text-center mt-4';
@@ -763,9 +708,7 @@ function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, is
     container.appendChild(buttonDiv);
 }
 
-/**
- * Renders a player row in the Skill leaderboard (shows Elo and Rank)
- */
+
 function renderSkillRow(player, index, currentUserId, container, isGlobal = false) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
@@ -796,9 +739,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
     container.appendChild(playerDiv);
 }
 
-/**
- * Renders a player row in the Effort leaderboard (shows XP and Rank)
- */
+
 function renderEffortRow(player, index, currentUserId, container, isGlobal = false) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
@@ -829,9 +770,7 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
     container.appendChild(playerDiv);
 }
 
-/**
- * Renders a player row in the Season leaderboard (shows Points and Rank)
- */
+
 function renderSeasonRow(player, index, currentUserId, container, isGlobal = false) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
@@ -862,10 +801,7 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
     container.appendChild(playerDiv);
 }
 
-/**
- * @deprecated This function is deprecated and will be removed in future versions.
- * Use renderSkillRow or renderEffortRow instead.
- */
+
 export function renderPlayerRow(
     player,
     index,

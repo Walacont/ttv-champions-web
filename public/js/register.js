@@ -207,7 +207,7 @@ registrationForm.addEventListener('submit', async e => {
     }
 });
 
-/** Zeigt eine Fehlermeldung an */
+
 function displayError(message) {
     loader.classList.add('hidden');
     registrationFormContainer.classList.add('hidden');

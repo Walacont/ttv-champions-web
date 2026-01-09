@@ -1,7 +1,4 @@
-/**
- * Training Schedule Management
- * Handles recurring training templates and training sessions
- */
+
 
 import {
     collection,
@@ -23,19 +20,12 @@ import {
 
 let db = null;
 
-/**
- * Initialize the module with Firestore instance
- * @param {Object} firestoreInstance - Firestore database instance
- */
+
 export function initializeTrainingSchedule(firestoreInstance) {
     db = firestoreInstance;
 }
 
-/** Erstellt eine wiederkehrende Trainingsvorlage
- * @param {Object} templateData - Template configuration
- * @param {string} userId - ID of user creating the template
- * @returns {Promise<string>} Template ID
- */
+
 export async function createRecurringTemplate(templateData, userId = 'system') {
     const {
         dayOfWeek,
@@ -89,11 +79,7 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
     return docRef.id;
 }
 
-/**
- * Get all recurring templates for a club
- * @param {string} clubId
- * @returns {Promise<Array>} Templates
- */
+
 export async function getRecurringTemplates(clubId) {
     const q = query(
         collection(db, 'recurringTrainingTemplates'),
@@ -110,37 +96,24 @@ export async function getRecurringTemplates(clubId) {
     }));
 }
 
-/**
- * Update a recurring template
- * @param {string} templateId
- * @param {Object} updates
- */
+
 export async function updateRecurringTemplate(templateId, updates) {
     const docRef = doc(db, 'recurringTrainingTemplates', templateId);
     await updateDoc(docRef, updates);
 }
 
-/**
- * Deactivate a recurring template (soft delete)
- * @param {string} templateId
- */
+
 export async function deactivateRecurringTemplate(templateId) {
     await updateRecurringTemplate(templateId, { active: false });
 }
 
-/**
- * Delete a recurring template (hard delete)
- * @param {string} templateId
- */
+
 export async function deleteRecurringTemplate(templateId) {
     const docRef = doc(db, 'recurringTrainingTemplates', templateId);
     await deleteDoc(docRef);
 }
 
-/**
- * Check if template would overlap with existing ones
- * @private
- */
+
 async function checkTemplateOverlap(
     dayOfWeek,
     startTime,
@@ -164,11 +137,7 @@ async function checkTemplateOverlap(
     return false;
 }
 
-/** Erstellt eine Trainingseinheit
- * @param {Object} sessionData - Session configuration
- * @param {string} userId - ID of user creating the session
- * @returns {Promise<string>} Session ID
- */
+
 export async function createTrainingSession(sessionData, userId = 'system') {
     const {
         date,
@@ -218,13 +187,7 @@ export async function createTrainingSession(sessionData, userId = 'system') {
     return docRef.id;
 }
 
-/**
- * Get all sessions for a date range
- * @param {string} clubId
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<Array>} Sessions
- */
+
 export async function getTrainingSessions(clubId, startDate, endDate) {
     const q = query(
         collection(db, 'trainingSessions'),
@@ -243,13 +206,7 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
     }));
 }
 
-/**
- * Get all sessions for a specific date
- * @param {string} clubId
- * @param {string} date - YYYY-MM-DD
- * @param {boolean} forceServerFetch - If true, bypass cache and fetch from server
- * @returns {Promise<Array>} Sessions
- */
+
 export async function getSessionsForDate(clubId, date, forceServerFetch = false) {
     const q = query(
         collection(db, 'trainingSessions'),
@@ -266,11 +223,7 @@ export async function getSessionsForDate(clubId, date, forceServerFetch = false)
     }));
 }
 
-/**
- * Get a single session by ID
- * @param {string} sessionId
- * @returns {Promise<Object>} Session
- */
+
 export async function getSession(sessionId) {
     const docRef = doc(db, 'trainingSessions', sessionId);
     const docSnap = await getDoc(docRef);
@@ -285,20 +238,13 @@ export async function getSession(sessionId) {
     };
 }
 
-/**
- * Update a training session
- * @param {string} sessionId
- * @param {Object} updates
- */
+
 export async function updateTrainingSession(sessionId, updates) {
     const docRef = doc(db, 'trainingSessions', sessionId);
     await updateDoc(docRef, updates);
 }
 
-/**
- * Cancel a training session (soft delete)
- * @param {string} sessionId
- */
+
 export async function cancelTrainingSession(sessionId) {
     console.log(
         `[Cancel Training] Cancelling session ${sessionId} and correcting player points...`
@@ -422,10 +368,7 @@ export async function cancelTrainingSession(sessionId) {
     console.log(`[Cancel Training] Session ${sessionId} cancelled successfully`);
 }
 
-/**
- * Delete a training session (hard delete)
- * @param {string} sessionId
- */
+
 export async function deleteTrainingSession(sessionId) {
     console.log(`[Delete Training] Deleting session ${sessionId} and correcting player points...`);
 
@@ -543,10 +486,7 @@ export async function deleteTrainingSession(sessionId) {
     console.log(`[Delete Training] Session ${sessionId} deleted successfully`);
 }
 
-/**
- * Check if session would overlap with existing ones
- * @private
- */
+
 async function checkSessionOverlap(
     date,
     startTime,
@@ -569,12 +509,7 @@ async function checkSessionOverlap(
     return false;
 }
 
-/** Generiert Trainingseinheiten aus wiederkehrenden Vorlagen
- * @param {string} clubId
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<number>} Number of sessions created
- */
+
 export async function generateSessionsFromTemplates(clubId, startDate, endDate) {
     const templates = await getRecurringTemplates(clubId);
     let createdCount = 0;
@@ -617,10 +552,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
     return createdCount;
 }
 
-/**
- * Check if a session already exists
- * @private
- */
+
 async function checkExistingSession(clubId, date, startTime, subgroupId) {
     const q = query(
         collection(db, 'trainingSessions'),
@@ -634,31 +566,22 @@ async function checkExistingSession(clubId, date, startTime, subgroupId) {
     return !snapshot.empty;
 }
 
-/** Prüft Zeit-Format (HH:MM) */
+
 function isValidTimeFormat(time) {
     return /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 }
 
-/**
- * Check if date format is valid (YYYY-MM-DD)
- */
+
 function isValidDateFormat(date) {
     return /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
 
-/**
- * Check if two time ranges overlap
- */
+
 function timeRangesOverlap(start1, end1, start2, end2) {
     return start1 < end2 && end1 > start2;
 }
 
-/**
- * Get all dates in a range
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<string>} Array of dates in YYYY-MM-DD format
- */
+
 function getDatesInRange(startDate, endDate) {
     const dates = [];
     const currentDate = new Date(startDate + 'T00:00:00');
@@ -672,9 +595,7 @@ function getDatesInRange(startDate, endDate) {
     return dates;
 }
 
-/**
- * Format date to YYYY-MM-DD
- */
+
 function formatDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -682,22 +603,13 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-/**
- * Get day of week name in German
- * @param {number} dayOfWeek - 0=Sunday, 6=Saturday
- * @returns {string}
- */
+
 export function getDayOfWeekName(dayOfWeek) {
     const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
     return days[dayOfWeek];
 }
 
-/**
- * Format time range for display
- * @param {string} startTime - HH:MM
- * @param {string} endTime - HH:MM
- * @returns {string} "16:00-17:00"
- */
+
 export function formatTimeRange(startTime, endTime) {
     return `${startTime}-${endTime}`;
 }

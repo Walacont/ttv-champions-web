@@ -9,20 +9,11 @@ import {
     orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Calendar Module
- * Handles calendar rendering and attendance tracking for dashboard
- */
+
 
 let subgroupsMap = new Map();
 
-/**
- * Gets club attendance data for a specific period
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {number} daysToLookBack - Number of days to look back (default: 90)
- * @returns {Promise<Array>} Array of attendance records
- */
+
 export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToLookBack);
@@ -43,14 +34,7 @@ export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90
     }
 }
 
-/**
- * Renders the attendance calendar for a player with real-time updates
- * @param {Date} date - Date to render
- * @param {Object} currentUserData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {string} subgroupFilter - Subgroup filter ('club', 'global', or subgroupId)
- * @returns {Function} Unsubscribe function for the listener
- */
+
 export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club') {
     const calendarGrid = document.getElementById('calendar-grid');
     const calendarMonthYear = document.getElementById('calendar-month-year');
@@ -328,12 +312,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
     };
 }
 
-/**
- * Loads today's matches and training sessions for the player
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 export function loadTodaysMatches(userData, db, unsubscribes) {
     const container = document.getElementById('todays-matches-container');
     const listEl = document.getElementById('matches-list');
@@ -465,12 +444,7 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
     unsubscribes.push(matchListener);
 }
 
-/**
- * Loads and displays match pairings for a specific session
- * @param {string} sessionId - Session ID
- * @param {Object} userData - User data
- * @param {Object} db - Firestore database instance
- */
+
 async function loadPairingsForSession(sessionId, userData, db) {
     const container = document.getElementById(`pairings-${sessionId}`);
     if (!container) return;
@@ -536,13 +510,7 @@ async function loadPairingsForSession(sessionId, userData, db) {
     }
 }
 
-/**
- * Opens the training day modal with session details
- * @param {string} dateString - Date in YYYY-MM-DD format
- * @param {Array} sessions - Array of training sessions
- * @param {Array} allTrainings - All attendance records
- * @param {string} playerId - Player ID
- */
+
 function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
     const modal = document.getElementById('training-day-modal');
     const modalTitle = document.getElementById('training-day-modal-title');
@@ -667,9 +635,7 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
     modal.classList.remove('hidden');
 }
 
-/**
- * Closes the training day modal
- */
+
 function closeTrainingDayModal() {
     const modal = document.getElementById('training-day-modal');
     if (modal) {

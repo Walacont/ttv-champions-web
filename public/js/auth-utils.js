@@ -4,11 +4,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Handles user logout with proper cleanup
- * @param {Object} auth - Firebase Auth instance
- * @returns {Promise<void>}
- */
+
 export async function handleLogout(auth) {
     try {
         await signOut(auth);
@@ -24,14 +20,7 @@ export async function handleLogout(auth) {
     }
 }
 
-/**
- * Requires user authentication and validates role access
- * @param {Object} auth - Firebase Auth instance
- * @param {Object} db - Firestore instance
- * @param {string[]} allowedRoles - Array of allowed role names (e.g., ['player', 'coach'])
- * @returns {Promise<{user: Object, userData: Object}>} Authenticated user and their data
- * @throws {Error} If user is not authenticated or doesn't have required role
- */
+
 export function requireRole(auth, db, allowedRoles = []) {
     return new Promise((resolve, reject) => {
         const unsubscribe = onAuthStateChanged(auth, async user => {
@@ -81,11 +70,7 @@ export function requireRole(auth, db, allowedRoles = []) {
     });
 }
 
-/**
- * Sets up logout button handler
- * @param {string} buttonId - ID of the logout button element
- * @param {Object} auth - Firebase Auth instance
- */
+
 export function setupLogoutButton(buttonId, auth) {
     const logoutButton = document.getElementById(buttonId);
     if (logoutButton) {

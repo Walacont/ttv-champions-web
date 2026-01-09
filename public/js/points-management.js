@@ -13,17 +13,9 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { getCurrentSeasonKey } from './ui-utils.js';
 
-/**
- * Points Management Module
- * Handles points awarding, points history display for both players and coaches
- */
 
-/**
- * Loads points history for a player (dashboard view)
- * @param {Object} userData - User data with id
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
+
 export function loadPointsHistory(userData, db, unsubscribes) {
     const pointsHistoryEl = document.getElementById('points-history');
     if (!pointsHistoryEl) return;
@@ -89,12 +81,7 @@ export function loadPointsHistory(userData, db, unsubscribes) {
     unsubscribes.push(historyListener);
 }
 
-/**
- * Loads points history for a specific player (coach view)
- * @param {string} playerId - Player ID
- * @param {Object} db - Firestore database instance
- * @param {Function} setUnsubscribe - Callback to set unsubscribe function
- */
+
 export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
     const historyListEl = document.getElementById('coach-points-history-list');
     if (!historyListEl) return;
@@ -172,10 +159,7 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
     setUnsubscribe(unsubscribe);
 }
 
-/**
- * Populates the player filter dropdown for points history
- * @param {Array} clubPlayers - Array of club players
- */
+
 export function populateHistoryFilterDropdown(clubPlayers) {
     const select = document.getElementById('history-player-filter');
     if (!select) return;
@@ -189,13 +173,7 @@ export function populateHistoryFilterDropdown(clubPlayers) {
     });
 }
 
-/**
- * Handles points form submission (coach awarding points)
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data
- * @param {Function} handleReasonChangeCallback - Callback to reset reason UI
- */
+
 export async function handlePointsFormSubmit(e, db, currentUserData, handleReasonChangeCallback) {
     e.preventDefault();
     const feedbackEl = document.getElementById('points-feedback');
@@ -763,9 +741,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     }, 4000);
 }
 
-/**
- * Handles reason selection change in points form
- */
+
 export function handleReasonChange() {
     const value = document.getElementById('reason-select').value;
     const challengeContainer = document.getElementById('challenge-select-container');
@@ -810,10 +786,7 @@ export function handleReasonChange() {
     }
 }
 
-/**
- * Sets up milestone selector logic for points awarding
- * @param {Object} db - Firestore database instance
- */
+
 export function setupMilestoneSelectors(db) {
     console.log('🎯 Setup milestone selectors called');
     const exerciseSelect = document.getElementById('exercise-select');
@@ -872,11 +845,7 @@ export function setupMilestoneSelectors(db) {
     }
 }
 
-/**
- * Handles exercise/challenge selection change to show milestones if applicable
- * @param {Object} db - Firestore database instance
- * @param {string} type - 'exercise' or 'challenge'
- */
+
 async function handleExerciseChallengeChange(db, type) {
     console.log(`🔄 handleExerciseChallengeChange called for type: ${type}`);
 
@@ -999,14 +968,7 @@ async function handleExerciseChallengeChange(db, type) {
     await populatePartnerDropdown(db, playerId);
 }
 
-/**
- * Gets a player's milestone progress
- * @param {Object} db - Firestore database instance
- * @param {string} playerId - Player ID
- * @param {string} collectionName - Collection name (exerciseMilestones or challengeMilestones)
- * @param {string} itemId - Exercise or Challenge ID
- * @returns {Object} Progress object with currentCount and completedMilestones
- */
+
 async function getMilestoneProgress(db, playerId, collectionName, itemId) {
     try {
         const progressDocRef = doc(db, `users/${playerId}/${collectionName}`, itemId);
@@ -1026,12 +988,7 @@ async function getMilestoneProgress(db, playerId, collectionName, itemId) {
     return { currentCount: 0, completedMilestones: [] };
 }
 
-/**
- * Updates the milestone progress display
- * @param {Object} progress - Player's progress
- * @param {Array} milestones - All milestones
- * @param {Object} db - Firestore database instance
- */
+
 async function updateMilestoneProgressDisplay(progress, milestones, db) {
     const progressText = document.getElementById('milestone-progress-text');
 
@@ -1069,11 +1026,7 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
     }
 }
 
-/**
- * Populates the partner dropdown with all players except the active player
- * @param {Object} db - Firestore database instance
- * @param {string} activePlayerId - ID of the active player to exclude
- */
+
 async function populatePartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('partner-select');
     if (!partnerSelect) return;
@@ -1119,11 +1072,7 @@ async function populatePartnerDropdown(db, activePlayerId) {
     }
 }
 
-/**
- * Populates the manual partner dropdown with all players except the active player
- * @param {Object} db - Firestore database instance
- * @param {string} activePlayerId - ID of the active player to exclude
- */
+
 async function populateManualPartnerDropdown(db, activePlayerId) {
     const partnerSelect = document.getElementById('manual-partner-select');
     if (!partnerSelect) return;
@@ -1171,10 +1120,7 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
     }
 }
 
-/**
- * Initialize manual partner system toggle and dropdown
- * @param {Object} db - Firestore database instance
- */
+
 export function setupManualPartnerSystem(db) {
     const toggle = document.getElementById('manual-partner-toggle');
     const container = document.getElementById('manual-partner-container');
@@ -1203,13 +1149,7 @@ export function setupManualPartnerSystem(db) {
     }
 }
 
-/**
- * Shows completion status for exercises/challenges without milestones
- * @param {Object} db - Firestore database instance
- * @param {string} type - 'exercise' or 'challenge'
- * @param {string} itemId - ID of the exercise or challenge
- * @param {string} playerId - ID of the player
- */
+
 async function showCompletionStatus(db, type, itemId, playerId) {
     const container = document.getElementById('completion-status-container');
     const statusText = document.getElementById('completion-status-text');
@@ -1272,9 +1212,7 @@ async function showCompletionStatus(db, type, itemId, playerId) {
     }
 }
 
-/**
- * Hides the completion status container
- */
+
 function hideCompletionStatus() {
     const container = document.getElementById('completion-status-container');
     if (container) {

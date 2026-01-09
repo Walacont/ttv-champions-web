@@ -10,20 +10,11 @@ import {
     onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Match History Module
- * Displays competition history with match results and ELO changes
- */
+
 
 let matchHistoryUnsubscribe = null;
 
-/**
- * Load and display match history for the current player with real-time updates
- * @param {Object} db - Firestore database instance
- * @param {Object} userData - Current user data
- * @param {string} matchType - Type of matches to show: 'all', 'singles', or 'doubles'
- * @returns {Function} Unsubscribe function to stop listening
- */
+
 export function loadMatchHistory(db, userData, matchType = 'all') {
     const container = document.getElementById('match-history-list');
     if (!container) {
@@ -139,13 +130,7 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
     };
 }
 
-/**
- * Enrich match data with player names and ELO changes
- * @param {Object} db - Firestore database instance
- * @param {Object} match - Match data
- * @param {Object} userData - Current user data
- * @returns {Object} Enriched match data
- */
+
 async function enrichMatchData(db, match, userData) {
     const enriched = { ...match };
 
@@ -297,12 +282,7 @@ async function enrichMatchData(db, match, userData) {
     return enriched;
 }
 
-/**
- * Render matches with toggle button for show more/less
- * @param {HTMLElement} container - Container element
- * @param {Array} allMatches - All matches to display
- * @param {Object} userData - Current user data
- */
+
 function renderMatchesWithToggle(container, allMatches, userData) {
     let showingAll = false;
 
@@ -337,12 +317,7 @@ function renderMatchesWithToggle(container, allMatches, userData) {
     render();
 }
 
-/**
- * Render match history in the container
- * @param {HTMLElement} container - Container element
- * @param {Array} matches - Array of match data
- * @param {Object} userData - Current user data
- */
+
 function renderMatchHistory(container, matches, userData) {
     container.innerHTML = '';
 
@@ -447,12 +422,7 @@ function renderMatchHistory(container, matches, userData) {
     });
 }
 
-/**
- * Format sets for display
- * @param {Array} sets - Array of set objects with playerA/playerB or teamA/teamB scores
- * @param {boolean} isPlayerA - Whether current user is playerA (for singles) or teamA (for doubles)
- * @returns {string} Formatted sets string
- */
+
 function formatSets(sets, isPlayerA) {
     if (!sets || sets.length === 0) return 'N/A';
 
@@ -471,22 +441,14 @@ function formatSets(sets, isPlayerA) {
         .join(', ');
 }
 
-/**
- * Format match time (HH:MM)
- * @param {Date} date - Date object
- * @returns {string} Formatted time
- */
+
 function formatMatchTime(date) {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
 }
 
-/**
- * Format match date
- * @param {Date} date - Date object
- * @returns {string} Formatted date
- */
+
 function formatMatchDate(date) {
     const today = new Date();
     const yesterday = new Date(today);

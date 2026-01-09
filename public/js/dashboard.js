@@ -235,7 +235,7 @@ async function initializeDashboard(userData) {
             console.error('Logout error:', error);
         }
     });
-    setupTabs('overview'); // 'overview' is default tab for dashboard
+    setupTabs('overview');
     setupLeaderboardTabs();
 
     initializeLeaderboardPreferences(userData, db);
@@ -388,11 +388,7 @@ function updateDashboard(userData) {
 
 
 
-/**
- * Populates the global player subgroup filter with user's subgroups using real-time listener
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 function populatePlayerSubgroupFilter(userData, db) {
     const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
@@ -474,9 +470,7 @@ function populatePlayerSubgroupFilter(userData, db) {
     }
 }
 
-/**
- * Helper function to create option elements
- */
+
 function createOption(value, text) {
     const option = document.createElement('option');
     option.value = value;
@@ -484,12 +478,7 @@ function createOption(value, text) {
     return option;
 }
 
-/**
- * Handles global subgroup filter change - reloads all filtered content
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array of unsubscribe functions
- */
+
 function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
@@ -554,11 +543,7 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 }
 
-/**
- * Loads club players for match request form
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 async function loadClubPlayers(userData, db) {
     try {
         const playersQuery = query(
@@ -576,12 +561,7 @@ async function loadClubPlayers(userData, db) {
     }
 }
 
-/**
- * Loads match requests (result requests) for overview card
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 function loadOverviewMatchRequests(userData, db, unsubscribes) {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
@@ -671,9 +651,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     unsubscribes.push(unsubSingles, unsubDoubles);
 }
 
-/**
- * Renders match requests in overview
- */
+
 function renderCombinedOverview(items, userData, db, showAll) {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
@@ -794,9 +772,7 @@ function renderCombinedOverview(items, userData, db, showAll) {
     }
 }
 
-/**
- * Formats sets display (simple version)
- */
+
 function formatSetsDisplaySimple(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -807,9 +783,7 @@ function formatSetsDisplaySimple(sets) {
     return `${winsA}:${winsB} (${setsStr})`;
 }
 
-/**
- * Approves request from overview
- */
+
 async function approveOverviewRequest(requestId, db) {
     try {
         await updateDoc(doc(db, 'matchRequests', requestId), {
@@ -826,9 +800,7 @@ async function approveOverviewRequest(requestId, db) {
     }
 }
 
-/**
- * Rejects request from overview
- */
+
 async function rejectOverviewRequest(requestId, db) {
     try {
         await updateDoc(doc(db, 'matchRequests', requestId), {
@@ -846,9 +818,7 @@ async function rejectOverviewRequest(requestId, db) {
     }
 }
 
-/**
- * Approves doubles request from overview
- */
+
 async function approveDoublesOverviewRequest(requestId, playerId, db) {
     try {
         await confirmDoublesMatchRequest(requestId, playerId, db);
@@ -858,9 +828,7 @@ async function approveDoublesOverviewRequest(requestId, playerId, db) {
     }
 }
 
-/**
- * Rejects doubles request from overview
- */
+
 async function rejectDoublesOverviewRequest(requestId, db) {
     try {
         await rejectDoublesMatchRequest(requestId, db);
@@ -870,9 +838,7 @@ async function rejectDoublesOverviewRequest(requestId, db) {
     }
 }
 
-/**
- * Updates match request badge count (reused from player-matches.js)
- */
+
 function updateMatchRequestBadge(count) {
     const badge = document.getElementById('match-request-badge');
     if (!badge) return;

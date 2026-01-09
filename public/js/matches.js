@@ -14,10 +14,7 @@ import {
 import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
 
-/**
- * Matches Module
- * Handles match pairings, handicap calculation, and match result reporting
- */
+
 
 let coachSetScoreInput = null;
 
@@ -27,10 +24,7 @@ let currentPairingSessionId = null;
 let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 
-/**
- * Initializes the set score input for coach match form
- * @returns {Object|null} The set score input instance
- */
+
 export function initializeCoachSetScoreInput() {
     const container = document.getElementById('coach-set-score-container');
     const matchModeSelect = document.getElementById('coach-match-mode-select');
@@ -77,20 +71,12 @@ export function initializeCoachSetScoreInput() {
     return coachSetScoreInput;
 }
 
-/**
- * Sets the current session for pairings generation
- * @param {string} sessionId - Session ID
- */
+
 export function setCurrentPairingsSession(sessionId) {
     currentPairingsSession = sessionId;
 }
 
-/**
- * Generates match pairings from present and match-ready players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- * @param {string} sessionId - Optional session ID for session-based pairings
- */
+
 export function handleGeneratePairings(
     clubPlayers,
     currentSubgroupFilter = 'all',
@@ -147,11 +133,7 @@ export function handleGeneratePairings(
     renderPairingsInModal(finalPairings, leftoverPlayer);
 }
 
-/**
- * Renders generated pairings in the modal
- * @param {Object} pairings - Object containing groups and their pairings
- * @param {Object|null} leftoverPlayer - Player without a match, if any
- */
+
 export function renderPairingsInModal(pairings, leftoverPlayer) {
     const modal = document.getElementById('pairings-modal');
     const container = document.getElementById('modal-pairings-content');
@@ -225,11 +207,7 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
     modal.classList.remove('hidden');
 }
 
-/**
- * Saves match pairings to Firestore for a specific session
- * @param {Object} pairings - Pairings object
- * @param {Object|null} leftoverPlayer - Player without a match (no longer saved, parameter kept for compatibility)
- */
+
 async function savePairings(pairings, leftoverPlayer) {
     if (!currentPairingsSession) {
         alert('Fehler: Keine Session ausgewählt');
@@ -324,11 +302,7 @@ async function savePairings(pairings, leftoverPlayer) {
     }
 }
 
-/**
- * Loads match pairings for a specific session
- * @param {string} sessionId - Session ID
- * @returns {Promise<Object|null>} Pairings data or null
- */
+
 export async function loadSessionPairings(sessionId) {
     try {
         const { getFirestore } = await import(
@@ -349,11 +323,7 @@ export async function loadSessionPairings(sessionId) {
     }
 }
 
-/**
- * Updates the state of the pairings button based on eligible players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+
 export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
     const pairingsButton = document.getElementById('generate-pairings-button');
     const presentPlayerCheckboxes = document.querySelectorAll(
@@ -386,13 +356,7 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     }
 }
 
-/**
- * Handles match result submission
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user data
- * @param {Array} clubPlayers - Array of all club players
- */
+
 export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     e.preventDefault();
     const feedbackEl = document.getElementById('match-feedback');
@@ -503,9 +467,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
 let currentHandicapData = null;
 
-/**
- * Initializes handicap toggle event listener
- */
+
 export function initializeHandicapToggle() {
     const handicapToggle = document.getElementById('handicap-toggle');
     if (!handicapToggle) return;
@@ -521,10 +483,7 @@ export function initializeHandicapToggle() {
     });
 }
 
-/**
- * Updates the match form UI based on selected players
- * @param {Array} clubPlayers - Array of all club players
- */
+
 export function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select').value;
     const playerBId = document.getElementById('player-b-select').value;
@@ -572,11 +531,7 @@ export function updateMatchUI(clubPlayers) {
     }
 }
 
-/**
- * Populates match dropdowns with match-ready players
- * @param {Array} clubPlayers - Array of all club players
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+
 export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
@@ -635,11 +590,7 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     });
 }
 
-/**
- * Loads pending match requests for coach approval
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- */
+
 export async function loadCoachMatchRequests(userData, db) {
     const container = document.getElementById('coach-pending-requests-list');
     const badge = document.getElementById('coach-match-request-badge');
@@ -722,9 +673,7 @@ export async function loadCoachMatchRequests(userData, db) {
     return unsubscribe1;
 }
 
-/**
- * Loads and renders processed match requests for coach (approved/rejected)
- */
+
 export async function loadCoachProcessedRequests(userData, db) {
     const container = document.getElementById('coach-processed-requests-list');
     if (!container) return;
@@ -759,9 +708,7 @@ export async function loadCoachProcessedRequests(userData, db) {
     return unsubscribe;
 }
 
-/**
- * Renders processed match request cards for coach with "show more" functionality
- */
+
 let showAllCoachProcessed = false;
 
 function renderCoachProcessedCards(requests, db) {
@@ -866,9 +813,7 @@ function renderCoachProcessedCards(requests, db) {
     }
 }
 
-/**
- * Renders match request cards for coach with "show more" functionality
- */
+
 let showAllCoachRequests = false;
 
 function renderCoachRequestCards(requests, db, userData) {
@@ -1036,9 +981,7 @@ function renderCoachRequestCards(requests, db, userData) {
     }
 }
 
-/**
- * Formats sets display for coach
- */
+
 function formatSetsForCoach(sets) {
     if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
@@ -1049,10 +992,7 @@ function formatSetsForCoach(sets) {
     return `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 }
 
-/**
- * Gets winner name from set scores
- * Works for all match modes (Best of 3, 5, 7, single set)
- */
+
 function getWinnerName(sets, playerA, playerB) {
     if (!sets || sets.length === 0) return 'Unbekannt';
 
@@ -1065,9 +1005,7 @@ function getWinnerName(sets, playerA, playerB) {
     return 'Unentschieden';
 }
 
-/**
- * Approves match request as coach
- */
+
 async function approveCoachRequest(requestId, db, userData) {
     try {
         const requestRef = doc(db, 'matchRequests', requestId);
@@ -1107,9 +1045,7 @@ async function approveCoachRequest(requestId, db, userData) {
     }
 }
 
-/**
- * Rejects match request as coach
- */
+
 async function rejectCoachRequest(requestId, db, userData) {
     const reason = prompt('Grund für die Ablehnung (optional):');
 
@@ -1152,11 +1088,7 @@ async function rejectCoachRequest(requestId, db, userData) {
     }
 }
 
-/**
- * Loads and displays all saved pairings from trainingSessions
- * @param {Object} db - Firestore database instance
- * @param {string} clubId - Club ID
- */
+
 export async function loadSavedPairings(db, clubId) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
@@ -1286,17 +1218,13 @@ export async function loadSavedPairings(db, clubId) {
     }
 }
 
-/**
- * Formats date from YYYY-MM-DD to DD.MM.YYYY
- */
+
 function formatDateGerman(dateStr) {
     const [year, month, day] = dateStr.split('-');
     return `${day}.${month}.${year}`;
 }
 
-/**
- * Opens match form with pre-selected players
- */
+
 window.handleEnterResultForPairing = function (
     sessionId,
     playerAId,
@@ -1334,12 +1262,7 @@ window.handleEnterResultForPairing = function (
     alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
 };
 
-/**
- * Removes a specific pairing from the DOM immediately (optimistic update)
- * @param {string} sessionId - Session ID
- * @param {string} playerAId - Player A ID
- * @param {string} playerBId - Player B ID
- */
+
 function removePairingFromDOM(sessionId, playerAId, playerBId) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
@@ -1384,13 +1307,7 @@ function removePairingFromDOM(sessionId, playerAId, playerBId) {
     });
 }
 
-/**
- * Removes a specific pairing from a training session
- * @param {string} sessionId - Session ID
- * @param {string} playerAId - Player A ID
- * @param {string} playerBId - Player B ID
- * @param {Object} db - Firestore database instance
- */
+
 async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
     try {
         const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
@@ -1439,12 +1356,7 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
     }
 }
 
-/**
- * Removes a discarded pairing from the DOM immediately
- * @param {string} sessionId - Session ID
- * @param {number} matchIndex - Match index in group
- * @param {string} groupName - Group name
- */
+
 function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
     const container = document.getElementById('saved-pairings-container');
     if (!container) return;
@@ -1489,9 +1401,7 @@ function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
     });
 }
 
-/**
- * Discards a pairing
- */
+
 window.handleDiscardPairing = async function (sessionId, matchIndex, groupName) {
     if (!confirm('Möchtest du diese Paarung wirklich verwerfen?')) {
         return;

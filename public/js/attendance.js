@@ -129,13 +129,7 @@ export async function renderCalendar(date, db, currentUserData) {
     return () => {};
 }
 
-/**
- * Fetches attendance data and training sessions for a specific month
- * @param {number} year - Year
- * @param {number} month - Month (0-11)
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user's data
- */
+
 export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     monthlyAttendance.clear();
     monthlySessions.clear();
@@ -253,16 +247,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     }
 }
 
-/**
- * Finds the original attendance points awarded to a player on a specific date
- * Simple approach: Load recent history and sum all POSITIVE attendance entries for this date
- * @param {string} playerId - Player ID
- * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} subgroupName - Subgroup name to match in history (for logging only)
- * @param {Object} db - Firestore database instance
- * @param {string} subgroupId - Subgroup ID for precise matching
- * @returns {Promise<number>} Points to deduct (defaults to 10 if not found)
- */
+
 async function findOriginalAttendancePoints(playerId, date, subgroupName, db, subgroupId) {
     try {
         console.log(
@@ -340,17 +325,7 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
     }
 }
 
-/**
- * Recalculates all subsequent training days after a removal
- * This is necessary because removing a day affects the streak count of all future days
- * @param {string} playerId - Player ID
- * @param {string} removedDate - Date that was removed (YYYY-MM-DD)
- * @param {string} subgroupId - Subgroup ID
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {Object} batch - Firestore batch
- * @param {string} subgroupName - Subgroup name for history entries
- */
+
 async function recalculateSubsequentDays(
     playerId,
     removedDate,
@@ -437,11 +412,11 @@ async function recalculateSubsequentDays(
                 `[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`
             );
 
-            let newPoints = ATTENDANCE_POINTS_BASE; // 3 points default
+            let newPoints = ATTENDANCE_POINTS_BASE;
             if (newStreak >= 5) {
-                newPoints = 6; // 3 base + 3 bonus
+                newPoints = 6;
             } else if (newStreak >= 3) {
-                newPoints = 5; // 3 base + 2 bonus
+                newPoints = 5;
             }
 
             const otherTrainingsQuery = query(
@@ -536,16 +511,7 @@ async function recalculateSubsequentDays(
     }
 }
 
-/**
- * Updates the streak subcollection after removing a day
- * This ensures the streak reflects the actual consecutive attendance
- * @param {string} playerId - Player ID
- * @param {string} removedDate - Date that was removed (YYYY-MM-DD)
- * @param {string} subgroupId - Subgroup ID
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {Object} batch - Firestore batch
- */
+
 async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubId, db, batch) {
     try {
         const allTrainingsQuery = query(
@@ -616,15 +582,7 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
     }
 }
 
-/**
- * Handles calendar day click to open attendance modal
- * @param {Event} e - Click event
- * @param {Array} clubPlayers - List of club players
- * @param {Function} updateAttendanceCount - Callback to update attendance count
- * @param {Function} updatePairingsButtonState - Callback to update pairings button
- * @param {Object} db - Firestore database instance
- * @param {string} clubId - Club ID
- */
+
 export async function handleCalendarDayClick(
     e,
     clubPlayers,
@@ -668,16 +626,7 @@ export async function handleCalendarDayClick(
     }
 }
 
-/**
- * NEW: Open attendance modal for a specific session
- * @param {string} sessionId - Session ID
- * @param {string} date - Date string
- * @param {Array} clubPlayers - Array of players
- * @param {Function} updateAttendanceCount - Callback
- * @param {Function} updatePairingsButtonState - Callback
- * @param {Object} db - Firestore instance
- * @param {string} clubId - Club ID
- */
+
 export async function openAttendanceModalForSession(
     sessionId,
     date,
@@ -884,16 +833,7 @@ export async function openAttendanceModalForSession(
     }
 }
 
-/**
- * Saves attendance data and calculates points/streaks
- * Now supports subgroups with separate streaks per subgroup
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} currentUserData - Current user's data
- * @param {Array} clubPlayers - List of club players
- * @param {Date} currentCalendarDate - Current calendar date being viewed
- * @param {Function} renderCalendarCallback - Callback to re-render calendar
- */
+
 export async function handleAttendanceSave(
     e,
     db,
@@ -1080,14 +1020,14 @@ export async function handleAttendanceSave(
                         year: 'numeric',
                     });
 
-                    let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
+                    let pointsToAdd = ATTENDANCE_POINTS_BASE;
                     let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
                     if (newStreak >= 5) {
-                        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+                        pointsToAdd = 6;
                         reason = `Training am ${formattedDate} - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
                     } else if (newStreak >= 3) {
-                        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+                        pointsToAdd = 5;
                         reason = `Training am ${formattedDate} - ${subgroupName} (⚡ ${newStreak}x Streak)`;
                     }
 
@@ -1219,12 +1159,7 @@ export async function handleAttendanceSave(
     }
 }
 
-/**
- * Loads players for attendance tracking
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {Function} onPlayersLoaded - Callback when players are loaded
- */
+
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     const PLAYER_LIMIT = 300;
     const q = query(
@@ -1318,9 +1253,7 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         });
 }
 
-/**
- * Updates the attendance count display
- */
+
 export function updateAttendanceCount() {
     const countEl = document.getElementById('attendance-count');
     if (!countEl) return;

@@ -1,8 +1,4 @@
-/**
- * Dashboard Widgets Management
- * Allows players to customize which widgets are visible on their dashboard
- * Inspired by modern app customization (like HVV Switch)
- */
+
 
 import {
     doc,
@@ -81,12 +77,7 @@ let currentSettings = {};
 let db = null;
 let currentUserId = null;
 
-/**
- * Initialize widget management system
- * Non-blocking: Shows defaults immediately, then loads saved settings in background
- * @param {Object} firestoreInstance - Firestore database instance
- * @param {string} userId - Current user ID
- */
+
 export function initializeWidgetSystem(firestoreInstance, userId) {
     db = firestoreInstance;
     currentUserId = userId;
@@ -104,9 +95,7 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
         });
 }
 
-/**
- * Load widget settings from Firestore
- */
+
 async function loadWidgetSettings() {
     try {
         const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
@@ -122,10 +111,7 @@ async function loadWidgetSettings() {
     }
 }
 
-/**
- * Get default widget settings
- * @returns {Object} Default settings object
- */
+
 function getDefaultSettings() {
     const settings = {};
     WIDGETS.forEach(widget => {
@@ -134,10 +120,7 @@ function getDefaultSettings() {
     return settings;
 }
 
-/**
- * Save widget settings to Firestore
- * @param {Object} settings - Settings object to save
- */
+
 async function saveWidgetSettings(settings) {
     try {
         const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
@@ -151,9 +134,7 @@ async function saveWidgetSettings(settings) {
     }
 }
 
-/**
- * Apply widget settings to the dashboard (show/hide widgets)
- */
+
 function applyWidgetSettings() {
     const widgets = document.querySelectorAll('.dashboard-widget');
 
@@ -169,9 +150,7 @@ function applyWidgetSettings() {
     });
 }
 
-/**
- * Setup event listeners for widget controls
- */
+
 function setupWidgetControls() {
     const editButton = document.getElementById('edit-dashboard-button');
     if (editButton) {
@@ -194,9 +173,7 @@ function setupWidgetControls() {
     }
 }
 
-/**
- * Open widget settings modal
- */
+
 function openWidgetSettingsModal() {
     console.log('[Widget System] Opening settings modal');
 
@@ -235,9 +212,7 @@ function openWidgetSettingsModal() {
     modal.classList.remove('hidden');
 }
 
-/**
- * Close widget settings modal
- */
+
 function closeWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     modal.classList.add('hidden');
@@ -247,9 +222,7 @@ function closeWidgetSettingsModal() {
     feedback.textContent = '';
 }
 
-/**
- * Save widget settings from modal
- */
+
 async function saveWidgetSettingsFromModal() {
     console.log('[Widget System] Saving settings from modal');
 
@@ -285,9 +258,7 @@ async function saveWidgetSettingsFromModal() {
     }
 }
 
-/**
- * Reset widget settings to defaults
- */
+
 async function resetWidgetSettings() {
     if (!confirm('Möchtest du alle Widgets auf die Standardeinstellungen zurücksetzen?')) {
         return;
@@ -318,19 +289,12 @@ async function resetWidgetSettings() {
     }
 }
 
-/**
- * Get current widget settings (for debugging)
- * @returns {Object} Current settings
- */
+
 export function getCurrentWidgetSettings() {
     return { ...currentSettings };
 }
 
-/**
- * Check if a specific widget is visible
- * @param {string} widgetId - Widget ID to check
- * @returns {boolean} True if visible
- */
+
 export function isWidgetVisible(widgetId) {
     return currentSettings[widgetId] !== false;
 }

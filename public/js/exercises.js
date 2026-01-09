@@ -15,10 +15,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
 import { renderTableForDisplay } from './tableEditor.js';
 
-/**
- * Exercises Module
- * Handles exercise display, creation, and management for both dashboard and coach
- */
+
 
 let exerciseContext = {
     db: null,
@@ -26,12 +23,7 @@ let exerciseContext = {
     userRole: null,
 };
 
-/**
- * Sets the context for exercise progress tracking
- * @param {Object} db - Firestore database instance
- * @param {string} userId - Current user ID
- * @param {string} userRole - Current user role (player, coach, admin)
- */
+
 export function setExerciseContext(db, userId, userRole) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
@@ -39,11 +31,7 @@ export function setExerciseContext(db, userId, userRole) {
 }
 
 
-/**
- * Loads exercises for the dashboard with tag filtering
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- */
+
 export async function loadExercises(db, unsubscribes) {
     const exercisesListEl = document.getElementById('exercises-list');
     if (!exercisesListEl) return;
@@ -120,12 +108,7 @@ export async function loadExercises(db, unsubscribes) {
     }
 }
 
-/**
- * Updates a single exercise card's progress circle in real-time
- * @param {Object} db - Firestore instance
- * @param {string} exerciseId - Exercise ID to update
- * @param {Array} exercisesData - Array of all exercises data
- */
+
 async function updateExerciseCardProgress(db, exerciseId, exercisesData) {
     const cardElement = document.querySelector(`.exercise-card[data-id="${exerciseId}"]`);
     if (!cardElement) return;
@@ -148,14 +131,7 @@ async function updateExerciseCardProgress(db, exerciseId, exercisesData) {
     console.log(`✅ Updated progress for exercise ${exerciseId}: ${progressPercent}%`);
 }
 
-/**
- * Calculates the completion progress for an exercise
- * @param {Object} db - Firestore instance
- * @param {string} userId - User ID
- * @param {string} exerciseId - Exercise ID
- * @param {Object} exercise - Exercise data
- * @returns {number} Progress percentage (0-100)
- */
+
 async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
     try {
         const hasMilestones =
@@ -188,13 +164,7 @@ async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
     }
 }
 
-/**
- * Creates the HTML for an exercise card with progress indicator
- * @param {Object} docSnap - Firestore document snapshot
- * @param {Object} exercise - Exercise data
- * @param {number} progressPercent - Progress percentage (0-100)
- * @returns {HTMLElement} Card element
- */
+
 function createExerciseCard(docSnap, exercise, progressPercent) {
     const card = document.createElement('div');
     card.className =
@@ -262,11 +232,7 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     return card;
 }
 
-/**
- * Generates an SVG progress circle
- * @param {number} percent - Progress percentage (0-100)
- * @returns {string} SVG HTML string
- */
+
 function generateProgressCircle(percent) {
     if (percent === 0) {
         return `
@@ -303,11 +269,7 @@ function generateProgressCircle(percent) {
     }
 }
 
-/**
- * Renders tag filter buttons for the exercise list
- * @param {Set} tags - Set of all available tags
- * @param {Array} exercises - Array of exercise objects with their tags
- */
+
 export function renderTagFilters(tags, exercises) {
     const filterContainer = document.getElementById('tags-filter-container');
     if (!filterContainer) return;
@@ -356,10 +318,7 @@ export function renderTagFilters(tags, exercises) {
     });
 }
 
-/**
- * Loads all exercises for coach view (with tag filtering and points display)
- * @param {Object} db - Firestore database instance
- */
+
 export function loadAllExercises(db) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
@@ -390,11 +349,7 @@ export function loadAllExercises(db) {
     );
 }
 
-/**
- * Renders tag filter buttons for the coach exercise list
- * @param {Set} tags - Set of all available tags
- * @param {Array} exercises - Array of exercise objects with their tags
- */
+
 function renderTagFiltersCoach(tags, exercises) {
     const filterContainer = document.getElementById('tags-filter-container-coach');
     if (!filterContainer) return;
@@ -437,10 +392,7 @@ function renderTagFiltersCoach(tags, exercises) {
     });
 }
 
-/**
- * Sets up toggle functionality for tag filter section
- * @param {string} context - 'coach' or 'player'
- */
+
 function setupTagFilterToggle(context) {
     const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
     const filterSection = document.getElementById(`tags-filter-section-${context}`);
@@ -464,10 +416,7 @@ function setupTagFilterToggle(context) {
     });
 }
 
-/**
- * Sets up search functionality for tag filter
- * @param {string} context - 'coach' or 'player'
- */
+
 function setupTagSearch(context) {
     const searchInput = document.getElementById(`tag-search-${context}`);
     const filterContainer = document.getElementById(`tags-filter-container-${context}`);
@@ -492,11 +441,7 @@ function setupTagSearch(context) {
     });
 }
 
-/**
- * Renders coach exercise cards with optional tag filtering
- * @param {Array} exercises - Array of exercise objects
- * @param {string} filterTag - Tag to filter by ('all' for no filter)
- */
+
 function renderCoachExercises(exercises, filterTag) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
@@ -575,10 +520,7 @@ function renderCoachExercises(exercises, filterTag) {
     });
 }
 
-/**
- * Loads exercises into a dropdown for points awarding
- * @param {Object} db - Firestore database instance
- */
+
 export function loadExercisesForDropdown(db) {
     const select = document.getElementById('exercise-select');
     if (!select) return;
@@ -627,10 +569,7 @@ export function loadExercisesForDropdown(db) {
     );
 }
 
-/**
- * Handles exercise click event (for dashboard)
- * @param {Event} event - Click event
- */
+
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
@@ -640,16 +579,7 @@ export function handleExerciseClick(event) {
     }
 }
 
-/**
- * Opens the exercise modal with exercise details
- * @param {string} exerciseId - Exercise ID for progress tracking
- * @param {string} title - Exercise title
- * @param {string} descriptionContent - Exercise description content (JSON string)
- * @param {string} imageUrl - Exercise image URL
- * @param {string} points - Exercise points
- * @param {string} tags - Exercise tags (JSON string)
- * @param {string} tieredPoints - Tiered points data (JSON string, optional)
- */
+
 export async function openExerciseModal(
     exerciseId,
     title,
@@ -861,29 +791,19 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-/**
- * Opens the exercise modal from dataset (for coach)
- * @param {Object} dataset - Dataset object containing exercise details
- */
+
 export function openExerciseModalFromDataset(dataset) {
     const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
     openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
 }
 
-/**
- * Closes the exercise modal
- */
+
 export function closeExerciseModal() {
     const modal = document.getElementById('exercise-modal');
     if (modal) modal.classList.add('hidden');
 }
 
-/**
- * Calculates exercise points based on level and difficulty
- * @param {string} level - Exercise level (grundlagen, standard, fortgeschritten)
- * @param {string} difficulty - Exercise difficulty (easy, normal, hard)
- * @returns {number} Calculated points
- */
+
 export function calculateExercisePoints(level, difficulty) {
     const pointsMatrix = {
         grundlagen: {
@@ -909,9 +829,7 @@ export function calculateExercisePoints(level, difficulty) {
     return pointsMatrix[level]?.[difficulty] || 10;
 }
 
-/**
- * Updates exercise points field when level or difficulty changes
- */
+
 export function setupExercisePointsCalculation() {
     const levelSelect = document.getElementById('exercise-level-form');
     const difficultySelect = document.getElementById('exercise-difficulty-form');
@@ -944,9 +862,7 @@ export function setupExercisePointsCalculation() {
     difficultySelect.addEventListener('change', updatePoints);
 }
 
-/**
- * Sets up milestone system for exercises
- */
+
 export function setupExerciseMilestones() {
     const milestonesEnabled = document.getElementById('exercise-milestones-enabled');
     const standardContainer = document.getElementById('exercise-standard-points-container');
@@ -1000,9 +916,7 @@ export function setupExerciseMilestones() {
     }
 }
 
-/**
- * Adds a new milestone input row for exercises
- */
+
 function addExerciseMilestone() {
     const list = document.getElementById('exercise-milestones-list');
     if (!list) return;
@@ -1041,10 +955,7 @@ function addExerciseMilestone() {
     updateExerciseTotalPoints();
 }
 
-/**
- * Gets all milestones from the form
- * @returns {Array} Array of {count, points} objects
- */
+
 function getExerciseMilestones() {
     const list = document.getElementById('exercise-milestones-list');
     if (!list) return [];
@@ -1062,9 +973,7 @@ function getExerciseMilestones() {
     return milestones;
 }
 
-/**
- * Updates the total milestone points display
- */
+
 function updateExerciseTotalPoints() {
     const milestones = getExerciseMilestones();
     const total = milestones.reduce((sum, m) => sum + m.points, 0);
@@ -1074,13 +983,7 @@ function updateExerciseTotalPoints() {
     }
 }
 
-/**
- * Handles exercise creation form submission (for coach)
- * @param {Event} e - Form submit event
- * @param {Object} db - Firestore database instance
- * @param {Object} storage - Firebase storage instance
- * @param {Object} descriptionEditor - Description editor instance (optional)
- */
+
 export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');

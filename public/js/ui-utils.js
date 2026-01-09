@@ -1,19 +1,12 @@
-/**
- * UI Utils Module
- * Common UI utility functions for tabs and countdown timers
- */
+
 
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 let cachedSeasonEnd = null;
 let lastFetchTime = null;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+const CACHE_DURATION = 60 * 60 * 1000;
 
-/**
- * Fetches the season end date from Firestore config
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Date>} The end date of the current season
- */
+
 async function fetchSeasonEndDate(db) {
     try {
         if (cachedSeasonEnd && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
@@ -57,10 +50,7 @@ async function fetchSeasonEndDate(db) {
     }
 }
 
-/**
- * Sets up tab navigation for both dashboard and coach views
- * @param {string} defaultTab - The default tab to show (e.g., 'overview', 'dashboard')
- */
+
 export function setupTabs(defaultTab = 'overview') {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -87,13 +77,7 @@ export function setupTabs(defaultTab = 'overview') {
     });
 }
 
-/**
- * Updates the season countdown timer
- * Shows countdown to the end of the 6-week season cycle
- * @param {string} elementId - The ID of the countdown element (default: 'season-countdown')
- * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false)
- * @param {Object} db - Firestore database instance (required)
- */
+
 export async function updateSeasonCountdown(
     elementId = 'season-countdown',
     reloadOnEnd = false,
@@ -131,20 +115,12 @@ export async function updateSeasonCountdown(
     seasonCountdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
 }
 
-/**
- * Gets the current season end date
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Date>} The end date of the current season
- */
+
 export async function getSeasonEndDate(db) {
     return await fetchSeasonEndDate(db);
 }
 
-/**
- * Formats the season end date for display
- * @param {Object} db - Firestore database instance
- * @returns {Promise<string>} Formatted date string (e.g., "15.12.2025")
- */
+
 export async function formatSeasonEndDate(db) {
     const endDate = await fetchSeasonEndDate(db);
     const day = String(endDate.getDate()).padStart(2, '0');
@@ -154,12 +130,7 @@ export async function formatSeasonEndDate(db) {
     return `${day}.${month}.${year}`;
 }
 
-/**
- * Gets the current season key (format: "MONTH-YEAR" based on reset date)
- * Used for tracking which season a milestone was completed in
- * @param {Object} db - Firestore database instance
- * @returns {Promise<string>} Season key (e.g., "11-2025")
- */
+
 export async function getCurrentSeasonKey(db) {
     try {
         const configRef = doc(db, 'config', 'seasonReset');

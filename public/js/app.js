@@ -1,7 +1,4 @@
-/**
- * TTV Champions SPA - Main Application Entry Point
- * Initializes the router and defines all routes
- */
+
 
 import { router, viewLoader } from './router.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
@@ -19,10 +16,7 @@ const analytics = getAnalytics(app);
 const loadedModules = new Map();
 let currentModuleCleanup = null;
 
-/**
- * Load and execute a JavaScript module for a page
- * @param {string} modulePath - Path to the module
- */
+
 async function loadPageModule(modulePath) {
     try {
         if (currentModuleCleanup) {
@@ -46,11 +40,7 @@ async function loadPageModule(modulePath) {
     }
 }
 
-/**
- * Load a page view with its content
- * @param {string} htmlPath - Path to HTML file
- * @param {string} jsPath - Path to JS module (optional)
- */
+
 async function loadPage(htmlPath, jsPath = null) {
     showLoader();
 
@@ -113,9 +103,7 @@ async function loadPage(htmlPath, jsPath = null) {
     }
 }
 
-/**
- * Show loading indicator
- */
+
 function showLoader() {
     const loader = document.getElementById('spa-loader');
     if (loader) {
@@ -123,9 +111,7 @@ function showLoader() {
     }
 }
 
-/**
- * Hide loading indicator
- */
+
 function hideLoader() {
     const loader = document.getElementById('spa-loader');
     if (loader) {
@@ -133,9 +119,7 @@ function hideLoader() {
     }
 }
 
-/**
- * Check if user is authenticated
- */
+
 function requireAuth(redirectTo = '/') {
     return new Promise((resolve, reject) => {
         const unsubscribe = onAuthStateChanged(auth, user => {

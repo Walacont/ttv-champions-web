@@ -681,9 +681,7 @@ async function initializeCoachPage(userData) {
     checkAndStartTutorial(userData);
 }
 
-/**
- * Check if tutorial should be shown and start it
- */
+
 async function checkAndStartTutorial(userData) {
     const startTutorialFlag = sessionStorage.getItem('startTutorial');
     if (startTutorialFlag === 'coach') {
@@ -715,11 +713,7 @@ async function checkAndStartTutorial(userData) {
     }
 }
 
-/**
- * Populates the subgroup filter dropdown
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- */
+
 function populateSubgroupFilter(clubId, db) {
     const select = document.getElementById('subgroup-filter');
     if (!select) return;
@@ -727,7 +721,7 @@ function populateSubgroupFilter(clubId, db) {
     const q = query(
         collection(db, 'subgroups'),
         where('clubId', '==', clubId),
-        orderBy('createdAt', 'asc') // 'createdAt' muss existieren
+        orderBy('createdAt', 'asc')
     );
 
     onSnapshot(
@@ -760,10 +754,7 @@ function populateSubgroupFilter(clubId, db) {
     );
 }
 
-/**
- * Handles subgroup filter changes - reloads all filtered modules
- * @param {Object} userData - Current user data
- */
+
 function handleSubgroupFilterChange(userData) {
     console.log(`[Coach] Subgroup filter changed to: ${currentSubgroupFilter}`);
 
@@ -853,9 +844,7 @@ document.getElementById('close-reactivate-modal')?.addEventListener('click', () 
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');
 });
 
-/**
- * Global function to manually start the coach tutorial (called from settings)
- */
+
 window.startCoachTutorial = function () {
     const tutorial = new TutorialManager(coachTutorialSteps, {
         tutorialKey: 'coach',

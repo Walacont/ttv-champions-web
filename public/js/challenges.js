@@ -143,9 +143,7 @@ export function setupChallengePointRecommendations() {
     updateRecommendation();
 }
 
-/**
- * Sets up milestone system for challenges
- */
+
 export function setupChallengeMilestones() {
     const milestonesEnabled = document.getElementById('challenge-milestones-enabled');
     const standardContainer = document.getElementById('challenge-standard-points-container');
@@ -199,9 +197,7 @@ export function setupChallengeMilestones() {
     }
 }
 
-/**
- * Adds a new milestone input row for challenges
- */
+
 function addChallengeMilestone() {
     const list = document.getElementById('challenge-milestones-list');
     if (!list) return;
@@ -239,10 +235,7 @@ function addChallengeMilestone() {
     updateChallengeTotalPoints();
 }
 
-/**
- * Gets all milestones from the challenge form
- * @returns {Array} Array of {count, points} objects
- */
+
 function getChallengeMilestones() {
     const list = document.getElementById('challenge-milestones-list');
     if (!list) return [];
@@ -260,9 +253,7 @@ function getChallengeMilestones() {
     return milestones;
 }
 
-/**
- * Updates the total milestone points display for challenges
- */
+
 function updateChallengeTotalPoints() {
     const milestones = getChallengeMilestones();
     const total = milestones.reduce((sum, m) => sum + m.points, 0);
@@ -272,12 +263,7 @@ function updateChallengeTotalPoints() {
     }
 }
 
-/**
- * Loads and displays active challenges for the club
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+
 export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') {
     const activeChallengesList = document.getElementById('active-challenges-list');
     if (!activeChallengesList) return;
@@ -384,12 +370,7 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
     );
 }
 
-/**
- * Loads challenges for dropdown selection (used in points assignment)
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
- */
+
 export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'all') {
     const select = document.getElementById('challenge-select');
     if (!select) return;
@@ -456,12 +437,7 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
     });
 }
 
-/**
- * Calculates the expiry date for a challenge based on type
- * @param {Timestamp} createdAt - Firestore timestamp when challenge was created
- * @param {string} type - Challenge type (daily, weekly, monthly)
- * @returns {Date} Expiry date
- */
+
 export function calculateExpiry(createdAt, type) {
     if (!createdAt || !createdAt.toDate) return new Date();
     const startDate = createdAt.toDate();
@@ -480,11 +456,7 @@ export function calculateExpiry(createdAt, type) {
     return expiryDate;
 }
 
-/**
- * Loads expired challenges for the club
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- */
+
 export function loadExpiredChallenges(clubId, db) {
     const expiredChallengesList = document.getElementById('expired-challenges-list');
     if (!expiredChallengesList) return;
@@ -592,13 +564,7 @@ export function loadExpiredChallenges(clubId, db) {
     );
 }
 
-/**
- * Reactivates a challenge with a new duration and subgroup
- * @param {string} challengeId - Challenge ID
- * @param {string} duration - New duration (daily, weekly, monthly)
- * @param {string} subgroupId - Subgroup ID (or "all")
- * @param {Object} db - Firestore database instance
- */
+
 export async function reactivateChallenge(challengeId, duration, subgroupId, db) {
     try {
         const challengeRef = doc(db, 'challenges', challengeId);
@@ -616,11 +582,7 @@ export async function reactivateChallenge(challengeId, duration, subgroupId, db)
     }
 }
 
-/**
- * Ends a challenge early
- * @param {string} challengeId - Challenge ID
- * @param {Object} db - Firestore database instance
- */
+
 export async function endChallenge(challengeId, db) {
     try {
         const challengeRef = doc(db, 'challenges', challengeId);
@@ -634,11 +596,7 @@ export async function endChallenge(challengeId, db) {
     }
 }
 
-/**
- * Deletes a challenge permanently
- * @param {string} challengeId - Challenge ID
- * @param {Object} db - Firestore database instance
- */
+
 export async function deleteChallenge(challengeId, db) {
     try {
         const challengeRef = doc(db, 'challenges', challengeId);
@@ -650,9 +608,7 @@ export async function deleteChallenge(challengeId, db) {
     }
 }
 
-/**
- * Updates all countdown timers on the page
- */
+
 export function updateAllCountdowns() {
     const countdownElements = document.querySelectorAll('.challenge-countdown');
     const now = new Date();
@@ -673,12 +629,7 @@ export function updateAllCountdowns() {
     });
 }
 
-/**
- * Populates a subgroup dropdown with subgroups from the club
- * @param {string} clubId - Club ID
- * @param {string} selectId - ID of the select element
- * @param {Object} db - Firestore database instance
- */
+
 export function populateSubgroupDropdown(clubId, selectId, db) {
     const select = document.getElementById(selectId);
     if (!select) return;

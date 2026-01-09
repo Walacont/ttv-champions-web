@@ -1,9 +1,7 @@
 
 import { escapeHtml } from './utils/security.js';
 
-/**
- * Erstellt eine Tabellen-Editor-Oberfläche
- */
+
 export function createTableEditor(containerId, initialData = null) {
     const container = document.getElementById(containerId);
     if (!container) {
@@ -141,9 +139,7 @@ export function createTableEditor(containerId, initialData = null) {
     };
 }
 
-/**
- * Rendert eine Tabelle aus Daten (nur Anzeige)
- */
+
 export function renderTableForDisplay(tableData) {
     if (!tableData || !tableData.headers || !tableData.rows) {
         return '';
@@ -170,9 +166,7 @@ export function renderTableForDisplay(tableData) {
     return html;
 }
 
-/**
- * Richtet den Beschreibungs-Editor mit Text/Tabellen-Umschalter ein
- */
+
 export function setupDescriptionEditor(config) {
     const { textAreaId, toggleContainerId, tableEditorContainerId, initialData = null } = config;
 
@@ -185,7 +179,7 @@ export function setupDescriptionEditor(config) {
         return null;
     }
 
-    let currentMode = 'text'; // 'text' or 'table'
+    let currentMode = 'text';
     let tableEditor = null;
     let textContent = '';
     let tableContent = null;

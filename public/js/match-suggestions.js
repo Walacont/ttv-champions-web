@@ -7,12 +7,9 @@ import {
     getDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-/**
- * Match Suggestions Module
- * Provides opponent suggestions based on match history and player ratings
- */
 
-/** Berechnet Gegner-Vorschlaege basierend auf Spielhistorie */
+
+
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
     try {
         const eligiblePlayers = allPlayers.filter(p => {
@@ -118,7 +115,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
     }
 }
 
-/** Laedt und rendert Gegner-Vorschlaege */
+
 export async function loadMatchSuggestions(
     userData,
     db,
@@ -257,9 +254,7 @@ export async function loadMatchSuggestions(
     }
 }
 
-/**
- * Creates a suggestion card (view only, no actions)
- */
+
 function createSuggestionCard(player, userData, db) {
     const div = document.createElement('div');
     div.className = 'bg-white border border-indigo-200 rounded-md p-2 shadow-sm';
