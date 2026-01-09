@@ -1006,13 +1006,13 @@ async function loadRivalData() {
 }
 
 function updateRivalDisplay(players, rivalSkillEl, rivalEffortEl) {
-    // Skill ranking (sorted by elo)
+    // Skill-Ranking (sortiert nach Elo)
     const skillRanking = [...players].sort((a, b) => (b.elo_rating || 0) - (a.elo_rating || 0));
     const mySkillIndex = skillRanking.findIndex(p => p.id === currentUser.id);
 
     displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, currentUserData.elo_rating || 0, 'Elo');
 
-    // Effort ranking (sorted by xp)
+    // Effort-Ranking (sortiert nach XP)
     const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
     const myEffortIndex = effortRanking.findIndex(p => p.id === currentUser.id);
 

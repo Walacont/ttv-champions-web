@@ -451,7 +451,7 @@ function renderFormedPairs() {
         const div = document.createElement('div');
         div.className = 'p-4 bg-gray-50 border border-gray-200 rounded-lg';
 
-        // Milestone selection (for milestone exercises and successful results)
+        // Meilenstein-Auswahl (für Meilenstein-Übungen und erfolgreiche Ergebnisse)
         const showMilestoneSelect =
             isMilestoneExercise &&
             (pair.result === 'both_success' || pair.result === 'one_success');

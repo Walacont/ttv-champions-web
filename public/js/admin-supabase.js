@@ -1550,7 +1550,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
             </div>
         `;
 
-        // Sports sections (collapsed by default)
+        // Sportarten-Sektionen (standardmäßig eingeklappt)
         let sportsHtml = `<div class="club-sports-container hidden p-4 space-y-3" data-club-id="${clubId}">`;
 
         if (clubSports.length > 0) {
