@@ -175,8 +175,8 @@
                     <!-- Match Requests -->
                     <div class="p-4 flex items-center justify-between">
                         <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.matchRequests">Spielanfragen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.matchRequestsDesc">Wenn jemand dich zu einem Spiel herausfordert</p>
+                            <h3 class="font-medium text-gray-900">Spielanfragen</h3>
+                            <p class="text-sm text-gray-500">Wenn jemand dich zu einem Spiel herausfordert</p>
                         </div>
                         <label class="toggle-switch">
                             <input type="checkbox" id="pref-match_requests" checked>
@@ -184,47 +184,11 @@
                         </label>
                     </div>
 
-                    <!-- Doubles Match Requests -->
-                    <div class="p-4 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.doublesRequests">Doppel-Anfragen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.doublesRequestsDesc">Anfragen für Doppelspiele</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="pref-doubles_match_requests" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <!-- Friend Requests -->
-                    <div class="p-4 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.friendRequests">Freundschaftsanfragen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.friendRequestsDesc">Wenn jemand dir eine Freundschaftsanfrage sendet</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="pref-friend_requests" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <!-- Club Requests -->
-                    <div class="p-4 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.clubRequests">Vereins-Anfragen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.clubRequestsDesc">Beitritts- und Austrittsanfragen (für Coaches)</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="pref-club_requests" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
                     <!-- Ranking Changes -->
                     <div class="p-4 flex items-center justify-between">
                         <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.rankingChanges">Ranglistenänderungen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.rankingChangesDesc">Wenn sich deine Position in der Rangliste ändert</p>
+                            <h3 class="font-medium text-gray-900">Ranglistenänderungen</h3>
+                            <p class="text-sm text-gray-500">Wenn sich deine Position in der Rangliste ändert</p>
                         </div>
                         <label class="toggle-switch">
                             <input type="checkbox" id="pref-ranking_changes" checked>
@@ -235,23 +199,11 @@
                     <!-- Training Reminders -->
                     <div class="p-4 flex items-center justify-between">
                         <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.trainingReminders">Trainings-Erinnerungen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.trainingRemindersDesc">Erinnerungen an bevorstehende Trainings</p>
+                            <h3 class="font-medium text-gray-900">Trainings-Erinnerungen</h3>
+                            <p class="text-sm text-gray-500">Erinnerungen an bevorstehende Trainings</p>
                         </div>
                         <label class="toggle-switch">
                             <input type="checkbox" id="pref-training_reminders" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <!-- Points Awarded -->
-                    <div class="p-4 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.pointsAwarded">Punkte-Benachrichtigungen</h3>
-                            <p class="text-sm text-gray-500" data-i18n="settings.notifications.pointsAwardedDesc">Wenn dir Punkte vergeben oder abgezogen werden</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="pref-points_awarded">
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -278,6 +230,6 @@
         <script src="/js/update-checker.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/settings-notifications-supabase.js"></script>
+        <script type="module" src="/js/settings-notifications.js"></script>
     </body>
 </html>

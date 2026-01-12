@@ -1,5 +1,3 @@
-
-
 import { router, viewLoader } from './router.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
@@ -8,10 +6,28 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import { firebaseConfig } from './firebase-config.js';
+import {
+    initPushNotifications,
+    shouldShowPushPrompt,
+    showPushPermissionPrompt,
+    logoutPushNotifications
+} from './push-notifications-manager.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const analytics = getAnalytics(app);
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        await initPushNotifications(user.uid);
+
+        if (await shouldShowPushPrompt()) {
+            setTimeout(() => showPushPermissionPrompt(), 3000);
+        }
+    } else {
+        await logoutPushNotifications();
+    }
+});
 
 const loadedModules = new Map();
 let currentModuleCleanup = null;
