@@ -375,7 +375,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
             try {
                 // RPC-Funktion zum Löschen von Offline-Spieler verwenden (umgeht RLS)
                 const { data, error } = await supabase.rpc('delete_offline_player', {
-                    p_player_id: playerId
+                    p_offline_player_id: playerId
                 });
 
                 if (error) throw error;

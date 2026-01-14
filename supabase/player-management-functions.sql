@@ -58,7 +58,7 @@ $$;
 
 -- Function to delete an offline player
 CREATE OR REPLACE FUNCTION delete_offline_player(
-    p_player_id UUID
+    p_offline_player_id UUID
 )
 RETURNS JSON
 LANGUAGE plpgsql
@@ -78,7 +78,7 @@ BEGIN
 
     -- Get player data
     SELECT id, club_id, is_offline INTO v_player
-    FROM profiles WHERE id = p_player_id;
+    FROM profiles WHERE id = p_offline_player_id;
 
     IF v_player.id IS NULL THEN
         RAISE EXCEPTION 'Player not found';
@@ -103,21 +103,21 @@ BEGIN
     END IF;
 
     -- Delete related records first
-    DELETE FROM attendance WHERE player_id = p_player_id;
-    DELETE FROM challenge_completions WHERE player_id = p_player_id;
-    DELETE FROM matches WHERE player_a_id = p_player_id OR player_b_id = p_player_id;
-    DELETE FROM doubles_matches WHERE team1_player1_id = p_player_id OR team1_player2_id = p_player_id
-        OR team2_player1_id = p_player_id OR team2_player2_id = p_player_id;
-    DELETE FROM match_requests WHERE requester_id = p_player_id OR opponent_id = p_player_id;
-    DELETE FROM player_points WHERE player_id = p_player_id;
-    DELETE FROM profile_club_sports WHERE user_id = p_player_id;
-    DELETE FROM user_sport_stats WHERE user_id = p_player_id;
-    DELETE FROM invitation_codes WHERE player_id = p_player_id;
+    DELETE FROM attendance WHERE player_id = p_offline_player_id;
+    DELETE FROM challenge_completions WHERE player_id = p_offline_player_id;
+    DELETE FROM matches WHERE player_a_id = p_offline_player_id OR player_b_id = p_offline_player_id;
+    DELETE FROM doubles_matches WHERE team1_player1_id = p_offline_player_id OR team1_player2_id = p_offline_player_id
+        OR team2_player1_id = p_offline_player_id OR team2_player2_id = p_offline_player_id;
+    DELETE FROM match_requests WHERE requester_id = p_offline_player_id OR opponent_id = p_offline_player_id;
+    DELETE FROM player_points WHERE player_id = p_offline_player_id;
+    DELETE FROM profile_club_sports WHERE user_id = p_offline_player_id;
+    DELETE FROM user_sport_stats WHERE user_id = p_offline_player_id;
+    DELETE FROM invitation_codes WHERE player_id = p_offline_player_id;
 
     -- Delete the player profile
-    DELETE FROM profiles WHERE id = p_player_id;
+    DELETE FROM profiles WHERE id = p_offline_player_id;
 
-    SELECT json_build_object('success', TRUE, 'deleted_player_id', p_player_id) INTO v_result;
+    SELECT json_build_object('success', TRUE, 'deleted_player_id', p_offline_player_id) INTO v_result;
     RETURN v_result;
 END;
 $$;
