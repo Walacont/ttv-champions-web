@@ -380,8 +380,18 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
 
                 if (error) throw error;
 
+                // Prüfen ob Löschung erfolgreich war
+                if (data && data.success === false) {
+                    throw new Error(data.error || 'Der Spieler konnte nicht gelöscht werden.');
+                }
+
                 alert('Spieler gelöscht.');
                 closePlayerDetailPanels();
+
+                // Spielerliste aktualisieren
+                if (storedSupabase && storedClubId) {
+                    loadPlayerList(storedClubId, storedSupabase, storedSetUnsubscribe || (() => {}), storedUserData);
+                }
             } catch (error) {
                 console.error('Fehler beim Löschen des Spielers:', error);
                 alert('Fehler: Der Spieler konnte nicht gelöscht werden. ' + (error.message || ''));
