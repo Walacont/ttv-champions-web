@@ -21,6 +21,10 @@ BEGIN
     UPDATE invitation_codes SET player_id = NULL
     WHERE player_id = p_offline_player_id;
 
+    -- Delete event invitations for this player
+    DELETE FROM event_invitations
+    WHERE user_id = p_offline_player_id;
+
     -- Only delete if the profile exists and is marked as offline
     DELETE FROM profiles
     WHERE id = p_offline_player_id

@@ -113,6 +113,7 @@ BEGIN
     DELETE FROM profile_club_sports WHERE user_id = p_offline_player_id;
     DELETE FROM user_sport_stats WHERE user_id = p_offline_player_id;
     DELETE FROM invitation_codes WHERE player_id = p_offline_player_id;
+    DELETE FROM event_invitations WHERE user_id = p_offline_player_id;
 
     -- Delete the player profile
     DELETE FROM profiles WHERE id = p_offline_player_id;
