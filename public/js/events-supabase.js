@@ -1382,20 +1382,15 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
         const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
 
-        for (const playerId of newAttendees) {
-            await awardEventAttendancePoints(
-                playerId,
-                event,
-                totalExercisePoints
-            );
-        }
+        // Punkte parallel vergeben für bessere Performance
+        await Promise.all(newAttendees.map(playerId =>
+            awardEventAttendancePoints(playerId, event, totalExercisePoints)
+        ));
 
-        for (const playerId of removedAttendees) {
-            await deductEventAttendancePoints(
-                playerId,
-                event
-            );
-        }
+        // Punkte parallel abziehen
+        await Promise.all(removedAttendees.map(playerId =>
+            deductEventAttendancePoints(playerId, event)
+        ));
 
         const updatedPointsAwardedTo = [
             ...previouslyAwardedTo.filter(id => presentUserIds.includes(id)),
