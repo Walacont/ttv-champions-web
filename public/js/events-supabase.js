@@ -1076,13 +1076,25 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     ${isPastOrToday && isCoach ? `
                     <!-- Attendance Tracking for Coaches -->
                     <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                            </svg>
-                            Anwesenheit erfassen
-                        </h3>
-                        <p class="text-sm text-gray-500 mb-4">Markiere die Teilnehmer, die anwesend waren:</p>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">
+                                <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                </svg>
+                                Anwesenheit erfassen
+                            </h3>
+                            <span id="event-attendance-count" class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">${presentIds.length} / ${attendeeList.length}</span>
+                        </div>
+                        <div class="flex items-center gap-3 mb-4">
+                            <p class="text-sm text-gray-500 flex-1">Markiere die Teilnehmer, die anwesend waren:</p>
+                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = true); window.updateEventAttendanceCount();" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                                Alle
+                            </button>
+                            <span class="text-gray-300">|</span>
+                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = false); window.updateEventAttendanceCount();" class="text-xs text-gray-500 hover:text-gray-700 font-medium">
+                                Keine
+                            </button>
+                        </div>
 
                         <div class="space-y-2 max-h-64 overflow-y-auto" id="event-attendance-list">
                             ${attendeeList.length > 0 ? attendeeList.map(inv => {
@@ -1100,6 +1112,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                                         <input type="checkbox"
                                                class="event-attendance-checkbox w-5 h-5 text-indigo-600 rounded"
                                                data-user-id="${inv.user_id}"
+                                               onchange="window.updateEventAttendanceCount()"
                                                ${isPresent ? 'checked' : ''}>
                                         <span class="flex-1 font-medium text-gray-900">${name}</span>
                                         ${statusBadge}
@@ -1233,6 +1246,17 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         console.error('[Events] Error loading event details:', error);
         alert('Fehler beim Laden der Event-Details');
     }
+};
+
+/**
+ * Aktualisiert den Anwesenheitszähler im Event-Modal
+ */
+window.updateEventAttendanceCount = function() {
+    const countEl = document.getElementById('event-attendance-count');
+    if (!countEl) return;
+    const allCheckboxes = document.querySelectorAll('.event-attendance-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
+    countEl.textContent = `${checkedCheckboxes.length} / ${allCheckboxes.length}`;
 };
 
 /**
