@@ -866,55 +866,45 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         if (invError) console.warn('[Events] Could not load invitations:', invError);
 
-        // Wenn keine Einladungen vorhanden, lade Club-Mitglieder für Anwesenheitserfassung
-        let attendeeList = invitations || [];
+        // Lade immer alle aktuellen Club-Mitglieder für Anwesenheitserfassung
+        let attendeeList = [];
         let coachList = [];
 
-        if (attendeeList.length === 0 && currentUserData?.clubId) {
-            const { data: clubMembers } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, subgroup_ids, role')
-                .eq('club_id', currentUserData.clubId)
-                .in('role', ['player', 'coach', 'head_coach'])
-                .order('last_name', { ascending: true });
+        const { data: clubMembers } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, subgroup_ids, role')
+            .eq('club_id', currentUserData?.clubId)
+            .in('role', ['player', 'coach', 'head_coach'])
+            .order('last_name', { ascending: true });
 
-            if (clubMembers) {
-                // Filtere nach Zielgruppe falls gesetzt
-                let filteredMembers = clubMembers;
-                if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
-                    filteredMembers = clubMembers.filter(m =>
-                        m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg)) ||
-                        m.role === 'coach' || m.role === 'head_coach'
-                    );
-                }
-
-                // Spieler und Trainer trennen
-                const players = filteredMembers.filter(m => m.role === 'player');
-                const coaches = filteredMembers.filter(m => m.role === 'coach' || m.role === 'head_coach');
-
-                attendeeList = players.map(m => ({
-                    user_id: m.id,
-                    status: 'none',
-                    role: 'player',
-                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
-                }));
-
-                coachList = coaches.map(m => ({
-                    user_id: m.id,
-                    role: m.role,
-                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
-                }));
+        if (clubMembers) {
+            // Filtere nach Zielgruppe falls gesetzt
+            let filteredMembers = clubMembers;
+            if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
+                filteredMembers = clubMembers.filter(m =>
+                    m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg)) ||
+                    m.role === 'coach' || m.role === 'head_coach'
+                );
             }
-        } else {
-            // Lade Trainer separat wenn Einladungen existieren
-            const { data: coaches } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, role')
-                .eq('club_id', currentUserData.clubId)
-                .in('role', ['coach', 'head_coach'])
-                .order('last_name', { ascending: true });
 
-            coachList = (coaches || []).map(m => ({
+            // Spieler und Trainer trennen
+            const players = filteredMembers.filter(m => m.role === 'player');
+            const coaches = filteredMembers.filter(m => m.role === 'coach' || m.role === 'head_coach');
+
+            // Einladungs-Status aus existierenden Einladungen übernehmen
+            const invitationMap = new Map();
+            (invitations || []).forEach(inv => {
+                invitationMap.set(inv.user_id, inv.status);
+            });
+
+            attendeeList = players.map(m => ({
+                user_id: m.id,
+                status: invitationMap.get(m.id) || 'none',
+                role: 'player',
+                profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+            }));
+
+            coachList = coaches.map(m => ({
                 user_id: m.id,
                 role: m.role,
                 profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
