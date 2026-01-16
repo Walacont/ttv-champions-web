@@ -1382,15 +1382,22 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
         const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
 
-        // Punkte parallel vergeben für bessere Performance
-        await Promise.all(newAttendees.map(playerId =>
-            awardEventAttendancePoints(playerId, event, totalExercisePoints)
-        ));
+        // Punkte in Batches vergeben (5 gleichzeitig) um Netzwerküberlastung zu vermeiden
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < newAttendees.length; i += BATCH_SIZE) {
+            const batch = newAttendees.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(playerId =>
+                awardEventAttendancePoints(playerId, event, totalExercisePoints)
+            ));
+        }
 
-        // Punkte parallel abziehen
-        await Promise.all(removedAttendees.map(playerId =>
-            deductEventAttendancePoints(playerId, event)
-        ));
+        // Punkte in Batches abziehen
+        for (let i = 0; i < removedAttendees.length; i += BATCH_SIZE) {
+            const batch = removedAttendees.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(playerId =>
+                deductEventAttendancePoints(playerId, event)
+            ));
+        }
 
         const updatedPointsAwardedTo = [
             ...previouslyAwardedTo.filter(id => presentUserIds.includes(id)),
