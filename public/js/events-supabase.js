@@ -1137,13 +1137,11 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             </h3>
                             <span id="event-attendance-count" class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">${presentIds.length} / ${attendeeList.length}</span>
                         </div>
-                        <div class="flex items-center gap-3 mb-4">
-                            <p class="text-sm text-gray-500 flex-1">Markiere die Teilnehmer, die anwesend waren:</p>
-                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = true); window.updateEventAttendanceCount();" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                                Alle
+                        <div class="flex items-center gap-2 mb-4">
+                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = true); window.updateEventAttendanceCount();" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+                                Alle auswählen
                             </button>
-                            <span class="text-gray-300">|</span>
-                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = false); window.updateEventAttendanceCount();" class="text-xs text-gray-500 hover:text-gray-700 font-medium">
+                            <button type="button" onclick="document.querySelectorAll('.event-attendance-checkbox').forEach(cb => cb.checked = false); window.updateEventAttendanceCount();" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors">
                                 Keine
                             </button>
                         </div>
