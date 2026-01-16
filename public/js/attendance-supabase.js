@@ -516,15 +516,47 @@ export async function openAttendanceModalForSession(
             return;
         }
 
-        for (const player of uniquePlayers) {
+        // Anwesenheitsstatistik für jeden Spieler laden (letzte 3 Monate)
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        const startDateForStats = threeMonthsAgo.toISOString().split('T')[0];
+
+        const { data: attendanceHistory } = await supabase
+            .from('attendance')
+            .select('present_player_ids')
+            .eq('subgroup_id', subgroupId)
+            .gte('date', startDateForStats);
+
+        // Anwesenheitszähler pro Spieler berechnen
+        const attendanceCountMap = new Map();
+        (attendanceHistory || []).forEach(record => {
+            (record.present_player_ids || []).forEach(playerId => {
+                attendanceCountMap.set(playerId, (attendanceCountMap.get(playerId) || 0) + 1);
+            });
+        });
+
+        // Spieler nach Anwesenheitshäufigkeit sortieren (höchste zuerst)
+        const sortedPlayers = uniquePlayers.sort((a, b) => {
+            const countA = attendanceCountMap.get(a.id) || 0;
+            const countB = attendanceCountMap.get(b.id) || 0;
+            if (countB !== countA) {
+                return countB - countA; // Absteigende Sortierung nach Anwesenheit
+            }
+            // Bei gleicher Anzahl: nach Nachname sortieren
+            return (a.lastName || '').localeCompare(b.lastName || '');
+        });
+
+        for (const player of sortedPlayers) {
             const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
+            const attendanceCount = attendanceCountMap.get(player.id) || 0;
 
             const div = document.createElement('div');
-            div.className = 'flex items-center p-2 rounded-md';
+            div.className = 'flex items-center p-2 rounded-md hover:bg-gray-50';
             div.innerHTML = `
                 <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
-                ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
+                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700 flex-1">${player.firstName} ${player.lastName}</label>
+                <span class="text-xs text-gray-400 mr-2" title="Anwesenheiten in den letzten 3 Monaten">${attendanceCount}x</span>
+                ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Nicht bereit</span>' : ''}
             `;
             playerListContainer.appendChild(div);
         }
@@ -1013,10 +1045,10 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
 export function updateAttendanceCount() {
     const countEl = document.getElementById('attendance-count');
     if (!countEl) return;
-    const checkboxes = document
-        .getElementById('attendance-player-list')
-        .querySelectorAll('input[type="checkbox"]:checked');
-    countEl.textContent = `${checkboxes.length} Spieler anwesend`;
+    const playerList = document.getElementById('attendance-player-list');
+    const allCheckboxes = playerList.querySelectorAll('input[type="checkbox"]');
+    const checkedCheckboxes = playerList.querySelectorAll('input[type="checkbox"]:checked');
+    countEl.textContent = `${checkedCheckboxes.length} / ${allCheckboxes.length}`;
 }
 
 /**

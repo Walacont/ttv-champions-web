@@ -945,11 +945,18 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         let attendanceData = null;
         eventExercises = [];
         if (isPastOrToday) {
-            const { data: attendance, error: attendanceError } = await supabase
+            // Für wiederkehrende Events: Anwesenheit pro Termin (occurrence_date) laden
+            let attendanceQuery = supabase
                 .from('event_attendance')
                 .select('*')
-                .eq('event_id', eventId)
-                .maybeSingle();
+                .eq('event_id', eventId);
+
+            // Bei wiederkehrenden Events nach spezifischem Datum filtern
+            if (occurrenceDate) {
+                attendanceQuery = attendanceQuery.eq('occurrence_date', occurrenceDate);
+            }
+
+            const { data: attendance, error: attendanceError } = await attendanceQuery.maybeSingle();
 
             if (attendanceError) {
                 console.warn('[Events] Could not load attendance:', attendanceError);
@@ -1162,7 +1169,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     </div>
 
                     <button
-                        onclick="window.saveEventAttendance('${eventId}')"
+                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}')"
                         class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors">
                         Alles speichern
                     </button>
@@ -1231,8 +1238,9 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 /**
  * Speichert Anwesenheit und Übungen inkl. Punkte-/Streak-Logik
  * @param {string} eventId - Event ID
+ * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
  */
-window.saveEventAttendance = async function(eventId) {
+window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
     try {
         const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
         const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
@@ -1263,11 +1271,17 @@ window.saveEventAttendance = async function(eventId) {
             }
         });
 
-        const { data: existing, error: existingError } = await supabase
+        // Für wiederkehrende Events: Anwesenheit pro Termin (occurrence_date) suchen
+        let existingQuery = supabase
             .from('event_attendance')
             .select('id, present_user_ids, points_awarded_to')
-            .eq('event_id', eventId)
-            .maybeSingle();
+            .eq('event_id', eventId);
+
+        if (occurrenceDate) {
+            existingQuery = existingQuery.eq('occurrence_date', occurrenceDate);
+        }
+
+        const { data: existing, error: existingError } = await existingQuery.maybeSingle();
 
         if (existingError) {
             console.warn('[Events] Could not load existing attendance:', existingError);
@@ -1313,16 +1327,23 @@ window.saveEventAttendance = async function(eventId) {
 
             if (error) throw error;
         } else {
+            const insertData = {
+                event_id: eventId,
+                present_user_ids: presentUserIds,
+                coach_hours: coachHours,
+                completed_exercises: exerciseData,
+                points_awarded_to: updatedPointsAwardedTo,
+                created_at: new Date().toISOString()
+            };
+
+            // occurrence_date nur hinzufügen wenn vorhanden (für wiederkehrende Events)
+            if (occurrenceDate) {
+                insertData.occurrence_date = occurrenceDate;
+            }
+
             const { error } = await supabase
                 .from('event_attendance')
-                .insert({
-                    event_id: eventId,
-                    present_user_ids: presentUserIds,
-                    coach_hours: coachHours,
-                    completed_exercises: exerciseData,
-                    points_awarded_to: updatedPointsAwardedTo,
-                    created_at: new Date().toISOString()
-                });
+                .insert(insertData);
 
             if (error) throw error;
         }
