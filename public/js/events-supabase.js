@@ -922,13 +922,15 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         }
 
         // Anwesenheitsstatistik für jeden Spieler laden (letzte 3 Monate) für Sortierung
+        // Nur Events dieses Clubs über Join filtern
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
         const startDateForStats = threeMonthsAgo.toISOString().split('T')[0];
 
         const { data: eventAttendanceHistory } = await supabase
             .from('event_attendance')
-            .select('present_user_ids, created_at')
+            .select('present_user_ids, events!inner(club_id)')
+            .eq('events.club_id', event.club_id)
             .gte('created_at', startDateForStats);
 
         // Anwesenheitszähler pro Spieler berechnen
