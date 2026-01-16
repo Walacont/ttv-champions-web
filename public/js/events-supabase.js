@@ -922,23 +922,47 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         }
 
         // Anwesenheitsstatistik für jeden Spieler laden (letzte 3 Monate) für Sortierung
-        // Nur Events dieses Clubs über Join filtern
+        // Bei untergruppen-spezifischen Events nur diese Untergruppen zählen
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
         const startDateForStats = threeMonthsAgo.toISOString().split('T')[0];
 
-        const { data: eventAttendanceHistory } = await supabase
+        let eventAttendanceQuery = supabase
             .from('event_attendance')
-            .select('present_user_ids, events!inner(club_id)')
+            .select('present_user_ids, events!inner(club_id, target_type, target_subgroup_ids)')
             .eq('events.club_id', event.club_id)
             .gte('created_at', startDateForStats);
 
+        const { data: eventAttendanceHistory } = await eventAttendanceQuery;
+
         // Anwesenheitszähler pro Spieler berechnen
+        // Bei untergruppen-spezifischen Events nur passende Events zählen
         const attendanceCountMap = new Map();
+        const targetSubgroups = event.target_subgroup_ids || [];
+        const isSubgroupSpecific = event.target_type === 'subgroups' && targetSubgroups.length > 0;
+
         (eventAttendanceHistory || []).forEach(record => {
-            (record.present_user_ids || []).forEach(userId => {
-                attendanceCountMap.set(userId, (attendanceCountMap.get(userId) || 0) + 1);
-            });
+            // Nur zählen wenn: Event ist vereinsweit ODER hat gleiche Untergruppen
+            const recordSubgroups = record.events?.target_subgroup_ids || [];
+            const recordIsClubWide = record.events?.target_type !== 'subgroups' || recordSubgroups.length === 0;
+
+            let shouldCount = false;
+            if (!isSubgroupSpecific) {
+                // Aktuelles Event ist vereinsweit -> alle zählen
+                shouldCount = true;
+            } else if (recordIsClubWide) {
+                // Record ist vereinsweit -> auch zählen für Untergruppen-Events
+                shouldCount = true;
+            } else {
+                // Beide sind untergruppen-spezifisch -> nur wenn Überschneidung
+                shouldCount = recordSubgroups.some(sg => targetSubgroups.includes(sg));
+            }
+
+            if (shouldCount) {
+                (record.present_user_ids || []).forEach(userId => {
+                    attendanceCountMap.set(userId, (attendanceCountMap.get(userId) || 0) + 1);
+                });
+            }
         });
 
         // Spieler nach Anwesenheitshäufigkeit sortieren (höchste zuerst)
@@ -1138,7 +1162,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             ${attendeeList.length > 0 ? attendeeList.map(inv => {
                                 const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
                                 const isPresent = presentIds.includes(inv.user_id);
-                                const attendanceCount = inv.attendanceCount || 0;
                                 const statusBadge = inv.status === 'accepted'
                                     ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Zugesagt</span>'
                                     : inv.status === 'rejected' || inv.status === 'declined'
@@ -1154,7 +1177,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                                                onchange="window.updateEventAttendanceCount()"
                                                ${isPresent ? 'checked' : ''}>
                                         <span class="flex-1 font-medium text-gray-900">${name}</span>
-                                        <span class="text-xs text-gray-400 mr-2" title="Anwesenheiten in den letzten 3 Monaten">${attendanceCount}x</span>
                                         ${statusBadge}
                                     </label>
                                 `;
