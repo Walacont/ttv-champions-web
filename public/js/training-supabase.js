@@ -422,11 +422,10 @@ export async function cancelTrainingSession(sessionId) {
                     });
 
                     await supabase.from('xp_history').insert({
-                        player_id: playerId,
+                        user_id: playerId,
                         xp: -xpToDeduct,
                         reason: `Training abgesagt am ${formattedDate} (${xpToDeduct} XP zurueckgegeben) - ${subgroupName}`,
-                        timestamp: new Date().toISOString(),
-                        awarded_by: 'System (Training abgesagt)',
+                        source: 'training_cancelled',
                     });
 
                     await supabase

@@ -856,11 +856,10 @@ async function awardAttendancePoints(
     }
 
     const { error: xpError } = await supabase.from('xp_history').insert({
-        player_id: playerId,
+        user_id: playerId,
         xp: pointsToAdd,
         reason,
-        timestamp: now,
-        awarded_by: 'System (Anwesenheit)',
+        source: 'attendance',
     });
 
     if (xpError) {
@@ -942,11 +941,10 @@ async function deductAttendancePoints(
     });
 
     await supabase.from('xp_history').insert({
-        player_id: playerId,
+        user_id: playerId,
         xp: -pointsToDeduct,
         reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
-        timestamp: correctionTime,
-        awarded_by: 'System (Anwesenheit)',
+        source: 'attendance_correction',
     });
 }
 

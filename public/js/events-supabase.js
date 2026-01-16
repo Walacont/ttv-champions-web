@@ -1654,11 +1654,10 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     }
 
     const { error: xpError } = await supabase.from('xp_history').insert({
-        player_id: playerId,
+        user_id: playerId,
         xp: totalPoints,
         reason,
-        timestamp: now,
-        awarded_by: 'System (Veranstaltung)',
+        source: 'event_attendance',
     });
 
     if (xpError) {
@@ -1743,11 +1742,10 @@ async function deductEventAttendancePoints(playerId, event) {
     });
 
     await supabase.from('xp_history').insert({
-        player_id: playerId,
+        user_id: playerId,
         xp: -pointsToDeduct,
         reason,
-        timestamp: correctionTime,
-        awarded_by: 'System (Veranstaltung)',
+        source: 'event_attendance_correction',
     });
 
     // Streak um 1 verringern (nicht löschen) - nur bei Trainings
@@ -1838,11 +1836,10 @@ async function revokeEventAttendancePoints(eventId, event) {
             });
 
             await supabase.from('xp_history').insert({
-                player_id: playerId,
+                user_id: playerId,
                 xp: -pointsToDeduct,
                 reason,
-                timestamp: correctionTime,
-                awarded_by: 'System (Veranstaltung gelöscht)',
+                source: 'event_deleted',
             });
 
             // Streak um 1 verringern (nicht löschen) - nur bei Trainings
