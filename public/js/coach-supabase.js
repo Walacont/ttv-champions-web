@@ -868,6 +868,22 @@ async function initializeCoachPage(userData) {
         }
     });
 
+    // "Alle auswählen" Button
+    document.getElementById('select-all-players-btn').addEventListener('click', () => {
+        const checkboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = true);
+        updateAttendanceCount();
+        updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
+    });
+
+    // "Keine" Button
+    document.getElementById('deselect-all-players-btn').addEventListener('click', () => {
+        const checkboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        updateAttendanceCount();
+        updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
+    });
+
     document
         .getElementById('player-a-select')
         .addEventListener('change', () => updateMatchUI(clubPlayers));
