@@ -1505,46 +1505,51 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
-        // Spieler-Untergruppen holen, um zu prüfen zu welchen Events er eingeladen war
-        const { data: playerProfile } = await supabase
-            .from('profiles')
-            .select('subgroup_ids')
-            .eq('id', playerId)
-            .single();
-        const playerSubgroups = playerProfile?.subgroup_ids || [];
+        // Einfachere Logik: Lade direkt die letzte Anwesenheit aus event_attendance
+        // für Trainings-Events dieser Untergruppe(n)
+        const { data: lastAttendances } = await supabase
+            .from('event_attendance')
+            .select(`
+                present_user_ids,
+                occurrence_date,
+                created_at,
+                events!inner(
+                    id,
+                    event_category,
+                    target_subgroup_ids,
+                    start_date
+                )
+            `)
+            .eq('events.club_id', event.club_id)
+            .eq('events.event_category', 'training')
+            .order('created_at', { ascending: false })
+            .limit(20);
 
-        // Letzte Trainings holen (mehr als 1, um das richtige zu finden)
-        const { data: previousEvents } = await supabase
-            .from('events')
-            .select('id, start_date, target_type, target_subgroup_ids')
-            .eq('club_id', event.club_id)
-            .eq('event_category', 'training')
-            .lt('start_date', date)
-            .order('start_date', { ascending: false })
-            .limit(10);
+        // Finde die letzte Anwesenheit VOR dem aktuellen Event-Datum
+        // die für eine passende Untergruppe ist
+        const targetSubgroups = event.target_subgroup_ids || [];
+        let lastRelevantAttendance = null;
 
-        // Finde das letzte Event, zu dem der Spieler EINGELADEN war
-        let lastInvitedEvent = null;
-        if (previousEvents) {
-            for (const prevEvent of previousEvents) {
-                const wasInvited = isPlayerInvitedToEvent(playerSubgroups, prevEvent);
-                if (wasInvited) {
-                    lastInvitedEvent = prevEvent;
-                    break;
-                }
+        for (const att of (lastAttendances || [])) {
+            const attDate = att.occurrence_date || att.events?.start_date;
+            if (!attDate || attDate >= date) continue;
+
+            // Prüfe ob die Untergruppen übereinstimmen
+            const attSubgroups = att.events?.target_subgroup_ids || [];
+            const isClubWide = attSubgroups.length === 0;
+            const hasOverlap = isClubWide || targetSubgroups.length === 0 ||
+                attSubgroups.some(sg => targetSubgroups.includes(sg));
+
+            if (hasOverlap) {
+                lastRelevantAttendance = att;
+                break;
             }
         }
 
-        if (lastInvitedEvent) {
-            const { data: prevAttendance } = await supabase
-                .from('event_attendance')
-                .select('present_user_ids')
-                .eq('event_id', lastInvitedEvent.id)
-                .maybeSingle();
-
-            wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
+        if (lastRelevantAttendance) {
+            wasPresentAtLastEvent = lastRelevantAttendance.present_user_ids?.includes(playerId) || false;
         } else {
-            // Kein vorheriges Event gefunden, zu dem Spieler eingeladen war → Streak startet neu
+            // Kein vorheriges Training gefunden → Streak startet neu
             wasPresentAtLastEvent = true;
         }
 
