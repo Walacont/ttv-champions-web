@@ -1305,6 +1305,21 @@ window.updateEventAttendanceCount = function() {
  * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
  */
 window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
+    // Lade-Animation anzeigen
+    const saveBtn = document.querySelector('[onclick*="saveEventAttendance"]');
+    const originalBtnText = saveBtn?.innerHTML;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `
+            <svg class="animate-spin h-5 w-5 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Speichert...
+        `;
+        saveBtn.classList.add('opacity-75', 'cursor-not-allowed');
+    }
+
     try {
         const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
         const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
@@ -1419,6 +1434,13 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
         alert('Fehler beim Speichern: ' + error.message);
+
+        // Button wieder aktivieren bei Fehler
+        if (saveBtn && originalBtnText) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnText;
+            saveBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        }
     }
 };
 
