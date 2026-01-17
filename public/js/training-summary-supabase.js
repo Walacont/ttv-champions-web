@@ -4,7 +4,7 @@
  * Diese sind nur für den jeweiligen Spieler sichtbar
  */
 
-import { getSupabase } from './supabase-client.js';
+import { getSupabase } from './supabase-init.js';
 
 const supabase = getSupabase();
 
