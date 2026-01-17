@@ -99,14 +99,34 @@ export async function loadTodaysTrainings(userData, supabase) {
 
     try {
         // Lade alle Events von heute (inkl. wiederkehrende)
-        const { data: events, error } = await supabase
-            .from('events')
-            .select('*, event_attendance(id, present_user_ids)')
-            .eq('club_id', userData.clubId)
-            .or(`start_date.eq.${todayStr},and(event_type.eq.recurring,start_date.lte.${todayStr})`)
-            .order('start_time', { ascending: true });
+        // Safari-kompatibel: Zwei separate Abfragen statt komplexem .or() mit verschachteltem and()
+        const [singleEventsResult, recurringEventsResult] = await Promise.all([
+            // Einzelne Events von heute
+            supabase
+                .from('events')
+                .select('*, event_attendance(id, present_user_ids)')
+                .eq('club_id', userData.clubId)
+                .eq('start_date', todayStr)
+                .order('start_time', { ascending: true }),
+            // Wiederkehrende Events die vor oder an heute gestartet sind
+            supabase
+                .from('events')
+                .select('*, event_attendance(id, present_user_ids)')
+                .eq('club_id', userData.clubId)
+                .eq('event_type', 'recurring')
+                .lte('start_date', todayStr)
+                .order('start_time', { ascending: true })
+        ]);
 
-        if (error) throw error;
+        if (singleEventsResult.error) throw singleEventsResult.error;
+        if (recurringEventsResult.error) throw recurringEventsResult.error;
+
+        // Kombiniere und dedupliziere (falls ein Event beide Bedingungen erfüllt)
+        const eventMap = new Map();
+        [...(singleEventsResult.data || []), ...(recurringEventsResult.data || [])].forEach(e => {
+            eventMap.set(e.id, e);
+        });
+        const events = Array.from(eventMap.values());
 
         // Filtere wiederkehrende Events für heute (nach Wochentag)
         const todayDayOfWeek = today.getDay();
@@ -389,11 +409,12 @@ function getWeekNumber(date) {
  */
 async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all') {
     try {
+        // Safari-kompatibel: .or() statt .in() für Rollen
         const { data: playersData, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('club_id', userData.clubId)
-            .in('role', ['player', 'coach', 'head_coach']);
+            .or('role.eq.player,role.eq.coach,role.eq.head_coach');
 
         if (error) throw error;
 
@@ -630,11 +651,12 @@ function renderRankDistributionChart(players) {
  */
 async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = 'all') {
     try {
+        // Safari-kompatibel: .or() statt .in() für Rollen
         const { data: playersData, error: playersError } = await supabase
             .from('profiles')
             .select('*')
             .eq('club_id', userData.clubId)
-            .in('role', ['player', 'coach', 'head_coach']);
+            .or('role.eq.player,role.eq.coach,role.eq.head_coach');
 
         if (playersError) throw playersError;
 

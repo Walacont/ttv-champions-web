@@ -63,18 +63,18 @@ async function getTrainingDates(supabase, playerId, clubId, since) {
     try {
         const sinceStr = since.toISOString().split('T')[0]; // YYYY-MM-DD
 
+        // Safari-kompatibel: Ohne .contains(), stattdessen client-side filtern
         const { data, error } = await supabase
             .from('attendance')
             .select('date, present_player_ids')
             .eq('club_id', clubId)
-            .gte('date', sinceStr)
-            .contains('present_player_ids', [playerId]);
+            .gte('date', sinceStr);
 
         if (error) throw error;
 
-        // Termine extrahieren an denen Spieler anwesend war
+        // Termine extrahieren an denen Spieler anwesend war (client-side Filter)
         const dates = (data || [])
-            .filter(record => record.present_player_ids?.includes(playerId))
+            .filter(record => record.present_player_ids && record.present_player_ids.includes(playerId))
             .map(record => record.date);
 
         return dates.sort(); // Chronologisch sortieren
