@@ -208,10 +208,12 @@ function createExerciseCard(docSnap, exercise) {
  * Rendert Tag-Filter-Buttons für die Übungsliste
  */
 export function renderTagFilters(tags, exercises) {
-    const filterContainer = document.getElementById('tags-filter-container');
-    if (!filterContainer) return;
+    const oldContainer = document.getElementById('tags-filter-container');
+    if (!oldContainer) return;
 
-    filterContainer.innerHTML = '';
+    // Container klonen um alte Event Listener zu entfernen
+    const filterContainer = oldContainer.cloneNode(false);
+    oldContainer.parentNode.replaceChild(filterContainer, oldContainer);
 
     const allButton = document.createElement('button');
     allButton.className =
@@ -236,7 +238,7 @@ export function renderTagFilters(tags, exercises) {
         if (e.target.classList.contains('tag-filter-btn')) {
             const selectedTag = e.target.dataset.tag;
 
-            document.querySelectorAll('.tag-filter-btn').forEach(btn => {
+            filterContainer.querySelectorAll('.tag-filter-btn').forEach(btn => {
                 btn.classList.remove('active-filter', 'bg-indigo-600', 'text-white');
                 btn.classList.add('bg-gray-200', 'text-gray-700');
             });
@@ -324,10 +326,12 @@ export function loadAllExercises(db) {
  * Rendert Tag-Filter-Buttons für Coach-Übungsliste
  */
 function renderTagFiltersCoach(tags, exercises) {
-    const filterContainer = document.getElementById('tags-filter-container-coach');
-    if (!filterContainer) return;
+    const oldContainer = document.getElementById('tags-filter-container-coach');
+    if (!oldContainer) return;
 
-    filterContainer.innerHTML = '';
+    // Container klonen um alte Event Listener zu entfernen
+    const filterContainer = oldContainer.cloneNode(false);
+    oldContainer.parentNode.replaceChild(filterContainer, oldContainer);
 
     const allButton = document.createElement('button');
     allButton.className =
