@@ -171,26 +171,38 @@ async function loadTodaysTrainings(userData, supabase) {
 }
 
 /**
- * Bereich 1: Trainings-Analyse
+ * Bereich 1: Trainingsanwesenheiten-Analyse
  */
 async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 'all') {
     try {
-        let query = supabase
-            .from('attendance')
-            .select('*')
-            .eq('club_id', userData.clubId)
-            .order('date', { ascending: false });
+        // Lade Events mit Anwesenheitsdaten
+        const { data: eventsData, error: eventsError } = await supabase
+            .from('events')
+            .select('id, title, subgroup_id')
+            .eq('club_id', userData.clubId);
 
+        if (eventsError) throw eventsError;
+
+        // Filter nach Subgroup wenn nötig
+        let eventIds = (eventsData || []).map(e => e.id);
         if (currentSubgroupFilter !== 'all') {
-            query = query.eq('subgroup_id', currentSubgroupFilter);
+            eventIds = (eventsData || [])
+                .filter(e => e.subgroup_id === currentSubgroupFilter)
+                .map(e => e.id);
         }
 
-        const { data, error } = await query;
+        // Lade Anwesenheitsdaten von event_attendance
+        const { data, error } = await supabase
+            .from('event_attendance')
+            .select('*')
+            .in('event_id', eventIds.length > 0 ? eventIds : ['no-events'])
+            .order('occurrence_date', { ascending: false });
+
         if (error) throw error;
 
         const attendanceData = (data || []).map(record => ({
-            date: new Date(record.date),
-            count: record.present_player_ids ? record.present_player_ids.length : 0,
+            date: new Date(record.occurrence_date || record.created_at),
+            count: record.present_user_ids ? record.present_user_ids.length : 0,
         }));
 
         const now = new Date();
@@ -576,25 +588,37 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
             );
         }
 
-        let attendanceQuery = supabase
-            .from('attendance')
-            .select('*')
-            .eq('club_id', userData.clubId)
-            .order('date', { ascending: false })
-            .limit(50);
+        // Lade Events für Club
+        const { data: eventsData, error: eventsError } = await supabase
+            .from('events')
+            .select('id, subgroup_id')
+            .eq('club_id', userData.clubId);
 
+        if (eventsError) throw eventsError;
+
+        // Filter nach Subgroup wenn nötig
+        let eventIds = (eventsData || []).map(e => e.id);
         if (currentSubgroupFilter !== 'all') {
-            attendanceQuery = attendanceQuery.eq('subgroup_id', currentSubgroupFilter);
+            eventIds = (eventsData || [])
+                .filter(e => e.subgroup_id === currentSubgroupFilter)
+                .map(e => e.id);
         }
 
-        const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+        // Lade Anwesenheitsdaten von event_attendance
+        const { data: attendanceData, error: attendanceError } = await supabase
+            .from('event_attendance')
+            .select('*')
+            .in('event_id', eventIds.length > 0 ? eventIds : ['no-events'])
+            .order('occurrence_date', { ascending: false })
+            .limit(50);
+
         if (attendanceError) throw attendanceError;
 
         const attendanceRecords = (attendanceData || []).map(a => ({
             id: a.id,
-            date: a.date,
-            presentPlayerIds: a.present_player_ids || [],
-            subgroupId: a.subgroup_id,
+            date: a.occurrence_date || a.created_at,
+            presentPlayerIds: a.present_user_ids || [],
+            subgroupId: eventsData?.find(e => e.id === a.event_id)?.subgroup_id,
         }));
 
         const playerStreaks = calculateStreaks(players, attendanceRecords);
