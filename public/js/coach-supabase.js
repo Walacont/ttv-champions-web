@@ -1577,7 +1577,7 @@ async function endSeasonCoach(seasonId) {
 
         // Aktivitätsfeed-Post für Saisonende erstellen
         const startDateFormatted = new Date(seasonData.start_date).toLocaleDateString('de-DE');
-        const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
+        const endDateFormatted = new Date().toLocaleDateString('de-DE'); // Aktuelles Datum (wann beendet wurde)
         const postContent = `Saison beendet!\n\n` +
             `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
             `Zeitraum war: ${startDateFormatted} - ${endDateFormatted}` +
