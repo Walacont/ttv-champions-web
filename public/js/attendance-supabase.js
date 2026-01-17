@@ -743,11 +743,20 @@ export async function handleAttendanceSave(
         feedbackEl.textContent = 'Anwesenheit erfolgreich gespeichert!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
+        // Modal schließen
         setTimeout(() => {
             document.getElementById('attendance-modal').classList.add('hidden');
             feedbackEl.textContent = '';
             renderCalendarCallback(currentCalendarDate);
-        }, 1500);
+
+            // Quick Points Dialog öffnen wenn Spieler anwesend waren
+            if (presentPlayerIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
+                const playersInSubgroup = clubPlayers.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
+                );
+                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData);
+            }
+        }, 1000);
     } catch (error) {
         console.error('Fehler beim Speichern der Anwesenheit:', error);
         feedbackEl.textContent = `Fehler: ${error.message}`;

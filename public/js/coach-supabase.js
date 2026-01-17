@@ -115,6 +115,7 @@ import {
     setupManualPartnerSystem,
 } from './points-management-supabase.js';
 import { loadLeaguesForSelector, checkAndResetClubSeason } from './season-supabase.js';
+import { initQuickPointsDialog } from './quick-points-supabase.js';
 import {
     initializeExercisePartnerSystemCoach,
     initializeChallengePartnerSystemCoach,
@@ -691,6 +692,9 @@ async function initializeCoachPage(userData) {
 
     // Für manuelle Punktevergabe
     setupManualPartnerSystem(supabase);
+
+    // Quick Points Dialog nach Anwesenheit
+    initQuickPointsDialog();
 
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();

@@ -257,23 +257,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
     try {
         switch (reasonType) {
-            case 'penalty':
-                const severity = document.getElementById('penalty-severity').value;
-                const penaltyReason = document.getElementById('penalty-reason').value;
-                if (!penaltyReason) throw new Error('Bitte einen Grund für die Strafe angeben.');
-
-                const penalties = {
-                    light: { points: -10, xp: -5 },
-                    medium: { points: -20, xp: -10 },
-                    severe: { points: -30, xp: -20 },
-                };
-
-                const penalty = penalties[severity];
-                points = penalty.points;
-                xpChange = penalty.xp;
-                reason = `🚫 Strafe: ${penaltyReason}`;
-                break;
-
             case 'challenge':
                 const cSelect = document.getElementById('challenge-select');
                 const cOption = cSelect.options[cSelect.selectedIndex];
@@ -708,17 +691,14 @@ export function handleReasonChange() {
     const value = document.getElementById('reason-select').value;
     const challengeContainer = document.getElementById('challenge-select-container');
     const exerciseContainer = document.getElementById('exercise-select-container');
-    const penaltyContainer = document.getElementById('penalty-container');
     const manualContainer = document.getElementById('manual-points-container');
     const milestoneContainer = document.getElementById('milestone-select-container');
 
     const challengeSelect = document.getElementById('challenge-select');
     const exerciseSelect = document.getElementById('exercise-select');
-    const penaltyReason = document.getElementById('penalty-reason');
 
     if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
     if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
-    if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
     if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
     if (milestoneContainer) milestoneContainer.classList.add('hidden');
 
@@ -735,14 +715,6 @@ export function handleReasonChange() {
             exerciseSelect.setAttribute('required', 'required');
         } else {
             exerciseSelect.removeAttribute('required');
-        }
-    }
-
-    if (penaltyReason) {
-        if (value === 'penalty') {
-            penaltyReason.setAttribute('required', 'required');
-        } else {
-            penaltyReason.removeAttribute('required');
         }
     }
 }

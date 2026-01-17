@@ -1708,7 +1708,6 @@
                                         <option value="">Grund wählen...</option>
                                         <option value="exercise">Übung abgeschlossen</option>
                                         <option value="challenge">Challenge gemeistert</option>
-                                        <option value="penalty">⚠️ Strafe vergeben</option>
                                         <option value="manual">Manuelle Vergabe</option>
                                     </select>
                                 </div>
@@ -1841,65 +1840,6 @@
                                         <div id="completion-status-text" class="space-y-2">
                                             <!-- Will be populated dynamically -->
                                         </div>
-                                    </div>
-                                </div>
-                                <div id="penalty-container" class="hidden space-y-4">
-                                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                                        <div class="flex">
-                                            <div class="flex-shrink-0">
-                                                <svg
-                                                    class="h-5 w-5 text-red-400"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fill-rule="evenodd"
-                                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                                        clip-rule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <div class="ml-3">
-                                                <p class="text-sm text-red-700">
-                                                    Strafen ziehen sowohl Saison-Punkte als auch XP
-                                                    ab!
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label
-                                            for="penalty-severity"
-                                            class="block text-sm font-medium text-gray-700"
-                                            >Schweregrad</label
-                                        >
-                                        <select
-                                            id="penalty-severity"
-                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md"
-                                        >
-                                            <option value="light">
-                                                ⚠️ Leicht (-10 Saison-Pkt, -5 XP)
-                                            </option>
-                                            <option value="medium">
-                                                ⚠️⚠️ Mittel (-20 Saison-Pkt, -10 XP)
-                                            </option>
-                                            <option value="severe">
-                                                ⚠️⚠️⚠️ Schwer (-30 Saison-Pkt, -20 XP)
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label
-                                            for="penalty-reason"
-                                            class="block text-sm font-medium text-gray-700"
-                                            >Grund der Strafe</label
-                                        >
-                                        <textarea
-                                            id="penalty-reason"
-                                            rows="3"
-                                            placeholder="z.B. Unsportliches Verhalten, Schläger geworfen"
-                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
-                                        ></textarea>
                                     </div>
                                 </div>
                                 <div id="manual-points-container" class="hidden space-y-4">
@@ -3129,6 +3069,176 @@
                     >
                         <i class="fas fa-random mr-2"></i> Paarungen erstellen
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Quick Points after Attendance -->
+        <div
+            id="quick-points-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">
+                        Punkte vergeben
+                    </h3>
+                    <button
+                        id="close-quick-points-modal"
+                        class="text-gray-400 hover:text-gray-600"
+                    >
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Player Selection -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Spieler auswählen (Mehrfachauswahl)
+                            </label>
+                            <span id="quick-points-player-count" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">0 ausgewählt</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <button type="button" id="quick-points-select-all" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded transition-colors">
+                                Alle
+                            </button>
+                            <button type="button" id="quick-points-select-none" class="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">
+                                Keine
+                            </button>
+                        </div>
+                        <div
+                            id="quick-points-player-list"
+                            class="border border-gray-300 rounded-md p-2 max-h-40 overflow-y-auto space-y-1"
+                        >
+                            <p class="text-sm text-gray-400">Keine Spieler vorhanden</p>
+                        </div>
+                    </div>
+
+                    <!-- Points Type Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Art der Punkte</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" id="quick-points-type-exercise" class="quick-points-type-btn px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
+                                Übung
+                            </button>
+                            <button type="button" id="quick-points-type-challenge" class="quick-points-type-btn px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
+                                Challenge
+                            </button>
+                            <button type="button" id="quick-points-type-manual" class="quick-points-type-btn px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-indigo-500 hover:bg-indigo-50 transition-colors">
+                                Manuell
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Exercise Selection (hidden by default) -->
+                    <div id="quick-points-exercise-container" class="hidden">
+                        <label for="quick-points-exercise-select" class="block text-sm font-medium text-gray-700">Übung auswählen</label>
+                        <select
+                            id="quick-points-exercise-select"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        >
+                            <option value="">Übung wählen...</option>
+                        </select>
+                        <!-- Milestone input for exercises -->
+                        <div id="quick-points-exercise-milestone" class="hidden mt-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                            <label class="block text-sm font-medium text-indigo-900 mb-1">Anzahl Wiederholungen</label>
+                            <input
+                                type="number"
+                                id="quick-points-exercise-count"
+                                min="1"
+                                placeholder="z.B. 10"
+                                class="block w-full px-3 py-2 text-base border-indigo-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                            />
+                            <p id="quick-points-exercise-milestone-info" class="mt-1 text-xs text-indigo-700"></p>
+                        </div>
+                    </div>
+
+                    <!-- Challenge Selection (hidden by default) -->
+                    <div id="quick-points-challenge-container" class="hidden">
+                        <label for="quick-points-challenge-select" class="block text-sm font-medium text-gray-700">Challenge auswählen</label>
+                        <select
+                            id="quick-points-challenge-select"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        >
+                            <option value="">Challenge wählen...</option>
+                        </select>
+                        <!-- Milestone input for challenges -->
+                        <div id="quick-points-challenge-milestone" class="hidden mt-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                            <label class="block text-sm font-medium text-indigo-900 mb-1">Anzahl Wiederholungen</label>
+                            <input
+                                type="number"
+                                id="quick-points-challenge-count"
+                                min="1"
+                                placeholder="z.B. 10"
+                                class="block w-full px-3 py-2 text-base border-indigo-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                            />
+                            <p id="quick-points-challenge-milestone-info" class="mt-1 text-xs text-indigo-700"></p>
+                        </div>
+                    </div>
+
+                    <!-- Manual Points (hidden by default) -->
+                    <div id="quick-points-manual-container" class="hidden space-y-3">
+                        <div>
+                            <label for="quick-points-manual-amount" class="block text-sm font-medium text-gray-700">Punkte (auch negativ möglich)</label>
+                            <input
+                                type="number"
+                                id="quick-points-manual-amount"
+                                placeholder="z.B. 10 oder -5"
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label for="quick-points-manual-reason" class="block text-sm font-medium text-gray-700">Begründung</label>
+                            <input
+                                type="text"
+                                id="quick-points-manual-reason"
+                                placeholder="z.B. Gute Leistung, Strafe für..."
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Points Preview -->
+                    <div id="quick-points-preview" class="hidden bg-gray-50 rounded-lg p-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Punkte pro Spieler:</span>
+                            <span id="quick-points-preview-amount" class="font-bold text-indigo-600">0 Punkte</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-sm text-gray-600">Ausgewählte Spieler:</span>
+                            <span id="quick-points-preview-players" class="font-medium text-gray-800">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            id="quick-points-skip-btn"
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                        >
+                            Überspringen
+                        </button>
+                        <button
+                            type="button"
+                            id="quick-points-submit-btn"
+                            class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            Punkte vergeben
+                        </button>
+                    </div>
+
+                    <p id="quick-points-feedback" class="text-sm font-medium text-center"></p>
                 </div>
             </div>
         </div>
