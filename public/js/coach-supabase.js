@@ -1480,11 +1480,11 @@ window.saveNewSeasonCoach = async function() {
         // Aktivitätsfeed-Post für Saisonstart erstellen
         const startDateFormatted = new Date(startDate).toLocaleDateString('de-DE');
         const endDateFormatted = new Date(endDate).toLocaleDateString('de-DE');
-        const postContent = `🏆 **Neue Saison gestartet!**\n\n` +
-            `Die Saison "${name}" hat begonnen!\n\n` +
-            `📅 **Zeitraum:** ${startDateFormatted} - ${endDateFormatted}\n` +
-            `🔄 **Alle Saison-Punkte wurden auf 0 zurückgesetzt.**\n\n` +
-            `Viel Erfolg an alle Spieler! 💪`;
+        const postContent = `Neue Saison gestartet!\n\n` +
+            `Die Saison "${name}" hat begonnen.\n\n` +
+            `Zeitraum: ${startDateFormatted} - ${endDateFormatted}\n` +
+            `Alle Saison-Punkte wurden auf 0 zurückgesetzt.\n\n` +
+            `Viel Erfolg an alle Spieler!`;
 
         await supabase.from('community_posts').insert({
             user_id: currentUserData.id,
@@ -1549,7 +1549,7 @@ async function endSeasonCoach(seasonId) {
         const { data: winners } = await winnerQuery;
         if (winners && winners.length > 0) {
             const winner = winners[0];
-            winnerInfo = `\n🥇 **Saison-Sieger/in:** ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten!\n`;
+            winnerInfo = `\nSaison-Sieger/in: ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten\n`;
         }
 
         // Saison-Punkte für alle Spieler im Club/Sport auf 0 setzen
@@ -1578,12 +1578,12 @@ async function endSeasonCoach(seasonId) {
         // Aktivitätsfeed-Post für Saisonende erstellen
         const startDateFormatted = new Date(seasonData.start_date).toLocaleDateString('de-DE');
         const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
-        const postContent = `🏁 **Saison beendet!**\n\n` +
+        const postContent = `Saison beendet!\n\n` +
             `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
-            `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}` +
+            `Zeitraum war: ${startDateFormatted} - ${endDateFormatted}` +
             winnerInfo +
-            `\n🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
-            `Danke an alle für die Teilnahme! 🎉`;
+            `\nAlle Saison-Punkte wurden zurückgesetzt.\n\n` +
+            `Danke an alle für die Teilnahme!`;
 
         await supabase.from('community_posts').insert({
             user_id: currentUserData.id,
