@@ -1261,29 +1261,28 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         </button>
                     </div>
 
-                    <button
-                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}', false)"
-                        class="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors">
-                        Anwesenheit speichern
-                    </button>
-                    <button
-                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}', true)"
-                        class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        Anwesenheit speichern & Punkte eintragen
-                    </button>
-                    ${attendanceData ? `
-                    <button
-                        onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
-                        class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Nur Punkte eintragen
-                    </button>
-                    ` : ''}
+                    <!-- Speichern-Bereich -->
+                    <div class="mt-6 space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" id="open-quick-points-checkbox" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
+                            <span class="text-gray-700 font-medium">Danach Punkte vergeben</span>
+                        </label>
+                        <button
+                            onclick="window.saveEventAttendanceWithCheckbox('${eventId}', '${displayDate}')"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors">
+                            Speichern
+                        </button>
+                        ${attendanceData ? `
+                        <button
+                            onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Nur Punkte eintragen
+                        </button>
+                        ` : ''}
+                    </div>
                     ` : ''}
 
                     ${!isPastOrToday ? `
@@ -1355,6 +1354,15 @@ window.updateEventAttendanceCount = function() {
     const allCheckboxes = document.querySelectorAll('.event-attendance-checkbox');
     const checkedCheckboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
     countEl.textContent = `${checkedCheckboxes.length} / ${allCheckboxes.length}`;
+};
+
+/**
+ * Wrapper-Funktion die den Checkbox-Status prüft
+ */
+window.saveEventAttendanceWithCheckbox = function(eventId, occurrenceDate = null) {
+    const checkbox = document.getElementById('open-quick-points-checkbox');
+    const openQuickPoints = checkbox?.checked || false;
+    window.saveEventAttendance(eventId, occurrenceDate, openQuickPoints);
 };
 
 /**
