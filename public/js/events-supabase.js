@@ -1463,9 +1463,10 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             window.refreshTodaysTrainings();
         }
 
-        // Training-Zusammenfassungen für anwesende Spieler erstellen (nur bei Trainings mit Punkten)
-        if (presentUserIds.length > 0 && totalExercisePoints > 0) {
+        // Training-Zusammenfassungen für anwesende Spieler erstellen
+        if (presentUserIds.length > 0) {
             const eventDate = occurrenceDate || event.start_date;
+            console.log('[Events] Creating training summaries for', presentUserIds.length, 'attendees, date:', eventDate);
             await createTrainingSummariesForAttendees(
                 event.club_id,
                 eventId,
