@@ -1517,7 +1517,7 @@ window.endSeasonConfirmCoach = function(seasonId) {
 };
 
 /**
- * Saison beenden (mit Punkte-Reset über RPC)
+ * Saison beenden (mit Punkte-Reset)
  */
 async function endSeasonCoach(seasonId) {
     try {
@@ -1528,53 +1528,69 @@ async function endSeasonCoach(seasonId) {
             .eq('id', seasonId)
             .single();
 
+        if (!seasonData) {
+            throw new Error('Saison nicht gefunden');
+        }
+
         // Gewinner/in VOR dem Reset ermitteln (höchste Saison-Punkte)
         let winnerInfo = '';
-        if (seasonData) {
-            let winnerQuery = supabase
-                .from('profiles')
-                .select('first_name, last_name, points')
-                .eq('club_id', seasonData.club_id)
-                .gt('points', 0)
-                .order('points', { ascending: false })
-                .limit(1);
+        let winnerQuery = supabase
+            .from('profiles')
+            .select('first_name, last_name, points')
+            .eq('club_id', seasonData.club_id)
+            .gt('points', 0)
+            .order('points', { ascending: false })
+            .limit(1);
 
-            if (seasonData.sport_id) {
-                winnerQuery = winnerQuery.eq('active_sport_id', seasonData.sport_id);
-            }
-
-            const { data: winners } = await winnerQuery;
-            if (winners && winners.length > 0) {
-                const winner = winners[0];
-                winnerInfo = `\n🥇 **Saison-Sieger/in:** ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten!\n`;
-            }
+        if (seasonData.sport_id) {
+            winnerQuery = winnerQuery.eq('active_sport_id', seasonData.sport_id);
         }
 
-        // RPC-Funktion verwenden, die auch die Saison-Punkte zurücksetzt
-        const { error } = await supabase.rpc('end_season', {
-            p_season_id: seasonId
-        });
+        const { data: winners } = await winnerQuery;
+        if (winners && winners.length > 0) {
+            const winner = winners[0];
+            winnerInfo = `\n🥇 **Saison-Sieger/in:** ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten!\n`;
+        }
 
-        if (error) throw error;
+        // Saison-Punkte für alle Spieler im Club/Sport auf 0 setzen
+        let resetQuery = supabase
+            .from('profiles')
+            .update({ points: 0 })
+            .eq('club_id', seasonData.club_id);
+
+        if (seasonData.sport_id) {
+            resetQuery = resetQuery.eq('active_sport_id', seasonData.sport_id);
+        }
+
+        const { error: resetError } = await resetQuery;
+        if (resetError) {
+            console.error('Error resetting points:', resetError);
+        }
+
+        // Saison als beendet markieren
+        const { error: updateError } = await supabase
+            .from('seasons')
+            .update({ is_active: false })
+            .eq('id', seasonId);
+
+        if (updateError) throw updateError;
 
         // Aktivitätsfeed-Post für Saisonende erstellen
-        if (seasonData) {
-            const startDateFormatted = new Date(seasonData.start_date).toLocaleDateString('de-DE');
-            const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
-            const postContent = `🏁 **Saison beendet!**\n\n` +
-                `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
-                `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}` +
-                winnerInfo +
-                `\n🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
-                `Danke an alle für die Teilnahme! 🎉`;
+        const startDateFormatted = new Date(seasonData.start_date).toLocaleDateString('de-DE');
+        const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
+        const postContent = `🏁 **Saison beendet!**\n\n` +
+            `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
+            `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}` +
+            winnerInfo +
+            `\n🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
+            `Danke an alle für die Teilnahme! 🎉`;
 
-            await supabase.from('community_posts').insert({
-                user_id: currentUserData.id,
-                club_id: seasonData.club_id,
-                content: postContent,
-                visibility: 'club'
-            });
-        }
+        await supabase.from('community_posts').insert({
+            user_id: currentUserData.id,
+            club_id: seasonData.club_id,
+            content: postContent,
+            visibility: 'club'
+        });
 
         closeSeasonModalCoach();
         alert('Saison beendet! Alle Saison-Punkte wurden zurückgesetzt.');
