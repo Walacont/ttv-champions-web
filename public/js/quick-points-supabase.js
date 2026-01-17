@@ -26,8 +26,11 @@ export function initQuickPointsDialog() {
     // Skip button
     document.getElementById('quick-points-skip-btn')?.addEventListener('click', closeQuickPointsModal);
 
-    // Submit button
-    document.getElementById('quick-points-submit-btn')?.addEventListener('click', handleQuickPointsSubmit);
+    // Submit button (Speichern & Schließen)
+    document.getElementById('quick-points-submit-btn')?.addEventListener('click', () => handleQuickPointsSubmit(true));
+
+    // Submit & Continue button (Speichern & Weiter)
+    document.getElementById('quick-points-submit-continue-btn')?.addEventListener('click', () => handleQuickPointsSubmit(false));
 
     // Select all/none buttons
     document.getElementById('quick-points-select-all')?.addEventListener('click', selectAllPlayers);
@@ -598,11 +601,11 @@ function updatePreview() {
 }
 
 /**
- * Aktualisiert den Submit-Button
+ * Aktualisiert die Submit-Buttons
  */
 function updateSubmitButton() {
     const submitBtn = document.getElementById('quick-points-submit-btn');
-    if (!submitBtn) return;
+    const submitContinueBtn = document.getElementById('quick-points-submit-continue-btn');
 
     const points = calculatePoints();
     const hasPlayers = selectedPlayerIds.size > 0;
@@ -635,26 +638,36 @@ function updateSubmitButton() {
         }
     }
 
-    submitBtn.disabled = !isValid;
+    if (submitBtn) submitBtn.disabled = !isValid;
+    if (submitContinueBtn) submitContinueBtn.disabled = !isValid;
 }
 
 /**
  * Behandelt das Absenden der Punkte
+ * @param {boolean} closeAfter - Ob das Modal nach dem Speichern geschlossen werden soll
  */
-async function handleQuickPointsSubmit() {
+async function handleQuickPointsSubmit(closeAfter = true) {
     const submitBtn = document.getElementById('quick-points-submit-btn');
+    const submitContinueBtn = document.getElementById('quick-points-submit-continue-btn');
     const feedbackEl = document.getElementById('quick-points-feedback');
 
-    if (!submitBtn || selectedPlayerIds.size === 0) return;
+    if (selectedPlayerIds.size === 0) return;
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Wird vergeben...';
+    // Beide Buttons deaktivieren während des Speicherns
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wird vergeben...';
+    }
+    if (submitContinueBtn) {
+        submitContinueBtn.disabled = true;
+        submitContinueBtn.textContent = 'Wird vergeben...';
+    }
 
     const points = calculatePoints();
     if (points === 0) {
         feedbackEl.textContent = 'Keine Punkte zum Vergeben';
         feedbackEl.className = 'text-sm font-medium text-center text-red-600';
-        submitBtn.textContent = 'Punkte vergeben';
+        resetButtonTexts();
         updateSubmitButton();
         return;
     }
@@ -784,18 +797,98 @@ async function handleQuickPointsSubmit() {
             ? 'text-sm font-medium text-center text-green-600'
             : 'text-sm font-medium text-center text-orange-600';
 
-        // Modal nach kurzer Verzögerung schließen
-        setTimeout(() => {
-            closeQuickPointsModal();
-        }, 1500);
+        if (closeAfter) {
+            // Modal nach kurzer Verzögerung schließen
+            setTimeout(() => {
+                closeQuickPointsModal();
+            }, 1500);
+        } else {
+            // Formular zurücksetzen für weitere Eingaben
+            setTimeout(() => {
+                resetFormForContinue();
+                feedbackEl.textContent = '';
+            }, 1500);
+        }
 
     } catch (error) {
         console.error('[QuickPoints] Error awarding points:', error);
         feedbackEl.textContent = `Fehler: ${error.message}`;
         feedbackEl.className = 'text-sm font-medium text-center text-red-600';
-        submitBtn.textContent = 'Punkte vergeben';
+        resetButtonTexts();
         updateSubmitButton();
     }
+}
+
+/**
+ * Setzt die Button-Texte zurück
+ */
+function resetButtonTexts() {
+    const submitBtn = document.getElementById('quick-points-submit-btn');
+    const submitContinueBtn = document.getElementById('quick-points-submit-continue-btn');
+    if (submitBtn) submitBtn.textContent = 'Speichern & Schließen';
+    if (submitContinueBtn) submitContinueBtn.textContent = 'Speichern & Weiter';
+}
+
+/**
+ * Setzt das Formular zurück für weitere Punktevergabe
+ */
+function resetFormForContinue() {
+    // Button-Texte zurücksetzen
+    resetButtonTexts();
+
+    // Spieler-Auswahl zurücksetzen (alle abwählen)
+    selectedPlayerIds.clear();
+    document.querySelectorAll('.quick-points-player-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('label')?.classList.remove('bg-indigo-100', 'border-indigo-500');
+        cb.closest('label')?.classList.add('bg-white', 'border-gray-200');
+    });
+
+    // Punkte-Typ-Auswahl zurücksetzen
+    selectedPointsType = null;
+    document.querySelectorAll('[id^="quick-points-type-"]').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-gray-100', 'text-gray-700');
+    });
+
+    // Alle Eingabefelder ausblenden
+    document.getElementById('quick-points-exercise-container')?.classList.add('hidden');
+    document.getElementById('quick-points-challenge-container')?.classList.add('hidden');
+    document.getElementById('quick-points-manual-container')?.classList.add('hidden');
+
+    // Eingabefelder zurücksetzen
+    const exerciseSelect = document.getElementById('quick-points-exercise-select');
+    if (exerciseSelect) exerciseSelect.selectedIndex = 0;
+
+    const challengeSelect = document.getElementById('quick-points-challenge-select');
+    if (challengeSelect) challengeSelect.selectedIndex = 0;
+
+    const manualAmount = document.getElementById('quick-points-manual-amount');
+    if (manualAmount) manualAmount.value = '';
+
+    const manualReason = document.getElementById('quick-points-manual-reason');
+    if (manualReason) manualReason.value = '';
+
+    const exerciseCount = document.getElementById('quick-points-exercise-count');
+    if (exerciseCount) exerciseCount.value = '';
+
+    const challengeCount = document.getElementById('quick-points-challenge-count');
+    if (challengeCount) challengeCount.value = '';
+
+    // Milestone-Container ausblenden
+    document.getElementById('quick-points-exercise-milestone')?.classList.add('hidden');
+    document.getElementById('quick-points-challenge-milestone')?.classList.add('hidden');
+
+    // Vorschau zurücksetzen
+    const previewAmount = document.getElementById('quick-points-preview-amount');
+    if (previewAmount) previewAmount.textContent = '+0 Punkte';
+    document.getElementById('quick-points-preview')?.classList.add('hidden');
+
+    // Spieler-Count aktualisieren
+    updatePlayerCount();
+
+    // Buttons aktualisieren
+    updateSubmitButton();
 }
 
 // Export für globale Verfügbarkeit

@@ -1262,10 +1262,28 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     </div>
 
                     <button
-                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}')"
-                        class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors">
-                        Alles speichern
+                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}', false)"
+                        class="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-colors">
+                        Anwesenheit speichern
                     </button>
+                    <button
+                        onclick="window.saveEventAttendance('${eventId}', '${displayDate}', true)"
+                        class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Anwesenheit speichern & Punkte eintragen
+                    </button>
+                    ${attendanceData ? `
+                    <button
+                        onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
+                        class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Nur Punkte eintragen
+                    </button>
+                    ` : ''}
                     ` : ''}
 
                     ${!isPastOrToday ? `
@@ -1343,10 +1361,11 @@ window.updateEventAttendanceCount = function() {
  * Speichert Anwesenheit und Übungen inkl. Punkte-/Streak-Logik
  * @param {string} eventId - Event ID
  * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
+ * @param {boolean} openQuickPoints - Ob nach dem Speichern das Quick Points Modal geöffnet werden soll
  */
-window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
+window.saveEventAttendance = async function(eventId, occurrenceDate = null, openQuickPoints = false) {
     // Lade-Animation anzeigen
-    const saveBtn = document.querySelector('[onclick*="saveEventAttendance"]');
+    const saveBtn = event?.target?.closest('button') || document.querySelector('[onclick*="saveEventAttendance"]');
     const originalBtnText = saveBtn?.innerHTML;
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -1473,8 +1492,8 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         document.getElementById('event-details-modal')?.remove();
         eventExercises = [];
 
-        // Quick Points Dialog öffnen wenn Spieler anwesend waren
-        if (presentUserIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
+        // Quick Points Dialog öffnen wenn gewünscht und Spieler anwesend waren
+        if (openQuickPoints && presentUserIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
             // Lade Spieler für das Event
             const { data: playersData } = await supabase
                 .from('profiles')
@@ -1490,8 +1509,6 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             }));
 
             window.openQuickPointsModal(presentUserIds, players, currentUserData);
-        } else {
-            alert('Anwesenheit gespeichert!');
         }
 
     } catch (error) {
@@ -1504,6 +1521,55 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             saveBtn.innerHTML = originalBtnText;
             saveBtn.classList.remove('opacity-75', 'cursor-not-allowed');
         }
+    }
+};
+
+/**
+ * Öffnet das Quick Points Modal für ein Event (ohne Anwesenheit zu speichern)
+ * @param {string} eventId - Event ID
+ * @param {string} occurrenceDate - Datum des spezifischen Termins
+ */
+window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) {
+    try {
+        // Lade bestehende Anwesenheit
+        let attendanceQuery = supabase
+            .from('event_attendance')
+            .select('present_user_ids')
+            .eq('event_id', eventId);
+
+        if (occurrenceDate) {
+            attendanceQuery = attendanceQuery.eq('occurrence_date', occurrenceDate);
+        }
+
+        const { data: attendance } = await attendanceQuery.maybeSingle();
+        const presentUserIds = attendance?.present_user_ids || [];
+
+        if (presentUserIds.length === 0) {
+            alert('Keine Spieler als anwesend markiert.');
+            return;
+        }
+
+        // Modal schließen
+        document.getElementById('event-details-modal')?.remove();
+
+        // Spieler-Daten laden
+        const { data: playersData } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email, subgroup_ids')
+            .in('id', presentUserIds);
+
+        const players = (playersData || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            email: p.email,
+            subgroupIDs: p.subgroup_ids || []
+        }));
+
+        window.openQuickPointsModal(presentUserIds, players, currentUserData);
+    } catch (error) {
+        console.error('[Events] Error opening quick points:', error);
+        alert('Fehler: ' + error.message);
     }
 };
 
