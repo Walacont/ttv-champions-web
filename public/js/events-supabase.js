@@ -1263,23 +1263,34 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
                     <!-- Speichern-Bereich -->
                     <div class="mt-6 space-y-3">
-                        <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                            <input type="checkbox" id="open-quick-points-checkbox" class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
-                            <span class="text-gray-700 font-medium">Danach Punkte vergeben</span>
-                        </label>
                         <button
-                            onclick="window.saveEventAttendanceWithCheckbox('${eventId}', '${displayDate}')"
+                            id="save-attendance-btn"
+                            onclick="window.saveEventAttendance('${eventId}', '${displayDate}')"
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors">
                             Speichern
                         </button>
+                        <!-- Erfolgs-Banner (versteckt) -->
+                        <div id="attendance-success-banner" class="hidden bg-green-50 border border-green-200 rounded-xl p-4">
+                            <p class="text-green-800 font-medium text-center mb-3">Anwesenheit gespeichert!</p>
+                            <p class="text-green-700 text-sm text-center mb-3">Möchtest du jetzt Punkte vergeben?</p>
+                            <div class="flex gap-2">
+                                <button
+                                    onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
+                                    class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors">
+                                    Ja
+                                </button>
+                                <button
+                                    onclick="document.getElementById('event-details-modal')?.remove()"
+                                    class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-lg transition-colors">
+                                    Nein
+                                </button>
+                            </div>
+                        </div>
                         ${attendanceData ? `
                         <button
                             onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
-                            class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                            Nur Punkte eintragen
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-xl transition-colors">
+                            Punkte eintragen
                         </button>
                         ` : ''}
                     </div>
@@ -1357,21 +1368,11 @@ window.updateEventAttendanceCount = function() {
 };
 
 /**
- * Wrapper-Funktion die den Checkbox-Status prüft
- */
-window.saveEventAttendanceWithCheckbox = function(eventId, occurrenceDate = null) {
-    const checkbox = document.getElementById('open-quick-points-checkbox');
-    const openQuickPoints = checkbox?.checked || false;
-    window.saveEventAttendance(eventId, occurrenceDate, openQuickPoints);
-};
-
-/**
  * Speichert Anwesenheit und Übungen inkl. Punkte-/Streak-Logik
  * @param {string} eventId - Event ID
  * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
- * @param {boolean} openQuickPoints - Ob nach dem Speichern das Quick Points Modal geöffnet werden soll
  */
-window.saveEventAttendance = async function(eventId, occurrenceDate = null, openQuickPoints = false) {
+window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
     // Lade-Animation anzeigen
     const saveBtn = event?.target?.closest('button') || document.querySelector('[onclick*="saveEventAttendance"]');
     const originalBtnText = saveBtn?.innerHTML;
@@ -1496,32 +1497,24 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null, open
             if (error) throw error;
         }
 
-        // Modal schließen
-        document.getElementById('event-details-modal')?.remove();
-        eventExercises = [];
-
         // Heutige Trainings aktualisieren (falls auf Startseite)
         if (typeof window.refreshTodaysTrainings === 'function') {
             window.refreshTodaysTrainings();
         }
 
-        // Quick Points Dialog öffnen wenn gewünscht und Spieler anwesend waren
-        if (openQuickPoints && presentUserIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
-            // Lade Spieler für das Event
-            const { data: playersData } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, email, subgroup_ids')
-                .in('id', presentUserIds);
+        // Erfolgs-Banner anzeigen wenn Spieler anwesend waren
+        const successBanner = document.getElementById('attendance-success-banner');
+        const saveBtnEl = document.getElementById('save-attendance-btn');
 
-            const players = (playersData || []).map(p => ({
-                id: p.id,
-                firstName: p.first_name,
-                lastName: p.last_name,
-                email: p.email,
-                subgroupIDs: p.subgroup_ids || []
-            }));
-
-            window.openQuickPointsModal(presentUserIds, players, currentUserData);
+        if (presentUserIds.length > 0 && successBanner) {
+            // Speichern-Button ausblenden, Erfolgs-Banner anzeigen
+            if (saveBtnEl) saveBtnEl.classList.add('hidden');
+            successBanner.classList.remove('hidden');
+            eventExercises = [];
+        } else {
+            // Keine Spieler anwesend - Modal schließen
+            document.getElementById('event-details-modal')?.remove();
+            eventExercises = [];
         }
 
     } catch (error) {
