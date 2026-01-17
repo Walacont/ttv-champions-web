@@ -650,16 +650,25 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             const clubsMap = new Map();
             (clubsData || []).forEach(club => clubsMap.set(club.id, club));
 
-            let currentUserData = null;
-            if (currentUserId) {
-                const { data: userData } = await supabase
+            // Alle Spieler-IDs sammeln und in einer Abfrage laden
+            const allPlayerIds = new Set();
+            if (currentUserId) allPlayerIds.add(currentUserId);
+            (pairingsData || []).forEach(data => {
+                if (data.player1_id) allPlayerIds.add(data.player1_id);
+                if (data.player2_id) allPlayerIds.add(data.player2_id);
+            });
+
+            // Alle Profile auf einmal laden
+            const profilesMap = new Map();
+            if (allPlayerIds.size > 0) {
+                const { data: profilesData } = await supabase
                     .from('profiles')
                     .select('*')
-                    .eq('id', currentUserId)
-                    .single();
-                currentUserData = userData;
+                    .in('id', [...allPlayerIds]);
+                (profilesData || []).forEach(p => profilesMap.set(p.id, p));
             }
 
+            const currentUserData = currentUserId ? profilesMap.get(currentUserId) : null;
             const currentUserClub = currentUserData ? clubsMap.get(currentUserData.club_id) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
             const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach' || currentUserData.role === 'admin');
@@ -667,26 +676,8 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             const pairings = [];
 
             for (const data of pairingsData || []) {
-                let player1Data = null;
-                let player2Data = null;
-
-                if (data.player1_id) {
-                    const { data: p1 } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', data.player1_id)
-                        .single();
-                    player1Data = p1;
-                }
-
-                if (data.player2_id) {
-                    const { data: p2 } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', data.player2_id)
-                        .single();
-                    player2Data = p2;
-                }
+                const player1Data = data.player1_id ? profilesMap.get(data.player1_id) : null;
+                const player2Data = data.player2_id ? profilesMap.get(data.player2_id) : null;
 
                 // Sport-Filterung: Paarung muss für die angegebene Sportart sein
                 // sport_id der Paarung verwenden, NICHT active_sport_id der Spieler
