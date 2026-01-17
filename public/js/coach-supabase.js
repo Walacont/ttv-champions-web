@@ -128,7 +128,6 @@ import {
     handleEditSubgroupSubmit,
     closeEditSubgroupModal,
 } from './subgroups-management-supabase.js';
-import { initInvitationCodeManagement } from './invitation-code-management-supabase.js';
 import {
     initPlayerInvitationManagement,
     loadSubgroupsForOfflinePlayerForm,
@@ -369,8 +368,6 @@ async function initializeCoachPage(userData) {
             }
         });
     });
-
-    initInvitationCodeManagement(supabase, userData.clubId, userData.id);
 
     // Supabase-Instanz statt auth/functions übergeben
     initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id, userData.activeSportId);
