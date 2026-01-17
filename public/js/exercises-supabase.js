@@ -132,7 +132,7 @@ function mapExerciseFromSupabase(row) {
         points: row.xp_reward || row.points || 10,
         level: row.difficulty || row.level,
         difficulty: row.difficulty,
-        tags: row.category ? [row.category] : (row.tags || []),
+        tags: row.tags || [],
         visibility: row.visibility || 'global',
         clubId: row.club_id,
         createdBy: row.created_by,
