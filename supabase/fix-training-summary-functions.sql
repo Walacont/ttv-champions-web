@@ -97,38 +97,21 @@ SET search_path = public
 AS $$
 DECLARE
     v_post_id UUID;
+    v_post_club_id UUID;
     v_content TEXT;
     v_summary_data JSONB;
     v_points JSONB;
     v_new_point JSONB;
     v_total_points INTEGER;
     v_coach_id UUID;
-    v_player_club_id UUID;
     v_is_coach BOOLEAN;
     TRAINING_SUMMARY_PREFIX CONSTANT TEXT := 'TRAINING_SUMMARY|';
 BEGIN
     -- Get the current user (coach)
     v_coach_id := auth.uid();
 
-    -- Get the player's club
-    SELECT club_id INTO v_player_club_id
-    FROM profiles
-    WHERE id = p_player_id;
-
-    -- Check if the current user is a coach in the player's club
-    SELECT EXISTS (
-        SELECT 1 FROM profile_club_sports pcs
-        WHERE pcs.user_id = v_coach_id
-        AND pcs.club_id = v_player_club_id
-        AND pcs.role IN ('coach', 'head_coach')
-    ) INTO v_is_coach;
-
-    IF NOT v_is_coach THEN
-        RAISE EXCEPTION 'Not authorized: User is not a coach in this club';
-    END IF;
-
-    -- Find the training summary post for this player and event
-    SELECT id, content INTO v_post_id, v_content
+    -- Find the training summary post for this player and event (and get club_id from post)
+    SELECT id, club_id, content INTO v_post_id, v_post_club_id, v_content
     FROM community_posts
     WHERE user_id = p_player_id
     AND content LIKE TRAINING_SUMMARY_PREFIX || '%'
@@ -139,6 +122,18 @@ BEGIN
     IF v_post_id IS NULL THEN
         -- No training summary found for this event
         RETURN FALSE;
+    END IF;
+
+    -- Check if the current user is a coach in the post's club
+    SELECT EXISTS (
+        SELECT 1 FROM profile_club_sports pcs
+        WHERE pcs.user_id = v_coach_id
+        AND pcs.club_id = v_post_club_id
+        AND pcs.role IN ('coach', 'head_coach')
+    ) INTO v_is_coach;
+
+    IF NOT v_is_coach THEN
+        RAISE EXCEPTION 'Not authorized: User is not a coach in this club';
     END IF;
 
     -- Parse the existing summary data
