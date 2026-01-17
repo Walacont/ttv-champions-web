@@ -989,7 +989,7 @@ export function setupLeaderboardTabs(userData = null) {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
-    const defaultTab = hasClub ? 'effort' : 'skill';
+    const defaultTab = hasClub ? 'season' : 'skill';
     switchTab(defaultTab);
 }
 
