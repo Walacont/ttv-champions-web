@@ -1546,8 +1546,8 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             subgroupIDs: p.subgroup_ids || []
         }));
 
-        // Datum für Training-Zusammenfassung übergeben
-        window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate);
+        // Datum und Event-ID für Training-Zusammenfassung übergeben
+        window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate, eventId);
     } catch (error) {
         console.error('[Events] Error opening quick points:', error);
         alert('Fehler: ' + error.message);
@@ -1809,7 +1809,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
         attendanceReason += ' (2. Training)';
     }
 
-    await addPointsToTrainingSummary(playerId, date, {
+    await addPointsToTrainingSummary(playerId, event.id, {
         amount: pointsToAdd,
         reason: attendanceReason,
         type: 'attendance'

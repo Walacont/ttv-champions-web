@@ -786,8 +786,8 @@ export async function handleAttendanceSave(
                 const playersInSubgroup = clubPlayers.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
                 );
-                // Datum übergeben für Training-Zusammenfassung
-                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData, date);
+                // Datum und Event-ID übergeben für Training-Zusammenfassung
+                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData, date, sessionId);
             }
         }, 1000);
     } catch (error) {

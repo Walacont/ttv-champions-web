@@ -2,7 +2,6 @@
 
 import { getSupabase } from './supabase-init.js';
 import { formatDate } from './ui-utils-supabase.js';
-import { addPointsToTrainingSummary } from './training-summary-supabase.js';
 
 let notificationsModule = null;
 let notificationsLoaded = false;
@@ -617,24 +616,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
         await db.from('points_history').insert(historyEntry);
 
-        // Training-Zusammenfassung aktualisieren (wenn heute)
-        const today = new Date().toISOString().split('T')[0];
-        const pointEntry = {
-            amount: actualPointsChange,
-            reason: reason,
-            type: 'manual'
-        };
-        await addPointsToTrainingSummary(playerId, today, pointEntry);
-
-        // Falls Partner auch Punkte bekommen hat
-        if (hasPartnerSystem && partnerId && actualPartnerPointsChange) {
-            const partnerPointEntry = {
-                amount: actualPartnerPointsChange,
-                reason: `Partner: ${reason}`,
-                type: 'manual'
-            };
-            await addPointsToTrainingSummary(partnerId, today, partnerPointEntry);
-        }
+        // Manuelle Punkte werden nicht zur Training-Summary hinzugefügt
+        // (keine Event-ID verfügbar)
 
         const notifMod = await getNotificationsModule();
         if (notifMod && notifMod.createPointsNotification) {

@@ -10,6 +10,7 @@ let currentPresentPlayerIds = [];
 let currentClubPlayers = [];
 let currentUserData = null;
 let currentEventDate = null; // Datum für Training-Zusammenfassung
+let currentEventId = null; // Event-ID für Training-Zusammenfassung
 let selectedPlayerIds = new Set();
 let selectedPointsType = null;
 let exercisesData = [];
@@ -64,15 +65,17 @@ export function initQuickPointsDialog() {
  * @param {object[]} clubPlayers - Liste der Club-Spieler
  * @param {object} userData - Aktuelle Benutzerdaten
  * @param {string} eventDate - Optional: Datum des Events (YYYY-MM-DD), default: heute
+ * @param {string} eventId - Optional: Event-ID für Training-Zusammenfassung
  */
-export async function openQuickPointsModal(presentPlayerIds, clubPlayers, userData, eventDate = null) {
+export async function openQuickPointsModal(presentPlayerIds, clubPlayers, userData, eventDate = null, eventId = null) {
     const modal = document.getElementById('quick-points-modal');
     if (!modal) return;
 
     currentPresentPlayerIds = presentPlayerIds;
     currentClubPlayers = clubPlayers;
     currentUserData = userData;
-    currentEventDate = eventDate || new Date().toISOString().split('T')[0]; // Datum speichern
+    currentEventDate = eventDate || new Date().toISOString().split('T')[0];
+    currentEventId = eventId; // Event-ID speichern
     selectedPlayerIds = new Set(presentPlayerIds); // Standardmäßig alle anwesenden ausgewählt
     selectedPointsType = null;
 
@@ -856,14 +859,16 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         }
                     }
 
-                    // Training-Zusammenfassung aktualisieren (für das Event-Datum)
-                    const pointEntry = {
-                        amount: points,
-                        reason: reason,
-                        type: selectedPointsType,
-                        exercise_name: exerciseName || null
-                    };
-                    await addPointsToTrainingSummary(playerId, currentEventDate, pointEntry);
+                    // Training-Zusammenfassung aktualisieren (für das Event)
+                    if (currentEventId) {
+                        const pointEntry = {
+                            amount: points,
+                            reason: reason,
+                            type: selectedPointsType,
+                            exercise_name: exerciseName || null
+                        };
+                        await addPointsToTrainingSummary(playerId, currentEventId, pointEntry);
+                    }
 
                     successCount++;
                 } catch (playerError) {
