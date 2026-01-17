@@ -78,63 +78,122 @@ export async function loadStatistics(userData, supabase, currentSubgroupFilter =
     });
 }
 
+// Aktuell ausgewähltes Datum für Veranstaltungen-Anzeige
+let selectedEventsDate = new Date();
+
 /**
- * Aktualisiert die heutigen Trainings (global verfügbar für Refresh nach Anwesenheit-Speicherung)
+ * Initialisiert die Veranstaltungen-Navigation
+ */
+export function initEventsNavigation(userData, supabase) {
+    const prevBtn = document.getElementById('events-prev-day');
+    const nextBtn = document.getElementById('events-next-day');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            selectedEventsDate.setDate(selectedEventsDate.getDate() - 1);
+            loadEventsForDay(userData, supabase, selectedEventsDate);
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            selectedEventsDate.setDate(selectedEventsDate.getDate() + 1);
+            loadEventsForDay(userData, supabase, selectedEventsDate);
+        });
+    }
+}
+
+/**
+ * Aktualisiert die Veranstaltungen (global verfügbar für Refresh nach Anwesenheit-Speicherung)
  */
 window.refreshTodaysTrainings = async function() {
     if (cachedUserData && cachedSupabase) {
-        await loadTodaysTrainings(cachedUserData, cachedSupabase);
+        await loadEventsForDay(cachedUserData, cachedSupabase, selectedEventsDate);
     }
 };
 
 /**
- * Lädt heutige Trainings/Events für Quick-Access
+ * Lädt Trainings/Events für Quick-Access (Legacy-Wrapper)
  */
 export async function loadTodaysTrainings(userData, supabase) {
-    const container = document.getElementById('todays-trainings-list');
-    const dateDisplay = document.getElementById('today-date-display');
+    selectedEventsDate = new Date(); // Reset auf heute
+    await loadEventsForDay(userData, supabase, selectedEventsDate);
+}
+
+/**
+ * Lädt Veranstaltungen für einen bestimmten Tag
+ */
+export async function loadEventsForDay(userData, supabase, date) {
+    const container = document.getElementById('events-day-list');
+    const dateDisplay = document.getElementById('events-date-display');
     if (!container) return;
 
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const selectedDate = new Date(date);
+    const dateStr = selectedDate.toISOString().split('T')[0];
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const isToday = dateStr === todayStr;
 
     // Datum anzeigen
     if (dateDisplay) {
-        dateDisplay.textContent = today.toLocaleDateString('de-DE', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long'
-        });
+        if (isToday) {
+            dateDisplay.textContent = 'Heute, ' + selectedDate.toLocaleDateString('de-DE', {
+                day: 'numeric',
+                month: 'long'
+            });
+        } else {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            if (dateStr === yesterday.toISOString().split('T')[0]) {
+                dateDisplay.textContent = 'Gestern, ' + selectedDate.toLocaleDateString('de-DE', {
+                    day: 'numeric',
+                    month: 'long'
+                });
+            } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
+                dateDisplay.textContent = 'Morgen, ' + selectedDate.toLocaleDateString('de-DE', {
+                    day: 'numeric',
+                    month: 'long'
+                });
+            } else {
+                dateDisplay.textContent = selectedDate.toLocaleDateString('de-DE', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'long'
+                });
+            }
+        }
     }
 
     try {
-        // Lade alle Events von heute (inkl. wiederkehrende)
+        // Lade alle Events für das ausgewählte Datum (inkl. wiederkehrende)
         // Safari-kompatibel: Zwei separate Abfragen statt komplexem .or() mit verschachteltem and()
         let singleEventsData = [];
         let recurringEventsData = [];
 
-        // Erste Abfrage: Einzelne Events von heute
+        // Erste Abfrage: Einzelne Events für das Datum
         try {
             const { data, error } = await supabase
                 .from('events')
                 .select('*, event_attendance(id, present_user_ids, occurrence_date)')
                 .eq('club_id', userData.clubId)
-                .eq('start_date', todayStr)
+                .eq('start_date', dateStr)
                 .order('start_time', { ascending: true });
             if (!error) singleEventsData = data || [];
         } catch (e) {
             console.warn('Error loading single events:', e);
         }
 
-        // Zweite Abfrage: Wiederkehrende Events
+        // Zweite Abfrage: Wiederkehrende Events die vor oder am Datum gestartet sind
         try {
             const { data, error } = await supabase
                 .from('events')
                 .select('*, event_attendance(id, present_user_ids, occurrence_date)')
                 .eq('club_id', userData.clubId)
                 .eq('event_type', 'recurring')
-                .lte('start_date', todayStr)
+                .lte('start_date', dateStr)
                 .order('start_time', { ascending: true });
             if (!error) recurringEventsData = data || [];
         } catch (e) {
@@ -148,29 +207,29 @@ export async function loadTodaysTrainings(userData, supabase) {
         });
         const events = Array.from(eventMap.values());
 
-        // Filtere wiederkehrende Events für heute (nach Wochentag)
-        const todayDayOfWeek = today.getDay();
-        const todaysEvents = (events || []).filter(event => {
+        // Filtere wiederkehrende Events für das ausgewählte Datum (nach Wochentag)
+        const selectedDayOfWeek = selectedDate.getDay();
+        const daysEvents = (events || []).filter(event => {
             if (event.event_type === 'recurring') {
                 const eventStartDate = new Date(event.start_date + 'T12:00:00');
                 const eventDayOfWeek = eventStartDate.getDay();
-                if (eventDayOfWeek !== todayDayOfWeek) return false;
+                if (eventDayOfWeek !== selectedDayOfWeek) return false;
                 // Prüfe ob vor end_date
-                if (event.repeat_end_date && todayStr > event.repeat_end_date) return false;
+                if (event.repeat_end_date && dateStr > event.repeat_end_date) return false;
                 // Prüfe excluded_dates
-                if (event.excluded_dates?.includes(todayStr)) return false;
+                if (event.excluded_dates?.includes(dateStr)) return false;
                 return true;
             }
-            return event.start_date === todayStr;
+            return event.start_date === dateStr;
         });
 
-        if (todaysEvents.length === 0) {
+        if (daysEvents.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-8 text-gray-400">
                     <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
-                    <p class="text-sm">Keine Trainings für heute geplant</p>
+                    <p class="text-sm">Keine Veranstaltungen ${isToday ? 'für heute' : 'an diesem Tag'} geplant</p>
                 </div>
             `;
             return;
@@ -178,26 +237,26 @@ export async function loadTodaysTrainings(userData, supabase) {
 
         // Nutze bereits eingebettete Anwesenheitsdaten (Safari-kompatibel: keine separate .in() Abfrage)
         const attendanceMap = new Map();
-        todaysEvents.forEach(event => {
+        daysEvents.forEach(event => {
             const attendanceRecords = event.event_attendance || [];
-            // Für wiederkehrende Events: nur wenn occurrence_date = heute
-            const todayAttendance = attendanceRecords.find(att =>
-                !att.occurrence_date || att.occurrence_date === todayStr
+            // Für wiederkehrende Events: nur wenn occurrence_date = ausgewähltes Datum
+            const dayAttendance = attendanceRecords.find(att =>
+                !att.occurrence_date || att.occurrence_date === dateStr
             );
-            if (todayAttendance) {
-                attendanceMap.set(event.id, todayAttendance);
+            if (dayAttendance) {
+                attendanceMap.set(event.id, dayAttendance);
             }
         });
 
         // Render Events
-        container.innerHTML = todaysEvents.map(event => {
+        container.innerHTML = daysEvents.map(event => {
             const startTime = event.start_time?.slice(0, 5) || '';
             const endTime = event.end_time?.slice(0, 5) || '';
             const attendance = attendanceMap.get(event.id);
             const hasAttendance = attendance && attendance.present_user_ids?.length > 0;
             const attendeeCount = attendance?.present_user_ids?.length || 0;
 
-            // Status bestimmen
+            // Status bestimmen (nur für heute relevant)
             let status = 'upcoming';
             let statusBadge = '';
             let statusClass = 'border-gray-200 hover:border-indigo-300';
@@ -205,30 +264,44 @@ export async function loadTodaysTrainings(userData, supabase) {
             if (startTime && endTime) {
                 const [startH, startM] = startTime.split(':').map(Number);
                 const [endH, endM] = endTime.split(':').map(Number);
-                const eventStart = new Date(today);
+                const eventStart = new Date(selectedDate);
                 eventStart.setHours(startH, startM, 0);
-                const eventEnd = new Date(today);
+                const eventEnd = new Date(selectedDate);
                 eventEnd.setHours(endH, endM, 0);
 
-                if (now >= eventStart && now <= eventEnd) {
-                    status = 'running';
-                    statusBadge = '<span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full font-medium animate-pulse">Läuft jetzt</span>';
-                    statusClass = 'border-orange-300 bg-orange-50 hover:border-orange-400';
-                } else if (now > eventEnd) {
+                // Vergangene Tage: immer "finished"
+                if (dateStr < todayStr) {
                     status = 'finished';
                     if (hasAttendance) {
                         statusBadge = `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">✓ ${attendeeCount} anwesend</span>`;
                         statusClass = 'border-green-300 hover:border-green-400';
                     } else {
-                        statusBadge = '<span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">Anwesenheit fehlt</span>';
-                        statusClass = 'border-red-300 bg-red-50 hover:border-red-400';
+                        statusBadge = '<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">Keine Daten</span>';
+                        statusClass = 'border-gray-200 hover:border-gray-300';
+                    }
+                } else if (isToday) {
+                    // Heute: Live-Status
+                    if (now >= eventStart && now <= eventEnd) {
+                        status = 'running';
+                        statusBadge = '<span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full font-medium animate-pulse">Läuft jetzt</span>';
+                        statusClass = 'border-orange-300 bg-orange-50 hover:border-orange-400';
+                    } else if (now > eventEnd) {
+                        status = 'finished';
+                        if (hasAttendance) {
+                            statusBadge = `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">✓ ${attendeeCount} anwesend</span>`;
+                            statusClass = 'border-green-300 hover:border-green-400';
+                        } else {
+                            statusBadge = '<span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">Anwesenheit fehlt</span>';
+                            statusClass = 'border-red-300 bg-red-50 hover:border-red-400';
+                        }
                     }
                 }
+                // Zukünftige Tage: bleiben "upcoming" ohne Badge
             }
 
             return `
                 <div class="p-4 rounded-xl border-2 ${statusClass} cursor-pointer transition-all hover:shadow-md"
-                     onclick="window.openEventDetails && window.openEventDetails('${event.id}', '${todayStr}')">
+                     onclick="window.openEventDetails && window.openEventDetails('${event.id}', '${dateStr}')">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
@@ -248,10 +321,10 @@ export async function loadTodaysTrainings(userData, supabase) {
         }).join('');
 
     } catch (error) {
-        console.error('Error loading todays trainings:', error);
+        console.error('Error loading events for day:', error);
         container.innerHTML = `
             <div class="text-center py-4 text-red-500">
-                <p class="text-sm">Fehler beim Laden der Trainings</p>
+                <p class="text-sm">Fehler beim Laden der Veranstaltungen</p>
             </div>
         `;
     }

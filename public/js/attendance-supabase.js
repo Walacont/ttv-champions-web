@@ -409,7 +409,7 @@ export async function openAttendanceModalForSession(
             trainingStart.setHours(startH, startM, 0, 0);
 
             if (now < trainingStart) {
-                alert(`Training beginnt erst um ${sessionData.start_time} Uhr.\nAnwesenheit kann erst nach Beginn erfasst werden.`);
+                alert(`Veranstaltung beginnt erst um ${sessionData.start_time} Uhr.\nAnwesenheit kann erst nach Beginn erfasst werden.`);
                 isRenderingAttendance = false;
                 return;
             }

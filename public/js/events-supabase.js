@@ -3,6 +3,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { createTrainingSummariesForAttendees } from './training-summary-supabase.js';
 
 const supabase = getSupabase();
 
@@ -1133,7 +1134,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             <svg class="w-8 h-8 text-yellow-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            <p class="text-yellow-800 font-medium">Training beginnt um ${event.start_time || '-'} Uhr</p>
+                            <p class="text-yellow-800 font-medium">Veranstaltung beginnt um ${event.start_time || '-'} Uhr</p>
                             <p class="text-yellow-600 text-sm mt-1">Anwesenheit kann erst nach Beginn erfasst werden</p>
                         </div>
                     </div>
@@ -1460,6 +1461,18 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         // Heutige Trainings aktualisieren (falls auf Startseite)
         if (typeof window.refreshTodaysTrainings === 'function') {
             window.refreshTodaysTrainings();
+        }
+
+        // Training-Zusammenfassungen für anwesende Spieler erstellen (nur bei Trainings mit Punkten)
+        if (presentUserIds.length > 0 && totalExercisePoints > 0) {
+            const eventDate = occurrenceDate || event.start_date;
+            await createTrainingSummariesForAttendees(
+                event.club_id,
+                eventId,
+                eventDate,
+                event.title,
+                presentUserIds
+            );
         }
 
         // Erfolgs-Banner anzeigen wenn Spieler anwesend waren

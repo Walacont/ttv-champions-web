@@ -120,7 +120,7 @@ import {
     initializeExercisePartnerSystemCoach,
     initializeChallengePartnerSystemCoach,
 } from './milestone-management.js';
-import { loadStatistics, cleanupStatistics } from './coach-statistics-supabase.js';
+import { loadStatistics, cleanupStatistics, initEventsNavigation } from './coach-statistics-supabase.js';
 import {
     loadSubgroupsList,
     handleCreateSubgroup,
@@ -390,6 +390,9 @@ async function initializeCoachPage(userData) {
 
     // Statistik initial laden (Standard-Tab)
     loadStatistics(userData, supabase, currentSubgroupFilter);
+
+    // Veranstaltungen-Navigation initialisieren (einmalig)
+    initEventsNavigation(userData, supabase);
 
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {

@@ -2,6 +2,7 @@
 // Ermöglicht schnelle Punktevergabe nach Anwesenheitserfassung
 
 import { getSupabase } from './supabase-init.js';
+import { addPointsToTrainingSummary } from './training-summary-supabase.js';
 
 const supabase = getSupabase();
 
@@ -845,6 +846,16 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             }
                         }
                     }
+
+                    // Training-Zusammenfassung aktualisieren (wenn heute)
+                    const today = new Date().toISOString().split('T')[0];
+                    const pointEntry = {
+                        amount: points,
+                        reason: reason,
+                        type: selectedPointsType,
+                        exercise_name: exerciseName || null
+                    };
+                    await addPointsToTrainingSummary(playerId, today, pointEntry);
 
                     successCount++;
                 } catch (playerError) {

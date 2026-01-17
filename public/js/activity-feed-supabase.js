@@ -9,6 +9,7 @@ import { t } from './i18n.js';
 import { loadMatchMedia } from './match-media.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
+import { isTrainingSummary, renderTrainingSummaryCard } from './training-summary-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -887,10 +888,27 @@ async function fetchActivities(userIds) {
             .select('*')
             .is('deleted_at', null)
             .in('user_id', userIds)
+            .neq('visibility', 'self') // Keine Training-Zusammenfassungen hier laden
             .order('created_at', { ascending: false })
             .range(typeOffsets.posts, typeOffsets.posts + ACTIVITIES_PER_PAGE - 1);
 
         if (postsError) console.warn('Error fetching community posts:', postsError);
+
+        // Training-Zusammenfassungen (nur für den aktuellen Benutzer sichtbar)
+        let trainingSummaries = [];
+        if (currentUser) {
+            const { data: summaries, error: summariesError } = await supabase
+                .from('community_posts')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('visibility', 'self')
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (summariesError) console.warn('Error fetching training summaries:', summariesError);
+            trainingSummaries = (summaries || []).map(s => ({ ...s, activityType: 'training_summary' }));
+        }
 
         // Community-Umfragen mit typ-spezifischem Offset laden
         const { data: communityPolls, error: pollsError } = await supabase
@@ -917,7 +935,8 @@ async function fetchActivities(userIds) {
             ...(doublesMatches || []).map(m => ({ ...m, activityType: 'doubles' })),
             ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type })),
             ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
-            ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
+            ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' })),
+            ...trainingSummaries
         ];
 
         // === PRIVACY FILTERING FOR MATCHES ===
@@ -1213,6 +1232,8 @@ function renderActivityCard(activity) {
         return renderPostCard(activity, activity.profileMap);
     } else if (activity.activityType === 'poll') {
         return renderPollCard(activity, activity.profileMap);
+    } else if (activity.activityType === 'training_summary') {
+        return renderTrainingSummaryCard(activity, activity.profileMap);
     }
     return ''; // Unbekannter Aktivitätstyp
 }
