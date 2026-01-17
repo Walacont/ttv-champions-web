@@ -2982,7 +2982,7 @@ window.openExerciseModal = async (exerciseId) => {
         const currentCount = playerProgress?.current_count || 0;
 
         if (hasTieredPoints) {
-            if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} P.`;
+            if (pointsEl) pointsEl.textContent = `Bis zu ${points} P.`;
 
             if (milestonesContainer) {
                 // Spielerfortschritt-Bereich
@@ -2993,7 +2993,6 @@ window.openExerciseModal = async (exerciseId) => {
                 progressHtml = `
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="text-lg">📈</span>
                             <span class="font-bold text-gray-800">Deine beste Leistung</span>
                         </div>
                         <p class="text-base text-gray-700 mb-2">
@@ -3004,7 +3003,7 @@ window.openExerciseModal = async (exerciseId) => {
                                 Noch <span class="font-semibold text-orange-600">${remaining} ${exercise.unit || 'Wiederholungen'}</span> bis zum nächsten Meilenstein
                             </p>`
                             : `<p class="text-sm text-green-600 font-semibold">
-                                ✓ Alle Meilensteine erreicht!
+                                Alle Meilensteine erreicht!
                             </p>`
                         }
                     </div>
@@ -3023,30 +3022,26 @@ window.openExerciseModal = async (exerciseId) => {
                             ? milestone.points
                             : `+${milestone.points}`;
 
-                        let bgColor, borderColor, iconColor, textColor, statusIcon;
+                        let bgColor, borderColor, iconColor, textColor;
                         if (currentCount >= milestone.count) {
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
-                            statusIcon = '✓';
                         } else if (index === 0 || currentCount >= sortedMilestones[index - 1].count) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
                             iconColor = 'text-orange-600';
                             textColor = 'text-orange-700';
-                            statusIcon = '🎯';
                         } else {
                             bgColor = 'bg-gradient-to-r from-gray-50 to-slate-50';
                             borderColor = 'border-gray-300';
                             iconColor = 'text-gray-500';
                             textColor = 'text-gray-600';
-                            statusIcon = '⚪';
                         }
 
                         return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                             <div class="flex items-center gap-3">
-                                <span class="text-2xl">${statusIcon}</span>
                                 <span class="text-base font-semibold ${textColor}">${milestone.count} ${exercise.unit || 'Wiederholungen'}</span>
                             </div>
                             <div class="text-right">
@@ -3059,10 +3054,7 @@ window.openExerciseModal = async (exerciseId) => {
 
                 milestonesContainer.innerHTML = `
                     <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
-                        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span class="text-2xl">📊</span>
-                            <span>Meilensteine</span>
-                        </h4>
+                        <h4 class="text-lg font-bold text-gray-800 mb-3">Meilensteine</h4>
                         ${progressHtml}
                         ${milestonesHtml}
                     </div>`;

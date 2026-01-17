@@ -675,6 +675,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
     let reason = '';
     let exerciseId = null;
     let challengeId = null;
+    let milestoneCount = null;
 
     if (selectedPointsType === 'exercise') {
         const select = document.getElementById('quick-points-exercise-select');
@@ -683,8 +684,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
         exerciseId = selectedOption?.value;
 
         if (selectedOption?.dataset.hasMilestones === 'true') {
-            const count = document.getElementById('quick-points-exercise-count')?.value;
-            reason += ` (${count}×)`;
+            milestoneCount = parseInt(document.getElementById('quick-points-exercise-count')?.value) || 0;
+            reason += ` (${milestoneCount}×)`;
         }
     } else if (selectedPointsType === 'challenge') {
         const select = document.getElementById('quick-points-challenge-select');
@@ -693,8 +694,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
         challengeId = selectedOption?.value;
 
         if (selectedOption?.dataset.hasMilestones === 'true') {
-            const count = document.getElementById('quick-points-challenge-count')?.value;
-            reason += ` (${count}×)`;
+            milestoneCount = parseInt(document.getElementById('quick-points-challenge-count')?.value) || 0;
+            reason += ` (${milestoneCount}×)`;
         }
     } else if (selectedPointsType === 'manual') {
         reason = document.getElementById('quick-points-manual-reason')?.value || 'Manuelle Vergabe';
@@ -769,6 +770,30 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             exercise_id: exerciseId,
                             completed_at: now
                         });
+
+                        // Bei Meilenstein-Übungen: Fortschritt speichern
+                        if (milestoneCount !== null && milestoneCount > 0) {
+                            // Prüfe ob bereits ein Fortschritt existiert
+                            const { data: existingProgress } = await supabase
+                                .from('exercise_progress')
+                                .select('current_count')
+                                .eq('user_id', playerId)
+                                .eq('exercise_id', exerciseId)
+                                .maybeSingle();
+
+                            const currentCount = existingProgress?.current_count || 0;
+                            // Nur aktualisieren wenn der neue Wert höher ist
+                            if (milestoneCount > currentCount) {
+                                await supabase.from('exercise_progress').upsert({
+                                    user_id: playerId,
+                                    exercise_id: exerciseId,
+                                    current_count: milestoneCount,
+                                    updated_at: now
+                                }, {
+                                    onConflict: 'user_id,exercise_id'
+                                });
+                            }
+                        }
                     }
 
                     if (challengeId) {
@@ -777,6 +802,28 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             challenge_id: challengeId,
                             completed_at: now
                         });
+
+                        // Bei Meilenstein-Challenges: Fortschritt speichern
+                        if (milestoneCount !== null && milestoneCount > 0) {
+                            const { data: existingProgress } = await supabase
+                                .from('challenge_progress')
+                                .select('current_count')
+                                .eq('user_id', playerId)
+                                .eq('challenge_id', challengeId)
+                                .maybeSingle();
+
+                            const currentCount = existingProgress?.current_count || 0;
+                            if (milestoneCount > currentCount) {
+                                await supabase.from('challenge_progress').upsert({
+                                    user_id: playerId,
+                                    challenge_id: challengeId,
+                                    current_count: milestoneCount,
+                                    updated_at: now
+                                }, {
+                                    onConflict: 'user_id,challenge_id'
+                                });
+                            }
+                        }
                     }
 
                     successCount++;
