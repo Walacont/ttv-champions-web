@@ -87,35 +87,27 @@ export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, e
  */
 export async function addPointsToTrainingSummary(playerId, eventDate, pointEntry) {
     try {
-        // Finde Training-Zusammenfassung für heute
-        const summary = await findTrainingSummaryByDate(playerId, eventDate);
+        console.log('[TrainingSummary] Adding points via RPC:', { playerId, eventDate, pointEntry });
 
-        if (!summary) {
+        const { data, error } = await supabase.rpc('add_points_to_training_summary', {
+            p_player_id: playerId,
+            p_event_date: eventDate,
+            p_amount: pointEntry.amount,
+            p_reason: pointEntry.reason || '',
+            p_type: pointEntry.type || 'exercise',
+            p_exercise_name: pointEntry.exercise_name || null
+        });
+
+        if (error) {
+            console.error('[TrainingSummary] RPC error:', error);
+            return false;
+        }
+
+        if (data === false) {
             console.log('[TrainingSummary] No training summary found for date', eventDate);
             return false;
         }
 
-        const summaryData = parseTrainingSummaryContent(summary.content);
-
-        // Punkt hinzufügen
-        summaryData.points.push({
-            ...pointEntry,
-            added_at: new Date().toISOString()
-        });
-
-        // Gesamtpunkte aktualisieren
-        summaryData.total_points = summaryData.points.reduce((sum, p) => sum + (p.amount || 0), 0);
-        summaryData.updated_at = new Date().toISOString();
-
-        const { error } = await supabase
-            .from('community_posts')
-            .update({
-                content: TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', summary.id);
-
-        if (error) throw error;
         console.log('[TrainingSummary] Added points to summary for player', playerId);
         return true;
     } catch (error) {
