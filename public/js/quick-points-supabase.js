@@ -798,12 +798,18 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             const currentCount = existingProgress?.current_count || 0;
                             // Nur aktualisieren wenn der neue Wert höher ist
                             if (milestoneCount > currentCount) {
-                                await supabase.from('exercise_milestones').upsert({
+                                const { error: milestoneError } = await supabase.from('exercise_milestones').upsert({
                                     user_id: playerId,
                                     exercise_id: exerciseId,
                                     current_count: milestoneCount,
                                     last_updated: now
                                 });
+
+                                if (milestoneError) {
+                                    console.error('[QuickPoints] Error saving milestone progress:', milestoneError);
+                                } else {
+                                    console.log('[QuickPoints] Milestone progress saved:', playerId, exerciseId, milestoneCount);
+                                }
                             }
                         }
                     }
