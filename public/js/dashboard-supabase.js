@@ -2966,17 +2966,13 @@ window.openExerciseModal = async (exerciseId) => {
         // Spielerfortschritt laden falls Meilensteine existieren
         let playerProgress = null;
         if (hasTieredPoints && currentUser) {
-            try {
-                const { data: progressData } = await supabase
-                    .from('exercise_milestones')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('exercise_id', exerciseId)
-                    .single();
-                playerProgress = progressData;
-            } catch (e) {
-                // Noch kein Fortschritt
-            }
+            const { data: progressData } = await supabase
+                .from('exercise_milestones')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .eq('exercise_id', exerciseId)
+                .maybeSingle();
+            playerProgress = progressData;
         }
 
         const currentCount = playerProgress?.current_count || 0;

@@ -789,7 +789,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         if (milestoneCount !== null && milestoneCount > 0) {
                             // Prüfe ob bereits ein Fortschritt existiert
                             const { data: existingProgress } = await supabase
-                                .from('exercise_progress')
+                                .from('exercise_milestones')
                                 .select('current_count')
                                 .eq('user_id', playerId)
                                 .eq('exercise_id', exerciseId)
@@ -798,13 +798,11 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             const currentCount = existingProgress?.current_count || 0;
                             // Nur aktualisieren wenn der neue Wert höher ist
                             if (milestoneCount > currentCount) {
-                                await supabase.from('exercise_progress').upsert({
+                                await supabase.from('exercise_milestones').upsert({
                                     user_id: playerId,
                                     exercise_id: exerciseId,
                                     current_count: milestoneCount,
-                                    updated_at: now
-                                }, {
-                                    onConflict: 'user_id,exercise_id'
+                                    last_updated: now
                                 });
                             }
                         }

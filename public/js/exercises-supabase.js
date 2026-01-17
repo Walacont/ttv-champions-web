@@ -711,7 +711,7 @@ export async function openExerciseModal(
                     .select('*')
                     .eq('user_id', exerciseContext.userId)
                     .eq('exercise_id', exerciseId)
-                    .single();
+                    .maybeSingle();
 
                 if (data) {
                     playerProgress = { currentCount: data.current_count || 0 };
