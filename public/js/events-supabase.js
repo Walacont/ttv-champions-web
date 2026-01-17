@@ -1046,22 +1046,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         const presentIds = attendanceData?.present_user_ids || [];
         const coachHours = attendanceData?.coach_hours || {};
-        const existingExercisesHtml = eventExercises.length > 0
-            ? eventExercises.map((ex, index) => `
-                <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-900">${ex.name}</p>
-                        <p class="text-sm text-indigo-600">+${ex.points || 0} Punkte</p>
-                    </div>
-                    <button onclick="window.removeEventExercise(${index})"
-                            class="text-red-500 hover:text-red-700 p-1">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-            `).join('')
-            : '<p class="text-gray-400 text-sm text-center py-2">Keine Übungen hinzugefügt</p>';
 
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -1236,30 +1220,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         </div>
                     </div>
                     ` : ''}
-
-                    <!-- Exercise Tracking for Coaches -->
-                    <div class="border-t pt-6 mt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                            </svg>
-                            Übungen
-                        </h3>
-                        <p class="text-sm text-gray-500 mb-4">Welche Übungen wurden durchgeführt?</p>
-
-                        <div id="event-exercises-list" class="space-y-2 mb-4">
-                            ${existingExercisesHtml}
-                        </div>
-
-                        <button
-                            onclick="window.openEventExerciseSelector('${eventId}')"
-                            class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                            </svg>
-                            Übung hinzufügen
-                        </button>
-                    </div>
 
                     <!-- Speichern-Bereich -->
                     <div class="mt-6 space-y-3">
