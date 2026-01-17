@@ -374,22 +374,24 @@ function renderTagFiltersCoach(tags, exercises) {
 function setupTagFilterToggle(context) {
     const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
     const filterSection = document.getElementById(`tags-filter-section-${context}`);
-    const filterIcon = document.getElementById(`filter-icon-${context}`);
 
-    if (!toggleButton || !filterSection || !filterIcon) return;
+    if (!toggleButton || !filterSection) return;
 
     const newToggleButton = toggleButton.cloneNode(true);
     toggleButton.parentNode.replaceChild(newToggleButton, toggleButton);
+
+    // Icon-Referenz NACH dem Klonen holen (neues Element im DOM)
+    const filterIcon = document.getElementById(`filter-icon-${context}`);
 
     newToggleButton.addEventListener('click', () => {
         const isHidden = filterSection.classList.contains('hidden');
 
         if (isHidden) {
             filterSection.classList.remove('hidden');
-            filterIcon.style.transform = 'rotate(180deg)';
+            if (filterIcon) filterIcon.style.transform = 'rotate(180deg)';
         } else {
             filterSection.classList.add('hidden');
-            filterIcon.style.transform = 'rotate(0deg)';
+            if (filterIcon) filterIcon.style.transform = 'rotate(0deg)';
         }
     });
 }
