@@ -984,6 +984,23 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         eventDate.setHours(0, 0, 0, 0);
         const isPastOrToday = eventDate <= today;
 
+        // Prüfen ob das Event bereits begonnen hat (Datum + Uhrzeit)
+        const now = new Date();
+        let hasEventStarted = false;
+        if (eventDate < today) {
+            // Vergangenes Datum - Event hat definitiv begonnen
+            hasEventStarted = true;
+        } else if (eventDate.getTime() === today.getTime() && event.start_time) {
+            // Heute - prüfe Startzeit
+            const [startH, startM] = event.start_time.split(':').map(Number);
+            const eventStartTime = new Date();
+            eventStartTime.setHours(startH, startM, 0, 0);
+            hasEventStarted = now >= eventStartTime;
+        } else if (eventDate.getTime() === today.getTime() && !event.start_time) {
+            // Heute ohne Startzeit - erlauben
+            hasEventStarted = true;
+        }
+
         const isCoach = currentUserData && ['coach', 'head_coach', 'admin'].includes(currentUserData.role);
         console.log('[Events] openEventDetails - currentUserData:', currentUserData, 'isCoach:', isCoach);
 
@@ -996,7 +1013,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         let attendanceData = null;
         eventExercises = [];
-        if (isPastOrToday) {
+        if (hasEventStarted) {
             // Für wiederkehrende Events: Anwesenheit pro Termin (occurrence_date) laden
             let attendanceQuery = supabase
                 .from('event_attendance')
@@ -1125,7 +1142,20 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         </div>
                     </div>
 
-                    ${isPastOrToday && isCoach ? `
+                    ${isPastOrToday && isCoach && !hasEventStarted ? `
+                    <!-- Event hat noch nicht begonnen -->
+                    <div class="border-t pt-6">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+                            <svg class="w-8 h-8 text-yellow-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-yellow-800 font-medium">Training beginnt um ${event.start_time || '-'} Uhr</p>
+                            <p class="text-yellow-600 text-sm mt-1">Anwesenheit kann erst nach Beginn erfasst werden</p>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${hasEventStarted && isCoach ? `
                     <!-- Attendance Tracking for Coaches -->
                     <div class="border-t pt-6">
                         <div class="flex justify-between items-center mb-4">

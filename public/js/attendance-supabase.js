@@ -396,6 +396,25 @@ export async function openAttendanceModalForSession(
             return;
         }
 
+        // Prüfen ob das Training bereits begonnen hat
+        const now = new Date();
+        const sessionDate = new Date(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        sessionDate.setHours(0, 0, 0, 0);
+
+        if (sessionDate.getTime() === today.getTime() && sessionData.start_time) {
+            const [startH, startM] = sessionData.start_time.split(':').map(Number);
+            const trainingStart = new Date();
+            trainingStart.setHours(startH, startM, 0, 0);
+
+            if (now < trainingStart) {
+                alert(`Training beginnt erst um ${sessionData.start_time} Uhr.\nAnwesenheit kann erst nach Beginn erfasst werden.`);
+                isRenderingAttendance = false;
+                return;
+            }
+        }
+
         const subgroupId = sessionData.subgroup_id;
 
         const { data: attendanceRecords } = await supabase
