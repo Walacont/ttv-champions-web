@@ -21,9 +21,12 @@ const TRAINING_SUMMARY_PREFIX = 'TRAINING_SUMMARY|';
  * @param {boolean} attended - Ob der Spieler anwesend war
  */
 export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, eventDate, eventTitle, attended = true) {
+    console.log('[TrainingSummary] createOrUpdateTrainingSummary called:', { playerId, clubId, eventId, eventDate, eventTitle, attended });
+
     try {
         // Prüfen ob bereits eine Zusammenfassung für diesen Spieler/Event/Datum existiert
         const existingSummary = await findTrainingSummary(playerId, eventId, eventDate);
+        console.log('[TrainingSummary] Existing summary:', existingSummary);
 
         const summaryData = {
             event_id: eventId,
@@ -55,14 +58,20 @@ export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, e
             // Neue Zusammenfassung erstellen
             // visibility='club' verwenden, aber durch den TRAINING_SUMMARY_PREFIX
             // und user_id Filter im Activity Feed nur dem Spieler selbst angezeigt
-            const { error } = await supabase
+            const insertData = {
+                user_id: playerId,
+                club_id: clubId,
+                content: TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData),
+                visibility: 'club'
+            };
+            console.log('[TrainingSummary] Inserting:', insertData);
+
+            const { data, error } = await supabase
                 .from('community_posts')
-                .insert({
-                    user_id: playerId,
-                    club_id: clubId,
-                    content: TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData),
-                    visibility: 'club'
-                });
+                .insert(insertData)
+                .select();
+
+            console.log('[TrainingSummary] Insert result - data:', data, 'error:', error);
 
             if (error) throw error;
             console.log('[TrainingSummary] Created new summary for player', playerId);
@@ -124,6 +133,7 @@ export async function addPointsToTrainingSummary(playerId, eventDate, pointEntry
  * Findet eine Training-Zusammenfassung für einen Spieler/Event/Datum
  */
 async function findTrainingSummary(playerId, eventId, eventDate) {
+    console.log('[TrainingSummary] findTrainingSummary:', { playerId, eventId, eventDate });
     const { data, error } = await supabase
         .from('community_posts')
         .select('*')
@@ -131,6 +141,7 @@ async function findTrainingSummary(playerId, eventId, eventDate) {
         .ilike('content', `${TRAINING_SUMMARY_PREFIX}%`)
         .is('deleted_at', null);
 
+    console.log('[TrainingSummary] findTrainingSummary result - data:', data?.length, 'error:', error);
     if (error || !data) return null;
 
     // Finde den Eintrag mit passendem Event und Datum
