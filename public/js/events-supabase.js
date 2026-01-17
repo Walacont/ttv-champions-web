@@ -1547,6 +1547,26 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             subgroupIDs: p.subgroup_ids || []
         }));
 
+        // Event-Daten laden für Training-Summary
+        const { data: event } = await supabase
+            .from('events')
+            .select('club_id, title, start_date')
+            .eq('id', eventId)
+            .single();
+
+        // Training-Summaries erstellen falls sie nicht existieren
+        if (event && presentUserIds.length > 0) {
+            const eventDate = occurrenceDate || event.start_date;
+            console.log('[Events] Ensuring training summaries exist for', presentUserIds.length, 'players, eventId:', eventId);
+            await createTrainingSummariesForAttendees(
+                event.club_id,
+                eventId,
+                eventDate,
+                event.title,
+                presentUserIds
+            );
+        }
+
         // Datum und Event-ID für Training-Zusammenfassung übergeben
         window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate, eventId);
     } catch (error) {
