@@ -283,10 +283,24 @@ async function loadExercisesForQuickPoints() {
     if (!select) return;
 
     try {
-        const { data, error } = await supabase
+        // Basis-Query
+        let query = supabase
             .from('exercises')
             .select('*')
             .order('name', { ascending: true });
+
+        // Nach Sportart filtern (Übungen der Sportart + globale Übungen ohne Sportart)
+        const activeSportId = currentUserData?.active_sport_id;
+        if (activeSportId) {
+            query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        // Nach Sichtbarkeit filtern (globale + Club-eigene)
+        if (currentUserData?.clubId) {
+            query = query.or(`visibility.eq.global,club_id.eq.${currentUserData.clubId}`);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
