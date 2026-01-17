@@ -803,6 +803,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                                     exercise_id: exerciseId,
                                     current_count: milestoneCount,
                                     last_updated: now
+                                }, {
+                                    onConflict: 'user_id,exercise_id'
                                 });
 
                                 if (milestoneError) {
