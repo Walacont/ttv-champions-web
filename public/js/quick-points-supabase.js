@@ -304,6 +304,7 @@ async function loadExercisesForQuickPoints() {
             option.dataset.points = e.points;
             option.dataset.title = e.name;
             option.dataset.hasMilestones = hasTieredPoints;
+            option.dataset.unit = e.unit || 'Wiederholungen';
 
             if (hasTieredPoints) {
                 option.dataset.milestones = JSON.stringify(e.tiered_points.milestones);
@@ -369,6 +370,7 @@ async function loadChallengesForQuickPoints() {
             option.dataset.points = c.points;
             option.dataset.title = c.title;
             option.dataset.hasMilestones = hasTieredPoints;
+            option.dataset.unit = c.unit || 'Wiederholungen';
 
             if (hasTieredPoints) {
                 option.dataset.milestones = JSON.stringify(c.tiered_points.milestones);
@@ -397,6 +399,14 @@ function handleExerciseChange() {
     if (hasMilestones) {
         milestoneContainer.classList.remove('hidden');
         const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
+        const unit = selectedOption.dataset.unit || 'Wiederholungen';
+
+        // Label mit korrekter Einheit aktualisieren
+        const labelEl = milestoneContainer.querySelector('label');
+        if (labelEl) {
+            labelEl.textContent = `Anzahl ${unit}`;
+        }
+
         const infoEl = document.getElementById('quick-points-exercise-milestone-info');
         if (infoEl) {
             const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');
@@ -426,6 +436,14 @@ function handleChallengeChange() {
     if (hasMilestones) {
         milestoneContainer.classList.remove('hidden');
         const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
+        const unit = selectedOption.dataset.unit || 'Wiederholungen';
+
+        // Label mit korrekter Einheit aktualisieren
+        const labelEl = milestoneContainer.querySelector('label');
+        if (labelEl) {
+            labelEl.textContent = `Anzahl ${unit}`;
+        }
+
         const infoEl = document.getElementById('quick-points-challenge-milestone-info');
         if (infoEl) {
             const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');

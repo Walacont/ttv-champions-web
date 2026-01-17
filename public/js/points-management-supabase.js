@@ -266,9 +266,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (challengeHasMilestones) {
                     const milestoneCountInput = document.getElementById('milestone-count-input');
                     const enteredCount = parseInt(milestoneCountInput?.value);
+                    const cUnit = cOption.dataset.unit || 'Wiederholungen';
 
                     if (!enteredCount || enteredCount <= 0) {
-                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
+                        throw new Error(`Bitte gib die Anzahl der ${cUnit} ein.`);
                     }
 
                     const milestones = JSON.parse(cOption.dataset.milestones || '[]');
@@ -300,9 +301,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (exerciseHasMilestones) {
                     const milestoneCountInput = document.getElementById('milestone-count-input');
                     const enteredCount = parseInt(milestoneCountInput?.value);
+                    const eUnit = eOption.dataset.unit || 'Wiederholungen';
 
                     if (!enteredCount || enteredCount <= 0) {
-                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
+                        throw new Error(`Bitte gib die Anzahl der ${eUnit} ein.`);
                     }
 
                     const milestones = JSON.parse(eOption.dataset.milestones || '[]');
@@ -790,6 +792,13 @@ async function handleExerciseChallengeChange(db, type) {
     } else {
         hideCompletionStatus();
         milestoneContainer.classList.remove('hidden');
+
+        // Label mit korrekter Einheit aktualisieren
+        const unit = selectedOption.dataset.unit || 'Wiederholungen';
+        const milestoneLabel = document.querySelector('label[for="milestone-count-input"]');
+        if (milestoneLabel) {
+            milestoneLabel.textContent = `🎯 Wie viele ${unit} wurden geschafft?`;
+        }
 
         const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
         const itemId = selectedOption.value;

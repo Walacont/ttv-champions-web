@@ -507,6 +507,7 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
             option.dataset.title = challenge.title;
             option.dataset.subgroupId = challenge.subgroupId || 'all';
             option.dataset.hasMilestones = hasTieredPoints;
+            option.dataset.unit = challenge.unit || 'Wiederholungen';
 
             if (hasTieredPoints) {
                 option.dataset.milestones = JSON.stringify(challenge.tieredPoints.milestones);

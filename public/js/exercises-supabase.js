@@ -143,6 +143,7 @@ function mapExerciseFromSupabase(row) {
         recordHolderClub: row.record_holder_club,
         recordCount: row.record_count,
         procedure: row.procedure,
+        unit: row.unit || 'Wiederholungen',
     };
 }
 
@@ -554,6 +555,7 @@ export function loadExercisesForDropdown(db) {
             option.dataset.points = e.points;
             option.dataset.title = e.title;
             option.dataset.hasMilestones = hasTieredPoints;
+            option.dataset.unit = e.unit || 'Wiederholungen';
 
             if (hasTieredPoints) {
                 option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
@@ -755,7 +757,7 @@ export async function openExerciseModal(
                                 <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
                             </div>
                             <p class="text-base text-gray-700">
-                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} Wiederholungen</span>
+                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} ${exerciseData.unit || 'Wiederholungen'}</span>
                             </p>
                         </div>
                     `;
@@ -767,13 +769,13 @@ export async function openExerciseModal(
                             <span class="font-bold text-gray-800">Deine beste Leistung</span>
                         </div>
                         <p class="text-base text-gray-700 mb-2">
-                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} ${exerciseData?.unit || 'Wiederholungen'}</span>
                         </p>
                         ${
                             nextMilestone
                                 ? `
                             <p class="text-sm text-gray-600">
-                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
+                                Noch <span class="font-semibold text-orange-600">${remaining} ${exerciseData?.unit || 'Wiederholungen'}</span> bis zum nächsten Meilenstein
                             </p>
                         `
                                 : `
@@ -825,7 +827,7 @@ export async function openExerciseModal(
 
                     return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
-                            <span class="text-base font-semibold ${textColor}">${milestone.count} Wiederholungen</span>
+                            <span class="text-base font-semibold ${textColor}">${milestone.count} ${exerciseData?.unit || 'Wiederholungen'}</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
@@ -859,7 +861,7 @@ export async function openExerciseModal(
                                 <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
                             </div>
                             <p class="text-base text-gray-700">
-                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} Wiederholungen</span>
+                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} ${exerciseData.unit || 'Wiederholungen'}</span>
                             </p>
                         </div>
                     `;
@@ -873,7 +875,7 @@ export async function openExerciseModal(
                                 <span class="font-bold text-gray-800">Deine beste Leistung</span>
                             </div>
                             <p class="text-base text-gray-700">
-                                Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                                Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} ${exerciseData?.unit || 'Wiederholungen'}</span>
                             </p>
                         </div>
                     `;
@@ -1118,6 +1120,9 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     const visibilityRadio = document.querySelector('input[name="exercise-visibility"]:checked');
     const visibility = visibilityRadio?.value || 'global';
 
+    const unitSelect = document.getElementById('exercise-unit-form');
+    const unit = unitSelect?.value || 'Wiederholungen';
+
     const milestonesEnabled =
         document.getElementById('exercise-milestones-enabled')?.checked || false;
     let points = 0;
@@ -1205,6 +1210,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             xp_reward: points,  // Setze auch xp_reward für Kompatibilität
             tags,
             visibility,
+            unit,  // Einheit für Meilensteine (z.B. "Sterne", "Wiederholungen")
             tiered_points: milestonesEnabled && milestones
                 ? { enabled: true, milestones }
                 : { enabled: false, milestones: [] },

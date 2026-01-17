@@ -2997,11 +2997,11 @@ window.openExerciseModal = async (exerciseId) => {
                             <span class="font-bold text-gray-800">Deine beste Leistung</span>
                         </div>
                         <p class="text-base text-gray-700 mb-2">
-                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} ${exercise.unit || 'Wiederholungen'}</span>
                         </p>
                         ${nextMilestone
                             ? `<p class="text-sm text-gray-600">
-                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
+                                Noch <span class="font-semibold text-orange-600">${remaining} ${exercise.unit || 'Wiederholungen'}</span> bis zum nächsten Meilenstein
                             </p>`
                             : `<p class="text-sm text-green-600 font-semibold">
                                 ✓ Alle Meilensteine erreicht!
@@ -3043,7 +3043,7 @@ window.openExerciseModal = async (exerciseId) => {
                         return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                             <div class="flex items-center gap-3">
                                 <span class="text-2xl">${statusIcon}</span>
-                                <span class="text-base font-semibold ${textColor}">${milestone.count} Wiederholungen</span>
+                                <span class="text-base font-semibold ${textColor}">${milestone.count} ${exercise.unit || 'Wiederholungen'}</span>
                             </div>
                             <div class="text-right">
                                 <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
