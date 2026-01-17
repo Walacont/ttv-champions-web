@@ -1860,9 +1860,21 @@ async function loadExercises() {
             return;
         }
 
-        container.innerHTML = exercises.map(exercise => `
-            <div class="bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer"
-                 onclick="openExerciseModal('${exercise.id}')">
+        // Tags sammeln und Übungskarten mit Tag-Daten erstellen
+        const allTags = new Set();
+        const exerciseCards = [];
+
+        container.innerHTML = '';
+
+        exercises.forEach(exercise => {
+            const exerciseTags = exercise.tags || [];
+            exerciseTags.forEach(tag => allTags.add(tag));
+
+            const card = document.createElement('div');
+            card.className = 'bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer';
+            card.dataset.tags = JSON.stringify(exerciseTags);
+            card.onclick = () => openExerciseModal(exercise.id);
+            card.innerHTML = `
                 <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
                     <img src="${exercise.image_url || ''}"
                          alt="${exercise.name}"
@@ -1874,13 +1886,76 @@ async function loadExercises() {
                 <div class="flex justify-between items-center mt-2">
                     <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${exercise.xp_reward || 0} XP</span>
                 </div>
-            </div>
-        `).join('');
+            `;
+
+            container.appendChild(card);
+            exerciseCards.push({ card, tags: exerciseTags });
+        });
+
+        // Tag-Filter Setup
+        setupExerciseTagFilter(allTags, exerciseCards);
 
     } catch (error) {
         console.error('Error loading exercises:', error);
         container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Übungen</p>';
     }
+}
+
+/**
+ * Richtet Tag-Filter für Übungen ein
+ */
+function setupExerciseTagFilter(allTags, exerciseCards) {
+    const filterContainer = document.getElementById('tags-filter-container');
+    const toggleButton = document.getElementById('toggle-tags-filter-player');
+    const filterSection = document.getElementById('tags-filter-section-player');
+
+    if (!filterContainer || !toggleButton || !filterSection) return;
+
+    // Toggle Button
+    toggleButton.onclick = () => {
+        filterSection.classList.toggle('hidden');
+    };
+
+    // Filter Buttons erstellen
+    filterContainer.innerHTML = '';
+
+    const allButton = document.createElement('button');
+    allButton.className = 'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
+    allButton.textContent = 'Alle';
+    allButton.dataset.tag = 'all';
+    filterContainer.appendChild(allButton);
+
+    allTags.forEach(tag => {
+        const button = document.createElement('button');
+        button.className = 'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
+        button.textContent = tag;
+        button.dataset.tag = tag;
+        filterContainer.appendChild(button);
+    });
+
+    // Filter Click Handler
+    filterContainer.onclick = (e) => {
+        if (!e.target.classList.contains('tag-filter-btn')) return;
+
+        const selectedTag = e.target.dataset.tag;
+
+        // Button-Styles aktualisieren
+        filterContainer.querySelectorAll('.tag-filter-btn').forEach(btn => {
+            btn.classList.remove('active-filter', 'bg-indigo-600', 'text-white');
+            btn.classList.add('bg-gray-200', 'text-gray-700');
+        });
+        e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
+        e.target.classList.remove('bg-gray-200', 'text-gray-700');
+
+        // Übungen filtern
+        exerciseCards.forEach(({ card, tags }) => {
+            if (selectedTag === 'all' || tags.includes(selectedTag)) {
+                card.classList.remove('hidden');
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+    };
 }
 
 // --- Load Match Requests ---
