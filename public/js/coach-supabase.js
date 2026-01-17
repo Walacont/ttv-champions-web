@@ -1477,6 +1477,22 @@ window.saveNewSeasonCoach = async function() {
 
         if (error) throw error;
 
+        // Aktivitätsfeed-Post für Saisonstart erstellen
+        const startDateFormatted = new Date(startDate).toLocaleDateString('de-DE');
+        const endDateFormatted = new Date(endDate).toLocaleDateString('de-DE');
+        const postContent = `🏆 **Neue Saison gestartet!**\n\n` +
+            `Die Saison "${name}" hat begonnen!\n\n` +
+            `📅 **Zeitraum:** ${startDateFormatted} - ${endDateFormatted}\n` +
+            `🔄 **Alle Saison-Punkte wurden auf 0 zurückgesetzt.**\n\n` +
+            `Viel Erfolg an alle Spieler! 💪`;
+
+        await supabase.from('community_posts').insert({
+            user_id: currentUserData.id,
+            club_id: clubId,
+            content: postContent,
+            visibility: 'club'
+        });
+
         // Modals schließen
         document.getElementById('season-form-modal-coach')?.remove();
         closeSeasonModalCoach();
@@ -1505,12 +1521,37 @@ window.endSeasonConfirmCoach = function(seasonId) {
  */
 async function endSeasonCoach(seasonId) {
     try {
+        // Saison-Daten für den Post abrufen
+        const { data: seasonData } = await supabase
+            .from('seasons')
+            .select('name, start_date, end_date, club_id')
+            .eq('id', seasonId)
+            .single();
+
         // RPC-Funktion verwenden, die auch die Saison-Punkte zurücksetzt
         const { error } = await supabase.rpc('end_season', {
             p_season_id: seasonId
         });
 
         if (error) throw error;
+
+        // Aktivitätsfeed-Post für Saisonende erstellen
+        if (seasonData) {
+            const startDateFormatted = new Date(seasonData.start_date).toLocaleDateString('de-DE');
+            const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
+            const postContent = `🏁 **Saison beendet!**\n\n` +
+                `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
+                `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}\n` +
+                `🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
+                `Danke an alle für die Teilnahme! 🎉`;
+
+            await supabase.from('community_posts').insert({
+                user_id: currentUserData.id,
+                club_id: seasonData.club_id,
+                content: postContent,
+                visibility: 'club'
+            });
+        }
 
         closeSeasonModalCoach();
         alert('Saison beendet! Alle Saison-Punkte wurden zurückgesetzt.');
