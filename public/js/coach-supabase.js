@@ -1447,6 +1447,24 @@ window.saveNewSeasonCoach = async function() {
     const sportId = currentUserData?.activeSportId;
 
     try {
+        // Zuerst alle Saison-Punkte für diesen Club/Sport auf 0 setzen
+        let resetQuery = supabase
+            .from('profiles')
+            .update({ points: 0 })
+            .eq('club_id', clubId);
+
+        if (sportId) {
+            resetQuery = resetQuery.eq('active_sport_id', sportId);
+        }
+
+        const { error: resetError } = await resetQuery;
+
+        if (resetError) {
+            console.error('Error resetting points:', resetError);
+            // Weiter machen auch wenn Reset fehlschlägt
+        }
+
+        // Dann neue Saison erstellen
         const { error } = await supabase.from('seasons').insert({
             name: name,
             start_date: startDate,
@@ -1463,7 +1481,7 @@ window.saveNewSeasonCoach = async function() {
         document.getElementById('season-form-modal-coach')?.remove();
         closeSeasonModalCoach();
 
-        alert('Saison erfolgreich gestartet!');
+        alert('Neue Saison gestartet! Alle Saison-Punkte wurden auf 0 zurückgesetzt.');
 
         // Seite neu laden um Countdown zu aktualisieren
         window.location.reload();
