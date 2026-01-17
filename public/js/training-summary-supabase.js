@@ -82,16 +82,16 @@ export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, e
 /**
  * Fügt Punkte zu einer Training-Zusammenfassung hinzu
  * @param {string} playerId - ID des Spielers
- * @param {string} eventDate - Datum des Trainings (YYYY-MM-DD)
+ * @param {string} eventId - Event-ID
  * @param {object} pointEntry - Punkteeintrag {amount, reason, type, exercise_name?}
  */
-export async function addPointsToTrainingSummary(playerId, eventDate, pointEntry) {
+export async function addPointsToTrainingSummary(playerId, eventId, pointEntry) {
     try {
-        console.log('[TrainingSummary] Adding points via RPC:', { playerId, eventDate, pointEntry });
+        console.log('[TrainingSummary] Adding points via RPC:', { playerId, eventId, pointEntry });
 
         const { data, error } = await supabase.rpc('add_points_to_training_summary', {
             p_player_id: playerId,
-            p_event_date: eventDate,
+            p_event_id: eventId,
             p_amount: pointEntry.amount,
             p_reason: pointEntry.reason || '',
             p_type: pointEntry.type || 'exercise',
@@ -104,7 +104,7 @@ export async function addPointsToTrainingSummary(playerId, eventDate, pointEntry
         }
 
         if (data === false) {
-            console.log('[TrainingSummary] No training summary found for date', eventDate);
+            console.log('[TrainingSummary] No training summary found for event', eventId);
             return false;
         }
 
