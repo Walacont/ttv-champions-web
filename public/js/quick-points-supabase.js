@@ -697,11 +697,13 @@ async function handleQuickPointsSubmit(closeAfter = true) {
     let exerciseId = null;
     let challengeId = null;
     let milestoneCount = null;
+    let exerciseName = null; // Name der Übung/Challenge für Training-Zusammenfassung
 
     if (selectedPointsType === 'exercise') {
         const select = document.getElementById('quick-points-exercise-select');
         const selectedOption = select?.options[select.selectedIndex];
-        reason = `Übung: ${selectedOption?.dataset.title || 'Unbekannt'}`;
+        exerciseName = selectedOption?.dataset.title || 'Unbekannt';
+        reason = `Übung: ${exerciseName}`;
         exerciseId = selectedOption?.value;
 
         if (selectedOption?.dataset.hasMilestones === 'true') {
@@ -711,7 +713,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
     } else if (selectedPointsType === 'challenge') {
         const select = document.getElementById('quick-points-challenge-select');
         const selectedOption = select?.options[select.selectedIndex];
-        reason = `Challenge: ${selectedOption?.dataset.title || 'Unbekannt'}`;
+        exerciseName = selectedOption?.dataset.title || 'Unbekannt';
+        reason = `Challenge: ${exerciseName}`;
         challengeId = selectedOption?.value;
 
         if (selectedOption?.dataset.hasMilestones === 'true') {
