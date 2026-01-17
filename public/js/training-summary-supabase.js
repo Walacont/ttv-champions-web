@@ -53,13 +53,15 @@ export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, e
             console.log('[TrainingSummary] Updated existing summary for player', playerId);
         } else {
             // Neue Zusammenfassung erstellen
+            // visibility='club' verwenden, aber durch den TRAINING_SUMMARY_PREFIX
+            // und user_id Filter im Activity Feed nur dem Spieler selbst angezeigt
             const { error } = await supabase
                 .from('community_posts')
                 .insert({
                     user_id: playerId,
                     club_id: clubId,
                     content: TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData),
-                    visibility: 'self'
+                    visibility: 'club'
                 });
 
             if (error) throw error;
@@ -126,7 +128,6 @@ async function findTrainingSummary(playerId, eventId, eventDate) {
         .from('community_posts')
         .select('*')
         .eq('user_id', playerId)
-        .eq('visibility', 'self')
         .ilike('content', `${TRAINING_SUMMARY_PREFIX}%`)
         .is('deleted_at', null);
 
@@ -147,7 +148,6 @@ async function findTrainingSummaryByDate(playerId, eventDate) {
         .from('community_posts')
         .select('*')
         .eq('user_id', playerId)
-        .eq('visibility', 'self')
         .ilike('content', `${TRAINING_SUMMARY_PREFIX}%`)
         .is('deleted_at', null);
 

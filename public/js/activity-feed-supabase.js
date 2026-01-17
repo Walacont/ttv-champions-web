@@ -888,20 +888,21 @@ async function fetchActivities(userIds) {
             .select('*')
             .is('deleted_at', null)
             .in('user_id', userIds)
-            .neq('visibility', 'self') // Keine Training-Zusammenfassungen hier laden
+            .not('content', 'ilike', 'TRAINING_SUMMARY|%') // Keine Training-Zusammenfassungen hier laden
             .order('created_at', { ascending: false })
             .range(typeOffsets.posts, typeOffsets.posts + ACTIVITIES_PER_PAGE - 1);
 
         if (postsError) console.warn('Error fetching community posts:', postsError);
 
         // Training-Zusammenfassungen (nur für den aktuellen Benutzer sichtbar)
+        // Erkannt durch TRAINING_SUMMARY| Prefix im Content
         let trainingSummaries = [];
         if (currentUser) {
             const { data: summaries, error: summariesError } = await supabase
                 .from('community_posts')
                 .select('*')
                 .eq('user_id', currentUser.id)
-                .eq('visibility', 'self')
+                .ilike('content', 'TRAINING_SUMMARY|%')
                 .is('deleted_at', null)
                 .order('created_at', { ascending: false })
                 .limit(10);
