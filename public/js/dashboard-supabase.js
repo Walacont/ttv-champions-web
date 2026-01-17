@@ -2475,15 +2475,13 @@ window.openSeasonModal = async function() {
 
     currentSeasonData = seasons?.[0] || null;
 
-    const isHeadCoach = userRole === 'head_coach' || userRole === 'admin';
-
-    // Modal HTML erstellen
+    // Modal HTML erstellen (nur Anzeige, keine Bearbeitung)
     const modalHtml = `
         <div id="season-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-gray-800">Saison-Verwaltung</h2>
+                        <h2 class="text-xl font-bold text-gray-800">Saison-Info</h2>
                         <button onclick="closeSeasonModal()" class="text-gray-500 hover:text-gray-700">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -2508,36 +2506,14 @@ window.openSeasonModal = async function() {
                                 <span id="modal-season-countdown" class="font-bold text-yellow-700"></span>
                             </div>
                         </div>
-
-                        ${isHeadCoach ? `
-                            <div class="space-y-2">
-                                <button onclick="editSeason('${currentSeasonData.id}')"
-                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
-                                    Saison bearbeiten
-                                </button>
-                                <button onclick="endSeasonConfirm('${currentSeasonData.id}')"
-                                    class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition">
-                                    Saison beenden
-                                </button>
-                            </div>
-                        ` : `
-                            <p class="text-sm text-gray-500 text-center">Nur der Head-Coach kann die Saison verwalten.</p>
-                        `}
+                        <p class="text-sm text-gray-500 text-center">Die Saison-Verwaltung erfolgt über die Trainer-Seite.</p>
                     ` : `
                         <!-- Keine aktive Saison -->
                         <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-center">
                             <p class="text-gray-600 mb-2">Keine aktive Saison</p>
                             <p class="text-sm text-gray-500">Es läuft aktuell keine Saison für diesen Verein/Sportart.</p>
                         </div>
-
-                        ${isHeadCoach ? `
-                            <button onclick="createNewSeason()"
-                                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition">
-                                Neue Saison starten
-                            </button>
-                        ` : `
-                            <p class="text-sm text-gray-500 text-center">Nur der Head-Coach kann eine neue Saison starten.</p>
-                        `}
+                        <p class="text-sm text-gray-500 text-center">Der Head-Coach kann auf der Trainer-Seite eine neue Saison starten.</p>
                     `}
                 </div>
             </div>
@@ -2583,247 +2559,6 @@ function updateModalCountdown() {
 
     el.textContent = `${days}T ${hours}h ${minutes}m`;
 }
-
-/**
- * Neue Saison erstellen
- */
-window.createNewSeason = async function() {
-    const clubId = currentUserData?.clubId || currentUserData?.club_id;
-    const sportId = currentUserData?.active_sport_id;
-
-    // Form für neue Saison anzeigen
-    const formHtml = `
-        <div id="season-form-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
-                <div class="p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Neue Saison erstellen</h2>
-
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Saison-Name</label>
-                            <input type="text" id="season-name" placeholder="z.B. Frühjahrssaison 2024"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Startdatum</label>
-                            <input type="date" id="season-start"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Enddatum</label>
-                            <input type="date" id="season-end"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2 mt-6">
-                        <button onclick="document.getElementById('season-form-modal')?.remove()"
-                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
-                            Abbrechen
-                        </button>
-                        <button onclick="saveNewSeason()"
-                            class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition">
-                            Saison starten
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('season-form-modal')?.remove();
-    document.body.insertAdjacentHTML('beforeend', formHtml);
-
-    // Standardwerte setzen
-    const today = new Date();
-    const sixWeeksLater = new Date(today.getTime() + 42 * 24 * 60 * 60 * 1000);
-    document.getElementById('season-start').value = today.toISOString().split('T')[0];
-    document.getElementById('season-end').value = sixWeeksLater.toISOString().split('T')[0];
-};
-
-/**
- * Neue Saison speichern
- */
-window.saveNewSeason = async function() {
-    const name = document.getElementById('season-name').value.trim();
-    const startDate = document.getElementById('season-start').value;
-    const endDate = document.getElementById('season-end').value;
-
-    if (!name || !startDate || !endDate) {
-        alert('Bitte alle Felder ausfüllen');
-        return;
-    }
-
-    if (new Date(endDate) <= new Date(startDate)) {
-        alert('Enddatum muss nach dem Startdatum liegen');
-        return;
-    }
-
-    const clubId = currentUserData?.clubId || currentUserData?.club_id;
-    const sportId = currentUserData?.active_sport_id;
-
-    try {
-        const { error } = await supabase.from('seasons').insert({
-            name: name,
-            start_date: startDate,
-            end_date: endDate,
-            club_id: clubId,
-            sport_id: sportId,
-            is_active: true,
-            created_by: currentUser.id
-        });
-
-        if (error) throw error;
-
-        // Cache invalidieren
-        cachedSeasonEnd = null;
-        lastSeasonFetchTime = null;
-
-        // Modals schließen und neu laden
-        document.getElementById('season-form-modal')?.remove();
-        closeSeasonModal();
-
-        // Countdown aktualisieren
-        seasonEndDate = await fetchSeasonEndDate();
-
-        alert('Saison erfolgreich gestartet!');
-    } catch (error) {
-        console.error('Error creating season:', error);
-        alert('Fehler beim Erstellen der Saison: ' + error.message);
-    }
-};
-
-/**
- * Saison beenden bestätigen
- */
-window.endSeasonConfirm = function(seasonId) {
-    if (confirm('Möchtest du diese Saison wirklich beenden? Die Punkte werden zurückgesetzt.')) {
-        endSeason(seasonId);
-    }
-};
-
-/**
- * Saison beenden
- */
-async function endSeason(seasonId) {
-    try {
-        const { error } = await supabase
-            .from('seasons')
-            .update({ is_active: false })
-            .eq('id', seasonId);
-
-        if (error) throw error;
-
-        // Cache invalidieren
-        cachedSeasonEnd = null;
-        lastSeasonFetchTime = null;
-        seasonEndDate = null;
-
-        closeSeasonModal();
-        alert('Saison beendet!');
-
-        // Countdown aktualisieren (zeigt jetzt Saisonpause)
-        updateSeasonCountdownDisplay();
-    } catch (error) {
-        console.error('Error ending season:', error);
-        alert('Fehler beim Beenden der Saison: ' + error.message);
-    }
-}
-
-/**
- * Saison bearbeiten
- */
-window.editSeason = async function(seasonId) {
-    // Form für Bearbeitung anzeigen
-    const formHtml = `
-        <div id="season-form-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
-                <div class="p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Saison bearbeiten</h2>
-
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Saison-Name</label>
-                            <input type="text" id="edit-season-name" value="${currentSeasonData?.name || ''}"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Startdatum</label>
-                            <input type="date" id="edit-season-start" value="${currentSeasonData?.start_date?.split('T')[0] || ''}"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Enddatum</label>
-                            <input type="date" id="edit-season-end" value="${currentSeasonData?.end_date?.split('T')[0] || ''}"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2 mt-6">
-                        <button onclick="document.getElementById('season-form-modal')?.remove()"
-                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
-                            Abbrechen
-                        </button>
-                        <button onclick="updateSeason('${seasonId}')"
-                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
-                            Speichern
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('season-form-modal')?.remove();
-    document.body.insertAdjacentHTML('beforeend', formHtml);
-};
-
-/**
- * Saison aktualisieren
- */
-window.updateSeason = async function(seasonId) {
-    const name = document.getElementById('edit-season-name').value.trim();
-    const startDate = document.getElementById('edit-season-start').value;
-    const endDate = document.getElementById('edit-season-end').value;
-
-    if (!name || !startDate || !endDate) {
-        alert('Bitte alle Felder ausfüllen');
-        return;
-    }
-
-    try {
-        const { error } = await supabase
-            .from('seasons')
-            .update({
-                name: name,
-                start_date: startDate,
-                end_date: endDate
-            })
-            .eq('id', seasonId);
-
-        if (error) throw error;
-
-        // Cache invalidieren
-        cachedSeasonEnd = null;
-        lastSeasonFetchTime = null;
-
-        // Modals schließen
-        document.getElementById('season-form-modal')?.remove();
-        closeSeasonModal();
-
-        // Countdown aktualisieren
-        seasonEndDate = await fetchSeasonEndDate();
-
-        alert('Saison aktualisiert!');
-    } catch (error) {
-        console.error('Error updating season:', error);
-        alert('Fehler beim Aktualisieren: ' + error.message);
-    }
-};
 
 // --- Realtime Subscriptions ---
 

@@ -2481,9 +2481,11 @@
 
                 <div id="tab-content-statistics" class="tab-content hidden">
                     <div class="space-y-8">
-                        <!-- Season Countdown -->
+                        <!-- Season Countdown - Klickbar für Head-Coach -->
                         <div
-                            class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md"
+                            id="season-banner-coach"
+                            class="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                            onclick="window.openSeasonModalCoach && window.openSeasonModalCoach()"
                         >
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3">
@@ -2507,7 +2509,7 @@
                                             ⏳ Saison-Ende
                                         </h3>
                                         <p class="text-xs text-yellow-700">
-                                            Saison-Punkte werden am Ende der Saison zurückgesetzt
+                                            Klicken für Saison-Verwaltung (nur Head-Coach)
                                         </p>
                                     </div>
                                 </div>

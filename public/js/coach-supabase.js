@@ -1217,3 +1217,379 @@ document.getElementById('close-reactivate-modal')?.addEventListener('click', () 
     document.getElementById('reactivate-challenge-modal').classList.add('hidden');
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');
 });
+
+// --- Season Management for Head-Coach ---
+
+let currentSeasonDataCoach = null;
+
+/**
+ * Öffnet das Saison-Modal für Coaches
+ */
+window.openSeasonModalCoach = async function() {
+    const clubId = currentUserData?.clubId;
+    const sportId = activeSportId;
+    const userRole = currentUserData?.role;
+
+    if (!clubId) {
+        alert('Kein Verein gefunden');
+        return;
+    }
+
+    // Aktive Saison für diesen Club/Sport laden
+    let query = supabase
+        .from('seasons')
+        .select('*')
+        .eq('is_active', true);
+
+    // Nach Club filtern (falls club_id existiert)
+    if (clubId) {
+        query = query.or(`club_id.eq.${clubId},club_id.is.null`);
+    }
+
+    if (sportId) {
+        query = query.eq('sport_id', sportId);
+    }
+
+    const { data: seasons, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    if (error) {
+        console.error('Error loading season:', error);
+    }
+
+    currentSeasonDataCoach = seasons?.[0] || null;
+
+    const isHeadCoach = userRole === 'head_coach' || userRole === 'admin';
+
+    // Modal HTML erstellen
+    const modalHtml = `
+        <div id="season-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">Saison-Verwaltung</h2>
+                        <button onclick="closeSeasonModalCoach()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    ${currentSeasonDataCoach ? `
+                        <!-- Aktive Saison anzeigen -->
+                        <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                                <span class="font-semibold text-green-800">Aktive Saison</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-gray-800">${currentSeasonDataCoach.name || 'Unbenannte Saison'}</h3>
+                            <div class="mt-2 text-sm text-gray-600">
+                                <p><strong>Start:</strong> ${new Date(currentSeasonDataCoach.start_date).toLocaleDateString('de-DE')}</p>
+                                <p><strong>Ende:</strong> ${new Date(currentSeasonDataCoach.end_date).toLocaleDateString('de-DE')}</p>
+                            </div>
+                            <div class="mt-3 text-sm">
+                                <span class="font-medium">Verbleibend:</span>
+                                <span id="modal-season-countdown-coach" class="font-bold text-yellow-700"></span>
+                            </div>
+                        </div>
+
+                        ${isHeadCoach ? `
+                            <div class="space-y-2">
+                                <button onclick="editSeasonCoach('${currentSeasonDataCoach.id}')"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                                    Saison bearbeiten
+                                </button>
+                                <button onclick="endSeasonConfirmCoach('${currentSeasonDataCoach.id}')"
+                                    class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                                    Saison beenden
+                                </button>
+                            </div>
+                        ` : `
+                            <p class="text-sm text-gray-500 text-center">Nur der Head-Coach kann die Saison verwalten.</p>
+                        `}
+                    ` : `
+                        <!-- Keine aktive Saison -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-center">
+                            <p class="text-gray-600 mb-2">Keine aktive Saison</p>
+                            <p class="text-sm text-gray-500">Es läuft aktuell keine Saison für diesen Verein/Sportart.</p>
+                        </div>
+
+                        ${isHeadCoach ? `
+                            <button onclick="createNewSeasonCoach()"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                                Neue Saison starten
+                            </button>
+                        ` : `
+                            <p class="text-sm text-gray-500 text-center">Nur der Head-Coach kann eine neue Saison starten.</p>
+                        `}
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Altes Modal entfernen falls vorhanden
+    document.getElementById('season-modal-coach')?.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Countdown im Modal aktualisieren
+    if (currentSeasonDataCoach) {
+        updateModalCountdownCoach();
+    }
+};
+
+/**
+ * Schließt das Saison-Modal
+ */
+window.closeSeasonModalCoach = function() {
+    document.getElementById('season-modal-coach')?.remove();
+};
+
+/**
+ * Aktualisiert den Countdown im Modal
+ */
+function updateModalCountdownCoach() {
+    const el = document.getElementById('modal-season-countdown-coach');
+    if (!el || !currentSeasonDataCoach) return;
+
+    const now = new Date();
+    const end = new Date(currentSeasonDataCoach.end_date);
+    const diff = end - now;
+
+    if (diff <= 0) {
+        el.textContent = 'Saison beendet!';
+        return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    el.textContent = `${days}T ${hours}h ${minutes}m`;
+}
+
+/**
+ * Neue Saison erstellen
+ */
+window.createNewSeasonCoach = async function() {
+    // Form für neue Saison anzeigen
+    const formHtml = `
+        <div id="season-form-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Neue Saison erstellen</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Saison-Name</label>
+                            <input type="text" id="season-name-coach" placeholder="z.B. Frühjahrssaison 2024"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Startdatum</label>
+                            <input type="date" id="season-start-coach"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Enddatum</label>
+                            <input type="date" id="season-end-coach"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-6">
+                        <button onclick="document.getElementById('season-form-modal-coach')?.remove()"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveNewSeasonCoach()"
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                            Saison starten
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('season-form-modal-coach')?.remove();
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+
+    // Standardwerte setzen
+    const today = new Date();
+    const sixWeeksLater = new Date(today.getTime() + 42 * 24 * 60 * 60 * 1000);
+    document.getElementById('season-start-coach').value = today.toISOString().split('T')[0];
+    document.getElementById('season-end-coach').value = sixWeeksLater.toISOString().split('T')[0];
+};
+
+/**
+ * Neue Saison speichern
+ */
+window.saveNewSeasonCoach = async function() {
+    const name = document.getElementById('season-name-coach').value.trim();
+    const startDate = document.getElementById('season-start-coach').value;
+    const endDate = document.getElementById('season-end-coach').value;
+
+    if (!name || !startDate || !endDate) {
+        alert('Bitte alle Felder ausfüllen');
+        return;
+    }
+
+    if (new Date(endDate) <= new Date(startDate)) {
+        alert('Enddatum muss nach dem Startdatum liegen');
+        return;
+    }
+
+    const clubId = currentUserData?.clubId;
+    const sportId = activeSportId;
+
+    try {
+        const { error } = await supabase.from('seasons').insert({
+            name: name,
+            start_date: startDate,
+            end_date: endDate,
+            club_id: clubId,
+            sport_id: sportId,
+            is_active: true,
+            created_by: currentUser.id
+        });
+
+        if (error) throw error;
+
+        // Modals schließen
+        document.getElementById('season-form-modal-coach')?.remove();
+        closeSeasonModalCoach();
+
+        alert('Saison erfolgreich gestartet!');
+
+        // Seite neu laden um Countdown zu aktualisieren
+        window.location.reload();
+    } catch (error) {
+        console.error('Error creating season:', error);
+        alert('Fehler beim Erstellen der Saison: ' + error.message);
+    }
+};
+
+/**
+ * Saison beenden bestätigen
+ */
+window.endSeasonConfirmCoach = function(seasonId) {
+    if (confirm('Möchtest du diese Saison wirklich beenden? Die Punkte werden zurückgesetzt.')) {
+        endSeasonCoach(seasonId);
+    }
+};
+
+/**
+ * Saison beenden
+ */
+async function endSeasonCoach(seasonId) {
+    try {
+        const { error } = await supabase
+            .from('seasons')
+            .update({ is_active: false })
+            .eq('id', seasonId);
+
+        if (error) throw error;
+
+        closeSeasonModalCoach();
+        alert('Saison beendet!');
+
+        // Seite neu laden
+        window.location.reload();
+    } catch (error) {
+        console.error('Error ending season:', error);
+        alert('Fehler beim Beenden der Saison: ' + error.message);
+    }
+}
+
+/**
+ * Saison bearbeiten
+ */
+window.editSeasonCoach = async function(seasonId) {
+    // Form für Bearbeitung anzeigen
+    const formHtml = `
+        <div id="season-form-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Saison bearbeiten</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Saison-Name</label>
+                            <input type="text" id="edit-season-name-coach" value="${currentSeasonDataCoach?.name || ''}"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Startdatum</label>
+                            <input type="date" id="edit-season-start-coach" value="${currentSeasonDataCoach?.start_date?.split('T')[0] || ''}"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Enddatum</label>
+                            <input type="date" id="edit-season-end-coach" value="${currentSeasonDataCoach?.end_date?.split('T')[0] || ''}"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-6">
+                        <button onclick="document.getElementById('season-form-modal-coach')?.remove()"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+                            Abbrechen
+                        </button>
+                        <button onclick="updateSeasonCoach('${seasonId}')"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                            Speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('season-form-modal-coach')?.remove();
+    document.body.insertAdjacentHTML('beforeend', formHtml);
+};
+
+/**
+ * Saison aktualisieren
+ */
+window.updateSeasonCoach = async function(seasonId) {
+    const name = document.getElementById('edit-season-name-coach').value.trim();
+    const startDate = document.getElementById('edit-season-start-coach').value;
+    const endDate = document.getElementById('edit-season-end-coach').value;
+
+    if (!name || !startDate || !endDate) {
+        alert('Bitte alle Felder ausfüllen');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('seasons')
+            .update({
+                name: name,
+                start_date: startDate,
+                end_date: endDate
+            })
+            .eq('id', seasonId);
+
+        if (error) throw error;
+
+        // Modals schließen
+        document.getElementById('season-form-modal-coach')?.remove();
+        closeSeasonModalCoach();
+
+        alert('Saison aktualisiert!');
+
+        // Seite neu laden
+        window.location.reload();
+    } catch (error) {
+        console.error('Error updating season:', error);
+        alert('Fehler beim Aktualisieren: ' + error.message);
+    }
+};
