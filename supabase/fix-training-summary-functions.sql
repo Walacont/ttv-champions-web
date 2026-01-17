@@ -111,12 +111,13 @@ BEGIN
     v_coach_id := auth.uid();
 
     -- Find the training summary post for this player and event (and get club_id from post)
+    -- Use JSONB extraction to properly match event_id regardless of JSON formatting
     SELECT id, club_id, content INTO v_post_id, v_post_club_id, v_content
     FROM community_posts
     WHERE user_id = p_player_id
     AND content LIKE TRAINING_SUMMARY_PREFIX || '%'
     AND deleted_at IS NULL
-    AND content LIKE '%"event_id":"' || p_event_id || '"%'
+    AND (SUBSTRING(content FROM LENGTH(TRAINING_SUMMARY_PREFIX) + 1))::JSONB->>'event_id' = p_event_id
     LIMIT 1;
 
     IF v_post_id IS NULL THEN
