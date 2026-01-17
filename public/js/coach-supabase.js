@@ -1454,7 +1454,7 @@ window.saveNewSeasonCoach = async function() {
             club_id: clubId,
             sport_id: sportId,
             is_active: true,
-            created_by: currentUser.id
+            created_by: currentUserData.id
         });
 
         if (error) throw error;
