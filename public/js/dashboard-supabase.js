@@ -3011,13 +3011,17 @@ window.openExerciseModal = async (exerciseId) => {
                 `;
 
                 // Meilensteine-Liste
-                const milestonesHtml = tieredPointsData.milestones
-                    .sort((a, b) => a.count - b.count)
+                const sortedMilestones = tieredPointsData.milestones.sort((a, b) => a.count - b.count);
+
+                // Kumulative Summe berechnen
+                let cumulativePoints = 0;
+                const milestonesHtml = sortedMilestones
                     .map((milestone, index) => {
+                        cumulativePoints += milestone.points;
                         const isFirst = index === 0;
                         const displayPoints = isFirst
                             ? milestone.points
-                            : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                            : `+${milestone.points}`;
 
                         let bgColor, borderColor, iconColor, textColor, statusIcon;
                         if (currentCount >= milestone.count) {
@@ -3026,7 +3030,7 @@ window.openExerciseModal = async (exerciseId) => {
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                             statusIcon = '✓';
-                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                        } else if (index === 0 || currentCount >= sortedMilestones[index - 1].count) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
                             iconColor = 'text-orange-600';
@@ -3047,7 +3051,7 @@ window.openExerciseModal = async (exerciseId) => {
                             </div>
                             <div class="text-right">
                                 <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
-                                <div class="text-xs text-gray-500 font-medium">Gesamt: ${milestone.points} P.</div>
+                                <div class="text-xs text-gray-500 font-medium">Gesamt: ${cumulativePoints} P.</div>
                             </div>
                         </div>`;
                     })
