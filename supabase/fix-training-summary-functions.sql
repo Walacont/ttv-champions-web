@@ -47,11 +47,17 @@ BEGIN
     v_coach_id := auth.uid();
 
     -- Check if the current user is a coach in the player's club
+    -- Check both profile_club_sports (per-sport role) and profiles table (global role)
     SELECT EXISTS (
         SELECT 1 FROM profile_club_sports pcs
         WHERE pcs.user_id = v_coach_id
         AND pcs.club_id = p_club_id
         AND pcs.role IN ('coach', 'head_coach')
+    ) OR EXISTS (
+        SELECT 1 FROM profiles p
+        WHERE p.id = v_coach_id
+        AND p.club_id = p_club_id
+        AND p.role IN ('coach', 'head_coach')
     ) INTO v_is_coach;
 
     IF NOT v_is_coach THEN
@@ -126,11 +132,17 @@ BEGIN
     END IF;
 
     -- Check if the current user is a coach in the post's club
+    -- Check both profile_club_sports (per-sport role) and profiles table (global role)
     SELECT EXISTS (
         SELECT 1 FROM profile_club_sports pcs
         WHERE pcs.user_id = v_coach_id
         AND pcs.club_id = v_post_club_id
         AND pcs.role IN ('coach', 'head_coach')
+    ) OR EXISTS (
+        SELECT 1 FROM profiles p
+        WHERE p.id = v_coach_id
+        AND p.club_id = v_post_club_id
+        AND p.role IN ('coach', 'head_coach')
     ) INTO v_is_coach;
 
     IF NOT v_is_coach THEN
