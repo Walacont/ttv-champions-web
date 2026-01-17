@@ -3,7 +3,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
-import { createTrainingSummariesForAttendees } from './training-summary-supabase.js';
+import { createTrainingSummariesForAttendees, addPointsToTrainingSummary } from './training-summary-supabase.js';
 
 const supabase = getSupabase();
 
@@ -1401,6 +1401,19 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
         const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
 
+        // Training-Zusammenfassungen ZUERST erstellen (bevor Punkte vergeben werden)
+        if (newAttendees.length > 0) {
+            const eventDate = occurrenceDate || event.start_date;
+            console.log('[Events] Creating training summaries for', newAttendees.length, 'new attendees, date:', eventDate);
+            await createTrainingSummariesForAttendees(
+                event.club_id,
+                eventId,
+                eventDate,
+                event.title,
+                newAttendees
+            );
+        }
+
         // Punkte in Batches vergeben (5 gleichzeitig) um Netzwerküberlastung zu vermeiden
         const BATCH_SIZE = 5;
         for (let i = 0; i < newAttendees.length; i += BATCH_SIZE) {
@@ -1461,19 +1474,6 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         // Heutige Trainings aktualisieren (falls auf Startseite)
         if (typeof window.refreshTodaysTrainings === 'function') {
             window.refreshTodaysTrainings();
-        }
-
-        // Training-Zusammenfassungen für anwesende Spieler erstellen
-        if (presentUserIds.length > 0) {
-            const eventDate = occurrenceDate || event.start_date;
-            console.log('[Events] Creating training summaries for', presentUserIds.length, 'attendees, date:', eventDate);
-            await createTrainingSummariesForAttendees(
-                event.club_id,
-                eventId,
-                eventDate,
-                event.title,
-                presentUserIds
-            );
         }
 
         // Erfolgs-Banner anzeigen wenn Spieler anwesend waren
@@ -1797,6 +1797,23 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     });
 
     console.log(`[Events] Awarded ${totalPoints} points to player ${playerId} (streak: ${newStreak})`);
+
+    // Anwesenheitspunkte zur Training-Summary hinzufügen (ohne Übungspunkte - die werden separat hinzugefügt)
+    let attendanceReason = 'Anwesenheit';
+    if (isTraining && newStreak >= 5) {
+        attendanceReason = `🔥 ${newStreak}x Streak!`;
+    } else if (isTraining && newStreak >= 3) {
+        attendanceReason = `⚡ ${newStreak}x Streak`;
+    }
+    if (alreadyAttendedToday) {
+        attendanceReason += ' (2. Training)';
+    }
+
+    await addPointsToTrainingSummary(playerId, date, {
+        amount: pointsToAdd,
+        reason: attendanceReason,
+        type: 'attendance'
+    });
 }
 
 /**
