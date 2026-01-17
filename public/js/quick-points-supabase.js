@@ -9,6 +9,7 @@ const supabase = getSupabase();
 let currentPresentPlayerIds = [];
 let currentClubPlayers = [];
 let currentUserData = null;
+let currentEventDate = null; // Datum für Training-Zusammenfassung
 let selectedPlayerIds = new Set();
 let selectedPointsType = null;
 let exercisesData = [];
@@ -59,14 +60,19 @@ export function initQuickPointsDialog() {
 
 /**
  * Öffnet den Quick Points Dialog nach dem Speichern der Anwesenheit
+ * @param {string[]} presentPlayerIds - IDs der anwesenden Spieler
+ * @param {object[]} clubPlayers - Liste der Club-Spieler
+ * @param {object} userData - Aktuelle Benutzerdaten
+ * @param {string} eventDate - Optional: Datum des Events (YYYY-MM-DD), default: heute
  */
-export async function openQuickPointsModal(presentPlayerIds, clubPlayers, userData) {
+export async function openQuickPointsModal(presentPlayerIds, clubPlayers, userData, eventDate = null) {
     const modal = document.getElementById('quick-points-modal');
     if (!modal) return;
 
     currentPresentPlayerIds = presentPlayerIds;
     currentClubPlayers = clubPlayers;
     currentUserData = userData;
+    currentEventDate = eventDate || new Date().toISOString().split('T')[0]; // Datum speichern
     selectedPlayerIds = new Set(presentPlayerIds); // Standardmäßig alle anwesenden ausgewählt
     selectedPointsType = null;
 
@@ -847,15 +853,14 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         }
                     }
 
-                    // Training-Zusammenfassung aktualisieren (wenn heute)
-                    const today = new Date().toISOString().split('T')[0];
+                    // Training-Zusammenfassung aktualisieren (für das Event-Datum)
                     const pointEntry = {
                         amount: points,
                         reason: reason,
                         type: selectedPointsType,
                         exercise_name: exerciseName || null
                     };
-                    await addPointsToTrainingSummary(playerId, today, pointEntry);
+                    await addPointsToTrainingSummary(playerId, currentEventDate, pointEntry);
 
                     successCount++;
                 } catch (playerError) {

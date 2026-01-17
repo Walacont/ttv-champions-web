@@ -1545,7 +1545,8 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             subgroupIDs: p.subgroup_ids || []
         }));
 
-        window.openQuickPointsModal(presentUserIds, players, currentUserData);
+        // Datum für Training-Zusammenfassung übergeben
+        window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate);
     } catch (error) {
         console.error('[Events] Error opening quick points:', error);
         alert('Fehler: ' + error.message);

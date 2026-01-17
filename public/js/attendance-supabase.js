@@ -2,6 +2,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { getSportContext } from './sport-context-supabase.js';
+import { createTrainingSummariesForAttendees } from './training-summary-supabase.js';
 
 /**
  * Anwesenheits-Modul mit Kalenderdarstellung und Anwesenheitsverfolgung für Trainer
@@ -759,6 +760,18 @@ export async function handleAttendanceSave(
             }
         }
 
+        // Training-Zusammenfassungen für anwesende Spieler erstellen
+        if (presentPlayerIds.length > 0) {
+            const trainingTitle = `Training - ${subgroupName}`;
+            await createTrainingSummariesForAttendees(
+                currentUserData.clubId,
+                sessionId,  // sessionId als eventId verwenden
+                date,       // Das ausgewählte Datum, nicht heute
+                trainingTitle,
+                presentPlayerIds
+            );
+        }
+
         feedbackEl.textContent = 'Anwesenheit erfolgreich gespeichert!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
@@ -773,7 +786,8 @@ export async function handleAttendanceSave(
                 const playersInSubgroup = clubPlayers.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
                 );
-                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData);
+                // Datum übergeben für Training-Zusammenfassung
+                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData, date);
             }
         }, 1000);
     } catch (error) {
