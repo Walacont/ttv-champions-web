@@ -1171,7 +1171,9 @@ export async function loadSubgroupsForPlayerForm(clubId, supabase, containerId, 
         container.innerHTML = '';
         subgroups.forEach(subgroup => {
             const subgroupId = subgroup.id;
-            const isChecked = existingSubgroups.includes(subgroupId);
+            const isDefault = subgroup.is_default === true;
+            // Hauptgruppe ist immer gecheckt, andere nur wenn in existingSubgroups
+            const isChecked = isDefault || existingSubgroups.includes(subgroupId);
 
             const div = document.createElement('div');
             div.className = 'flex items-center';
@@ -1181,9 +1183,10 @@ export async function loadSubgroupsForPlayerForm(clubId, supabase, containerId, 
                    value="${subgroupId}"
                    type="checkbox"
                    ${isChecked ? 'checked' : ''}
-                   class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-            <label for="subgroup-${containerId}-${subgroupId}" class="ml-3 block text-sm font-medium text-gray-700">
-                ${subgroup.name}
+                   ${isDefault ? 'disabled' : ''}
+                   class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isDefault ? 'cursor-not-allowed' : ''}">
+            <label for="subgroup-${containerId}-${subgroupId}" class="ml-3 block text-sm font-medium ${isDefault ? 'text-gray-500' : 'text-gray-700'}">
+                ${subgroup.name}${isDefault ? ' (Standard)' : ''}
             </label>
         `;
             container.appendChild(div);
