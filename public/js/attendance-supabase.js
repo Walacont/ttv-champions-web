@@ -990,6 +990,9 @@ async function deductAttendancePoints(
     });
 }
 
+// Tracke aktive Subscriptions um Endlosschleifen zu vermeiden
+const activePlayerSubscriptions = new Set();
+
 /**
  * Lädt Spieler für Anwesenheitsverfolgung
  * @param {string} clubId - Vereins-ID
@@ -1000,6 +1003,9 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
     // Unterstützt beide Signaturen: (clubId, callback) und (clubId, supabase, callback)
     const onPlayersLoaded = typeof supabaseOrCallback === 'function' ? supabaseOrCallback : callback;
     const PLAYER_LIMIT = 300;
+
+    // Flag ob wir bereits eine Subscription haben
+    const hasSubscription = activePlayerSubscriptions.has(clubId);
 
     try {
         const { data, error } = await supabase
@@ -1055,24 +1061,32 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
             onPlayersLoaded(players);
         }
 
-        const channel = supabase
-            .channel(`attendance_players_${clubId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'profiles',
-                    filter: `club_id=eq.${clubId}`
-                },
-                () => {
-                    loadPlayersForAttendance(clubId, onPlayersLoaded);
-                }
-            )
-            .subscribe();
+        // Nur Subscription erstellen wenn noch keine existiert (verhindert Endlosschleife)
+        if (!hasSubscription) {
+            activePlayerSubscriptions.add(clubId);
 
-        if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
-        window.attendanceUnsubscribes.push(() => supabase.removeChannel(channel));
+            const channel = supabase
+                .channel(`attendance_players_${clubId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'profiles',
+                        filter: `club_id=eq.${clubId}`
+                    },
+                    () => {
+                        loadPlayersForAttendance(clubId, onPlayersLoaded);
+                    }
+                )
+                .subscribe();
+
+            if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
+            window.attendanceUnsubscribes.push(() => {
+                supabase.removeChannel(channel);
+                activePlayerSubscriptions.delete(clubId);
+            });
+        }
 
     } catch (error) {
         console.error('[Attendance] Error loading players:', error);
