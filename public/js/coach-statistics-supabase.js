@@ -100,30 +100,39 @@ export async function loadTodaysTrainings(userData, supabase) {
     try {
         // Lade alle Events von heute (inkl. wiederkehrende)
         // Safari-kompatibel: Zwei separate Abfragen statt komplexem .or() mit verschachteltem and()
-        const [singleEventsResult, recurringEventsResult] = await Promise.all([
-            // Einzelne Events von heute
-            supabase
+        let singleEventsData = [];
+        let recurringEventsData = [];
+
+        // Erste Abfrage: Einzelne Events von heute
+        try {
+            const { data, error } = await supabase
                 .from('events')
-                .select('*, event_attendance(id, present_user_ids)')
+                .select('*, event_attendance(id, present_user_ids, occurrence_date)')
                 .eq('club_id', userData.clubId)
                 .eq('start_date', todayStr)
-                .order('start_time', { ascending: true }),
-            // Wiederkehrende Events die vor oder an heute gestartet sind
-            supabase
+                .order('start_time', { ascending: true });
+            if (!error) singleEventsData = data || [];
+        } catch (e) {
+            console.warn('Error loading single events:', e);
+        }
+
+        // Zweite Abfrage: Wiederkehrende Events
+        try {
+            const { data, error } = await supabase
                 .from('events')
-                .select('*, event_attendance(id, present_user_ids)')
+                .select('*, event_attendance(id, present_user_ids, occurrence_date)')
                 .eq('club_id', userData.clubId)
                 .eq('event_type', 'recurring')
                 .lte('start_date', todayStr)
-                .order('start_time', { ascending: true })
-        ]);
-
-        if (singleEventsResult.error) throw singleEventsResult.error;
-        if (recurringEventsResult.error) throw recurringEventsResult.error;
+                .order('start_time', { ascending: true });
+            if (!error) recurringEventsData = data || [];
+        } catch (e) {
+            console.warn('Error loading recurring events:', e);
+        }
 
         // Kombiniere und dedupliziere (falls ein Event beide Bedingungen erfüllt)
         const eventMap = new Map();
-        [...(singleEventsResult.data || []), ...(recurringEventsResult.data || [])].forEach(e => {
+        [...singleEventsData, ...recurringEventsData].forEach(e => {
             eventMap.set(e.id, e);
         });
         const events = Array.from(eventMap.values());
@@ -156,17 +165,16 @@ export async function loadTodaysTrainings(userData, supabase) {
             return;
         }
 
-        // Lade Anwesenheitsdaten für heute
-        const { data: attendanceData } = await supabase
-            .from('event_attendance')
-            .select('event_id, present_user_ids, occurrence_date')
-            .in('event_id', todaysEvents.map(e => e.id));
-
+        // Nutze bereits eingebettete Anwesenheitsdaten (Safari-kompatibel: keine separate .in() Abfrage)
         const attendanceMap = new Map();
-        (attendanceData || []).forEach(att => {
+        todaysEvents.forEach(event => {
+            const attendanceRecords = event.event_attendance || [];
             // Für wiederkehrende Events: nur wenn occurrence_date = heute
-            if (!att.occurrence_date || att.occurrence_date === todayStr) {
-                attendanceMap.set(att.event_id, att);
+            const todayAttendance = attendanceRecords.find(att =>
+                !att.occurrence_date || att.occurrence_date === todayStr
+            );
+            if (todayAttendance) {
+                attendanceMap.set(event.id, todayAttendance);
             }
         });
 
