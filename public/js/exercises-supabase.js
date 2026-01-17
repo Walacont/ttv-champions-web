@@ -208,8 +208,13 @@ function createExerciseCard(docSnap, exercise) {
  * Rendert Tag-Filter-Buttons für die Übungsliste
  */
 export function renderTagFilters(tags, exercises) {
+    console.log('[Exercises] renderTagFilters called with', tags.size, 'tags');
+
     const oldContainer = document.getElementById('tags-filter-container');
-    if (!oldContainer) return;
+    if (!oldContainer) {
+        console.warn('[Exercises] tags-filter-container not found');
+        return;
+    }
 
     // Container klonen um alte Event Listener zu entfernen
     const filterContainer = oldContainer.cloneNode(false);
@@ -375,6 +380,8 @@ function setupTagFilterToggle(context) {
     const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
     const filterSection = document.getElementById(`tags-filter-section-${context}`);
 
+    console.log(`[Exercises] setupTagFilterToggle(${context}): button=`, !!toggleButton, 'section=', !!filterSection);
+
     if (!toggleButton || !filterSection) {
         console.warn(`[Exercises] Toggle elements not found for context: ${context}`);
         return;
@@ -382,8 +389,11 @@ function setupTagFilterToggle(context) {
 
     // Event Listener direkt hinzufügen (ohne Klonen, da Button einfach ist)
     toggleButton.onclick = () => {
+        console.log(`[Exercises] Toggle clicked for ${context}`);
         filterSection.classList.toggle('hidden');
     };
+
+    console.log(`[Exercises] Toggle setup complete for ${context}`);
 }
 
 /**
