@@ -1439,9 +1439,30 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             if (error) throw error;
         }
 
-        alert('Gespeichert!');
+        // Modal schließen
         document.getElementById('event-details-modal')?.remove();
         eventExercises = [];
+
+        // Quick Points Dialog öffnen wenn Spieler anwesend waren
+        if (presentUserIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
+            // Lade Spieler für das Event
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, email, subgroup_ids')
+                .in('id', presentUserIds);
+
+            const players = (playersData || []).map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                email: p.email,
+                subgroupIDs: p.subgroup_ids || []
+            }));
+
+            window.openQuickPointsModal(presentUserIds, players, currentUserData);
+        } else {
+            alert('Anwesenheit gespeichert!');
+        }
 
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
