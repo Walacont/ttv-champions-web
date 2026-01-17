@@ -2864,6 +2864,57 @@ function renderGlobalDoublesRankingChangeCard(activity) {
 }
 
 /**
+ * Erkennt Saison-Posts und rendert einen farbigen Banner
+ */
+function renderSeasonBanner(content) {
+    if (!content) return '';
+
+    const isSeasonStart = content.startsWith('Neue Saison gestartet');
+    const isSeasonEnd = content.startsWith('Saison beendet');
+
+    if (isSeasonStart) {
+        return `
+            <div class="mb-3 -mx-4 -mt-4 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-xl">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-flag-checkered text-lg"></i>
+                    <span class="font-bold text-lg">Neue Saison gestartet!</span>
+                </div>
+            </div>
+        `;
+    }
+
+    if (isSeasonEnd) {
+        return `
+            <div class="mb-3 -mx-4 -mt-4 px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-xl">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-trophy text-lg"></i>
+                    <span class="font-bold text-lg">Saison beendet!</span>
+                </div>
+            </div>
+        `;
+    }
+
+    return '';
+}
+
+/**
+ * Entfernt die erste Zeile bei Saison-Posts (da sie im Banner angezeigt wird)
+ */
+function formatSeasonContent(content) {
+    if (!content) return '';
+
+    const isSeasonPost = content.startsWith('Neue Saison gestartet') || content.startsWith('Saison beendet');
+
+    if (isSeasonPost) {
+        // Erste Zeile entfernen (wird im Banner angezeigt)
+        const lines = content.split('\n');
+        return lines.slice(1).join('\n').trim();
+    }
+
+    return content;
+}
+
+/**
  * Render a community post card
  */
 function renderPostCard(activity, profileMap) {
@@ -2910,8 +2961,9 @@ function renderPostCard(activity, profileMap) {
             </div>
 
             <!-- Post Content -->
+            ${renderSeasonBanner(activity.content)}
             <div class="mb-3">
-                <p class="text-gray-800 whitespace-pre-wrap break-words">${activity.content}</p>
+                <p class="text-gray-800 whitespace-pre-wrap break-words">${formatSeasonContent(activity.content)}</p>
             </div>
 
             ${hasImages ? `
