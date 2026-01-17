@@ -175,27 +175,45 @@ async function loadTodaysTrainings(userData, supabase) {
  */
 async function loadTrainingAnalysis(userData, supabase, currentSubgroupFilter = 'all') {
     try {
-        // Lade Events mit Anwesenheitsdaten
+        // Lade Events für den Club
         const { data: eventsData, error: eventsError } = await supabase
             .from('events')
-            .select('id, title, subgroup_id')
+            .select('id, title, target_type, target_subgroup_ids')
             .eq('club_id', userData.clubId);
 
         if (eventsError) throw eventsError;
 
-        // Filter nach Subgroup wenn nötig
+        // Filter nach Subgroup wenn nötig (Events können mehrere Subgroups haben)
         let eventIds = (eventsData || []).map(e => e.id);
         if (currentSubgroupFilter !== 'all') {
             eventIds = (eventsData || [])
-                .filter(e => e.subgroup_id === currentSubgroupFilter)
+                .filter(e => {
+                    // Wenn target_type 'club' ist, gehört es zu allen
+                    if (e.target_type === 'club') return true;
+                    // Sonst prüfen ob die Subgroup in target_subgroup_ids ist
+                    const subgroupIds = e.target_subgroup_ids || [];
+                    return subgroupIds.includes(currentSubgroupFilter);
+                })
                 .map(e => e.id);
+        }
+
+        if (eventIds.length === 0) {
+            // Keine Events gefunden
+            const weekEl = document.getElementById('stats-attendance-week');
+            const monthEl = document.getElementById('stats-attendance-month');
+            const totalEl = document.getElementById('stats-total-trainings');
+            if (weekEl) weekEl.textContent = '0';
+            if (monthEl) monthEl.textContent = '0';
+            if (totalEl) totalEl.textContent = '0';
+            renderAttendanceTrendChart([]);
+            return;
         }
 
         // Lade Anwesenheitsdaten von event_attendance
         const { data, error } = await supabase
             .from('event_attendance')
             .select('*')
-            .in('event_id', eventIds.length > 0 ? eventIds : ['no-events'])
+            .in('event_id', eventIds)
             .order('occurrence_date', { ascending: false });
 
         if (error) throw error;
@@ -591,7 +609,7 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
         // Lade Events für Club
         const { data: eventsData, error: eventsError } = await supabase
             .from('events')
-            .select('id, subgroup_id')
+            .select('id, target_type, target_subgroup_ids')
             .eq('club_id', userData.clubId);
 
         if (eventsError) throw eventsError;
@@ -600,26 +618,32 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
         let eventIds = (eventsData || []).map(e => e.id);
         if (currentSubgroupFilter !== 'all') {
             eventIds = (eventsData || [])
-                .filter(e => e.subgroup_id === currentSubgroupFilter)
+                .filter(e => {
+                    if (e.target_type === 'club') return true;
+                    const subgroupIds = e.target_subgroup_ids || [];
+                    return subgroupIds.includes(currentSubgroupFilter);
+                })
                 .map(e => e.id);
         }
 
         // Lade Anwesenheitsdaten von event_attendance
-        const { data: attendanceData, error: attendanceError } = await supabase
-            .from('event_attendance')
-            .select('*')
-            .in('event_id', eventIds.length > 0 ? eventIds : ['no-events'])
-            .order('occurrence_date', { ascending: false })
-            .limit(50);
+        let attendanceRecords = [];
+        if (eventIds.length > 0) {
+            const { data: attendanceData, error: attendanceError } = await supabase
+                .from('event_attendance')
+                .select('*')
+                .in('event_id', eventIds)
+                .order('occurrence_date', { ascending: false })
+                .limit(50);
 
-        if (attendanceError) throw attendanceError;
+            if (attendanceError) throw attendanceError;
 
-        const attendanceRecords = (attendanceData || []).map(a => ({
-            id: a.id,
-            date: a.occurrence_date || a.created_at,
-            presentPlayerIds: a.present_user_ids || [],
-            subgroupId: eventsData?.find(e => e.id === a.event_id)?.subgroup_id,
-        }));
+            attendanceRecords = (attendanceData || []).map(a => ({
+                id: a.id,
+                date: a.occurrence_date || a.created_at,
+                presentPlayerIds: a.present_user_ids || [],
+            }));
+        }
 
         const playerStreaks = calculateStreaks(players, attendanceRecords);
         renderTopStreaks(playerStreaks);
