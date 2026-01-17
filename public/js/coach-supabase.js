@@ -1483,19 +1483,19 @@ window.endSeasonConfirmCoach = function(seasonId) {
 };
 
 /**
- * Saison beenden
+ * Saison beenden (mit Punkte-Reset über RPC)
  */
 async function endSeasonCoach(seasonId) {
     try {
-        const { error } = await supabase
-            .from('seasons')
-            .update({ is_active: false })
-            .eq('id', seasonId);
+        // RPC-Funktion verwenden, die auch die Saison-Punkte zurücksetzt
+        const { error } = await supabase.rpc('end_season', {
+            p_season_id: seasonId
+        });
 
         if (error) throw error;
 
         closeSeasonModalCoach();
-        alert('Saison beendet!');
+        alert('Saison beendet! Alle Saison-Punkte wurden zurückgesetzt.');
 
         // Seite neu laden
         window.location.reload();
