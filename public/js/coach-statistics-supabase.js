@@ -20,16 +20,27 @@ let cachedSupabase = null;
  * Wrapper für Timeout bei async Funktionen
  */
 function withTimeout(promise, timeoutMs, fallbackFn) {
+    let resolved = false;
+    let timeoutId;
+
     return Promise.race([
-        promise,
-        new Promise((_, reject) =>
-            setTimeout(() => {
-                if (fallbackFn) fallbackFn();
-                reject(new Error('Timeout'));
-            }, timeoutMs)
-        )
+        promise.then(result => {
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            return result;
+        }),
+        new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    if (fallbackFn) fallbackFn();
+                    reject(new Error('Timeout'));
+                }
+            }, timeoutMs);
+        })
     ]).catch(err => {
-        console.warn('Function timed out or failed:', err);
+        if (!resolved) {
+            console.warn('Function timed out or failed:', err);
+        }
     });
 }
 
