@@ -359,6 +359,7 @@ async function renderRecentActivity(profile) {
                 .from('community_posts')
                 .select('*')
                 .eq('user_id', profileId)
+                .not('content', 'ilike', 'TRAINING_SUMMARY|%') // Training-Summaries ausschließen
                 .is('deleted_at', null)
                 .order('created_at', { ascending: false })
                 .limit(ACTIVITY_LIMIT)
