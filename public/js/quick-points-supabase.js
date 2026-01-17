@@ -802,7 +802,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                                     user_id: playerId,
                                     exercise_id: exerciseId,
                                     current_count: milestoneCount,
-                                    last_updated: now
+                                    updated_at: now
                                 }, {
                                     onConflict: 'user_id,exercise_id'
                                 });
