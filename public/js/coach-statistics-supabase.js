@@ -18,12 +18,155 @@ let rankDistributionChart = null;
 export async function loadStatistics(userData, supabase, currentSubgroupFilter = 'all') {
     try {
         await Promise.all([
+            loadTodaysTrainings(userData, supabase),
             loadTrainingAnalysis(userData, supabase, currentSubgroupFilter),
             loadTeamOverview(userData, supabase, currentSubgroupFilter),
             loadActivityMonitor(userData, supabase, currentSubgroupFilter),
         ]);
     } catch (error) {
         console.error('Error loading statistics:', error);
+    }
+}
+
+/**
+ * Lädt heutige Trainings/Events für Quick-Access
+ */
+async function loadTodaysTrainings(userData, supabase) {
+    const container = document.getElementById('todays-trainings-list');
+    const dateDisplay = document.getElementById('today-date-display');
+    if (!container) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const now = new Date();
+
+    // Datum anzeigen
+    if (dateDisplay) {
+        dateDisplay.textContent = today.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+        });
+    }
+
+    try {
+        // Lade alle Events von heute (inkl. wiederkehrende)
+        const { data: events, error } = await supabase
+            .from('events')
+            .select('*, event_attendance(id, present_user_ids)')
+            .eq('club_id', userData.clubId)
+            .or(`start_date.eq.${todayStr},and(event_type.eq.recurring,start_date.lte.${todayStr})`)
+            .order('start_time', { ascending: true });
+
+        if (error) throw error;
+
+        // Filtere wiederkehrende Events für heute (nach Wochentag)
+        const todayDayOfWeek = today.getDay();
+        const todaysEvents = (events || []).filter(event => {
+            if (event.event_type === 'recurring') {
+                const eventStartDate = new Date(event.start_date + 'T12:00:00');
+                const eventDayOfWeek = eventStartDate.getDay();
+                if (eventDayOfWeek !== todayDayOfWeek) return false;
+                // Prüfe ob vor end_date
+                if (event.repeat_end_date && todayStr > event.repeat_end_date) return false;
+                // Prüfe excluded_dates
+                if (event.excluded_dates?.includes(todayStr)) return false;
+                return true;
+            }
+            return event.start_date === todayStr;
+        });
+
+        if (todaysEvents.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <p class="text-sm">Keine Trainings für heute geplant</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Lade Anwesenheitsdaten für heute
+        const { data: attendanceData } = await supabase
+            .from('event_attendance')
+            .select('event_id, present_user_ids, occurrence_date')
+            .in('event_id', todaysEvents.map(e => e.id));
+
+        const attendanceMap = new Map();
+        (attendanceData || []).forEach(att => {
+            // Für wiederkehrende Events: nur wenn occurrence_date = heute
+            if (!att.occurrence_date || att.occurrence_date === todayStr) {
+                attendanceMap.set(att.event_id, att);
+            }
+        });
+
+        // Render Events
+        container.innerHTML = todaysEvents.map(event => {
+            const startTime = event.start_time?.slice(0, 5) || '';
+            const endTime = event.end_time?.slice(0, 5) || '';
+            const attendance = attendanceMap.get(event.id);
+            const hasAttendance = attendance && attendance.present_user_ids?.length > 0;
+            const attendeeCount = attendance?.present_user_ids?.length || 0;
+
+            // Status bestimmen
+            let status = 'upcoming';
+            let statusBadge = '';
+            let statusClass = 'border-gray-200 hover:border-indigo-300';
+
+            if (startTime && endTime) {
+                const [startH, startM] = startTime.split(':').map(Number);
+                const [endH, endM] = endTime.split(':').map(Number);
+                const eventStart = new Date(today);
+                eventStart.setHours(startH, startM, 0);
+                const eventEnd = new Date(today);
+                eventEnd.setHours(endH, endM, 0);
+
+                if (now >= eventStart && now <= eventEnd) {
+                    status = 'running';
+                    statusBadge = '<span class="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full font-medium animate-pulse">Läuft jetzt</span>';
+                    statusClass = 'border-orange-300 bg-orange-50 hover:border-orange-400';
+                } else if (now > eventEnd) {
+                    status = 'finished';
+                    if (hasAttendance) {
+                        statusBadge = `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">✓ ${attendeeCount} anwesend</span>`;
+                        statusClass = 'border-green-300 hover:border-green-400';
+                    } else {
+                        statusBadge = '<span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">Anwesenheit fehlt</span>';
+                        statusClass = 'border-red-300 bg-red-50 hover:border-red-400';
+                    }
+                }
+            }
+
+            return `
+                <div class="p-4 rounded-xl border-2 ${statusClass} cursor-pointer transition-all hover:shadow-md"
+                     onclick="window.openEventDetails && window.openEventDetails('${event.id}', '${todayStr}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="font-semibold text-gray-900">${event.title}</h4>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                ${startTime}${endTime ? ' - ' + endTime : ''} Uhr
+                            </p>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading todays trainings:', error);
+        container.innerHTML = `
+            <div class="text-center py-4 text-red-500">
+                <p class="text-sm">Fehler beim Laden der Trainings</p>
+            </div>
+        `;
     }
 }
 
