@@ -1401,16 +1401,17 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
         const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
 
-        // Training-Zusammenfassungen ZUERST erstellen (bevor Punkte vergeben werden)
-        if (newAttendees.length > 0) {
+        // Training-Zusammenfassungen für ALLE anwesenden Spieler erstellen/aktualisieren
+        // (nicht nur neue, damit Quick Points auch für bestehende funktioniert)
+        if (presentUserIds.length > 0) {
             const eventDate = occurrenceDate || event.start_date;
-            console.log('[Events] Creating training summaries for', newAttendees.length, 'new attendees, date:', eventDate);
+            console.log('[Events] Creating/updating training summaries for', presentUserIds.length, 'attendees, date:', eventDate, 'eventId:', eventId);
             await createTrainingSummariesForAttendees(
                 event.club_id,
                 eventId,
                 eventDate,
                 event.title,
-                newAttendees
+                presentUserIds
             );
         }
 
