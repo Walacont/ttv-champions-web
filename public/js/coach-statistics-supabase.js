@@ -17,6 +17,23 @@ let cachedUserData = null;
 let cachedSupabase = null;
 
 /**
+ * Wrapper für Timeout bei async Funktionen
+ */
+function withTimeout(promise, timeoutMs, fallbackFn) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => {
+                if (fallbackFn) fallbackFn();
+                reject(new Error('Timeout'));
+            }, timeoutMs)
+        )
+    ]).catch(err => {
+        console.warn('Function timed out or failed:', err);
+    });
+}
+
+/**
  * Lädt alle Statistik-Bereiche
  */
 export async function loadStatistics(userData, supabase, currentSubgroupFilter = 'all') {
@@ -24,16 +41,30 @@ export async function loadStatistics(userData, supabase, currentSubgroupFilter =
     cachedUserData = userData;
     cachedSupabase = supabase;
 
-    try {
-        await Promise.all([
-            loadTodaysTrainings(userData, supabase),
-            loadTrainingAnalysis(userData, supabase, currentSubgroupFilter),
-            loadTeamOverview(userData, supabase, currentSubgroupFilter),
-            loadActivityMonitor(userData, supabase, currentSubgroupFilter),
-        ]);
-    } catch (error) {
-        console.error('Error loading statistics:', error);
-    }
+    const TIMEOUT_MS = 15000; // 15 Sekunden Timeout
+
+    // Promise.allSettled statt Promise.all - so stoppt ein Fehler nicht alles
+    const results = await Promise.allSettled([
+        withTimeout(loadTodaysTrainings(userData, supabase), TIMEOUT_MS, () => {
+            const container = document.getElementById('todays-trainings-list');
+            if (container) container.innerHTML = '<p class="text-center text-gray-500 py-4">Laden fehlgeschlagen</p>';
+        }),
+        withTimeout(loadTrainingAnalysis(userData, supabase, currentSubgroupFilter), TIMEOUT_MS, () => {
+            const weekEl = document.getElementById('stats-attendance-week');
+            const monthEl = document.getElementById('stats-attendance-month');
+            if (weekEl) weekEl.textContent = '-';
+            if (monthEl) monthEl.textContent = '-';
+        }),
+        withTimeout(loadTeamOverview(userData, supabase, currentSubgroupFilter), TIMEOUT_MS),
+        withTimeout(loadActivityMonitor(userData, supabase, currentSubgroupFilter), TIMEOUT_MS),
+    ]);
+
+    // Fehler loggen
+    results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.error(`Statistics function ${index} failed:`, result.reason);
+        }
+    });
 }
 
 /**
