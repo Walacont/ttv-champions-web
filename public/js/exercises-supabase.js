@@ -375,25 +375,15 @@ function setupTagFilterToggle(context) {
     const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
     const filterSection = document.getElementById(`tags-filter-section-${context}`);
 
-    if (!toggleButton || !filterSection) return;
+    if (!toggleButton || !filterSection) {
+        console.warn(`[Exercises] Toggle elements not found for context: ${context}`);
+        return;
+    }
 
-    const newToggleButton = toggleButton.cloneNode(true);
-    toggleButton.parentNode.replaceChild(newToggleButton, toggleButton);
-
-    // Icon-Referenz NACH dem Klonen holen (neues Element im DOM)
-    const filterIcon = document.getElementById(`filter-icon-${context}`);
-
-    newToggleButton.addEventListener('click', () => {
-        const isHidden = filterSection.classList.contains('hidden');
-
-        if (isHidden) {
-            filterSection.classList.remove('hidden');
-            if (filterIcon) filterIcon.style.transform = 'rotate(180deg)';
-        } else {
-            filterSection.classList.add('hidden');
-            if (filterIcon) filterIcon.style.transform = 'rotate(0deg)';
-        }
-    });
+    // Event Listener direkt hinzufügen (ohne Klonen, da Button einfach ist)
+    toggleButton.onclick = () => {
+        filterSection.classList.toggle('hidden');
+    };
 }
 
 /**
