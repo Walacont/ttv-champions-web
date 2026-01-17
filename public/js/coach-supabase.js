@@ -586,6 +586,7 @@ async function initializeCoachPage(userData) {
             id: sg.id,
             name: sg.name,
             clubId: sg.club_id,
+            isDefault: sg.is_default,
             ...sg
         }));
 
