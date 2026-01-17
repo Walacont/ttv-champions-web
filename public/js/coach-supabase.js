@@ -1227,7 +1227,7 @@ let currentSeasonDataCoach = null;
  */
 window.openSeasonModalCoach = async function() {
     const clubId = currentUserData?.clubId;
-    const sportId = activeSportId;
+    const sportId = currentUserData?.activeSportId;
     const userRole = currentUserData?.role;
 
     if (!clubId) {
@@ -1444,7 +1444,7 @@ window.saveNewSeasonCoach = async function() {
     }
 
     const clubId = currentUserData?.clubId;
-    const sportId = activeSportId;
+    const sportId = currentUserData?.activeSportId;
 
     try {
         const { error } = await supabase.from('seasons').insert({
