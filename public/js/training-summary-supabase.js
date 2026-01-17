@@ -55,23 +55,18 @@ export async function createOrUpdateTrainingSummary(playerId, clubId, eventId, e
             if (error) throw error;
             console.log('[TrainingSummary] Updated existing summary for player', playerId);
         } else {
-            // Neue Zusammenfassung erstellen
-            // visibility='club' verwenden, aber durch den TRAINING_SUMMARY_PREFIX
-            // und user_id Filter im Activity Feed nur dem Spieler selbst angezeigt
-            const insertData = {
-                user_id: playerId,
-                club_id: clubId,
-                content: TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData),
-                visibility: 'club'
-            };
-            console.log('[TrainingSummary] Inserting:', insertData);
+            // Neue Zusammenfassung erstellen via RPC (umgeht RLS, prüft Coach-Berechtigung)
+            const content = TRAINING_SUMMARY_PREFIX + JSON.stringify(summaryData);
+            console.log('[TrainingSummary] Creating via RPC for player', playerId);
 
             const { data, error } = await supabase
-                .from('community_posts')
-                .insert(insertData)
-                .select();
+                .rpc('create_training_summary', {
+                    p_user_id: playerId,
+                    p_club_id: clubId,
+                    p_content: content
+                });
 
-            console.log('[TrainingSummary] Insert result - data:', data, 'error:', error);
+            console.log('[TrainingSummary] RPC result - data:', data, 'error:', error);
 
             if (error) throw error;
             console.log('[TrainingSummary] Created new summary for player', playerId);
