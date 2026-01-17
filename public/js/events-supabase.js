@@ -1492,6 +1492,11 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null, open
         document.getElementById('event-details-modal')?.remove();
         eventExercises = [];
 
+        // Heutige Trainings aktualisieren (falls auf Startseite)
+        if (typeof window.refreshTodaysTrainings === 'function') {
+            window.refreshTodaysTrainings();
+        }
+
         // Quick Points Dialog öffnen wenn gewünscht und Spieler anwesend waren
         if (openQuickPoints && presentUserIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
             // Lade Spieler für das Event

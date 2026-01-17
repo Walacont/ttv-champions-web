@@ -12,10 +12,18 @@ let ageDistributionChart = null;
 let genderDistributionChart = null;
 let rankDistributionChart = null;
 
+// Cached userData und supabase für Refresh
+let cachedUserData = null;
+let cachedSupabase = null;
+
 /**
  * Lädt alle Statistik-Bereiche
  */
 export async function loadStatistics(userData, supabase, currentSubgroupFilter = 'all') {
+    // Cache für spätere Refreshes
+    cachedUserData = userData;
+    cachedSupabase = supabase;
+
     try {
         await Promise.all([
             loadTodaysTrainings(userData, supabase),
@@ -29,9 +37,18 @@ export async function loadStatistics(userData, supabase, currentSubgroupFilter =
 }
 
 /**
+ * Aktualisiert die heutigen Trainings (global verfügbar für Refresh nach Anwesenheit-Speicherung)
+ */
+window.refreshTodaysTrainings = async function() {
+    if (cachedUserData && cachedSupabase) {
+        await loadTodaysTrainings(cachedUserData, cachedSupabase);
+    }
+};
+
+/**
  * Lädt heutige Trainings/Events für Quick-Access
  */
-async function loadTodaysTrainings(userData, supabase) {
+export async function loadTodaysTrainings(userData, supabase) {
     const container = document.getElementById('todays-trainings-list');
     const dateDisplay = document.getElementById('today-date-display');
     if (!container) return;
