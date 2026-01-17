@@ -1,5 +1,5 @@
 // Ranglisten-Modul - Supabase-Version
-// Verwaltet Ranglisten: Skill (ELO), Fleiß (XP), Season (Punkte)
+// Verwaltet Ranglisten: Skill (ELO), Fleiß (XP), Saison (Punkte)
 
 import { getSupabase } from './supabase-init.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
@@ -29,7 +29,7 @@ let currentLeaderboardSubgroupFilter = 'all';
 let currentLeaderboardGenderFilter = 'all';
 let currentLeaderboardSportId = null;
 let leaderboardSubscriptions = [];
-let currentActiveTab = 'effort';
+let currentActiveTab = 'season';
 
 // Cache um wiederholte Datenbankabfragen zu vermeiden
 let testClubIdsCache = null;
@@ -843,16 +843,16 @@ export function renderLeaderboardHTML(containerId, options = {}) {
 
             <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div class="flex justify-center min-w-max">
+                    ${showSeasonTab ? `
+                    <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle Saison">
+                        <div>Saison</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
+                    ` : ''}
                     ${showEffortTab ? `
                     <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
                         <div>Fleiß</div>
                         <div class="text-xs text-gray-500 font-normal">(XP)</div>
-                    </button>
-                    ` : ''}
-                    ${showSeasonTab ? `
-                    <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
-                        <div>Season</div>
-                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
                     </button>
                     ` : ''}
                     <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
@@ -894,15 +894,15 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 ` : ''}
             </div>
 
-            <div id="content-effort" class="leaderboard-tab-content hidden">
-                <div id="effort-list-club" class="mt-6 space-y-2">
-                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
+            <div id="content-season" class="leaderboard-tab-content hidden">
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Saison-Rangliste...</p>
                 </div>
             </div>
 
-            <div id="content-season" class="leaderboard-tab-content hidden">
-                <div id="season-list-club" class="mt-6 space-y-2">
-                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
+            <div id="content-effort" class="leaderboard-tab-content hidden">
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                 </div>
             </div>
 

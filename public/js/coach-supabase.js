@@ -1524,9 +1524,31 @@ async function endSeasonCoach(seasonId) {
         // Saison-Daten für den Post abrufen
         const { data: seasonData } = await supabase
             .from('seasons')
-            .select('name, start_date, end_date, club_id')
+            .select('name, start_date, end_date, club_id, sport_id')
             .eq('id', seasonId)
             .single();
+
+        // Gewinner/in VOR dem Reset ermitteln (höchste Saison-Punkte)
+        let winnerInfo = '';
+        if (seasonData) {
+            let winnerQuery = supabase
+                .from('profiles')
+                .select('first_name, last_name, points')
+                .eq('club_id', seasonData.club_id)
+                .gt('points', 0)
+                .order('points', { ascending: false })
+                .limit(1);
+
+            if (seasonData.sport_id) {
+                winnerQuery = winnerQuery.eq('active_sport_id', seasonData.sport_id);
+            }
+
+            const { data: winners } = await winnerQuery;
+            if (winners && winners.length > 0) {
+                const winner = winners[0];
+                winnerInfo = `\n🥇 **Saison-Sieger/in:** ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten!\n`;
+            }
+        }
 
         // RPC-Funktion verwenden, die auch die Saison-Punkte zurücksetzt
         const { error } = await supabase.rpc('end_season', {
@@ -1541,8 +1563,9 @@ async function endSeasonCoach(seasonId) {
             const endDateFormatted = new Date(seasonData.end_date).toLocaleDateString('de-DE');
             const postContent = `🏁 **Saison beendet!**\n\n` +
                 `Die Saison "${seasonData.name}" ist zu Ende.\n\n` +
-                `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}\n` +
-                `🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
+                `📅 **Zeitraum war:** ${startDateFormatted} - ${endDateFormatted}` +
+                winnerInfo +
+                `\n🔄 **Alle Saison-Punkte wurden zurückgesetzt.**\n\n` +
                 `Danke an alle für die Teilnahme! 🎉`;
 
             await supabase.from('community_posts').insert({

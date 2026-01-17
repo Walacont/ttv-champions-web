@@ -1051,7 +1051,7 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
 }
 
 // --- Leaderboard State ---
-let currentLeaderboardTab = 'xp'; // 'xp', 'elo', 'points'
+let currentLeaderboardTab = 'season'; // 'season', 'effort', 'skill', 'ranks', 'doubles'
 let currentLeaderboardScope = 'club'; // 'club', 'global'
 let leaderboardCache = { club: null, global: null };
 
@@ -1073,13 +1073,13 @@ async function loadLeaderboards() {
             <!-- Tabs -->
             <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6">
                 <div class="flex justify-center min-w-max">
+                    <button id="tab-season" data-tab="season" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Saison</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
                     <button id="tab-effort" data-tab="effort" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Fleiß</div>
                         <div class="text-xs text-gray-500 font-normal">(XP)</div>
-                    </button>
-                    <button id="tab-season" data-tab="season" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                        <div>Season</div>
-                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
                     </button>
                     <button id="tab-skill" data-tab="skill" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Skill</div>
@@ -1128,17 +1128,17 @@ async function loadLeaderboards() {
                 </div>
             </div>
 
+            <!-- Saison Content -->
+            <div id="content-season" class="leaderboard-tab-content mt-4 space-y-2 hidden">
+                <div id="leaderboard-list-season" class="space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Saison-Rangliste...</p>
+                </div>
+            </div>
+
             <!-- Effort/Fleiß Content -->
             <div id="content-effort" class="leaderboard-tab-content mt-4 space-y-2 hidden">
                 <div id="leaderboard-list-effort" class="space-y-2">
                     <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
-                </div>
-            </div>
-
-            <!-- Season Content -->
-            <div id="content-season" class="leaderboard-tab-content mt-4 space-y-2 hidden">
-                <div id="leaderboard-list-season" class="space-y-2">
-                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                 </div>
             </div>
 
