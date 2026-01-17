@@ -2008,10 +2008,11 @@ async function revokeEventAttendancePoints(eventId, event) {
 window.openEventExerciseSelector = async function(eventId) {
     try {
         if (allExercises.length === 0) {
+            // Lade globale Übungen UND Club-spezifische Übungen
             const { data: exercises, error } = await supabase
                 .from('exercises')
                 .select('*')
-                .eq('club_id', currentUserData.clubId)
+                .or(`visibility.eq.global,club_id.eq.${currentUserData.clubId}`)
                 .order('name');
 
             if (error) throw error;
