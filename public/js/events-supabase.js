@@ -1801,9 +1801,9 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     // Anwesenheitspunkte zur Training-Summary hinzufügen (ohne Übungspunkte - die werden separat hinzugefügt)
     let attendanceReason = 'Anwesenheit';
     if (isTraining && newStreak >= 5) {
-        attendanceReason = `🔥 ${newStreak}x Streak!`;
+        attendanceReason = `${newStreak}x Streak`;
     } else if (isTraining && newStreak >= 3) {
-        attendanceReason = `⚡ ${newStreak}x Streak`;
+        attendanceReason = `${newStreak}x Streak`;
     }
     if (alreadyAttendedToday) {
         attendanceReason += ' (2. Training)';
