@@ -49,7 +49,7 @@ BEGIN
     -- Check if the current user is a coach in the player's club
     SELECT EXISTS (
         SELECT 1 FROM profile_club_sports pcs
-        WHERE pcs.profile_id = v_coach_id
+        WHERE pcs.user_id = v_coach_id
         AND pcs.club_id = p_club_id
         AND pcs.role IN ('coach', 'head_coach')
     ) INTO v_is_coach;
@@ -118,7 +118,7 @@ BEGIN
     -- Check if the current user is a coach in the player's club
     SELECT EXISTS (
         SELECT 1 FROM profile_club_sports pcs
-        WHERE pcs.profile_id = v_coach_id
+        WHERE pcs.user_id = v_coach_id
         AND pcs.club_id = v_player_club_id
         AND pcs.role IN ('coach', 'head_coach')
     ) INTO v_is_coach;
