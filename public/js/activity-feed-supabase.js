@@ -2874,7 +2874,7 @@ function renderSeasonBanner(content) {
 
     if (isSeasonStart) {
         return `
-            <div class="mb-3 -mx-4 -mt-4 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-xl">
+            <div class="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-flag-checkered text-lg"></i>
                     <span class="font-bold text-lg">Neue Saison gestartet!</span>
@@ -2885,7 +2885,7 @@ function renderSeasonBanner(content) {
 
     if (isSeasonEnd) {
         return `
-            <div class="mb-3 -mx-4 -mt-4 px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-t-xl">
+            <div class="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-trophy text-lg"></i>
                     <span class="font-bold text-lg">Saison beendet!</span>
@@ -2935,8 +2935,18 @@ function renderPostCard(activity, profileMap) {
     const postId = activity.id;
     const carouselId = `carousel-${postId}`;
 
+    // Prüfen ob es ein Saison-Post ist
+    const isSeasonPost = activity.content && (
+        activity.content.startsWith('Neue Saison gestartet') ||
+        activity.content.startsWith('Saison beendet')
+    );
+    const seasonBanner = renderSeasonBanner(activity.content);
+    const displayContent = formatSeasonContent(activity.content);
+
     return `
-        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-100">
+        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden">
+            ${seasonBanner}
+            <div class="p-4">
             <!-- Post Header -->
             <div class="flex items-start gap-3 mb-3">
                 <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
@@ -2961,9 +2971,8 @@ function renderPostCard(activity, profileMap) {
             </div>
 
             <!-- Post Content -->
-            ${renderSeasonBanner(activity.content)}
             <div class="mb-3">
-                <p class="text-gray-800 whitespace-pre-wrap break-words">${formatSeasonContent(activity.content)}</p>
+                <p class="text-gray-800 whitespace-pre-wrap break-words">${displayContent}</p>
             </div>
 
             ${hasImages ? `
@@ -3016,6 +3025,7 @@ function renderPostCard(activity, profileMap) {
                     <i class="far fa-comment"></i>
                     <span class="text-sm" data-comment-count="post-${postId}">${commentsCount}</span>
                 </button>
+            </div>
             </div>
         </div>
     `;

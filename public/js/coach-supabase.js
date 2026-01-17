@@ -1532,24 +1532,45 @@ async function endSeasonCoach(seasonId) {
             throw new Error('Saison nicht gefunden');
         }
 
-        // Gewinner/in VOR dem Reset ermitteln (höchste Saison-Punkte)
+        // Gewinner VOR dem Reset ermitteln (höchste Saison-Punkte)
         let winnerInfo = '';
-        let winnerQuery = supabase
+
+        // Erst höchste Punktzahl ermitteln
+        let topScoreQuery = supabase
             .from('profiles')
-            .select('first_name, last_name, points')
+            .select('points')
             .eq('club_id', seasonData.club_id)
             .gt('points', 0)
             .order('points', { ascending: false })
             .limit(1);
 
         if (seasonData.sport_id) {
-            winnerQuery = winnerQuery.eq('active_sport_id', seasonData.sport_id);
+            topScoreQuery = topScoreQuery.eq('active_sport_id', seasonData.sport_id);
         }
 
-        const { data: winners } = await winnerQuery;
-        if (winners && winners.length > 0) {
-            const winner = winners[0];
-            winnerInfo = `\nSaison-Sieger/in: ${winner.first_name} ${winner.last_name} mit ${winner.points} Punkten\n`;
+        const { data: topScoreData } = await topScoreQuery;
+
+        if (topScoreData && topScoreData.length > 0) {
+            const topScore = topScoreData[0].points;
+
+            // Alle Spieler mit dieser Punktzahl holen
+            let winnersQuery = supabase
+                .from('profiles')
+                .select('first_name, last_name')
+                .eq('club_id', seasonData.club_id)
+                .eq('points', topScore);
+
+            if (seasonData.sport_id) {
+                winnersQuery = winnersQuery.eq('active_sport_id', seasonData.sport_id);
+            }
+
+            const { data: winners } = await winnersQuery;
+
+            if (winners && winners.length > 0) {
+                const winnerNames = winners.map(w => `${w.first_name} ${w.last_name}`).join(', ');
+                const winnerLabel = winners.length === 1 ? 'Saison-Sieger/in' : 'Saison-Sieger';
+                winnerInfo = `\n${winnerLabel}: ${winnerNames} mit ${topScore} Punkten\n`;
+            }
         }
 
         // Saison-Punkte für alle Spieler im Club/Sport auf 0 setzen
