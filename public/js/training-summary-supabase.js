@@ -275,9 +275,18 @@ export function renderTrainingSummaryCard(activity, profileMap) {
 export async function createTrainingSummariesForAttendees(clubId, eventId, eventDate, eventTitle, presentPlayerIds) {
     if (!presentPlayerIds || presentPlayerIds.length === 0) return;
 
-    console.log(`[TrainingSummary] Creating summaries for ${presentPlayerIds.length} attendees`);
+    // Offline-Spieler herausfiltern (haben keine auth.users Einträge)
+    const { data: onlinePlayers } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('id', presentPlayerIds)
+        .eq('is_offline', false);
 
-    for (const playerId of presentPlayerIds) {
+    const onlinePlayerIds = (onlinePlayers || []).map(p => p.id);
+
+    console.log(`[TrainingSummary] Creating summaries for ${onlinePlayerIds.length} online attendees (${presentPlayerIds.length - onlinePlayerIds.length} offline skipped)`);
+
+    for (const playerId of onlinePlayerIds) {
         await createOrUpdateTrainingSummary(playerId, clubId, eventId, eventDate, eventTitle, true);
     }
 }
