@@ -37,6 +37,11 @@ let currentUserDataCache = null;
 
 /**
  * Filtert Spieler basierend auf Datenschutzeinstellungen
+ * Verwendet das Feld leaderboard_visibility mit den Werten:
+ * - 'global': Sichtbar für alle
+ * - 'club_only': Nur für Vereinsmitglieder sichtbar
+ * - 'followers_only': Nur für Abonnenten sichtbar (wird wie club_only behandelt)
+ * - 'none': Für niemanden sichtbar (außer sich selbst)
  * @returns {Object} { filteredPlayers, currentUserHidden }
  */
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
@@ -44,30 +49,56 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
 
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false;
-        const searchable = privacySettings.searchable || 'global';
-
         const isCurrentUser = player.id === currentUserId;
 
-        if (!showInLeaderboards) {
+        // Verwende leaderboard_visibility, mit Fallback auf alte Felder für Kompatibilität
+        let leaderboardVisibility = privacySettings.leaderboard_visibility;
+
+        // Fallback für alte Einstellungen (Migration)
+        if (!leaderboardVisibility) {
+            // Prüfe altes showInLeaderboards Feld
+            if (privacySettings.showInLeaderboards === false) {
+                leaderboardVisibility = 'none';
+            } else {
+                leaderboardVisibility = 'global';
+            }
+        }
+
+        // Bei 'none': Spieler ist für niemanden sichtbar (außer sich selbst)
+        if (leaderboardVisibility === 'none') {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true;
+                return true; // Zeige dem User selbst, dass er versteckt ist
             }
             return false;
         }
 
-        if (searchable === 'club_only') {
+        // Bei 'club_only': Nur für Vereinsmitglieder sichtbar
+        if (leaderboardVisibility === 'club_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true;
             }
             if (currentUserClubId && player.clubId === currentUserClubId) {
+                return true; // Gleiches Verein -> sichtbar
+            }
+            return false; // Anderer Verein -> unsichtbar
+        }
+
+        // Bei 'followers_only': Nur für Abonnenten sichtbar
+        // Da Follower-Logik komplex ist, behandeln wir es vorerst wie club_only
+        if (leaderboardVisibility === 'followers_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
                 return true;
+            }
+            if (currentUserClubId && player.clubId === currentUserClubId) {
+                return true; // Vereinsmitglieder können sehen
             }
             return false;
         }
 
+        // 'global' oder unbekannter Wert: Sichtbar für alle
         return true;
     });
 
