@@ -366,19 +366,19 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        va.id,
-        va.video_url,
-        va.thumbnail_url,
-        va.title,
-        va.tags,
-        va.is_reference,
-        va.exercise_id,
+        va.id AS id,
+        va.video_url AS video_url,
+        va.thumbnail_url AS thumbnail_url,
+        va.title AS title,
+        va.tags AS tags,
+        va.is_reference AS is_reference,
+        va.exercise_id AS exercise_id,
         e.name AS exercise_name,
-        va.uploaded_by,
-        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.') AS uploader_name,
+        va.uploaded_by AS uploaded_by,
+        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
         COALESCE(vass.status, 'pending'::video_analysis_status) AS status,
-        (SELECT COUNT(*) FROM video_comments vc WHERE vc.video_id = va.id) AS comment_count,
-        va.created_at
+        (SELECT COUNT(*) FROM video_comments vc WHERE vc.video_id = va.id)::BIGINT AS comment_count,
+        va.created_at AS created_at
     FROM video_analyses va
     LEFT JOIN video_assignments vass ON vass.video_id = va.id AND vass.player_id = p_player_id
     LEFT JOIN exercises e ON e.id = va.exercise_id
@@ -413,23 +413,23 @@ DECLARE
     v_club_id UUID;
 BEGIN
     -- Club des Coaches ermitteln
-    SELECT club_id INTO v_club_id FROM profiles WHERE id = p_coach_id;
+    SELECT profiles.club_id INTO v_club_id FROM profiles WHERE profiles.id = p_coach_id;
 
     RETURN QUERY
     SELECT
-        va.id,
-        va.video_url,
-        va.thumbnail_url,
-        va.title,
-        va.tags,
-        va.exercise_id,
+        va.id AS id,
+        va.video_url AS video_url,
+        va.thumbnail_url AS thumbnail_url,
+        va.title AS title,
+        va.tags AS tags,
+        va.exercise_id AS exercise_id,
         e.name AS exercise_name,
-        va.uploaded_by,
-        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.') AS uploader_name,
+        va.uploaded_by AS uploaded_by,
+        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
         p.avatar_url AS uploader_avatar,
-        (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id) AS assignment_count,
-        (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id AND vass.status = 'pending') AS pending_count,
-        va.created_at
+        (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id)::BIGINT AS assignment_count,
+        (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id AND vass.status = 'pending')::BIGINT AS pending_count,
+        va.created_at AS created_at
     FROM video_analyses va
     LEFT JOIN exercises e ON e.id = va.exercise_id
     LEFT JOIN profiles p ON p.id = va.uploaded_by
@@ -462,15 +462,15 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        vc.id,
-        vc.content,
-        vc.timestamp_seconds,
-        vc.parent_id,
-        vc.user_id,
-        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.') AS user_name,
+        vc.id AS id,
+        vc.content AS content,
+        vc.timestamp_seconds AS timestamp_seconds,
+        vc.parent_id AS parent_id,
+        vc.user_id AS user_id,
+        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS user_name,
         p.avatar_url AS user_avatar,
         p.role::TEXT AS user_role,
-        vc.created_at
+        vc.created_at AS created_at
     FROM video_comments vc
     JOIN profiles p ON p.id = vc.user_id
     WHERE vc.video_id = p_video_id
@@ -495,13 +495,13 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        va.id,
-        va.video_url,
-        va.thumbnail_url,
-        va.title,
-        va.uploaded_by,
-        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.') AS uploader_name,
-        va.created_at
+        va.id AS id,
+        va.video_url AS video_url,
+        va.thumbnail_url AS thumbnail_url,
+        va.title AS title,
+        va.uploaded_by AS uploaded_by,
+        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
+        va.created_at AS created_at
     FROM video_analyses va
     JOIN profiles p ON p.id = va.uploaded_by
     WHERE va.exercise_id = p_exercise_id
