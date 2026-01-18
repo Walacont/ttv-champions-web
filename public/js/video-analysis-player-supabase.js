@@ -83,6 +83,236 @@ export function initPlayerVideoUpload(db, userData) {
 
     // File Input Preview
     setupPlayerFileInputPreview();
+
+    // Coach Feedback Checkbox Setup (nur für Club-Spieler)
+    setupCoachFeedbackOption();
+
+    // Sub-Tab Navigation für Übungen
+    setupExercisesSubTabs();
+
+    // Upload-Button in Mediathek
+    setupMediathekUploadButton();
+}
+
+/**
+ * Setup für Coach-Feedback Checkbox
+ */
+function setupCoachFeedbackOption() {
+    const { clubId } = playerVideoContext;
+    const coachOption = document.getElementById('coach-feedback-option');
+    const checkbox = document.getElementById('request-coach-feedback');
+    const infoCoach = document.getElementById('upload-info-coach');
+    const infoPrivate = document.getElementById('upload-info-private');
+
+    if (!coachOption) return;
+
+    // Nur anzeigen wenn Spieler einen Club hat
+    if (clubId) {
+        coachOption.classList.remove('hidden');
+
+        // Toggle Info-Text basierend auf Checkbox
+        checkbox?.addEventListener('change', () => {
+            if (checkbox.checked) {
+                infoCoach?.classList.remove('hidden');
+                infoPrivate?.classList.add('hidden');
+            } else {
+                infoCoach?.classList.add('hidden');
+                infoPrivate?.classList.remove('hidden');
+            }
+        });
+    } else {
+        // Spieler ohne Club: Nur private Videos möglich
+        coachOption.classList.add('hidden');
+        infoCoach?.classList.add('hidden');
+        infoPrivate?.classList.remove('hidden');
+    }
+}
+
+/**
+ * Setup für Sub-Tab Navigation im Übungen-Tab
+ */
+function setupExercisesSubTabs() {
+    const subTabs = document.querySelectorAll('.exercises-sub-tab');
+    const catalogContent = document.getElementById('exercises-subtab-catalog');
+    const videosContent = document.getElementById('exercises-subtab-my-videos');
+
+    subTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.subtab;
+
+            // Tab-Styling aktualisieren
+            subTabs.forEach(t => {
+                t.classList.remove('border-indigo-600', 'text-indigo-600');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            tab.classList.remove('border-transparent', 'text-gray-500');
+            tab.classList.add('border-indigo-600', 'text-indigo-600');
+
+            // Content anzeigen
+            if (targetTab === 'catalog') {
+                catalogContent?.classList.remove('hidden');
+                videosContent?.classList.add('hidden');
+            } else if (targetTab === 'my-videos') {
+                catalogContent?.classList.add('hidden');
+                videosContent?.classList.remove('hidden');
+                // Videos laden wenn Tab geöffnet wird
+                loadMyVideos();
+            }
+        });
+    });
+}
+
+/**
+ * Setup für Upload-Button in Mediathek
+ */
+function setupMediathekUploadButton() {
+    const btn = document.getElementById('open-video-upload-from-mediathek');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        openPlayerVideoUploadModal(null);
+    });
+}
+
+/**
+ * Lädt und zeigt die Videos des Spielers in der Mediathek
+ */
+export async function loadMyVideos() {
+    const { db, userId } = playerVideoContext;
+    const container = document.getElementById('my-videos-list');
+    const countBadge = document.getElementById('my-videos-count');
+
+    if (!container || !userId) return;
+
+    container.innerHTML = `
+        <div class="col-span-full flex justify-center py-8">
+            <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+        </div>
+    `;
+
+    try {
+        // Alle Videos des Spielers laden (eigene + zugewiesene)
+        const { data: videos, error } = await db
+            .from('video_analyses')
+            .select(`
+                *,
+                exercise:exercises(id, name),
+                assignments:video_assignments(status, reviewed_at)
+            `)
+            .eq('uploaded_by', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Badge aktualisieren
+        if (countBadge && videos?.length > 0) {
+            countBadge.textContent = videos.length;
+            countBadge.classList.remove('hidden');
+        }
+
+        if (!videos || videos.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <i class="fas fa-video text-5xl text-gray-300 mb-4 block"></i>
+                    <p class="text-gray-500 mb-4">Du hast noch keine Videos hochgeladen</p>
+                    <button onclick="document.getElementById('open-video-upload-from-mediathek').click()"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-upload mr-2"></i>Erstes Video hochladen
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = videos.map(video => createMyVideoCard(video)).join('');
+
+        // Click Handler für Video-Karten
+        container.querySelectorAll('[data-video-id]').forEach(card => {
+            card.addEventListener('click', () => {
+                openPlayerVideoDetail(card.dataset.videoId);
+            });
+        });
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Videos:', error);
+        container.innerHTML = `
+            <div class="col-span-full text-center py-8 text-red-500">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                Fehler beim Laden der Videos
+            </div>
+        `;
+    }
+}
+
+/**
+ * Erstellt eine Video-Karte für die Mediathek
+ */
+function createMyVideoCard(video) {
+    const assignment = video.assignments?.[0];
+    const isPrivate = !video.club_id;
+    const status = isPrivate ? 'private' : (assignment?.status || 'pending');
+
+    const statusConfig = {
+        private: { icon: 'fa-lock', text: 'Nur für mich', color: 'gray' },
+        pending: { icon: 'fa-clock', text: 'Warte auf Feedback', color: 'yellow' },
+        reviewed: { icon: 'fa-check-circle', text: 'Feedback erhalten', color: 'green' }
+    };
+
+    const { icon, text, color } = statusConfig[status] || statusConfig.pending;
+
+    const thumbnailHtml = video.thumbnail_url
+        ? `<img src="${escapeHtml(video.thumbnail_url)}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gray-200 flex items-center justify-center\\'><i class=\\'fas fa-video text-gray-400 text-2xl\\'></i></div>'">`
+        : `<div class="w-full h-full bg-gray-200 flex items-center justify-center"><i class="fas fa-video text-gray-400 text-2xl"></i></div>`;
+
+    return `
+        <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
+             data-video-id="${video.id}">
+            <div class="relative aspect-video bg-gray-100">
+                ${thumbnailHtml}
+                <div class="absolute top-2 right-2">
+                    <span class="bg-${color}-100 text-${color}-700 text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
+                        <i class="fas ${icon} text-xs"></i>
+                        ${text}
+                    </span>
+                </div>
+            </div>
+            <div class="p-4">
+                <p class="font-medium text-sm mb-1 truncate">${escapeHtml(video.title || 'Ohne Titel')}</p>
+                ${video.exercise?.name ? `
+                    <p class="text-xs text-indigo-600 mb-2">
+                        <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                    </p>
+                ` : ''}
+                <p class="text-xs text-gray-500">${formatRelativeTime(video.created_at)}</p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Formatiert Zeit relativ (vor X Minuten/Stunden/Tagen)
+ */
+function formatRelativeTime(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Gerade eben';
+    if (diffMins < 60) return `vor ${diffMins} Min.`;
+    if (diffHours < 24) return `vor ${diffHours} Std.`;
+    if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
+    return date.toLocaleDateString('de-DE');
+}
+
+/**
+ * Öffnet die Detailansicht eines Videos
+ */
+async function openPlayerVideoDetail(videoId) {
+    // TODO: Implementiere Video-Detail-Modal für Spieler
+    console.log('Video Detail öffnen:', videoId);
 }
 
 /**
@@ -338,11 +568,6 @@ async function handlePlayerVideoUpload(e) {
 
         const videoUrl = urlData.publicUrl;
 
-        // Validierung: Club-ID muss vorhanden sein
-        if (!clubId) {
-            throw new Error('Keine Club-Zuordnung gefunden. Bitte melde dich erneut an.');
-        }
-
         // 4. Metadaten sammeln
         const title = document.getElementById('player-video-title')?.value || '';
         const exerciseId = document.getElementById('player-video-exercise-id')?.value || null;
@@ -353,13 +578,18 @@ async function handlePlayerVideoUpload(e) {
             selectedTags.push(btn.dataset.tag);
         });
 
+        // Check: Soll Coach Feedback erhalten?
+        const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
+        const shouldShareWithCoach = clubId && requestCoachFeedback;
+
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
             .from('video_analyses')
             .insert({
                 uploaded_by: userId,
-                club_id: clubId,
+                // club_id nur setzen wenn Coach-Feedback gewünscht
+                club_id: shouldShareWithCoach ? clubId : null,
                 exercise_id: exerciseId || null,
                 video_url: videoUrl,
                 thumbnail_url: thumbnailUrl,
@@ -372,23 +602,28 @@ async function handlePlayerVideoUpload(e) {
 
         if (insertError) throw insertError;
 
-        // 6. Sich selbst als Zuweisung hinzufügen (95-100%)
-        updateProgress(95, 'Fast fertig...');
-        const { error: assignError } = await db
-            .from('video_assignments')
-            .insert({
-                video_id: videoAnalysis.id,
-                player_id: userId,
-                club_id: clubId,
-                status: 'pending',
-            });
+        // 6. Zuweisung nur erstellen wenn Coach-Feedback gewünscht
+        if (shouldShareWithCoach) {
+            updateProgress(95, 'Coach wird benachrichtigt...');
+            const { error: assignError } = await db
+                .from('video_assignments')
+                .insert({
+                    video_id: videoAnalysis.id,
+                    player_id: userId,
+                    club_id: clubId,
+                    status: 'pending',
+                });
 
-        if (assignError) {
-            console.error('Fehler bei Selbst-Zuweisung:', assignError);
+            if (assignError) {
+                console.error('Fehler bei Coach-Zuweisung:', assignError);
+            }
         }
 
         updateProgress(100, 'Fertig!');
-        showToast('Video erfolgreich hochgeladen! Dein Coach wird es analysieren.', 'success');
+        const successMessage = shouldShareWithCoach
+            ? 'Video hochgeladen! Dein Coach wird es analysieren.'
+            : 'Video in deiner Mediathek gespeichert!';
+        showToast(successMessage, 'success');
 
         // Modal schließen nach kurzer Verzögerung
         setTimeout(() => {

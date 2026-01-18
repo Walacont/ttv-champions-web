@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS video_analyses (
     -- Wer hat hochgeladen (Spieler ODER Coach)
     uploaded_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
 
-    -- Club-Zuordnung (für RLS)
-    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    -- Club-Zuordnung (NULL für Spieler ohne Club)
+    club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
 
     -- Optional: Übungsbezug
     exercise_id UUID REFERENCES exercises(id) ON DELETE SET NULL,
@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS video_analyses (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration: club_id nullable machen falls Tabelle schon existiert
+DO $$
+BEGIN
+    ALTER TABLE video_analyses ALTER COLUMN club_id DROP NOT NULL;
+EXCEPTION
+    WHEN others THEN NULL;
+END $$;
 
 -- ============================================
 -- VIDEO ASSIGNMENTS (Spieler-Zuweisungen)
@@ -214,11 +222,22 @@ CREATE POLICY "video_analyses_select" ON video_analyses
         )
     );
 
--- INSERT: Jeder authentifizierte User kann Videos in seinem Club hochladen
+-- INSERT: Jeder authentifizierte User kann Videos hochladen
+-- Mit Club: club_id muss mit eigenem Club übereinstimmen
+-- Ohne Club: club_id muss NULL sein
 CREATE POLICY "video_analyses_insert" ON video_analyses
     FOR INSERT WITH CHECK (
         auth.uid() = uploaded_by
-        AND club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
+        AND (
+            -- Spieler ohne Club: club_id muss NULL sein
+            (club_id IS NULL AND (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid()) IS NULL)
+            OR
+            -- Spieler mit Club: club_id muss mit eigenem Club übereinstimmen ODER NULL sein (private Videos)
+            (club_id IS NULL AND (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid()) IS NOT NULL)
+            OR
+            -- Für Coach-Feedback: club_id muss mit eigenem Club übereinstimmen
+            (club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid()))
+        )
     );
 
 -- UPDATE: Nur der Uploader oder Coach kann bearbeiten
