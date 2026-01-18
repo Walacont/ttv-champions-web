@@ -269,26 +269,26 @@ function displayClubJoinRequests(requests) {
         .map(
             request => `
         <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex-1 min-w-0">
                     <h4 class="font-medium text-gray-900">${request.playerName}</h4>
-                    <p class="text-sm text-gray-600">${request.playerEmail}</p>
+                    <p class="text-sm text-gray-600 truncate">${request.playerEmail}</p>
                     <p class="text-xs text-gray-400 mt-1">
                         Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
                     </p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-shrink-0">
                     <button
                         data-action="approve-join"
                         data-request-id="${request.id}"
-                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                        class="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
                     >
                         Genehmigen
                     </button>
                     <button
                         data-action="reject-join"
                         data-request-id="${request.id}"
-                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                        class="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
                     >
                         Ablehnen
                     </button>
@@ -327,29 +327,29 @@ function displayLeaveRequests(requests) {
 
                 return `
         <div class="bg-white rounded-lg border ${request.isCoach ? 'border-yellow-300' : 'border-gray-200'} p-4 hover:shadow-md transition-shadow">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex-1 min-w-0">
                     <h4 class="font-medium text-gray-900">${request.playerName}${roleLabel}</h4>
-                    <p class="text-sm text-gray-600">${request.playerEmail}</p>
+                    <p class="text-sm text-gray-600 truncate">${request.playerEmail}</p>
                     <p class="text-xs text-gray-400 mt-1">
                         Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
                     </p>
                     ${coachWarning}
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-shrink-0">
                     <button
                         data-action="approve-leave"
                         data-request-id="${request.id}"
                         data-is-coach="${request.isCoach}"
                         data-player-name="${request.playerName}"
-                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                        class="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
                     >
                         Genehmigen
                     </button>
                     <button
                         data-action="reject-leave"
                         data-request-id="${request.id}"
-                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                        class="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
                     >
                         Ablehnen
                     </button>
