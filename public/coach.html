@@ -1979,9 +1979,9 @@
                                         required
                                         class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                                     >
-                                        <option value="daily">Täglich</option>
-                                        <option value="weekly">Wöchentlich</option>
-                                        <option value="monthly">Monatlich</option>
+                                        <option value="daily">1 Tag</option>
+                                        <option value="weekly">1 Woche</option>
+                                        <option value="monthly">1 Monat</option>
                                     </select>
                                 </div>
                                 <div>
@@ -1995,6 +1995,29 @@
                                         rows="3"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     ></textarea>
+                                </div>
+                                <!-- Einheit für Meilensteine -->
+                                <div>
+                                    <label
+                                        for="challenge-unit"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Einheit</label
+                                    >
+                                    <select
+                                        id="challenge-unit"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                        <option value="Wiederholungen">Wiederholungen</option>
+                                        <option value="Sterne">Sterne</option>
+                                        <option value="Punkte">Punkte</option>
+                                        <option value="Treffer">Treffer</option>
+                                        <option value="Sekunden">Sekunden</option>
+                                        <option value="Minuten">Minuten</option>
+                                        <option value="Runden">Runden</option>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Die Einheit für Meilensteine (z.B. "7 Sterne" statt "7 Wiederholungen")
+                                    </p>
                                 </div>
                                 <!-- Points System Toggle -->
                                 <div class="border-t border-gray-200 pt-4">

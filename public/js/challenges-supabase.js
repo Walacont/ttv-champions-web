@@ -18,6 +18,7 @@ export async function handleCreateChallenge(e, currentUserData) {
     const description = document.getElementById('challenge-description').value;
     const subgroupId = document.getElementById('challenge-subgroup').value;
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
+    const unit = document.getElementById('challenge-unit')?.value || 'Wiederholungen';
 
     const milestonesEnabled =
         document.getElementById('challenge-milestones-enabled')?.checked || false;
@@ -54,8 +55,9 @@ export async function handleCreateChallenge(e, currentUserData) {
             type,
             description,
             points,
+            unit,
             club_id: currentUserData.clubId,
-            subgroup_id: subgroupId,
+            subgroup_id: subgroupId === 'all' ? null : subgroupId,
             is_active: true,
             is_repeatable: isRepeatable,
             created_at: new Date().toISOString(),
@@ -99,6 +101,9 @@ export async function handleCreateChallenge(e, currentUserData) {
 
         document.getElementById('challenge-subgroup').value = 'all';
 
+        const unitSelect = document.getElementById('challenge-unit');
+        if (unitSelect) unitSelect.value = 'Wiederholungen';
+
         document.getElementById('challenge-milestones-list').innerHTML = '';
         document.getElementById('challenge-milestones-enabled').checked = false;
         document.getElementById('challenge-standard-points-container').classList.remove('hidden');
@@ -133,9 +138,9 @@ export function setupChallengePointRecommendations() {
     const updateRecommendation = () => {
         const type = typeSelect.value;
         const recommendations = {
-            daily: { range: '8-20 Punkte', text: 'taegliche' },
-            weekly: { range: '20-50 Punkte', text: 'woechentliche' },
-            monthly: { range: '40-100 Punkte', text: 'monatliche' },
+            daily: { range: '8-20 Punkte', text: '1-Tages' },
+            weekly: { range: '20-50 Punkte', text: '1-Wochen' },
+            monthly: { range: '40-100 Punkte', text: '1-Monats' },
         };
 
         const rec = recommendations[type] || recommendations.daily;
@@ -306,6 +311,7 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
                 type: c.type,
                 description: c.description,
                 points: c.points,
+                unit: c.unit,
                 subgroupId: c.subgroup_id,
                 isRepeatable: c.is_repeatable,
                 tieredPoints: c.tiered_points,
@@ -318,7 +324,7 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
             challenges = challenges.filter(
                 challenge =>
                     challenge.subgroupId === currentSubgroupFilter ||
-                    challenge.subgroupId === 'all'
+                    !challenge.subgroupId  // null = Alle (Gesamtverein)
             );
         }
 
@@ -328,7 +334,7 @@ export async function loadActiveChallenges(clubId, currentSubgroupFilter = 'all'
             return;
         }
 
-        const subgroupIds = [...new Set(challenges.map(c => c.subgroupId).filter(id => id && id !== 'all'))];
+        const subgroupIds = [...new Set(challenges.map(c => c.subgroupId).filter(id => id))];
         let subgroupNamesMap = {};
 
         if (subgroupIds.length > 0) {
@@ -370,10 +376,10 @@ function createChallengeCard(challenge, subgroupNamesMap, isExpired) {
     const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
 
     let subgroupBadge = '';
-    if (challenge.subgroupId === 'all') {
+    if (!challenge.subgroupId || challenge.subgroupId === 'all') {
         subgroupBadge =
             '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Alle (Gesamtverein)</span>';
-    } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
+    } else if (subgroupNamesMap[challenge.subgroupId]) {
         subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">${subgroupNamesMap[challenge.subgroupId]}</span>`;
     }
 
@@ -468,6 +474,7 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
                 title: c.title,
                 type: c.type,
                 points: c.points,
+                unit: c.unit,
                 subgroupId: c.subgroup_id,
                 tieredPoints: c.tiered_points,
                 partnerSystem: c.partner_system,
@@ -481,7 +488,8 @@ export async function loadChallengesForDropdown(clubId, currentSubgroupFilter = 
         if (currentSubgroupFilter !== 'all') {
             activeChallenges = activeChallenges.filter(
                 challenge =>
-                    challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
+                    challenge.subgroupId === currentSubgroupFilter ||
+                    !challenge.subgroupId  // null = Alle (Gesamtverein)
             );
         }
 
@@ -572,7 +580,7 @@ export async function loadExpiredChallenges(clubId) {
             return;
         }
 
-        const subgroupIds = [...new Set(expiredChallenges.map(c => c.subgroupId).filter(id => id && id !== 'all'))];
+        const subgroupIds = [...new Set(expiredChallenges.map(c => c.subgroupId).filter(id => id))];
         let subgroupNamesMap = {};
 
         if (subgroupIds.length > 0) {
@@ -608,7 +616,7 @@ export async function reactivateChallenge(challengeId, duration, subgroupId) {
             .update({
                 created_at: new Date().toISOString(),
                 type: duration,
-                subgroup_id: subgroupId,
+                subgroup_id: subgroupId === 'all' ? null : subgroupId,
                 is_active: true,
                 last_reactivated_at: new Date().toISOString(),
             })
