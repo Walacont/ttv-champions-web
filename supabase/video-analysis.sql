@@ -265,22 +265,11 @@ CREATE POLICY "video_assignments_select" ON video_assignments
         )
     );
 
--- INSERT: Uploader oder Coach kann Zuweisungen in seinem Club erstellen
+-- INSERT: Club-Mitglieder können Zuweisungen in ihrem Club erstellen
+-- (Spieler weisen sich selbst zu, Coaches weisen anderen zu - App-Logik steuert dies)
 CREATE POLICY "video_assignments_insert" ON video_assignments
     FOR INSERT WITH CHECK (
-        -- Club muss mit User's Club übereinstimmen
         club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
-        AND (
-            -- Coaches können zuweisen
-            EXISTS (
-                SELECT 1 FROM profiles p
-                WHERE p.id = auth.uid()
-                AND p.role IN ('coach', 'admin', 'head_coach')
-            )
-            OR
-            -- Uploader (Spieler) kann beim eigenen Upload zuweisen
-            auth.uid() = (SELECT va.uploaded_by FROM video_analyses va WHERE va.id = video_id)
-        )
     );
 
 -- UPDATE: Coach kann Status updaten
