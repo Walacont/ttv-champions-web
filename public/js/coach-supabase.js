@@ -139,7 +139,7 @@ import {
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
-import { initVideoAnalysis, loadPendingVideos, loadAllVideos, loadReferenceVideos } from './video-analysis-supabase.js';
+import { initVideoAnalysis, loadPendingVideos, loadAllVideos } from './video-analysis-supabase.js';
 
 const supabase = getSupabase();
 
