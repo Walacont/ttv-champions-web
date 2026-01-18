@@ -16,46 +16,73 @@ let playerVideoContext = {
 async function generateVideoThumbnail(videoFile, seekTime = 2) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
-        video.preload = 'metadata';
+        video.preload = 'auto';
         video.muted = true;
         video.playsInline = true;
+        video.crossOrigin = 'anonymous';
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        let hasResolved = false;
 
-        video.onloadedmetadata = () => {
-            const maxWidth = 320;
-            const scale = Math.min(1, maxWidth / video.videoWidth);
-            canvas.width = video.videoWidth * scale;
-            canvas.height = video.videoHeight * scale;
+        const captureFrame = () => {
+            if (hasResolved) return;
+            hasResolved = true;
+
+            try {
+                const maxWidth = 320;
+                const scale = Math.min(1, maxWidth / video.videoWidth);
+                canvas.width = video.videoWidth * scale;
+                canvas.height = video.videoHeight * scale;
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(
+                    (blob) => {
+                        URL.revokeObjectURL(video.src);
+                        video.pause();
+                        blob ? resolve(blob) : reject(new Error('Thumbnail-Generierung fehlgeschlagen'));
+                    },
+                    'image/jpeg',
+                    0.85
+                );
+            } catch (err) {
+                URL.revokeObjectURL(video.src);
+                video.pause();
+                reject(err);
+            }
+        };
+
+        video.onloadeddata = () => {
             // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
             const targetTime = Math.max(seekTime, video.duration * 0.25);
             video.currentTime = Math.min(targetTime, video.duration - 0.5);
         };
 
         video.onseeked = () => {
-            try {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob(
-                    (blob) => {
-                        URL.revokeObjectURL(video.src);
-                        blob ? resolve(blob) : reject(new Error('Thumbnail-Generierung fehlgeschlagen'));
-                    },
-                    'image/jpeg',
-                    0.8
-                );
-            } catch (err) {
-                URL.revokeObjectURL(video.src);
-                reject(err);
-            }
+            // Kurz warten damit der Frame gerendert wird
+            setTimeout(captureFrame, 100);
         };
 
         video.onerror = () => {
+            if (hasResolved) return;
+            hasResolved = true;
             URL.revokeObjectURL(video.src);
             reject(new Error('Video konnte nicht geladen werden'));
         };
 
+        // Timeout als Fallback
+        setTimeout(() => {
+            if (!hasResolved && video.readyState >= 2) {
+                captureFrame();
+            } else if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Thumbnail-Timeout'));
+            }
+        }, 10000);
+
         video.src = URL.createObjectURL(videoFile);
+        video.load();
     });
 }
 
@@ -92,6 +119,9 @@ export function initPlayerVideoUpload(db, userData) {
 
     // Upload-Button in Mediathek
     setupMediathekUploadButton();
+
+    // Video-Vergleichs-Funktion
+    initVideoComparison();
 }
 
 /**
@@ -155,11 +185,71 @@ function setupExercisesSubTabs() {
             } else if (targetTab === 'my-videos') {
                 catalogContent?.classList.add('hidden');
                 videosContent?.classList.remove('hidden');
-                // Videos laden wenn Tab geöffnet wird
+                // Filter und Videos laden wenn Tab geöffnet wird
+                populateExerciseFilter();
                 loadMyVideos();
             }
         });
     });
+
+    // Filter Event Listeners
+    setupMyVideosFilters();
+}
+
+/**
+ * Setup für die Filter in Meine Videos
+ */
+function setupMyVideosFilters() {
+    const statusFilter = document.getElementById('my-videos-filter-status');
+    const exerciseFilter = document.getElementById('my-videos-filter-exercise');
+
+    statusFilter?.addEventListener('change', () => loadMyVideos());
+    exerciseFilter?.addEventListener('change', () => loadMyVideos());
+}
+
+/**
+ * Füllt das Übungs-Dropdown mit verfügbaren Übungen
+ */
+async function populateExerciseFilter() {
+    const { db, userId } = playerVideoContext;
+    const exerciseSelect = document.getElementById('my-videos-filter-exercise');
+
+    if (!exerciseSelect || !db) return;
+
+    try {
+        // Hole alle Übungen, die in den Videos des Spielers vorkommen
+        const { data: videos } = await db
+            .from('video_analyses')
+            .select('exercise_id, exercise:exercises(id, name)')
+            .eq('uploaded_by', userId)
+            .not('exercise_id', 'is', null);
+
+        // Unique Übungen sammeln
+        const exercises = new Map();
+        videos?.forEach(v => {
+            if (v.exercise) {
+                exercises.set(v.exercise.id, v.exercise.name);
+            }
+        });
+
+        // Dropdown füllen (vorhandene Options behalten für "Alle")
+        const existingValue = exerciseSelect.value;
+        exerciseSelect.innerHTML = '<option value="all">Alle Übungen</option>';
+
+        exercises.forEach((name, id) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            exerciseSelect.appendChild(option);
+        });
+
+        // Vorherige Auswahl wiederherstellen falls möglich
+        if (existingValue && exercises.has(existingValue)) {
+            exerciseSelect.value = existingValue;
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Übungen für Filter:', error);
+    }
 }
 
 /**
@@ -184,6 +274,10 @@ export async function loadMyVideos() {
 
     if (!container || !userId) return;
 
+    // Filter-Werte auslesen
+    const statusFilter = document.getElementById('my-videos-filter-status')?.value || 'all';
+    const exerciseFilter = document.getElementById('my-videos-filter-exercise')?.value || 'all';
+
     container.innerHTML = `
         <div class="col-span-full flex justify-center py-8">
             <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
@@ -191,8 +285,8 @@ export async function loadMyVideos() {
     `;
 
     try {
-        // Alle Videos des Spielers laden (eigene + zugewiesene)
-        const { data: videos, error } = await db
+        // Alle Videos des Spielers laden
+        const { data: allVideos, error } = await db
             .from('video_analyses')
             .select(`
                 *,
@@ -204,13 +298,33 @@ export async function loadMyVideos() {
 
         if (error) throw error;
 
-        // Badge aktualisieren
-        if (countBadge && videos?.length > 0) {
-            countBadge.textContent = videos.length;
+        // Badge mit Gesamtzahl aktualisieren
+        if (countBadge && allVideos?.length > 0) {
+            countBadge.textContent = allVideos.length;
             countBadge.classList.remove('hidden');
+        } else if (countBadge) {
+            countBadge.classList.add('hidden');
         }
 
-        if (!videos || videos.length === 0) {
+        // Filter anwenden
+        let videos = allVideos || [];
+
+        // Status-Filter
+        if (statusFilter !== 'all') {
+            videos = videos.filter(video => {
+                const assignment = video.assignments?.[0];
+                const isPrivate = !video.club_id;
+                const status = isPrivate ? 'private' : (assignment?.status || 'pending');
+                return status === statusFilter;
+            });
+        }
+
+        // Übungs-Filter
+        if (exerciseFilter !== 'all') {
+            videos = videos.filter(video => video.exercise_id === exerciseFilter);
+        }
+
+        if (!allVideos || allVideos.length === 0) {
             container.innerHTML = `
                 <div class="col-span-full text-center py-12">
                     <i class="fas fa-video text-5xl text-gray-300 mb-4 block"></i>
@@ -219,6 +333,16 @@ export async function loadMyVideos() {
                             class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
                         <i class="fas fa-upload mr-2"></i>Erstes Video hochladen
                     </button>
+                </div>
+            `;
+            return;
+        }
+
+        if (videos.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <i class="fas fa-filter text-5xl text-gray-300 mb-4 block"></i>
+                    <p class="text-gray-500">Keine Videos mit diesen Filtern gefunden</p>
                 </div>
             `;
             return;
@@ -412,12 +536,84 @@ function setupPlayerUploadModal() {
             btn.classList.toggle('border-purple-600');
         });
     });
+
+    // Custom Tag hinzufügen
+    setupPlayerCustomTagInput();
+}
+
+/**
+ * Setup für Custom Tag Input (Player)
+ */
+function setupPlayerCustomTagInput() {
+    const input = document.getElementById('player-custom-tag-input');
+    const addBtn = document.getElementById('player-add-custom-tag-btn');
+    const container = document.getElementById('player-video-tags');
+
+    if (!input || !addBtn || !container) return;
+
+    const addCustomTag = () => {
+        const tagText = input.value.trim();
+        if (!tagText) return;
+
+        // Prüfen ob Tag schon existiert
+        const existingTag = container.querySelector(`[data-tag="${CSS.escape(tagText)}"]`);
+        if (existingTag) {
+            // Tag auswählen statt doppelt hinzufügen
+            if (!existingTag.classList.contains('bg-purple-600')) {
+                existingTag.click();
+            }
+            input.value = '';
+            return;
+        }
+
+        // Neuen Tag erstellen
+        const tagBtn = document.createElement('button');
+        tagBtn.type = 'button';
+        tagBtn.className = 'player-tag-btn px-3 py-1 rounded-full text-sm border border-purple-600 bg-purple-600 text-white transition-colors flex items-center gap-1';
+        tagBtn.dataset.tag = tagText;
+        tagBtn.dataset.custom = 'true';
+        tagBtn.innerHTML = `
+            ${escapeHtml(tagText)}
+            <span class="remove-tag text-xs opacity-70 hover:opacity-100">×</span>
+        `;
+
+        // Toggle Funktion
+        tagBtn.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-tag')) {
+                tagBtn.remove();
+            } else {
+                tagBtn.classList.toggle('bg-purple-600');
+                tagBtn.classList.toggle('text-white');
+                tagBtn.classList.toggle('border-purple-600');
+                tagBtn.classList.toggle('border-gray-300');
+            }
+        });
+
+        container.appendChild(tagBtn);
+        input.value = '';
+    };
+
+    addBtn.addEventListener('click', addCustomTag);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addCustomTag();
+        }
+    });
 }
 
 function resetTagSelection() {
-    document.querySelectorAll('.player-tag-btn').forEach(btn => {
+    // Standard-Tags zurücksetzen
+    document.querySelectorAll('.player-tag-btn:not([data-custom])').forEach(btn => {
         btn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
     });
+    // Custom Tags entfernen
+    document.querySelectorAll('.player-tag-btn[data-custom]').forEach(btn => {
+        btn.remove();
+    });
+    // Input leeren
+    const input = document.getElementById('player-custom-tag-input');
+    if (input) input.value = '';
 }
 
 /**
@@ -867,6 +1063,264 @@ function showToast(message, type = 'info') {
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+}
+
+// Video Comparison State
+const comparisonState = {
+    videos: [],
+    leftPlayer: null,
+    rightPlayer: null,
+    isSynced: true,
+    isPlaying: false,
+};
+
+/**
+ * Initialisiert die Video-Vergleichs-Funktion
+ */
+export function initVideoComparison() {
+    setupComparisonModal();
+    setupComparisonButton();
+}
+
+/**
+ * Setup für den Vergleichs-Button
+ */
+function setupComparisonButton() {
+    const btn = document.getElementById('open-video-comparison');
+    if (!btn) return;
+
+    btn.addEventListener('click', openVideoComparison);
+}
+
+/**
+ * Öffnet das Video-Vergleichs-Modal
+ */
+async function openVideoComparison() {
+    const { db, userId } = playerVideoContext;
+    const modal = document.getElementById('video-comparison-modal');
+
+    if (!modal || !db || !userId) return;
+
+    // Videos laden
+    const { data: videos, error } = await db
+        .from('video_analyses')
+        .select('id, title, video_url, thumbnail_url, created_at, exercise:exercises(name)')
+        .eq('uploaded_by', userId)
+        .order('created_at', { ascending: false });
+
+    if (error || !videos || videos.length < 2) {
+        showToast('Du brauchst mindestens 2 Videos für einen Vergleich', 'info');
+        return;
+    }
+
+    comparisonState.videos = videos;
+
+    // Dropdowns füllen
+    const leftSelect = document.getElementById('comparison-video-left');
+    const rightSelect = document.getElementById('comparison-video-right');
+
+    const optionsHtml = videos.map(v => {
+        const date = new Date(v.created_at).toLocaleDateString('de-DE');
+        const title = v.title || v.exercise?.name || 'Video';
+        return `<option value="${v.id}">${escapeHtml(title)} (${date})</option>`;
+    }).join('');
+
+    leftSelect.innerHTML = '<option value="">Video 1 auswählen...</option>' + optionsHtml;
+    rightSelect.innerHTML = '<option value="">Video 2 auswählen...</option>' + optionsHtml;
+
+    // Wenn genug Videos, automatisch die ersten zwei auswählen
+    if (videos.length >= 2) {
+        leftSelect.value = videos[0].id;
+        rightSelect.value = videos[1].id;
+        loadComparisonVideo('left', videos[0]);
+        loadComparisonVideo('right', videos[1]);
+    }
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Setup für das Comparison Modal
+ */
+function setupComparisonModal() {
+    const modal = document.getElementById('video-comparison-modal');
+    if (!modal) return;
+
+    const closeBtn = document.getElementById('close-video-comparison');
+    const leftSelect = document.getElementById('comparison-video-left');
+    const rightSelect = document.getElementById('comparison-video-right');
+    const syncCheckbox = document.getElementById('sync-playback');
+    const playPauseBtn = document.getElementById('comparison-play-pause');
+    const restartBtn = document.getElementById('comparison-restart');
+
+    comparisonState.leftPlayer = document.getElementById('comparison-player-left');
+    comparisonState.rightPlayer = document.getElementById('comparison-player-right');
+
+    // Close button
+    closeBtn?.addEventListener('click', () => {
+        closeComparisonModal();
+    });
+
+    // Video selection
+    leftSelect?.addEventListener('change', () => {
+        const video = comparisonState.videos.find(v => v.id === leftSelect.value);
+        if (video) loadComparisonVideo('left', video);
+    });
+
+    rightSelect?.addEventListener('change', () => {
+        const video = comparisonState.videos.find(v => v.id === rightSelect.value);
+        if (video) loadComparisonVideo('right', video);
+    });
+
+    // Sync toggle
+    syncCheckbox?.addEventListener('change', () => {
+        comparisonState.isSynced = syncCheckbox.checked;
+    });
+
+    // Play/Pause button
+    playPauseBtn?.addEventListener('click', toggleComparisonPlayback);
+
+    // Restart button
+    restartBtn?.addEventListener('click', restartComparison);
+
+    // Sync playback
+    if (comparisonState.leftPlayer) {
+        comparisonState.leftPlayer.addEventListener('play', () => syncPlayback('left', 'play'));
+        comparisonState.leftPlayer.addEventListener('pause', () => syncPlayback('left', 'pause'));
+        comparisonState.leftPlayer.addEventListener('seeked', () => syncPlayback('left', 'seek'));
+        comparisonState.leftPlayer.addEventListener('timeupdate', updateComparisonTime);
+    }
+
+    if (comparisonState.rightPlayer) {
+        comparisonState.rightPlayer.addEventListener('play', () => syncPlayback('right', 'play'));
+        comparisonState.rightPlayer.addEventListener('pause', () => syncPlayback('right', 'pause'));
+        comparisonState.rightPlayer.addEventListener('seeked', () => syncPlayback('right', 'seek'));
+    }
+}
+
+/**
+ * Lädt ein Video in den Vergleichs-Player
+ */
+function loadComparisonVideo(side, video) {
+    const player = side === 'left' ? comparisonState.leftPlayer : comparisonState.rightPlayer;
+    const infoDiv = document.getElementById(`comparison-info-${side}`);
+    const titleEl = document.getElementById(`comparison-title-${side}`);
+    const dateEl = document.getElementById(`comparison-date-${side}`);
+
+    if (player && video.video_url) {
+        player.src = video.video_url;
+        player.load();
+    }
+
+    if (infoDiv && titleEl && dateEl) {
+        titleEl.textContent = video.title || video.exercise?.name || 'Video';
+        dateEl.textContent = new Date(video.created_at).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+        infoDiv.classList.remove('hidden');
+    }
+}
+
+/**
+ * Synchronisiert die Wiedergabe zwischen beiden Videos
+ */
+function syncPlayback(source, action) {
+    if (!comparisonState.isSynced) return;
+
+    const sourcePlayer = source === 'left' ? comparisonState.leftPlayer : comparisonState.rightPlayer;
+    const targetPlayer = source === 'left' ? comparisonState.rightPlayer : comparisonState.leftPlayer;
+
+    if (!sourcePlayer || !targetPlayer) return;
+
+    switch (action) {
+        case 'play':
+            if (targetPlayer.paused) {
+                targetPlayer.play().catch(() => {});
+            }
+            updatePlayPauseButton(false);
+            break;
+        case 'pause':
+            if (!targetPlayer.paused) {
+                targetPlayer.pause();
+            }
+            updatePlayPauseButton(true);
+            break;
+        case 'seek':
+            if (Math.abs(sourcePlayer.currentTime - targetPlayer.currentTime) > 0.5) {
+                targetPlayer.currentTime = sourcePlayer.currentTime;
+            }
+            break;
+    }
+}
+
+/**
+ * Aktualisiert die Zeitanzeige
+ */
+function updateComparisonTime() {
+    const timeEl = document.getElementById('comparison-time');
+    if (timeEl && comparisonState.leftPlayer) {
+        timeEl.textContent = formatTimestamp(comparisonState.leftPlayer.currentTime);
+    }
+}
+
+/**
+ * Play/Pause Toggle
+ */
+function toggleComparisonPlayback() {
+    const leftPlayer = comparisonState.leftPlayer;
+    const rightPlayer = comparisonState.rightPlayer;
+
+    if (!leftPlayer && !rightPlayer) return;
+
+    const isPaused = leftPlayer?.paused ?? true;
+
+    if (isPaused) {
+        leftPlayer?.play().catch(() => {});
+        rightPlayer?.play().catch(() => {});
+    } else {
+        leftPlayer?.pause();
+        rightPlayer?.pause();
+    }
+
+    updatePlayPauseButton(!isPaused);
+}
+
+/**
+ * Aktualisiert den Play/Pause Button
+ */
+function updatePlayPauseButton(isPaused) {
+    const btn = document.getElementById('comparison-play-pause');
+    if (!btn) return;
+
+    btn.innerHTML = isPaused
+        ? '<i class="fas fa-play"></i><span>Abspielen</span>'
+        : '<i class="fas fa-pause"></i><span>Pause</span>';
+}
+
+/**
+ * Startet beide Videos von vorne
+ */
+function restartComparison() {
+    if (comparisonState.leftPlayer) {
+        comparisonState.leftPlayer.currentTime = 0;
+    }
+    if (comparisonState.rightPlayer) {
+        comparisonState.rightPlayer.currentTime = 0;
+    }
+}
+
+/**
+ * Schließt das Comparison Modal
+ */
+function closeComparisonModal() {
+    const modal = document.getElementById('video-comparison-modal');
+    modal?.classList.add('hidden');
+
+    // Videos pausieren
+    comparisonState.leftPlayer?.pause();
+    comparisonState.rightPlayer?.pause();
 }
 
 // Funktion um die aktuelle Exercise-ID im Modal zu tracken

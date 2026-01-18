@@ -37,52 +37,73 @@ const AVAILABLE_TAGS = [
 async function generateVideoThumbnail(videoFile, seekTime = 2) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
-        video.preload = 'metadata';
+        video.preload = 'auto';
         video.muted = true;
         video.playsInline = true;
+        video.crossOrigin = 'anonymous';
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        let hasResolved = false;
 
-        video.onloadedmetadata = () => {
-            // Thumbnail-Größe (max 320px Breite, proportional)
-            const maxWidth = 320;
-            const scale = Math.min(1, maxWidth / video.videoWidth);
-            canvas.width = video.videoWidth * scale;
-            canvas.height = video.videoHeight * scale;
+        const captureFrame = () => {
+            if (hasResolved) return;
+            hasResolved = true;
 
+            try {
+                const maxWidth = 320;
+                const scale = Math.min(1, maxWidth / video.videoWidth);
+                canvas.width = video.videoWidth * scale;
+                canvas.height = video.videoHeight * scale;
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(
+                    (blob) => {
+                        URL.revokeObjectURL(video.src);
+                        video.pause();
+                        blob ? resolve(blob) : reject(new Error('Thumbnail-Generierung fehlgeschlagen'));
+                    },
+                    'image/jpeg',
+                    0.85
+                );
+            } catch (err) {
+                URL.revokeObjectURL(video.src);
+                video.pause();
+                reject(err);
+            }
+        };
+
+        video.onloadeddata = () => {
             // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
             const targetTime = Math.max(seekTime, video.duration * 0.25);
             video.currentTime = Math.min(targetTime, video.duration - 0.5);
         };
 
         video.onseeked = () => {
-            try {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob(
-                    (blob) => {
-                        URL.revokeObjectURL(video.src);
-                        if (blob) {
-                            resolve(blob);
-                        } else {
-                            reject(new Error('Thumbnail-Generierung fehlgeschlagen'));
-                        }
-                    },
-                    'image/jpeg',
-                    0.8
-                );
-            } catch (err) {
-                URL.revokeObjectURL(video.src);
-                reject(err);
-            }
+            // Kurz warten damit der Frame gerendert wird
+            setTimeout(captureFrame, 100);
         };
 
         video.onerror = () => {
+            if (hasResolved) return;
+            hasResolved = true;
             URL.revokeObjectURL(video.src);
             reject(new Error('Video konnte nicht geladen werden'));
         };
 
+        // Timeout als Fallback
+        setTimeout(() => {
+            if (!hasResolved && video.readyState >= 2) {
+                captureFrame();
+            } else if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Thumbnail-Timeout'));
+            }
+        }, 10000);
+
         video.src = URL.createObjectURL(videoFile);
+        video.load();
     });
 }
 
@@ -804,6 +825,70 @@ function setupTagSelection() {
             btn.classList.toggle('border-indigo-600');
         });
     });
+
+    // Custom Tag hinzufügen
+    setupCustomTagInput();
+}
+
+/**
+ * Setup für Custom Tag Input
+ */
+function setupCustomTagInput() {
+    const input = document.getElementById('custom-tag-input');
+    const addBtn = document.getElementById('add-custom-tag-btn');
+    const container = document.getElementById('video-tags-container');
+
+    if (!input || !addBtn || !container) return;
+
+    const addCustomTag = () => {
+        const tagText = input.value.trim();
+        if (!tagText) return;
+
+        // Prüfen ob Tag schon existiert
+        const existingTag = container.querySelector(`[data-tag="${CSS.escape(tagText)}"]`);
+        if (existingTag) {
+            // Tag auswählen statt doppelt hinzufügen
+            if (!existingTag.classList.contains('bg-indigo-600')) {
+                existingTag.click();
+            }
+            input.value = '';
+            return;
+        }
+
+        // Neuen Tag erstellen
+        const tagBtn = document.createElement('button');
+        tagBtn.type = 'button';
+        tagBtn.className = 'tag-btn px-3 py-1 rounded-full text-sm border border-indigo-600 bg-indigo-600 text-white transition-colors flex items-center gap-1';
+        tagBtn.dataset.tag = tagText;
+        tagBtn.dataset.custom = 'true';
+        tagBtn.innerHTML = `
+            ${escapeHtml(tagText)}
+            <span class="remove-tag text-xs opacity-70 hover:opacity-100">×</span>
+        `;
+
+        // Toggle Funktion
+        tagBtn.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-tag')) {
+                tagBtn.remove();
+            } else {
+                tagBtn.classList.toggle('bg-indigo-600');
+                tagBtn.classList.toggle('text-white');
+                tagBtn.classList.toggle('border-indigo-600');
+                tagBtn.classList.toggle('border-gray-300');
+            }
+        });
+
+        container.appendChild(tagBtn);
+        input.value = '';
+    };
+
+    addBtn.addEventListener('click', addCustomTag);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addCustomTag();
+        }
+    });
 }
 
 /**
@@ -1078,91 +1163,253 @@ function closeVideoDetailModal() {
     currentVideoId = null;
 }
 
+// Split-Screen State
+const splitScreenState = {
+    videos: [],
+    leftPlayer: null,
+    rightPlayer: null,
+    isSynced: true,
+    isPlaying: false,
+};
+
 /**
  * Setup für Split-Screen-Modal
  */
 function setupSplitScreenModal() {
     const modal = document.getElementById('split-screen-modal');
-    const closeBtn = document.getElementById('close-split-screen-modal');
-    const playBothBtn = document.getElementById('play-both-btn');
-
     if (!modal) return;
 
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            // Videos pausieren
-            document.getElementById('split-video-left')?.pause();
-            document.getElementById('split-video-right')?.pause();
-        });
+    const closeBtn = document.getElementById('close-split-screen-modal');
+    const playBothBtn = document.getElementById('play-both-btn');
+    const restartBtn = document.getElementById('restart-both-btn');
+    const syncCheckbox = document.getElementById('coach-sync-playback');
+    const leftSelect = document.getElementById('split-video-select-left');
+    const rightSelect = document.getElementById('split-video-select-right');
+
+    splitScreenState.leftPlayer = document.getElementById('split-video-left');
+    splitScreenState.rightPlayer = document.getElementById('split-video-right');
+
+    // Close button
+    closeBtn?.addEventListener('click', closeSplitScreenModal);
+
+    // Video selection
+    leftSelect?.addEventListener('change', () => {
+        const video = splitScreenState.videos.find(v => v.id === leftSelect.value);
+        if (video) loadSplitVideo('left', video);
+    });
+
+    rightSelect?.addEventListener('change', () => {
+        const video = splitScreenState.videos.find(v => v.id === rightSelect.value);
+        if (video) loadSplitVideo('right', video);
+    });
+
+    // Sync toggle
+    syncCheckbox?.addEventListener('change', () => {
+        splitScreenState.isSynced = syncCheckbox.checked;
+    });
+
+    // Play/Pause button
+    playBothBtn?.addEventListener('click', toggleSplitPlayback);
+
+    // Restart button
+    restartBtn?.addEventListener('click', restartSplitVideos);
+
+    // Sync playback events
+    if (splitScreenState.leftPlayer) {
+        splitScreenState.leftPlayer.addEventListener('play', () => syncSplitPlayback('left', 'play'));
+        splitScreenState.leftPlayer.addEventListener('pause', () => syncSplitPlayback('left', 'pause'));
+        splitScreenState.leftPlayer.addEventListener('seeked', () => syncSplitPlayback('left', 'seek'));
+        splitScreenState.leftPlayer.addEventListener('timeupdate', updateSplitTime);
     }
 
-    if (playBothBtn) {
-        playBothBtn.addEventListener('click', () => {
-            const leftVideo = document.getElementById('split-video-left');
-            const rightVideo = document.getElementById('split-video-right');
-
-            if (leftVideo && rightVideo) {
-                leftVideo.currentTime = 0;
-                rightVideo.currentTime = 0;
-                leftVideo.play();
-                rightVideo.play();
-            }
-        });
+    if (splitScreenState.rightPlayer) {
+        splitScreenState.rightPlayer.addEventListener('play', () => syncSplitPlayback('right', 'play'));
+        splitScreenState.rightPlayer.addEventListener('pause', () => syncSplitPlayback('right', 'pause'));
+        splitScreenState.rightPlayer.addEventListener('seeked', () => syncSplitPlayback('right', 'seek'));
     }
 }
 
 /**
  * Öffnet den Split-Screen-Vergleich
  */
-async function openSplitScreenModal() {
+async function openSplitScreenModal(preselectedVideoId = null) {
     const { db, clubId } = videoAnalysisContext;
     const modal = document.getElementById('split-screen-modal');
-    if (!modal || !currentVideoId) return;
+    if (!modal) return;
 
-    // Aktuelles Video-URL holen
-    const { data: currentVideo } = await db
+    // Alle Videos des Clubs laden
+    const { data: videos, error } = await db
         .from('video_analyses')
-        .select('video_url, exercise_id')
-        .eq('id', currentVideoId)
-        .single();
+        .select(`
+            id, title, video_url, thumbnail_url, created_at,
+            exercise:exercises(name),
+            uploader:profiles!uploaded_by(first_name, last_name)
+        `)
+        .eq('club_id', clubId)
+        .order('created_at', { ascending: false });
 
-    if (!currentVideo) return;
-
-    // Linkes Video (aktuell)
-    const leftVideo = document.getElementById('split-video-left');
-    if (leftVideo) {
-        leftVideo.src = currentVideo.video_url;
+    if (error || !videos || videos.length < 2) {
+        showToast('Nicht genügend Videos für einen Vergleich vorhanden', 'info');
+        return;
     }
 
-    // Referenz-Videos laden für Dropdown
-    if (currentVideo.exercise_id) {
-        const { data: refs } = await db.rpc('get_reference_videos', {
-            p_exercise_id: currentVideo.exercise_id,
-            p_club_id: clubId,
-        });
+    splitScreenState.videos = videos;
 
-        const select = document.getElementById('reference-video-select');
-        if (select && refs) {
-            select.innerHTML = `
-                <option value="">Referenz-Video auswählen...</option>
-                ${refs.map(ref => `
-                    <option value="${escapeHtml(ref.video_url)}">
-                        ${escapeHtml(ref.title || 'Referenz')} (${escapeHtml(ref.uploader_name)})
-                    </option>
-                `).join('')}
-            `;
+    // Dropdowns füllen
+    const leftSelect = document.getElementById('split-video-select-left');
+    const rightSelect = document.getElementById('split-video-select-right');
 
-            select.onchange = () => {
-                const rightVideo = document.getElementById('split-video-right');
-                if (rightVideo && select.value) {
-                    rightVideo.src = select.value;
-                }
-            };
+    const optionsHtml = videos.map(v => {
+        const date = new Date(v.created_at).toLocaleDateString('de-DE');
+        const uploaderName = v.uploader ? `${v.uploader.first_name || ''} ${v.uploader.last_name || ''}`.trim() : '';
+        const title = v.title || v.exercise?.name || 'Video';
+        const label = uploaderName ? `${title} - ${uploaderName} (${date})` : `${title} (${date})`;
+        return `<option value="${v.id}">${escapeHtml(label)}</option>`;
+    }).join('');
+
+    leftSelect.innerHTML = '<option value="">Video 1 auswählen...</option>' + optionsHtml;
+    rightSelect.innerHTML = '<option value="">Video 2 auswählen...</option>' + optionsHtml;
+
+    // Vorauswahl falls vorhanden
+    if (preselectedVideoId || currentVideoId) {
+        const videoId = preselectedVideoId || currentVideoId;
+        leftSelect.value = videoId;
+        const video = videos.find(v => v.id === videoId);
+        if (video) loadSplitVideo('left', video);
+
+        // Zweites Video: nächstes in der Liste
+        const otherVideo = videos.find(v => v.id !== videoId);
+        if (otherVideo) {
+            rightSelect.value = otherVideo.id;
+            loadSplitVideo('right', otherVideo);
         }
     }
 
     modal.classList.remove('hidden');
+}
+
+/**
+ * Lädt ein Video in den Split-Screen Player
+ */
+function loadSplitVideo(side, video) {
+    const player = side === 'left' ? splitScreenState.leftPlayer : splitScreenState.rightPlayer;
+    const infoDiv = document.getElementById(`split-info-${side}`);
+    const titleEl = document.getElementById(`split-title-${side}`);
+    const dateEl = document.getElementById(`split-date-${side}`);
+
+    if (player && video.video_url) {
+        player.src = video.video_url;
+        player.load();
+    }
+
+    if (infoDiv && titleEl && dateEl) {
+        const uploaderName = video.uploader ? `${video.uploader.first_name || ''} ${video.uploader.last_name || ''}`.trim() : '';
+        titleEl.textContent = video.title || video.exercise?.name || 'Video';
+        dateEl.textContent = uploaderName
+            ? `${uploaderName} · ${new Date(video.created_at).toLocaleDateString('de-DE')}`
+            : new Date(video.created_at).toLocaleDateString('de-DE');
+        infoDiv.classList.remove('hidden');
+    }
+}
+
+/**
+ * Synchronisiert die Wiedergabe zwischen beiden Videos
+ */
+function syncSplitPlayback(source, action) {
+    if (!splitScreenState.isSynced) return;
+
+    const sourcePlayer = source === 'left' ? splitScreenState.leftPlayer : splitScreenState.rightPlayer;
+    const targetPlayer = source === 'left' ? splitScreenState.rightPlayer : splitScreenState.leftPlayer;
+
+    if (!sourcePlayer || !targetPlayer) return;
+
+    switch (action) {
+        case 'play':
+            if (targetPlayer.paused) {
+                targetPlayer.play().catch(() => {});
+            }
+            updateSplitPlayPauseButton(false);
+            break;
+        case 'pause':
+            if (!targetPlayer.paused) {
+                targetPlayer.pause();
+            }
+            updateSplitPlayPauseButton(true);
+            break;
+        case 'seek':
+            if (Math.abs(sourcePlayer.currentTime - targetPlayer.currentTime) > 0.5) {
+                targetPlayer.currentTime = sourcePlayer.currentTime;
+            }
+            break;
+    }
+}
+
+/**
+ * Aktualisiert die Zeitanzeige
+ */
+function updateSplitTime() {
+    const timeEl = document.getElementById('split-time');
+    if (timeEl && splitScreenState.leftPlayer) {
+        const secs = Math.floor(splitScreenState.leftPlayer.currentTime);
+        const mins = Math.floor(secs / 60);
+        const remainSecs = secs % 60;
+        timeEl.textContent = `${mins}:${remainSecs.toString().padStart(2, '0')}`;
+    }
+}
+
+/**
+ * Play/Pause Toggle für Split-Screen
+ */
+function toggleSplitPlayback() {
+    const { leftPlayer, rightPlayer } = splitScreenState;
+    if (!leftPlayer && !rightPlayer) return;
+
+    const isPaused = leftPlayer?.paused ?? true;
+
+    if (isPaused) {
+        leftPlayer?.play().catch(() => {});
+        rightPlayer?.play().catch(() => {});
+    } else {
+        leftPlayer?.pause();
+        rightPlayer?.pause();
+    }
+
+    updateSplitPlayPauseButton(!isPaused);
+}
+
+/**
+ * Aktualisiert den Play/Pause Button
+ */
+function updateSplitPlayPauseButton(isPaused) {
+    const btn = document.getElementById('play-both-btn');
+    if (!btn) return;
+
+    btn.innerHTML = isPaused
+        ? '<i class="fas fa-play"></i><span>Abspielen</span>'
+        : '<i class="fas fa-pause"></i><span>Pause</span>';
+}
+
+/**
+ * Startet beide Videos von vorne
+ */
+function restartSplitVideos() {
+    if (splitScreenState.leftPlayer) {
+        splitScreenState.leftPlayer.currentTime = 0;
+    }
+    if (splitScreenState.rightPlayer) {
+        splitScreenState.rightPlayer.currentTime = 0;
+    }
+}
+
+/**
+ * Schließt das Split-Screen Modal
+ */
+function closeSplitScreenModal() {
+    const modal = document.getElementById('split-screen-modal');
+    modal?.classList.add('hidden');
+
+    splitScreenState.leftPlayer?.pause();
+    splitScreenState.rightPlayer?.pause();
 }
 
 /**
