@@ -29,6 +29,36 @@ const AVAILABLE_TAGS = [
 ];
 
 /**
+ * Rendert einen Avatar (Bild oder Initialen-Fallback)
+ */
+function renderAvatar(avatarUrl, name, sizeClass = 'w-8 h-8') {
+    const initial = (name || '?').charAt(0).toUpperCase();
+
+    if (avatarUrl) {
+        return `<img src="${escapeHtml(avatarUrl)}"
+                     class="${sizeClass} rounded-full object-cover"
+                     onerror="this.outerHTML='<div class=\\'${sizeClass} rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold\\'>${initial}</div>'">`;
+    }
+
+    return `<div class="${sizeClass} rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold">${initial}</div>`;
+}
+
+/**
+ * Rendert ein Video-Thumbnail (mit Fallback-Placeholder)
+ */
+function renderVideoThumbnail(thumbnailUrl, cssClass = 'w-full h-full object-cover') {
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="${cssClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2" class="stroke-gray-300"/><polygon points="10,8 16,12 10,16" class="fill-gray-300 stroke-gray-300"/></svg>`;
+
+    if (thumbnailUrl) {
+        return `<img src="${escapeHtml(thumbnailUrl)}"
+                     class="${cssClass}"
+                     onerror="this.outerHTML=\`${fallbackSvg}\`">`;
+    }
+
+    return fallbackSvg;
+}
+
+/**
  * Setzt den Kontext für Video-Analyse
  */
 export function setVideoAnalysisContext(db, userId, userRole, clubId) {
@@ -212,17 +242,13 @@ export async function loadPendingVideos() {
  * Erstellt eine Video-Karte für die Inbox
  */
 function createVideoCard(video) {
-    const thumbnailUrl = video.thumbnail_url || '/icons/video-placeholder.png';
     const tags = video.tags || [];
 
     return `
         <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
              data-video-id="${video.id}">
-            <div class="relative aspect-video bg-gray-100">
-                <img src="${escapeHtml(thumbnailUrl)}"
-                     alt="Video Thumbnail"
-                     class="w-full h-full object-cover"
-                     onerror="this.src='/icons/video-placeholder.png'">
+            <div class="relative aspect-video bg-gray-100 flex items-center justify-center">
+                ${renderVideoThumbnail(video.thumbnail_url, 'w-full h-full object-cover')}
                 <div class="absolute top-2 right-2">
                     <span class="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                         ${video.pending_count} offen
@@ -231,11 +257,9 @@ function createVideoCard(video) {
             </div>
             <div class="p-4">
                 <div class="flex items-center gap-2 mb-2">
-                    <img src="${escapeHtml(video.uploader_avatar || '/icons/default-avatar.png')}"
-                         class="w-8 h-8 rounded-full object-cover"
-                         onerror="this.src='/icons/default-avatar.png'">
+                    ${renderAvatar(video.uploader_avatar, video.uploader_name, 'w-8 h-8')}
                     <div>
-                        <p class="font-medium text-sm">${escapeHtml(video.uploader_name)}</p>
+                        <p class="font-medium text-sm">${escapeHtml(video.uploader_name || 'Unbekannt')}</p>
                         <p class="text-xs text-gray-500">${formatDate(video.created_at)}</p>
                     </div>
                 </div>
@@ -314,10 +338,8 @@ function createVideoCardFull(video) {
     return `
         <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
              data-video-id="${video.id}">
-            <div class="relative aspect-video bg-gray-100">
-                <img src="${escapeHtml(video.thumbnail_url || '/icons/video-placeholder.png')}"
-                     class="w-full h-full object-cover"
-                     onerror="this.src='/icons/video-placeholder.png'">
+            <div class="relative aspect-video bg-gray-100 flex items-center justify-center">
+                ${renderVideoThumbnail(video.thumbnail_url, 'w-full h-full object-cover')}
             </div>
             <div class="p-4">
                 <p class="font-medium text-sm mb-1">${escapeHtml(video.title || 'Ohne Titel')}</p>
@@ -372,8 +394,7 @@ async function openVideoDetailModal(videoId) {
         <div class="mt-4">
             <h3 class="text-lg font-bold">${escapeHtml(video.title || 'Video-Analyse')}</h3>
             <div class="flex items-center gap-2 mt-2 text-sm text-gray-600">
-                <img src="${escapeHtml(video.uploader?.avatar_url || '/icons/default-avatar.png')}"
-                     class="w-6 h-6 rounded-full">
+                ${renderAvatar(video.uploader?.avatar_url, uploaderName, 'w-6 h-6')}
                 <span>${escapeHtml(uploaderName)}</span>
                 <span>•</span>
                 <span>${formatDate(video.created_at)}</span>
@@ -504,8 +525,7 @@ function createCommentElement(comment, replies = []) {
     return `
         <div class="border-b border-gray-100 pb-3 mb-3 last:border-0">
             <div class="flex items-start gap-3">
-                <img src="${escapeHtml(comment.user_avatar || '/icons/default-avatar.png')}"
-                     class="w-8 h-8 rounded-full flex-shrink-0">
+                <div class="flex-shrink-0">${renderAvatar(comment.user_avatar, comment.user_name, 'w-8 h-8')}</div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-medium text-sm ${isCoach ? 'text-indigo-600' : 'text-gray-900'}">
@@ -530,8 +550,7 @@ function createCommentElement(comment, replies = []) {
 function createReplyElement(reply) {
     return `
         <div class="flex items-start gap-2">
-            <img src="${escapeHtml(reply.user_avatar || '/icons/default-avatar.png')}"
-                 class="w-6 h-6 rounded-full">
+            ${renderAvatar(reply.user_avatar, reply.user_name, 'w-6 h-6')}
             <div>
                 <span class="font-medium text-xs">${escapeHtml(reply.user_name)}</span>
                 <p class="text-sm text-gray-600">${escapeHtml(reply.content)}</p>
@@ -667,22 +686,30 @@ function populateUploadForm() {
         `;
     }
 
-    // Spieler-Liste für Zuweisung
+    // Spieler-Liste für Zuweisung (nur echte Spieler, keine Coaches)
     const playerList = document.getElementById('video-player-assignment-list');
     if (playerList) {
+        const playersOnly = clubPlayers.filter(p => p.role === 'player');
+
         playerList.innerHTML = `
             <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                 <input type="checkbox" id="select-all-players" class="rounded text-indigo-600">
                 <span class="font-medium">Alle Spieler auswählen</span>
             </label>
             <hr class="my-2">
-            ${clubPlayers.map(player => `
+            ${playersOnly.map(player => {
+                const playerName = player.firstName && player.lastName
+                    ? `${player.firstName} ${player.lastName}`
+                    : player.display_name || player.first_name || 'Spieler';
+                return `
                 <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                     <input type="checkbox" name="assigned_players" value="${player.id}" class="player-checkbox rounded text-indigo-600">
-                    <img src="${escapeHtml(player.avatar_url || '/icons/default-avatar.png')}" class="w-6 h-6 rounded-full">
-                    <span>${escapeHtml(player.display_name || player.first_name || 'Spieler')}</span>
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                        ${escapeHtml((player.firstName || player.first_name || '?').charAt(0).toUpperCase())}
+                    </div>
+                    <span>${escapeHtml(playerName)}</span>
                 </label>
-            `).join('')}
+            `}).join('')}
         `;
 
         // Select All Logik
