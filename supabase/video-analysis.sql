@@ -514,9 +514,29 @@ END;
 $$;
 
 -- ============================================
--- ENABLE REALTIME
+-- ENABLE REALTIME (idempotent)
 -- ============================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE video_analyses;
-ALTER PUBLICATION supabase_realtime ADD TABLE video_assignments;
-ALTER PUBLICATION supabase_realtime ADD TABLE video_comments;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND tablename = 'video_analyses'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE video_analyses;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND tablename = 'video_assignments'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE video_assignments;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND tablename = 'video_comments'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE video_comments;
+    END IF;
+END $$;
