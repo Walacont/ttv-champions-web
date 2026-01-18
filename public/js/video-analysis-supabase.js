@@ -215,9 +215,6 @@ function setupVideoSubTabs() {
                 case 'all':
                     loadAllVideos();
                     break;
-                case 'references':
-                    loadReferenceVideos();
-                    break;
             }
         });
     });
@@ -377,7 +374,6 @@ export async function loadAllVideos(filter = 'all') {
             exercise:exercises(id, name)
         `)
         .eq('club_id', clubId)
-        .eq('is_reference', false)
         .order('created_at', { ascending: false });
 
     const { data: videos, error } = await query;
@@ -496,37 +492,11 @@ async function openVideoDetailModal(videoId) {
 
     videoPlayer = document.getElementById('analysis-video-player');
 
-    // Referenz-Videos für Vergleich prüfen
-    if (video.exercise_id) {
-        await checkForReferenceVideos(video.exercise_id);
-    }
-
     // Kommentare laden
     await loadVideoComments(videoId);
 
     // Realtime-Subscription für Kommentare
     subscribeToComments(videoId);
-}
-
-/**
- * Prüft ob Referenz-Videos für die Übung existieren
- */
-async function checkForReferenceVideos(exerciseId) {
-    const { db, clubId } = videoAnalysisContext;
-    const compareBtn = document.getElementById('compare-video-btn');
-    if (!compareBtn) return;
-
-    const { data: refs, error } = await db.rpc('get_reference_videos', {
-        p_exercise_id: exerciseId,
-        p_club_id: clubId,
-    });
-
-    if (!error && refs && refs.length > 0) {
-        compareBtn.classList.remove('hidden');
-        compareBtn.dataset.exerciseId = exerciseId;
-    } else {
-        compareBtn.classList.add('hidden');
-    }
 }
 
 /**
@@ -1013,7 +983,6 @@ async function handleVideoUpload(e) {
         // 4. Metadaten sammeln
         const title = document.getElementById('video-title-input')?.value || '';
         const exerciseId = document.getElementById('video-exercise-select')?.value || null;
-        const isReference = document.getElementById('video-is-reference')?.checked || false;
 
         // Tags sammeln
         const selectedTags = [];
@@ -1039,7 +1008,6 @@ async function handleVideoUpload(e) {
                 thumbnail_url: thumbnailUrl,
                 title: title || null,
                 tags: selectedTags,
-                is_reference: isReference,
             })
             .select()
             .single();
@@ -1412,69 +1380,6 @@ function closeSplitScreenModal() {
     splitScreenState.rightPlayer?.pause();
 }
 
-/**
- * Referenz-Videos laden für Coach
- */
-export async function loadReferenceVideos() {
-    const { db, clubId } = videoAnalysisContext;
-    const container = document.getElementById('video-analysis-references');
-    if (!container) return;
-
-    const { data: videos, error } = await db
-        .from('video_analyses')
-        .select(`
-            *,
-            uploader:profiles!uploaded_by(display_name, first_name, last_name, avatar_url),
-            exercise:exercises(name)
-        `)
-        .eq('club_id', clubId)
-        .eq('is_reference', true)
-        .order('created_at', { ascending: false });
-
-    if (error || !videos || videos.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-                <i class="fas fa-video text-4xl mb-3 text-gray-300"></i>
-                <p>Keine Referenz-Videos vorhanden</p>
-                <p class="text-sm mt-1">Lade Videos hoch und markiere sie als "Referenz"</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            ${videos.map(video => {
-                const uploaderName = video.uploader?.display_name ||
-                    `${video.uploader?.first_name || ''} ${video.uploader?.last_name?.charAt(0) || ''}.`.trim();
-                return `
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div class="aspect-video bg-gray-100 relative">
-                            <video class="w-full h-full object-cover" preload="metadata">
-                                <source src="${escapeHtml(video.video_url)}" type="video/mp4">
-                            </video>
-                            <div class="absolute top-2 left-2">
-                                <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-                                    Referenz
-                                </span>
-                            </div>
-                        </div>
-                        <div class="p-4">
-                            <p class="font-medium">${escapeHtml(video.title || 'Referenz-Video')}</p>
-                            ${video.exercise ? `
-                                <p class="text-sm text-indigo-600 mt-1">
-                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
-                                </p>
-                            ` : ''}
-                            <p class="text-xs text-gray-500 mt-2">${escapeHtml(uploaderName)}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
 // Hilfsfunktionen
 function formatDate(dateStr) {
     const date = new Date(dateStr);
@@ -1518,7 +1423,6 @@ function showToast(message, type = 'info') {
 window.videoAnalysis = {
     loadPendingVideos,
     loadAllVideos,
-    loadReferenceVideos,
     addVideoComment,
     markVideoAsReviewed,
 };
