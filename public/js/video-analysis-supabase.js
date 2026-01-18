@@ -29,6 +29,63 @@ const AVAILABLE_TAGS = [
 ];
 
 /**
+ * Generiert ein Thumbnail aus einer Video-Datei
+ * @param {File} videoFile - Die Video-Datei
+ * @param {number} seekTime - Zeit in Sekunden für den Screenshot (default: 1)
+ * @returns {Promise<Blob>} - Das Thumbnail als JPEG Blob
+ */
+async function generateVideoThumbnail(videoFile, seekTime = 1) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        video.onloadedmetadata = () => {
+            // Thumbnail-Größe (max 320px Breite, proportional)
+            const maxWidth = 320;
+            const scale = Math.min(1, maxWidth / video.videoWidth);
+            canvas.width = video.videoWidth * scale;
+            canvas.height = video.videoHeight * scale;
+
+            // Zum gewünschten Zeitpunkt springen
+            video.currentTime = Math.min(seekTime, video.duration * 0.1);
+        };
+
+        video.onseeked = () => {
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(
+                    (blob) => {
+                        URL.revokeObjectURL(video.src);
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Thumbnail-Generierung fehlgeschlagen'));
+                        }
+                    },
+                    'image/jpeg',
+                    0.8
+                );
+            } catch (err) {
+                URL.revokeObjectURL(video.src);
+                reject(err);
+            }
+        };
+
+        video.onerror = () => {
+            URL.revokeObjectURL(video.src);
+            reject(new Error('Video konnte nicht geladen werden'));
+        };
+
+        video.src = URL.createObjectURL(videoFile);
+    });
+}
+
+/**
  * Rendert einen Avatar (Bild oder Initialen-Fallback)
  */
 function renderAvatar(avatarUrl, name, sizeClass = 'w-8 h-8') {
@@ -784,9 +841,37 @@ async function handleVideoUpload(e) {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird hochgeladen...';
 
     try {
-        // 1. Video in Storage hochladen
+        const timestamp = Date.now();
+
+        // 1. Thumbnail generieren
+        let thumbnailUrl = null;
+        try {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Thumbnail wird erstellt...';
+            const thumbnailBlob = await generateVideoThumbnail(file);
+            const thumbFileName = `${userId}/${timestamp}_thumb.jpg`;
+
+            const { error: thumbError } = await db.storage
+                .from('training-videos')
+                .upload(thumbFileName, thumbnailBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: false,
+                });
+
+            if (!thumbError) {
+                const { data: thumbUrlData } = db.storage
+                    .from('training-videos')
+                    .getPublicUrl(thumbFileName);
+                thumbnailUrl = thumbUrlData.publicUrl;
+            }
+        } catch (thumbErr) {
+            console.warn('Thumbnail-Generierung fehlgeschlagen:', thumbErr);
+            // Kein Abbruch - Video wird trotzdem hochgeladen
+        }
+
+        // 2. Video in Storage hochladen
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Video wird hochgeladen...';
         const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+        const fileName = `${userId}/${timestamp}.${fileExt}`;
 
         const { data: uploadData, error: uploadError } = await db.storage
             .from('training-videos')
@@ -797,14 +882,14 @@ async function handleVideoUpload(e) {
 
         if (uploadError) throw uploadError;
 
-        // 2. Public URL generieren
+        // 3. Public URL generieren
         const { data: urlData } = db.storage
             .from('training-videos')
             .getPublicUrl(fileName);
 
         const videoUrl = urlData.publicUrl;
 
-        // 3. Metadaten sammeln
+        // 4. Metadaten sammeln
         const title = document.getElementById('video-title-input')?.value || '';
         const exerciseId = document.getElementById('video-exercise-select')?.value || null;
         const isReference = document.getElementById('video-is-reference')?.checked || false;
@@ -821,7 +906,7 @@ async function handleVideoUpload(e) {
             assignedPlayers.push(cb.value);
         });
 
-        // 4. Datenbank-Eintrag erstellen
+        // 5. Datenbank-Eintrag erstellen
         const { data: videoAnalysis, error: insertError } = await db
             .from('video_analyses')
             .insert({
@@ -829,6 +914,7 @@ async function handleVideoUpload(e) {
                 club_id: clubId,
                 exercise_id: exerciseId || null,
                 video_url: videoUrl,
+                thumbnail_url: thumbnailUrl,
                 title: title || null,
                 tags: selectedTags,
                 is_reference: isReference,
