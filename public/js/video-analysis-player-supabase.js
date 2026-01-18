@@ -291,6 +291,11 @@ async function handlePlayerVideoUpload(e) {
 
         const videoUrl = urlData.publicUrl;
 
+        // Validierung: Club-ID muss vorhanden sein
+        if (!clubId) {
+            throw new Error('Keine Club-Zuordnung gefunden. Bitte melde dich erneut an.');
+        }
+
         // 4. Metadaten sammeln
         const title = document.getElementById('player-video-title')?.value || '';
         const exerciseId = document.getElementById('player-video-exercise-id')?.value || null;
