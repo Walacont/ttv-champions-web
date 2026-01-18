@@ -1157,6 +1157,90 @@
                         class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"
                     ></span>
                 </div>
+
+                <!-- Video-Analyse Bereich -->
+                <div id="exercise-video-section" class="mt-6 pt-4 border-t border-gray-200">
+                    <!-- Referenz-Video Anzeige -->
+                    <div id="exercise-reference-video" class="mb-4 hidden">
+                        <p class="text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-star text-yellow-500 mr-1"></i>Musterlösung vom Coach:
+                        </p>
+                        <video id="reference-video-player" class="w-full rounded-lg bg-black max-h-48" controls preload="metadata">
+                            <source src="" type="video/mp4">
+                        </video>
+                    </div>
+
+                    <!-- Video-Upload Button -->
+                    <button
+                        id="start-video-analysis-btn"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        <i class="fas fa-video"></i>
+                        <span>Video zur Analyse hochladen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video-Upload Modal für Spieler -->
+        <div id="player-video-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-lg font-bold">Video zur Analyse hochladen</h3>
+                    <button id="close-player-video-upload" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <form id="player-video-upload-form" class="p-6 space-y-4">
+                    <input type="hidden" id="player-video-exercise-id">
+
+                    <!-- Video-Datei -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Video-Datei *</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors">
+                            <input type="file" id="player-video-file-input" accept="video/mp4,video/quicktime,video/webm" required class="hidden">
+                            <label for="player-video-file-input" class="cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-600">Klicken zum Auswählen</p>
+                                <p class="text-xs text-gray-400 mt-1">MP4, MOV, WebM (max. 100 MB)</p>
+                            </label>
+                        </div>
+                        <p id="player-selected-file-name" class="text-sm text-purple-600 mt-2 hidden"></p>
+                    </div>
+
+                    <!-- Titel -->
+                    <div>
+                        <label for="player-video-title" class="block text-sm font-medium text-gray-700 mb-1">Titel (optional)</label>
+                        <input type="text" id="player-video-title" placeholder="z.B. Mein Aufschlag"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Tags -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tags (optional)</label>
+                        <div id="player-video-tags" class="flex flex-wrap gap-2">
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Aufschlag">Aufschlag</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Vorhand">Vorhand</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Rückhand">Rückhand</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Technik">Technik</button>
+                        </div>
+                    </div>
+
+                    <!-- Info -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Nach dem Hochladen kann dein Coach das Video analysieren und dir Feedback mit Zeitstempeln geben.
+                        </p>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" id="player-video-submit-btn"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-upload"></i>
+                        <span>Hochladen</span>
+                    </button>
+                </form>
             </div>
         </div>
 

@@ -37,6 +37,7 @@ import {
     formatSetsDisplay,
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
+import { initPlayerVideoUpload, setCurrentExerciseId } from './video-analysis-player-supabase.js';
 
 suppressConsoleLogs();
 
@@ -374,6 +375,9 @@ async function initializeDashboard() {
 
     // Match-Medien-Modul initialisieren
     initMatchMedia(currentUserData);
+
+    // Video-Analyse für Spieler initialisieren (Upload-Funktion)
+    initPlayerVideoUpload(supabase, currentUserData);
 
     // Match-Verlauf laden (nach Modul-Initialisierung)
     loadMatchHistory();
@@ -3117,6 +3121,9 @@ window.openExerciseModal = async (exerciseId) => {
             alert('Übung konnte nicht geladen werden');
             return;
         }
+
+        // Exercise-ID für Video-Analyse tracken
+        setCurrentExerciseId(exerciseId);
 
         // Titel setzen
         const titleEl = document.getElementById('modal-exercise-title');

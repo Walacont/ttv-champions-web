@@ -139,6 +139,7 @@ import {
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
+import { initVideoAnalysis, loadPendingVideos, loadAllVideos, loadReferenceVideos } from './video-analysis-supabase.js';
 
 const supabase = getSupabase();
 
@@ -427,6 +428,9 @@ async function initializeCoachPage(userData) {
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Coach ausschließen
+
+        // Video-Analyse initialisieren (benötigt clubPlayers)
+        initVideoAnalysis(supabase, userData, clubPlayers);
     });
 
     // Satz-Eingabe für Einzel und Doppel
