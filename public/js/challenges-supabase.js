@@ -18,7 +18,6 @@ export async function handleCreateChallenge(e, currentUserData) {
     const description = document.getElementById('challenge-description').value;
     const subgroupId = document.getElementById('challenge-subgroup').value;
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
-    const unit = document.getElementById('challenge-unit')?.value || 'Wiederholungen';
 
     const milestonesEnabled =
         document.getElementById('challenge-milestones-enabled')?.checked || false;
@@ -55,7 +54,6 @@ export async function handleCreateChallenge(e, currentUserData) {
             type,
             description,
             points,
-            unit,
             club_id: currentUserData.clubId,
             subgroup_id: subgroupId === 'all' ? null : subgroupId,
             is_active: true,
