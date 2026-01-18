@@ -308,14 +308,6 @@ function formatRelativeTime(dateStr) {
 }
 
 /**
- * Öffnet die Detailansicht eines Videos
- */
-async function openPlayerVideoDetail(videoId) {
-    // TODO: Implementiere Video-Detail-Modal für Spieler
-    console.log('Video Detail öffnen:', videoId);
-}
-
-/**
  * Setup für den Video-Button im Exercise-Modal
  */
 function setupExerciseVideoButton() {
