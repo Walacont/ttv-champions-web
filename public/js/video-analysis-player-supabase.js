@@ -63,7 +63,8 @@ async function generateVideoThumbnail(videoFile, seekTime = 1) {
 export function initPlayerVideoUpload(db, userData) {
     playerVideoContext.db = db;
     playerVideoContext.userId = userData.id;
-    playerVideoContext.clubId = userData.clubId;
+    // Support both camelCase and snake_case
+    playerVideoContext.clubId = userData.clubId || userData.club_id;
 
     // Button im Exercise-Modal
     setupExerciseVideoButton();
