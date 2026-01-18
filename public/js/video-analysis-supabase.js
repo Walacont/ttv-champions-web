@@ -838,18 +838,41 @@ async function handleVideoUpload(e) {
     }
 
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird hochgeladen...';
+
+    // Progress UI elements
+    const progressContainer = document.getElementById('video-upload-progress');
+    const progressBar = document.getElementById('upload-progress-bar');
+    const statusText = document.getElementById('upload-status-text');
+    const percentText = document.getElementById('upload-percent-text');
+    const sizeText = document.getElementById('upload-size-text');
+
+    const formatFileSize = (bytes) => {
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    };
+
+    const updateProgress = (percent, status) => {
+        if (progressBar) progressBar.style.width = percent + '%';
+        if (percentText) percentText.textContent = Math.round(percent) + '%';
+        if (statusText) statusText.textContent = status;
+    };
+
+    // Show progress, hide button
+    if (progressContainer) progressContainer.classList.remove('hidden');
+    submitBtn.classList.add('hidden');
+    if (sizeText) sizeText.textContent = `Dateigröße: ${formatFileSize(file.size)}`;
 
     try {
         const timestamp = Date.now();
 
-        // 1. Thumbnail generieren
+        // 1. Thumbnail generieren (0-10%)
         let thumbnailUrl = null;
         try {
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Thumbnail wird erstellt...';
+            updateProgress(2, 'Thumbnail wird erstellt...');
             const thumbnailBlob = await generateVideoThumbnail(file);
             const thumbFileName = `${userId}/${timestamp}_thumb.jpg`;
 
+            updateProgress(5, 'Thumbnail wird hochgeladen...');
             const { error: thumbError } = await db.storage
                 .from('training-videos')
                 .upload(thumbFileName, thumbnailBlob, {
@@ -863,15 +886,25 @@ async function handleVideoUpload(e) {
                     .getPublicUrl(thumbFileName);
                 thumbnailUrl = thumbUrlData.publicUrl;
             }
+            updateProgress(10, 'Thumbnail fertig');
         } catch (thumbErr) {
             console.warn('Thumbnail-Generierung fehlgeschlagen:', thumbErr);
-            // Kein Abbruch - Video wird trotzdem hochgeladen
+            updateProgress(10, 'Thumbnail übersprungen');
         }
 
-        // 2. Video in Storage hochladen
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Video wird hochgeladen...';
+        // 2. Video in Storage hochladen (10-90%)
+        updateProgress(12, 'Video wird hochgeladen...');
         const fileExt = file.name.split('.').pop();
         const fileName = `${userId}/${timestamp}.${fileExt}`;
+
+        // Simuliere Progress während Upload (da Supabase kein natives Progress-Tracking hat)
+        let uploadProgress = 12;
+        const progressInterval = setInterval(() => {
+            if (uploadProgress < 85) {
+                uploadProgress += Math.random() * 3;
+                updateProgress(uploadProgress, 'Video wird hochgeladen...');
+            }
+        }, 500);
 
         const { data: uploadData, error: uploadError } = await db.storage
             .from('training-videos')
@@ -880,7 +913,10 @@ async function handleVideoUpload(e) {
                 upsert: false,
             });
 
+        clearInterval(progressInterval);
         if (uploadError) throw uploadError;
+
+        updateProgress(90, 'Video hochgeladen!');
 
         // 3. Public URL generieren
         const { data: urlData } = db.storage
@@ -906,7 +942,8 @@ async function handleVideoUpload(e) {
             assignedPlayers.push(cb.value);
         });
 
-        // 5. Datenbank-Eintrag erstellen
+        // 5. Datenbank-Eintrag erstellen (90-95%)
+        updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
             .from('video_analyses')
             .insert({
@@ -924,8 +961,9 @@ async function handleVideoUpload(e) {
 
         if (insertError) throw insertError;
 
-        // 5. Spieler-Zuweisungen erstellen
+        // 6. Spieler-Zuweisungen erstellen (95-100%)
         if (assignedPlayers.length > 0) {
+            updateProgress(95, 'Spieler werden zugewiesen...');
             const assignments = assignedPlayers.map(playerId => ({
                 video_id: videoAnalysis.id,
                 player_id: playerId,
@@ -942,20 +980,30 @@ async function handleVideoUpload(e) {
             }
         }
 
+        updateProgress(100, 'Fertig!');
         showToast('Video erfolgreich hochgeladen!', 'success');
 
         // Modal schließen und Liste aktualisieren
-        document.getElementById('video-upload-modal')?.classList.add('hidden');
-        form.reset();
-        loadPendingVideos();
-        loadAllVideos();
+        setTimeout(() => {
+            document.getElementById('video-upload-modal')?.classList.add('hidden');
+            form.reset();
+            // Reset progress UI
+            if (progressContainer) progressContainer.classList.add('hidden');
+            if (progressBar) progressBar.style.width = '0%';
+            submitBtn.classList.remove('hidden');
+            loadPendingVideos();
+            loadAllVideos();
+        }, 500);
 
     } catch (error) {
         console.error('Upload-Fehler:', error);
         showToast('Fehler beim Hochladen: ' + error.message, 'error');
+        updateProgress(0, 'Fehler aufgetreten');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-upload mr-2"></i>Hochladen';
+        submitBtn.classList.remove('hidden');
+        if (progressContainer) progressContainer.classList.add('hidden');
+        if (progressBar) progressBar.style.width = '0%';
     }
 }
 

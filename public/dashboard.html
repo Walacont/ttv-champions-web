@@ -1234,6 +1234,18 @@
                         </p>
                     </div>
 
+                    <!-- Upload Progress -->
+                    <div id="player-upload-progress" class="hidden">
+                        <div class="mb-2 flex justify-between text-sm">
+                            <span id="player-upload-status" class="text-gray-600">Wird vorbereitet...</span>
+                            <span id="player-upload-percent" class="font-medium text-purple-600">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div id="player-upload-bar" class="bg-purple-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="player-upload-size" class="text-xs text-gray-500 mt-1 text-center"></p>
+                    </div>
+
                     <!-- Submit -->
                     <button type="submit" id="player-video-submit-btn"
                             class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
