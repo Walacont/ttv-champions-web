@@ -111,10 +111,12 @@ CREATE INDEX IF NOT EXISTS idx_video_comments_parent ON video_comments(parent_id
 -- UPDATED_AT TRIGGER
 -- ============================================
 
+DROP TRIGGER IF EXISTS update_video_analyses_updated_at ON video_analyses;
 CREATE TRIGGER update_video_analyses_updated_at
     BEFORE UPDATE ON video_analyses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS update_video_comments_updated_at ON video_comments;
 CREATE TRIGGER update_video_comments_updated_at
     BEFORE UPDATE ON video_comments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
