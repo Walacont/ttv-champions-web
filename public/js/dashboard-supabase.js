@@ -1549,38 +1549,62 @@ function renderLeaderboardList() {
     }
 
     // Nach Datenschutz-Einstellungen filtern (gilt für alle inkl. Trainer)
+    // Verwendet leaderboard_visibility mit Fallback auf alte Felder für Kompatibilität
     let currentUserHidden = false;
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Standard: true
-        const searchable = privacySettings.searchable || 'global'; // Standard: global
-
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
 
-        // Wenn Spieler Ranglisten-Sichtbarkeit deaktiviert hat
-        if (!showInLeaderboards) {
-            if (isCurrentUser) {
-                currentUserHidden = true;
-                return true; // Aktuellen Benutzer immer sich selbst anzeigen
+        // Verwende leaderboard_visibility, mit Fallback auf alte Felder für Kompatibilität
+        let leaderboardVisibility = privacySettings.leaderboard_visibility;
+
+        // Fallback für alte Einstellungen (Migration)
+        if (!leaderboardVisibility) {
+            // Prüfe altes showInLeaderboards Feld
+            if (privacySettings.showInLeaderboards === false) {
+                leaderboardVisibility = 'none';
+            } else {
+                leaderboardVisibility = 'global';
             }
-            return false; // Von anderen verbergen
         }
 
-        // Wenn Spieler nur für Vereinsmitglieder sichtbar
-        if (searchable === 'club_only') {
+        // Bei 'none': Spieler ist für niemanden sichtbar (außer sich selbst)
+        if (leaderboardVisibility === 'none') {
             if (isCurrentUser) {
                 currentUserHidden = true;
-                return true; // Aktuellen Benutzer immer sich selbst anzeigen
+                return true; // Zeige dem User selbst, dass er versteckt ist
             }
-            // Nur anzeigen wenn Betrachter im selben Verein
-            if (isSameClub) {
+            return false;
+        }
+
+        // Bei 'club_only': Nur für Vereinsmitglieder sichtbar
+        if (leaderboardVisibility === 'club_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
                 return true;
             }
-            return false; // Von Nicht-Vereinsmitgliedern verbergen
+            if (isSameClub) {
+                return true; // Gleiches Verein -> sichtbar
+            }
+            return false; // Anderer Verein -> unsichtbar
         }
 
-        return true; // Globale Sichtbarkeit
+        // Bei 'followers_only': Nur für Abonnenten sichtbar
+        // Da Follower-Logik komplex ist, behandeln wir es vorerst wie club_only
+        if (leaderboardVisibility === 'followers_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true;
+            }
+            if (isSameClub) {
+                return true; // Vereinsmitglieder können sehen
+            }
+            return false;
+        }
+
+        // 'global' oder unbekannter Wert: Sichtbar für alle
+        return true;
     });
 
     // Nach aktuellem Tab sortieren - Tab-Namen zu Feldnamen
