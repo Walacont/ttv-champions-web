@@ -214,14 +214,11 @@ CREATE POLICY "video_analyses_select" ON video_analyses
         )
     );
 
--- INSERT: Jeder authentifizierte User kann Videos hochladen
+-- INSERT: Jeder authentifizierte User kann Videos in seinem Club hochladen
 CREATE POLICY "video_analyses_insert" ON video_analyses
     FOR INSERT WITH CHECK (
         auth.uid() = uploaded_by
-        AND EXISTS (
-            SELECT 1 FROM profiles p
-            WHERE p.id = auth.uid() AND p.club_id = video_analyses.club_id
-        )
+        AND club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
     );
 
 -- UPDATE: Nur der Uploader oder Coach kann bearbeiten
@@ -268,20 +265,21 @@ CREATE POLICY "video_assignments_select" ON video_assignments
         )
     );
 
--- INSERT: Uploader oder Coach kann Zuweisungen erstellen
+-- INSERT: Uploader oder Coach kann Zuweisungen in seinem Club erstellen
 CREATE POLICY "video_assignments_insert" ON video_assignments
     FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles p
-            WHERE p.id = auth.uid()
-            AND p.club_id = video_assignments.club_id
-            AND (
-                -- Coaches können zuweisen
-                p.role IN ('coach', 'admin', 'head_coach')
-                OR
-                -- Uploader (Spieler) kann beim eigenen Upload zuweisen
-                auth.uid() = (SELECT va.uploaded_by FROM video_analyses va WHERE va.id = video_assignments.video_id)
+        -- Club muss mit User's Club übereinstimmen
+        club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
+        AND (
+            -- Coaches können zuweisen
+            EXISTS (
+                SELECT 1 FROM profiles p
+                WHERE p.id = auth.uid()
+                AND p.role IN ('coach', 'admin', 'head_coach')
             )
+            OR
+            -- Uploader (Spieler) kann beim eigenen Upload zuweisen
+            auth.uid() = (SELECT va.uploaded_by FROM video_analyses va WHERE va.id = video_id)
         )
     );
 
@@ -330,11 +328,7 @@ CREATE POLICY "video_comments_select" ON video_comments
 CREATE POLICY "video_comments_insert" ON video_comments
     FOR INSERT WITH CHECK (
         auth.uid() = user_id
-        AND EXISTS (
-            SELECT 1 FROM profiles p
-            WHERE p.id = auth.uid()
-            AND p.club_id = video_comments.club_id
-        )
+        AND club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
     );
 
 -- UPDATE: Nur eigene Kommentare bearbeiten
