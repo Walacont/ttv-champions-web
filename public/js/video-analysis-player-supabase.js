@@ -13,7 +13,7 @@ let playerVideoContext = {
 /**
  * Generiert ein Thumbnail aus einer Video-Datei
  */
-async function generateVideoThumbnail(videoFile, seekTime = 1) {
+async function generateVideoThumbnail(videoFile, seekTime = 2) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -28,7 +28,9 @@ async function generateVideoThumbnail(videoFile, seekTime = 1) {
             const scale = Math.min(1, maxWidth / video.videoWidth);
             canvas.width = video.videoWidth * scale;
             canvas.height = video.videoHeight * scale;
-            video.currentTime = Math.min(seekTime, video.duration * 0.1);
+            // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
+            const targetTime = Math.max(seekTime, video.duration * 0.25);
+            video.currentTime = Math.min(targetTime, video.duration - 0.5);
         };
 
         video.onseeked = () => {

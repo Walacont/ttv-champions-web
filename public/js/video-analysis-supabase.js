@@ -34,7 +34,7 @@ const AVAILABLE_TAGS = [
  * @param {number} seekTime - Zeit in Sekunden für den Screenshot (default: 1)
  * @returns {Promise<Blob>} - Das Thumbnail als JPEG Blob
  */
-async function generateVideoThumbnail(videoFile, seekTime = 1) {
+async function generateVideoThumbnail(videoFile, seekTime = 2) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         video.preload = 'metadata';
@@ -51,8 +51,9 @@ async function generateVideoThumbnail(videoFile, seekTime = 1) {
             canvas.width = video.videoWidth * scale;
             canvas.height = video.videoHeight * scale;
 
-            // Zum gewünschten Zeitpunkt springen
-            video.currentTime = Math.min(seekTime, video.duration * 0.1);
+            // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
+            const targetTime = Math.max(seekTime, video.duration * 0.25);
+            video.currentTime = Math.min(targetTime, video.duration - 0.5);
         };
 
         video.onseeked = () => {
@@ -104,15 +105,14 @@ function renderAvatar(avatarUrl, name, sizeClass = 'w-8 h-8') {
  * Rendert ein Video-Thumbnail (mit Fallback-Placeholder)
  */
 function renderVideoThumbnail(thumbnailUrl, cssClass = 'w-full h-full object-cover') {
-    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="${cssClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2" class="stroke-gray-300"/><polygon points="10,8 16,12 10,16" class="fill-gray-300 stroke-gray-300"/></svg>`;
+    // Einfacher Fallback ohne komplexes SVG im onerror
+    const fallbackDiv = `<div class="${cssClass} bg-gray-200 flex items-center justify-center"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></div>`;
 
     if (thumbnailUrl) {
-        return `<img src="${escapeHtml(thumbnailUrl)}"
-                     class="${cssClass}"
-                     onerror="this.outerHTML=\`${fallbackSvg}\`">`;
+        return `<img src="${escapeHtml(thumbnailUrl)}" alt="Video Thumbnail" class="${cssClass}" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','${fallbackDiv.replace(/'/g, "\\'")}')">`;
     }
 
-    return fallbackSvg;
+    return fallbackDiv;
 }
 
 /**
