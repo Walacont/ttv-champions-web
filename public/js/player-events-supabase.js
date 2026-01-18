@@ -120,10 +120,13 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
         }
     });
 
-    // Neue Einladungen einfügen
+    // Neue Einladungen einfügen (mit upsert um 409 Konflikte zu vermeiden)
     if (newInvitations.length > 0) {
         try {
-            await supabase.from('event_invitations').insert(newInvitations);
+            await supabase.from('event_invitations').upsert(newInvitations, {
+                onConflict: 'event_id,user_id,occurrence_date',
+                ignoreDuplicates: true
+            });
         } catch (err) {
             console.warn('[PlayerEvents] Error creating recurring invitations:', err);
         }

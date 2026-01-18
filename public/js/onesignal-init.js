@@ -12,6 +12,22 @@ let isOneSignalInitialized = false;
 let initPromise = null;
 
 /**
+ * Warten bis Service Worker bereit ist
+ */
+async function waitForServiceWorkerReady() {
+    if (!('serviceWorker' in navigator)) {
+        return false;
+    }
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        return !!registration;
+    } catch (e) {
+        console.warn('[OneSignal] Service Worker not ready:', e.message);
+        return false;
+    }
+}
+
+/**
  * OneSignal initialisieren - früh beim App-Start aufrufen
  */
 export async function initOneSignal() {
@@ -30,6 +46,9 @@ export async function initOneSignal() {
         console.warn('[OneSignal] SDK not loaded - OneSignalDeferred missing');
         return Promise.resolve();
     }
+
+    // Warten bis Service Worker bereit ist, um "context closed" Fehler zu vermeiden
+    await waitForServiceWorkerReady();
 
     initPromise = new Promise((resolve, reject) => {
         try {

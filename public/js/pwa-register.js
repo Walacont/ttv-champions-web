@@ -2,12 +2,27 @@
 (function () {
     'use strict';
 
+    // Globaler Flag für Service Worker Bereitschaft
+    window.serviceWorkerReady = false;
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js', {
                     scope: '/'
                 });
+
+                // Warten bis der Service Worker aktiv ist
+                if (registration.active) {
+                    window.serviceWorkerReady = true;
+                } else if (registration.installing || registration.waiting) {
+                    const sw = registration.installing || registration.waiting;
+                    sw.addEventListener('statechange', () => {
+                        if (sw.state === 'activated') {
+                            window.serviceWorkerReady = true;
+                        }
+                    });
+                }
 
                 console.log('[PWA] Service Worker registriert:', registration.scope);
 

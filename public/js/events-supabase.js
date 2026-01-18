@@ -3008,7 +3008,10 @@ window.executeEditEvent = async function(eventId, isRecurring) {
                     }));
                     newInvitations.forEach(inv => delete inv.id);
 
-                    await supabase.from('event_invitations').insert(newInvitations);
+                    await supabase.from('event_invitations').upsert(newInvitations, {
+                        onConflict: 'event_id,user_id,occurrence_date',
+                        ignoreDuplicates: true
+                    });
                 }
 
             } else {
