@@ -350,10 +350,25 @@ export async function loadMyVideos() {
 
         container.innerHTML = videos.map(video => createMyVideoCard(video)).join('');
 
-        // Click Handler für Video-Karten
-        container.querySelectorAll('[data-video-id]').forEach(card => {
-            card.addEventListener('click', () => {
-                openPlayerVideoDetail(card.dataset.videoId);
+        // Click Handler für Video-Karten (öffnet Detail)
+        container.querySelectorAll('.video-card-click').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const card = e.target.closest('[data-video-id]');
+                if (card) {
+                    openPlayerVideoDetail(card.dataset.videoId);
+                }
+            });
+        });
+
+        // Click Handler für Delete-Buttons
+        container.querySelectorAll('.delete-video-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const videoId = btn.dataset.videoId;
+                const video = videos.find(v => v.id === videoId);
+                if (video) {
+                    showDeleteConfirmationFromCard(video);
+                }
             });
         });
 
@@ -389,9 +404,9 @@ function createMyVideoCard(video) {
         : `<div class="w-full h-full bg-gray-200 flex items-center justify-center"><i class="fas fa-video text-gray-400 text-2xl"></i></div>`;
 
     return `
-        <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-gray-100"
+        <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 group relative"
              data-video-id="${video.id}">
-            <div class="relative aspect-video bg-gray-100">
+            <div class="relative aspect-video bg-gray-100 cursor-pointer video-card-click">
                 ${thumbnailHtml}
                 <div class="absolute top-2 right-2">
                     <span class="bg-${color}-100 text-${color}-700 text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
@@ -399,8 +414,14 @@ function createMyVideoCard(video) {
                         ${text}
                     </span>
                 </div>
+                <!-- Delete Button (appears on hover) -->
+                <button class="delete-video-btn absolute top-2 left-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        data-video-id="${video.id}"
+                        title="Video löschen">
+                    <i class="fas fa-trash text-sm"></i>
+                </button>
             </div>
-            <div class="p-4">
+            <div class="p-4 cursor-pointer video-card-click">
                 <p class="font-medium text-sm mb-1 truncate">${escapeHtml(video.title || 'Ohne Titel')}</p>
                 ${video.exercise?.name ? `
                     <p class="text-xs text-indigo-600 mb-2">
@@ -983,9 +1004,14 @@ function showPlayerVideoDetailModal(video, comments) {
         <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
             <div class="border-b px-6 py-4 flex justify-between items-center">
                 <h3 class="text-lg font-bold">${escapeHtml(video.title || 'Video-Feedback')}</h3>
-                <button id="close-player-video-detail" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="delete-player-video" class="text-red-500 hover:text-red-700 transition-colors" title="Video löschen">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button id="close-player-video-detail" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
             </div>
             <div class="flex-1 overflow-y-auto">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -1018,6 +1044,12 @@ function showPlayerVideoDetailModal(video, comments) {
         if (e.target === modal) modal.remove();
     });
 
+    // Delete Button
+    const deleteBtn = document.getElementById('delete-player-video');
+    deleteBtn?.addEventListener('click', () => {
+        showDeleteConfirmation(video, modal);
+    });
+
     // Timestamp-Klicks
     modal.querySelectorAll('.timestamp-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1029,6 +1061,202 @@ function showPlayerVideoDetailModal(video, comments) {
             }
         });
     });
+}
+
+/**
+ * Zeigt den Lösch-Bestätigungsdialog
+ */
+function showDeleteConfirmation(video, parentModal) {
+    const confirmModal = document.createElement('div');
+    confirmModal.id = 'delete-confirm-modal';
+    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
+
+    confirmModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-trash text-red-500 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Video löschen?</h3>
+                <p class="text-gray-600">
+                    Möchtest du dieses Video wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <button id="cancel-delete" class="flex-1 py-2.5 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                    Abbrechen
+                </button>
+                <button id="confirm-delete" class="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-trash"></i>
+                    Löschen
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(confirmModal);
+
+    // Cancel
+    document.getElementById('cancel-delete')?.addEventListener('click', () => {
+        confirmModal.remove();
+    });
+
+    confirmModal.addEventListener('click', (e) => {
+        if (e.target === confirmModal) confirmModal.remove();
+    });
+
+    // Confirm Delete
+    document.getElementById('confirm-delete')?.addEventListener('click', async () => {
+        const confirmBtn = document.getElementById('confirm-delete');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Löschen...';
+
+        const success = await deletePlayerVideo(video);
+
+        if (success) {
+            confirmModal.remove();
+            parentModal.remove();
+            showToast('Video wurde gelöscht', 'success');
+            // Mediathek neu laden
+            loadMyVideos();
+        } else {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
+            showToast('Fehler beim Löschen des Videos', 'error');
+        }
+    });
+}
+
+/**
+ * Zeigt den Lösch-Bestätigungsdialog (von Karte aus)
+ */
+function showDeleteConfirmationFromCard(video) {
+    const confirmModal = document.createElement('div');
+    confirmModal.id = 'delete-confirm-modal';
+    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
+
+    confirmModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-trash text-red-500 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Video löschen?</h3>
+                <p class="text-gray-600">
+                    Möchtest du "<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <button id="cancel-delete-card" class="flex-1 py-2.5 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                    Abbrechen
+                </button>
+                <button id="confirm-delete-card" class="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-trash"></i>
+                    Löschen
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(confirmModal);
+
+    // Cancel
+    document.getElementById('cancel-delete-card')?.addEventListener('click', () => {
+        confirmModal.remove();
+    });
+
+    confirmModal.addEventListener('click', (e) => {
+        if (e.target === confirmModal) confirmModal.remove();
+    });
+
+    // Confirm Delete
+    document.getElementById('confirm-delete-card')?.addEventListener('click', async () => {
+        const confirmBtn = document.getElementById('confirm-delete-card');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Löschen...';
+
+        const success = await deletePlayerVideo(video);
+
+        if (success) {
+            confirmModal.remove();
+            showToast('Video wurde gelöscht', 'success');
+            // Mediathek neu laden
+            loadMyVideos();
+        } else {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
+            showToast('Fehler beim Löschen des Videos', 'error');
+        }
+    });
+}
+
+/**
+ * Löscht ein Video (Storage + Datenbank)
+ */
+async function deletePlayerVideo(video) {
+    const { db, userId } = playerVideoContext;
+
+    if (!db || !userId) return false;
+
+    // Sicherheitsprüfung: Nur eigene Videos löschen
+    if (video.uploaded_by !== userId) {
+        showToast('Du kannst nur eigene Videos löschen', 'error');
+        return false;
+    }
+
+    try {
+        // 1. Video-Datei aus Storage löschen
+        if (video.video_url) {
+            const videoPath = extractStoragePath(video.video_url, 'training-videos');
+            if (videoPath) {
+                await db.storage.from('training-videos').remove([videoPath]);
+            }
+        }
+
+        // 2. Thumbnail aus Storage löschen
+        if (video.thumbnail_url) {
+            const thumbPath = extractStoragePath(video.thumbnail_url, 'training-videos');
+            if (thumbPath) {
+                await db.storage.from('training-videos').remove([thumbPath]);
+            }
+        }
+
+        // 3. Datenbank-Eintrag löschen (Cascade löscht auch assignments und comments)
+        const { error } = await db
+            .from('video_analyses')
+            .delete()
+            .eq('id', video.id)
+            .eq('uploaded_by', userId);
+
+        if (error) {
+            console.error('Fehler beim Löschen:', error);
+            return false;
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Fehler beim Löschen:', err);
+        return false;
+    }
+}
+
+/**
+ * Extrahiert den Storage-Pfad aus einer Public URL
+ */
+function extractStoragePath(url, bucket) {
+    if (!url) return null;
+
+    try {
+        // Format: .../storage/v1/object/public/bucket-name/path/to/file
+        const bucketPattern = `/storage/v1/object/public/${bucket}/`;
+        const idx = url.indexOf(bucketPattern);
+        if (idx !== -1) {
+            return decodeURIComponent(url.slice(idx + bucketPattern.length));
+        }
+        return null;
+    } catch {
+        return null;
+    }
 }
 
 // Hilfsfunktionen
