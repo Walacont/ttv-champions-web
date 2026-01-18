@@ -42,16 +42,29 @@ let currentUserDataCache = null;
  * - 'club_only': Nur für Vereinsmitglieder sichtbar
  * - 'followers_only': Nur für Abonnenten sichtbar (wird wie club_only behandelt)
  * - 'none': Für niemanden sichtbar (außer sich selbst)
+ *
+ * AUSNAHME: Coaches und Head Coaches sehen im Club-View ALLE Vereinsmitglieder (Privacy wird ignoriert)
+ * @param {boolean} isClubView - Ob es sich um eine Club-Ansicht handelt (optional)
  * @returns {Object} { filteredPlayers, currentUserHidden }
  */
-function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
+function filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClubView = false) {
     let currentUserHidden = false;
 
     console.log('[Privacy Filter] Filtering', players.length, 'players');
 
+    // Prüfe ob aktueller Benutzer ein Coach ist (aus Cache)
+    const currentUserRole = currentUserDataCache?.role;
+    const isCoachOrHeadCoach = currentUserRole === 'coach' || currentUserRole === 'head_coach';
+
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
         const isCurrentUser = player.id === currentUserId;
+        const isSameClub = currentUserClubId && player.clubId === currentUserClubId;
+
+        // Coaches/Head Coaches sehen im Club-View ALLE Vereinsmitglieder (Privacy wird ignoriert)
+        if (isCoachOrHeadCoach && isClubView && isSameClub) {
+            return true;
+        }
 
         // Debug-Logging für Privacy-Einstellungen
         console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
@@ -86,7 +99,7 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
                 currentUserHidden = true;
                 return true;
             }
-            if (currentUserClubId && player.clubId === currentUserClubId) {
+            if (isSameClub) {
                 return true; // Gleiches Verein -> sichtbar
             }
             return false; // Anderer Verein -> unsichtbar
@@ -99,7 +112,7 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
                 currentUserHidden = true;
                 return true;
             }
-            if (currentUserClubId && player.clubId === currentUserClubId) {
+            if (isSameClub) {
                 return true; // Vereinsmitglieder können sehen
             }
             return false;
@@ -163,12 +176,13 @@ async function loadCurrentUserData(userId) {
 async function filterTestClubPlayers(players, currentUserId) {
     const testClubIds = await loadTestClubIds();
 
+    // Immer aktuelle Benutzerdaten laden (für Cache, wird auch von filterPlayersByPrivacy genutzt)
+    const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
+
     if (testClubIds.length === 0) {
         console.log('[Leaderboard] No test clubs found, showing all players');
         return players;
     }
-
-    const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
     const isCoach = currentUser && (currentUser.role === 'coach' || currentUser.role === 'head_coach');
     const currentUserClubId = currentUser?.club_id;
     const isCurrentUserInTestClub = currentUserClubId && testClubIds.includes(currentUserClubId);
@@ -292,7 +306,9 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         players = await filterTestClubPlayers(players, currentUserId);
 
         const currentUserClubId = clubId;
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
+        // Club-View: Coaches sehen alle Vereinsmitglieder
+        const isClubView = !!clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClubView);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -370,7 +386,9 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
         players = await filterTestClubPlayers(players, currentUserId);
 
         const currentUserClubId = clubId;
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
+        // Club-View: Coaches sehen alle Vereinsmitglieder
+        const isClubView = !!clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClubView);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -448,7 +466,9 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         players = await filterTestClubPlayers(players, currentUserId);
 
         const currentUserClubId = clubId;
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
+        // Club-View: Coaches sehen alle Vereinsmitglieder
+        const isClubView = !!clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClubView);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -1143,7 +1163,9 @@ async function loadRanksView(userData) {
         players = await filterTestClubPlayers(players, userData.id);
 
         const currentUserClubId = userData.clubId;
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, currentUserClubId);
+        // Club-View: Coaches sehen alle Vereinsmitglieder
+        const isClubView = !!currentUserClubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, currentUserClubId, isClubView);
         players = filteredPlayers;
 
         if (players.length === 0) {

@@ -1548,13 +1548,22 @@ function renderLeaderboardList() {
         });
     }
 
-    // Nach Datenschutz-Einstellungen filtern (gilt für alle inkl. Trainer)
+    // Nach Datenschutz-Einstellungen filtern
     // Verwendet leaderboard_visibility mit Fallback auf alte Felder für Kompatibilität
+    // AUSNAHME: Coaches und Head Coaches sehen im Club-View ALLE Vereinsmitglieder (unabhängig von Privacy)
     let currentUserHidden = false;
+    const isCoachOrHeadCoach = currentUserData?.role === 'coach' || currentUserData?.role === 'head_coach';
+    const isClubView = currentLeaderboardScope === 'club';
+
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
+
+        // Coaches/Head Coaches sehen im Club-View ALLE Vereinsmitglieder (Privacy wird ignoriert)
+        if (isCoachOrHeadCoach && isClubView && isSameClub) {
+            return true;
+        }
 
         // Verwende leaderboard_visibility, mit Fallback auf alte Felder für Kompatibilität
         let leaderboardVisibility = privacySettings.leaderboard_visibility;
