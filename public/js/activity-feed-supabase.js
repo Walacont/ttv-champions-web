@@ -9,7 +9,7 @@ import { t } from './i18n.js';
 import { loadMatchMedia } from './match-media.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
-import { isTrainingSummary, renderTrainingSummaryCard } from './training-summary-supabase.js';
+import { isTrainingSummary, renderTrainingSummaryCard, parseTrainingSummaryContent } from './training-summary-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -908,7 +908,15 @@ async function fetchActivities(userIds) {
                 .limit(10);
 
             if (summariesError) console.warn('Error fetching training summaries:', summariesError);
-            trainingSummaries = (summaries || []).map(s => ({ ...s, activityType: 'training_summary' }));
+            // Event-Datum für korrekte Sortierung extrahieren
+            trainingSummaries = (summaries || []).map(s => {
+                const summaryData = parseTrainingSummaryContent(s.content);
+                // Verwende event_date + Mittag als Sortierdatum (damit Events nach Datum gruppiert werden)
+                const sortDate = summaryData?.event_date
+                    ? new Date(summaryData.event_date + 'T12:00:00').toISOString()
+                    : s.created_at;
+                return { ...s, activityType: 'training_summary', sort_date: sortDate };
+            });
         }
 
         // Community-Umfragen mit typ-spezifischem Offset laden
@@ -996,8 +1004,12 @@ async function fetchActivities(userIds) {
         console.log('[ActivityFeed] Activities after privacy filter:', allActivities.length);
     }
 
-    // Nach Datum absteigend sortieren
-    allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Nach Datum absteigend sortieren (sort_date für Training Summaries, sonst created_at)
+    allActivities.sort((a, b) => {
+        const dateA = new Date(a.sort_date || a.created_at);
+        const dateB = new Date(b.sort_date || b.created_at);
+        return dateB - dateA;
+    });
 
     // Nach ID deduplizieren um gleiche Aktivität nicht zweimal anzuzeigen
     const seenIds = new Set();
