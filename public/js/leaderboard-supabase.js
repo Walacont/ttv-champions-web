@@ -47,9 +47,16 @@ let currentUserDataCache = null;
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     let currentUserHidden = false;
 
+    console.log('[Privacy Filter] Filtering', players.length, 'players');
+
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
         const isCurrentUser = player.id === currentUserId;
+
+        // Debug-Logging für Privacy-Einstellungen
+        console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
+            '| leaderboard_visibility:', privacySettings.leaderboard_visibility,
+            '| showInLeaderboards:', privacySettings.showInLeaderboards);
 
         // Verwende leaderboard_visibility, mit Fallback auf alte Felder für Kompatibilität
         let leaderboardVisibility = privacySettings.leaderboard_visibility;
