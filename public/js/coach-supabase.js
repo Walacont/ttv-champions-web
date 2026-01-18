@@ -639,7 +639,7 @@ async function initializeCoachPage(userData) {
         );
     document
         .getElementById('create-challenge-form')
-        .addEventListener('submit', e => handleCreateChallenge(e, supabase, userData));
+        .addEventListener('submit', e => handleCreateChallenge(e, userData));
     document
         .getElementById('attendance-form')
         .addEventListener('submit', e =>
