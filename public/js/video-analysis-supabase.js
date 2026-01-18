@@ -1419,10 +1419,331 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 3000);
 }
 
+// ============================================
+// EXERCISE EXAMPLE VIDEOS (Musterlösungen)
+// ============================================
+
+let currentExampleExerciseId = null;
+let selectedExampleVideos = new Set();
+
+/**
+ * Initialisiert die Example-Videos-Funktionen
+ */
+export function initExampleVideos() {
+    setupExampleVideosUI();
+}
+
+/**
+ * Setup für die Example-Videos-UI
+ */
+function setupExampleVideosUI() {
+    const addBtn = document.getElementById('add-example-video-btn');
+    const closeBtn = document.getElementById('close-select-example-video-modal');
+    const cancelBtn = document.getElementById('cancel-select-example-video');
+    const confirmBtn = document.getElementById('confirm-select-example-video');
+
+    addBtn?.addEventListener('click', openExampleVideoSelection);
+    closeBtn?.addEventListener('click', closeExampleVideoSelection);
+    cancelBtn?.addEventListener('click', closeExampleVideoSelection);
+    confirmBtn?.addEventListener('click', confirmExampleVideoSelection);
+}
+
+/**
+ * Lädt die Musterlösungen für eine Übung
+ */
+export async function loadExerciseExampleVideos(exerciseId) {
+    const { db, clubId } = videoAnalysisContext;
+    const container = document.getElementById('exercise-example-videos-list');
+
+    if (!container || !exerciseId || !clubId) return;
+
+    currentExampleExerciseId = exerciseId;
+
+    try {
+        const { data: examples, error } = await db.rpc('get_exercise_example_videos', {
+            p_exercise_id: exerciseId,
+            p_club_id: clubId,
+        });
+
+        if (error) throw error;
+
+        if (!examples || examples.length === 0) {
+            container.innerHTML = `
+                <p class="text-sm text-gray-500 text-center py-4">
+                    Noch keine Musterlösungen vorhanden
+                </p>
+            `;
+            return;
+        }
+
+        container.innerHTML = examples.map(ex => `
+            <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg group" data-example-id="${ex.id}">
+                <div class="w-16 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                    ${ex.thumbnail_url
+                        ? `<img src="${escapeHtml(ex.thumbnail_url)}" class="w-full h-full object-cover">`
+                        : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video"></i></div>`
+                    }
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(ex.title || 'Video')}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml(ex.uploader_name)}</p>
+                </div>
+                <button class="remove-example-btn opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity p-1"
+                        data-example-id="${ex.id}" title="Entfernen">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+
+        // Delete Handler
+        container.querySelectorAll('.remove-example-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await removeExampleVideo(btn.dataset.exampleId);
+            });
+        });
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Musterlösungen:', error);
+        container.innerHTML = `
+            <p class="text-sm text-red-500 text-center py-4">
+                <i class="fas fa-exclamation-circle mr-1"></i>
+                Fehler beim Laden
+            </p>
+        `;
+    }
+}
+
+/**
+ * Öffnet die Video-Auswahl für Musterlösungen
+ */
+async function openExampleVideoSelection() {
+    const { db, clubId } = videoAnalysisContext;
+    const modal = document.getElementById('select-example-video-modal');
+    const grid = document.getElementById('example-video-selection-grid');
+
+    if (!modal || !grid || !currentExampleExerciseId) return;
+
+    selectedExampleVideos.clear();
+    updateConfirmButton();
+
+    modal.classList.remove('hidden');
+
+    // Videos laden
+    grid.innerHTML = `
+        <p class="col-span-full text-center py-8 text-gray-500">
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Lade Videos...
+        </p>
+    `;
+
+    try {
+        // Bereits verknüpfte Videos laden
+        const { data: existingExamples } = await db
+            .from('exercise_example_videos')
+            .select('video_id')
+            .eq('exercise_id', currentExampleExerciseId)
+            .eq('club_id', clubId);
+
+        const existingVideoIds = new Set(existingExamples?.map(e => e.video_id) || []);
+
+        // Alle Club-Videos laden
+        const { data: videos, error } = await db
+            .from('video_analyses')
+            .select('id, title, thumbnail_url, created_at, uploader:profiles!uploaded_by(first_name, last_name)')
+            .eq('club_id', clubId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!videos || videos.length === 0) {
+            grid.innerHTML = `
+                <p class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-video-slash text-2xl mb-2 block"></i>
+                    Keine Videos im Club vorhanden
+                </p>
+            `;
+            return;
+        }
+
+        // Videos ohne bereits verknüpfte anzeigen
+        const availableVideos = videos.filter(v => !existingVideoIds.has(v.id));
+
+        if (availableVideos.length === 0) {
+            grid.innerHTML = `
+                <p class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fas fa-check-circle text-2xl mb-2 block text-green-500"></i>
+                    Alle Videos sind bereits als Musterlösung verknüpft
+                </p>
+            `;
+            return;
+        }
+
+        grid.innerHTML = availableVideos.map(video => {
+            const uploaderName = video.uploader
+                ? `${video.uploader.first_name || ''} ${video.uploader.last_name || ''}`.trim()
+                : '';
+            return `
+                <div class="example-video-option cursor-pointer rounded-lg border-2 border-transparent hover:border-indigo-300 transition-colors overflow-hidden"
+                     data-video-id="${video.id}">
+                    <div class="aspect-video bg-gray-100 relative">
+                        ${video.thumbnail_url
+                            ? `<img src="${escapeHtml(video.thumbnail_url)}" class="w-full h-full object-cover">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video text-2xl"></i></div>`
+                        }
+                        <div class="example-check absolute top-2 right-2 w-6 h-6 bg-indigo-600 rounded-full items-center justify-center text-white hidden">
+                            <i class="fas fa-check text-xs"></i>
+                        </div>
+                    </div>
+                    <div class="p-2">
+                        <p class="text-sm font-medium truncate">${escapeHtml(video.title || 'Video')}</p>
+                        <p class="text-xs text-gray-500 truncate">${escapeHtml(uploaderName)}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Click Handler
+        grid.querySelectorAll('.example-video-option').forEach(opt => {
+            opt.addEventListener('click', () => toggleVideoSelection(opt));
+        });
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Videos:', error);
+        grid.innerHTML = `
+            <p class="col-span-full text-center py-8 text-red-500">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                Fehler beim Laden
+            </p>
+        `;
+    }
+}
+
+/**
+ * Video-Auswahl umschalten
+ */
+function toggleVideoSelection(element) {
+    const videoId = element.dataset.videoId;
+    const checkIcon = element.querySelector('.example-check');
+
+    if (selectedExampleVideos.has(videoId)) {
+        selectedExampleVideos.delete(videoId);
+        element.classList.remove('border-indigo-600', 'bg-indigo-50');
+        element.classList.add('border-transparent');
+        checkIcon?.classList.add('hidden');
+        checkIcon?.classList.remove('flex');
+    } else {
+        selectedExampleVideos.add(videoId);
+        element.classList.add('border-indigo-600', 'bg-indigo-50');
+        element.classList.remove('border-transparent');
+        checkIcon?.classList.remove('hidden');
+        checkIcon?.classList.add('flex');
+    }
+
+    updateConfirmButton();
+}
+
+/**
+ * Aktualisiert den Bestätigen-Button
+ */
+function updateConfirmButton() {
+    const btn = document.getElementById('confirm-select-example-video');
+    const countSpan = document.getElementById('confirm-example-count');
+    const count = selectedExampleVideos.size;
+
+    if (btn) {
+        btn.disabled = count === 0;
+    }
+    if (countSpan) {
+        countSpan.textContent = count > 0 ? `${count} Video${count > 1 ? 's' : ''} hinzufügen` : 'Auswählen';
+    }
+}
+
+/**
+ * Schließt die Video-Auswahl
+ */
+function closeExampleVideoSelection() {
+    const modal = document.getElementById('select-example-video-modal');
+    modal?.classList.add('hidden');
+    selectedExampleVideos.clear();
+}
+
+/**
+ * Bestätigt die Video-Auswahl und fügt sie als Musterlösungen hinzu
+ */
+async function confirmExampleVideoSelection() {
+    const { db, clubId, userId } = videoAnalysisContext;
+
+    if (selectedExampleVideos.size === 0 || !currentExampleExerciseId) return;
+
+    const confirmBtn = document.getElementById('confirm-select-example-video');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichern...';
+    }
+
+    try {
+        const inserts = Array.from(selectedExampleVideos).map((videoId, index) => ({
+            exercise_id: currentExampleExerciseId,
+            video_id: videoId,
+            added_by: userId,
+            club_id: clubId,
+            sort_order: index,
+        }));
+
+        const { error } = await db
+            .from('exercise_example_videos')
+            .insert(inserts);
+
+        if (error) throw error;
+
+        showToast(`${selectedExampleVideos.size} Musterlösung${selectedExampleVideos.size > 1 ? 'en' : ''} hinzugefügt`, 'success');
+        closeExampleVideoSelection();
+        await loadExerciseExampleVideos(currentExampleExerciseId);
+
+    } catch (error) {
+        console.error('Fehler beim Hinzufügen:', error);
+        showToast('Fehler beim Hinzufügen der Musterlösung', 'error');
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i><span id="confirm-example-count">Auswählen</span>';
+        }
+        updateConfirmButton();
+    }
+}
+
+/**
+ * Entfernt eine Musterlösung
+ */
+async function removeExampleVideo(exampleId) {
+    const { db } = videoAnalysisContext;
+
+    if (!confirm('Musterlösung entfernen?')) return;
+
+    try {
+        const { error } = await db
+            .from('exercise_example_videos')
+            .delete()
+            .eq('id', exampleId);
+
+        if (error) throw error;
+
+        showToast('Musterlösung entfernt', 'success');
+        await loadExerciseExampleVideos(currentExampleExerciseId);
+
+    } catch (error) {
+        console.error('Fehler beim Entfernen:', error);
+        showToast('Fehler beim Entfernen', 'error');
+    }
+}
+
 // Export für globalen Zugriff
 window.videoAnalysis = {
     loadPendingVideos,
     loadAllVideos,
     addVideoComment,
     markVideoAsReviewed,
+    loadExerciseExampleVideos,
+    initExampleVideos,
 };

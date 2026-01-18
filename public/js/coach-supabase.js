@@ -139,7 +139,7 @@ import {
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
-import { initVideoAnalysis, loadPendingVideos, loadAllVideos } from './video-analysis-supabase.js';
+import { initVideoAnalysis, loadPendingVideos, loadAllVideos, initExampleVideos, loadExerciseExampleVideos } from './video-analysis-supabase.js';
 
 const supabase = getSupabase();
 
@@ -431,6 +431,9 @@ async function initializeCoachPage(userData) {
 
         // Video-Analyse initialisieren (benötigt clubPlayers)
         initVideoAnalysis(supabase, userData, clubPlayers);
+
+        // Musterlösungen-Verwaltung initialisieren
+        initExampleVideos();
     });
 
     // Satz-Eingabe für Einzel und Doppel
@@ -708,10 +711,14 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => {
         document.getElementById('pairings-modal').classList.add('hidden');
     });
-    document.getElementById('exercises-list-coach').addEventListener('click', e => {
+    document.getElementById('exercises-list-coach').addEventListener('click', async e => {
         const card = e.target.closest('[data-id]');
         if (card) {
             openExerciseModalFromDataset(card.dataset);
+            // Musterlösungen für diese Übung laden
+            if (card.dataset.id) {
+                await loadExerciseExampleVideos(card.dataset.id);
+            }
         }
     });
     document

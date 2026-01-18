@@ -495,28 +495,109 @@ function openPlayerVideoUploadModal(exerciseId) {
 }
 
 /**
- * Lädt Referenz-Videos für eine Übung und zeigt sie im Modal an
+ * Lädt Musterlösungen für eine Übung und zeigt sie im Modal an
  */
 async function loadReferenceVideoForExercise(exerciseId) {
     const { db, clubId } = playerVideoContext;
-    const container = document.getElementById('exercise-reference-video');
-    const videoPlayer = document.getElementById('reference-video-player');
+    const section = document.getElementById('player-example-videos-section');
+    const container = document.getElementById('player-example-videos-list');
 
-    if (!container || !videoPlayer) return;
+    // Auch alte Container ausblenden falls noch vorhanden
+    document.getElementById('exercise-reference-video')?.classList.add('hidden');
 
-    const { data: refs, error } = await db.rpc('get_reference_videos', {
-        p_exercise_id: exerciseId,
-        p_club_id: clubId,
+    if (!section || !container || !clubId) return;
+
+    try {
+        const { data: examples, error } = await db.rpc('get_exercise_example_videos', {
+            p_exercise_id: exerciseId,
+            p_club_id: clubId,
+        });
+
+        if (error) throw error;
+
+        if (!examples || examples.length === 0) {
+            section.classList.add('hidden');
+            return;
+        }
+
+        section.classList.remove('hidden');
+        container.innerHTML = examples.map(ex => `
+            <div class="example-video-card bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-100 transition-colors"
+                 data-video-url="${escapeHtml(ex.video_url)}"
+                 data-title="${escapeHtml(ex.title || 'Musterlösung')}">
+                <div class="flex items-center gap-3 p-3">
+                    <div class="w-20 h-14 bg-gray-200 rounded overflow-hidden flex-shrink-0 relative">
+                        ${ex.thumbnail_url
+                            ? `<img src="${escapeHtml(ex.thumbnail_url)}" class="w-full h-full object-cover">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video"></i></div>`
+                        }
+                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                            <i class="fas fa-play text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(ex.title || 'Musterlösung')}</p>
+                        <p class="text-xs text-gray-500">${escapeHtml(ex.uploader_name || 'Coach')}</p>
+                        ${ex.description ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2">${escapeHtml(ex.description)}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Click Handler für Videos
+        container.querySelectorAll('.example-video-card').forEach(card => {
+            card.addEventListener('click', () => {
+                openExampleVideoPlayer(card.dataset.videoUrl, card.dataset.title);
+            });
+        });
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Musterlösungen:', error);
+        section.classList.add('hidden');
+    }
+}
+
+/**
+ * Öffnet einen einfachen Video-Player für Musterlösungen
+ */
+function openExampleVideoPlayer(videoUrl, title) {
+    // Entferne eventuell existierendes Modal
+    document.getElementById('example-video-player-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'example-video-player-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4';
+
+    modal.innerHTML = `
+        <div class="relative w-full max-w-4xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-white text-lg font-medium">${escapeHtml(title)}</h3>
+                <button id="close-example-video-player" class="text-white hover:text-gray-300 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <video class="w-full rounded-lg" controls autoplay>
+                <source src="${escapeHtml(videoUrl)}" type="video/mp4">
+            </video>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    document.getElementById('close-example-video-player')?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
     });
 
-    if (!error && refs && refs.length > 0) {
-        const ref = refs[0]; // Erstes Referenz-Video
-        videoPlayer.querySelector('source').src = ref.video_url;
-        videoPlayer.load();
-        container.classList.remove('hidden');
-    } else {
-        container.classList.add('hidden');
-    }
+    // ESC key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
 
 /**

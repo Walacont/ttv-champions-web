@@ -555,3 +555,126 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE video_comments;
     END IF;
 END $$;
+
+-- ============================================
+-- EXERCISE EXAMPLE VIDEOS (Musterlösungen)
+-- Coach kann Videos als Beispiele für Übungen markieren
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS exercise_example_videos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Welche Übung
+    exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+
+    -- Welches Video als Beispiel
+    video_id UUID NOT NULL REFERENCES video_analyses(id) ON DELETE CASCADE,
+
+    -- Wer hat es als Beispiel markiert (Coach)
+    added_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+
+    -- Club-Zuordnung
+    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+
+    -- Reihenfolge für Sortierung
+    sort_order INT DEFAULT 0,
+
+    -- Beschreibung/Notiz vom Coach (optional)
+    description TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Ein Video kann nur einmal pro Übung als Beispiel markiert werden
+    UNIQUE(exercise_id, video_id)
+);
+
+-- Index für schnelle Abfragen
+CREATE INDEX IF NOT EXISTS idx_exercise_example_videos_exercise ON exercise_example_videos(exercise_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_example_videos_club ON exercise_example_videos(club_id);
+
+-- RLS aktivieren
+ALTER TABLE exercise_example_videos ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: Alle Club-Mitglieder können Beispielvideos sehen
+CREATE POLICY "exercise_example_videos_select" ON exercise_example_videos
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = exercise_example_videos.club_id
+        )
+    );
+
+-- INSERT: Nur Coaches können Beispielvideos hinzufügen
+CREATE POLICY "exercise_example_videos_insert" ON exercise_example_videos
+    FOR INSERT WITH CHECK (
+        added_by = auth.uid()
+        AND club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
+        AND EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.role IN ('coach', 'admin', 'head_coach')
+        )
+    );
+
+-- DELETE: Nur Coaches können Beispielvideos entfernen
+CREATE POLICY "exercise_example_videos_delete" ON exercise_example_videos
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = exercise_example_videos.club_id
+            AND p.role IN ('coach', 'admin', 'head_coach')
+        )
+    );
+
+-- UPDATE: Nur Coaches können Beispielvideos bearbeiten
+CREATE POLICY "exercise_example_videos_update" ON exercise_example_videos
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = exercise_example_videos.club_id
+            AND p.role IN ('coach', 'admin', 'head_coach')
+        )
+    );
+
+-- Funktion: Beispielvideos für eine Übung abrufen
+CREATE OR REPLACE FUNCTION get_exercise_example_videos(p_exercise_id UUID, p_club_id UUID)
+RETURNS TABLE (
+    id UUID,
+    video_id UUID,
+    video_url TEXT,
+    thumbnail_url TEXT,
+    title TEXT,
+    description TEXT,
+    uploaded_by UUID,
+    uploader_name TEXT,
+    sort_order INT,
+    created_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        eev.id AS id,
+        va.id AS video_id,
+        va.video_url AS video_url,
+        va.thumbnail_url AS thumbnail_url,
+        va.title AS title,
+        eev.description AS description,
+        va.uploaded_by AS uploaded_by,
+        COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
+        eev.sort_order AS sort_order,
+        eev.created_at AS created_at
+    FROM exercise_example_videos eev
+    JOIN video_analyses va ON va.id = eev.video_id
+    JOIN profiles p ON p.id = va.uploaded_by
+    WHERE eev.exercise_id = p_exercise_id
+      AND eev.club_id = p_club_id
+    ORDER BY eev.sort_order ASC, eev.created_at DESC;
+END;
+$$;
