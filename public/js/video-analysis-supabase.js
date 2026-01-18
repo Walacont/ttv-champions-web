@@ -30,11 +30,12 @@ const AVAILABLE_TAGS = [
 
 /**
  * Generiert ein Thumbnail aus einer Video-Datei
+ * Versucht mehrere Zeitpunkte um schwarze Frames zu vermeiden
  * @param {File} videoFile - Die Video-Datei
  * @param {number} seekTime - Zeit in Sekunden für den Screenshot (default: 1)
  * @returns {Promise<Blob>} - Das Thumbnail als JPEG Blob
  */
-async function generateVideoThumbnail(videoFile, seekTime = 2) {
+async function generateVideoThumbnail(videoFile, seekTime = 1) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         video.preload = 'auto';
@@ -45,10 +46,32 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         let hasResolved = false;
+        let seekAttempts = 0;
+        const maxSeekAttempts = 3;
+
+        // Prüft ob ein Frame überwiegend schwarz/dunkel ist
+        const isFrameDark = () => {
+            try {
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imgData.data;
+                let brightPixels = 0;
+                const sampleSize = Math.min(1000, pixels.length / 4);
+
+                for (let i = 0; i < sampleSize; i++) {
+                    const idx = Math.floor(Math.random() * (pixels.length / 4)) * 4;
+                    const brightness = (pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3;
+                    if (brightness > 30) brightPixels++;
+                }
+
+                // Weniger als 20% helle Pixel = dunkler Frame
+                return (brightPixels / sampleSize) < 0.2;
+            } catch {
+                return false;
+            }
+        };
 
         const captureFrame = () => {
             if (hasResolved) return;
-            hasResolved = true;
 
             try {
                 const maxWidth = 320;
@@ -57,6 +80,19 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
                 canvas.height = video.videoHeight * scale;
 
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Prüfe ob der Frame dunkel ist und versuche anderen Zeitpunkt
+                if (isFrameDark() && seekAttempts < maxSeekAttempts) {
+                    seekAttempts++;
+                    // Versuche andere Zeitpunkte: 2s, 5s, 10% der Dauer
+                    const nextSeekTime = seekAttempts === 1 ? 2 :
+                                         seekAttempts === 2 ? 5 :
+                                         Math.min(video.duration * 0.1, 3);
+                    video.currentTime = Math.min(nextSeekTime, video.duration - 0.5);
+                    return; // onseeked wird wieder aufgerufen
+                }
+
+                hasResolved = true;
                 canvas.toBlob(
                     (blob) => {
                         URL.revokeObjectURL(video.src);
@@ -67,6 +103,7 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
                     0.85
                 );
             } catch (err) {
+                hasResolved = true;
                 URL.revokeObjectURL(video.src);
                 video.pause();
                 reject(err);
@@ -74,14 +111,14 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         };
 
         video.onloadeddata = () => {
-            // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
-            const targetTime = Math.max(seekTime, video.duration * 0.25);
-            video.currentTime = Math.min(targetTime, video.duration - 0.5);
+            // Starte mit 1 Sekunde (nicht zu früh für schwarze Intros)
+            const targetTime = Math.min(seekTime, video.duration - 0.5);
+            video.currentTime = Math.max(0.5, targetTime);
         };
 
         video.onseeked = () => {
             // Kurz warten damit der Frame gerendert wird
-            setTimeout(captureFrame, 100);
+            setTimeout(captureFrame, 150);
         };
 
         video.onerror = () => {
@@ -94,13 +131,23 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         // Timeout als Fallback
         setTimeout(() => {
             if (!hasResolved && video.readyState >= 2) {
-                captureFrame();
+                hasResolved = true;
+                ctx.drawImage(video, 0, 0, canvas.width || 320, canvas.height || 180);
+                canvas.toBlob(
+                    (blob) => {
+                        URL.revokeObjectURL(video.src);
+                        video.pause();
+                        blob ? resolve(blob) : reject(new Error('Thumbnail-Timeout'));
+                    },
+                    'image/jpeg',
+                    0.85
+                );
             } else if (!hasResolved) {
                 hasResolved = true;
                 URL.revokeObjectURL(video.src);
                 reject(new Error('Thumbnail-Timeout'));
             }
-        }, 10000);
+        }, 15000);
 
         video.src = URL.createObjectURL(videoFile);
         video.load();
@@ -398,9 +445,21 @@ export async function loadAllVideos(filter = 'all') {
         </div>
     `;
 
-    container.querySelectorAll('[data-video-id]').forEach(card => {
-        card.addEventListener('click', () => {
-            openVideoDetailModal(card.dataset.videoId);
+    // Click handler for video cards (only on video-card-click elements)
+    container.querySelectorAll('.video-card-click').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const card = e.target.closest('[data-video-id]');
+            if (card) {
+                openVideoDetailModal(card.dataset.videoId);
+            }
+        });
+    });
+
+    // Click handler for "Add as Musterbeispiel" buttons
+    container.querySelectorAll('.add-example-from-card').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openAddExampleForVideoModal(btn.dataset.videoId, btn.dataset.videoTitle);
         });
     });
 }
@@ -408,16 +467,25 @@ export async function loadAllVideos(filter = 'all') {
 function createVideoCardFull(video) {
     const uploader = video.uploader;
     const uploaderName = uploader?.display_name || `${uploader?.first_name || ''} ${uploader?.last_name?.charAt(0) || ''}.`.trim();
+    const exerciseName = video.exercise?.name || '';
 
     return `
-        <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+        <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow group relative"
              data-video-id="${video.id}">
-            <div class="relative aspect-video bg-gray-100 flex items-center justify-center">
+            <div class="relative aspect-video bg-gray-100 flex items-center justify-center cursor-pointer video-card-click">
                 ${renderVideoThumbnail(video.thumbnail_url, 'w-full h-full object-cover')}
+                <!-- Musterbeispiel Button (on hover) -->
+                <button class="add-example-from-card absolute top-2 right-2 w-8 h-8 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        data-video-id="${video.id}"
+                        data-video-title="${escapeHtml(video.title || 'Video')}"
+                        title="Als Musterbeispiel hinzufügen">
+                    <i class="fas fa-star text-sm"></i>
+                </button>
             </div>
-            <div class="p-4">
+            <div class="p-4 cursor-pointer video-card-click">
                 <p class="font-medium text-sm mb-1">${escapeHtml(video.title || 'Ohne Titel')}</p>
                 <p class="text-xs text-gray-500">${escapeHtml(uploaderName)} • ${formatDate(video.created_at)}</p>
+                ${exerciseName ? `<p class="text-xs text-indigo-600 mt-1"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}</p>` : ''}
             </div>
         </div>
     `;
@@ -435,13 +503,14 @@ async function openVideoDetailModal(videoId) {
 
     modal.classList.remove('hidden');
 
-    // Video-Daten laden
+    // Video-Daten laden inkl. Assignment-Status
     const { data: video, error } = await db
         .from('video_analyses')
         .select(`
             *,
             uploader:profiles!uploaded_by(id, first_name, last_name, display_name, avatar_url, role),
-            exercise:exercises(id, name)
+            exercise:exercises(id, name),
+            assignments:video_assignments(status)
         `)
         .eq('id', videoId)
         .single();
@@ -450,6 +519,23 @@ async function openVideoDetailModal(videoId) {
         console.error('Video nicht gefunden:', error);
         closeVideoDetailModal();
         return;
+    }
+
+    // Mark-Reviewed Button Status aktualisieren
+    const markReviewedBtn = document.getElementById('mark-reviewed-btn');
+    if (markReviewedBtn) {
+        const isReviewed = video.assignments?.some(a => a.status === 'reviewed');
+        if (isReviewed) {
+            markReviewedBtn.innerHTML = '<i class="fas fa-check-double mr-1"></i> Bereits analysiert';
+            markReviewedBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            markReviewedBtn.classList.add('bg-gray-400', 'cursor-default');
+            markReviewedBtn.disabled = true;
+        } else {
+            markReviewedBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Als analysiert markieren';
+            markReviewedBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            markReviewedBtn.classList.remove('bg-gray-400', 'cursor-default');
+            markReviewedBtn.disabled = false;
+        }
     }
 
     // Video Player einrichten
@@ -491,6 +577,10 @@ async function openVideoDetailModal(videoId) {
     `;
 
     videoPlayer = document.getElementById('analysis-video-player');
+
+    // Store current video data for Musterbeispiel feature
+    modal.dataset.currentVideoId = videoId;
+    modal.dataset.currentVideoExerciseId = video.exercise_id || '';
 
     // Kommentare laden
     await loadVideoComments(videoId);
@@ -1420,7 +1510,7 @@ function showToast(message, type = 'info') {
 }
 
 // ============================================
-// EXERCISE EXAMPLE VIDEOS (Musterlösungen)
+// EXERCISE EXAMPLE VIDEOS (Musterbeispiele)
 // ============================================
 
 let currentExampleExerciseId = null;
@@ -1470,7 +1560,7 @@ export async function loadExerciseExampleVideos(exerciseId) {
         if (!examples || examples.length === 0) {
             container.innerHTML = `
                 <p class="text-sm text-gray-500 text-center py-4">
-                    Noch keine Musterlösungen vorhanden
+                    Noch keine Musterbeispiele vorhanden
                 </p>
             `;
             return;
@@ -1504,7 +1594,7 @@ export async function loadExerciseExampleVideos(exerciseId) {
         });
 
     } catch (error) {
-        console.error('Fehler beim Laden der Musterlösungen:', error);
+        console.error('Fehler beim Laden der Musterbeispiele:', error);
         container.innerHTML = `
             <p class="text-sm text-red-500 text-center py-4">
                 <i class="fas fa-exclamation-circle mr-1"></i>
@@ -1573,7 +1663,7 @@ async function openExampleVideoSelection() {
             grid.innerHTML = `
                 <p class="col-span-full text-center py-8 text-gray-500">
                     <i class="fas fa-check-circle text-2xl mb-2 block text-green-500"></i>
-                    Alle Videos sind bereits als Musterlösung verknüpft
+                    Alle Videos sind bereits als Musterbeispiel verknüpft
                 </p>
             `;
             return;
@@ -1697,13 +1787,13 @@ async function confirmExampleVideoSelection() {
 
         if (error) throw error;
 
-        showToast(`${selectedExampleVideos.size} Musterlösung${selectedExampleVideos.size > 1 ? 'en' : ''} hinzugefügt`, 'success');
+        showToast(`${selectedExampleVideos.size} Musterbeispiel${selectedExampleVideos.size > 1 ? 'e' : ''} hinzugefügt`, 'success');
         closeExampleVideoSelection();
         await loadExerciseExampleVideos(currentExampleExerciseId);
 
     } catch (error) {
         console.error('Fehler beim Hinzufügen:', error);
-        showToast('Fehler beim Hinzufügen der Musterlösung', 'error');
+        showToast('Fehler beim Hinzufügen des Musterbeispiels', 'error');
     } finally {
         if (confirmBtn) {
             confirmBtn.disabled = false;
@@ -1719,7 +1809,7 @@ async function confirmExampleVideoSelection() {
 async function removeExampleVideo(exampleId) {
     const { db } = videoAnalysisContext;
 
-    if (!confirm('Musterlösung entfernen?')) return;
+    if (!confirm('Musterbeispiel entfernen?')) return;
 
     try {
         const { error } = await db
@@ -1729,12 +1819,156 @@ async function removeExampleVideo(exampleId) {
 
         if (error) throw error;
 
-        showToast('Musterlösung entfernt', 'success');
+        showToast('Musterbeispiel entfernt', 'success');
         await loadExerciseExampleVideos(currentExampleExerciseId);
 
     } catch (error) {
         console.error('Fehler beim Entfernen:', error);
         showToast('Fehler beim Entfernen', 'error');
+    }
+}
+
+// ============================================
+// ADD VIDEO AS MUSTERBEISPIEL FROM VIDEO TAB
+// ============================================
+
+let videoToAddAsExample = null;
+
+/**
+ * Öffnet Modal um Video als Musterbeispiel zu einer Übung hinzuzufügen
+ */
+async function openAddExampleForVideoModal(videoId, videoTitle) {
+    const { db, clubId } = videoAnalysisContext;
+    videoToAddAsExample = { id: videoId, title: videoTitle };
+
+    // Erstelle Modal falls nicht vorhanden
+    let modal = document.getElementById('add-video-as-example-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'add-video-as-example-modal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 hidden';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div class="border-b px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-lg font-bold">Als Musterbeispiel hinzufügen</h3>
+                    <button id="close-add-example-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-gray-600 mb-4">
+                        Wähle eine Übung, zu der dieses Video als Musterbeispiel hinzugefügt werden soll:
+                    </p>
+                    <p class="text-sm font-medium text-gray-900 mb-4" id="example-video-title"></p>
+                    <select id="example-exercise-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Übung auswählen...</option>
+                    </select>
+                </div>
+                <div class="border-t px-6 py-4 flex justify-end gap-3">
+                    <button id="cancel-add-example" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Abbrechen
+                    </button>
+                    <button id="confirm-add-example" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg disabled:opacity-50" disabled>
+                        <i class="fas fa-star mr-1"></i> Hinzufügen
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Event Listeners
+        document.getElementById('close-add-example-modal')?.addEventListener('click', closeAddExampleModal);
+        document.getElementById('cancel-add-example')?.addEventListener('click', closeAddExampleModal);
+        document.getElementById('confirm-add-example')?.addEventListener('click', confirmAddVideoAsExample);
+        document.getElementById('example-exercise-select')?.addEventListener('change', (e) => {
+            document.getElementById('confirm-add-example').disabled = !e.target.value;
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeAddExampleModal();
+        });
+    }
+
+    // Video-Titel anzeigen
+    document.getElementById('example-video-title').textContent = `"${videoTitle}"`;
+
+    // Übungen laden
+    const exerciseSelect = document.getElementById('example-exercise-select');
+    exerciseSelect.innerHTML = '<option value="">Übung auswählen...</option>';
+    document.getElementById('confirm-add-example').disabled = true;
+
+    const { data: exercises, error } = await db
+        .from('exercises')
+        .select('id, name')
+        .or(`visibility.eq.global,and(visibility.eq.club,club_id.eq.${clubId})`)
+        .order('name');
+
+    if (!error && exercises) {
+        exercises.forEach(ex => {
+            const opt = document.createElement('option');
+            opt.value = ex.id;
+            opt.textContent = ex.name;
+            exerciseSelect.appendChild(opt);
+        });
+    }
+
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Schließt das Hinzufügen-Modal
+ */
+function closeAddExampleModal() {
+    const modal = document.getElementById('add-video-as-example-modal');
+    modal?.classList.add('hidden');
+    videoToAddAsExample = null;
+}
+
+/**
+ * Bestätigt das Hinzufügen des Videos als Musterbeispiel
+ */
+async function confirmAddVideoAsExample() {
+    const { db, clubId, userId } = videoAnalysisContext;
+    const exerciseId = document.getElementById('example-exercise-select')?.value;
+
+    if (!videoToAddAsExample || !exerciseId) return;
+
+    const confirmBtn = document.getElementById('confirm-add-example');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Speichern...';
+    }
+
+    try {
+        const { error } = await db
+            .from('exercise_example_videos')
+            .insert({
+                exercise_id: exerciseId,
+                video_id: videoToAddAsExample.id,
+                added_by: userId,
+                club_id: clubId,
+                sort_order: 0,
+            });
+
+        if (error) {
+            if (error.code === '23505') { // Unique constraint violation
+                showToast('Dieses Video ist bereits als Musterbeispiel für diese Übung verknüpft', 'info');
+            } else {
+                throw error;
+            }
+        } else {
+            showToast('Video als Musterbeispiel hinzugefügt', 'success');
+        }
+
+        closeAddExampleModal();
+
+    } catch (error) {
+        console.error('Fehler:', error);
+        showToast('Fehler beim Hinzufügen', 'error');
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-star mr-1"></i> Hinzufügen';
+        }
     }
 }
 
@@ -1746,4 +1980,5 @@ window.videoAnalysis = {
     markVideoAsReviewed,
     loadExerciseExampleVideos,
     initExampleVideos,
+    openAddExampleForVideoModal,
 };

@@ -12,8 +12,9 @@ let playerVideoContext = {
 
 /**
  * Generiert ein Thumbnail aus einer Video-Datei
+ * Versucht mehrere Zeitpunkte um schwarze Frames zu vermeiden
  */
-async function generateVideoThumbnail(videoFile, seekTime = 2) {
+async function generateVideoThumbnail(videoFile, seekTime = 1) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         video.preload = 'auto';
@@ -24,10 +25,31 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         let hasResolved = false;
+        let seekAttempts = 0;
+        const maxSeekAttempts = 3;
+
+        // Prüft ob ein Frame überwiegend schwarz/dunkel ist
+        const isFrameDark = () => {
+            try {
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imgData.data;
+                let brightPixels = 0;
+                const sampleSize = Math.min(1000, pixels.length / 4);
+
+                for (let i = 0; i < sampleSize; i++) {
+                    const idx = Math.floor(Math.random() * (pixels.length / 4)) * 4;
+                    const brightness = (pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3;
+                    if (brightness > 30) brightPixels++;
+                }
+
+                return (brightPixels / sampleSize) < 0.2;
+            } catch {
+                return false;
+            }
+        };
 
         const captureFrame = () => {
             if (hasResolved) return;
-            hasResolved = true;
 
             try {
                 const maxWidth = 320;
@@ -36,6 +58,18 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
                 canvas.height = video.videoHeight * scale;
 
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Prüfe ob der Frame dunkel ist und versuche anderen Zeitpunkt
+                if (isFrameDark() && seekAttempts < maxSeekAttempts) {
+                    seekAttempts++;
+                    const nextSeekTime = seekAttempts === 1 ? 2 :
+                                         seekAttempts === 2 ? 5 :
+                                         Math.min(video.duration * 0.1, 3);
+                    video.currentTime = Math.min(nextSeekTime, video.duration - 0.5);
+                    return;
+                }
+
+                hasResolved = true;
                 canvas.toBlob(
                     (blob) => {
                         URL.revokeObjectURL(video.src);
@@ -46,6 +80,7 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
                     0.85
                 );
             } catch (err) {
+                hasResolved = true;
                 URL.revokeObjectURL(video.src);
                 video.pause();
                 reject(err);
@@ -53,14 +88,12 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         };
 
         video.onloadeddata = () => {
-            // Zum 25% Zeitpunkt springen (vermeidet schwarze Frames am Anfang)
-            const targetTime = Math.max(seekTime, video.duration * 0.25);
-            video.currentTime = Math.min(targetTime, video.duration - 0.5);
+            const targetTime = Math.min(seekTime, video.duration - 0.5);
+            video.currentTime = Math.max(0.5, targetTime);
         };
 
         video.onseeked = () => {
-            // Kurz warten damit der Frame gerendert wird
-            setTimeout(captureFrame, 100);
+            setTimeout(captureFrame, 150);
         };
 
         video.onerror = () => {
@@ -73,13 +106,23 @@ async function generateVideoThumbnail(videoFile, seekTime = 2) {
         // Timeout als Fallback
         setTimeout(() => {
             if (!hasResolved && video.readyState >= 2) {
-                captureFrame();
+                hasResolved = true;
+                ctx.drawImage(video, 0, 0, canvas.width || 320, canvas.height || 180);
+                canvas.toBlob(
+                    (blob) => {
+                        URL.revokeObjectURL(video.src);
+                        video.pause();
+                        blob ? resolve(blob) : reject(new Error('Thumbnail-Timeout'));
+                    },
+                    'image/jpeg',
+                    0.85
+                );
             } else if (!hasResolved) {
                 hasResolved = true;
                 URL.revokeObjectURL(video.src);
                 reject(new Error('Thumbnail-Timeout'));
             }
-        }, 10000);
+        }, 15000);
 
         video.src = URL.createObjectURL(videoFile);
         video.load();
@@ -495,7 +538,7 @@ function openPlayerVideoUploadModal(exerciseId) {
 }
 
 /**
- * Lädt Musterlösungen für eine Übung und zeigt sie im Modal an
+ * Lädt Musterbeispiele für eine Übung und zeigt sie im Modal an
  */
 async function loadReferenceVideoForExercise(exerciseId) {
     const { db, clubId } = playerVideoContext;
@@ -524,7 +567,7 @@ async function loadReferenceVideoForExercise(exerciseId) {
         container.innerHTML = examples.map(ex => `
             <div class="example-video-card bg-gray-50 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-100 transition-colors"
                  data-video-url="${escapeHtml(ex.video_url)}"
-                 data-title="${escapeHtml(ex.title || 'Musterlösung')}">
+                 data-title="${escapeHtml(ex.title || 'Musterbeispiel')}">
                 <div class="flex items-center gap-3 p-3">
                     <div class="w-20 h-14 bg-gray-200 rounded overflow-hidden flex-shrink-0 relative">
                         ${ex.thumbnail_url
@@ -536,7 +579,7 @@ async function loadReferenceVideoForExercise(exerciseId) {
                         </div>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(ex.title || 'Musterlösung')}</p>
+                        <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(ex.title || 'Musterbeispiel')}</p>
                         <p class="text-xs text-gray-500">${escapeHtml(ex.uploader_name || 'Coach')}</p>
                         ${ex.description ? `<p class="text-xs text-gray-600 mt-1 line-clamp-2">${escapeHtml(ex.description)}</p>` : ''}
                     </div>
@@ -552,13 +595,13 @@ async function loadReferenceVideoForExercise(exerciseId) {
         });
 
     } catch (error) {
-        console.error('Fehler beim Laden der Musterlösungen:', error);
+        console.error('Fehler beim Laden der Musterbeispiele:', error);
         section.classList.add('hidden');
     }
 }
 
 /**
- * Öffnet einen einfachen Video-Player für Musterlösungen
+ * Öffnet einen einfachen Video-Player für Musterbeispiele
  */
 function openExampleVideoPlayer(videoUrl, title) {
     // Entferne eventuell existierendes Modal
