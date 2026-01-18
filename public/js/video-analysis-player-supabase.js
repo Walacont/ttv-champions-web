@@ -250,6 +250,7 @@ async function handlePlayerVideoUpload(e) {
             .insert({
                 video_id: videoAnalysis.id,
                 player_id: userId,
+                club_id: clubId,
                 status: 'pending',
             });
 

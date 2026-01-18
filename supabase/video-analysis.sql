@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS video_assignments (
     video_id UUID NOT NULL REFERENCES video_analyses(id) ON DELETE CASCADE,
     player_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
 
+    -- Club-Zuordnung (denormalisiert für RLS ohne Rekursion)
+    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+
     -- Status pro Spieler
     status video_analysis_status DEFAULT 'pending',
 
@@ -65,6 +68,24 @@ CREATE TABLE IF NOT EXISTS video_assignments (
     UNIQUE(video_id, player_id)
 );
 
+-- Club-ID Spalte hinzufügen falls Tabelle schon existiert
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'video_assignments' AND column_name = 'club_id'
+    ) THEN
+        ALTER TABLE video_assignments ADD COLUMN club_id UUID REFERENCES clubs(id) ON DELETE CASCADE;
+        -- Bestehende Zuweisungen mit club_id vom Video updaten
+        UPDATE video_assignments va
+        SET club_id = v.club_id
+        FROM video_analyses v
+        WHERE va.video_id = v.id AND va.club_id IS NULL;
+        -- NOT NULL constraint erst nach Migration setzen
+        ALTER TABLE video_assignments ALTER COLUMN club_id SET NOT NULL;
+    END IF;
+END $$;
+
 -- ============================================
 -- VIDEO COMMENTS (Zeitstempel-Kommentare)
 -- ============================================
@@ -74,6 +95,9 @@ CREATE TABLE IF NOT EXISTS video_comments (
 
     video_id UUID NOT NULL REFERENCES video_analyses(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+
+    -- Club-Zuordnung (denormalisiert für RLS ohne Rekursion)
+    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 
     -- Kommentar-Inhalt
     content TEXT NOT NULL,
@@ -89,6 +113,24 @@ CREATE TABLE IF NOT EXISTS video_comments (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Club-ID Spalte hinzufügen falls Tabelle schon existiert
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'video_comments' AND column_name = 'club_id'
+    ) THEN
+        ALTER TABLE video_comments ADD COLUMN club_id UUID REFERENCES clubs(id) ON DELETE CASCADE;
+        -- Bestehende Kommentare mit club_id vom Video updaten
+        UPDATE video_comments vc
+        SET club_id = v.club_id
+        FROM video_analyses v
+        WHERE vc.video_id = v.id AND vc.club_id IS NULL;
+        -- NOT NULL constraint erst nach Migration setzen
+        ALTER TABLE video_comments ALTER COLUMN club_id SET NOT NULL;
+    END IF;
+END $$;
+
 -- ============================================
 -- INDEXES für Performance
 -- ============================================
@@ -102,10 +144,12 @@ CREATE INDEX IF NOT EXISTS idx_video_analyses_created ON video_analyses(created_
 CREATE INDEX IF NOT EXISTS idx_video_assignments_video ON video_assignments(video_id);
 CREATE INDEX IF NOT EXISTS idx_video_assignments_player ON video_assignments(player_id);
 CREATE INDEX IF NOT EXISTS idx_video_assignments_status ON video_assignments(status);
+CREATE INDEX IF NOT EXISTS idx_video_assignments_club ON video_assignments(club_id);
 
 CREATE INDEX IF NOT EXISTS idx_video_comments_video ON video_comments(video_id);
 CREATE INDEX IF NOT EXISTS idx_video_comments_timestamp ON video_comments(video_id, timestamp_seconds);
 CREATE INDEX IF NOT EXISTS idx_video_comments_parent ON video_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_video_comments_club ON video_comments(club_id);
 
 -- ============================================
 -- UPDATED_AT TRIGGER
@@ -208,6 +252,7 @@ CREATE POLICY "video_analyses_delete" ON video_analyses
 
 -- ============================================
 -- POLICIES: video_assignments
+-- (Nutzt denormalisierte club_id um Rekursion zu vermeiden)
 -- ============================================
 
 -- SELECT: Spieler sieht eigene Zuweisungen, Coach sieht alle im Club
@@ -216,31 +261,27 @@ CREATE POLICY "video_assignments_select" ON video_assignments
         player_id = auth.uid()
         OR
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN profiles p ON p.id = auth.uid()
-            WHERE va.id = video_assignments.video_id
-            AND p.club_id = va.club_id
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_assignments.club_id
             AND p.role IN ('coach', 'admin', 'head_coach')
         )
     );
 
--- INSERT: Nur Coach kann Zuweisungen erstellen
+-- INSERT: Uploader oder Coach kann Zuweisungen erstellen
 CREATE POLICY "video_assignments_insert" ON video_assignments
     FOR INSERT WITH CHECK (
-        -- Der Uploader des Videos kann zuweisen
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            WHERE va.id = video_assignments.video_id
-            AND va.uploaded_by = auth.uid()
-        )
-        OR
-        -- Coaches können zuweisen
-        EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN profiles p ON p.id = auth.uid()
-            WHERE va.id = video_assignments.video_id
-            AND p.club_id = va.club_id
-            AND p.role IN ('coach', 'admin', 'head_coach')
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_assignments.club_id
+            AND (
+                -- Coaches können zuweisen
+                p.role IN ('coach', 'admin', 'head_coach')
+                OR
+                -- Uploader (Spieler) kann beim eigenen Upload zuweisen
+                auth.uid() = (SELECT va.uploaded_by FROM video_analyses va WHERE va.id = video_assignments.video_id)
+            )
         )
     );
 
@@ -248,78 +289,51 @@ CREATE POLICY "video_assignments_insert" ON video_assignments
 CREATE POLICY "video_assignments_update" ON video_assignments
     FOR UPDATE USING (
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN profiles p ON p.id = auth.uid()
-            WHERE va.id = video_assignments.video_id
-            AND p.club_id = va.club_id
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_assignments.club_id
             AND p.role IN ('coach', 'admin', 'head_coach')
         )
     );
 
--- DELETE: Uploader oder Coach kann Zuweisungen löschen
+-- DELETE: Coach kann Zuweisungen löschen
 CREATE POLICY "video_assignments_delete" ON video_assignments
     FOR DELETE USING (
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            WHERE va.id = video_assignments.video_id
-            AND va.uploaded_by = auth.uid()
-        )
-        OR
-        EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN profiles p ON p.id = auth.uid()
-            WHERE va.id = video_assignments.video_id
-            AND p.club_id = va.club_id
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_assignments.club_id
             AND p.role IN ('coach', 'admin', 'head_coach')
         )
     );
 
 -- ============================================
 -- POLICIES: video_comments
+-- (Nutzt denormalisierte club_id um Rekursion zu vermeiden)
 -- ============================================
 
--- SELECT: Jeder der das Video sehen kann, kann auch Kommentare sehen
+-- SELECT: Club-Mitglieder können Kommentare sehen
 CREATE POLICY "video_comments_select" ON video_comments
     FOR SELECT USING (
+        -- Eigene Kommentare
+        user_id = auth.uid()
+        OR
+        -- Club-Mitglieder können alle Kommentare im Club sehen
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            WHERE va.id = video_comments.video_id
-            AND (
-                va.uploaded_by = auth.uid()
-                OR EXISTS (
-                    SELECT 1 FROM video_assignments vass
-                    WHERE vass.video_id = va.id AND vass.player_id = auth.uid()
-                )
-                OR EXISTS (
-                    SELECT 1 FROM profiles p
-                    WHERE p.id = auth.uid()
-                    AND p.club_id = va.club_id
-                    AND p.role IN ('coach', 'admin', 'head_coach')
-                )
-            )
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_comments.club_id
         )
     );
 
--- INSERT: Jeder der das Video sehen kann, kann kommentieren
+-- INSERT: Club-Mitglieder können kommentieren
 CREATE POLICY "video_comments_insert" ON video_comments
     FOR INSERT WITH CHECK (
         auth.uid() = user_id
         AND EXISTS (
-            SELECT 1 FROM video_analyses va
-            WHERE va.id = video_comments.video_id
-            AND (
-                va.uploaded_by = auth.uid()
-                OR EXISTS (
-                    SELECT 1 FROM video_assignments vass
-                    WHERE vass.video_id = va.id AND vass.player_id = auth.uid()
-                )
-                OR EXISTS (
-                    SELECT 1 FROM profiles p
-                    WHERE p.id = auth.uid()
-                    AND p.club_id = va.club_id
-                    AND p.role IN ('coach', 'admin', 'head_coach')
-                )
-            )
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_comments.club_id
         )
     );
 
@@ -333,10 +347,9 @@ CREATE POLICY "video_comments_delete" ON video_comments
         user_id = auth.uid()
         OR
         EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN profiles p ON p.id = auth.uid()
-            WHERE va.id = video_comments.video_id
-            AND p.club_id = va.club_id
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.club_id = video_comments.club_id
             AND p.role IN ('coach', 'admin', 'head_coach')
         )
     );

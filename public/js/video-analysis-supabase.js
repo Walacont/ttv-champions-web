@@ -588,7 +588,7 @@ function subscribeToComments(videoId) {
  * Fügt einen Kommentar hinzu
  */
 export async function addVideoComment(content, includeTimestamp = true) {
-    const { db, userId } = videoAnalysisContext;
+    const { db, userId, clubId } = videoAnalysisContext;
     if (!currentVideoId || !content.trim()) return;
 
     let timestampSeconds = null;
@@ -599,6 +599,7 @@ export async function addVideoComment(content, includeTimestamp = true) {
     const { error } = await db.from('video_comments').insert({
         video_id: currentVideoId,
         user_id: userId,
+        club_id: clubId,
         content: content.trim(),
         timestamp_seconds: timestampSeconds,
     });
@@ -842,6 +843,7 @@ async function handleVideoUpload(e) {
             const assignments = assignedPlayers.map(playerId => ({
                 video_id: videoAnalysis.id,
                 player_id: playerId,
+                club_id: clubId,
                 status: 'pending',
             }));
 
