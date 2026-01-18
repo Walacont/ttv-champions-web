@@ -137,7 +137,8 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
     while (currentDate <= windowEnd && maxIterations > 0) {
         if (endDate && currentDate > endDate) break;
 
-        const dateStr = currentDate.toISOString().split('T')[0];
+        // Use local date to avoid timezone issues
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
         if (!excludedDates.includes(dateStr)) {
             occurrences.push(dateStr);
@@ -174,7 +175,9 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
 async function ensureRecurringInvitations(eventId, event, existingInvitations) {
     if (!event.repeat_type || event.event_type !== 'recurring') return [];
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date to avoid timezone issues (toISOString uses UTC)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const userIds = [...new Set(existingInvitations.map(inv => inv.user_id))];
     if (userIds.length === 0) return [];
@@ -3088,10 +3091,12 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
     if (!container || !userData?.clubId) return;
 
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date to avoid timezone issues (toISOString uses UTC)
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const nextWeek = new Date();
         nextWeek.setDate(nextWeek.getDate() + 14);
-        const endDate = nextWeek.toISOString().split('T')[0];
+        const endDate = `${nextWeek.getFullYear()}-${String(nextWeek.getMonth() + 1).padStart(2, '0')}-${String(nextWeek.getDate()).padStart(2, '0')}`;
 
         // Anstehende Events laden
         const { data: events, error } = await supabase

@@ -54,7 +54,8 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
     while (currentDate <= windowEnd && maxIterations > 0) {
         if (endDate && currentDate > endDate) break;
 
-        const dateStr = currentDate.toISOString().split('T')[0];
+        // Use local date to avoid timezone issues
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
         if (!excludedDates.includes(dateStr)) {
             occurrences.push(dateStr);
         }
@@ -158,7 +159,9 @@ async function loadUpcomingEvents() {
     if (!section || !list) return;
 
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date to avoid timezone issues (toISOString uses UTC)
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         // Event-Einladungen für aktuellen Benutzer abrufen
         // Enthält jetzt occurrence_date für Nachverfolgung pro Termin
@@ -342,7 +345,8 @@ function getNextOccurrence(event, afterDate) {
     let maxIterations = 365; // Endlosschleifen verhindern
 
     while (maxIterations > 0) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+        // Use local date to avoid timezone issues
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
         // Prüfen ob dieses Datum gültig ist
         if (currentDate >= afterDateObj && !excludedDates.includes(dateStr)) {
