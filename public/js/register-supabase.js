@@ -876,10 +876,8 @@ registrationForm?.addEventListener('submit', async e => {
         if (registrationType === 'guardian') {
             // Guardians (no code) go to guardian onboarding to create child profile
             window.location.href = '/guardian-onboarding.html';
-        } else if (registrationType === 'guardian-link') {
-            // Guardians linked to existing child go directly to dashboard
-            window.location.href = '/dashboard.html';
         } else {
+            // All other registrations (including guardian-link) go to onboarding
             window.location.href = '/onboarding.html';
         }
 
