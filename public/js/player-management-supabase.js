@@ -664,7 +664,25 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
             const { data, error } = await query;
 
             if (error) throw error;
-            renderPlayerList(data || []);
+
+            // Guardian links für alle Spieler laden um anzuzeigen wer einen Vormund hat
+            const playerIds = (data || []).map(p => p.id);
+            let guardianMap = {};
+
+            if (playerIds.length > 0) {
+                const { data: guardianLinks } = await supabase
+                    .from('guardian_links')
+                    .select('child_id')
+                    .in('child_id', playerIds);
+
+                if (guardianLinks) {
+                    guardianLinks.forEach(link => {
+                        guardianMap[link.child_id] = true;
+                    });
+                }
+            }
+
+            renderPlayerList(data || [], guardianMap);
         } catch (error) {
             console.error('Spielerliste Ladefehler:', error);
             modalPlayerList.innerHTML = `<p class="p-4 text-center text-red-500">Fehler: ${error.message}</p>`;
@@ -673,7 +691,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
         }
     }
 
-    function renderPlayerList(playersData) {
+    function renderPlayerList(playersData, guardianMap = {}) {
         modalPlayerList.innerHTML = '';
 
         if (playersData.length === 0) {
@@ -701,6 +719,12 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             ? '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>'
                             : '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
 
+                        // Vormund-Badge falls Spieler einen Vormund hat
+                        const hasGuardian = guardianMap[player.id];
+                        const guardianBadgeHtml = hasGuardian
+                            ? '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 ml-1" title="Hat Vormund"><i class="fas fa-user-shield"></i></span>'
+                            : '';
+
                         const rank = calculateRank(
                             player.eloRating,
                             player.xp,
@@ -714,7 +738,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             <p class="text-sm font-medium text-gray-900 truncate">${player.firstName} ${player.lastName}</p>
                             <p class="text-sm text-gray-500">${rank.emoji} ${rank.name}</p>
                         </div>
-                        <div class="ml-2 flex-shrink-0">${statusHtml}</div>
+                        <div class="ml-2 flex-shrink-0 flex items-center">${guardianBadgeHtml}${statusHtml}</div>
                     </div>
                 `;
 
