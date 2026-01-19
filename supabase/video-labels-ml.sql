@@ -7,33 +7,18 @@
 -- ENUM TYPES für Label-Kategorien
 -- ============================================
 
--- Schlagarten im Tischtennis
+-- Schlagarten im Tischtennis (8 Basis-Schläge wie Liimba)
 DO $$ BEGIN
     CREATE TYPE tt_shot_type AS ENUM (
-        -- Vorhand
-        'forehand_topspin',
-        'forehand_block',
-        'forehand_push',
-        'forehand_flick',
-        'forehand_smash',
-        'forehand_chop',
-        'forehand_counter',
-        -- Rückhand
-        'backhand_topspin',
-        'backhand_block',
-        'backhand_push',
-        'backhand_flick',
-        'backhand_smash',
-        'backhand_chop',
-        'backhand_counter',
-        -- Aufschlag
-        'serve_forehand',
-        'serve_backhand',
-        'serve_pendulum',
-        'serve_tomahawk',
-        -- Sonstige
-        'other',
-        'unknown'
+        'forehand_serve',     -- VH Aufschlag
+        'backhand_serve',     -- RH Aufschlag
+        'forehand_topspin',   -- VH Topspin
+        'backhand_topspin',   -- RH Topspin
+        'forehand_push',      -- VH Schupf
+        'backhand_push',      -- RH Schupf
+        'forehand_block',     -- VH Block
+        'backhand_block',     -- RH Block
+        'other'               -- Sonstige (Flick, Smash, etc.)
     );
 EXCEPTION
     WHEN duplicate_object THEN null;
