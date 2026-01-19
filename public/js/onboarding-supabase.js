@@ -134,13 +134,21 @@ async function checkAuthState() {
     }
 
     currentUserData = profile;
-    console.log('[ONBOARDING-SUPABASE] Profile:', { role: profile.role, onboarding: profile.onboarding_complete });
+    console.log('[ONBOARDING-SUPABASE] Profile:', { role: profile.role, onboarding: profile.onboarding_complete, is_guardian: profile.is_guardian });
 
     // Wenn Onboarding bereits abgeschlossen, direkt zum Dashboard weiterleiten
     if (profile.onboarding_complete) {
         console.log('[ONBOARDING-SUPABASE] Onboarding already complete, redirecting');
         redirectToDashboard(profile.role);
         return;
+    }
+
+    // Titel anpassen für Vormünder
+    if (profile.is_guardian) {
+        const title = document.querySelector('h2[data-i18n="onboarding.title"]');
+        const subtitle = document.querySelector('p[data-i18n="onboarding.subtitle"]');
+        if (title) title.textContent = 'Dein Vormund-Profil';
+        if (subtitle) subtitle.textContent = 'Vervollständige dein eigenes Profil als Vormund.';
     }
 
     // Prüfe auf Einladungsdaten aus der Registrierung

@@ -764,15 +764,18 @@ registrationForm?.addEventListener('submit', async e => {
                 .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
                 .eq('id', invitationCodeData.id);
 
-            // Speichern für Vorausfüllung im Onboarding
-            localStorage.setItem('pendingInvitationData', JSON.stringify({
-                firstName: invitationCodeData.first_name || '',
-                lastName: invitationCodeData.last_name || '',
-                birthdate: invitationCodeData.birthdate || null,
-                gender: invitationCodeData.gender || null,
-                sportId: invitationCodeData.sport_id || null,
-                clubId: invitationCodeData.club_id || null
-            }));
+            // Speichern für Vorausfüllung im Onboarding - NUR für normale Code-Registrierung
+            // Bei guardian-link sind das die KIND-Daten, nicht die Vormund-Daten
+            if (registrationType === 'code') {
+                localStorage.setItem('pendingInvitationData', JSON.stringify({
+                    firstName: invitationCodeData.first_name || '',
+                    lastName: invitationCodeData.last_name || '',
+                    birthdate: invitationCodeData.birthdate || null,
+                    gender: invitationCodeData.gender || null,
+                    sportId: invitationCodeData.sport_id || null,
+                    clubId: invitationCodeData.club_id || null
+                }));
+            }
         }
 
         // 4. Guardian-Link erstellen (wenn Vormund sich für bestehendes Kind registriert)
