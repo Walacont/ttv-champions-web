@@ -37,33 +37,34 @@ async function initialize(user) {
 
     try {
         currentUser = user;
-        console.log('[GUARDIAN-DASHBOARD] Loading profile for user:', user.id);
+        console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
 
-        // Check if user is a guardian
-        console.log('[GUARDIAN-DASHBOARD] Starting profile query...');
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('account_type, is_guardian, first_name')
-            .eq('id', user.id)
-            .maybeSingle();
+        // Load children directly - this RPC handles guardian verification
+        const { data, error } = await supabase.rpc('get_guardian_children');
+        console.log('[GUARDIAN-DASHBOARD] get_guardian_children result:', data, 'error:', error);
 
-        console.log('[GUARDIAN-DASHBOARD] Profile query completed');
-        console.log('[GUARDIAN-DASHBOARD] Profile loaded:', profile, 'Error:', profileError);
-
-        if (profileError) {
-            console.error('[GUARDIAN-DASHBOARD] Profile error:', profileError);
-            throw profileError;
-        }
-
-        if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
-            console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
-            // Redirect to regular dashboard
+        if (error) {
+            console.error('[GUARDIAN-DASHBOARD] RPC error:', error);
+            // User might not be a guardian - redirect to dashboard
             window.location.href = '/dashboard.html';
             return;
         }
 
-        // Load children
-        await loadChildren();
+        if (!data.success) {
+            console.log('[GUARDIAN-DASHBOARD] User is not a guardian:', data.error);
+            window.location.href = '/dashboard.html';
+            return;
+        }
+
+        children = data.children || [];
+        console.log('[GUARDIAN-DASHBOARD] Loaded children:', children.length);
+
+        // Load stats for each child
+        for (const child of children) {
+            await loadChildStats(child);
+        }
+
+        renderChildren();
 
         // Setup event listeners
         setupEventListeners();
