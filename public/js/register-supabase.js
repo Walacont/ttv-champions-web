@@ -784,14 +784,33 @@ registrationForm?.addEventListener('submit', async e => {
         if (registrationType === 'guardian-link' && linkedPlayerId && invitationCodeData) {
             console.log('[REGISTER] Setting up guardian link for child:', linkedPlayerId);
 
-            // First check if child profile exists
-            const { data: existingChild } = await supabase
+            // Check if child profile exists (offline player)
+            const { data: existingChild, error: checkError } = await supabase
                 .from('profiles')
-                .select('id')
+                .select('id, is_offline, account_type')
                 .eq('id', linkedPlayerId)
                 .maybeSingle();
 
-            if (!existingChild) {
+            console.log('[REGISTER] Existing child check:', existingChild, 'error:', checkError);
+
+            if (existingChild) {
+                // Child profile exists - update it to mark as non-offline and set account_type
+                console.log('[REGISTER] Child profile exists, updating to account_type=child, is_offline=false');
+
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({
+                        account_type: 'child',
+                        is_offline: false
+                    })
+                    .eq('id', linkedPlayerId);
+
+                if (updateError) {
+                    console.error('[REGISTER] Failed to update child profile:', updateError);
+                } else {
+                    console.log('[REGISTER] Child profile updated successfully');
+                }
+            } else {
                 // Child profile doesn't exist - create it using data from invitation code
                 console.log('[REGISTER] Child profile does not exist, creating it...');
 
