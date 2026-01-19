@@ -97,6 +97,48 @@ function mapPlayerToSupabase(playerData) {
 }
 
 /**
+ * Calculates age from birthdate
+ */
+function calculateAgeFromBirthdate(day, month, year) {
+    if (!day || !month || !year) return null;
+
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+/**
+ * Updates the child player notice based on selected birthdate
+ */
+function updateChildPlayerNotice() {
+    const daySelect = document.getElementById('offline-birthdate-day');
+    const monthSelect = document.getElementById('offline-birthdate-month');
+    const yearSelect = document.getElementById('offline-birthdate-year');
+    const notice = document.getElementById('child-player-notice');
+
+    if (!daySelect || !monthSelect || !yearSelect || !notice) return;
+
+    const age = calculateAgeFromBirthdate(
+        daySelect.value,
+        monthSelect.value,
+        yearSelect.value
+    );
+
+    if (age !== null && age < 16) {
+        notice.classList.remove('hidden');
+    } else {
+        notice.classList.add('hidden');
+    }
+}
+
+/**
  * Initializes the birthdate dropdowns for offline player creation
  */
 export function initOfflinePlayerBirthdateSelects() {
@@ -135,6 +177,15 @@ export function initOfflinePlayerBirthdateSelects() {
         option.textContent = i;
         yearSelect.appendChild(option);
     }
+
+    // Add change listeners to show child notice
+    daySelect.addEventListener('change', updateChildPlayerNotice);
+    monthSelect.addEventListener('change', updateChildPlayerNotice);
+    yearSelect.addEventListener('change', updateChildPlayerNotice);
+
+    // Hide notice initially
+    const notice = document.getElementById('child-player-notice');
+    if (notice) notice.classList.add('hidden');
 }
 
 /**
@@ -192,6 +243,17 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
+        // Button wieder aktivieren
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Spieler erstellen';
+        }
+        return;
+    }
+
+    // Geburtsdatum ist Pflichtfeld
+    if (!birthdate) {
+        alert('Geburtsdatum ist ein Pflichtfeld. Bitte wähle Tag, Monat und Jahr aus.');
         // Button wieder aktivieren
         if (submitButton) {
             submitButton.disabled = false;
