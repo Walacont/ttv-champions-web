@@ -2,6 +2,13 @@
 // Ermöglicht Spielern, Videos zur Analyse hochzuladen und Feedback zu sehen
 
 import { escapeHtml } from './utils/security.js';
+import {
+    shouldCompressVideo,
+    showCompressionDialog,
+    showCompressionProgress,
+    compressVideo,
+    isCompressionSupported
+} from './video-compressor.js';
 
 let playerVideoContext = {
     db: null,
@@ -793,7 +800,7 @@ async function handlePlayerVideoUpload(e) {
     const submitBtn = document.getElementById('player-video-submit-btn');
 
     const fileInput = document.getElementById('player-video-file-input');
-    const file = fileInput?.files[0];
+    let file = fileInput?.files[0];
 
     if (!file) {
         showToast('Bitte wähle eine Video-Datei aus', 'error');
@@ -811,6 +818,33 @@ async function handlePlayerVideoUpload(e) {
     if (!allowedTypes.includes(file.type)) {
         showToast('Ungültiges Videoformat (MP4, MOV, WebM erlaubt)', 'error');
         return;
+    }
+
+    // Video-Komprimierung anbieten wenn Datei groß genug
+    if (isCompressionSupported() && shouldCompressVideo(file)) {
+        try {
+            const { compress } = await showCompressionDialog(file);
+
+            if (compress) {
+                const progress = showCompressionProgress(file);
+                try {
+                    file = await compressVideo(file, {
+                        onProgress: progress.updateProgress,
+                        onStatus: progress.updateStatus,
+                        quality: 'medium'
+                    });
+                    progress.close();
+                    showToast(`Video komprimiert: ${(file.size / 1024 / 1024).toFixed(1)} MB`, 'success');
+                } catch (compressError) {
+                    progress.close();
+                    console.error('Compression failed:', compressError);
+                    showToast('Komprimierung fehlgeschlagen, Original wird verwendet', 'warning');
+                    file = fileInput.files[0]; // Zurück zum Original
+                }
+            }
+        } catch (dialogError) {
+            console.error('Compression dialog error:', dialogError);
+        }
     }
 
     submitBtn.disabled = true;
