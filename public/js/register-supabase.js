@@ -1,7 +1,7 @@
 // Registrierungsseite (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
-import { calculateAge, validateRegistrationAge, parseBirthdate } from './age-utils.js';
+import { calculateAge, validateRegistrationAge, validateGuardianAge, parseBirthdate } from './age-utils.js';
 
 console.log('[REGISTER-SUPABASE] Script starting...');
 
@@ -109,8 +109,15 @@ function validateAgeOnChange() {
         return;
     }
 
-    const hasCode = !!invitationCode;
-    const validation = validateRegistrationAge(birthdate, hasCode);
+    let validation;
+    if (registrationType === 'guardian' || registrationType === 'guardian-link') {
+        // Guardian must be at least 18
+        validation = validateGuardianAge(birthdate);
+    } else {
+        // Regular player registration - must be 16+
+        const hasCode = !!invitationCode;
+        validation = validateRegistrationAge(birthdate, hasCode);
+    }
 
     if (!validation.allowed) {
         showAgeBlockMessage(validation.reason, validation.ageMode);
@@ -322,13 +329,13 @@ if (registerAsGuardianBtn) {
             document.getElementById('last-name').required = true;
         }
 
-        // Hide birthdate fields and remove required (guardians don't need age check)
-        hideBirthdateFields();
+        // Show birthdate fields - guardian must be at least 18
+        showBirthdateFields();
 
         // Hide age block message if visible
         hideAgeBlockMessage();
 
-        formSubtitle.textContent = 'Erstelle deinen Vormund-Account, um dein Kind zu verwalten.';
+        formSubtitle.textContent = 'Erstelle deinen Vormund-Account. Du musst mindestens 18 Jahre alt sein.';
     });
 }
 
@@ -339,13 +346,13 @@ if (switchToGuardianBtn) {
         // Reset and switch to guardian mode
         registrationType = 'guardian';
 
-        // Hide birthdate fields and remove required
-        hideBirthdateFields();
+        // Show birthdate fields - guardian must be at least 18
+        showBirthdateFields();
 
         // Hide age block message
         hideAgeBlockMessage();
 
-        formSubtitle.textContent = 'Erstelle deinen Vormund-Account, um dein Kind zu verwalten.';
+        formSubtitle.textContent = 'Erstelle deinen Vormund-Account. Du musst mindestens 18 Jahre alt sein.';
     });
 }
 
@@ -376,14 +383,23 @@ registrationForm?.addEventListener('submit', async e => {
 
         birthdate = parseBirthdate(day, month, year);
 
-        // Validate age for non-guardian registrations
-        if (registrationType !== 'guardian' && birthdate) {
-            const hasCode = !!invitationCode;
-            const validation = validateRegistrationAge(birthdate, hasCode);
-
-            if (!validation.allowed) {
-                errorMessage.textContent = validation.reason;
-                return;
+        // Validate age based on registration type
+        if (birthdate) {
+            if (registrationType === 'guardian' || registrationType === 'guardian-link') {
+                // Guardian must be at least 18 years old
+                const validation = validateGuardianAge(birthdate);
+                if (!validation.allowed) {
+                    errorMessage.textContent = validation.reason;
+                    return;
+                }
+            } else {
+                // Regular player registration - must be 16+
+                const hasCode = !!invitationCode;
+                const validation = validateRegistrationAge(birthdate, hasCode);
+                if (!validation.allowed) {
+                    errorMessage.textContent = validation.reason;
+                    return;
+                }
             }
         }
     }
@@ -938,10 +954,10 @@ verifyBirthdateBtn?.addEventListener('click', () => {
         document.getElementById('last-name').required = true;
     }
 
-    // Hide birthdate fields and remove required (guardian doesn't need age verification)
-    hideBirthdateFields();
+    // Show birthdate fields - guardian must be at least 18
+    showBirthdateFields();
 
-    formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}.`;
+    formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}. Du musst mindestens 18 Jahre alt sein.`;
     registrationFormContainer.classList.remove('hidden');
 });
 

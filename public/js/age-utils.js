@@ -105,6 +105,34 @@ export function validateRegistrationAge(birthdate, hasInvitationCode) {
 }
 
 /**
+ * Validate if user can register as a guardian
+ * @param {string|Date} birthdate - Birthdate
+ * @returns {{allowed: boolean, reason?: string}}
+ */
+export function validateGuardianAge(birthdate) {
+    const age = calculateAge(birthdate);
+
+    if (age === null) {
+        return {
+            allowed: false,
+            reason: 'Bitte gib dein Geburtsdatum ein.'
+        };
+    }
+
+    // Guardian must be at least 18 years old
+    if (age < 18) {
+        return {
+            allowed: false,
+            reason: 'Du musst mindestens 18 Jahre alt sein, um dich als Vormund zu registrieren.'
+        };
+    }
+
+    return {
+        allowed: true
+    };
+}
+
+/**
  * Format birthdate for display
  * @param {string} birthdate - Birthdate in YYYY-MM-DD format
  * @returns {string} Formatted date (e.g., "15. März 2010")
