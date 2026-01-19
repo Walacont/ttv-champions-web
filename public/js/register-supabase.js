@@ -499,9 +499,11 @@ registrationForm?.addEventListener('submit', async e => {
         let lastName = '';
 
         if (registrationType === 'code' && invitationCodeData) {
+            // Normal code registration: use child's data from invitation code
             firstName = invitationCodeData.first_name || '';
             lastName = invitationCodeData.last_name || '';
-        } else if (registrationType === 'no-code') {
+        } else if (registrationType === 'no-code' || registrationType === 'guardian' || registrationType === 'guardian-link') {
+            // No-code, guardian, and guardian-link: use data from form fields
             firstName = document.getElementById('first-name')?.value?.trim() || '';
             lastName = document.getElementById('last-name')?.value?.trim() || '';
         }
