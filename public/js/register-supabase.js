@@ -699,6 +699,11 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
+            // Add guardian's birthdate
+            if (birthdate) {
+                profileUpdates.birthdate = birthdate;
+            }
+
             console.log('[REGISTER] Registering as guardian (no code)');
         }
 
@@ -709,11 +714,17 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.first_name = firstName;
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
+            profileUpdates.account_type = 'guardian';
             profileUpdates.is_guardian = true;
             profileUpdates.role = 'player';
             profileUpdates.is_match_ready = true;
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
+
+            // Add guardian's birthdate
+            if (birthdate) {
+                profileUpdates.birthdate = birthdate;
+            }
 
             // Join the same club as the child
             if (invitationCodeData?.club_id) {
