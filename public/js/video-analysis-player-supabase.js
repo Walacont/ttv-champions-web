@@ -338,6 +338,8 @@ export async function loadMyVideos() {
     `;
 
     try {
+        console.log('[MyVideos] Loading for userId:', userId);
+
         // 1. Videos laden die vom Benutzer hochgeladen wurden
         const { data: uploadedVideos, error: uploadError } = await db
             .from('video_analyses')
@@ -350,6 +352,7 @@ export async function loadMyVideos() {
             .order('created_at', { ascending: false });
 
         if (uploadError) throw uploadError;
+        console.log('[MyVideos] Uploaded videos:', uploadedVideos?.length || 0);
 
         // 2. Assignments für den Benutzer holen (nur IDs und Status)
         const { data: myAssignments, error: assignError } = await db
@@ -358,12 +361,14 @@ export async function loadMyVideos() {
             .eq('player_id', userId);
 
         if (assignError) throw assignError;
+        console.log('[MyVideos] My assignments:', myAssignments);
 
         // 3. Video-IDs aus Assignments extrahieren (nur fremde Videos)
         const uploadedIds = new Set((uploadedVideos || []).map(v => v.id));
         const assignedVideoIds = (myAssignments || [])
             .filter(a => !uploadedIds.has(a.video_id))
             .map(a => a.video_id);
+        console.log('[MyVideos] Assigned video IDs (not uploaded by me):', assignedVideoIds);
 
         // 4. Zugewiesene Videos direkt laden (RLS wird korrekt evaluiert)
         let assignedVideos = [];
@@ -376,6 +381,8 @@ export async function loadMyVideos() {
                 `)
                 .in('id', assignedVideoIds)
                 .order('created_at', { ascending: false });
+
+            console.log('[MyVideos] Loaded assigned videos:', videos?.length || 0, videos);
 
             if (videoError) {
                 console.error('[MyVideos] Fehler beim Laden zugewiesener Videos:', videoError);
@@ -393,6 +400,7 @@ export async function loadMyVideos() {
 
         // 5. Kombinieren
         const allVideos = [...(uploadedVideos || []), ...assignedVideos];
+        console.log('[MyVideos] All videos combined:', allVideos.length);
 
         // 6. Filtern: Nur Videos die dem Benutzer "gehören"
         const myVideos = allVideos.filter(video => {
@@ -406,6 +414,7 @@ export async function loadMyVideos() {
             // 2. ODER es an mich zugewiesen wurde
             return (uploadedByMe && !assignedToOther) || assignedToMe;
         });
+        console.log('[MyVideos] Final filtered videos:', myVideos.length);
 
         // Badge mit Gesamtzahl aktualisieren
         if (countBadge && myVideos.length > 0) {
