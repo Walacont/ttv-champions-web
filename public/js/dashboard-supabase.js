@@ -1,6 +1,7 @@
 // Dashboard (Supabase-Version) - Multi-Sport-Unterstützung
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { getChildSession, clearChildSession } from './child-login-supabase.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
@@ -58,6 +59,11 @@ let reconnectTimeout = null;
 let currentSubgroupFilter = 'global';
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
+
+// Child/Kids Mode State
+let isChildMode = false;
+let childSession = null;
+let currentAgeMode = null; // 'kids', 'teen', 'full'
 
 let testClubIdsCache = null;
 let followingIdsCache = null;
@@ -189,16 +195,36 @@ const RANKS = [
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DASHBOARD-SUPABASE] DOM loaded, checking session...');
 
-    const { data: { session } } = await supabase.auth.getSession();
+    // First check for child session (login via code)
+    childSession = getChildSession();
 
-    if (!session || !session.user) {
-        console.log('[DASHBOARD-SUPABASE] No session, redirecting to login');
-        window.location.replace('/index.html');
-        return;
+    if (childSession) {
+        console.log('[DASHBOARD-SUPABASE] Child session found:', childSession.firstName);
+        isChildMode = true;
+        currentAgeMode = childSession.ageMode || 'kids';
+
+        // Create a pseudo-user object for child
+        currentUser = {
+            id: childSession.childId,
+            email: null,
+            isChild: true
+        };
+
+        // Apply kids mode restrictions immediately
+        applyKidsModeUI();
+    } else {
+        // Normal auth check
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session || !session.user) {
+            console.log('[DASHBOARD-SUPABASE] No session, redirecting to login');
+            window.location.replace('/index.html');
+            return;
+        }
+
+        currentUser = session.user;
+        console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
     }
-
-    currentUser = session.user;
-    console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
 
     // Benutzerprofil laden
     await loadUserProfile();
@@ -240,6 +266,91 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+// --- Kids Mode UI ---
+function applyKidsModeUI() {
+    console.log('[DASHBOARD-SUPABASE] Applying kids mode UI, ageMode:', currentAgeMode);
+
+    // Elements to hide for kids mode (< 14)
+    const kidsHiddenElements = [
+        '#open-community-btn',           // Community search button
+        '#desktop-notifications-btn',     // Notifications (parents get them)
+        'a[href="/settings.html"]',       // Settings link
+    ];
+
+    // Elements to hide for all minors (< 16)
+    const minorHiddenElements = [
+        '#activity-filter-dropdown',      // Activity feed filters (no global feed)
+    ];
+
+    if (currentAgeMode === 'kids') {
+        // Hide kids-restricted elements
+        kidsHiddenElements.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.style.display = 'none';
+                el.setAttribute('data-kids-hidden', 'true');
+            }
+        });
+
+        // Update header title with friendly greeting
+        const headerTitle = document.getElementById('header-title');
+        if (headerTitle && childSession) {
+            headerTitle.textContent = `Hallo ${childSession.firstName}! 🎮`;
+        }
+
+        // Hide match submission form (coach enters matches for kids)
+        const matchRequestForm = document.getElementById('match-request-form');
+        if (matchRequestForm) {
+            const formParent = matchRequestForm.closest('.bg-white');
+            if (formParent) {
+                formParent.innerHTML = `
+                    <div class="p-6 text-center">
+                        <div class="text-4xl mb-3">🏓</div>
+                        <h3 class="font-bold text-gray-800 mb-2">Deine Wettkämpfe</h3>
+                        <p class="text-gray-600 text-sm">
+                            Dein Trainer trägt deine Ergebnisse ein.
+                            Du kannst hier sehen, wie du gespielt hast!
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        // Simplify activity feed - show only personal achievements
+        const activityFilterBtn = document.getElementById('activity-filter-btn');
+        if (activityFilterBtn) {
+            activityFilterBtn.style.display = 'none';
+        }
+    }
+
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+        // Hide minor-restricted elements
+        minorHiddenElements.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.style.display = 'none';
+                el.setAttribute('data-minor-hidden', 'true');
+            }
+        });
+    }
+
+    // Add visual indicator that this is kids mode
+    if (currentAgeMode === 'kids') {
+        const topNav = document.getElementById('top-nav');
+        if (topNav) {
+            topNav.style.background = 'linear-gradient(to right, #7c3aed, #6366f1)';
+            // Make text white for contrast
+            topNav.querySelectorAll('button, a').forEach(el => {
+                el.style.color = 'white';
+            });
+            const headerTitle = document.getElementById('header-title');
+            if (headerTitle) headerTitle.style.color = 'white';
+        }
+    }
+
+    console.log('[DASHBOARD-SUPABASE] Kids mode UI applied');
+}
+
 // --- Cleanup ---
 function cleanupSubscriptions() {
     // Benachrichtigungs-Subscriptions aufräumen (falls verfügbar)
@@ -271,20 +382,26 @@ async function loadUserProfile() {
 
         if (!profile) {
             console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
+            // For child mode, if profile not found, clear session and redirect
+            if (isChildMode) {
+                clearChildSession();
+                window.location.href = '/child-login.html';
+                return;
+            }
             // Basis-Profil erstellen oder zum Onboarding weiterleiten
             window.location.href = '/onboarding.html';
             return;
         }
 
-        // Onboarding prüfen
-        if (!profile.onboarding_complete) {
+        // Onboarding prüfen - skip for child accounts
+        if (!profile.onboarding_complete && !isChildMode && profile.account_type !== 'child') {
             console.log('[DASHBOARD-SUPABASE] Onboarding not complete');
             window.location.href = '/onboarding.html';
             return;
         }
 
-        // Rolle prüfen - Admins weiterleiten
-        if (profile.role === 'admin') {
+        // Rolle prüfen - Admins weiterleiten (but not children)
+        if (profile.role === 'admin' && !isChildMode) {
             window.location.href = '/admin.html';
             return;
         }
@@ -292,10 +409,21 @@ async function loadUserProfile() {
         currentUserData = profile;
         currentClubData = profile.club;
 
+        // Update age mode from profile if not already set
+        if (!currentAgeMode && profile.age_mode) {
+            currentAgeMode = profile.age_mode;
+            // Apply kids mode if needed
+            if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+                applyKidsModeUI();
+            }
+        }
+
         console.log('[DASHBOARD-SUPABASE] Profile loaded:', {
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email,
             role: profile.role,
-            club: currentClubData?.name
+            club: currentClubData?.name,
+            ageMode: currentAgeMode,
+            isChildMode: isChildMode
         });
 
         // Dashboard initialisieren
