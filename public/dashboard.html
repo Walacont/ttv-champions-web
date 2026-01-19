@@ -1359,7 +1359,7 @@
         </div>
 
         <!-- Video Comparison Modal - same structure as coach -->
-        <div id="video-comparison-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 overflow-hidden">
+        <div id="video-comparison-modal" class="hidden bg-black bg-opacity-90 overflow-hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100001;">
             <div class="h-full w-full flex flex-col">
                 <!-- Header -->
                 <div class="bg-gray-900 text-white p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
@@ -1996,6 +1996,12 @@
                     topNav.style.zIndex = '99999';
                     topNav.style.background = 'white';
                     topNav.style.borderBottom = '1px solid #e5e7eb';
+                }
+
+                // Move video comparison modal to body to avoid CSS parent issues
+                var videoComparisonModal = document.getElementById('video-comparison-modal');
+                if (videoComparisonModal) {
+                    document.body.appendChild(videoComparisonModal);
                 }
             });
         </script>
