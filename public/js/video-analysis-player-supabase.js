@@ -351,58 +351,50 @@ export async function loadMyVideos() {
 
         if (uploadError) throw uploadError;
 
-        // 2. Videos laden die dem Benutzer zugewiesen wurden (via inner join)
-        const { data: assignedVideos, error: assignError } = await db
+        // 2. Assignments für den Benutzer holen (nur IDs und Status)
+        const { data: myAssignments, error: assignError } = await db
             .from('video_assignments')
-            .select(`
-                video:video_analyses(
-                    *,
-                    exercise:exercises(id, name)
-                ),
-                status,
-                reviewed_at,
-                player_id
-            `)
-            .eq('player_id', userId)
-            .order('assigned_at', { ascending: false });
+            .select('video_id, status, reviewed_at, player_id')
+            .eq('player_id', userId);
 
         if (assignError) throw assignError;
 
-        // Debug: Was kommt von der Assignments-Query zurück?
-        console.log('[MyVideos] Uploaded videos:', uploadedVideos?.length || 0);
-        console.log('[MyVideos] Assigned videos raw:', assignedVideos);
+        // 3. Video-IDs aus Assignments extrahieren (nur fremde Videos)
+        const uploadedIds = new Set((uploadedVideos || []).map(v => v.id));
+        const assignedVideoIds = (myAssignments || [])
+            .filter(a => !uploadedIds.has(a.video_id))
+            .map(a => a.video_id);
 
-        // 3. Zugewiesene Videos normalisieren (video_analyses Struktur beibehalten)
-        const normalizedAssigned = (assignedVideos || [])
-            .filter(a => {
-                // Debug: Warum wird ein Video gefiltert?
-                if (!a.video) {
-                    console.log('[MyVideos] Assignment ohne Video (RLS?):', a);
-                    return false;
-                }
-                if (a.video.uploaded_by === userId) {
-                    console.log('[MyVideos] Skip: selbst hochgeladen:', a.video.id);
-                    return false;
-                }
-                return true;
-            })
-            .map(a => ({
-                ...a.video,
-                assignments: [{ status: a.status, reviewed_at: a.reviewed_at, player_id: a.player_id }]
-            }));
+        // 4. Zugewiesene Videos direkt laden (RLS wird korrekt evaluiert)
+        let assignedVideos = [];
+        if (assignedVideoIds.length > 0) {
+            const { data: videos, error: videoError } = await db
+                .from('video_analyses')
+                .select(`
+                    *,
+                    exercise:exercises(id, name)
+                `)
+                .in('id', assignedVideoIds)
+                .order('created_at', { ascending: false });
 
-        // 4. Kombinieren (uploaded zuerst, dann assigned)
-        const allVideos = [...(uploadedVideos || [])];
-
-        // Zugewiesene Videos hinzufügen (Duplikate vermeiden)
-        const existingIds = new Set(allVideos.map(v => v.id));
-        normalizedAssigned.forEach(v => {
-            if (!existingIds.has(v.id)) {
-                allVideos.push(v);
+            if (videoError) {
+                console.error('[MyVideos] Fehler beim Laden zugewiesener Videos:', videoError);
+            } else {
+                // Assignment-Status zu den Videos hinzufügen
+                const assignmentMap = new Map(
+                    (myAssignments || []).map(a => [a.video_id, a])
+                );
+                assignedVideos = (videos || []).map(v => ({
+                    ...v,
+                    assignments: [assignmentMap.get(v.id)]
+                }));
             }
-        });
+        }
 
-        // 5. Filtern: Nur Videos die dem Benutzer "gehören"
+        // 5. Kombinieren
+        const allVideos = [...(uploadedVideos || []), ...assignedVideos];
+
+        // 6. Filtern: Nur Videos die dem Benutzer "gehören"
         const myVideos = allVideos.filter(video => {
             const assignment = video.assignments?.[0];
             const assignedToOther = assignment && assignment.player_id !== userId;
