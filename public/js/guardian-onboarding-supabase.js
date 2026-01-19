@@ -170,9 +170,22 @@ function setupEventListeners() {
     // Trainer code input - validate on input
     const trainerCodeInput = document.getElementById('trainer-code');
     trainerCodeInput?.addEventListener('input', (e) => {
-        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (e.target.value.length === 6) {
-            validateTrainerCode(e.target.value);
+        // Format code: allow letters, numbers, and dashes
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+
+        // Auto-format: add dashes after TTV and after 3 more chars
+        const rawValue = value.replace(/-/g, '');
+        if (rawValue.length > 3 && rawValue.length <= 6) {
+            value = rawValue.slice(0, 3) + '-' + rawValue.slice(3);
+        } else if (rawValue.length > 6) {
+            value = rawValue.slice(0, 3) + '-' + rawValue.slice(3, 6) + '-' + rawValue.slice(6, 9);
+        }
+
+        e.target.value = value;
+
+        // Validate when we have full code (TTV-XXX-YYY = 11 chars with dashes)
+        if (value.length === 11 && value.match(/^[A-Z]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/)) {
+            validateTrainerCode(value);
         } else {
             resetCodeValidation();
         }
@@ -191,7 +204,7 @@ function setupEventListeners() {
     document.getElementById('add-another-child')?.addEventListener('click', resetForm);
 }
 
-// Validate trainer code (child_login_codes)
+// Validate trainer code (invitation_codes table)
 async function validateTrainerCode(code) {
     const messageEl = document.getElementById('trainer-code-message');
     const previewEl = document.getElementById('child-preview');
@@ -200,8 +213,8 @@ async function validateTrainerCode(code) {
     showMessage(messageEl, 'Überprüfe Code...', 'text-gray-500');
 
     try {
-        // Use the validate_child_login_code RPC function
-        const { data, error } = await supabase.rpc('validate_child_login_code', {
+        // Use the validate_guardian_invitation_code RPC function
+        const { data, error } = await supabase.rpc('validate_guardian_invitation_code', {
             p_code: code
         });
 
@@ -277,8 +290,8 @@ async function handleLinkChild() {
     try {
         const code = document.getElementById('trainer-code')?.value?.trim();
 
-        // Use the RPC to link guardian to child using the code
-        const { data, error } = await supabase.rpc('link_guardian_via_code', {
+        // Use the RPC to link guardian to child using the invitation code
+        const { data, error } = await supabase.rpc('link_guardian_via_invitation_code', {
             p_code: code
         });
 
