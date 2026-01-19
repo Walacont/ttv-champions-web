@@ -27,7 +27,6 @@ const loginCodeModal = document.getElementById('login-code-modal');
 // Initialize with auth state
 async function initialize(user) {
     console.log('[GUARDIAN-DASHBOARD] initialize() called, user:', user?.id);
-    console.log('[GUARDIAN-DASHBOARD] initialized flag:', initialized);
 
     if (initialized) {
         console.log('[GUARDIAN-DASHBOARD] Already initialized, returning');
@@ -39,56 +38,23 @@ async function initialize(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
 
-        // Add timeout to detect hanging queries
-        const queryWithTimeout = async (queryFn, timeoutMs = 10000, queryName = 'query') => {
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`${queryName} timed out after ${timeoutMs}ms`)), timeoutMs)
-            );
-            return Promise.race([queryFn(), timeoutPromise]);
-        };
-
-        // First test: Can we query ANY table?
-        console.log('[GUARDIAN-DASHBOARD] Testing basic database connectivity with clubs table...');
-        try {
-            const testResult = await queryWithTimeout(
-                () => supabase.from('clubs').select('id').limit(1),
-                5000,
-                'clubs test query'
-            );
-            console.log('[GUARDIAN-DASHBOARD] Clubs test result:', testResult.data, 'error:', testResult.error);
-        } catch (testErr) {
-            console.error('[GUARDIAN-DASHBOARD] Clubs test failed:', testErr.message);
-        }
-
-        // Try direct query to guardian_links
-        console.log('[GUARDIAN-DASHBOARD] Testing direct guardian_links query...');
-
-        let links, linksError;
-        try {
-            const result = await queryWithTimeout(
-                () => supabase.from('guardian_links').select('child_id').eq('guardian_id', user.id),
-                10000,
-                'guardian_links query'
-            );
-            links = result.data;
-            linksError = result.error;
-        } catch (timeoutErr) {
-            console.error('[GUARDIAN-DASHBOARD] Query timeout:', timeoutErr.message);
-            linksError = { message: timeoutErr.message };
-        }
+        // Direct query to guardian_links
+        console.log('[GUARDIAN-DASHBOARD] Querying guardian_links...');
+        const { data: links, error: linksError } = await supabase
+            .from('guardian_links')
+            .select('child_id')
+            .eq('guardian_id', user.id);
 
         console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
 
         if (linksError) {
             console.error('[GUARDIAN-DASHBOARD] guardian_links error:', linksError);
-            // Try RPC as fallback
-            console.log('[GUARDIAN-DASHBOARD] Trying RPC fallback...');
+            throw linksError;
         }
 
         let childrenData = [];
 
         if (links && links.length > 0) {
-            // Get child profiles directly
             const childIds = links.map(l => l.child_id);
             console.log('[GUARDIAN-DASHBOARD] Loading profiles for child IDs:', childIds);
 
@@ -102,52 +68,8 @@ async function initialize(user) {
             if (profiles) {
                 childrenData = profiles;
             }
-        } else if (!linksError) {
-            // No children found, but query worked
-            console.log('[GUARDIAN-DASHBOARD] No children found for this guardian');
         } else {
-            // Links query failed, try RPC with timeout
-            console.log('[GUARDIAN-DASHBOARD] Starting RPC call with timeout...');
-            let rpcData, rpcError;
-            try {
-                const result = await queryWithTimeout(
-                    () => supabase.rpc('get_guardian_children'),
-                    10000,
-                    'get_guardian_children RPC'
-                );
-                rpcData = result.data;
-                rpcError = result.error;
-            } catch (timeoutErr) {
-                console.error('[GUARDIAN-DASHBOARD] RPC timeout:', timeoutErr.message);
-                rpcError = { message: timeoutErr.message };
-            }
-
-            console.log('[GUARDIAN-DASHBOARD] RPC result:', rpcData, 'error:', rpcError);
-
-            if (rpcError) {
-                // Both queries failed - show error to user
-                console.error('[GUARDIAN-DASHBOARD] All queries failed');
-                pageLoader.innerHTML = `
-                    <div class="text-center p-6">
-                        <div class="text-red-600 mb-4">
-                            <i class="fas fa-exclamation-triangle text-4xl"></i>
-                        </div>
-                        <p class="text-gray-700 mb-2">Datenbankverbindung fehlgeschlagen</p>
-                        <p class="text-gray-500 text-sm mb-4">Die Guardian-Tabellen sind möglicherweise nicht eingerichtet.</p>
-                        <a href="/dashboard.html" class="text-indigo-600 hover:text-indigo-800 font-medium">
-                            <i class="fas fa-arrow-left mr-1"></i>Zurück zum Dashboard
-                        </a>
-                    </div>
-                `;
-                return;
-            }
-
-            if (!rpcData?.success) {
-                console.log('[GUARDIAN-DASHBOARD] User is not a guardian:', rpcData?.error);
-                window.location.href = '/dashboard.html';
-                return;
-            }
-            childrenData = rpcData.children || [];
+            console.log('[GUARDIAN-DASHBOARD] No children found for this guardian');
         }
 
         children = childrenData;
@@ -159,8 +81,6 @@ async function initialize(user) {
         }
 
         renderChildren();
-
-        // Setup event listeners
         setupEventListeners();
 
         // Show main content
@@ -170,8 +90,9 @@ async function initialize(user) {
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Init error:', err);
         pageLoader.innerHTML = `
-            <div class="text-center text-red-600">
-                <p>Fehler beim Laden. Bitte versuche es erneut.</p>
+            <div class="text-center text-red-600 p-6">
+                <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                <p class="mb-2">Fehler beim Laden: ${err.message || 'Unbekannter Fehler'}</p>
                 <a href="/dashboard.html" class="text-indigo-600 underline mt-2 block">Zum Dashboard</a>
             </div>
         `;
