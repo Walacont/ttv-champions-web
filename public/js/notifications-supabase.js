@@ -887,9 +887,15 @@ async function deleteAllReadNotifications(userId) {
 }
 
 /**
- * Erstellt neue Benachrichtigung
+ * Erstellt neue Benachrichtigung und sendet optional eine Push-Notification
+ * @param {string} userId - Empfänger
+ * @param {string} type - Benachrichtigungstyp
+ * @param {string} title - Titel
+ * @param {string} message - Nachricht
+ * @param {Object} data - Zusätzliche Daten
+ * @param {boolean} sendPush - Push-Notification senden (default: true für bestimmte Typen)
  */
-export async function createNotification(userId, type, title, message, data = {}) {
+export async function createNotification(userId, type, title, message, data = {}, sendPush = null) {
     const db = getSupabase();
     if (!db) return;
 
@@ -905,6 +911,52 @@ export async function createNotification(userId, type, title, message, data = {}
 
     if (error) {
         console.error('Error creating notification:', error);
+        return;
+    }
+
+    // Bestimme, ob Push gesendet werden soll
+    const pushTypes = ['video_feedback', 'match_request', 'doubles_match_request', 'follow_request', 'club_join_request'];
+    const shouldSendPush = sendPush !== null ? sendPush : pushTypes.includes(type);
+
+    if (shouldSendPush) {
+        // Push-Notification asynchron senden (nicht blockierend)
+        sendPushNotification(userId, type, title, message, data).catch(e => {
+            console.warn('Push notification failed:', e);
+        });
+    }
+}
+
+/**
+ * Sendet eine Push-Notification über die Supabase Edge Function
+ */
+async function sendPushNotification(userId, type, title, body, data = {}) {
+    const db = getSupabase();
+    if (!db) return;
+
+    try {
+        const { data: result, error } = await db.functions.invoke('send-notification-push', {
+            body: {
+                user_id: userId,
+                title: title,
+                body: body,
+                notification_type: type,
+                data: {
+                    ...data,
+                    // Strings sicherstellen für FCM
+                    ...(data.video_id && { video_id: String(data.video_id) }),
+                    ...(data.request_id && { request_id: String(data.request_id) }),
+                },
+                url: data.video_id ? `/dashboard.html#my-videos?video=${data.video_id}` : undefined,
+            }
+        });
+
+        if (error) {
+            console.warn('Push notification error:', error);
+        } else {
+            console.log('Push notification result:', result);
+        }
+    } catch (e) {
+        console.warn('Push notification failed:', e);
     }
 }
 
