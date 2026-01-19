@@ -208,9 +208,7 @@ BEGIN
 
     -- Update child to mark as child account if it's an offline player
     UPDATE profiles
-    SET
-        account_type = 'child',
-        is_minor = TRUE
+    SET account_type = 'child'
     WHERE id = v_child_id
     AND (account_type IS NULL OR account_type = 'standard' OR is_offline = TRUE);
 
