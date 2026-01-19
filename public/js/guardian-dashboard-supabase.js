@@ -39,9 +39,6 @@ async function initialize(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
 
-        // Try direct query first to test database connectivity
-        console.log('[GUARDIAN-DASHBOARD] Testing direct guardian_links query...');
-
         // Add timeout to detect hanging queries
         const queryWithTimeout = async (queryFn, timeoutMs = 10000, queryName = 'query') => {
             const timeoutPromise = new Promise((_, reject) =>
@@ -49,6 +46,22 @@ async function initialize(user) {
             );
             return Promise.race([queryFn(), timeoutPromise]);
         };
+
+        // First test: Can we query ANY table?
+        console.log('[GUARDIAN-DASHBOARD] Testing basic database connectivity with clubs table...');
+        try {
+            const testResult = await queryWithTimeout(
+                () => supabase.from('clubs').select('id').limit(1),
+                5000,
+                'clubs test query'
+            );
+            console.log('[GUARDIAN-DASHBOARD] Clubs test result:', testResult.data, 'error:', testResult.error);
+        } catch (testErr) {
+            console.error('[GUARDIAN-DASHBOARD] Clubs test failed:', testErr.message);
+        }
+
+        // Try direct query to guardian_links
+        console.log('[GUARDIAN-DASHBOARD] Testing direct guardian_links query...');
 
         let links, linksError;
         try {
