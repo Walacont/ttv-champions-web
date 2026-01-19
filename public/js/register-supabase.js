@@ -198,6 +198,41 @@ function showBirthdateFields() {
     if (yearSelect) yearSelect.setAttribute('required', '');
 }
 
+// Helper function to show guardian profile fields (photo, gender)
+function showGuardianProfileFields() {
+    const guardianProfileFields = document.getElementById('guardian-profile-fields');
+    if (guardianProfileFields) {
+        guardianProfileFields.classList.remove('hidden');
+    }
+}
+
+// Helper function to hide guardian profile fields
+function hideGuardianProfileFields() {
+    const guardianProfileFields = document.getElementById('guardian-profile-fields');
+    if (guardianProfileFields) {
+        guardianProfileFields.classList.add('hidden');
+    }
+}
+
+// Guardian photo preview
+const guardianPhotoUpload = document.getElementById('guardian-photo-upload');
+const guardianPhotoPreview = document.getElementById('guardian-photo-preview');
+let selectedGuardianPhoto = null;
+
+if (guardianPhotoUpload && guardianPhotoPreview) {
+    guardianPhotoUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            selectedGuardianPhoto = file;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                guardianPhotoPreview.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
 // Initialize on page load
 initBirthdateDropdowns();
 initVerifyBirthdateDropdowns();
@@ -294,6 +329,8 @@ async function initializeRegistration() {
 
                     // Show birthdate fields - guardian must be at least 18
                     showBirthdateFields();
+                    // Show guardian profile fields (photo, gender)
+                    showGuardianProfileFields();
 
                     formSubtitle.textContent = `${playerData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
                     registrationFormContainer.classList.remove('hidden');
@@ -329,6 +366,8 @@ async function initializeRegistration() {
 
                         // Show birthdate fields - guardian must be at least 18
                         showBirthdateFields();
+                        // Show guardian profile fields (photo, gender)
+                        showGuardianProfileFields();
 
                         loader.classList.add('hidden');
                         formSubtitle.textContent = `${codeData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
@@ -399,6 +438,8 @@ if (registerAsGuardianBtn) {
 
         // Show birthdate fields - guardian must be at least 18
         showBirthdateFields();
+        // Show guardian profile fields (photo, gender)
+        showGuardianProfileFields();
 
         // Hide age block message if visible
         hideAgeBlockMessage();
@@ -416,6 +457,8 @@ if (switchToGuardianBtn) {
 
         // Show birthdate fields - guardian must be at least 18
         showBirthdateFields();
+        // Show guardian profile fields (photo, gender)
+        showGuardianProfileFields();
 
         // Hide age block message
         hideAgeBlockMessage();
@@ -716,6 +759,12 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.birthdate = birthdate;
             }
 
+            // Add guardian's gender
+            const guardianGender = document.getElementById('guardian-gender')?.value;
+            if (guardianGender) {
+                profileUpdates.gender = guardianGender;
+            }
+
             console.log('[REGISTER] Registering as guardian (no code)');
         }
 
@@ -738,6 +787,12 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.birthdate = birthdate;
             }
 
+            // Add guardian's gender
+            const guardianGender = document.getElementById('guardian-gender')?.value;
+            if (guardianGender) {
+                profileUpdates.gender = guardianGender;
+            }
+
             // Join the same club as the child
             if (invitationCodeData?.club_id) {
                 profileUpdates.club_id = invitationCodeData.club_id;
@@ -745,6 +800,9 @@ registrationForm?.addEventListener('submit', async e => {
             if (invitationCodeData?.sport_id) {
                 profileUpdates.active_sport_id = invitationCodeData.sport_id;
             }
+
+            // Mark onboarding as complete since we collected all data during registration
+            profileUpdates.onboarding_complete = true;
 
             console.log('[REGISTER] Registering as guardian linked to child:', linkedPlayerId);
         }
@@ -882,14 +940,50 @@ registrationForm?.addEventListener('submit', async e => {
             }
         }
 
+        // Upload guardian photo if selected
+        if ((registrationType === 'guardian' || registrationType === 'guardian-link') && selectedGuardianPhoto && user) {
+            try {
+                console.log('[REGISTER] Uploading guardian profile photo...');
+                const fileExt = selectedGuardianPhoto.name.split('.').pop();
+                const fileName = `${user.id}/profile.${fileExt}`;
+
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('profile-pictures')
+                    .upload(fileName, selectedGuardianPhoto, { upsert: true });
+
+                if (uploadError) {
+                    console.error('[REGISTER] Photo upload error:', uploadError);
+                } else {
+                    // Get public URL and update profile
+                    const { data: urlData } = supabase.storage
+                        .from('profile-pictures')
+                        .getPublicUrl(fileName);
+
+                    if (urlData?.publicUrl) {
+                        await supabase
+                            .from('profiles')
+                            .update({ avatar_url: urlData.publicUrl })
+                            .eq('id', user.id);
+                        console.log('[REGISTER] Guardian photo uploaded successfully');
+                    }
+                }
+            } catch (photoError) {
+                console.error('[REGISTER] Photo upload failed:', photoError);
+                // Non-critical - continue with redirect
+            }
+        }
+
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
         // Redirect based on registration type
         if (registrationType === 'guardian') {
             // Guardians (no code) go to guardian onboarding to create child profile
             window.location.href = '/guardian-onboarding.html';
+        } else if (registrationType === 'guardian-link') {
+            // Guardian-link: all data collected during registration, go directly to dashboard
+            window.location.href = '/dashboard.html';
         } else {
-            // All other registrations (including guardian-link) go to onboarding
+            // All other registrations go to onboarding
             window.location.href = '/onboarding.html';
         }
 
@@ -1101,6 +1195,8 @@ verifyBirthdateBtn?.addEventListener('click', () => {
 
     // Show birthdate fields - guardian must be at least 18
     showBirthdateFields();
+    // Show guardian profile fields (photo, gender)
+    showGuardianProfileFields();
 
     formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}. Du musst mindestens 18 Jahre alt sein.`;
     registrationFormContainer.classList.remove('hidden');
