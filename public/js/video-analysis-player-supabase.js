@@ -216,9 +216,12 @@ function setupExercisesSubTabs() {
     const catalogContent = document.getElementById('exercises-subtab-catalog');
     const videosContent = document.getElementById('exercises-subtab-my-videos');
 
+    console.log('[PlayerVideo] setupExercisesSubTabs - found tabs:', subTabs.length);
+
     subTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const targetTab = tab.dataset.subtab;
+            console.log('[PlayerVideo] Sub-tab clicked:', targetTab);
 
             // Tab-Styling aktualisieren
             subTabs.forEach(t => {
@@ -321,11 +324,21 @@ function setupMediathekUploadButton() {
  * 2. ODER an den Benutzer zugewiesen wurden (egal wer sie hochgeladen hat)
  */
 export async function loadMyVideos() {
+    console.log('[MyVideos] Function called, context:', {
+        hasDb: !!playerVideoContext.db,
+        userId: playerVideoContext.userId
+    });
+
     const { db, userId } = playerVideoContext;
     const container = document.getElementById('my-videos-list');
     const countBadge = document.getElementById('my-videos-count');
 
-    if (!container || !userId) return;
+    console.log('[MyVideos] Container:', !!container, 'userId:', userId);
+
+    if (!container || !userId) {
+        console.log('[MyVideos] Early return - missing container or userId');
+        return;
+    }
 
     // Filter-Werte auslesen
     const statusFilter = document.getElementById('my-videos-filter-status')?.value || 'all';
