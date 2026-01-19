@@ -296,6 +296,34 @@ async function initializeRegistration() {
                 return;
             } else {
                 console.warn('[REGISTER] Linked player not found (may have been deleted):', codeData.player_id);
+                // Player profile doesn't exist, but code might have birthdate info
+                // Use the birthdate from the code to check age
+                if (codeData.birthdate) {
+                    const age = calculateAge(codeData.birthdate);
+                    console.log('[REGISTER] Using birthdate from code:', codeData.birthdate, 'age:', age);
+
+                    if (age !== null && age < 16) {
+                        console.log('[REGISTER] ✅ Player is under 16 (from code) - going directly to guardian registration');
+                        linkedPlayerBirthdate = codeData.birthdate;
+                        registrationType = 'guardian-link';
+
+                        // Show name fields for guardian
+                        const nameFields = document.getElementById('name-fields');
+                        if (nameFields) {
+                            nameFields.classList.remove('hidden');
+                            document.getElementById('first-name').required = true;
+                            document.getElementById('last-name').required = true;
+                        }
+
+                        // Show birthdate fields - guardian must be at least 18
+                        showBirthdateFields();
+
+                        loader.classList.add('hidden');
+                        formSubtitle.textContent = `${codeData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
+                        registrationFormContainer.classList.remove('hidden');
+                        return;
+                    }
+                }
             }
         }
 
