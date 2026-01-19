@@ -238,12 +238,12 @@ async function initializeRegistration() {
 
         // Check if this code is linked to an offline player
         if (codeData.player_id) {
-            // Fetch the player's birthdate to check age
+            // Fetch the player's birthdate to check age (use maybeSingle to handle missing player)
             const { data: playerData, error: playerError } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, birthdate')
                 .eq('id', codeData.player_id)
-                .single();
+                .maybeSingle();
 
             if (playerError) {
                 console.error('[REGISTER] Error fetching linked player:', playerError);
@@ -260,6 +260,8 @@ async function initializeRegistration() {
                     showRoleSelectionModal(age, playerData.first_name);
                     return;
                 }
+            } else if (!playerData) {
+                console.warn('[REGISTER] Linked player not found (may have been deleted):', codeData.player_id);
             }
         }
 
@@ -267,6 +269,8 @@ async function initializeRegistration() {
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         loader.classList.add('hidden');
+        // Hide birthdate fields and remove required (not needed for code registration)
+        hideBirthdateFields();
         registrationFormContainer.classList.remove('hidden');
 
     } catch (error) {
@@ -815,6 +819,8 @@ roleSelectPlayer?.addEventListener('click', () => {
     hideRoleSelectionModal();
     registrationType = 'code';
     formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
+    // Hide birthdate fields and remove required (not needed for code registration)
+    hideBirthdateFields();
     registrationFormContainer.classList.remove('hidden');
 });
 
