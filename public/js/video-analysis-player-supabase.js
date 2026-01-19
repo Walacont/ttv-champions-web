@@ -2,6 +2,13 @@
 // Ermöglicht Spielern, Videos zur Analyse hochzuladen und Feedback zu sehen
 
 import { escapeHtml } from './utils/security.js';
+import {
+    shouldCompressVideo,
+    showCompressionDialog,
+    showCompressionProgress,
+    compressVideo,
+    isCompressionSupported
+} from './video-compressor.js';
 
 let playerVideoContext = {
     db: null,
@@ -793,7 +800,7 @@ async function handlePlayerVideoUpload(e) {
     const submitBtn = document.getElementById('player-video-submit-btn');
 
     const fileInput = document.getElementById('player-video-file-input');
-    const file = fileInput?.files[0];
+    let file = fileInput?.files[0];
 
     if (!file) {
         showToast('Bitte wähle eine Video-Datei aus', 'error');
@@ -811,6 +818,33 @@ async function handlePlayerVideoUpload(e) {
     if (!allowedTypes.includes(file.type)) {
         showToast('Ungültiges Videoformat (MP4, MOV, WebM erlaubt)', 'error');
         return;
+    }
+
+    // Video-Komprimierung anbieten wenn Datei groß genug
+    if (isCompressionSupported() && shouldCompressVideo(file)) {
+        try {
+            const { compress } = await showCompressionDialog(file);
+
+            if (compress) {
+                const progress = showCompressionProgress(file);
+                try {
+                    file = await compressVideo(file, {
+                        onProgress: progress.updateProgress,
+                        onStatus: progress.updateStatus,
+                        quality: 'medium'
+                    });
+                    progress.close();
+                    showToast(`Video komprimiert: ${(file.size / 1024 / 1024).toFixed(1)} MB`, 'success');
+                } catch (compressError) {
+                    progress.close();
+                    console.error('Compression failed:', compressError);
+                    showToast('Komprimierung fehlgeschlagen, Original wird verwendet', 'warning');
+                    file = fileInput.files[0]; // Zurück zum Original
+                }
+            }
+        } catch (dialogError) {
+            console.error('Compression dialog error:', dialogError);
+        }
     }
 
     submitBtn.disabled = true;
@@ -1112,6 +1146,25 @@ function showPlayerVideoDetailModal(video, comments) {
             const timestampBtn = c.timestamp_seconds !== null
                 ? `<button class="timestamp-btn text-indigo-600 hover:text-indigo-800 text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded" data-time="${c.timestamp_seconds}">${formatTimestamp(c.timestamp_seconds)}</button>`
                 : '';
+
+            // Prüfe ob der Kommentar eine Zeichnung enthält
+            const drawingUrl = c.drawing_url || extractDrawingUrl(c.content);
+            let contentHtml = '';
+            if (drawingUrl) {
+                contentHtml = `
+                    <div class="mt-2">
+                        <img src="${escapeHtml(drawingUrl)}"
+                             alt="Zeichnung vom Coach"
+                             class="max-w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                             style="max-height: 200px;"
+                             onclick="window.open('${escapeHtml(drawingUrl)}', '_blank')">
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-pen text-orange-500 mr-1"></i>Zeichnung vom Coach</p>
+                    </div>
+                `;
+            } else {
+                contentHtml = `<p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>`;
+            }
+
             return `
                 <div class="border-b border-gray-100 pb-3 mb-3 last:border-0">
                     <div class="flex items-center gap-2 mb-1">
@@ -1119,7 +1172,7 @@ function showPlayerVideoDetailModal(video, comments) {
                         ${isCoach ? '<span class="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded">Coach</span>' : ''}
                         ${timestampBtn}
                     </div>
-                    <p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>
+                    ${contentHtml}
                 </div>
             `;
         }).join('')
@@ -1142,7 +1195,7 @@ function showPlayerVideoDetailModal(video, comments) {
                 <div class="p-4 sm:p-6">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         <div class="flex justify-center">
-                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[35vh] sm:max-h-[50vh] max-w-full" controls playsinline>
+                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[30vh] sm:max-h-[45vh] max-w-[60vw] sm:max-w-full" controls playsinline>
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
                         </div>
@@ -1409,6 +1462,16 @@ function formatTimestamp(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Extrahiert eine Zeichnungs-URL aus dem Kommentar-Content (Markdown-Format)
+ */
+function extractDrawingUrl(content) {
+    if (!content) return null;
+    // Match [Zeichnung](url) format
+    const match = content.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
+    return match ? match[1] : null;
 }
 
 function showToast(message, type = 'info') {

@@ -3,6 +3,14 @@
 
 import { escapeHtml } from './utils/security.js';
 import { createNotification } from './notifications-supabase.js';
+import {
+    shouldCompressVideo,
+    showCompressionDialog,
+    showCompressionProgress,
+    compressVideo,
+    isCompressionSupported
+} from './video-compressor.js';
+import { VideoDrawingTool } from './video-drawing-tool.js';
 
 let videoAnalysisContext = {
     db: null,
@@ -16,6 +24,7 @@ let videoAnalysisContext = {
 let currentVideoId = null;
 let videoPlayer = null;
 let unsubscribeComments = null;
+let drawingTool = null;
 
 // Verfügbare Tags für Videos
 const AVAILABLE_TAGS = [
@@ -548,6 +557,7 @@ async function openVideoDetailModal(videoId) {
         <video id="analysis-video-player"
                class="w-full rounded-lg bg-black"
                controls
+               crossorigin="anonymous"
                preload="metadata">
             <source src="${escapeHtml(video.video_url)}" type="video/mp4">
             Dein Browser unterstützt keine Videowiedergabe.
@@ -661,6 +671,25 @@ function createCommentElement(comment, replies = []) {
         </button>
     ` : '';
 
+    // Check if comment has a drawing
+    let contentHtml = '';
+    const drawingUrl = comment.drawing_url || extractDrawingUrl(comment.content);
+
+    if (drawingUrl) {
+        contentHtml = `
+            <div class="mt-2">
+                <img src="${escapeHtml(drawingUrl)}"
+                     alt="Zeichnung"
+                     class="max-w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                     style="max-height: 200px;"
+                     onclick="window.open('${escapeHtml(drawingUrl)}', '_blank')">
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-pen text-orange-500 mr-1"></i>Zeichnung zum Video</p>
+            </div>
+        `;
+    } else {
+        contentHtml = `<p class="text-sm text-gray-700 mt-1">${escapeHtml(comment.content)}</p>`;
+    }
+
     return `
         <div class="border-b border-gray-100 pb-3 mb-3 last:border-0">
             <div class="flex items-start gap-3">
@@ -674,7 +703,7 @@ function createCommentElement(comment, replies = []) {
                         ${timestampBadge}
                         <span class="text-xs text-gray-400">${formatDate(comment.created_at)}</span>
                     </div>
-                    <p class="text-sm text-gray-700 mt-1">${escapeHtml(comment.content)}</p>
+                    ${contentHtml}
                 </div>
             </div>
             ${replies.length > 0 ? `
@@ -684,6 +713,16 @@ function createCommentElement(comment, replies = []) {
             ` : ''}
         </div>
     `;
+}
+
+/**
+ * Extrahiert eine Zeichnungs-URL aus dem Kommentar-Content (Markdown-Format)
+ */
+function extractDrawingUrl(content) {
+    if (!content) return null;
+    // Match [Zeichnung](url) format
+    const match = content.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
+    return match ? match[1] : null;
 }
 
 function createReplyElement(reply) {
@@ -1050,7 +1089,7 @@ async function handleVideoUpload(e) {
     const submitBtn = form.querySelector('button[type="submit"]');
 
     const fileInput = document.getElementById('video-file-input');
-    const file = fileInput?.files[0];
+    let file = fileInput?.files[0];
 
     if (!file) {
         showToast('Bitte wähle eine Video-Datei aus', 'error');
@@ -1068,6 +1107,33 @@ async function handleVideoUpload(e) {
     if (!allowedTypes.includes(file.type)) {
         showToast('Ungültiges Videoformat (MP4, MOV, WebM erlaubt)', 'error');
         return;
+    }
+
+    // Video-Komprimierung anbieten wenn Datei groß genug
+    if (isCompressionSupported() && shouldCompressVideo(file)) {
+        try {
+            const { compress } = await showCompressionDialog(file);
+
+            if (compress) {
+                const progress = showCompressionProgress(file);
+                try {
+                    file = await compressVideo(file, {
+                        onProgress: progress.updateProgress,
+                        onStatus: progress.updateStatus,
+                        quality: 'medium'
+                    });
+                    progress.close();
+                    showToast(`Video komprimiert: ${(file.size / 1024 / 1024).toFixed(1)} MB`, 'success');
+                } catch (compressError) {
+                    progress.close();
+                    console.error('Compression failed:', compressError);
+                    showToast('Komprimierung fehlgeschlagen, Original wird verwendet', 'warning');
+                    file = fileInput.files[0]; // Zurück zum Original
+                }
+            }
+        } catch (dialogError) {
+            console.error('Compression dialog error:', dialogError);
+        }
     }
 
     submitBtn.disabled = true;
@@ -1247,6 +1313,7 @@ function setupVideoDetailModal() {
     const commentForm = document.getElementById('video-comment-form');
     const compareBtn = document.getElementById('compare-video-btn');
     const markReviewedBtn = document.getElementById('mark-reviewed-btn');
+    const drawBtn = document.getElementById('draw-on-video-btn');
 
     if (!modal) return;
 
@@ -1293,6 +1360,133 @@ function setupVideoDetailModal() {
             }
         });
     }
+
+    // Drawing tool button
+    if (drawBtn) {
+        drawBtn.addEventListener('click', () => {
+            if (!videoPlayer) {
+                showToast('Video muss erst geladen werden', 'info');
+                return;
+            }
+
+            if (drawingTool) {
+                // Toggle drawing mode
+                drawingTool.toggle();
+                // Update button style based on drawing state
+                if (drawingTool.isActive) {
+                    drawBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+                    drawBtn.classList.add('bg-orange-700', 'ring-2', 'ring-orange-300');
+                } else {
+                    drawBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+                    drawBtn.classList.remove('bg-orange-700', 'ring-2', 'ring-orange-300');
+                }
+            } else {
+                // Initialize drawing tool
+                initializeDrawingTool();
+                drawBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+                drawBtn.classList.add('bg-orange-700', 'ring-2', 'ring-orange-300');
+            }
+        });
+    }
+}
+
+/**
+ * Initialisiert das Zeichen-Tool für das aktuelle Video
+ */
+function initializeDrawingTool() {
+    if (!videoPlayer) return;
+
+    // Pausiere das Video beim Start des Zeichnens
+    videoPlayer.pause();
+
+    drawingTool = new VideoDrawingTool(videoPlayer, {
+        strokeWidth: 3,
+        color: '#FF0000',
+        onSave: handleDrawingSave,
+        onDeactivate: () => {
+            const drawBtn = document.getElementById('draw-on-video-btn');
+            if (drawBtn) {
+                drawBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+                drawBtn.classList.remove('bg-orange-700', 'ring-2', 'ring-orange-300');
+            }
+        }
+    });
+
+    drawingTool.activate();
+}
+
+/**
+ * Handler wenn eine Zeichnung gespeichert wird
+ * @param {string} dataUrl - Die Zeichnung als Data-URL
+ * @param {Object} metadata - Zusätzliche Infos (timestamp, includesVideoFrame, shapes)
+ */
+async function handleDrawingSave(dataUrl, metadata = {}) {
+    const { db, userId, clubId } = videoAnalysisContext;
+
+    try {
+        // Konvertiere DataURL zu Blob
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+
+        // Dateiname generieren - Format: {userId}/drawings/{videoId}_{timestamp}.png
+        // (Policy erwartet userId als erstes Verzeichnis)
+        const timestamp = Date.now();
+        const fileName = `${userId}/drawings/${currentVideoId}_${timestamp}.png`;
+
+        // Upload zu Supabase Storage
+        const { data: uploadData, error: uploadError } = await db.storage
+            .from('training-videos')
+            .upload(fileName, blob, {
+                contentType: 'image/png',
+                upsert: false,
+            });
+
+        if (uploadError) throw uploadError;
+
+        // Public URL generieren
+        const { data: urlData } = db.storage
+            .from('training-videos')
+            .getPublicUrl(fileName);
+
+        const imageUrl = urlData.publicUrl;
+
+        // Kommentar mit Zeichnung erstellen
+        const timestampSeconds = videoPlayer ? videoPlayer.currentTime : null;
+        const { error: commentError } = await db.from('video_comments').insert({
+            video_id: currentVideoId,
+            user_id: userId,
+            club_id: clubId,
+            content: '[Zeichnung]',
+            timestamp_seconds: timestampSeconds,
+            drawing_url: imageUrl,
+        });
+
+        if (commentError) {
+            // Falls drawing_url Spalte nicht existiert, ohne sie speichern
+            if (commentError.message.includes('drawing_url')) {
+                await db.from('video_comments').insert({
+                    video_id: currentVideoId,
+                    user_id: userId,
+                    club_id: clubId,
+                    content: `[Zeichnung](${imageUrl})`,
+                    timestamp_seconds: timestampSeconds,
+                });
+            } else {
+                throw commentError;
+            }
+        }
+
+        showToast('Zeichnung gespeichert!', 'success');
+
+        // Zeichnen deaktivieren nach dem Speichern
+        if (drawingTool) {
+            drawingTool.deactivate();
+        }
+
+    } catch (error) {
+        console.error('Fehler beim Speichern der Zeichnung:', error);
+        showToast('Fehler beim Speichern der Zeichnung', 'error');
+    }
 }
 
 function closeVideoDetailModal() {
@@ -1305,6 +1499,17 @@ function closeVideoDetailModal() {
     }
     if (unsubscribeComments) {
         unsubscribeComments();
+    }
+    // Cleanup drawing tool
+    if (drawingTool) {
+        drawingTool.destroy();
+        drawingTool = null;
+    }
+    // Reset draw button style
+    const drawBtn = document.getElementById('draw-on-video-btn');
+    if (drawBtn) {
+        drawBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+        drawBtn.classList.remove('bg-orange-700', 'ring-2', 'ring-orange-300');
     }
     currentVideoId = null;
 }
