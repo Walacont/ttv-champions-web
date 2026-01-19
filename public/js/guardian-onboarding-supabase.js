@@ -1,31 +1,26 @@
 /**
- * Guardian Onboarding - Create child profile
- * Handles the flow for parents to create and manage their children's profiles
+ * Guardian Onboarding - Add child profile
+ * Two flows:
+ * 1. With trainer code: Link to existing offline player
+ * 2. Without code: Create new child profile manually
  */
 
 import { getSupabase } from './supabase-init.js';
-import { calculateAge, parseBirthdate, isMinor } from './age-utils.js';
+import { calculateAge, parseBirthdate } from './age-utils.js';
 
 console.log('[GUARDIAN-ONBOARDING] Script starting...');
 
 const supabase = getSupabase();
 
 // State
-let currentStep = 1;
-let childData = {
-    firstName: '',
-    lastName: '',
-    birthdate: null,
-    gender: null,
-    clubId: null,
-    sportId: null
-};
+let currentStep = 'code-question';
+let validatedChild = null; // Child data from trainer code
 let createdChildId = null;
+let childName = '';
 
 // DOM Elements
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
-const kidsInfoBox = document.getElementById('kids-mode-info');
 
 // Initialize
 async function initialize() {
@@ -39,14 +34,14 @@ async function initialize() {
             return;
         }
 
-        // Check if user is a guardian (or will become one)
+        // Check if user is a guardian
         const { data: profile } = await supabase
             .from('profiles')
-            .select('account_type, first_name')
+            .select('account_type, is_guardian')
             .eq('id', user.id)
             .single();
 
-        if (profile && profile.account_type !== 'guardian' && profile.account_type !== 'standard') {
+        if (profile && !profile.is_guardian && profile.account_type !== 'guardian' && profile.account_type !== 'standard') {
             console.log('[GUARDIAN-ONBOARDING] User is not a guardian');
             window.location.href = '/dashboard.html';
             return;
@@ -60,26 +55,18 @@ async function initialize() {
         pageLoader.classList.add('hidden');
         mainContent.classList.remove('hidden');
 
-        // Update greeting if we have name
-        if (profile?.first_name) {
-            const header = document.querySelector('h1');
-            if (header) {
-                header.textContent = `Willkommen, ${profile.first_name}!`;
-            }
-        }
-
     } catch (err) {
         console.error('[GUARDIAN-ONBOARDING] Init error:', err);
         pageLoader.innerHTML = `
-            <div class="text-center text-red-600">
+            <div class="text-center text-red-600 p-6">
                 <p>Fehler beim Laden. Bitte versuche es erneut.</p>
-                <a href="/register.html" class="text-indigo-600 underline mt-2 block">Zur Registrierung</a>
+                <a href="/guardian-dashboard.html" class="text-indigo-600 underline mt-2 block">Zurück</a>
             </div>
         `;
     }
 }
 
-// Initialize birthdate dropdowns for child
+// Initialize birthdate dropdowns
 function initBirthdateDropdowns() {
     const daySelect = document.getElementById('child-birthdate-day');
     const monthSelect = document.getElementById('child-birthdate-month');
@@ -120,7 +107,7 @@ function initBirthdateDropdowns() {
     });
 }
 
-// Update age display when birthdate changes
+// Update age display
 function updateAgeDisplay() {
     const day = document.getElementById('child-birthdate-day')?.value;
     const month = document.getElementById('child-birthdate-month')?.value;
@@ -150,11 +137,11 @@ function updateAgeDisplay() {
         ageDisplay.classList.remove('hidden');
     }
 
-    // Validate age (must be under 16 for child profile)
+    // Validate age (must be under 16)
     if (age >= 16) {
         ageError?.classList.remove('hidden');
         if (ageErrorText) {
-            ageErrorText.textContent = 'Kinder ab 16 Jahren können sich selbst registrieren. Kinder-Profile sind nur für unter 16-Jährige.';
+            ageErrorText.textContent = 'Kinder ab 16 Jahren können sich selbst registrieren.';
         }
     } else {
         ageError?.classList.add('hidden');
@@ -163,43 +150,169 @@ function updateAgeDisplay() {
 
 // Setup event listeners
 function setupEventListeners() {
-    // Step 1: Child data form
-    const childDataForm = document.getElementById('child-data-form');
-    childDataForm?.addEventListener('submit', handleStep1Submit);
-
-    // Step 2: Club selection
-    const hasCodeOption = document.getElementById('has-code-option');
-    const noClubOption = document.getElementById('no-club-option');
-    const codeInputContainer = document.getElementById('code-input-container');
-
-    document.querySelectorAll('input[name="club-option"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            if (e.target.value === 'code') {
-                codeInputContainer?.classList.remove('hidden');
-            } else {
-                codeInputContainer?.classList.add('hidden');
-            }
-        });
+    // Step 1: Code question buttons
+    document.getElementById('btn-has-code')?.addEventListener('click', () => {
+        goToStep('enter-code');
     });
 
-    document.getElementById('step-2-back')?.addEventListener('click', () => goToStep(1));
-    document.getElementById('step-2-next')?.addEventListener('click', handleStep2Submit);
+    document.getElementById('btn-no-code')?.addEventListener('click', () => {
+        goToStep('child-data');
+    });
 
-    // Step 3: Success actions
+    // Step: Enter code
+    document.getElementById('btn-code-back')?.addEventListener('click', () => {
+        goToStep('code-question');
+        resetCodeInput();
+    });
+
+    document.getElementById('btn-link-child')?.addEventListener('click', handleLinkChild);
+
+    // Trainer code input - validate on input
+    const trainerCodeInput = document.getElementById('trainer-code');
+    trainerCodeInput?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (e.target.value.length === 6) {
+            validateTrainerCode(e.target.value);
+        } else {
+            resetCodeValidation();
+        }
+    });
+
+    // Step: Child data form
+    document.getElementById('btn-data-back')?.addEventListener('click', () => {
+        goToStep('code-question');
+    });
+
+    document.getElementById('child-data-form')?.addEventListener('submit', handleCreateChild);
+
+    // Step: Success
     document.getElementById('copy-login-code')?.addEventListener('click', copyLoginCode);
     document.getElementById('generate-new-code')?.addEventListener('click', generateNewCode);
     document.getElementById('add-another-child')?.addEventListener('click', resetForm);
-
-    // Club code validation
-    const clubCodeInput = document.getElementById('club-code');
-    clubCodeInput?.addEventListener('input', (e) => {
-        e.target.value = e.target.value.toUpperCase();
-    });
-    clubCodeInput?.addEventListener('blur', validateClubCode);
 }
 
-// Handle Step 1 submission
-async function handleStep1Submit(e) {
+// Validate trainer code (child_login_codes)
+async function validateTrainerCode(code) {
+    const messageEl = document.getElementById('trainer-code-message');
+    const previewEl = document.getElementById('child-preview');
+    const linkBtn = document.getElementById('btn-link-child');
+
+    showMessage(messageEl, 'Überprüfe Code...', 'text-gray-500');
+
+    try {
+        // Use the validate_child_login_code RPC function
+        const { data, error } = await supabase.rpc('validate_child_login_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.valid) {
+            showMessage(messageEl, data.error || 'Ungültiger Code', 'text-red-600');
+            previewEl?.classList.add('hidden');
+            linkBtn.disabled = true;
+            validatedChild = null;
+            return;
+        }
+
+        // Code is valid - show child preview
+        validatedChild = data.child;
+        showMessage(messageEl, 'Code gültig!', 'text-green-600');
+
+        // Update preview
+        const avatarEl = document.getElementById('preview-avatar');
+        const nameEl = document.getElementById('preview-name');
+        const infoEl = document.getElementById('preview-info');
+
+        if (avatarEl) {
+            avatarEl.textContent = (validatedChild.first_name || '?')[0].toUpperCase();
+        }
+        if (nameEl) {
+            nameEl.textContent = `${validatedChild.first_name || ''} ${validatedChild.last_name || ''}`.trim();
+        }
+        if (infoEl) {
+            const age = validatedChild.birthdate ? calculateAge(validatedChild.birthdate) : '?';
+            infoEl.textContent = `${age} Jahre`;
+        }
+
+        previewEl?.classList.remove('hidden');
+        linkBtn.disabled = false;
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Code validation error:', err);
+        showMessage(messageEl, 'Fehler bei der Überprüfung', 'text-red-600');
+        previewEl?.classList.add('hidden');
+        linkBtn.disabled = true;
+        validatedChild = null;
+    }
+}
+
+function resetCodeValidation() {
+    const messageEl = document.getElementById('trainer-code-message');
+    const previewEl = document.getElementById('child-preview');
+    const linkBtn = document.getElementById('btn-link-child');
+
+    messageEl?.classList.add('hidden');
+    previewEl?.classList.add('hidden');
+    linkBtn.disabled = true;
+    validatedChild = null;
+}
+
+function resetCodeInput() {
+    const codeInput = document.getElementById('trainer-code');
+    if (codeInput) codeInput.value = '';
+    resetCodeValidation();
+}
+
+// Handle linking child via trainer code
+async function handleLinkChild() {
+    if (!validatedChild) return;
+
+    const linkBtn = document.getElementById('btn-link-child');
+    linkBtn.disabled = true;
+    linkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Verknüpfe...';
+
+    try {
+        const code = document.getElementById('trainer-code')?.value?.trim();
+
+        // Use the RPC to link guardian to child using the code
+        const { data, error } = await supabase.rpc('link_guardian_via_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.success) {
+            throw new Error(data.error || 'Fehler beim Verknüpfen');
+        }
+
+        // Success!
+        createdChildId = data.child_id;
+        childName = `${validatedChild.first_name || ''} ${validatedChild.last_name || ''}`.trim();
+
+        // Generate login code for the child
+        await generateLoginCode();
+
+        // Update success screen
+        document.getElementById('created-child-name').textContent = childName;
+
+        goToStep('success');
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Link error:', err);
+        alert('Fehler beim Verknüpfen: ' + err.message);
+    } finally {
+        linkBtn.disabled = false;
+        linkBtn.innerHTML = 'Kind verknüpfen <i class="fas fa-link ml-1"></i>';
+    }
+}
+
+// Handle creating child manually
+async function handleCreateChild(e) {
     e.preventDefault();
 
     const firstName = document.getElementById('child-first-name')?.value?.trim();
@@ -228,52 +341,19 @@ async function handleStep1Submit(e) {
         return;
     }
 
-    // Store data
-    childData = {
-        ...childData,
-        firstName,
-        lastName,
-        birthdate,
-        gender
-    };
-
-    // Go to step 2
-    goToStep(2);
-}
-
-// Handle Step 2 submission (create child profile)
-async function handleStep2Submit() {
-    const clubOption = document.querySelector('input[name="club-option"]:checked')?.value;
-    const clubCode = document.getElementById('club-code')?.value?.trim();
-
-    const submitBtn = document.getElementById('step-2-next');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Erstelle Profil...';
-    }
+    const createBtn = document.getElementById('btn-create-child');
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Erstelle...';
 
     try {
-        let clubId = null;
-        let sportId = null;
-
-        // If using invitation code, validate and get club/sport
-        if (clubOption === 'code' && clubCode) {
-            const validation = await validateClubCode();
-            if (!validation.valid) {
-                throw new Error(validation.error || 'Ungültiger Code');
-            }
-            clubId = validation.clubId;
-            sportId = validation.sportId;
-        }
-
         // Call create_child_profile RPC
         const { data, error } = await supabase.rpc('create_child_profile', {
-            p_first_name: childData.firstName,
-            p_last_name: childData.lastName,
-            p_birthdate: childData.birthdate,
-            p_gender: childData.gender,
-            p_club_id: clubId,
-            p_sport_id: sportId,
+            p_first_name: firstName,
+            p_last_name: lastName,
+            p_birthdate: birthdate,
+            p_gender: gender,
+            p_club_id: null,
+            p_sport_id: null,
             p_subgroup_ids: []
         });
 
@@ -282,89 +362,28 @@ async function handleStep2Submit() {
         }
 
         if (!data.success) {
-            throw new Error(data.error || 'Fehler beim Erstellen des Profils');
+            throw new Error(data.error || 'Fehler beim Erstellen');
         }
 
-        console.log('[GUARDIAN-ONBOARDING] Child profile created:', data);
-
+        // Success!
         createdChildId = data.child_id;
+        childName = `${firstName} ${lastName}`;
 
-        // Generate login code for child
+        // Generate login code
         await generateLoginCode();
 
-        // Update UI
-        document.getElementById('created-child-name').textContent = `${childData.firstName} ${childData.lastName}`;
+        // Update success screen
+        document.getElementById('created-child-name').textContent = childName;
 
-        // Go to success step
-        goToStep(3);
+        goToStep('success');
 
     } catch (err) {
-        console.error('[GUARDIAN-ONBOARDING] Error creating child:', err);
-        alert('Fehler beim Erstellen des Profils: ' + err.message);
+        console.error('[GUARDIAN-ONBOARDING] Create error:', err);
+        alert('Fehler beim Erstellen: ' + err.message);
     } finally {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Kind erstellen <i class="fas fa-check ml-2"></i>';
-        }
+        createBtn.disabled = false;
+        createBtn.innerHTML = 'Kind erstellen <i class="fas fa-check ml-1"></i>';
     }
-}
-
-// Validate club code
-async function validateClubCode() {
-    const codeInput = document.getElementById('club-code');
-    const code = codeInput?.value?.trim()?.toUpperCase();
-    const messageEl = document.getElementById('code-validation-message');
-
-    if (!code) {
-        return { valid: false, error: 'Bitte gib einen Code ein' };
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from('invitation_codes')
-            .select('id, club_id, sport_id, is_active, expires_at, max_uses, use_count')
-            .eq('code', code)
-            .single();
-
-        if (error || !data) {
-            showCodeMessage(messageEl, 'Code nicht gefunden', false);
-            return { valid: false, error: 'Code nicht gefunden' };
-        }
-
-        if (!data.is_active) {
-            showCodeMessage(messageEl, 'Code ist nicht mehr aktiv', false);
-            return { valid: false, error: 'Code ist nicht mehr aktiv' };
-        }
-
-        if (data.expires_at && new Date(data.expires_at) < new Date()) {
-            showCodeMessage(messageEl, 'Code ist abgelaufen', false);
-            return { valid: false, error: 'Code ist abgelaufen' };
-        }
-
-        if (data.max_uses && data.use_count >= data.max_uses) {
-            showCodeMessage(messageEl, 'Code wurde bereits verwendet', false);
-            return { valid: false, error: 'Code wurde bereits verwendet' };
-        }
-
-        showCodeMessage(messageEl, 'Code gültig ✓', true);
-        return {
-            valid: true,
-            clubId: data.club_id,
-            sportId: data.sport_id
-        };
-
-    } catch (err) {
-        console.error('[GUARDIAN-ONBOARDING] Code validation error:', err);
-        showCodeMessage(messageEl, 'Fehler bei der Überprüfung', false);
-        return { valid: false, error: 'Fehler bei der Überprüfung' };
-    }
-}
-
-function showCodeMessage(el, message, isValid) {
-    if (!el) return;
-    el.textContent = message;
-    el.classList.remove('hidden', 'text-green-600', 'text-red-600');
-    el.classList.add(isValid ? 'text-green-600' : 'text-red-600');
 }
 
 // Generate login code for child
@@ -377,28 +396,19 @@ async function generateLoginCode() {
             p_validity_minutes: 15
         });
 
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
-        if (!data.success) {
-            throw new Error(data.error);
-        }
+        if (!data.success) throw new Error(data.error);
 
-        // Display code
         const codeEl = document.getElementById('child-login-code');
         if (codeEl) {
             codeEl.textContent = data.code;
         }
 
-        console.log('[GUARDIAN-ONBOARDING] Login code generated:', data.code);
-
     } catch (err) {
-        console.error('[GUARDIAN-ONBOARDING] Error generating login code:', err);
+        console.error('[GUARDIAN-ONBOARDING] Error generating code:', err);
         const codeEl = document.getElementById('child-login-code');
-        if (codeEl) {
-            codeEl.textContent = 'Fehler';
-        }
+        if (codeEl) codeEl.textContent = 'Fehler';
     }
 }
 
@@ -413,11 +423,11 @@ async function generateNewCode() {
 
     if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-redo mr-2"></i>Neuer Code';
+        btn.innerHTML = '<i class="fas fa-redo mr-1"></i>Neuer Code';
     }
 }
 
-// Copy login code to clipboard
+// Copy login code
 async function copyLoginCode() {
     const code = document.getElementById('child-login-code')?.textContent;
     if (!code || code === '------' || code === 'Fehler') return;
@@ -428,7 +438,7 @@ async function copyLoginCode() {
         const btn = document.getElementById('copy-login-code');
         if (btn) {
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
+            btn.innerHTML = '<i class="fas fa-check mr-1"></i>Kopiert!';
             btn.classList.add('bg-green-600');
 
             setTimeout(() => {
@@ -450,62 +460,44 @@ function goToStep(step) {
 
     // Show current step
     document.getElementById(`step-${step}`)?.classList.remove('hidden');
-
-    // Update indicators
-    for (let i = 1; i <= 3; i++) {
-        const indicator = document.getElementById(`step-${i}-indicator`);
-        if (!indicator) continue;
-
-        indicator.classList.remove('active', 'completed', 'bg-gray-200', 'text-gray-500');
-
-        if (i < step) {
-            indicator.classList.add('completed');
-            indicator.innerHTML = '<i class="fas fa-check"></i>';
-        } else if (i === step) {
-            indicator.classList.add('active');
-            indicator.textContent = i;
-        } else {
-            indicator.classList.add('bg-gray-200', 'text-gray-500');
-            indicator.textContent = i;
-        }
-    }
-
-    // Show info box on step 3
-    if (step === 3) {
-        kidsInfoBox?.classList.remove('hidden');
-    } else {
-        kidsInfoBox?.classList.add('hidden');
-    }
 }
 
 // Reset form to add another child
 function resetForm() {
-    childData = {
-        firstName: '',
-        lastName: '',
-        birthdate: null,
-        gender: null,
-        clubId: null,
-        sportId: null
-    };
+    validatedChild = null;
     createdChildId = null;
+    childName = '';
+
+    // Reset code input
+    resetCodeInput();
 
     // Reset form fields
-    document.getElementById('child-first-name').value = '';
-    document.getElementById('child-last-name').value = '';
-    document.getElementById('child-birthdate-day').value = '';
-    document.getElementById('child-birthdate-month').value = '';
-    document.getElementById('child-birthdate-year').value = '';
-    document.getElementById('child-gender').value = '';
-    document.getElementById('club-code').value = '';
+    const firstName = document.getElementById('child-first-name');
+    const lastName = document.getElementById('child-last-name');
+    const day = document.getElementById('child-birthdate-day');
+    const month = document.getElementById('child-birthdate-month');
+    const year = document.getElementById('child-birthdate-year');
+    const gender = document.getElementById('child-gender');
+
+    if (firstName) firstName.value = '';
+    if (lastName) lastName.value = '';
+    if (day) day.value = '';
+    if (month) month.value = '';
+    if (year) year.value = '';
+    if (gender) gender.value = '';
+
     document.getElementById('child-age-display')?.classList.add('hidden');
     document.getElementById('age-error')?.classList.add('hidden');
 
-    // Reset club option
-    document.querySelector('input[name="club-option"][value="none"]').checked = true;
-    document.getElementById('code-input-container')?.classList.add('hidden');
+    goToStep('code-question');
+}
 
-    goToStep(1);
+// Helper: Show message
+function showMessage(el, message, colorClass) {
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-gray-500');
+    el.classList.add(colorClass);
 }
 
 // Initialize on page load
