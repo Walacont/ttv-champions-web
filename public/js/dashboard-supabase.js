@@ -348,24 +348,31 @@ function applyKidsModeUI() {
         }
     }
 
-    // Show child logout button for ALL child sessions (kids and teens)
-    // They don't have a Supabase auth session, so they can't use the normal settings/logout
-    console.log('[DASHBOARD-SUPABASE] Checking child logout button, isChildMode:', isChildMode);
-    if (isChildMode) {
+    // Show logout button for ALL minors (kids and teens)
+    // Makes logout more discoverable than going through settings
+    console.log('[DASHBOARD-SUPABASE] Checking logout button for minors, ageMode:', currentAgeMode, 'isChildMode:', isChildMode);
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
         const childLogoutBtn = document.getElementById('child-logout-btn');
-        console.log('[DASHBOARD-SUPABASE] Child logout button element:', childLogoutBtn);
+        console.log('[DASHBOARD-SUPABASE] Logout button element:', childLogoutBtn);
         if (childLogoutBtn) {
             childLogoutBtn.classList.remove('hidden');
             // Override the white color set by kids mode styling
-            childLogoutBtn.style.color = '#ef4444'; // Red for both kids and teen mode
-            console.log('[DASHBOARD-SUPABASE] Child logout button shown with color:', childLogoutBtn.style.color);
+            childLogoutBtn.style.color = '#ef4444'; // Red for visibility
+            console.log('[DASHBOARD-SUPABASE] Logout button shown with color:', childLogoutBtn.style.color);
 
             if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
                 childLogoutBtn.setAttribute('data-listener-attached', 'true');
-                childLogoutBtn.addEventListener('click', () => {
+                childLogoutBtn.addEventListener('click', async () => {
                     if (confirm('Möchtest du dich wirklich abmelden?')) {
-                        clearChildSession();
-                        window.location.href = '/child-login.html';
+                        if (isChildMode) {
+                            // Child session (logged in via code) - clear local session
+                            clearChildSession();
+                            window.location.href = '/child-login.html';
+                        } else {
+                            // Normal auth session - sign out from Supabase
+                            await supabase.auth.signOut();
+                            window.location.href = '/index.html';
+                        }
                     }
                 });
             }

@@ -238,7 +238,7 @@ async function initializeRegistration() {
 
         // Check if this code is linked to an offline player
         if (codeData.player_id) {
-            // Fetch the player's birthdate to check age (use maybeSingle to handle missing player)
+            // Fetch the player's data (use maybeSingle to handle missing player)
             const { data: playerData, error: playerError } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, birthdate')
@@ -247,30 +247,29 @@ async function initializeRegistration() {
 
             if (playerError) {
                 console.error('[REGISTER] Error fetching linked player:', playerError);
-            } else if (playerData && playerData.birthdate) {
-                const age = calculateAge(playerData.birthdate);
-                console.log('[REGISTER] Linked player age:', age, 'birthdate:', playerData.birthdate);
+            } else if (playerData) {
+                linkedPlayerId = playerData.id;
+                linkedPlayerBirthdate = playerData.birthdate || null;
 
-                if (age < 16) {
-                    // Player is under 16 - show role selection modal
-                    linkedPlayerId = playerData.id;
-                    linkedPlayerBirthdate = playerData.birthdate;
+                // ALWAYS show role selection modal for offline players
+                // This ensures proper age verification regardless of whether birthdate is in DB
+                const age = playerData.birthdate ? calculateAge(playerData.birthdate) : null;
+                console.log('[REGISTER] Linked player:', playerData.first_name, 'age:', age, 'birthdate:', playerData.birthdate);
 
-                    loader.classList.add('hidden');
-                    showRoleSelectionModal(age, playerData.first_name);
-                    return;
-                }
-            } else if (!playerData) {
+                loader.classList.add('hidden');
+                showRoleSelectionModal(age, playerData.first_name);
+                return;
+            } else {
                 console.warn('[REGISTER] Linked player not found (may have been deleted):', codeData.player_id);
             }
         }
 
-        // Normal flow - player is 16+ or no linked player
+        // Normal flow - no linked player (general club invitation code)
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         loader.classList.add('hidden');
-        // Hide birthdate fields and remove required (not needed for code registration)
-        hideBirthdateFields();
+        // Show birthdate fields for age verification
+        showBirthdateFields();
         registrationFormContainer.classList.remove('hidden');
 
     } catch (error) {
@@ -369,9 +368,13 @@ registrationForm?.addEventListener('submit', async e => {
         const month = document.getElementById('birthdate-month')?.value;
         const year = document.getElementById('birthdate-year')?.value;
 
-        if (day && month && year) {
-            birthdate = parseBirthdate(day, month, year);
+        // Birthdate is required when fields are visible
+        if (!day || !month || !year) {
+            errorMessage.textContent = 'Bitte gib dein vollständiges Geburtsdatum ein.';
+            return;
         }
+
+        birthdate = parseBirthdate(day, month, year);
 
         // Validate age for non-guardian registrations
         if (registrationType !== 'guardian' && birthdate) {
@@ -560,11 +563,18 @@ registrationForm?.addEventListener('submit', async e => {
 
                     // Migration RPC hat alles erledigt - manuelles Profil-Update nicht nötig
                     profileUpdates = {};
+                    // But if user entered birthdate (because offline player had none), save it
+                    if (birthdate) {
+                        profileUpdates.birthdate = birthdate;
+                    }
                 } else {
                     console.warn('[REGISTER] Unexpected migration result:', migrationResult);
                 }
             } else {
-                if (invitationCodeData.birthdate) {
+                // User-entered birthdate takes priority over invitation code birthdate
+                if (birthdate) {
+                    profileUpdates.birthdate = birthdate;
+                } else if (invitationCodeData.birthdate) {
                     profileUpdates.birthdate = invitationCodeData.birthdate;
                 }
                 if (invitationCodeData.gender) {
@@ -780,15 +790,20 @@ function displayError(message) {
 // Role Selection Modal Functions (for minor players)
 // =====================================================
 
-// Show role selection modal when invitation code is for a player under 16
+// Show role selection modal for offline player codes
 function showRoleSelectionModal(age, playerName) {
     const infoText = document.getElementById('role-selection-info');
     if (infoText) {
-        infoText.textContent = `Der Einladungscode ist für ${playerName} (${age} Jahre).`;
+        if (age !== null) {
+            infoText.textContent = `Der Einladungscode ist für ${playerName} (${age} Jahre).`;
+        } else {
+            infoText.textContent = `Der Einladungscode ist für ${playerName}.`;
+        }
     }
 
     // Show/hide age block based on whether player is under 14
-    if (age < 14) {
+    // If age is unknown, don't block (will be checked during registration)
+    if (age !== null && age < 14) {
         roleAgeBlock?.classList.remove('hidden');
         roleSelectPlayer?.classList.add('opacity-50', 'cursor-not-allowed');
     } else {
@@ -813,15 +828,20 @@ roleSelectPlayer?.addEventListener('click', () => {
             // Can't self-register under 14
             return;
         }
+        // Age is 14+ and known - no need to ask for birthdate again
+        hideRoleSelectionModal();
+        registrationType = 'code';
+        formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
+        hideBirthdateFields();
+        registrationFormContainer.classList.remove('hidden');
+    } else {
+        // Birthdate unknown - need to ask and validate
+        hideRoleSelectionModal();
+        registrationType = 'code';
+        formSubtitle.textContent = 'Bitte gib dein Geburtsdatum an, um fortzufahren.';
+        showBirthdateFields();
+        registrationFormContainer.classList.remove('hidden');
     }
-
-    // Hide modal, proceed with normal code registration
-    hideRoleSelectionModal();
-    registrationType = 'code';
-    formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
-    // Hide birthdate fields and remove required (not needed for code registration)
-    hideBirthdateFields();
-    registrationFormContainer.classList.remove('hidden');
 });
 
 // Role selection: Guardian selected
