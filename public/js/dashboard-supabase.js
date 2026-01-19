@@ -348,6 +348,22 @@ function applyKidsModeUI() {
         }
     }
 
+    // Show child logout button for ALL child sessions (kids and teens)
+    // They don't have a Supabase auth session, so they can't use the normal settings/logout
+    if (isChildMode) {
+        const childLogoutBtn = document.getElementById('child-logout-btn');
+        if (childLogoutBtn && !childLogoutBtn.hasAttribute('data-listener-attached')) {
+            childLogoutBtn.classList.remove('hidden');
+            childLogoutBtn.setAttribute('data-listener-attached', 'true');
+            childLogoutBtn.addEventListener('click', () => {
+                if (confirm('Möchtest du dich wirklich abmelden?')) {
+                    clearChildSession();
+                    window.location.href = '/child-login.html';
+                }
+            });
+        }
+    }
+
     console.log('[DASHBOARD-SUPABASE] Kids mode UI applied');
 }
 
