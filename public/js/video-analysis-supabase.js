@@ -2,6 +2,7 @@
 // Ermöglicht Coaches, Spieler-Videos zu analysieren und zeitbasierte Kommentare zu hinterlassen
 
 import { escapeHtml } from './utils/security.js';
+import { createNotification } from './notifications-supabase.js';
 
 let videoAnalysisContext = {
     db: null,
@@ -726,7 +727,7 @@ function subscribeToComments(videoId) {
  * Fügt einen Kommentar hinzu
  */
 export async function addVideoComment(content, includeTimestamp = true) {
-    const { db, userId, clubId } = videoAnalysisContext;
+    const { db, userId, clubId, userRole } = videoAnalysisContext;
     if (!currentVideoId || !content.trim()) return;
 
     let timestampSeconds = null;
@@ -748,6 +749,54 @@ export async function addVideoComment(content, includeTimestamp = true) {
         return false;
     }
 
+    // Benachrichtigung an den Video-Eigentümer senden (wenn Coach kommentiert)
+    const isCoach = userRole === 'coach' || userRole === 'head_coach' || userRole === 'admin';
+    if (isCoach) {
+        try {
+            // Video-Eigentümer und Coach-Namen ermitteln
+            const { data: video } = await db
+                .from('video_analyses')
+                .select('uploaded_by, title')
+                .eq('id', currentVideoId)
+                .single();
+
+            // Nur benachrichtigen, wenn der Coach nicht der Video-Eigentümer ist
+            if (video && video.uploaded_by && video.uploaded_by !== userId) {
+                const { data: coachProfile } = await db
+                    .from('profiles')
+                    .select('first_name, last_name')
+                    .eq('id', userId)
+                    .single();
+
+                const coachName = coachProfile
+                    ? `${coachProfile.first_name || ''} ${coachProfile.last_name || ''}`.trim() || 'Dein Coach'
+                    : 'Dein Coach';
+
+                const videoTitle = video.title || 'dein Video';
+                const timestampText = timestampSeconds !== null
+                    ? ` bei ${formatTimestamp(timestampSeconds)}`
+                    : '';
+
+                await createNotification(
+                    video.uploaded_by,
+                    'video_feedback',
+                    'Neues Feedback zu deinem Video',
+                    `${coachName} hat${timestampText} kommentiert: "${content.trim().substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                    {
+                        video_id: currentVideoId,
+                        video_title: videoTitle,
+                        coach_id: userId,
+                        coach_name: coachName,
+                        timestamp_seconds: timestampSeconds,
+                    }
+                );
+            }
+        } catch (notifError) {
+            // Benachrichtigungsfehler sollte das Kommentar-Speichern nicht blockieren
+            console.warn('Fehler beim Senden der Benachrichtigung:', notifError);
+        }
+    }
+
     return true;
 }
 
@@ -755,7 +804,7 @@ export async function addVideoComment(content, includeTimestamp = true) {
  * Markiert alle Zuweisungen eines Videos als reviewed
  */
 export async function markVideoAsReviewed(videoId) {
-    const { db } = videoAnalysisContext;
+    const { db, userId } = videoAnalysisContext;
 
     const { error } = await db
         .from('video_assignments')
@@ -765,6 +814,45 @@ export async function markVideoAsReviewed(videoId) {
     if (error) {
         console.error('Fehler beim Markieren:', error);
         return false;
+    }
+
+    // Benachrichtigung an den Video-Eigentümer senden
+    try {
+        const { data: video } = await db
+            .from('video_analyses')
+            .select('uploaded_by, title')
+            .eq('id', videoId)
+            .single();
+
+        if (video && video.uploaded_by && video.uploaded_by !== userId) {
+            const { data: coachProfile } = await db
+                .from('profiles')
+                .select('first_name, last_name')
+                .eq('id', userId)
+                .single();
+
+            const coachName = coachProfile
+                ? `${coachProfile.first_name || ''} ${coachProfile.last_name || ''}`.trim() || 'Dein Coach'
+                : 'Dein Coach';
+
+            const videoTitle = video.title || 'Dein Video';
+
+            await createNotification(
+                video.uploaded_by,
+                'video_feedback',
+                'Videoanalyse abgeschlossen!',
+                `${coachName} hat die Analyse zu "${videoTitle}" abgeschlossen. Schau dir das Feedback an!`,
+                {
+                    video_id: videoId,
+                    video_title: videoTitle,
+                    coach_id: userId,
+                    coach_name: coachName,
+                    analysis_completed: true,
+                }
+            );
+        }
+    } catch (notifError) {
+        console.warn('Fehler beim Senden der Benachrichtigung:', notifError);
     }
 
     return true;

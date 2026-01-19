@@ -1083,6 +1083,39 @@ function handleNotificationClick(notification) {
         }
         return;
     }
+
+    // Video-Feedback: Zum "Meine Videos"-Tab navigieren
+    if (type === 'video_feedback') {
+        const videoId = notification.data?.video_id;
+
+        // Wenn auf dem Dashboard, zum Videos-Tab wechseln
+        if (window.location.pathname.includes('dashboard')) {
+            const exercisesTab = document.querySelector('[data-tab="exercises"]');
+            if (exercisesTab) {
+                exercisesTab.click();
+                setTimeout(() => {
+                    // Zum "Meine Videos" Sub-Tab wechseln
+                    const myVideosSubTab = document.querySelector('[data-subtab="my-videos"]');
+                    if (myVideosSubTab) {
+                        myVideosSubTab.click();
+                        // Video-Detail-Modal öffnen falls videoId vorhanden
+                        if (videoId && typeof window.playerVideos?.showVideoDetail === 'function') {
+                            setTimeout(() => {
+                                window.playerVideos.showVideoDetail(videoId);
+                            }, 300);
+                        }
+                    }
+                }, 100);
+                return;
+            }
+        }
+
+        // Sonst zum Dashboard navigieren
+        window.location.href = videoId
+            ? `/dashboard.html#my-videos?video=${videoId}`
+            : '/dashboard.html#my-videos';
+        return;
+    }
 }
 
 /**
@@ -1112,6 +1145,7 @@ function getNotificationIcon(type) {
         'club_leave_approved': '<i class="fas fa-door-open text-green-500 text-lg"></i>',
         'club_leave_rejected': '<i class="fas fa-door-open text-red-500 text-lg"></i>',
         'club_kicked': '<i class="fas fa-user-slash text-red-500 text-lg"></i>',
+        'video_feedback': '<i class="fas fa-video text-purple-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;

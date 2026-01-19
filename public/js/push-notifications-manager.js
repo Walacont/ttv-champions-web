@@ -236,7 +236,8 @@ function getDefaultPreferences() {
         club_requests: true,
         ranking_changes: true,
         training_reminders: true,
-        points_awarded: false
+        points_awarded: false,
+        video_feedback: true
     };
 }
 
