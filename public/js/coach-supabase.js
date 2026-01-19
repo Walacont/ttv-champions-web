@@ -1295,6 +1295,11 @@ window.openSeasonModalCoach = async function() {
                                 <span class="font-medium">Verbleibend:</span>
                                 <span id="modal-season-countdown-coach" class="font-bold text-yellow-700"></span>
                             </div>
+                            <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p class="text-xs text-blue-700">
+                                    <span class="font-semibold">Hinweis:</span> Auch nach Ablauf des Countdowns können weiterhin Punkte eingetragen werden. Die Saison ist erst beendet, wenn der Head-Coach sie manuell beendet.
+                                </p>
+                            </div>
                         </div>
 
                         ${isHeadCoach ? `
