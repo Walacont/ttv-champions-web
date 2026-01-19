@@ -460,6 +460,7 @@ async function initializeDashboard() {
     setupLogout();
     setupProfileLink();
     setupCoachIndicator();
+    setupGuardianIndicator();
     setupSearchButton();
     setupModalHandlers();
 
@@ -793,6 +794,17 @@ function setupCoachIndicator() {
     // Indikator anzeigen wenn Benutzer Trainer ist
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
     if (isCoach) {
+        indicator.classList.remove('hidden');
+    }
+}
+
+// --- Setup Guardian Indicator ---
+function setupGuardianIndicator() {
+    const indicator = document.getElementById('guardian-indicator');
+    if (!indicator || !currentUserData) return;
+
+    // Indikator anzeigen wenn Benutzer ein Elternteil ist
+    if (currentUserData.account_type === 'guardian') {
         indicator.classList.remove('hidden');
     }
 }

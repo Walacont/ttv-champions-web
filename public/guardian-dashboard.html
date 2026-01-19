@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <script src="/js/capacitor-init.js"></script>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#7c3aed" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+
+        <title>Eltern-Dashboard - SC Champions</title>
+        <meta name="robots" content="noindex, nofollow" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            .child-card {
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+            .child-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <!-- Loading State -->
+        <div id="page-loader" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+            <div class="text-center">
+                <svg
+                    class="animate-spin h-10 w-10 text-purple-600 mx-auto"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                    ></circle>
+                    <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                </svg>
+                <p class="mt-4 text-gray-600">Lade...</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                <div class="container mx-auto px-4 py-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <a href="/dashboard.html" class="text-white/80 hover:text-white">
+                                <i class="fas fa-arrow-left text-xl"></i>
+                            </a>
+                            <div>
+                                <h1 class="text-2xl font-bold">Eltern-Dashboard</h1>
+                                <p class="text-purple-100 text-sm">Verwalte die Accounts deiner Kinder</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <a href="/settings.html" class="text-white/80 hover:text-white p-2">
+                                <i class="fas fa-cog text-xl"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="container mx-auto px-4 py-6 max-w-4xl">
+                <!-- Quick Actions -->
+                <div class="flex gap-3 mb-6">
+                    <a
+                        href="/guardian-onboarding.html"
+                        class="flex-1 bg-purple-600 text-white font-semibold py-3 px-4 rounded-xl hover:bg-purple-700 transition shadow-md flex items-center justify-center gap-2"
+                    >
+                        <i class="fas fa-plus"></i>
+                        <span>Kind hinzufügen</span>
+                    </a>
+                </div>
+
+                <!-- Children List -->
+                <div class="mb-6">
+                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-users text-purple-600"></i>
+                        Deine Kinder
+                    </h2>
+
+                    <div id="children-list" class="space-y-4">
+                        <!-- Loading state -->
+                        <div class="bg-white rounded-xl p-8 text-center text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Lade Kinder...</p>
+                        </div>
+                    </div>
+
+                    <!-- Empty State (hidden by default) -->
+                    <div id="no-children-message" class="hidden bg-white rounded-xl p-8 text-center">
+                        <div class="text-5xl mb-4">👨‍👩‍👧</div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Noch keine Kinder verknüpft</h3>
+                        <p class="text-gray-600 mb-4">Füge jetzt dein erstes Kind hinzu, um loszulegen!</p>
+                        <a
+                            href="/guardian-onboarding.html"
+                            class="inline-flex items-center gap-2 bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition"
+                        >
+                            <i class="fas fa-plus"></i>
+                            Kind hinzufügen
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Info Section -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <h3 class="font-semibold text-blue-800 flex items-center gap-2 mb-2">
+                        <i class="fas fa-info-circle"></i>
+                        Über das Eltern-Dashboard
+                    </h3>
+                    <ul class="text-sm text-blue-700 space-y-1">
+                        <li>• Hier siehst du alle deine verknüpften Kinder auf einen Blick</li>
+                        <li>• Generiere Login-Codes, damit sich deine Kinder auf ihren Geräten einloggen können</li>
+                        <li>• Behalte den Fortschritt und die Aktivitäten deiner Kinder im Auge</li>
+                        <li>• Kinder unter 14 Jahren haben eine vereinfachte Oberfläche ohne Social-Features</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Code Modal -->
+        <div id="login-code-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Login-Code</h3>
+                    <button id="close-code-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <p class="text-gray-600 mb-4">
+                    Gib diesen Code an <strong id="modal-child-name"></strong>, damit er/sie sich einloggen kann:
+                </p>
+
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-4 text-center">
+                    <span id="modal-login-code" class="text-4xl font-mono font-bold text-purple-600 tracking-wider">------</span>
+                </div>
+
+                <p class="text-sm text-gray-500 mb-4 text-center">
+                    <i class="fas fa-clock mr-1"></i>
+                    Gültig für 15 Minuten
+                </p>
+
+                <div class="flex gap-3">
+                    <button
+                        id="copy-modal-code"
+                        class="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition font-medium"
+                    >
+                        <i class="fas fa-copy mr-2"></i>Kopieren
+                    </button>
+                    <button
+                        id="regenerate-modal-code"
+                        class="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition font-medium"
+                    >
+                        <i class="fas fa-redo mr-2"></i>Neu generieren
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="/js/guardian-dashboard-supabase.js"></script>
+    </body>
+</html>

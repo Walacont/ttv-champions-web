@@ -6,11 +6,16 @@ import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
 import { getRankProgress, RANKS } from './ranks.js';
 import { escapeHtml } from './utils/security.js';
+import { getChildSession } from './child-login-supabase.js';
+import { getAgeAppropriateRank, KID_FRIENDLY_RANKS } from './age-utils.js';
 
 let currentUser = null;
 let profileUser = null;
 let profileId = null;
 let isOwnProfile = false;
+let isChildMode = false;
+let childSession = null;
+let currentAgeMode = null;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
@@ -21,6 +26,21 @@ async function initProfileView() {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         profileId = urlParams.get('id');
+
+        // Check for child session first
+        childSession = getChildSession();
+        if (childSession) {
+            isChildMode = true;
+            currentAgeMode = childSession.ageMode || 'kids';
+            currentUser = {
+                id: childSession.childId,
+                isChild: true
+            };
+            // If no profile ID specified, show own (child's) profile
+            if (!profileId) {
+                profileId = childSession.childId;
+            }
+        }
 
         if (!profileId) {
             showError('Kein Profil angegeben');
@@ -34,10 +54,20 @@ async function initProfileView() {
             return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        currentUser = session?.user || null;
+        // For non-child users, get normal session
+        if (!isChildMode) {
+            const { data: { session } } = await supabase.auth.getSession();
+            currentUser = session?.user || null;
+        }
 
         isOwnProfile = currentUser && currentUser.id === profileId;
+
+        // Kids mode: can only view own profile
+        if (isChildMode && currentAgeMode === 'kids' && !isOwnProfile) {
+            console.log('[ProfileView] Kids mode: blocking access to other profiles');
+            showError('Du kannst nur dein eigenes Profil sehen');
+            return;
+        }
 
         await loadProfile();
 
@@ -177,9 +207,75 @@ async function loadProfile() {
         await loadFollowerStats();
         renderFollowButton();
 
+        // Apply kids mode UI adjustments
+        if (isChildMode) {
+            applyKidsModeProfileUI();
+        }
+
     } catch (error) {
         console.error('[ProfileView] Error loading profile:', error);
         showError('Fehler beim Laden des Profils');
+    }
+}
+
+/**
+ * Apply kids mode UI adjustments to profile page
+ * Hides social features and simplifies the interface
+ */
+function applyKidsModeProfileUI() {
+    console.log('[ProfileView] Applying kids mode UI');
+
+    if (currentAgeMode === 'kids') {
+        // Hide follow button and follower stats
+        const followButtonContainer = document.getElementById('follow-button-container');
+        if (followButtonContainer) {
+            followButtonContainer.style.display = 'none';
+        }
+
+        // Hide follower/following counts
+        const followingLink = document.getElementById('following-link');
+        const followersLink = document.getElementById('followers-link');
+        if (followingLink) followingLink.style.display = 'none';
+        if (followersLink) followersLink.style.display = 'none';
+
+        // Hide mutual friends section
+        const mutualFriendsSection = document.getElementById('mutual-friends-section');
+        if (mutualFriendsSection) {
+            mutualFriendsSection.style.display = 'none';
+        }
+
+        // Hide menu button (no settings for kids)
+        const menuBtn = document.getElementById('profile-menu-btn');
+        if (menuBtn) {
+            menuBtn.style.display = 'none';
+        }
+
+        // Update header with kid-friendly style
+        const topNav = document.querySelector('.bg-white.border-b');
+        if (topNav) {
+            topNav.style.background = 'linear-gradient(to right, #7c3aed, #6366f1)';
+            topNav.querySelectorAll('button, a, h1, span').forEach(el => {
+                if (!el.closest('.bg-white')) {
+                    el.style.color = 'white';
+                }
+            });
+        }
+
+        // Add kid-friendly greeting if own profile
+        if (isOwnProfile && childSession) {
+            const profileName = document.getElementById('profile-name');
+            if (profileName) {
+                profileName.innerHTML = `${escapeHtml(childSession.firstName)} <span class="text-2xl">🎮</span>`;
+            }
+        }
+    }
+
+    // For both kids and teens: hide edit profile button
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+        const editProfileBtnContainer = document.getElementById('edit-profile-btn-container');
+        if (editProfileBtnContainer) {
+            editProfileBtnContainer.style.display = 'none';
+        }
     }
 }
 
