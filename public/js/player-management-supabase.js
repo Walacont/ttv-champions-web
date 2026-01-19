@@ -1003,6 +1003,59 @@ export async function showPlayerDetails(player, detailContent, supabase) {
     const { getRankProgress } = await import('./ranks.js');
     const grundlagenCount = player.grundlagenCompleted || 0;
     const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+
+    // Load guardian info if player has one
+    let guardianHtml = '';
+    if (supabase && player.id) {
+        try {
+            const { data: guardianLinks } = await supabase
+                .from('guardian_links')
+                .select(`
+                    guardian_id,
+                    is_primary,
+                    profiles!guardian_links_guardian_id_fkey (
+                        id,
+                        first_name,
+                        last_name,
+                        email
+                    )
+                `)
+                .eq('child_id', player.id);
+
+            if (guardianLinks && guardianLinks.length > 0) {
+                const guardians = guardianLinks
+                    .filter(link => link.profiles)
+                    .map(link => ({
+                        name: `${link.profiles.first_name || ''} ${link.profiles.last_name || ''}`.trim() || 'Unbekannt',
+                        email: link.profiles.email || 'Keine E-Mail',
+                        isPrimary: link.is_primary
+                    }));
+
+                if (guardians.length > 0) {
+                    guardianHtml = `
+                        <div class="mt-4 pt-4 border-t">
+                            <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                                <i class="fas fa-user-shield text-purple-500 mr-1"></i>
+                                Vormund${guardians.length > 1 ? 'e' : ''}
+                            </h5>
+                            <div class="space-y-2">
+                                ${guardians.map(g => `
+                                    <div class="bg-purple-50 p-3 rounded-lg">
+                                        <p class="font-medium text-gray-900">${g.name}${g.isPrimary ? ' <span class="text-xs text-purple-600">(Hauptvormund)</span>' : ''}</p>
+                                        <a href="mailto:${g.email}" class="text-sm text-blue-600 hover:underline">
+                                            <i class="fas fa-envelope mr-1"></i>${g.email}
+                                        </a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading guardian info:', error);
+        }
+    }
     const {
         currentRank,
         nextRank,
@@ -1133,6 +1186,8 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 `
                         : '<p class="text-sm text-green-600 font-semibold text-center">🏆 Höchster Rang erreicht!</p>'
                 }
+
+                ${guardianHtml}
             </div>
         `;
 }
