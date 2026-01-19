@@ -38,13 +38,25 @@ async function initialize(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
 
-        // Direct query to guardian_links
+        // Direct query to guardian_links using .then() to avoid potential async issues
         console.log('[GUARDIAN-DASHBOARD] Querying guardian_links...');
-        const { data: links, error: linksError } = await supabase
-            .from('guardian_links')
-            .select('child_id')
-            .eq('guardian_id', user.id);
 
+        const linksResult = await new Promise((resolve) => {
+            supabase
+                .from('guardian_links')
+                .select('child_id')
+                .eq('guardian_id', user.id)
+                .then(result => {
+                    console.log('[GUARDIAN-DASHBOARD] Query .then() resolved:', result);
+                    resolve(result);
+                })
+                .catch(err => {
+                    console.error('[GUARDIAN-DASHBOARD] Query .catch() error:', err);
+                    resolve({ data: null, error: err });
+                });
+        });
+
+        const { data: links, error: linksError } = linksResult;
         console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
 
         if (linksError) {
