@@ -1125,22 +1125,22 @@ function showPlayerVideoDetailModal(video, comments) {
         : '<p class="text-gray-500 text-center py-4">Noch keine Kommentare vom Coach</p>';
 
     modal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
-            <div class="border-b px-6 py-4 flex justify-between items-center">
-                <h3 class="text-lg font-bold">${escapeHtml(video.title || 'Video-Feedback')}</h3>
-                <div class="flex items-center gap-3">
-                    <button id="delete-player-video" class="text-red-500 hover:text-red-700 transition-colors" title="Video löschen">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-2">
+            <div class="border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center flex-shrink-0 sticky top-0 bg-white z-10">
+                <h3 class="text-base sm:text-lg font-bold truncate mr-2">${escapeHtml(video.title || 'Video-Feedback')}</h3>
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <button id="delete-player-video" class="text-red-500 hover:text-red-700 active:text-red-800 transition-colors p-2" title="Video löschen">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <button id="close-player-video-detail" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
+                    <button id="close-player-video-detail" class="text-gray-500 hover:text-gray-700 active:text-gray-900 p-2 -mr-2">
+                        <i class="fas fa-times text-xl sm:text-2xl"></i>
                     </button>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
                     <div>
-                        <video id="player-detail-video" class="w-full rounded-lg bg-black" controls>
+                        <video id="player-detail-video" class="w-full rounded-lg bg-black" controls playsinline>
                             <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                         </video>
                         ${video.exercise ? `
