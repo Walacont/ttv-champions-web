@@ -88,16 +88,31 @@
             </p>
 
             <div class="mt-6 space-y-3">
+                <!-- Option 1: Register as Player (16+) -->
                 <button
                     id="register-without-code-btn"
                     class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center"
                     data-i18n="[prepend]register.withoutCode"
                 >
                     <i class="fas fa-user-plus mr-2"></i>
-                    Ohne Code registrieren
+                    Als Spieler registrieren (16+)
                 </button>
 
                 <div class="text-center text-gray-500 text-sm">oder</div>
+
+                <!-- Option 2: Register as Parent/Guardian -->
+                <button
+                    id="register-as-guardian-btn"
+                    class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-md flex items-center justify-center"
+                >
+                    <i class="fas fa-user-shield mr-2"></i>
+                    Als Elternteil registrieren
+                </button>
+                <p class="text-xs text-gray-500 text-center">
+                    Für Kinder unter 16 Jahren - Eltern verwalten den Account
+                </p>
+
+                <div class="text-center text-gray-500 text-sm mt-4">oder</div>
 
                 <div class="border-2 border-gray-300 rounded-lg p-4">
                     <p class="text-gray-700 text-sm text-center mb-2">
@@ -188,6 +203,58 @@
                             id="last-name"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                         />
+                    </div>
+                </div>
+
+                <!-- Birthdate Fields (for age verification) -->
+                <div id="birthdate-fields" class="space-y-2 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Geburtsdatum <span class="text-red-500">*</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select
+                            id="birthdate-day"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            required
+                        >
+                            <option value="">Tag</option>
+                        </select>
+                        <select
+                            id="birthdate-month"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            required
+                        >
+                            <option value="">Monat</option>
+                        </select>
+                        <select
+                            id="birthdate-year"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            required
+                        >
+                            <option value="">Jahr</option>
+                        </select>
+                    </div>
+                    <p class="text-xs text-gray-500">
+                        Wird benötigt, um altersgerechte Funktionen freizuschalten.
+                    </p>
+                </div>
+
+                <!-- Age Block Message (shown when under 16 without code) -->
+                <div id="age-block-message" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5 mr-3"></i>
+                        <div>
+                            <h4 id="age-block-title" class="font-semibold text-yellow-800">Altersbeschränkung</h4>
+                            <p id="age-block-text" class="text-sm text-yellow-700 mt-1"></p>
+                            <button
+                                type="button"
+                                id="switch-to-guardian-btn"
+                                class="mt-3 text-sm font-semibold text-purple-600 hover:text-purple-800 flex items-center"
+                            >
+                                <i class="fas fa-user-shield mr-2"></i>
+                                Stattdessen als Elternteil registrieren
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div>

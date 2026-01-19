@@ -1,6 +1,7 @@
 // Registrierungsseite (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
+import { calculateAge, validateRegistrationAge, parseBirthdate } from './age-utils.js';
 
 console.log('[REGISTER-SUPABASE] Script starting...');
 
@@ -16,7 +17,111 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null;
+let registrationType = null; // 'code', 'no-code', 'guardian'
+let isAgeBlocked = false;
+
+// Initialize birthdate dropdowns
+function initBirthdateDropdowns() {
+    const daySelect = document.getElementById('birthdate-day');
+    const monthSelect = document.getElementById('birthdate-month');
+    const yearSelect = document.getElementById('birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    // Days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Months (1-12)
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = monthNames[i - 1];
+        monthSelect.appendChild(option);
+    }
+
+    // Years (current year down to 1920)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= 1920; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
+
+    // Add change listeners for real-time age validation
+    [daySelect, monthSelect, yearSelect].forEach(select => {
+        select.addEventListener('change', validateAgeOnChange);
+    });
+}
+
+// Validate age when birthdate changes
+function validateAgeOnChange() {
+    const day = document.getElementById('birthdate-day')?.value;
+    const month = document.getElementById('birthdate-month')?.value;
+    const year = document.getElementById('birthdate-year')?.value;
+
+    if (!day || !month || !year) {
+        hideAgeBlockMessage();
+        return;
+    }
+
+    const birthdate = parseBirthdate(day, month, year);
+    if (!birthdate) {
+        hideAgeBlockMessage();
+        return;
+    }
+
+    const hasCode = !!invitationCode;
+    const validation = validateRegistrationAge(birthdate, hasCode);
+
+    if (!validation.allowed) {
+        showAgeBlockMessage(validation.reason, validation.ageMode);
+        isAgeBlocked = true;
+    } else {
+        hideAgeBlockMessage();
+        isAgeBlocked = false;
+    }
+}
+
+function showAgeBlockMessage(message, ageMode) {
+    const container = document.getElementById('age-block-message');
+    const text = document.getElementById('age-block-text');
+    const submitBtn = document.getElementById('submit-button');
+
+    if (container && text) {
+        text.textContent = message;
+        container.classList.remove('hidden');
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function hideAgeBlockMessage() {
+    const container = document.getElementById('age-block-message');
+    const submitBtn = document.getElementById('submit-button');
+
+    if (container) {
+        container.classList.add('hidden');
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+// Initialize on page load
+initBirthdateDropdowns();
 
 async function initializeRegistration() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -91,6 +196,7 @@ if (registerWithoutCodeBtn) {
         loader.classList.add('hidden');
         registrationFormContainer.classList.remove('hidden');
 
+        // Show name fields
         const nameFields = document.getElementById('name-fields');
         if (nameFields) {
             nameFields.classList.remove('hidden');
@@ -98,7 +204,64 @@ if (registerWithoutCodeBtn) {
             document.getElementById('last-name').required = true;
         }
 
+        // Show birthdate fields (required for age verification)
+        const birthdateFields = document.getElementById('birthdate-fields');
+        if (birthdateFields) {
+            birthdateFields.classList.remove('hidden');
+        }
+
         formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
+    });
+}
+
+// Guardian registration button
+const registerAsGuardianBtn = document.getElementById('register-as-guardian-btn');
+if (registerAsGuardianBtn) {
+    registerAsGuardianBtn.addEventListener('click', () => {
+        registrationType = 'guardian';
+
+        tokenRequiredMessageContainer?.classList.add('hidden');
+        loader.classList.add('hidden');
+        registrationFormContainer.classList.remove('hidden');
+
+        // Show name fields
+        const nameFields = document.getElementById('name-fields');
+        if (nameFields) {
+            nameFields.classList.remove('hidden');
+            document.getElementById('first-name').required = true;
+            document.getElementById('last-name').required = true;
+        }
+
+        // Hide birthdate fields (guardians don't need age check)
+        const birthdateFields = document.getElementById('birthdate-fields');
+        if (birthdateFields) {
+            birthdateFields.classList.add('hidden');
+        }
+
+        // Hide age block message if visible
+        hideAgeBlockMessage();
+
+        formSubtitle.textContent = 'Erstelle deinen Eltern-Account, um dein Kind zu verwalten.';
+    });
+}
+
+// Switch to guardian button (from age block message)
+const switchToGuardianBtn = document.getElementById('switch-to-guardian-btn');
+if (switchToGuardianBtn) {
+    switchToGuardianBtn.addEventListener('click', () => {
+        // Reset and switch to guardian mode
+        registrationType = 'guardian';
+
+        // Hide birthdate fields
+        const birthdateFields = document.getElementById('birthdate-fields');
+        if (birthdateFields) {
+            birthdateFields.classList.add('hidden');
+        }
+
+        // Hide age block message
+        hideAgeBlockMessage();
+
+        formSubtitle.textContent = 'Erstelle deinen Eltern-Account, um dein Kind zu verwalten.';
     });
 }
 
@@ -113,6 +276,30 @@ registrationForm?.addEventListener('submit', async e => {
     const consentStudy = document.getElementById('consent-study')?.checked;
     const consentPrivacy = document.getElementById('consent-privacy')?.checked;
 
+    // Get birthdate if visible
+    let birthdate = null;
+    const birthdateFields = document.getElementById('birthdate-fields');
+    if (birthdateFields && !birthdateFields.classList.contains('hidden')) {
+        const day = document.getElementById('birthdate-day')?.value;
+        const month = document.getElementById('birthdate-month')?.value;
+        const year = document.getElementById('birthdate-year')?.value;
+
+        if (day && month && year) {
+            birthdate = parseBirthdate(day, month, year);
+        }
+
+        // Validate age for non-guardian registrations
+        if (registrationType !== 'guardian' && birthdate) {
+            const hasCode = !!invitationCode;
+            const validation = validateRegistrationAge(birthdate, hasCode);
+
+            if (!validation.allowed) {
+                errorMessage.textContent = validation.reason;
+                return;
+            }
+        }
+    }
+
     if (password !== passwordConfirm) {
         errorMessage.textContent = 'Die Passwörter stimmen nicht überein.';
         return;
@@ -120,6 +307,12 @@ registrationForm?.addEventListener('submit', async e => {
 
     if (!consentStudy || !consentPrivacy) {
         errorMessage.textContent = 'Du musst der Studie und der Datenschutzerklärung zustimmen.';
+        return;
+    }
+
+    // Block if age validation failed
+    if (isAgeBlocked) {
+        errorMessage.textContent = 'Bitte korrigiere dein Geburtsdatum oder registriere dich als Elternteil.';
         return;
     }
 
@@ -312,7 +505,31 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
             profileUpdates.grundlagen_completed = 5;
+            profileUpdates.account_type = 'standard';
+
+            // Add birthdate if provided
+            if (birthdate) {
+                profileUpdates.birthdate = birthdate;
+                // age_mode will be calculated by trigger
+            }
+
             console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
+        }
+
+        // Guardian-Registrierung
+        if (registrationType === 'guardian') {
+            const firstName = document.getElementById('first-name')?.value?.trim() || '';
+            const lastName = document.getElementById('last-name')?.value?.trim() || '';
+            profileUpdates.first_name = firstName;
+            profileUpdates.last_name = lastName;
+            profileUpdates.display_name = `${firstName} ${lastName}`.trim();
+            profileUpdates.account_type = 'guardian';
+            profileUpdates.role = 'player'; // Guardians are also players by default
+            profileUpdates.is_match_ready = true;
+            profileUpdates.elo_rating = 800;
+            profileUpdates.highest_elo = 800;
+
+            console.log('[REGISTER] Registering as guardian');
         }
 
         if (Object.keys(profileUpdates).length > 0) {
@@ -368,7 +585,13 @@ registrationForm?.addEventListener('submit', async e => {
 
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
-        window.location.href = '/onboarding.html';
+        // Redirect based on registration type
+        if (registrationType === 'guardian') {
+            // Guardians go to guardian onboarding to create child profile
+            window.location.href = '/guardian-onboarding.html';
+        } else {
+            window.location.href = '/onboarding.html';
+        }
 
     } catch (error) {
         console.error('[REGISTER-SUPABASE] Error:', error);
