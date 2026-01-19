@@ -159,7 +159,28 @@ BEGIN
 END $$;
 
 -- ============================================
--- PART 6: Verification
+-- PART 6: Guardian Links - Coach Access
+-- ============================================
+
+-- Add policy for coaches to read guardian_links for players in their club
+DROP POLICY IF EXISTS "Coaches can view guardian links for club players" ON guardian_links;
+
+CREATE POLICY "Coaches can view guardian links for club players" ON guardian_links FOR SELECT
+    USING (
+        -- Existing: Guardian can see their own links
+        guardian_id = auth.uid()
+        -- NEW: Coach/Head Coach/Admin can see guardian links for players in their club
+        OR EXISTS (
+            SELECT 1 FROM profiles AS coach
+            JOIN profiles AS child ON child.id = guardian_links.child_id
+            WHERE coach.id = auth.uid()
+            AND coach.role IN ('coach', 'head_coach', 'admin')
+            AND coach.club_id = child.club_id
+        )
+    );
+
+-- ============================================
+-- PART 7: Verification
 -- ============================================
 
 DO $$
@@ -173,5 +194,8 @@ BEGIN
     RAISE NOTICE '  - notifications of their children';
     RAISE NOTICE '  - matches involving their children';
     RAISE NOTICE '  - xp_history of their children (if table exists)';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Coaches can now view:';
+    RAISE NOTICE '  - guardian_links for players in their club';
     RAISE NOTICE '========================================';
 END $$;
