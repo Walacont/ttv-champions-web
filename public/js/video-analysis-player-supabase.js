@@ -368,9 +368,24 @@ export async function loadMyVideos() {
 
         if (assignError) throw assignError;
 
+        // Debug: Was kommt von der Assignments-Query zurück?
+        console.log('[MyVideos] Uploaded videos:', uploadedVideos?.length || 0);
+        console.log('[MyVideos] Assigned videos raw:', assignedVideos);
+
         // 3. Zugewiesene Videos normalisieren (video_analyses Struktur beibehalten)
         const normalizedAssigned = (assignedVideos || [])
-            .filter(a => a.video && a.video.uploaded_by !== userId) // Nur wenn nicht selbst hochgeladen
+            .filter(a => {
+                // Debug: Warum wird ein Video gefiltert?
+                if (!a.video) {
+                    console.log('[MyVideos] Assignment ohne Video (RLS?):', a);
+                    return false;
+                }
+                if (a.video.uploaded_by === userId) {
+                    console.log('[MyVideos] Skip: selbst hochgeladen:', a.video.id);
+                    return false;
+                }
+                return true;
+            })
             .map(a => ({
                 ...a.video,
                 assignments: [{ status: a.status, reviewed_at: a.reviewed_at, player_id: a.player_id }]
