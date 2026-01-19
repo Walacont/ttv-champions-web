@@ -26,22 +26,22 @@ const loginCodeModal = document.getElementById('login-code-modal');
 // Initialize
 async function initialize() {
     try {
-        // Check if user is logged in
-        const { data: { user }, error } = await supabase.auth.getUser();
+        // Wait for auth state to be ready
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (error || !user) {
-            console.log('[GUARDIAN-DASHBOARD] Not logged in, redirecting...');
+        if (!session?.user) {
+            console.log('[GUARDIAN-DASHBOARD] No session, redirecting...');
             window.location.href = '/index.html';
             return;
         }
 
-        currentUser = user;
+        currentUser = session.user;
 
         // Check if user is a guardian
         const { data: profile } = await supabase
             .from('profiles')
             .select('account_type, is_guardian, first_name')
-            .eq('id', user.id)
+            .eq('id', session.user.id)
             .single();
 
         if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
@@ -114,78 +114,29 @@ function renderChildren() {
 
     childrenList.innerHTML = children.map(child => {
         const age = child.age || calculateAge(child.birthdate);
-        const ageMode = child.age_mode || (age < 14 ? 'kids' : age < 16 ? 'teen' : 'full');
-        const ageModeLabel = ageMode === 'kids' ? 'Kinder-Modus' : ageMode === 'teen' ? 'Teen-Modus' : 'Standard';
-        const ageModeColor = ageMode === 'kids' ? 'purple' : ageMode === 'teen' ? 'blue' : 'green';
-
-        const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=7c3aed&color=fff`;
+        const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=6366f1&color=fff`;
 
         return `
-            <div class="child-card bg-white rounded-xl shadow-md overflow-hidden">
-                <div class="p-4">
-                    <div class="flex items-start gap-4">
-                        <!-- Avatar -->
-                        <img
-                            src="${escapeHtml(avatarUrl)}"
-                            alt="${escapeHtml(child.first_name)}"
-                            class="w-16 h-16 rounded-full object-cover border-2 border-purple-200"
-                        />
-
-                        <!-- Info -->
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                <h3 class="text-lg font-bold text-gray-900 truncate">
-                                    ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
-                                </h3>
-                                <span class="px-2 py-0.5 text-xs font-medium bg-${ageModeColor}-100 text-${ageModeColor}-700 rounded-full">
-                                    ${ageModeLabel}
-                                </span>
-                            </div>
-
-                            <p class="text-sm text-gray-600 mb-2">
-                                ${age} Jahre alt
-                                ${child.club_id ? '' : ' • <span class="text-yellow-600">Kein Verein</span>'}
-                            </p>
-
-                            <!-- Stats -->
-                            <div class="flex gap-4 text-sm">
-                                <div class="text-center">
-                                    <p class="font-bold text-purple-600">${child.xp || 0}</p>
-                                    <p class="text-gray-500 text-xs">XP</p>
-                                </div>
-                                <div class="text-center">
-                                    <p class="font-bold text-indigo-600">${child.elo_rating || 800}</p>
-                                    <p class="text-gray-500 text-xs">Elo</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex flex-col gap-2">
-                            <button
-                                onclick="generateLoginCode('${child.id}', '${escapeHtml(child.first_name)}')"
-                                class="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition text-sm font-medium flex items-center gap-1"
-                            >
-                                <i class="fas fa-key"></i>
-                                <span class="hidden sm:inline">Login-Code</span>
-                            </button>
-                            <a
-                                href="/profile.html?id=${child.id}"
-                                class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-medium flex items-center gap-1 justify-center"
-                            >
-                                <i class="fas fa-user"></i>
-                                <span class="hidden sm:inline">Profil</span>
-                            </a>
-                        </div>
+            <div class="bg-white rounded-lg p-4 border border-gray-200">
+                <div class="flex items-center gap-3">
+                    <img
+                        src="${escapeHtml(avatarUrl)}"
+                        alt="${escapeHtml(child.first_name)}"
+                        class="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-gray-900 truncate">
+                            ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
+                        </h3>
+                        <p class="text-sm text-gray-500">${age} Jahre</p>
                     </div>
-                </div>
-
-                <!-- Activity Preview (optional - can expand later) -->
-                <div class="bg-gray-50 px-4 py-3 border-t border-gray-100">
-                    <p class="text-xs text-gray-500">
-                        <i class="fas fa-clock mr-1"></i>
-                        Letzter Login: <span class="text-gray-700">Nicht verfügbar</span>
-                    </p>
+                    <button
+                        onclick="generateLoginCode('${child.id}', '${escapeHtml(child.first_name)}')"
+                        class="text-indigo-600 hover:text-indigo-800 p-2"
+                        title="Login-Code generieren"
+                    >
+                        <i class="fas fa-key"></i>
+                    </button>
                 </div>
             </div>
         `;

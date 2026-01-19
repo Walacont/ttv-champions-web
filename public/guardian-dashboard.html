@@ -11,7 +11,7 @@
 
         <!-- PWA Meta Tags -->
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#7c3aed" />
+        <meta name="theme-color" content="#1e3a5f" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="SC Champions" />
@@ -34,13 +34,6 @@
             body {
                 font-family: 'Inter', sans-serif;
             }
-            .child-card {
-                transition: transform 0.2s, box-shadow 0.2s;
-            }
-            .child-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-            }
         </style>
     </head>
     <body class="bg-gray-100 min-h-screen">
@@ -48,7 +41,7 @@
         <div id="page-loader" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
             <div class="text-center">
                 <svg
-                    class="animate-spin h-10 w-10 text-purple-600 mx-auto"
+                    class="animate-spin h-8 w-8 text-indigo-600 mx-auto"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -73,122 +66,78 @@
 
         <!-- Main Content -->
         <div id="main-content" class="hidden">
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                <div class="container mx-auto px-4 py-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <a href="/dashboard.html" class="text-white/80 hover:text-white">
-                                <i class="fas fa-arrow-left text-xl"></i>
-                            </a>
-                            <div>
-                                <h1 class="text-2xl font-bold">Vormund-Dashboard</h1>
-                                <p class="text-purple-100 text-sm">Verwalte die Accounts deiner Kinder</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <a href="/settings.html" class="text-white/80 hover:text-white p-2">
-                                <i class="fas fa-cog text-xl"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Content -->
-            <div class="container mx-auto px-4 py-6 max-w-4xl">
-                <!-- Quick Actions -->
-                <div class="flex gap-3 mb-6">
-                    <a
-                        href="/guardian-onboarding.html"
-                        class="flex-1 bg-purple-600 text-white font-semibold py-3 px-4 rounded-xl hover:bg-purple-700 transition shadow-md flex items-center justify-center gap-2"
-                    >
-                        <i class="fas fa-plus"></i>
-                        <span>Kind hinzufügen</span>
+            <!-- Simple Header like normal dashboard -->
+            <header style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
+                <div class="flex justify-between items-center h-12 px-4 max-w-4xl mx-auto">
+                    <a href="/dashboard.html" class="text-gray-600 hover:text-indigo-600 transition-colors p-1">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </a>
+                    <h1 class="text-base font-semibold text-gray-900">Meine Kinder</h1>
+                    <a href="/guardian-onboarding.html" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen">
+                        <i class="fas fa-plus text-lg"></i>
                     </a>
                 </div>
+            </header>
 
+            <!-- Content with top padding for fixed header -->
+            <div class="container mx-auto px-4 pt-16 pb-6 max-w-4xl">
                 <!-- Children List -->
-                <div class="mb-6">
-                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <i class="fas fa-users text-purple-600"></i>
-                        Deine Kinder
-                    </h2>
-
-                    <div id="children-list" class="space-y-4">
-                        <!-- Loading state -->
-                        <div class="bg-white rounded-xl p-8 text-center text-gray-500">
-                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                            <p>Lade Kinder...</p>
-                        </div>
-                    </div>
-
-                    <!-- Empty State (hidden by default) -->
-                    <div id="no-children-message" class="hidden bg-white rounded-xl p-8 text-center">
-                        <div class="text-5xl mb-4">👨‍👩‍👧</div>
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Noch keine Kinder verknüpft</h3>
-                        <p class="text-gray-600 mb-4">Füge jetzt dein erstes Kind hinzu, um loszulegen!</p>
-                        <a
-                            href="/guardian-onboarding.html"
-                            class="inline-flex items-center gap-2 bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition"
-                        >
-                            <i class="fas fa-plus"></i>
-                            Kind hinzufügen
-                        </a>
+                <div id="children-list" class="space-y-3">
+                    <!-- Loading state -->
+                    <div class="bg-white rounded-lg p-6 text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
+                        <p>Lade...</p>
                     </div>
                 </div>
 
-                <!-- Info Section -->
-                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <h3 class="font-semibold text-blue-800 flex items-center gap-2 mb-2">
-                        <i class="fas fa-info-circle"></i>
-                        Über das Vormund-Dashboard
-                    </h3>
-                    <ul class="text-sm text-blue-700 space-y-1">
-                        <li>• Hier siehst du alle deine verknüpften Kinder auf einen Blick</li>
-                        <li>• Generiere Login-Codes, damit sich deine Kinder auf ihren Geräten einloggen können</li>
-                        <li>• Behalte den Fortschritt und die Aktivitäten deiner Kinder im Auge</li>
-                        <li>• Kinder unter 14 Jahren haben eine vereinfachte Oberfläche ohne Social-Features</li>
-                    </ul>
+                <!-- Empty State (hidden by default) -->
+                <div id="no-children-message" class="hidden bg-white rounded-lg p-6 text-center">
+                    <p class="text-gray-600 mb-4">Noch keine Kinder verknüpft</p>
+                    <a
+                        href="/guardian-onboarding.html"
+                        class="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm"
+                    >
+                        <i class="fas fa-plus"></i>
+                        Kind hinzufügen
+                    </a>
                 </div>
             </div>
         </div>
 
         <!-- Login Code Modal -->
         <div id="login-code-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-bold text-gray-900">Login-Code</h3>
+            <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-semibold text-gray-900">Login-Code</h3>
                     <button id="close-code-modal" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
 
-                <p class="text-gray-600 mb-4">
-                    Gib diesen Code an <strong id="modal-child-name"></strong>, damit er/sie sich einloggen kann:
+                <p class="text-sm text-gray-600 mb-3">
+                    Code für <strong id="modal-child-name"></strong>:
                 </p>
 
-                <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-4 text-center">
-                    <span id="modal-login-code" class="text-4xl font-mono font-bold text-purple-600 tracking-wider">------</span>
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3 text-center">
+                    <span id="modal-login-code" class="text-3xl font-mono font-bold text-gray-900 tracking-wider">------</span>
                 </div>
 
-                <p class="text-sm text-gray-500 mb-4 text-center">
-                    <i class="fas fa-clock mr-1"></i>
+                <p class="text-xs text-gray-500 mb-4 text-center">
                     Gültig für 15 Minuten
                 </p>
 
-                <div class="flex gap-3">
+                <div class="flex gap-2">
                     <button
                         id="copy-modal-code"
-                        class="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition font-medium"
+                        class="flex-1 bg-indigo-600 text-white py-2 px-3 rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
                     >
-                        <i class="fas fa-copy mr-2"></i>Kopieren
+                        <i class="fas fa-copy mr-1"></i>Kopieren
                     </button>
                     <button
                         id="regenerate-modal-code"
-                        class="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition font-medium"
+                        class="flex-1 bg-gray-100 text-gray-700 py-2 px-3 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
                     >
-                        <i class="fas fa-redo mr-2"></i>Neu generieren
+                        <i class="fas fa-redo mr-1"></i>Neu
                     </button>
                 </div>
             </div>
