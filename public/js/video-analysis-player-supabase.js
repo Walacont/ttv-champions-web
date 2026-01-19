@@ -15,6 +15,7 @@ let playerVideoContext = {
     userId: null,
     clubId: null,
     currentExerciseId: null,
+    loadedVideos: new Map(), // Cache für geladene Videos (umgeht RLS-Probleme bei Detail-Ansicht)
 };
 
 /**
@@ -385,6 +386,10 @@ export async function loadMyVideos() {
         });
 
         console.warn('[MyVideos] Final filtered videos:', myVideos.length);
+
+        // Videos im Cache speichern für Detail-Ansicht (umgeht RLS-Probleme)
+        playerVideoContext.loadedVideos.clear();
+        myVideos.forEach(v => playerVideoContext.loadedVideos.set(v.id, v));
 
         // Badge mit Gesamtzahl aktualisieren
         if (countBadge && myVideos.length > 0) {
@@ -1145,24 +1150,30 @@ function createPlayerVideoCard(video) {
  * Öffnet die Detail-Ansicht eines Videos für den Spieler
  */
 async function openPlayerVideoDetail(videoId) {
-    const { db } = playerVideoContext;
+    const { db, loadedVideos } = playerVideoContext;
 
-    // Video-Daten laden
-    const { data: video, error } = await db
-        .from('video_analyses')
-        .select(`
-            *,
-            exercise:exercises(name)
-        `)
-        .eq('id', videoId)
-        .single();
+    // Zuerst im Cache suchen (umgeht RLS-Probleme bei zugewiesenen Videos)
+    let video = loadedVideos.get(videoId);
 
-    if (error || !video) {
-        showToast('Video nicht gefunden', 'error');
-        return;
+    // Falls nicht im Cache, versuche direkt zu laden (für eigene Videos)
+    if (!video) {
+        const { data, error } = await db
+            .from('video_analyses')
+            .select(`
+                *,
+                exercise:exercises(name)
+            `)
+            .eq('id', videoId)
+            .single();
+
+        if (error || !data) {
+            showToast('Video nicht gefunden', 'error');
+            return;
+        }
+        video = data;
     }
 
-    // Kommentare laden
+    // Kommentare laden (nutzt SECURITY DEFINER Funktion)
     const { data: comments } = await db.rpc('get_video_comments', {
         p_video_id: videoId,
     });
@@ -1239,15 +1250,15 @@ function showPlayerVideoDetailModal(video, comments) {
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
                         </div>
-                        ${video.exercise ? `
+                        ${(video.exercise_name || video.exercise?.name) ? `
                             <p class="mt-2 text-sm text-indigo-600 text-center lg:hidden">
-                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name || video.exercise?.name)}
                             </p>
                         ` : ''}
                         <div>
-                            ${video.exercise ? `
+                            ${(video.exercise_name || video.exercise?.name) ? `
                                 <p class="mb-3 text-sm text-indigo-600 hidden lg:block">
-                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name || video.exercise?.name)}
                                 </p>
                             ` : ''}
                             <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
