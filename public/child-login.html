@@ -11,7 +11,7 @@
 
         <!-- PWA Meta Tags -->
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#7c3aed" />
+        <meta name="theme-color" content="#1e3a5f" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="SC Champions" />
@@ -26,85 +26,64 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
             rel="stylesheet"
         />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <style>
             body {
                 font-family: 'Inter', sans-serif;
             }
             .code-input {
                 font-family: 'Courier New', monospace;
-                font-size: 2.5rem;
-                letter-spacing: 0.5rem;
+                font-size: 1.5rem;
+                letter-spacing: 0.4rem;
                 text-align: center;
                 text-transform: uppercase;
             }
-            .code-input:focus {
-                outline: none;
-                border-color: #7c3aed;
-                box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
-            }
-            .bounce {
-                animation: bounce 1s infinite;
-            }
-            @keyframes bounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-10px); }
-            }
-            .wiggle {
-                animation: wiggle 0.5s ease-in-out;
-            }
-            @keyframes wiggle {
-                0%, 100% { transform: rotate(0deg); }
-                25% { transform: rotate(-5deg); }
-                75% { transform: rotate(5deg); }
-            }
         </style>
     </head>
-    <body class="bg-gradient-to-b from-purple-500 to-indigo-600 min-h-screen flex flex-col items-center justify-center p-4">
-        <!-- Fun decorative elements -->
-        <div class="absolute top-10 left-10 text-6xl opacity-20 bounce" style="animation-delay: 0s;">🏓</div>
-        <div class="absolute top-20 right-10 text-5xl opacity-20 bounce" style="animation-delay: 0.2s;">⭐</div>
-        <div class="absolute bottom-20 left-20 text-5xl opacity-20 bounce" style="animation-delay: 0.4s;">🏆</div>
-        <div class="absolute bottom-10 right-20 text-6xl opacity-20 bounce" style="animation-delay: 0.6s;">🎮</div>
-
-        <!-- Main Card -->
+    <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
         <div class="w-full max-w-md">
-            <!-- Logo/Title Area -->
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-24 h-24 bg-white rounded-full shadow-lg mb-4">
-                    <span class="text-5xl">🏓</span>
-                </div>
-                <h1 class="text-3xl font-extrabold text-white drop-shadow-lg">SC Champions</h1>
-                <p class="text-purple-100 mt-2 text-lg">Kinder-Login</p>
+            <!-- Logo -->
+            <div class="text-center mb-6">
+                <a href="/" class="text-2xl font-bold text-indigo-600">
+                    <i class="fas fa-trophy mr-2"></i>
+                    SC Champions
+                </a>
             </div>
 
             <!-- Login Card -->
-            <div class="bg-white rounded-3xl shadow-2xl p-8">
+            <div class="bg-white rounded-xl shadow-lg p-8">
                 <div id="login-form-container">
-                    <h2 class="text-xl font-bold text-gray-800 text-center mb-2">
-                        Hallo! 👋
-                    </h2>
+                    <div class="text-center mb-6">
+                        <i class="fas fa-child text-4xl text-indigo-600"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900 text-center mb-2">
+                        Kinder-Login
+                    </h1>
                     <p class="text-gray-600 text-center mb-6">
                         Gib den Code ein, den dir deine Eltern gegeben haben:
                     </p>
 
                     <form id="child-login-form">
-                        <div class="mb-6">
+                        <div class="mb-4">
+                            <label for="login-code" class="block text-sm font-medium text-gray-700 mb-1">
+                                Login-Code
+                            </label>
                             <input
                                 type="text"
                                 id="login-code"
                                 maxlength="6"
                                 autocomplete="off"
                                 autocapitalize="characters"
-                                class="code-input w-full px-4 py-4 border-4 border-gray-200 rounded-2xl focus:border-purple-500 transition-colors"
+                                class="code-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="ABC123"
                             />
                         </div>
 
-                        <div id="error-message" class="hidden bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
-                            <p class="text-red-600 text-center font-medium">
+                        <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                            <p class="text-red-600 text-sm">
                                 <i class="fas fa-exclamation-circle mr-2"></i>
                                 <span id="error-text">Ungültiger Code</span>
                             </p>
@@ -113,38 +92,39 @@
                         <button
                             type="submit"
                             id="submit-btn"
-                            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 px-6 rounded-2xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg text-xl flex items-center justify-center"
+                            class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center"
                         >
-                            <span>Los geht's!</span>
-                            <i class="fas fa-arrow-right ml-3"></i>
+                            <span>Anmelden</span>
+                            <i class="fas fa-arrow-right ml-2"></i>
                         </button>
                     </form>
 
                     <div class="mt-6 pt-6 border-t border-gray-200">
                         <p class="text-gray-500 text-center text-sm">
-                            Keinen Code? Frag deine Eltern! 👨‍👩‍👧
+                            Keinen Code? Frag deine Eltern!
                         </p>
                     </div>
                 </div>
 
                 <!-- Success State -->
                 <div id="success-container" class="hidden text-center">
-                    <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-                        <i class="fas fa-check text-4xl text-green-600"></i>
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                        <i class="fas fa-check text-3xl text-green-600"></i>
                     </div>
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">
-                        Willkommen, <span id="child-name"></span>! 🎉
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">
+                        Willkommen, <span id="child-name"></span>!
                     </h2>
                     <p class="text-gray-600 mb-6">
                         Du wirst gleich weitergeleitet...
                     </p>
-                    <div class="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto"></div>
+                    <div class="animate-spin h-6 w-6 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
                 </div>
             </div>
 
-            <!-- Back to normal login -->
+            <!-- Back link -->
             <div class="mt-6 text-center">
-                <a href="/" class="text-white/80 hover:text-white text-sm underline">
+                <a href="/" class="text-indigo-600 hover:text-indigo-700 text-sm">
+                    <i class="fas fa-arrow-left mr-1"></i>
                     Zurück zur normalen Anmeldung
                 </a>
             </div>
