@@ -40,11 +40,11 @@ async function initialize() {
         // Check if user is a guardian
         const { data: profile } = await supabase
             .from('profiles')
-            .select('account_type, first_name')
+            .select('account_type, is_guardian, first_name')
             .eq('id', user.id)
             .single();
 
-        if (!profile || profile.account_type !== 'guardian') {
+        if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
             console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
             // Redirect to regular dashboard
             window.location.href = '/dashboard.html';
