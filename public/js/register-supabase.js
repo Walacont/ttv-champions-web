@@ -831,6 +831,10 @@ function displayError(message) {
 function showRoleSelectionModal(age, playerName) {
     const infoText = document.getElementById('role-selection-info');
 
+    // Make sure registration form is hidden when showing modal
+    registrationFormContainer?.classList.add('hidden');
+    tokenRequiredMessageContainer?.classList.add('hidden');
+
     // Under 16: Only guardian can register - hide player option completely
     if (age !== null && age < 16) {
         if (infoText) {
