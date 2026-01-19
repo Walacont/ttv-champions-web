@@ -414,8 +414,32 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 });
 
 // Also try to initialize immediately if session already exists
-supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session?.user && !initialized) {
-        initialize(session.user);
+async function checkSession() {
+    try {
+        console.log('[GUARDIAN-DASHBOARD] Checking session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+            console.error('[GUARDIAN-DASHBOARD] Session error:', error);
+            throw error;
+        }
+
+        if (session?.user && !initialized) {
+            console.log('[GUARDIAN-DASHBOARD] Session found, initializing...');
+            await initialize(session.user);
+        } else if (!session) {
+            console.log('[GUARDIAN-DASHBOARD] No session, redirecting to login...');
+            window.location.href = '/index.html';
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Check session error:', err);
+        pageLoader.innerHTML = `
+            <div class="text-center text-red-600">
+                <p>Fehler beim Laden der Sitzung.</p>
+                <a href="/index.html" class="text-indigo-600 underline mt-2 block">Zum Login</a>
+            </div>
+        `;
     }
-});
+}
+
+checkSession();
