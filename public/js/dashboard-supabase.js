@@ -2577,6 +2577,7 @@ async function loadCalendar() {
 let cachedSeasonEnd = null;
 let cachedSeasonName = null;
 let cachedUserSportId = null;
+let cachedUserClubId = null;
 let lastSeasonFetchTime = null;
 const SEASON_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
@@ -2587,16 +2588,24 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Aktive Sportart des Benutzers aus Profil abrufen (Single-Sport-Modell)
+        // Aktive Sportart und Club des Benutzers aus Profil abrufen
         let userSportId = cachedUserSportId;
+        let userClubId = cachedUserClubId;
+
         if (!userSportId && currentUserData?.active_sport_id) {
             userSportId = currentUserData.active_sport_id;
             cachedUserSportId = userSportId;
-        } else if (!userSportId && currentUser) {
-            // Fallback: Sport aus Profil abrufen
+        }
+        if (!userClubId && currentUserData?.club_id) {
+            userClubId = currentUserData.club_id;
+            cachedUserClubId = userClubId;
+        }
+
+        if ((!userSportId || !userClubId) && currentUser) {
+            // Fallback: Sport und Club aus Profil abrufen
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('active_sport_id')
+                .select('active_sport_id, club_id')
                 .eq('id', currentUser.id)
                 .single();
 
@@ -2604,17 +2613,26 @@ async function fetchSeasonEndDate() {
                 userSportId = profile.active_sport_id;
                 cachedUserSportId = userSportId;
             }
+            if (profile?.club_id) {
+                userClubId = profile.club_id;
+                cachedUserClubId = userClubId;
+            }
         }
 
-        // Aktive Saison für Benutzer-Sport abrufen
+        // Aktive Saison für Benutzer-Sport und -Club abrufen
         let query = supabase
             .from('seasons')
-            .select('id, name, start_date, end_date, sport_id')
+            .select('id, name, start_date, end_date, sport_id, club_id')
             .eq('is_active', true);
 
         // Nach Benutzer-Sport filtern falls verfügbar
         if (userSportId) {
             query = query.eq('sport_id', userSportId);
+        }
+
+        // Nach Benutzer-Club filtern - nur eigene Vereins-Saisons anzeigen
+        if (userClubId) {
+            query = query.eq('club_id', userClubId);
         }
 
         const { data: activeSeasons, error } = await query
@@ -2630,12 +2648,12 @@ async function fetchSeasonEndDate() {
             cachedSeasonName = activeSeason.name;
             lastSeasonFetchTime = Date.now();
 
-            console.log('📅 Season end date loaded from seasons table:', seasonEnd.toLocaleString('de-DE'), `(${activeSeason.name})`);
+            console.log('📅 Season end date loaded from seasons table:', seasonEnd.toLocaleString('de-DE'), `(${activeSeason.name})`, userClubId ? `Club: ${userClubId}` : '');
             return seasonEnd;
         }
 
         // Keine aktive Saison gefunden - null zurückgeben für Saisonpause
-        console.log('📅 No active season found for sport:', userSportId || 'all');
+        console.log('📅 No active season found for sport:', userSportId || 'all', 'club:', userClubId || 'all');
         cachedSeasonEnd = null;
         cachedSeasonName = null;
         lastSeasonFetchTime = Date.now();

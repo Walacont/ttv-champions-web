@@ -6,26 +6,33 @@ let lastFetchTime = null;
 const CACHE_DURATION = 5 * 60 * 1000;
 
 let cachedSportId = null;
+let cachedClubId = null;
 
 /** Lädt das Saison-Enddatum aus der seasons-Tabelle */
-async function fetchSeasonEndDate(supabase, sportId = null) {
+async function fetchSeasonEndDate(supabase, sportId = null, clubId = null) {
     try {
         const cacheValid = cachedSeasonEnd !== undefined &&
                           lastFetchTime &&
                           Date.now() - lastFetchTime < CACHE_DURATION &&
-                          cachedSportId === sportId;
+                          cachedSportId === sportId &&
+                          cachedClubId === clubId;
         if (cacheValid) {
             return cachedSeasonEnd;
         }
 
         let query = supabase
             .from('seasons')
-            .select('id, name, start_date, end_date, sport_id')
+            .select('id, name, start_date, end_date, sport_id, club_id')
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
         if (sportId) {
             query = query.eq('sport_id', sportId);
+        }
+
+        // Filter by club_id - nur Saisons des eigenen Vereins anzeigen
+        if (clubId) {
+            query = query.eq('club_id', clubId);
         }
 
         const { data: activeSeasons, error } = await query;
@@ -37,20 +44,23 @@ async function fetchSeasonEndDate(supabase, sportId = null) {
             cachedSeasonEnd = seasonEnd;
             cachedSeasonName = activeSeason.name;
             cachedSportId = sportId;
+            cachedClubId = clubId;
             lastFetchTime = Date.now();
 
             console.log(
                 '📅 Season end date loaded from seasons table:',
                 seasonEnd.toLocaleString('de-DE'),
-                `(${activeSeason.name})`
+                `(${activeSeason.name})`,
+                clubId ? `Club: ${clubId}` : ''
             );
             return seasonEnd;
         }
 
-        console.log('📅 No active season found for sport:', sportId || 'all');
+        console.log('📅 No active season found for sport:', sportId || 'all', 'club:', clubId || 'all');
         cachedSeasonEnd = null;
         cachedSeasonName = null;
         cachedSportId = sportId;
+        cachedClubId = clubId;
         lastFetchTime = Date.now();
 
         return null;
@@ -93,7 +103,8 @@ export async function updateSeasonCountdown(
     elementId = 'season-countdown',
     reloadOnEnd = false,
     supabase = null,
-    sportId = null
+    sportId = null,
+    clubId = null
 ) {
     const seasonCountdownEl = document.getElementById(elementId);
     if (!seasonCountdownEl) return;
@@ -104,7 +115,7 @@ export async function updateSeasonCountdown(
         return;
     }
 
-    const endOfSeason = await fetchSeasonEndDate(supabase, sportId);
+    const endOfSeason = await fetchSeasonEndDate(supabase, sportId, clubId);
 
     if (!endOfSeason) {
         seasonCountdownEl.textContent = 'Saisonpause';

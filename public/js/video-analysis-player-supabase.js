@@ -15,6 +15,7 @@ let playerVideoContext = {
     userId: null,
     clubId: null,
     currentExerciseId: null,
+    loadedVideos: new Map(), // Cache für geladene Videos (umgeht RLS-Probleme bei Detail-Ansicht)
 };
 
 /**
@@ -144,13 +145,6 @@ export function initPlayerVideoUpload(db, userData) {
     playerVideoContext.userId = userData.id;
     // Support both camelCase and snake_case, also check nested club object
     playerVideoContext.clubId = userData.clubId || userData.club_id || userData.club?.id;
-
-    console.log('[PlayerVideo] Init with userData:', {
-        userId: userData.id,
-        clubId: playerVideoContext.clubId,
-        club_id: userData.club_id,
-        club: userData.club
-    });
 
     // Button im Exercise-Modal
     setupExerciseVideoButton();
@@ -316,6 +310,7 @@ function setupMediathekUploadButton() {
 
 /**
  * Lädt und zeigt die Videos des Spielers in der Mediathek
+ * Nutzt die SECURITY DEFINER Funktion get_player_videos() die RLS umgeht
  */
 export async function loadMyVideos() {
     const { db, userId } = playerVideoContext;
@@ -335,36 +330,36 @@ export async function loadMyVideos() {
     `;
 
     try {
-        // Alle Videos des Spielers laden
-        const { data: allVideos, error } = await db
-            .from('video_analyses')
-            .select(`
-                *,
-                exercise:exercises(id, name),
-                assignments:video_assignments(status, reviewed_at)
-            `)
-            .eq('uploaded_by', userId)
-            .order('created_at', { ascending: false });
+        // SECURITY DEFINER Funktion nutzen - umgeht RLS Probleme
+        const { data: allVideos, error: rpcError } = await db
+            .rpc('get_player_videos', { p_player_id: userId });
 
-        if (error) throw error;
+        if (rpcError) throw rpcError;
+
+        // RPC gibt alle Videos zurück die dem Spieler gehören oder ihm zugewiesen sind
+        const myVideos = allVideos || [];
+
+        // Videos im Cache speichern für Detail-Ansicht (umgeht RLS-Probleme)
+        playerVideoContext.loadedVideos.clear();
+        myVideos.forEach(v => playerVideoContext.loadedVideos.set(v.id, v));
 
         // Badge mit Gesamtzahl aktualisieren
-        if (countBadge && allVideos?.length > 0) {
-            countBadge.textContent = allVideos.length;
+        if (countBadge && myVideos.length > 0) {
+            countBadge.textContent = myVideos.length;
             countBadge.classList.remove('hidden');
         } else if (countBadge) {
             countBadge.classList.add('hidden');
         }
 
         // Filter anwenden
-        let videos = allVideos || [];
+        let videos = myVideos;
 
-        // Status-Filter
+        // Status-Filter (RPC gibt status direkt zurück)
         if (statusFilter !== 'all') {
             videos = videos.filter(video => {
-                const assignment = video.assignments?.[0];
-                const isPrivate = !video.club_id;
-                const status = isPrivate ? 'private' : (assignment?.status || 'pending');
+                // RPC gibt 'pending' oder 'reviewed' zurück
+                // 'private' Status gibt es in der DB nicht direkt
+                const status = video.status || 'pending';
                 return status === statusFilter;
             });
         }
@@ -374,7 +369,7 @@ export async function loadMyVideos() {
             videos = videos.filter(video => video.exercise_id === exerciseFilter);
         }
 
-        if (!allVideos || allVideos.length === 0) {
+        if (myVideos.length === 0) {
             container.innerHTML = `
                 <div class="col-span-full text-center py-12">
                     <i class="fas fa-video text-5xl text-gray-300 mb-4 block"></i>
@@ -435,14 +430,13 @@ export async function loadMyVideos() {
 
 /**
  * Erstellt eine Video-Karte für die Mediathek
+ * Unterstützt sowohl RPC-Daten (exercise_name, status) als auch reguläre Query-Daten
  */
 function createMyVideoCard(video) {
-    const assignment = video.assignments?.[0];
-    const isPrivate = !video.club_id;
-    const status = isPrivate ? 'private' : (assignment?.status || 'pending');
+    // RPC gibt status direkt, reguläre Query über assignments
+    const status = video.status || video.assignments?.[0]?.status || 'pending';
 
     const statusConfig = {
-        private: { icon: 'fa-lock', text: 'Nur für mich', color: 'gray' },
         pending: { icon: 'fa-clock', text: 'Warte auf Feedback', color: 'yellow' },
         reviewed: { icon: 'fa-check-circle', text: 'Feedback erhalten', color: 'green' }
     };
@@ -452,6 +446,9 @@ function createMyVideoCard(video) {
     const thumbnailHtml = video.thumbnail_url
         ? `<img src="${escapeHtml(video.thumbnail_url)}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gray-200 flex items-center justify-center\\'><i class=\\'fas fa-video text-gray-400 text-2xl\\'></i></div>'">`
         : `<div class="w-full h-full bg-gray-200 flex items-center justify-center"><i class="fas fa-video text-gray-400 text-2xl"></i></div>`;
+
+    // RPC gibt exercise_name direkt, reguläre Query über exercise.name
+    const exerciseName = video.exercise_name || video.exercise?.name;
 
     return `
         <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 group relative"
@@ -473,9 +470,9 @@ function createMyVideoCard(video) {
             </div>
             <div class="p-4 cursor-pointer video-card-click">
                 <p class="font-medium text-sm mb-1 truncate">${escapeHtml(video.title || 'Ohne Titel')}</p>
-                ${video.exercise?.name ? `
+                ${exerciseName ? `
                     <p class="text-xs text-indigo-600 mb-2">
-                        <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                        <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}
                     </p>
                 ` : ''}
                 <p class="text-xs text-gray-500">${formatRelativeTime(video.created_at)}</p>
@@ -1105,24 +1102,30 @@ function createPlayerVideoCard(video) {
  * Öffnet die Detail-Ansicht eines Videos für den Spieler
  */
 async function openPlayerVideoDetail(videoId) {
-    const { db } = playerVideoContext;
+    const { db, loadedVideos } = playerVideoContext;
 
-    // Video-Daten laden
-    const { data: video, error } = await db
-        .from('video_analyses')
-        .select(`
-            *,
-            exercise:exercises(name)
-        `)
-        .eq('id', videoId)
-        .single();
+    // Zuerst im Cache suchen (umgeht RLS-Probleme bei zugewiesenen Videos)
+    let video = loadedVideos.get(videoId);
 
-    if (error || !video) {
-        showToast('Video nicht gefunden', 'error');
-        return;
+    // Falls nicht im Cache, versuche direkt zu laden (für eigene Videos)
+    if (!video) {
+        const { data, error } = await db
+            .from('video_analyses')
+            .select(`
+                *,
+                exercise:exercises(name)
+            `)
+            .eq('id', videoId)
+            .single();
+
+        if (error || !data) {
+            showToast('Video nicht gefunden', 'error');
+            return;
+        }
+        video = data;
     }
 
-    // Kommentare laden
+    // Kommentare laden (nutzt SECURITY DEFINER Funktion)
     const { data: comments } = await db.rpc('get_video_comments', {
         p_video_id: videoId,
     });
@@ -1199,15 +1202,15 @@ function showPlayerVideoDetailModal(video, comments) {
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
                         </div>
-                        ${video.exercise ? `
+                        ${(video.exercise_name || video.exercise?.name) ? `
                             <p class="mt-2 text-sm text-indigo-600 text-center lg:hidden">
-                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name || video.exercise?.name)}
                             </p>
                         ` : ''}
                         <div>
-                            ${video.exercise ? `
+                            ${(video.exercise_name || video.exercise?.name) ? `
                                 <p class="mb-3 text-sm text-indigo-600 hidden lg:block">
-                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name || video.exercise?.name)}
                                 </p>
                             ` : ''}
                             <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
