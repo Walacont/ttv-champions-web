@@ -146,13 +146,6 @@ export function initPlayerVideoUpload(db, userData) {
     // Support both camelCase and snake_case, also check nested club object
     playerVideoContext.clubId = userData.clubId || userData.club_id || userData.club?.id;
 
-    console.warn('[PlayerVideo] Init with userData:', {
-        userId: userData.id,
-        clubId: playerVideoContext.clubId,
-        club_id: userData.club_id,
-        club: userData.club
-    });
-
     // Button im Exercise-Modal
     setupExerciseVideoButton();
 
@@ -217,12 +210,9 @@ function setupExercisesSubTabs() {
     const catalogContent = document.getElementById('exercises-subtab-catalog');
     const videosContent = document.getElementById('exercises-subtab-my-videos');
 
-    console.warn('[PlayerVideo] setupExercisesSubTabs - found tabs:', subTabs.length);
-
     subTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const targetTab = tab.dataset.subtab;
-            console.warn('[PlayerVideo] Sub-tab clicked:', targetTab);
 
             // Tab-Styling aktualisieren
             subTabs.forEach(t => {
@@ -323,21 +313,11 @@ function setupMediathekUploadButton() {
  * Nutzt die SECURITY DEFINER Funktion get_player_videos() die RLS umgeht
  */
 export async function loadMyVideos() {
-    console.warn('[MyVideos] Function called, context:', {
-        hasDb: !!playerVideoContext.db,
-        userId: playerVideoContext.userId
-    });
-
     const { db, userId } = playerVideoContext;
     const container = document.getElementById('my-videos-list');
     const countBadge = document.getElementById('my-videos-count');
 
-    console.warn('[MyVideos] Container:', !!container, 'userId:', userId);
-
-    if (!container || !userId) {
-        console.warn('[MyVideos] Early return - missing container or userId');
-        return;
-    }
+    if (!container || !userId) return;
 
     // Filter-Werte auslesen
     const statusFilter = document.getElementById('my-videos-filter-status')?.value || 'all';
@@ -350,42 +330,14 @@ export async function loadMyVideos() {
     `;
 
     try {
-        console.warn('[MyVideos] Loading via get_player_videos RPC for userId:', userId);
-
         // SECURITY DEFINER Funktion nutzen - umgeht RLS Probleme
         const { data: allVideos, error: rpcError } = await db
             .rpc('get_player_videos', { p_player_id: userId });
 
         if (rpcError) throw rpcError;
-        console.warn('[MyVideos] RPC returned videos:', allVideos?.length || 0);
 
-        // Filter: Videos die dem Benutzer "gehören"
-        // Die RPC-Funktion gibt bereits alle relevanten Videos zurück,
-        // aber wir filtern noch die, die an andere zugewiesen wurden
-        const myVideos = (allVideos || []).filter(video => {
-            const uploadedByMe = video.uploaded_by === userId;
-            // Status zeigt ob es an mich zugewiesen ist (oder null wenn ich uploader bin)
-            const hasStatus = video.status !== null;
-
-            // Video gehört mir wenn:
-            // 1. Ich es hochgeladen habe (dann ist status null oder 'pending'/'reviewed' wenn ich es mir selbst zugewiesen habe)
-            // 2. ODER es an mich zugewiesen wurde (status ist nicht null)
-            // Aber: Wenn ich es hochgeladen habe UND es hat einen Status,
-            // dann wurde es wahrscheinlich einem anderen zugewiesen
-
-            // Einfacher: RPC gibt nur Videos zurück die mir gehören oder mir zugewiesen sind
-            // Wir müssen nur prüfen: nicht von mir hochgeladene Videos die mir zugewiesen sind
-            if (!uploadedByMe) {
-                // Fremdes Video - ok, wurde mir zugewiesen (sonst wäre es nicht in der Liste)
-                return true;
-            }
-            // Eigenes Video - prüfen ob es an jemand anderen zugewiesen ist
-            // Das ist schwieriger ohne die assignments-Info...
-            // Erstmal alle eigenen Videos anzeigen
-            return true;
-        });
-
-        console.warn('[MyVideos] Final filtered videos:', myVideos.length);
+        // RPC gibt alle Videos zurück die dem Spieler gehören oder ihm zugewiesen sind
+        const myVideos = allVideos || [];
 
         // Videos im Cache speichern für Detail-Ansicht (umgeht RLS-Probleme)
         playerVideoContext.loadedVideos.clear();
