@@ -154,25 +154,6 @@ async function loadChildStats(child) {
 
         child.pointsHistory = pointsHistory || [];
 
-        // Load completed challenges
-        const { data: completedChallenges } = await supabase
-            .from('completed_challenges')
-            .select(`
-                id,
-                completed_at,
-                challenges (
-                    id,
-                    title,
-                    description,
-                    points
-                )
-            `)
-            .eq('user_id', child.id)
-            .order('completed_at', { ascending: false })
-            .limit(5);
-
-        child.completedChallenges = completedChallenges || [];
-
         // Load notifications for child
         const { data: notifications } = await supabase
             .from('notifications')
@@ -189,7 +170,6 @@ async function loadChildStats(child) {
         child.wins = 0;
         child.recentMatches = [];
         child.pointsHistory = [];
-        child.completedChallenges = [];
         child.notifications = [];
     }
 }
@@ -276,32 +256,6 @@ function renderChildren() {
             pointsHistoryHtml = '<p class="text-xs text-gray-400 py-2">Keine Einträge</p>';
         }
 
-        // Format completed challenges
-        let challengesHtml = '';
-        if (child.completedChallenges && child.completedChallenges.length > 0) {
-            challengesHtml = child.completedChallenges.slice(0, 3).map(cc => {
-                const challenge = cc.challenges;
-                if (!challenge) return '';
-
-                const completedDate = cc.completed_at ? new Date(cc.completed_at).toLocaleDateString('de-DE', {
-                    day: 'numeric',
-                    month: 'short'
-                }) : '';
-
-                return `
-                    <div class="flex items-center justify-between py-1.5">
-                        <div class="flex items-center gap-1.5 min-w-0">
-                            <i class="fas fa-check-circle text-green-600 text-xs"></i>
-                            <span class="text-xs text-gray-700 truncate">${escapeHtml(challenge.title)}</span>
-                        </div>
-                        <span class="text-[10px] text-green-600 font-semibold flex-shrink-0">+${challenge.points}</span>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            challengesHtml = '<p class="text-xs text-gray-400 py-2">Keine Challenges</p>';
-        }
-
         // Format notifications
         let notificationsHtml = '';
         const unreadCount = (child.notifications || []).filter(n => !n.is_read).length;
@@ -312,13 +266,16 @@ function renderChildren() {
                 const icon = getNotificationIcon(notif.type);
 
                 return `
-                    <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0 ${isUnread ? 'bg-indigo-50 -mx-2 px-2 rounded' : ''}">
+                    <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0 ${isUnread ? 'bg-indigo-50 -mx-2 px-2 rounded' : ''}" data-notification-id="${notif.id}">
                         <i class="${icon} text-xs mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-400'}"></i>
                         <div class="flex-1 min-w-0">
-                            <p class="text-xs ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-700'} truncate">${escapeHtml(notif.title || '')}</p>
-                            <p class="text-[10px] text-gray-500 truncate">${escapeHtml(notif.message || '')}</p>
+                            <p class="text-xs ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-700'}">${escapeHtml(notif.title || '')}</p>
+                            <p class="text-[10px] text-gray-500 line-clamp-2">${escapeHtml(notif.message || '')}</p>
                             <p class="text-[10px] text-gray-400">${date}</p>
                         </div>
+                        <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-400 hover:text-red-500 p-1 -mr-1" title="Löschen">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
                     </div>
                 `;
             }).join('');
@@ -382,18 +339,19 @@ function renderChildren() {
                     </div>
                 </div>
 
-                <!-- Challenges -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium">Challenges</p>
-                    ${challengesHtml}
-                </div>
-
                 <!-- Notifications -->
                 <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
-                        Mitteilungen
-                        ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">${unreadCount}</span>` : ''}
-                    </p>
+                    <div class="flex items-center justify-between mb-1">
+                        <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                            Mitteilungen
+                            ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">${unreadCount}</span>` : ''}
+                        </p>
+                        ${child.notifications && child.notifications.length > 0 ? `
+                            <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500" title="Alle löschen">
+                                <i class="fas fa-trash-alt mr-1"></i>Alle löschen
+                            </button>
+                        ` : ''}
+                    </div>
                     <div class="max-h-40 overflow-y-auto">
                         ${notificationsHtml}
                     </div>
@@ -402,6 +360,52 @@ function renderChildren() {
         `;
     }).join('');
 }
+
+// Delete a single notification
+window.deleteNotification = async function(notificationId, childId) {
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('id', notificationId);
+
+        if (error) throw error;
+
+        // Update local state
+        const child = children.find(c => c.id === childId);
+        if (child) {
+            child.notifications = child.notifications.filter(n => n.id !== notificationId);
+            renderChildren();
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error deleting notification:', err);
+        alert('Fehler beim Löschen der Mitteilung');
+    }
+};
+
+// Clear all notifications for a child
+window.clearAllNotifications = async function(childId) {
+    if (!confirm('Alle Mitteilungen für dieses Kind löschen?')) return;
+
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', childId);
+
+        if (error) throw error;
+
+        // Update local state
+        const child = children.find(c => c.id === childId);
+        if (child) {
+            child.notifications = [];
+            renderChildren();
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error clearing notifications:', err);
+        alert('Fehler beim Löschen der Mitteilungen');
+    }
+};
 
 // Generate login code for a child
 window.generateLoginCode = async function(childId, childName) {

@@ -73,16 +73,33 @@ CREATE POLICY completed_challenges_select ON completed_challenges FOR SELECT
 -- PART 3: Notifications - Guardian Access
 -- ============================================
 
--- Drop existing policy
+-- Drop existing policies
 DROP POLICY IF EXISTS notifications_select ON notifications;
+DROP POLICY IF EXISTS notifications_delete ON notifications;
 DROP POLICY IF EXISTS "Guardians can view their children's notifications" ON notifications;
 DROP POLICY IF EXISTS notifications_guardian_select ON notifications;
+DROP POLICY IF EXISTS notifications_guardian_delete ON notifications;
 
--- Create combined policy for notifications
+-- Create combined policy for notifications SELECT
 CREATE POLICY notifications_select ON notifications FOR SELECT
     USING (
         -- User can see their own notifications
         user_id = auth.uid()
+        -- OR user is a guardian of this child
+        OR EXISTS (
+            SELECT 1 FROM guardian_links
+            WHERE guardian_links.guardian_id = auth.uid()
+            AND guardian_links.child_id = notifications.user_id
+        )
+    );
+
+-- Create combined policy for notifications DELETE
+CREATE POLICY notifications_delete ON notifications FOR DELETE
+    USING (
+        -- User can delete their own notifications
+        user_id = auth.uid()
+        -- OR notifications they created for others
+        OR (data->>'player_id')::uuid = auth.uid()
         -- OR user is a guardian of this child
         OR EXISTS (
             SELECT 1 FROM guardian_links
