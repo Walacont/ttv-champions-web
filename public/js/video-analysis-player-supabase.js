@@ -316,6 +316,9 @@ function setupMediathekUploadButton() {
 
 /**
  * Lädt und zeigt die Videos des Spielers in der Mediathek
+ * Zeigt nur Videos die:
+ * 1. Vom Benutzer hochgeladen wurden UND nicht an andere zugewiesen sind
+ * 2. ODER an den Benutzer zugewiesen wurden (egal wer sie hochgeladen hat)
  */
 export async function loadMyVideos() {
     const { db, userId } = playerVideoContext;
@@ -335,29 +338,44 @@ export async function loadMyVideos() {
     `;
 
     try {
-        // Alle Videos des Spielers laden
+        // Videos laden mit Assignment-Infos (inkl. player_id)
         const { data: allVideos, error } = await db
             .from('video_analyses')
             .select(`
                 *,
                 exercise:exercises(id, name),
-                assignments:video_assignments(status, reviewed_at)
+                assignments:video_assignments(status, reviewed_at, player_id)
             `)
-            .eq('uploaded_by', userId)
+            .or(`uploaded_by.eq.${userId},assignments.player_id.eq.${userId}`)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
+        // Filtern: Nur Videos die dem Benutzer "gehören"
+        // - Vom Benutzer hochgeladen UND (keine Zuweisung ODER an sich selbst zugewiesen)
+        // - ODER an den Benutzer zugewiesen (egal wer hochgeladen hat)
+        const myVideos = (allVideos || []).filter(video => {
+            const assignment = video.assignments?.[0];
+            const assignedToOther = assignment && assignment.player_id !== userId;
+            const uploadedByMe = video.uploaded_by === userId;
+            const assignedToMe = assignment && assignment.player_id === userId;
+
+            // Video gehört mir wenn:
+            // 1. Ich es hochgeladen habe UND es nicht an jemand anderen zugewiesen ist
+            // 2. ODER es an mich zugewiesen wurde
+            return (uploadedByMe && !assignedToOther) || assignedToMe;
+        });
+
         // Badge mit Gesamtzahl aktualisieren
-        if (countBadge && allVideos?.length > 0) {
-            countBadge.textContent = allVideos.length;
+        if (countBadge && myVideos.length > 0) {
+            countBadge.textContent = myVideos.length;
             countBadge.classList.remove('hidden');
         } else if (countBadge) {
             countBadge.classList.add('hidden');
         }
 
         // Filter anwenden
-        let videos = allVideos || [];
+        let videos = myVideos;
 
         // Status-Filter
         if (statusFilter !== 'all') {
@@ -374,7 +392,7 @@ export async function loadMyVideos() {
             videos = videos.filter(video => video.exercise_id === exerciseFilter);
         }
 
-        if (!allVideos || allVideos.length === 0) {
+        if (myVideos.length === 0) {
             container.innerHTML = `
                 <div class="col-span-full text-center py-12">
                     <i class="fas fa-video text-5xl text-gray-300 mb-4 block"></i>
