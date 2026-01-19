@@ -338,23 +338,57 @@ export async function loadMyVideos() {
     `;
 
     try {
-        // Videos laden mit Assignment-Infos (inkl. player_id)
-        const { data: allVideos, error } = await db
+        // 1. Videos laden die vom Benutzer hochgeladen wurden
+        const { data: uploadedVideos, error: uploadError } = await db
             .from('video_analyses')
             .select(`
                 *,
                 exercise:exercises(id, name),
                 assignments:video_assignments(status, reviewed_at, player_id)
             `)
-            .or(`uploaded_by.eq.${userId},assignments.player_id.eq.${userId}`)
+            .eq('uploaded_by', userId)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (uploadError) throw uploadError;
 
-        // Filtern: Nur Videos die dem Benutzer "gehören"
-        // - Vom Benutzer hochgeladen UND (keine Zuweisung ODER an sich selbst zugewiesen)
-        // - ODER an den Benutzer zugewiesen (egal wer hochgeladen hat)
-        const myVideos = (allVideos || []).filter(video => {
+        // 2. Videos laden die dem Benutzer zugewiesen wurden (via inner join)
+        const { data: assignedVideos, error: assignError } = await db
+            .from('video_assignments')
+            .select(`
+                video:video_analyses(
+                    *,
+                    exercise:exercises(id, name)
+                ),
+                status,
+                reviewed_at,
+                player_id
+            `)
+            .eq('player_id', userId)
+            .order('assigned_at', { ascending: false });
+
+        if (assignError) throw assignError;
+
+        // 3. Zugewiesene Videos normalisieren (video_analyses Struktur beibehalten)
+        const normalizedAssigned = (assignedVideos || [])
+            .filter(a => a.video && a.video.uploaded_by !== userId) // Nur wenn nicht selbst hochgeladen
+            .map(a => ({
+                ...a.video,
+                assignments: [{ status: a.status, reviewed_at: a.reviewed_at, player_id: a.player_id }]
+            }));
+
+        // 4. Kombinieren (uploaded zuerst, dann assigned)
+        const allVideos = [...(uploadedVideos || [])];
+
+        // Zugewiesene Videos hinzufügen (Duplikate vermeiden)
+        const existingIds = new Set(allVideos.map(v => v.id));
+        normalizedAssigned.forEach(v => {
+            if (!existingIds.has(v.id)) {
+                allVideos.push(v);
+            }
+        });
+
+        // 5. Filtern: Nur Videos die dem Benutzer "gehören"
+        const myVideos = allVideos.filter(video => {
             const assignment = video.assignments?.[0];
             const assignedToOther = assignment && assignment.player_id !== userId;
             const uploadedByMe = video.uploaded_by === userId;
