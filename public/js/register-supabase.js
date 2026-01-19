@@ -258,12 +258,33 @@ async function initializeRegistration() {
                 linkedPlayerId = playerData.id;
                 linkedPlayerBirthdate = playerData.birthdate || null;
 
-                // ALWAYS show role selection modal for offline players
-                // This ensures proper age verification regardless of whether birthdate is in DB
                 const age = playerData.birthdate ? calculateAge(playerData.birthdate) : null;
                 console.log('[REGISTER] Linked player:', playerData.first_name, 'age:', age, 'birthdate:', playerData.birthdate);
 
                 loader.classList.add('hidden');
+
+                // If player is under 16, go DIRECTLY to guardian registration (skip role selection)
+                if (age !== null && age < 16) {
+                    console.log('[REGISTER] Player is under 16 - going directly to guardian registration');
+                    registrationType = 'guardian-link';
+
+                    // Show name fields for guardian
+                    const nameFields = document.getElementById('name-fields');
+                    if (nameFields) {
+                        nameFields.classList.remove('hidden');
+                        document.getElementById('first-name').required = true;
+                        document.getElementById('last-name').required = true;
+                    }
+
+                    // Show birthdate fields - guardian must be at least 18
+                    showBirthdateFields();
+
+                    formSubtitle.textContent = `${playerData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
+                    registrationFormContainer.classList.remove('hidden');
+                    return;
+                }
+
+                // If player is 16+ OR age unknown, show role selection modal
                 showRoleSelectionModal(age, playerData.first_name);
                 return;
             } else {
