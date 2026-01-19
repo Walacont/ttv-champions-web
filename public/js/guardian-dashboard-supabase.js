@@ -484,5 +484,9 @@ function setupEventListeners() {
     });
 }
 
-// Simple initialization - just call initialize() on page load
-initialize();
+// Wait for DOM to be ready before initializing (same pattern as dashboard)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+} else {
+    initialize();
+}
