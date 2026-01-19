@@ -461,6 +461,7 @@ async function initializeDashboard() {
     setupProfileLink();
     setupCoachIndicator();
     setupGuardianIndicator();
+    setupRoleSwitcher();
     setupSearchButton();
     setupModalHandlers();
 
@@ -804,9 +805,70 @@ function setupGuardianIndicator() {
     if (!indicator || !currentUserData) return;
 
     // Indikator anzeigen wenn Benutzer ein Vormund ist
-    if (currentUserData.account_type === 'guardian') {
+    if (currentUserData.account_type === 'guardian' || currentUserData.is_guardian) {
         indicator.classList.remove('hidden');
     }
+}
+
+// --- Setup Role Switcher Dropdown ---
+function setupRoleSwitcher() {
+    const roleSwitcherBtn = document.getElementById('role-switcher-btn');
+    const roleDropdown = document.getElementById('role-dropdown');
+    const headerTitleStatic = document.getElementById('header-title-static');
+    const headerTitle = document.getElementById('header-title');
+    const rolePlayer = document.getElementById('role-player');
+    const roleGuardian = document.getElementById('role-guardian');
+    const roleCoach = document.getElementById('role-coach');
+
+    if (!roleSwitcherBtn || !roleDropdown || !currentUserData) return;
+
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    const isGuardian = currentUserData.is_guardian || currentUserData.account_type === 'guardian';
+
+    // Show dropdown only if user has multiple roles
+    if (!isCoach && !isGuardian) return;
+
+    // Show dropdown button, hide static title
+    roleSwitcherBtn.classList.remove('hidden');
+    headerTitleStatic?.classList.add('hidden');
+
+    // Show relevant role options
+    if (isGuardian) {
+        roleGuardian?.classList.remove('hidden');
+    }
+    if (isCoach) {
+        roleCoach?.classList.remove('hidden');
+    }
+
+    // Toggle dropdown on button click
+    roleSwitcherBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        roleDropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!roleDropdown.contains(e.target) && e.target !== roleSwitcherBtn) {
+            roleDropdown.classList.add('hidden');
+        }
+    });
+
+    // Role selection handlers
+    rolePlayer?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        // Already on player dashboard
+        window.location.href = '/dashboard.html';
+    });
+
+    roleGuardian?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        window.location.href = '/guardian-dashboard.html';
+    });
+
+    roleCoach?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        window.location.href = '/coach.html';
+    });
 }
 
 // --- Setup Logout ---

@@ -373,13 +373,35 @@
                     <i class="fas fa-search text-lg"></i>
                 </button>
 
-                <!-- Center: Profile Photo and Title -->
+                <!-- Center: Profile Photo, Title and Role Switcher -->
                 <div class="flex items-center gap-2">
                     <a id="header-profile-link" href="#" class="flex-shrink-0">
                         <img id="header-profile-pic" src="" alt="Profilbild"
                              class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
                     </a>
-                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
+                    <div class="relative">
+                        <button id="role-switcher-btn" class="flex items-center gap-1 text-base font-semibold text-gray-900 hover:text-indigo-600 transition-colors hidden">
+                            <span id="header-title">Start</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                        </button>
+                        <h1 id="header-title-static" class="text-base font-semibold text-gray-900">Start</h1>
+
+                        <!-- Role Dropdown Menu -->
+                        <div id="role-dropdown" class="hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                            <button id="role-player" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-user text-indigo-600 w-4"></i>
+                                <span>Mein Spieler</span>
+                            </button>
+                            <button id="role-guardian" class="hidden w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-child text-pink-600 w-4"></i>
+                                <span>Meine Kinder</span>
+                            </button>
+                            <button id="role-coach" class="hidden w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-whistle text-purple-600 w-4"></i>
+                                <span>Coach-Ansicht</span>
+                            </button>
+                        </div>
+                    </div>
                     <p id="header-club-info" class="hidden">
                         <span id="header-club-name"></span>
                     </p>
