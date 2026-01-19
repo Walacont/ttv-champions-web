@@ -41,10 +41,28 @@ async function initialize(user) {
 
         // Try direct query first to test database connectivity
         console.log('[GUARDIAN-DASHBOARD] Testing direct guardian_links query...');
-        const { data: links, error: linksError } = await supabase
-            .from('guardian_links')
-            .select('child_id')
-            .eq('guardian_id', user.id);
+
+        // Add timeout to detect hanging queries
+        const queryWithTimeout = async (queryFn, timeoutMs = 10000, queryName = 'query') => {
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`${queryName} timed out after ${timeoutMs}ms`)), timeoutMs)
+            );
+            return Promise.race([queryFn(), timeoutPromise]);
+        };
+
+        let links, linksError;
+        try {
+            const result = await queryWithTimeout(
+                () => supabase.from('guardian_links').select('child_id').eq('guardian_id', user.id),
+                10000,
+                'guardian_links query'
+            );
+            links = result.data;
+            linksError = result.error;
+        } catch (timeoutErr) {
+            console.error('[GUARDIAN-DASHBOARD] Query timeout:', timeoutErr.message);
+            linksError = { message: timeoutErr.message };
+        }
 
         console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
 
