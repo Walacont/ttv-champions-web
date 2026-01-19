@@ -176,6 +176,26 @@
                     </div>
                 </a>
 
+                <!-- Meine Kinder (nur für Vormünder sichtbar) -->
+                <a
+                    id="my-children-card"
+                    href="/settings-children.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-child text-pink-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Meine Kinder</h3>
+                                <p id="my-children-subtitle" class="text-sm text-gray-500">Kinder verwalten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
                 <!-- Support -->
                 <a
                     href="/settings-support.html"
@@ -325,6 +345,52 @@
                 return false;
             }
 
+            // Check if user is a guardian and show children card
+            async function checkGuardianStatus() {
+                const supabase = getSupabase();
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (!user) return;
+
+                try {
+                    // Get profile and check is_guardian flag
+                    const { data: profile, error } = await supabase
+                        .from('profiles')
+                        .select('is_guardian')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (error) {
+                        console.error('Error checking guardian status:', error);
+                        return;
+                    }
+
+                    const myChildrenCard = document.getElementById('my-children-card');
+                    const myChildrenSubtitle = document.getElementById('my-children-subtitle');
+
+                    if (profile?.is_guardian) {
+                        // Show the card for guardians
+                        myChildrenCard?.classList.remove('hidden');
+
+                        // Get children count
+                        const { data: children, error: childrenError } = await supabase.rpc('get_my_children');
+
+                        if (!childrenError && children?.success && children.children) {
+                            const childCount = children.children.length;
+                            if (childCount === 0) {
+                                myChildrenSubtitle.textContent = 'Keine Kinder verknüpft';
+                            } else if (childCount === 1) {
+                                myChildrenSubtitle.textContent = '1 Kind verknüpft';
+                            } else {
+                                myChildrenSubtitle.textContent = `${childCount} Kinder verknüpft`;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in checkGuardianStatus:', error);
+                }
+            }
+
             // Initialize immediately or on DOMContentLoaded
             async function init() {
                 // Initialize i18n first
@@ -340,6 +406,9 @@
                 if (notificationsCard && isPushSupported()) {
                     notificationsCard.classList.remove('hidden');
                 }
+
+                // Check if user is a guardian and show "Meine Kinder" card
+                await checkGuardianStatus();
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';

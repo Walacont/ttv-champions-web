@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
+        <script src="/js/capacitor-init.js"></script>
+        <title>Meine Kinder - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            #page-loader {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #f3f4f6;
+                z-index: 9999;
+            }
+            #main-content {
+                display: none;
+            }
+            .child-card {
+                transition: all 0.2s;
+            }
+            .child-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 text-gray-800">
+        <div id="page-loader">
+            <svg
+                class="animate-spin h-10 w-10 text-indigo-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
+        </div>
+
+        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-2xl">
+            <div class="mb-8">
+                <a
+                    href="/settings.html"
+                    class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
+                >
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    <span>Zurück</span>
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900 text-center">Meine Kinder</h1>
+                <p class="text-gray-500 text-center mt-2">Verwalte die Profile deiner Kinder</p>
+            </div>
+
+            <!-- Children List -->
+            <div id="children-list" class="space-y-4">
+                <!-- Children cards will be inserted here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="no-children" class="hidden bg-white rounded-xl shadow-md p-8 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-pink-100 rounded-full mb-4">
+                    <i class="fas fa-child text-3xl text-pink-600"></i>
+                </div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Keine Kinder verknüpft</h2>
+                <p class="text-gray-500 mb-6">
+                    Du kannst Kinder über die Vereinssuche oder einen Einladungscode hinzufügen.
+                </p>
+                <a
+                    href="/settings-club.html"
+                    class="inline-flex items-center bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                    <i class="fas fa-users mr-2"></i>
+                    Verein beitreten
+                </a>
+            </div>
+
+            <!-- Info Box -->
+            <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-3"></i>
+                    <div>
+                        <h4 class="font-semibold text-blue-800">Hinweis</h4>
+                        <p class="text-sm text-blue-700 mt-1">
+                            Kinder unter 14 Jahren können sich nur mit dem Login-Code anmelden.
+                            Kinder zwischen 14-15 Jahren können sich selbst registrieren, aber du bleibst als Vormund verknüpft.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Generate Login Code -->
+        <div id="login-code-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-3">
+                        <i class="fas fa-key text-2xl text-green-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Login-Code</h2>
+                    <p id="login-code-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                </div>
+
+                <div id="login-code-loading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                </div>
+
+                <div id="login-code-display" class="hidden">
+                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
+                        <p id="login-code-value" class="text-3xl font-mono font-bold text-indigo-600 tracking-wider"></p>
+                    </div>
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        <i class="fas fa-clock mr-1"></i>
+                        Gültig für <span id="login-code-validity">24 Stunden</span>
+                    </p>
+                    <button
+                        id="copy-login-code"
+                        class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors mb-2"
+                    >
+                        <i class="fas fa-copy mr-2"></i>
+                        Code kopieren
+                    </button>
+                </div>
+
+                <div id="login-code-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p class="text-sm text-red-700">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span id="login-code-error-text"></span>
+                    </p>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="close-login-code-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Invite Second Guardian -->
+        <div id="invite-guardian-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-purple-100 rounded-full mb-3">
+                        <i class="fas fa-user-plus text-2xl text-purple-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Vormund einladen</h2>
+                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                </div>
+
+                <div id="invite-guardian-loading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                </div>
+
+                <div id="invite-guardian-display" class="hidden">
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        Teile diesen Code mit dem anderen Vormund (z.B. Partner).
+                        Der Vormund muss sich registrieren und den Code eingeben.
+                    </p>
+                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
+                        <p id="invite-guardian-code" class="text-2xl font-mono font-bold text-purple-600 tracking-wider"></p>
+                    </div>
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        <i class="fas fa-clock mr-1"></i>
+                        Gültig für <span id="invite-guardian-validity">48 Stunden</span>
+                    </p>
+                    <button
+                        id="copy-invite-code"
+                        class="w-full bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors mb-2"
+                    >
+                        <i class="fas fa-copy mr-2"></i>
+                        Code kopieren
+                    </button>
+                </div>
+
+                <div id="invite-guardian-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p class="text-sm text-red-700">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span id="invite-guardian-error-text"></span>
+                    </p>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="close-invite-guardian-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
+        <script type="module" src="/js/notifications.js"></script>
+        <script type="module" src="/js/spa-enhancer.js"></script>
+        <script type="module" src="/js/settings-children-supabase.js"></script>
+    </body>
+</html>
