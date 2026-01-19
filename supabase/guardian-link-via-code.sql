@@ -150,35 +150,9 @@ BEGIN
             RETURN json_build_object('success', FALSE, 'error', 'Spielerprofil nicht gefunden');
         END IF;
     ELSE
-        -- Create new child profile from code data
-        INSERT INTO profiles (
-            first_name,
-            last_name,
-            birthdate,
-            gender,
-            club_id,
-            sport_id,
-            role,
-            account_type,
-            is_online,
-            is_minor,
-            guardian_id
-        ) VALUES (
-            v_code_record.first_name,
-            v_code_record.last_name,
-            v_code_record.birthdate::DATE,
-            v_code_record.gender,
-            v_code_record.club_id,
-            v_code_record.sport_id,
-            'player',
-            'child',
-            FALSE,
-            TRUE,
-            v_guardian_id
-        )
-        RETURNING * INTO v_child_profile;
-
-        v_child_id := v_child_profile.id;
+        -- Code has no player_id - this shouldn't happen for offline players
+        -- Return error since we expect offline players to have player_id set
+        RETURN json_build_object('success', FALSE, 'error', 'Code ist nicht mit einem Spieler verknüpft');
     END IF;
 
     -- Check if guardian is already linked to this child
@@ -232,11 +206,13 @@ BEGIN
         END
     WHERE id = v_guardian_id;
 
-    -- Update child's guardian_id reference if empty
+    -- Update child to mark as child account if it's an offline player
     UPDATE profiles
-    SET guardian_id = v_guardian_id
+    SET
+        account_type = 'child',
+        is_minor = TRUE
     WHERE id = v_child_id
-    AND guardian_id IS NULL;
+    AND (account_type IS NULL OR account_type = 'standard' OR is_offline = TRUE);
 
     RETURN json_build_object(
         'success', TRUE,
