@@ -39,24 +39,56 @@ async function initialize(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
 
-        // Load children directly - this RPC handles guardian verification
-        const { data, error } = await supabase.rpc('get_guardian_children');
-        console.log('[GUARDIAN-DASHBOARD] get_guardian_children result:', data, 'error:', error);
+        // Try direct query first to test database connectivity
+        console.log('[GUARDIAN-DASHBOARD] Testing direct guardian_links query...');
+        const { data: links, error: linksError } = await supabase
+            .from('guardian_links')
+            .select('child_id')
+            .eq('guardian_id', user.id)
+            .eq('status', 'active');
 
-        if (error) {
-            console.error('[GUARDIAN-DASHBOARD] RPC error:', error);
-            // User might not be a guardian - redirect to dashboard
-            window.location.href = '/dashboard.html';
-            return;
+        console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
+
+        if (linksError) {
+            console.error('[GUARDIAN-DASHBOARD] guardian_links error:', linksError);
+            // Try RPC as fallback
+            console.log('[GUARDIAN-DASHBOARD] Trying RPC fallback...');
         }
 
-        if (!data.success) {
-            console.log('[GUARDIAN-DASHBOARD] User is not a guardian:', data.error);
-            window.location.href = '/dashboard.html';
-            return;
+        let childrenData = [];
+
+        if (links && links.length > 0) {
+            // Get child profiles directly
+            const childIds = links.map(l => l.child_id);
+            console.log('[GUARDIAN-DASHBOARD] Loading profiles for child IDs:', childIds);
+
+            const { data: profiles, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, birthdate, avatar_url, elo_rating, xp, gender')
+                .in('id', childIds);
+
+            console.log('[GUARDIAN-DASHBOARD] Child profiles loaded:', profiles, 'error:', profilesError);
+
+            if (profiles) {
+                childrenData = profiles;
+            }
+        } else if (!linksError) {
+            // No children found, but query worked
+            console.log('[GUARDIAN-DASHBOARD] No children found for this guardian');
+        } else {
+            // Links query failed, try RPC
+            const { data, error } = await supabase.rpc('get_guardian_children');
+            console.log('[GUARDIAN-DASHBOARD] RPC result:', data, 'error:', error);
+
+            if (error || !data?.success) {
+                console.log('[GUARDIAN-DASHBOARD] User is not a guardian or RPC failed');
+                window.location.href = '/dashboard.html';
+                return;
+            }
+            childrenData = data.children || [];
         }
 
-        children = data.children || [];
+        children = childrenData;
         console.log('[GUARDIAN-DASHBOARD] Loaded children:', children.length);
 
         // Load stats for each child
