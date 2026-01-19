@@ -241,7 +241,7 @@ if (registerAsGuardianBtn) {
         // Hide age block message if visible
         hideAgeBlockMessage();
 
-        formSubtitle.textContent = 'Erstelle deinen Eltern-Account, um dein Kind zu verwalten.';
+        formSubtitle.textContent = 'Erstelle deinen Vormund-Account, um dein Kind zu verwalten.';
     });
 }
 
@@ -261,7 +261,7 @@ if (switchToGuardianBtn) {
         // Hide age block message
         hideAgeBlockMessage();
 
-        formSubtitle.textContent = 'Erstelle deinen Eltern-Account, um dein Kind zu verwalten.';
+        formSubtitle.textContent = 'Erstelle deinen Vormund-Account, um dein Kind zu verwalten.';
     });
 }
 
@@ -312,7 +312,7 @@ registrationForm?.addEventListener('submit', async e => {
 
     // Block if age validation failed
     if (isAgeBlocked) {
-        errorMessage.textContent = 'Bitte korrigiere dein Geburtsdatum oder registriere dich als Elternteil.';
+        errorMessage.textContent = 'Bitte korrigiere dein Geburtsdatum oder registriere dich als Vormund.';
         return;
     }
 

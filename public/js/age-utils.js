@@ -90,7 +90,7 @@ export function validateRegistrationAge(birthdate, hasInvitationCode) {
     if (age < 14) {
         return {
             allowed: false,
-            reason: 'Du bist unter 14 Jahre alt. Bitte lass deine Eltern einen Account für dich erstellen.',
+            reason: 'Du bist unter 14 Jahre alt. Bitte lass deinen Vormund einen Account für dich erstellen.',
             ageMode: 'kids'
         };
     }

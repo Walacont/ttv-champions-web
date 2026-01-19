@@ -803,7 +803,7 @@ function setupGuardianIndicator() {
     const indicator = document.getElementById('guardian-indicator');
     if (!indicator || !currentUserData) return;
 
-    // Indikator anzeigen wenn Benutzer ein Elternteil ist
+    // Indikator anzeigen wenn Benutzer ein Vormund ist
     if (currentUserData.account_type === 'guardian') {
         indicator.classList.remove('hidden');
     }
