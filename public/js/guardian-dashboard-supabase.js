@@ -44,8 +44,7 @@ async function initialize(user) {
         const { data: links, error: linksError } = await supabase
             .from('guardian_links')
             .select('child_id')
-            .eq('guardian_id', user.id)
-            .eq('status', 'active');
+            .eq('guardian_id', user.id);
 
         console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
 
