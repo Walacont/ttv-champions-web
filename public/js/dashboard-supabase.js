@@ -356,8 +356,8 @@ function applyKidsModeUI() {
         console.log('[DASHBOARD-SUPABASE] Child logout button element:', childLogoutBtn);
         if (childLogoutBtn) {
             childLogoutBtn.classList.remove('hidden');
-            // Override the white color set by kids mode styling - make it yellow for visibility on purple bg
-            childLogoutBtn.style.color = currentAgeMode === 'kids' ? '#fbbf24' : '#ef4444';
+            // Override the white color set by kids mode styling
+            childLogoutBtn.style.color = '#ef4444'; // Red for both kids and teen mode
             console.log('[DASHBOARD-SUPABASE] Child logout button shown with color:', childLogoutBtn.style.color);
 
             if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
