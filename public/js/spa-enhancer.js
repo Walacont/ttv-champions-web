@@ -39,6 +39,9 @@ class SPAEnhancer {
                     '/admin.html',
                     '/onboarding.html',
                     '/register.html',
+                    '/guardian-dashboard.html',
+                    '/guardian-onboarding.html',
+                    '/profile.html',
                 ];
 
                 if (noInterceptPages.includes(url)) {
@@ -83,8 +86,8 @@ class SPAEnhancer {
             '/onboarding.html',
             '/register.html',
             '/guardian-dashboard.html',
+            '/guardian-onboarding.html',
             '/profile.html',
-
         ];
 
         let linkPath = href.split('?')[0];

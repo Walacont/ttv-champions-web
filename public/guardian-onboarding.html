@@ -44,7 +44,7 @@
                 color: white;
             }
             .step-indicator.completed {
-                background-color: #10b981;
+                background-color: #22c55e;
                 color: white;
             }
         </style>
@@ -79,119 +79,118 @@
 
         <!-- Main Content -->
         <div id="main-content" class="hidden">
-            <!-- Header -->
-            <div class="bg-purple-600 text-white py-8 px-4">
-                <div class="max-w-2xl mx-auto text-center">
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
-                        <i class="fas fa-user-shield text-3xl"></i>
-                    </div>
-                    <h1 class="text-2xl font-bold">Willkommen, Vormund!</h1>
-                    <p class="text-purple-100 mt-2">Lass uns das Profil deines Kindes einrichten</p>
+            <!-- Simple Header like guardian-dashboard -->
+            <header style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
+                <div class="flex justify-between items-center h-12 px-4 max-w-2xl mx-auto">
+                    <a href="/guardian-dashboard.html" class="text-gray-600 hover:text-indigo-600 transition-colors p-1">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </a>
+                    <h1 class="text-base font-semibold text-gray-900">Kind hinzufügen</h1>
+                    <div class="w-8"></div>
                 </div>
-            </div>
+            </header>
 
-            <!-- Progress Steps -->
-            <div class="bg-white border-b">
-                <div class="max-w-2xl mx-auto px-4 py-4">
-                    <div class="flex items-center justify-center gap-4">
+            <!-- Progress Steps (below fixed header) -->
+            <div class="bg-white border-b pt-12">
+                <div class="max-w-2xl mx-auto px-4 py-3">
+                    <div class="flex items-center justify-center gap-3">
                         <div class="flex items-center">
-                            <div id="step-1-indicator" class="step-indicator active w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                            <span class="ml-2 text-sm font-medium text-gray-700 hidden sm:inline">Kind-Daten</span>
+                            <div id="step-1-indicator" class="step-indicator active w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs">1</div>
+                            <span class="ml-1.5 text-xs font-medium text-gray-700 hidden sm:inline">Kind-Daten</span>
                         </div>
-                        <div class="w-8 h-0.5 bg-gray-300"></div>
+                        <div class="w-6 h-0.5 bg-gray-300"></div>
                         <div class="flex items-center">
-                            <div id="step-2-indicator" class="step-indicator w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-sm">2</div>
-                            <span class="ml-2 text-sm font-medium text-gray-400 hidden sm:inline">Verein</span>
+                            <div id="step-2-indicator" class="step-indicator w-7 h-7 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-xs">2</div>
+                            <span class="ml-1.5 text-xs font-medium text-gray-400 hidden sm:inline">Verein</span>
                         </div>
-                        <div class="w-8 h-0.5 bg-gray-300"></div>
+                        <div class="w-6 h-0.5 bg-gray-300"></div>
                         <div class="flex items-center">
-                            <div id="step-3-indicator" class="step-indicator w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-sm">3</div>
-                            <span class="ml-2 text-sm font-medium text-gray-400 hidden sm:inline">Fertig</span>
+                            <div id="step-3-indicator" class="step-indicator w-7 h-7 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold text-xs">3</div>
+                            <span class="ml-1.5 text-xs font-medium text-gray-400 hidden sm:inline">Fertig</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Step Content -->
-            <div class="max-w-2xl mx-auto px-4 py-8">
+            <div class="max-w-2xl mx-auto px-4 py-4">
                 <!-- Step 1: Child Data -->
                 <div id="step-1" class="step-content">
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-900 mb-2">
-                            <i class="fas fa-child text-purple-600 mr-2"></i>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <h2 class="text-base font-semibold text-gray-900 mb-1">
                             Daten deines Kindes
                         </h2>
-                        <p class="text-gray-600 text-sm mb-6">
-                            Diese Daten werden für das Spielerprofil deines Kindes verwendet.
+                        <p class="text-gray-500 text-xs mb-4">
+                            Diese Daten werden für das Spielerprofil verwendet.
                         </p>
 
-                        <form id="child-data-form" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
+                        <form id="child-data-form" class="space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label for="child-first-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    <label for="child-first-name" class="block text-xs font-medium text-gray-700 mb-1">
                                         Vorname <span class="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         id="child-first-name"
                                         required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="Max"
                                     />
                                 </div>
                                 <div>
-                                    <label for="child-last-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    <label for="child-last-name" class="block text-xs font-medium text-gray-700 mb-1">
                                         Nachname <span class="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         id="child-last-name"
                                         required
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="Mustermann"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">
                                     Geburtsdatum <span class="text-red-500">*</span>
                                 </label>
                                 <div class="grid grid-cols-3 gap-2">
                                     <select
                                         id="child-birthdate-day"
                                         required
-                                        class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         <option value="">Tag</option>
                                     </select>
                                     <select
                                         id="child-birthdate-month"
                                         required
-                                        class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         <option value="">Monat</option>
                                     </select>
                                     <select
                                         id="child-birthdate-year"
                                         required
-                                        class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="px-2 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                     >
                                         <option value="">Jahr</option>
                                     </select>
                                 </div>
-                                <p id="child-age-display" class="text-sm text-gray-500 mt-1 hidden">
+                                <p id="child-age-display" class="text-xs text-gray-500 mt-1 hidden">
                                     Alter: <span id="child-age-value"></span> Jahre
                                 </p>
                             </div>
 
                             <div>
-                                <label for="child-gender" class="block text-sm font-medium text-gray-700 mb-1">
+                                <label for="child-gender" class="block text-xs font-medium text-gray-700 mb-1">
                                     Geschlecht
                                 </label>
                                 <select
                                     id="child-gender"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                     <option value="">Bitte wählen (optional)</option>
                                     <option value="male">Männlich</option>
@@ -200,9 +199,9 @@
                                 </select>
                             </div>
 
-                            <div id="age-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
-                                <p class="text-red-700 text-sm">
-                                    <i class="fas fa-exclamation-circle mr-2"></i>
+                            <div id="age-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+                                <p class="text-red-700 text-xs">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>
                                     <span id="age-error-text"></span>
                                 </p>
                             </div>
@@ -210,9 +209,9 @@
                             <button
                                 type="submit"
                                 id="step-1-next"
-                                class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+                                class="w-full bg-indigo-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                             >
-                                Weiter <i class="fas fa-arrow-right ml-2"></i>
+                                Weiter <i class="fas fa-arrow-right ml-1"></i>
                             </button>
                         </form>
                     </div>
@@ -220,66 +219,65 @@
 
                 <!-- Step 2: Club Selection -->
                 <div id="step-2" class="step-content hidden">
-                    <div class="bg-white rounded-xl shadow-md p-6">
-                        <h2 class="text-xl font-bold text-gray-900 mb-2">
-                            <i class="fas fa-building text-purple-600 mr-2"></i>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <h2 class="text-base font-semibold text-gray-900 mb-1">
                             Vereinszugehörigkeit
                         </h2>
-                        <p class="text-gray-600 text-sm mb-6">
-                            Ist dein Kind bereits in einem Verein? Du kannst dies auch später hinzufügen.
+                        <p class="text-gray-500 text-xs mb-4">
+                            Ist dein Kind bereits in einem Verein?
                         </p>
 
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             <!-- Option: Has invitation code -->
-                            <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-purple-300 transition cursor-pointer" id="has-code-option">
+                            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition cursor-pointer" id="has-code-option">
                                 <label class="flex items-start cursor-pointer">
-                                    <input type="radio" name="club-option" value="code" class="mt-1 text-purple-600 focus:ring-purple-500" />
-                                    <div class="ml-3">
-                                        <span class="font-medium text-gray-900">Ich habe einen Einladungscode</span>
-                                        <p class="text-sm text-gray-500">Vom Trainer oder Verein erhalten</p>
+                                    <input type="radio" name="club-option" value="code" class="mt-0.5 text-indigo-600 focus:ring-indigo-500" />
+                                    <div class="ml-2">
+                                        <span class="font-medium text-gray-900 text-sm">Ich habe einen Einladungscode</span>
+                                        <p class="text-xs text-gray-500">Vom Trainer oder Verein erhalten</p>
                                     </div>
                                 </label>
 
-                                <div id="code-input-container" class="hidden mt-4 pl-7">
-                                    <label for="club-code" class="block text-sm font-medium text-gray-700 mb-1">
+                                <div id="code-input-container" class="hidden mt-3 pl-6">
+                                    <label for="club-code" class="block text-xs font-medium text-gray-700 mb-1">
                                         Einladungscode
                                     </label>
                                     <input
                                         type="text"
                                         id="club-code"
                                         placeholder="TTV-XXX-YYY"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 uppercase"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase"
                                     />
-                                    <p id="code-validation-message" class="text-sm mt-1 hidden"></p>
+                                    <p id="code-validation-message" class="text-xs mt-1 hidden"></p>
                                 </div>
                             </div>
 
                             <!-- Option: No club yet -->
-                            <div class="border-2 border-gray-200 rounded-lg p-4 hover:border-purple-300 transition cursor-pointer" id="no-club-option">
+                            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition cursor-pointer" id="no-club-option">
                                 <label class="flex items-start cursor-pointer">
-                                    <input type="radio" name="club-option" value="none" class="mt-1 text-purple-600 focus:ring-purple-500" checked />
-                                    <div class="ml-3">
-                                        <span class="font-medium text-gray-900">Noch kein Verein</span>
-                                        <p class="text-sm text-gray-500">Du kannst später einem Verein beitreten</p>
+                                    <input type="radio" name="club-option" value="none" class="mt-0.5 text-indigo-600 focus:ring-indigo-500" checked />
+                                    <div class="ml-2">
+                                        <span class="font-medium text-gray-900 text-sm">Noch kein Verein</span>
+                                        <p class="text-xs text-gray-500">Du kannst später einem Verein beitreten</p>
                                     </div>
                                 </label>
                             </div>
                         </div>
 
-                        <div class="flex gap-3 mt-6">
+                        <div class="flex gap-2 mt-4">
                             <button
                                 type="button"
                                 id="step-2-back"
-                                class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                                class="flex-1 bg-gray-100 text-gray-700 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                             >
-                                <i class="fas fa-arrow-left mr-2"></i> Zurück
+                                <i class="fas fa-arrow-left mr-1"></i> Zurück
                             </button>
                             <button
                                 type="button"
                                 id="step-2-next"
-                                class="flex-1 bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+                                class="flex-1 bg-indigo-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                             >
-                                Kind erstellen <i class="fas fa-check ml-2"></i>
+                                Kind erstellen <i class="fas fa-check ml-1"></i>
                             </button>
                         </div>
                     </div>
@@ -287,64 +285,64 @@
 
                 <!-- Step 3: Success -->
                 <div id="step-3" class="step-content hidden">
-                    <div class="bg-white rounded-xl shadow-md p-6 text-center">
-                        <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-                            <i class="fas fa-check text-4xl text-green-600"></i>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+                        <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-3">
+                            <i class="fas fa-check text-2xl text-green-600"></i>
                         </div>
 
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">
-                            Geschafft! 🎉
+                        <h2 class="text-lg font-semibold text-gray-900 mb-1">
+                            Geschafft!
                         </h2>
-                        <p class="text-gray-600 mb-6">
-                            Das Profil für <strong id="created-child-name"></strong> wurde erfolgreich erstellt.
+                        <p class="text-gray-600 text-sm mb-4">
+                            Das Profil für <strong id="created-child-name"></strong> wurde erstellt.
                         </p>
 
                         <!-- Child Login Code Section -->
-                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                            <h3 class="font-semibold text-purple-800 mb-2">
-                                <i class="fas fa-key mr-2"></i>Login-Code für dein Kind
+                        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-left">
+                            <h3 class="font-medium text-indigo-800 text-sm mb-2">
+                                <i class="fas fa-key mr-1"></i>Login-Code für dein Kind
                             </h3>
-                            <p class="text-sm text-purple-700 mb-3">
-                                Mit diesem Code kann sich dein Kind auf seinem eigenen Gerät einloggen:
+                            <p class="text-xs text-indigo-700 mb-2">
+                                Mit diesem Code kann sich dein Kind einloggen:
                             </p>
-                            <div class="bg-white rounded-lg p-4 mb-3">
-                                <span id="child-login-code" class="text-3xl font-mono font-bold text-purple-600 tracking-wider">------</span>
+                            <div class="bg-white rounded-lg p-3 mb-2 text-center">
+                                <span id="child-login-code" class="text-2xl font-mono font-bold text-indigo-600 tracking-wider">------</span>
                             </div>
-                            <p class="text-xs text-purple-600">
+                            <p class="text-[10px] text-indigo-600 text-center">
                                 <i class="fas fa-clock mr-1"></i>
                                 Gültig für <span id="code-validity">15</span> Minuten
                             </p>
-                            <div class="flex gap-2 mt-3">
+                            <div class="flex gap-2 mt-2">
                                 <button
                                     type="button"
                                     id="copy-login-code"
-                                    class="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition text-sm font-medium"
+                                    class="flex-1 bg-indigo-600 text-white py-2 px-3 rounded-lg hover:bg-indigo-700 transition text-xs font-medium"
                                 >
-                                    <i class="fas fa-copy mr-2"></i>Kopieren
+                                    <i class="fas fa-copy mr-1"></i>Kopieren
                                 </button>
                                 <button
                                     type="button"
                                     id="generate-new-code"
-                                    class="flex-1 bg-white border border-purple-300 text-purple-600 py-2 px-4 rounded-lg hover:bg-purple-50 transition text-sm font-medium"
+                                    class="flex-1 bg-white border border-indigo-300 text-indigo-600 py-2 px-3 rounded-lg hover:bg-indigo-50 transition text-xs font-medium"
                                 >
-                                    <i class="fas fa-redo mr-2"></i>Neuer Code
+                                    <i class="fas fa-redo mr-1"></i>Neuer Code
                                 </button>
                             </div>
                         </div>
 
-                        <div class="space-y-3">
+                        <div class="space-y-2">
                             <a
-                                href="/dashboard.html"
-                                class="block w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-center"
+                                href="/guardian-dashboard.html"
+                                class="block w-full bg-indigo-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm text-center"
                             >
-                                <i class="fas fa-home mr-2"></i>Zum Dashboard
+                                <i class="fas fa-users mr-1"></i>Zu meinen Kindern
                             </a>
                             <button
                                 type="button"
                                 id="add-another-child"
-                                class="w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                                class="w-full bg-gray-100 text-gray-700 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                             >
-                                <i class="fas fa-plus mr-2"></i>Weiteres Kind hinzufügen
+                                <i class="fas fa-plus mr-1"></i>Weiteres Kind hinzufügen
                             </button>
                         </div>
                     </div>
@@ -353,17 +351,16 @@
         </div>
 
         <!-- Info Box about Kids Mode -->
-        <div class="max-w-2xl mx-auto px-4 pb-8 hidden" id="kids-mode-info">
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 class="font-semibold text-blue-800 flex items-center">
-                    <i class="fas fa-info-circle mr-2"></i>
+        <div class="max-w-2xl mx-auto px-4 pb-6 hidden" id="kids-mode-info">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <h4 class="font-medium text-blue-800 text-sm flex items-center">
+                    <i class="fas fa-info-circle mr-1"></i>
                     Über den Kinder-Modus
                 </h4>
-                <ul class="text-sm text-blue-700 mt-2 space-y-1">
+                <ul class="text-xs text-blue-700 mt-1.5 space-y-0.5">
                     <li>• Kinder unter 14 Jahren haben eine vereinfachte Oberfläche</li>
                     <li>• Keine Community-Suche oder Nachrichten</li>
                     <li>• Fokus auf Training, XP und Fortschritt</li>
-                    <li>• Du behältst die Kontrolle über Einstellungen</li>
                 </ul>
             </div>
         </div>
