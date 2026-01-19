@@ -596,6 +596,11 @@ class VideoDrawingTool {
         this.isActive = false;
         this.canvas.style.pointerEvents = 'none';
         this.toolbar.style.display = 'none';
+
+        // Callback ausführen wenn vorhanden
+        if (this.options.onDeactivate && typeof this.options.onDeactivate === 'function') {
+            this.options.onDeactivate();
+        }
     }
 
     /**
