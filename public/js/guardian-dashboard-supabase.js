@@ -88,16 +88,49 @@ async function loadChildren() {
         children = data.children || [];
         console.log('[GUARDIAN-DASHBOARD] Loaded children:', children.length);
 
+        // Load stats for each child
+        for (const child of children) {
+            await loadChildStats(child);
+        }
+
         renderChildren();
 
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading children:', err);
         childrenList.innerHTML = `
-            <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
                 <i class="fas fa-exclamation-circle mr-2"></i>
-                Fehler beim Laden der Kinder: ${escapeHtml(err.message)}
+                Fehler beim Laden: ${escapeHtml(err.message)}
             </div>
         `;
+    }
+}
+
+// Load stats and recent activity for a child
+async function loadChildStats(child) {
+    try {
+        // Load match stats
+        const { data: matches } = await supabase
+            .from('matches')
+            .select('id, winner_id, created_at, player_a_id, player_b_id')
+            .or(`player_a_id.eq.${child.id},player_b_id.eq.${child.id}`)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (matches) {
+            child.totalMatches = matches.length;
+            child.wins = matches.filter(m => m.winner_id === child.id).length;
+            child.recentMatches = matches.slice(0, 5);
+        } else {
+            child.totalMatches = 0;
+            child.wins = 0;
+            child.recentMatches = [];
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
+        child.totalMatches = 0;
+        child.wins = 0;
+        child.recentMatches = [];
     }
 }
 
@@ -116,27 +149,77 @@ function renderChildren() {
         const age = child.age || calculateAge(child.birthdate);
         const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=6366f1&color=fff`;
 
-        return `
-            <div class="bg-white rounded-lg p-4 border border-gray-200">
-                <div class="flex items-center gap-3">
-                    <img
-                        src="${escapeHtml(avatarUrl)}"
-                        alt="${escapeHtml(child.first_name)}"
-                        class="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-gray-900 truncate">
-                            ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
-                        </h3>
-                        <p class="text-sm text-gray-500">${age} Jahre</p>
+        // Format recent matches
+        let recentActivityHtml = '';
+        if (child.recentMatches && child.recentMatches.length > 0) {
+            recentActivityHtml = child.recentMatches.map(match => {
+                const isWin = match.winner_id === child.id;
+                const date = new Date(match.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                return `
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="${isWin ? 'text-green-600' : 'text-red-500'} font-medium">${isWin ? 'S' : 'N'}</span>
+                        <span class="text-gray-400">${date}</span>
                     </div>
-                    <button
-                        onclick="generateLoginCode('${child.id}', '${escapeHtml(child.first_name)}')"
-                        class="text-indigo-600 hover:text-indigo-800 p-2"
-                        title="Login-Code generieren"
-                    >
-                        <i class="fas fa-key"></i>
-                    </button>
+                `;
+            }).join('');
+        } else {
+            recentActivityHtml = '<p class="text-xs text-gray-400">Keine Spiele</p>';
+        }
+
+        return `
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <!-- Header with basic info -->
+                <div class="p-4">
+                    <div class="flex items-center gap-3">
+                        <img
+                            src="${escapeHtml(avatarUrl)}"
+                            alt="${escapeHtml(child.first_name)}"
+                            class="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-900 truncate">
+                                ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
+                            </h3>
+                            <p class="text-sm text-gray-500">${age} Jahre</p>
+                        </div>
+                        <button
+                            onclick="generateLoginCode('${child.id}', '${escapeHtml(child.first_name)}')"
+                            class="text-indigo-600 hover:text-indigo-800 p-2"
+                            title="Login-Code generieren"
+                        >
+                            <i class="fas fa-key"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div>
+                            <p class="font-bold text-gray-900">${child.elo_rating || 800}</p>
+                            <p class="text-gray-500">Elo</p>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900">${child.xp || 0}</p>
+                            <p class="text-gray-500">XP</p>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-900">${child.totalMatches || 0}</p>
+                            <p class="text-gray-500">Spiele</p>
+                        </div>
+                        <div>
+                            <p class="font-bold text-green-600">${child.wins || 0}</p>
+                            <p class="text-gray-500">Siege</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-500 mb-2">Letzte Spiele</p>
+                    <div class="flex gap-3">
+                        ${recentActivityHtml}
+                    </div>
                 </div>
             </div>
         `;
