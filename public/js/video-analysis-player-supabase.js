@@ -1103,7 +1103,8 @@ function showPlayerVideoDetailModal(video, comments) {
 
     const modal = document.createElement('div');
     modal.id = 'player-video-detail-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 overflow-y-auto';
+    modal.style.zIndex = '100001';
 
     const commentsHtml = comments.length > 0
         ? comments.map(c => {
@@ -1125,33 +1126,35 @@ function showPlayerVideoDetailModal(video, comments) {
         : '<p class="text-gray-500 text-center py-4">Noch keine Kommentare vom Coach</p>';
 
     modal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col mx-2">
-            <div class="border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center flex-shrink-0 sticky top-0 bg-white z-10">
-                <h3 class="text-base sm:text-lg font-bold truncate mr-2">${escapeHtml(video.title || 'Video-Feedback')}</h3>
-                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                    <button id="delete-player-video" class="text-red-500 hover:text-red-700 active:text-red-800 transition-colors p-2" title="Video löschen">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button id="close-player-video-detail" class="text-gray-500 hover:text-gray-700 active:text-gray-900 p-2 -mr-2">
-                        <i class="fas fa-times text-xl sm:text-2xl"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
-                    <div>
-                        <video id="player-detail-video" class="w-full rounded-lg bg-black" controls playsinline>
-                            <source src="${escapeHtml(video.video_url)}" type="video/mp4">
-                        </video>
-                        ${video.exercise ? `
-                            <p class="mt-3 text-sm text-indigo-600">
-                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
-                            </p>
-                        ` : ''}
+        <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl">
+                <div class="border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center sticky top-0 bg-white rounded-t-xl z-10">
+                    <h3 class="text-base sm:text-lg font-bold truncate mr-2">${escapeHtml(video.title || 'Video-Feedback')}</h3>
+                    <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                        <button id="delete-player-video" class="text-red-500 hover:text-red-700 active:text-red-800 transition-colors p-2" title="Video löschen">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button id="close-player-video-detail" class="text-gray-500 hover:text-gray-700 active:text-gray-900 p-2 -mr-2">
+                            <i class="fas fa-times text-xl sm:text-2xl"></i>
+                        </button>
                     </div>
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
-                        <div class="space-y-2">${commentsHtml}</div>
+                </div>
+                <div class="p-4 sm:p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <div>
+                            <video id="player-detail-video" class="w-full rounded-lg bg-black max-h-[50vh]" controls playsinline>
+                                <source src="${escapeHtml(video.video_url)}" type="video/mp4">
+                            </video>
+                            ${video.exercise ? `
+                                <p class="mt-3 text-sm text-indigo-600">
+                                    <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                                </p>
+                            ` : ''}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
+                            <div class="space-y-2">${commentsHtml}</div>
+                        </div>
                     </div>
                 </div>
             </div>
