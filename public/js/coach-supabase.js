@@ -93,7 +93,7 @@ import {
     setDoublesSetScoreInput,
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
+import { setupTabs, updateSeasonCountdown, autoEndExpiredSeasons, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -1003,6 +1003,10 @@ async function initializeCoachPage(userData) {
 
     // Sport-ID für sportspezifischen Countdown übergeben
     const activeSportId = userData.activeSportId || null;
+
+    // Prüfe beim Start ob abgelaufene Saisons automatisch beendet werden müssen
+    autoEndExpiredSeasons(supabase, activeSportId);
+
     updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId), 1000);
     setInterval(updateAllCountdowns, 1000);

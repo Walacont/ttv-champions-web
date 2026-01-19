@@ -7,6 +7,9 @@ const CACHE_DURATION = 5 * 60 * 1000;
 
 let cachedSportId = null;
 
+// Track which seasons we've already auto-ended (to prevent duplicate attempts)
+const autoEndedSeasons = new Set();
+
 /** Lädt das Saison-Enddatum aus der seasons-Tabelle */
 async function fetchSeasonEndDate(supabase, sportId = null) {
     try {
@@ -58,6 +61,136 @@ async function fetchSeasonEndDate(supabase, sportId = null) {
     } catch (error) {
         console.error('Error fetching season end date:', error);
         return null;
+    }
+}
+
+/**
+ * Prüft auf abgelaufene aktive Saisons und beendet diese automatisch.
+ * Erstellt auch die Activity Card mit Gewinner-Informationen.
+ */
+async function checkAndAutoEndExpiredSeasons(supabase, sportId = null) {
+    try {
+        // Finde alle aktiven Saisons mit abgelaufenem end_date
+        let query = supabase
+            .from('seasons')
+            .select('id, name, start_date, end_date, club_id, sport_id, created_by')
+            .eq('is_active', true)
+            .lt('end_date', new Date().toISOString().split('T')[0]); // end_date < heute
+
+        if (sportId) {
+            query = query.eq('sport_id', sportId);
+        }
+
+        const { data: expiredSeasons, error } = await query;
+
+        if (error) {
+            console.error('Error checking expired seasons:', error);
+            return;
+        }
+
+        if (!expiredSeasons || expiredSeasons.length === 0) {
+            return;
+        }
+
+        console.log('🔔 Found expired active seasons:', expiredSeasons.length);
+
+        for (const season of expiredSeasons) {
+            // Überspringe, wenn wir diese Saison bereits versucht haben zu beenden
+            if (autoEndedSeasons.has(season.id)) {
+                continue;
+            }
+
+            autoEndedSeasons.add(season.id);
+            console.log(`⏰ Auto-ending expired season: ${season.name} (${season.id})`);
+
+            try {
+                // 1. Gewinner ermitteln (höchste Saison-Punkte)
+                let winnerInfo = '';
+
+                // Erst höchste Punktzahl ermitteln
+                let topScoreQuery = supabase
+                    .from('profiles')
+                    .select('points')
+                    .eq('club_id', season.club_id)
+                    .gt('points', 0)
+                    .order('points', { ascending: false })
+                    .limit(1);
+
+                if (season.sport_id) {
+                    topScoreQuery = topScoreQuery.eq('active_sport_id', season.sport_id);
+                }
+
+                const { data: topScoreData } = await topScoreQuery;
+
+                if (topScoreData && topScoreData.length > 0) {
+                    const topScore = topScoreData[0].points;
+
+                    // Alle Spieler mit dieser Punktzahl holen
+                    let winnersQuery = supabase
+                        .from('profiles')
+                        .select('first_name, last_name')
+                        .eq('club_id', season.club_id)
+                        .eq('points', topScore);
+
+                    if (season.sport_id) {
+                        winnersQuery = winnersQuery.eq('active_sport_id', season.sport_id);
+                    }
+
+                    const { data: winners } = await winnersQuery;
+
+                    if (winners && winners.length > 0) {
+                        const winnerNames = winners.map(w => `${w.first_name} ${w.last_name}`).join(', ');
+                        const winnerLabel = winners.length === 1 ? 'Saison-Sieger/in' : 'Saison-Sieger';
+                        winnerInfo = `\n${winnerLabel}: ${winnerNames} mit ${topScore} Punkten\n`;
+                    }
+                }
+
+                // 2. Saison als beendet markieren
+                const { error: updateError } = await supabase
+                    .from('seasons')
+                    .update({ is_active: false })
+                    .eq('id', season.id);
+
+                if (updateError) {
+                    console.error('Error updating season:', updateError);
+                    continue;
+                }
+
+                // 3. Activity Card erstellen
+                const startDateFormatted = new Date(season.start_date).toLocaleDateString('de-DE');
+                const endDateFormatted = new Date(season.end_date).toLocaleDateString('de-DE');
+                const postContent = `Saison beendet!\n\n` +
+                    `Die Saison "${season.name}" ist zu Ende.\n\n` +
+                    `Zeitraum war: ${startDateFormatted} - ${endDateFormatted}` +
+                    winnerInfo +
+                    `\nDanke an alle für die Teilnahme!`;
+
+                // Verwende created_by als Autor, falls vorhanden
+                const authorId = season.created_by;
+
+                if (authorId) {
+                    await supabase.from('community_posts').insert({
+                        user_id: authorId,
+                        club_id: season.club_id,
+                        content: postContent,
+                        visibility: 'club'
+                    });
+                    console.log(`✅ Season "${season.name}" auto-ended with activity card`);
+                } else {
+                    console.log(`✅ Season "${season.name}" auto-ended (no activity card - no created_by)`);
+                }
+
+                // Cache invalidieren damit die Änderung sofort sichtbar ist
+                cachedSeasonEnd = null;
+                cachedSeasonName = null;
+                lastFetchTime = null;
+
+            } catch (err) {
+                console.error(`Error auto-ending season ${season.id}:`, err);
+            }
+        }
+    } catch (error) {
+        console.error('Error in checkAndAutoEndExpiredSeasons:', error);
     }
 }
 
@@ -118,6 +251,9 @@ export async function updateSeasonCountdown(
     if (diff <= 0) {
         seasonCountdownEl.textContent = 'Saison beendet!';
 
+        // Automatisch die Saison beenden und Activity Card erstellen
+        await checkAndAutoEndExpiredSeasons(supabase, sportId);
+
         if (reloadOnEnd) {
             console.log('🔄 Season ended, reloading page in 30 seconds...');
             setTimeout(() => window.location.reload(), 30000);
@@ -137,6 +273,14 @@ export async function updateSeasonCountdown(
 /** Gibt das aktuelle Saison-Enddatum zurück */
 export async function getSeasonEndDate(supabase) {
     return await fetchSeasonEndDate(supabase);
+}
+
+/**
+ * Prüft und beendet automatisch abgelaufene Saisons.
+ * Exportiert, damit es auch beim Seitenaufruf aufgerufen werden kann.
+ */
+export async function autoEndExpiredSeasons(supabase, sportId = null) {
+    return await checkAndAutoEndExpiredSeasons(supabase, sportId);
 }
 
 /** Formatiert das Saison-Enddatum zur Anzeige */
