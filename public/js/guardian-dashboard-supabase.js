@@ -26,18 +26,27 @@ const loginCodeModal = document.getElementById('login-code-modal');
 
 // Initialize with auth state
 async function initialize(user) {
-    if (initialized) return;
+    console.log('[GUARDIAN-DASHBOARD] initialize() called, user:', user?.id);
+    console.log('[GUARDIAN-DASHBOARD] initialized flag:', initialized);
+
+    if (initialized) {
+        console.log('[GUARDIAN-DASHBOARD] Already initialized, returning');
+        return;
+    }
     initialized = true;
 
     try {
         currentUser = user;
+        console.log('[GUARDIAN-DASHBOARD] Loading profile for user:', user.id);
 
         // Check if user is a guardian
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('account_type, is_guardian, first_name')
             .eq('id', user.id)
             .single();
+
+        console.log('[GUARDIAN-DASHBOARD] Profile loaded:', profile, 'Error:', profileError);
 
         if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
             console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
@@ -401,7 +410,7 @@ function setupEventListeners() {
 
 // Wait for auth state and initialize
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('[GUARDIAN-DASHBOARD] Auth state changed:', event);
+    console.log('[GUARDIAN-DASHBOARD] Auth state changed:', event, 'session:', !!session, 'user:', session?.user?.id);
 
     if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
@@ -409,7 +418,10 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
 
     if (session?.user && !initialized) {
+        console.log('[GUARDIAN-DASHBOARD] Calling initialize from onAuthStateChange');
         await initialize(session.user);
+    } else {
+        console.log('[GUARDIAN-DASHBOARD] Not initializing - session?.user:', !!session?.user, 'initialized:', initialized);
     }
 });
 
