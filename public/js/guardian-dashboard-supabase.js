@@ -93,16 +93,48 @@ async function initialize(user) {
             // No children found, but query worked
             console.log('[GUARDIAN-DASHBOARD] No children found for this guardian');
         } else {
-            // Links query failed, try RPC
-            const { data, error } = await supabase.rpc('get_guardian_children');
-            console.log('[GUARDIAN-DASHBOARD] RPC result:', data, 'error:', error);
+            // Links query failed, try RPC with timeout
+            console.log('[GUARDIAN-DASHBOARD] Starting RPC call with timeout...');
+            let rpcData, rpcError;
+            try {
+                const result = await queryWithTimeout(
+                    () => supabase.rpc('get_guardian_children'),
+                    10000,
+                    'get_guardian_children RPC'
+                );
+                rpcData = result.data;
+                rpcError = result.error;
+            } catch (timeoutErr) {
+                console.error('[GUARDIAN-DASHBOARD] RPC timeout:', timeoutErr.message);
+                rpcError = { message: timeoutErr.message };
+            }
 
-            if (error || !data?.success) {
-                console.log('[GUARDIAN-DASHBOARD] User is not a guardian or RPC failed');
+            console.log('[GUARDIAN-DASHBOARD] RPC result:', rpcData, 'error:', rpcError);
+
+            if (rpcError) {
+                // Both queries failed - show error to user
+                console.error('[GUARDIAN-DASHBOARD] All queries failed');
+                pageLoader.innerHTML = `
+                    <div class="text-center p-6">
+                        <div class="text-red-600 mb-4">
+                            <i class="fas fa-exclamation-triangle text-4xl"></i>
+                        </div>
+                        <p class="text-gray-700 mb-2">Datenbankverbindung fehlgeschlagen</p>
+                        <p class="text-gray-500 text-sm mb-4">Die Guardian-Tabellen sind möglicherweise nicht eingerichtet.</p>
+                        <a href="/dashboard.html" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                            <i class="fas fa-arrow-left mr-1"></i>Zurück zum Dashboard
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!rpcData?.success) {
+                console.log('[GUARDIAN-DASHBOARD] User is not a guardian:', rpcData?.error);
                 window.location.href = '/dashboard.html';
                 return;
             }
-            childrenData = data.children || [];
+            childrenData = rpcData.children || [];
         }
 
         children = childrenData;
