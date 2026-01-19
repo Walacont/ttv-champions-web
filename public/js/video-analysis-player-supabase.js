@@ -1142,7 +1142,7 @@ function showPlayerVideoDetailModal(video, comments) {
                 <div class="p-4 sm:p-6">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         <div class="flex justify-center">
-                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[35vh] sm:max-h-[50vh] max-w-full" controls playsinline>
+                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[30vh] sm:max-h-[45vh] max-w-[60vw] sm:max-w-full" controls playsinline>
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
                         </div>
