@@ -151,6 +151,36 @@ function hideAgeBlockMessage() {
     }
 }
 
+// Helper function to hide birthdate fields and remove required attribute
+function hideBirthdateFields() {
+    const birthdateFields = document.getElementById('birthdate-fields');
+    if (birthdateFields) {
+        birthdateFields.classList.add('hidden');
+    }
+    // Remove required attribute to prevent browser validation errors on hidden fields
+    const daySelect = document.getElementById('birthdate-day');
+    const monthSelect = document.getElementById('birthdate-month');
+    const yearSelect = document.getElementById('birthdate-year');
+    if (daySelect) daySelect.removeAttribute('required');
+    if (monthSelect) monthSelect.removeAttribute('required');
+    if (yearSelect) yearSelect.removeAttribute('required');
+}
+
+// Helper function to show birthdate fields and add required attribute
+function showBirthdateFields() {
+    const birthdateFields = document.getElementById('birthdate-fields');
+    if (birthdateFields) {
+        birthdateFields.classList.remove('hidden');
+    }
+    // Add required attribute back
+    const daySelect = document.getElementById('birthdate-day');
+    const monthSelect = document.getElementById('birthdate-month');
+    const yearSelect = document.getElementById('birthdate-year');
+    if (daySelect) daySelect.setAttribute('required', '');
+    if (monthSelect) monthSelect.setAttribute('required', '');
+    if (yearSelect) yearSelect.setAttribute('required', '');
+}
+
 // Initialize on page load
 initBirthdateDropdowns();
 initVerifyBirthdateDropdowns();
@@ -265,10 +295,7 @@ if (registerWithoutCodeBtn) {
         }
 
         // Show birthdate fields (required for age verification)
-        const birthdateFields = document.getElementById('birthdate-fields');
-        if (birthdateFields) {
-            birthdateFields.classList.remove('hidden');
-        }
+        showBirthdateFields();
 
         formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
     });
@@ -292,11 +319,8 @@ if (registerAsGuardianBtn) {
             document.getElementById('last-name').required = true;
         }
 
-        // Hide birthdate fields (guardians don't need age check)
-        const birthdateFields = document.getElementById('birthdate-fields');
-        if (birthdateFields) {
-            birthdateFields.classList.add('hidden');
-        }
+        // Hide birthdate fields and remove required (guardians don't need age check)
+        hideBirthdateFields();
 
         // Hide age block message if visible
         hideAgeBlockMessage();
@@ -312,11 +336,8 @@ if (switchToGuardianBtn) {
         // Reset and switch to guardian mode
         registrationType = 'guardian';
 
-        // Hide birthdate fields
-        const birthdateFields = document.getElementById('birthdate-fields');
-        if (birthdateFields) {
-            birthdateFields.classList.add('hidden');
-        }
+        // Hide birthdate fields and remove required
+        hideBirthdateFields();
 
         // Hide age block message
         hideAgeBlockMessage();
@@ -884,11 +905,8 @@ verifyBirthdateBtn?.addEventListener('click', () => {
         document.getElementById('last-name').required = true;
     }
 
-    // Hide birthdate fields (guardian doesn't need age verification)
-    const birthdateFields = document.getElementById('birthdate-fields');
-    if (birthdateFields) {
-        birthdateFields.classList.add('hidden');
-    }
+    // Hide birthdate fields and remove required (guardian doesn't need age verification)
+    hideBirthdateFields();
 
     formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}.`;
     registrationFormContainer.classList.remove('hidden');
