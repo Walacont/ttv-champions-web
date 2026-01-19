@@ -697,7 +697,86 @@ $$;
 GRANT EXECUTE ON FUNCTION accept_guardian_invite TO authenticated;
 
 -- ============================================
--- PART 10: Verification
+-- PART 10: Forward notifications to guardians
+-- ============================================
+
+-- This trigger automatically forwards notifications sent to children
+-- to their guardians who have receives_notifications = true
+
+CREATE OR REPLACE FUNCTION forward_notification_to_guardians()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_guardian RECORD;
+    v_child_name TEXT;
+    v_child_profile RECORD;
+BEGIN
+    -- Skip if this is already a forwarded notification (marked in data)
+    IF NEW.data->>'forwarded_from' IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    -- Get child profile info
+    SELECT first_name, last_name, account_type, age_mode
+    INTO v_child_profile
+    FROM profiles
+    WHERE id = NEW.user_id;
+
+    -- Only forward if recipient is a child profile (age_mode = 'kids' or 'teen', or account_type = 'child')
+    IF v_child_profile.account_type != 'child' AND v_child_profile.age_mode NOT IN ('kids', 'teen') THEN
+        RETURN NEW;
+    END IF;
+
+    v_child_name := COALESCE(v_child_profile.first_name || ' ' || v_child_profile.last_name, 'Kind');
+
+    -- Find all guardians for this child
+    FOR v_guardian IN
+        SELECT gl.guardian_id, p.first_name AS guardian_first_name
+        FROM guardian_links gl
+        JOIN profiles p ON p.id = gl.guardian_id
+        WHERE gl.child_id = NEW.user_id
+        AND COALESCE((gl.permissions->>'receives_notifications')::boolean, true) = true
+    LOOP
+        -- Create a copy of the notification for the guardian
+        INSERT INTO notifications (
+            user_id,
+            type,
+            title,
+            message,
+            data,
+            is_read
+        ) VALUES (
+            v_guardian.guardian_id,
+            NEW.type,
+            '[' || v_child_name || '] ' || NEW.title,
+            NEW.message,
+            jsonb_build_object(
+                'forwarded_from', NEW.user_id,
+                'child_id', NEW.user_id,
+                'child_name', v_child_name,
+                'original_data', NEW.data
+            ),
+            false
+        );
+    END LOOP;
+
+    RETURN NEW;
+END;
+$$;
+
+-- Create trigger (drop first if exists)
+DROP TRIGGER IF EXISTS trigger_forward_notification_to_guardians ON notifications;
+
+CREATE TRIGGER trigger_forward_notification_to_guardians
+    AFTER INSERT ON notifications
+    FOR EACH ROW
+    EXECUTE FUNCTION forward_notification_to_guardians();
+
+-- ============================================
+-- PART 11: Verification
 -- ============================================
 
 DO $$
@@ -708,4 +787,5 @@ BEGIN
     RAISE NOTICE 'New functions: check_duplicate_child, link_guardian_to_child, upgrade_child_account';
     RAISE NOTICE 'New functions: approve_guardian_club_request, get_my_children';
     RAISE NOTICE 'New functions: generate_guardian_invite_code, accept_guardian_invite';
+    RAISE NOTICE 'New trigger: forward_notification_to_guardians (auto-forwards notifications to guardians)';
 END $$;
