@@ -132,6 +132,7 @@ function showAgeBlockMessage(message, ageMode) {
     const container = document.getElementById('age-block-message');
     const text = document.getElementById('age-block-text');
     const submitBtn = document.getElementById('submit-button');
+    const switchToGuardianBtn = document.getElementById('switch-to-guardian-btn');
 
     if (container && text) {
         text.textContent = message;
@@ -141,6 +142,15 @@ function showAgeBlockMessage(message, ageMode) {
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    // Hide "Register as guardian instead" button if already registering as guardian
+    if (switchToGuardianBtn) {
+        if (registrationType === 'guardian' || registrationType === 'guardian-link') {
+            switchToGuardianBtn.classList.add('hidden');
+        } else {
+            switchToGuardianBtn.classList.remove('hidden');
+        }
     }
 }
 
