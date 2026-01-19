@@ -39,12 +39,26 @@ async function initialize(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] Loading profile for user:', user.id);
 
-        // Check if user is a guardian
-        const { data: profile, error: profileError } = await supabase
+        // Check if user is a guardian - with timeout
+        const profilePromise = supabase
             .from('profiles')
             .select('account_type, is_guardian, first_name')
             .eq('id', user.id)
             .single();
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile query timeout after 10s')), 10000)
+        );
+
+        let profile, profileError;
+        try {
+            const result = await Promise.race([profilePromise, timeoutPromise]);
+            profile = result.data;
+            profileError = result.error;
+        } catch (e) {
+            console.error('[GUARDIAN-DASHBOARD] Profile query failed:', e);
+            throw e;
+        }
 
         console.log('[GUARDIAN-DASHBOARD] Profile loaded:', profile, 'Error:', profileError);
 
