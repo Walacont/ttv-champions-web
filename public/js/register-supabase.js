@@ -198,19 +198,27 @@ function showBirthdateFields() {
     if (yearSelect) yearSelect.setAttribute('required', '');
 }
 
-// Helper function to show guardian profile fields (photo, gender)
+// Helper function to show guardian profile fields (photo at top, gender after birthdate)
 function showGuardianProfileFields() {
-    const guardianProfileFields = document.getElementById('guardian-profile-fields');
-    if (guardianProfileFields) {
-        guardianProfileFields.classList.remove('hidden');
+    const guardianPhotoSection = document.getElementById('guardian-photo-section');
+    const guardianGenderSection = document.getElementById('guardian-gender-section');
+    if (guardianPhotoSection) {
+        guardianPhotoSection.classList.remove('hidden');
+    }
+    if (guardianGenderSection) {
+        guardianGenderSection.classList.remove('hidden');
     }
 }
 
 // Helper function to hide guardian profile fields
 function hideGuardianProfileFields() {
-    const guardianProfileFields = document.getElementById('guardian-profile-fields');
-    if (guardianProfileFields) {
-        guardianProfileFields.classList.add('hidden');
+    const guardianPhotoSection = document.getElementById('guardian-photo-section');
+    const guardianGenderSection = document.getElementById('guardian-gender-section');
+    if (guardianPhotoSection) {
+        guardianPhotoSection.classList.add('hidden');
+    }
+    if (guardianGenderSection) {
+        guardianGenderSection.classList.add('hidden');
     }
 }
 
