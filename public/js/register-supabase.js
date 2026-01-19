@@ -793,22 +793,29 @@ function displayError(message) {
 // Show role selection modal for offline player codes
 function showRoleSelectionModal(age, playerName) {
     const infoText = document.getElementById('role-selection-info');
-    if (infoText) {
-        if (age !== null) {
-            infoText.textContent = `Der Einladungscode ist für ${playerName} (${age} Jahre).`;
-        } else {
+
+    // Under 16: Only guardian can register - hide player option completely
+    if (age !== null && age < 16) {
+        if (infoText) {
+            infoText.textContent = `${playerName} ist ${age} Jahre alt. Da ${playerName} unter 16 ist, muss sich ein Elternteil oder Vormund registrieren.`;
+        }
+        // Hide the "I am the player" option completely
+        roleSelectPlayer?.classList.add('hidden');
+        roleAgeBlock?.classList.remove('hidden');
+    } else if (age === null) {
+        // Age unknown - show both options but will validate during registration
+        if (infoText) {
             infoText.textContent = `Der Einladungscode ist für ${playerName}.`;
         }
-    }
-
-    // Show/hide age block based on whether player is under 14
-    // If age is unknown, don't block (will be checked during registration)
-    if (age !== null && age < 14) {
-        roleAgeBlock?.classList.remove('hidden');
-        roleSelectPlayer?.classList.add('opacity-50', 'cursor-not-allowed');
-    } else {
+        roleSelectPlayer?.classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
         roleAgeBlock?.classList.add('hidden');
-        roleSelectPlayer?.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        // 16+ - player can register themselves
+        if (infoText) {
+            infoText.textContent = `Der Einladungscode ist für ${playerName} (${age} Jahre).`;
+        }
+        roleSelectPlayer?.classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
+        roleAgeBlock?.classList.add('hidden');
     }
 
     roleSelectionModal?.classList.remove('hidden');
@@ -819,16 +826,16 @@ function hideRoleSelectionModal() {
     roleSelectionModal?.classList.add('hidden');
 }
 
-// Role selection: Player selected themselves
+// Role selection: Player selected themselves (only possible for 16+)
 roleSelectPlayer?.addEventListener('click', () => {
-    // Check age - block if under 14
+    // Double-check age - block if under 16 (button should already be hidden)
     if (linkedPlayerBirthdate) {
         const age = calculateAge(linkedPlayerBirthdate);
-        if (age < 14) {
-            // Can't self-register under 14
+        if (age < 16) {
+            // Can't self-register under 16 - need guardian
             return;
         }
-        // Age is 14+ and known - no need to ask for birthdate again
+        // Age is 16+ and known - proceed with registration
         hideRoleSelectionModal();
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';

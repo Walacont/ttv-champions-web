@@ -73,8 +73,8 @@ export function isTeen(birthdate) {
 /**
  * Validate if user can register themselves
  * @param {string|Date} birthdate - Birthdate
- * @param {boolean} hasInvitationCode - Whether user has an invitation code
- * @returns {{allowed: boolean, reason?: string, requiresParentConfirmation?: boolean}}
+ * @param {boolean} hasInvitationCode - Whether user has an invitation code (unused, kept for API compatibility)
+ * @returns {{allowed: boolean, reason?: string, ageMode?: string}}
  */
 export function validateRegistrationAge(birthdate, hasInvitationCode) {
     const age = calculateAge(birthdate);
@@ -86,36 +86,20 @@ export function validateRegistrationAge(birthdate, hasInvitationCode) {
         };
     }
 
-    // Under 14: ALWAYS blocked - must be created by guardian
-    if (age < 14) {
+    // Under 16: ALWAYS blocked - must be created by guardian
+    // Minors cannot create their own accounts, they must use child-login after guardian registers
+    if (age < 16) {
+        const ageMode = age < 14 ? 'kids' : 'teen';
         return {
             allowed: false,
-            reason: 'Du bist unter 14 Jahre alt. Bitte lass deinen Vormund einen Account für dich erstellen.',
-            ageMode: 'kids'
-        };
-    }
-
-    // 14-15: Only with invitation code from club
-    if (age >= 14 && age < 16) {
-        if (!hasInvitationCode) {
-            return {
-                allowed: false,
-                reason: 'Mit 14-15 Jahren benötigst du einen Einladungscode von deinem Verein.',
-                ageMode: 'teen'
-            };
-        }
-        // With code: allowed but parent confirmation recommended
-        return {
-            allowed: true,
-            requiresParentConfirmation: true,
-            ageMode: 'teen'
+            reason: 'Du bist unter 16 Jahre alt. Bitte lass deinen Elternteil oder Vormund einen Account erstellen. Du kannst dich danach über die Kind-Anmeldung einloggen.',
+            ageMode: ageMode
         };
     }
 
     // 16+: Full access
     return {
         allowed: true,
-        requiresParentConfirmation: false,
         ageMode: 'full'
     };
 }
