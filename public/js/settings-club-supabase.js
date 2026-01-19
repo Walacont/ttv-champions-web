@@ -21,6 +21,25 @@ let currentUserData = null;
 let clubRequestsSubscription = null;
 let leaveRequestsSubscription = null;
 
+// Join type modal elements
+const joinTypeModal = document.getElementById('join-type-modal');
+const joinTypeClubName = document.getElementById('join-type-club-name');
+const joinAsMemberBtn = document.getElementById('join-as-member-btn');
+const joinAsGuardianBtn = document.getElementById('join-as-guardian-btn');
+const joinTypeCancelBtn = document.getElementById('join-type-cancel-btn');
+
+// Guardian child modal elements
+const guardianChildModal = document.getElementById('guardian-child-modal');
+const guardianChildForm = document.getElementById('guardian-child-form');
+const guardianChildError = document.getElementById('guardian-child-error');
+const guardianChildErrorText = document.getElementById('guardian-child-error-text');
+const guardianChildBackBtn = document.getElementById('guardian-child-back-btn');
+const guardianChildSubmit = document.getElementById('guardian-child-submit');
+
+// Current club being joined
+let pendingJoinClubId = null;
+let pendingJoinClubName = null;
+
 // Authentifizierungsstatus beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -513,40 +532,11 @@ async function notifyClubCoaches(clubId, type, playerName) {
 }
 
 /**
- * Request to join a club
+ * Request to join a club - shows modal to choose join type
  */
 async function requestToJoinClub(clubId, clubName) {
-    if (!confirm(`Möchtest du wirklich eine Beitrittsanfrage an "${clubName}" senden?`)) {
-        return;
-    }
-
-    try {
-        clubManagementFeedback.textContent = 'Sende Anfrage...';
-        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
-
-        const { error } = await supabase.from('club_requests').insert({
-            player_id: currentUser.id,
-            club_id: clubId,
-            status: 'pending'
-        });
-
-        if (error) throw error;
-
-        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
-        await notifyClubCoaches(clubId, 'join', playerName);
-
-        clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
-        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
-
-        clubSearchInput.value = '';
-        clubSearchResults.innerHTML = '';
-
-        await updateClubManagementUI();
-    } catch (error) {
-        console.error('Error requesting to join club:', error);
-        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
-        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
-    }
+    // Show join type modal instead of directly joining
+    showJoinTypeModal(clubId, clubName);
 }
 
 /**
@@ -701,5 +691,283 @@ async function withdrawLeaveRequest(requestId) {
         console.error('Error withdrawing leave request:', error);
         clubManagementFeedback.textContent = `Fehler: ${error.message}`;
         clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+// =====================================================
+// Guardian Join Flow - Modal Functions
+// =====================================================
+
+/**
+ * Initialize child birthdate dropdowns
+ */
+function initChildBirthdateDropdowns() {
+    const daySelect = document.getElementById('child-birthdate-day');
+    const monthSelect = document.getElementById('child-birthdate-month');
+    const yearSelect = document.getElementById('child-birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    // Clear existing options (keep placeholder)
+    while (daySelect.options.length > 1) daySelect.remove(1);
+    while (monthSelect.options.length > 1) monthSelect.remove(1);
+    while (yearSelect.options.length > 1) yearSelect.remove(1);
+
+    // Days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Months (1-12)
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = monthNames[i - 1];
+        monthSelect.appendChild(option);
+    }
+
+    // Years (current year down to 1920, but mostly for children so start recent)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= currentYear - 25; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
+}
+
+// Initialize on page load
+initChildBirthdateDropdowns();
+
+/**
+ * Show join type selection modal
+ */
+function showJoinTypeModal(clubId, clubName) {
+    pendingJoinClubId = clubId;
+    pendingJoinClubName = clubName;
+
+    if (joinTypeClubName) {
+        joinTypeClubName.textContent = clubName;
+    }
+
+    joinTypeModal?.classList.remove('hidden');
+}
+
+/**
+ * Hide join type modal
+ */
+function hideJoinTypeModal() {
+    joinTypeModal?.classList.add('hidden');
+    pendingJoinClubId = null;
+    pendingJoinClubName = null;
+}
+
+/**
+ * Show guardian child info modal
+ */
+function showGuardianChildModal() {
+    // Reset form
+    document.getElementById('child-first-name').value = '';
+    document.getElementById('child-last-name').value = '';
+    document.getElementById('child-birthdate-day').value = '';
+    document.getElementById('child-birthdate-month').value = '';
+    document.getElementById('child-birthdate-year').value = '';
+    guardianChildError?.classList.add('hidden');
+
+    guardianChildModal?.classList.remove('hidden');
+}
+
+/**
+ * Hide guardian child modal
+ */
+function hideGuardianChildModal() {
+    guardianChildModal?.classList.add('hidden');
+}
+
+/**
+ * Show error in guardian child modal
+ */
+function showGuardianChildError(message) {
+    if (guardianChildErrorText) guardianChildErrorText.textContent = message;
+    guardianChildError?.classList.remove('hidden');
+}
+
+// Join type modal: Cancel button
+joinTypeCancelBtn?.addEventListener('click', () => {
+    hideJoinTypeModal();
+});
+
+// Join type modal: Join as member
+joinAsMemberBtn?.addEventListener('click', async () => {
+    hideJoinTypeModal();
+
+    if (pendingJoinClubId && pendingJoinClubName) {
+        await submitMemberJoinRequest(pendingJoinClubId, pendingJoinClubName);
+    }
+});
+
+// Join type modal: Join as guardian
+joinAsGuardianBtn?.addEventListener('click', () => {
+    hideJoinTypeModal();
+    showGuardianChildModal();
+});
+
+// Guardian child modal: Back button
+guardianChildBackBtn?.addEventListener('click', () => {
+    hideGuardianChildModal();
+    showJoinTypeModal(pendingJoinClubId, pendingJoinClubName);
+});
+
+// Guardian child modal: Form submit
+guardianChildForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const firstName = document.getElementById('child-first-name')?.value?.trim();
+    const lastName = document.getElementById('child-last-name')?.value?.trim();
+    const day = document.getElementById('child-birthdate-day')?.value;
+    const month = document.getElementById('child-birthdate-month')?.value;
+    const year = document.getElementById('child-birthdate-year')?.value;
+
+    // Validate
+    if (!firstName || !lastName) {
+        showGuardianChildError('Bitte gib den Namen des Kindes ein.');
+        return;
+    }
+
+    if (!day || !month || !year) {
+        showGuardianChildError('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    // Parse birthdate
+    const birthdate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    // Calculate age
+    const birthDateObj = new Date(birthdate);
+    const today = new Date();
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const monthDiff = today.getMonth() - birthDateObj.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+        age--;
+    }
+
+    if (age >= 16) {
+        showGuardianChildError('Als Vormund können Sie nur Kinder unter 16 Jahren anmelden.');
+        return;
+    }
+
+    if (age < 0) {
+        showGuardianChildError('Ungültiges Geburtsdatum.');
+        return;
+    }
+
+    // Disable button while submitting
+    guardianChildSubmit.disabled = true;
+    guardianChildSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende...';
+
+    try {
+        await submitGuardianJoinRequest(pendingJoinClubId, pendingJoinClubName, {
+            firstName,
+            lastName,
+            birthdate
+        });
+
+        hideGuardianChildModal();
+    } catch (error) {
+        showGuardianChildError(error.message || 'Fehler beim Senden der Anfrage.');
+    } finally {
+        guardianChildSubmit.disabled = false;
+        guardianChildSubmit.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Beitrittsanfrage senden';
+    }
+});
+
+/**
+ * Submit member join request (regular join)
+ */
+async function submitMemberJoinRequest(clubId, clubName) {
+    try {
+        clubManagementFeedback.textContent = 'Sende Anfrage...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        const { error } = await supabase.from('club_requests').insert({
+            player_id: currentUser.id,
+            club_id: clubId,
+            status: 'pending',
+            request_type: 'member'
+        });
+
+        if (error) throw error;
+
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        await notifyClubCoaches(clubId, 'join', playerName);
+
+        clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        clubSearchInput.value = '';
+        clubSearchResults.innerHTML = '';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error requesting to join club:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+/**
+ * Submit guardian join request (joining for a child)
+ */
+async function submitGuardianJoinRequest(clubId, clubName, childData) {
+    try {
+        clubManagementFeedback.textContent = 'Sende Anfrage...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        const { error } = await supabase.from('club_requests').insert({
+            player_id: currentUser.id,
+            club_id: clubId,
+            status: 'pending',
+            request_type: 'guardian',
+            child_first_name: childData.firstName,
+            child_last_name: childData.lastName,
+            child_birthdate: childData.birthdate
+        });
+
+        if (error) throw error;
+
+        // Update user's is_guardian flag if not already set
+        await supabase
+            .from('profiles')
+            .update({ is_guardian: true })
+            .eq('id', currentUser.id);
+
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        const notifyMessage = `${playerName} (Vormund für ${childData.firstName} ${childData.lastName})`;
+        await notifyClubCoaches(clubId, 'guardian_join', notifyMessage);
+
+        clubManagementFeedback.innerHTML = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p class="text-sm text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <strong>Beitrittsanfrage gesendet!</strong>
+                </p>
+                <p class="text-xs text-green-700 mt-1">
+                    Anfrage für <strong>${childData.firstName} ${childData.lastName}</strong> an "${clubName}" gesendet.
+                </p>
+            </div>
+        `;
+
+        clubSearchInput.value = '';
+        clubSearchResults.innerHTML = '';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error requesting guardian join:', error);
+        throw error;
     }
 }
