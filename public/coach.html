@@ -2909,19 +2909,19 @@
                 </div>
 
                 <!-- Video Detail Modal -->
-                <div id="video-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div id="video-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
                     <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
                         <!-- Header -->
-                        <div class="border-b px-6 py-4 flex justify-between items-center flex-shrink-0">
-                            <h3 class="text-lg font-bold">Video analysieren</h3>
-                            <div class="flex items-center gap-2">
-                                <button id="compare-video-btn" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors">
-                                    <i class="fas fa-columns mr-1"></i> Vergleichen
+                        <div class="border-b px-3 sm:px-6 py-3 sm:py-4 flex justify-between items-center flex-shrink-0">
+                            <h3 class="text-base sm:text-lg font-bold truncate mr-2">Video analysieren</h3>
+                            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                                <button id="compare-video-btn" class="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs sm:text-sm font-medium py-2 px-2 sm:px-3 rounded-lg transition-colors" title="Vergleichen">
+                                    <i class="fas fa-columns"></i><span class="hidden sm:inline ml-1">Vergleichen</span>
                                 </button>
-                                <button id="mark-reviewed-btn" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors">
-                                    <i class="fas fa-check mr-1"></i> Als analysiert markieren
+                                <button id="mark-reviewed-btn" class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs sm:text-sm font-medium py-2 px-2 sm:px-3 rounded-lg transition-colors" title="Als analysiert markieren">
+                                    <i class="fas fa-check"></i><span class="hidden sm:inline ml-1">Analysiert</span>
                                 </button>
-                                <button id="close-video-detail-modal" class="text-gray-400 hover:text-gray-600 ml-2">
+                                <button id="close-video-detail-modal" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
                                     <i class="fas fa-times text-xl"></i>
                                 </button>
                             </div>
@@ -2929,7 +2929,7 @@
 
                         <!-- Content -->
                         <div class="flex-1 overflow-y-auto">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-3 sm:p-6">
                                 <!-- Video Player -->
                                 <div id="video-player-container">
                                     <!-- Video wird dynamisch eingefügt -->
@@ -2968,72 +2968,76 @@
                 </div>
 
                 <!-- Split-Screen Modal -->
-                <div id="split-screen-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex flex-col z-50">
-                    <!-- Header -->
-                    <div class="bg-gray-900 text-white p-4 flex items-center justify-between">
-                        <h2 class="text-lg font-semibold flex items-center gap-2">
-                            <i class="fas fa-columns"></i>
-                            Video-Vergleich
-                        </h2>
-                        <div class="flex items-center gap-4">
-                            <!-- Sync Toggle -->
-                            <label class="flex items-center gap-2 text-sm">
-                                <input type="checkbox" id="coach-sync-playback" checked
-                                       class="rounded text-indigo-600 focus:ring-indigo-500">
-                                <span>Synchron abspielen</span>
-                            </label>
-                            <button id="close-split-screen-modal" class="text-gray-400 hover:text-white transition-colors">
-                                <i class="fas fa-times text-xl"></i>
+                <div id="split-screen-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 overflow-hidden">
+                    <div class="h-full w-full flex flex-col">
+                        <!-- Header -->
+                        <div class="bg-gray-900 text-white p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
+                            <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2">
+                                <i class="fas fa-columns"></i>
+                                <span class="hidden sm:inline">Video-Vergleich</span>
+                                <span class="sm:hidden">Vergleich</span>
+                            </h2>
+                            <div class="flex items-center gap-2 sm:gap-4">
+                                <!-- Sync Toggle -->
+                                <label class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                                    <input type="checkbox" id="coach-sync-playback" checked
+                                           class="rounded text-indigo-600 focus:ring-indigo-500">
+                                    <span class="hidden sm:inline">Synchron abspielen</span>
+                                    <span class="sm:hidden">Sync</span>
+                                </label>
+                                <button id="close-split-screen-modal" class="text-white hover:text-gray-300 transition-colors p-2 -mr-2">
+                                    <i class="fas fa-times text-xl sm:text-2xl"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Video Container -->
+                        <div class="flex-1 flex flex-col lg:flex-row gap-2 p-2 sm:p-4 overflow-hidden min-h-0">
+                            <!-- Left Video -->
+                            <div class="flex-1 flex flex-col min-h-0">
+                                <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
+                                    <select id="split-video-select-left" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Video 1 auswählen...</option>
+                                    </select>
+                                </div>
+                                <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                                    <video id="split-video-left" class="max-w-full max-h-full" controls playsinline></video>
+                                </div>
+                                <div id="split-info-left" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
+                                    <p class="font-medium truncate" id="split-title-left"></p>
+                                    <p class="text-gray-400 text-xs" id="split-date-left"></p>
+                                </div>
+                            </div>
+
+                            <!-- Right Video -->
+                            <div class="flex-1 flex flex-col min-h-0">
+                                <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
+                                    <select id="split-video-select-right" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Video 2 auswählen...</option>
+                                    </select>
+                                </div>
+                                <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                                    <video id="split-video-right" class="max-w-full max-h-full" controls playsinline></video>
+                                </div>
+                                <div id="split-info-right" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
+                                    <p class="font-medium truncate" id="split-title-right"></p>
+                                    <p class="text-gray-400 text-xs" id="split-date-right"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Playback Controls -->
+                        <div class="bg-gray-900 p-3 sm:p-4 flex items-center justify-center gap-2 sm:gap-4 flex-shrink-0">
+                            <button id="play-both-btn" class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-4 sm:px-6 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base">
+                                <i class="fas fa-play"></i>
+                                <span class="hidden sm:inline">Abspielen</span>
                             </button>
-                        </div>
-                    </div>
-
-                    <!-- Video Container -->
-                    <div class="flex-1 flex flex-col lg:flex-row gap-2 p-4 overflow-hidden">
-                        <!-- Left Video -->
-                        <div class="flex-1 flex flex-col min-h-0">
-                            <div class="bg-gray-800 rounded-lg p-3 mb-2">
-                                <select id="split-video-select-left" class="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">Video 1 auswählen...</option>
-                                </select>
+                            <button id="restart-both-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            <div class="text-white text-sm">
+                                <span id="split-time">0:00</span>
                             </div>
-                            <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                                <video id="split-video-left" class="max-w-full max-h-full" controls></video>
-                            </div>
-                            <div id="split-info-left" class="bg-gray-800 rounded-lg p-3 mt-2 text-white text-sm hidden">
-                                <p class="font-medium" id="split-title-left"></p>
-                                <p class="text-gray-400 text-xs" id="split-date-left"></p>
-                            </div>
-                        </div>
-
-                        <!-- Right Video -->
-                        <div class="flex-1 flex flex-col min-h-0">
-                            <div class="bg-gray-800 rounded-lg p-3 mb-2">
-                                <select id="split-video-select-right" class="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">Video 2 auswählen...</option>
-                                </select>
-                            </div>
-                            <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                                <video id="split-video-right" class="max-w-full max-h-full" controls></video>
-                            </div>
-                            <div id="split-info-right" class="bg-gray-800 rounded-lg p-3 mt-2 text-white text-sm hidden">
-                                <p class="font-medium" id="split-title-right"></p>
-                                <p class="text-gray-400 text-xs" id="split-date-right"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Playback Controls -->
-                    <div class="bg-gray-900 p-4 flex items-center justify-center gap-4">
-                        <button id="play-both-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                            <i class="fas fa-play"></i>
-                            <span>Abspielen</span>
-                        </button>
-                        <button id="restart-both-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            <i class="fas fa-redo"></i>
-                        </button>
-                        <div class="text-white text-sm">
-                            <span id="split-time">0:00</span>
                         </div>
                     </div>
                 </div>
@@ -3317,24 +3321,25 @@
 
         <!-- Modal: Video als Musterbeispiel auswählen -->
         <div id="select-example-video-modal"
-             class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-[60] flex justify-center items-start py-8">
-            <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-auto">
+             class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-[60] flex justify-center items-start p-4 sm:py-8">
+            <div class="relative mx-auto p-4 sm:p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white my-auto">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">
+                    <h3 class="text-base sm:text-lg font-medium text-gray-900">
                         <i class="fas fa-video text-indigo-600 mr-2"></i>
-                        Musterbeispiel auswählen
+                        <span class="hidden sm:inline">Musterbeispiel auswählen</span>
+                        <span class="sm:hidden">Auswählen</span>
                     </h3>
-                    <button id="close-select-example-video-modal" class="text-gray-400 hover:text-gray-600">
+                    <button id="close-select-example-video-modal" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
 
-                <p class="text-sm text-gray-600 mb-4">
-                    Wähle ein oder mehrere Videos aus deinem Club als Musterbeispiel für diese Übung.
+                <p class="text-xs sm:text-sm text-gray-600 mb-4">
+                    Wähle ein oder mehrere Videos als Musterbeispiel für diese Übung.
                 </p>
 
                 <!-- Video Grid -->
-                <div id="example-video-selection-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto mb-4">
+                <div id="example-video-selection-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-h-72 sm:max-h-96 overflow-y-auto mb-4">
                     <p class="col-span-full text-center py-8 text-gray-500">
                         <i class="fas fa-spinner fa-spin mr-2"></i>
                         Lade Videos...
@@ -3342,13 +3347,13 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="flex justify-end gap-3 border-t pt-4">
+                <div class="flex justify-end gap-2 sm:gap-3 border-t pt-4">
                     <button id="cancel-select-example-video"
-                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            class="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm">
                         Abbrechen
                     </button>
                     <button id="confirm-select-example-video"
-                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                             disabled>
                         <i class="fas fa-check"></i>
                         <span id="confirm-example-count">Auswählen</span>

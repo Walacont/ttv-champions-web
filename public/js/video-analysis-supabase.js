@@ -474,18 +474,18 @@ function createVideoCardFull(video) {
              data-video-id="${video.id}">
             <div class="relative aspect-video bg-gray-100 flex items-center justify-center cursor-pointer video-card-click">
                 ${renderVideoThumbnail(video.thumbnail_url, 'w-full h-full object-cover')}
-                <!-- Musterbeispiel Button (on hover) -->
-                <button class="add-example-from-card absolute top-2 right-2 w-8 h-8 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                <!-- Musterbeispiel Button (always visible on mobile, hover on desktop) -->
+                <button class="add-example-from-card absolute top-2 right-2 w-8 h-8 sm:w-9 sm:h-9 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white rounded-full flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-lg"
                         data-video-id="${video.id}"
                         data-video-title="${escapeHtml(video.title || 'Video')}"
                         title="Als Musterbeispiel hinzufügen">
                     <i class="fas fa-star text-sm"></i>
                 </button>
             </div>
-            <div class="p-4 cursor-pointer video-card-click">
-                <p class="font-medium text-sm mb-1">${escapeHtml(video.title || 'Ohne Titel')}</p>
-                <p class="text-xs text-gray-500">${escapeHtml(uploaderName)} • ${formatDate(video.created_at)}</p>
-                ${exerciseName ? `<p class="text-xs text-indigo-600 mt-1"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}</p>` : ''}
+            <div class="p-3 sm:p-4 cursor-pointer video-card-click">
+                <p class="font-medium text-sm mb-1 truncate">${escapeHtml(video.title || 'Ohne Titel')}</p>
+                <p class="text-xs text-gray-500 truncate">${escapeHtml(uploaderName)} • ${formatDate(video.created_at)}</p>
+                ${exerciseName ? `<p class="text-xs text-indigo-600 mt-1 truncate"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}</p>` : ''}
             </div>
         </div>
     `;
