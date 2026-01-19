@@ -24,75 +24,41 @@ const childrenList = document.getElementById('children-list');
 const noChildrenMessage = document.getElementById('no-children-message');
 const loginCodeModal = document.getElementById('login-code-modal');
 
-// Initialize with auth state
-async function initialize(user) {
-    console.log('[GUARDIAN-DASHBOARD] initialize() called, user:', user?.id);
-
-    if (initialized) {
-        console.log('[GUARDIAN-DASHBOARD] Already initialized, returning');
-        return;
-    }
+// Initialize - simple version that worked before
+async function initialize() {
+    if (initialized) return;
     initialized = true;
 
     try {
-        currentUser = user;
-        console.log('[GUARDIAN-DASHBOARD] Loading children for user:', user.id);
+        // Get session directly
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // Direct query to guardian_links using .then() to avoid potential async issues
-        console.log('[GUARDIAN-DASHBOARD] Querying guardian_links...');
-
-        const linksResult = await new Promise((resolve) => {
-            supabase
-                .from('guardian_links')
-                .select('child_id')
-                .eq('guardian_id', user.id)
-                .then(result => {
-                    console.log('[GUARDIAN-DASHBOARD] Query .then() resolved:', result);
-                    resolve(result);
-                })
-                .catch(err => {
-                    console.error('[GUARDIAN-DASHBOARD] Query .catch() error:', err);
-                    resolve({ data: null, error: err });
-                });
-        });
-
-        const { data: links, error: linksError } = linksResult;
-        console.log('[GUARDIAN-DASHBOARD] guardian_links result:', links, 'error:', linksError);
-
-        if (linksError) {
-            console.error('[GUARDIAN-DASHBOARD] guardian_links error:', linksError);
-            throw linksError;
+        if (!session?.user) {
+            console.log('[GUARDIAN-DASHBOARD] No session, redirecting...');
+            window.location.href = '/index.html';
+            return;
         }
 
-        let childrenData = [];
+        currentUser = session.user;
+        console.log('[GUARDIAN-DASHBOARD] User:', currentUser.id);
 
-        if (links && links.length > 0) {
-            const childIds = links.map(l => l.child_id);
-            console.log('[GUARDIAN-DASHBOARD] Loading profiles for child IDs:', childIds);
+        // Check if user is a guardian
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('account_type, is_guardian')
+            .eq('id', session.user.id)
+            .single();
 
-            const { data: profiles, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name, birthdate, avatar_url, elo_rating, xp, gender')
-                .in('id', childIds);
-
-            console.log('[GUARDIAN-DASHBOARD] Child profiles loaded:', profiles, 'error:', profilesError);
-
-            if (profiles) {
-                childrenData = profiles;
-            }
-        } else {
-            console.log('[GUARDIAN-DASHBOARD] No children found for this guardian');
+        if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
+            console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
+            window.location.href = '/dashboard.html';
+            return;
         }
 
-        children = childrenData;
-        console.log('[GUARDIAN-DASHBOARD] Loaded children:', children.length);
+        // Load children using RPC
+        await loadChildren();
 
-        // Load stats for each child
-        for (const child of children) {
-            await loadChildStats(child);
-        }
-
-        renderChildren();
+        // Setup event listeners
         setupEventListeners();
 
         // Show main content
@@ -103,7 +69,6 @@ async function initialize(user) {
         console.error('[GUARDIAN-DASHBOARD] Init error:', err);
         pageLoader.innerHTML = `
             <div class="text-center text-red-600 p-6">
-                <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
                 <p class="mb-2">Fehler beim Laden: ${err.message || 'Unbekannter Fehler'}</p>
                 <a href="/dashboard.html" class="text-indigo-600 underline mt-2 block">Zum Dashboard</a>
             </div>
@@ -506,50 +471,5 @@ function setupEventListeners() {
     });
 }
 
-// Wait for auth state and initialize
-supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('[GUARDIAN-DASHBOARD] Auth state changed:', event, 'session:', !!session, 'user:', session?.user?.id);
-
-    if (event === 'SIGNED_OUT') {
-        window.location.href = '/index.html';
-        return;
-    }
-
-    if (session?.user && !initialized) {
-        console.log('[GUARDIAN-DASHBOARD] Calling initialize from onAuthStateChange');
-        await initialize(session.user);
-    } else {
-        console.log('[GUARDIAN-DASHBOARD] Not initializing - session?.user:', !!session?.user, 'initialized:', initialized);
-    }
-});
-
-// Also try to initialize immediately if session already exists
-async function checkSession() {
-    try {
-        console.log('[GUARDIAN-DASHBOARD] Checking session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-            console.error('[GUARDIAN-DASHBOARD] Session error:', error);
-            throw error;
-        }
-
-        if (session?.user && !initialized) {
-            console.log('[GUARDIAN-DASHBOARD] Session found, initializing...');
-            await initialize(session.user);
-        } else if (!session) {
-            console.log('[GUARDIAN-DASHBOARD] No session, redirecting to login...');
-            window.location.href = '/index.html';
-        }
-    } catch (err) {
-        console.error('[GUARDIAN-DASHBOARD] Check session error:', err);
-        pageLoader.innerHTML = `
-            <div class="text-center text-red-600">
-                <p>Fehler beim Laden der Sitzung.</p>
-                <a href="/index.html" class="text-indigo-600 underline mt-2 block">Zum Login</a>
-            </div>
-        `;
-    }
-}
-
-checkSession();
+// Simple initialization - just call initialize() on page load
+initialize();
