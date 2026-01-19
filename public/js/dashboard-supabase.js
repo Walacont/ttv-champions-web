@@ -6,7 +6,7 @@ import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
 import { initializeWidgetSystem } from './dashboard-widgets-supabase.js';
-import { AGE_GROUPS, autoEndExpiredSeasons } from './ui-utils-supabase.js';
+import { AGE_GROUPS } from './ui-utils-supabase.js';
 import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
@@ -2419,19 +2419,12 @@ let seasonEndDate = null;
 // Initiales Laden des Saison-Enddatums (einmal aufgerufen)
 async function initSeasonCountdown() {
     seasonEndDate = await fetchSeasonEndDate();
-
-    // Prüfe beim Start ob abgelaufene Saisons automatisch beendet werden müssen
-    const sportId = currentUserData?.active_sport_id || null;
-    await autoEndExpiredSeasons(supabase, sportId);
-
     updateSeasonCountdownDisplay();
     // Anzeige jede Sekunde aktualisieren (effizient - keine async Aufrufe)
     setInterval(updateSeasonCountdownDisplay, 1000);
     // Saison-Daten alle 5 Minuten aktualisieren falls sie sich ändern
     setInterval(async () => {
         seasonEndDate = await fetchSeasonEndDate();
-        // Prüfe auch periodisch auf abgelaufene Saisons
-        await autoEndExpiredSeasons(supabase, sportId);
     }, 5 * 60 * 1000);
 }
 
