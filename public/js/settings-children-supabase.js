@@ -33,8 +33,21 @@ const inviteGuardianErrorText = document.getElementById('invite-guardian-error-t
 const copyInviteCodeBtn = document.getElementById('copy-invite-code');
 const closeInviteGuardianModal = document.getElementById('close-invite-guardian-modal');
 
+// Child upgrade modal elements
+const childUpgradeModal = document.getElementById('child-upgrade-modal');
+const upgradeChildNameEl = document.getElementById('upgrade-child-name');
+const childUpgradeForm = document.getElementById('child-upgrade-form');
+const upgradeEmail = document.getElementById('upgrade-email');
+const upgradeError = document.getElementById('upgrade-error');
+const upgradeErrorText = document.getElementById('upgrade-error-text');
+const upgradeSuccess = document.getElementById('upgrade-success');
+const upgradeSuccessText = document.getElementById('upgrade-success-text');
+const upgradeSubmitBtn = document.getElementById('upgrade-submit-btn');
+const closeUpgradeModal = document.getElementById('close-upgrade-modal');
+
 let currentUser = null;
 let childrenData = [];
+let upgradeChildId = null;
 
 // Initialize authentication
 async function initializeAuth() {
@@ -157,6 +170,19 @@ function renderChildren(children) {
                     </button>
                 </div>
 
+                ${age >= 16 ? `
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <button
+                            class="upgrade-child-btn w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:from-green-600 hover:to-teal-600 transition-colors"
+                            data-child-id="${child.child_id}"
+                            data-child-name="${child.first_name} ${child.last_name}"
+                        >
+                            <i class="fas fa-graduation-cap mr-2"></i>
+                            Eigenen Account erstellen (16+)
+                        </button>
+                    </div>
+                ` : ''}
+
                 ${child.other_guardians && child.other_guardians.length > 0 ? `
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <p class="text-xs text-gray-500 mb-2">
@@ -190,6 +216,14 @@ function renderChildren(children) {
             const childId = e.currentTarget.dataset.childId;
             const childName = e.currentTarget.dataset.childName;
             showInviteGuardianModal(childId, childName);
+        });
+    });
+
+    document.querySelectorAll('.upgrade-child-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const childId = e.currentTarget.dataset.childId;
+            const childName = e.currentTarget.dataset.childName;
+            showUpgradeModal(childId, childName);
         });
     });
 }
@@ -371,3 +405,131 @@ inviteGuardianModal?.addEventListener('click', (e) => {
         inviteGuardianModal.classList.add('hidden');
     }
 });
+
+// =====================================================
+// Child Upgrade Modal (for children 16+)
+// =====================================================
+
+/**
+ * Show upgrade modal
+ */
+function showUpgradeModal(childId, childName) {
+    upgradeChildId = childId;
+    if (upgradeChildNameEl) upgradeChildNameEl.textContent = `für ${childName}`;
+
+    // Reset form
+    if (upgradeEmail) upgradeEmail.value = '';
+    upgradeError?.classList.add('hidden');
+    upgradeSuccess?.classList.add('hidden');
+    if (upgradeSubmitBtn) {
+        upgradeSubmitBtn.disabled = false;
+        upgradeSubmitBtn.innerHTML = '<i class="fas fa-arrow-up mr-2"></i>Upgrade starten';
+    }
+
+    childUpgradeModal?.classList.remove('hidden');
+}
+
+// Close upgrade modal
+closeUpgradeModal?.addEventListener('click', () => {
+    childUpgradeModal?.classList.add('hidden');
+    upgradeChildId = null;
+});
+
+childUpgradeModal?.addEventListener('click', (e) => {
+    if (e.target === childUpgradeModal) {
+        childUpgradeModal.classList.add('hidden');
+        upgradeChildId = null;
+    }
+});
+
+// Handle upgrade form submission
+childUpgradeForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = upgradeEmail?.value?.trim();
+
+    if (!email) {
+        showUpgradeError('Bitte gib eine E-Mail-Adresse ein.');
+        return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showUpgradeError('Bitte gib eine gültige E-Mail-Adresse ein.');
+        return;
+    }
+
+    if (!upgradeChildId) {
+        showUpgradeError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button and show loading state
+    if (upgradeSubmitBtn) {
+        upgradeSubmitBtn.disabled = true;
+        upgradeSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird verarbeitet...';
+    }
+
+    try {
+        // Call the upgrade RPC function
+        const { data, error } = await supabase.rpc('upgrade_child_account', {
+            p_child_id: upgradeChildId,
+            p_email: email,
+            p_guardian_approval: true
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Upgrade');
+        }
+
+        // Show success message
+        upgradeError?.classList.add('hidden');
+        if (upgradeSuccessText) {
+            upgradeSuccessText.textContent = 'Das Profil wurde für das Upgrade vorbereitet. Eine Einladungs-E-Mail wird gesendet.';
+        }
+        upgradeSuccess?.classList.remove('hidden');
+
+        // Now we need to send a password reset / invite email
+        // This uses Supabase's built-in invite functionality
+        const { error: inviteError } = await supabase.auth.admin?.inviteUserByEmail?.(email) ||
+            await supabase.auth.signInWithOtp({
+                email: email,
+                options: {
+                    shouldCreateUser: true,
+                    emailRedirectTo: `${window.location.origin}/complete-upgrade.html?child_id=${upgradeChildId}`
+                }
+            });
+
+        if (inviteError) {
+            console.warn('Could not send invite email:', inviteError);
+            // Still show success as the profile was prepared
+            if (upgradeSuccessText) {
+                upgradeSuccessText.textContent = 'Profil vorbereitet! Bitte lass das Kind sich mit dieser E-Mail registrieren.';
+            }
+        }
+
+        // Refresh children list after a short delay
+        setTimeout(async () => {
+            await loadChildren();
+        }, 2000);
+
+    } catch (error) {
+        console.error('Upgrade error:', error);
+        showUpgradeError(error.message || 'Fehler beim Upgrade. Bitte versuche es erneut.');
+        if (upgradeSubmitBtn) {
+            upgradeSubmitBtn.disabled = false;
+            upgradeSubmitBtn.innerHTML = '<i class="fas fa-arrow-up mr-2"></i>Upgrade starten';
+        }
+    }
+});
+
+function showUpgradeError(message) {
+    if (upgradeErrorText) upgradeErrorText.textContent = message;
+    upgradeError?.classList.remove('hidden');
+    upgradeSuccess?.classList.add('hidden');
+}
