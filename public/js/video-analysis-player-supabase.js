@@ -1146,6 +1146,25 @@ function showPlayerVideoDetailModal(video, comments) {
             const timestampBtn = c.timestamp_seconds !== null
                 ? `<button class="timestamp-btn text-indigo-600 hover:text-indigo-800 text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded" data-time="${c.timestamp_seconds}">${formatTimestamp(c.timestamp_seconds)}</button>`
                 : '';
+
+            // Prüfe ob der Kommentar eine Zeichnung enthält
+            const drawingUrl = c.drawing_url || extractDrawingUrl(c.content);
+            let contentHtml = '';
+            if (drawingUrl) {
+                contentHtml = `
+                    <div class="mt-2">
+                        <img src="${escapeHtml(drawingUrl)}"
+                             alt="Zeichnung vom Coach"
+                             class="max-w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                             style="max-height: 200px;"
+                             onclick="window.open('${escapeHtml(drawingUrl)}', '_blank')">
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-pen text-orange-500 mr-1"></i>Zeichnung vom Coach</p>
+                    </div>
+                `;
+            } else {
+                contentHtml = `<p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>`;
+            }
+
             return `
                 <div class="border-b border-gray-100 pb-3 mb-3 last:border-0">
                     <div class="flex items-center gap-2 mb-1">
@@ -1153,7 +1172,7 @@ function showPlayerVideoDetailModal(video, comments) {
                         ${isCoach ? '<span class="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded">Coach</span>' : ''}
                         ${timestampBtn}
                     </div>
-                    <p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>
+                    ${contentHtml}
                 </div>
             `;
         }).join('')
@@ -1443,6 +1462,16 @@ function formatTimestamp(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Extrahiert eine Zeichnungs-URL aus dem Kommentar-Content (Markdown-Format)
+ */
+function extractDrawingUrl(content) {
+    if (!content) return null;
+    // Match [Zeichnung](url) format
+    const match = content.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
+    return match ? match[1] : null;
 }
 
 function showToast(message, type = 'info') {
