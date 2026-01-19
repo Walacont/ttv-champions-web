@@ -138,22 +138,23 @@ class VideoDrawingTool {
         this.toolbar.className = 'video-drawing-toolbar';
         this.toolbar.style.cssText = `
             position: absolute;
-            bottom: 60px;
+            bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
             display: none;
-            gap: 8px;
-            padding: 8px 12px;
-            background: rgba(0, 0, 0, 0.85);
-            border-radius: 12px;
+            gap: 6px;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 16px;
             z-index: 20;
             pointer-events: auto;
             flex-wrap: wrap;
             justify-content: center;
             max-width: 95%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         `;
 
-        // Tool-Buttons
+        // Tool-Buttons - größer für Touch
         const tools = [
             { mode: DRAW_MODES.ARROW, icon: 'fa-arrow-right', title: 'Pfeil' },
             { mode: DRAW_MODES.CIRCLE, icon: 'fa-circle', title: 'Kreis' },
@@ -162,27 +163,27 @@ class VideoDrawingTool {
             { mode: DRAW_MODES.FREEHAND, icon: 'fa-pencil', title: 'Freihand' },
         ];
 
-        // Tool-Gruppe
+        // Tool-Gruppe - größere Touch-Targets (min 44x44px)
         const toolGroup = document.createElement('div');
         toolGroup.className = 'flex gap-1';
         toolGroup.innerHTML = tools.map(tool => `
-            <button class="drawing-tool-btn p-2 rounded-lg transition-colors ${tool.mode === this.currentMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
+            <button class="drawing-tool-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center transition-colors ${tool.mode === this.currentMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-500'}"
                     data-mode="${tool.mode}" title="${tool.title}">
-                <i class="fas ${tool.icon} text-sm"></i>
+                <i class="fas ${tool.icon} text-base sm:text-sm"></i>
             </button>
         `).join('');
         this.toolbar.appendChild(toolGroup);
 
-        // Trennlinie
+        // Trennlinie (versteckt auf Mobile wenn wenig Platz)
         const divider1 = document.createElement('div');
-        divider1.className = 'w-px h-8 bg-gray-600 mx-1';
+        divider1.className = 'w-px h-8 bg-gray-600 mx-1 hidden sm:block';
         this.toolbar.appendChild(divider1);
 
-        // Farb-Gruppe
+        // Farb-Gruppe - größere Touch-Targets
         const colorGroup = document.createElement('div');
         colorGroup.className = 'flex gap-1';
         colorGroup.innerHTML = DEFAULT_COLORS.slice(0, 6).map(color => `
-            <button class="drawing-color-btn w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${color === this.options.color ? 'border-white scale-110' : 'border-transparent'}"
+            <button class="drawing-color-btn w-9 h-9 sm:w-7 sm:h-7 rounded-full border-3 sm:border-2 transition-transform hover:scale-110 active:scale-95 ${color === this.options.color ? 'border-white scale-110 ring-2 ring-white/50' : 'border-gray-600'}"
                     data-color="${color}" style="background-color: ${color};" title="${color}">
             </button>
         `).join('');
@@ -190,24 +191,27 @@ class VideoDrawingTool {
 
         // Trennlinie
         const divider2 = document.createElement('div');
-        divider2.className = 'w-px h-8 bg-gray-600 mx-1';
+        divider2.className = 'w-px h-8 bg-gray-600 mx-1 hidden sm:block';
         this.toolbar.appendChild(divider2);
 
-        // Aktions-Gruppe
+        // Aktions-Gruppe - größere Touch-Targets
         const actionGroup = document.createElement('div');
         actionGroup.className = 'flex gap-1';
         actionGroup.innerHTML = `
-            <button class="drawing-action-btn p-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors" data-action="undo" title="Rückgängig">
-                <i class="fas fa-undo text-sm"></i>
+            <button class="drawing-action-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-500 transition-colors" data-action="undo" title="Rückgängig">
+                <i class="fas fa-undo text-base sm:text-sm"></i>
             </button>
-            <button class="drawing-action-btn p-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors" data-action="redo" title="Wiederholen">
-                <i class="fas fa-redo text-sm"></i>
+            <button class="drawing-action-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-500 transition-colors" data-action="redo" title="Wiederholen">
+                <i class="fas fa-redo text-base sm:text-sm"></i>
             </button>
-            <button class="drawing-action-btn p-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors" data-action="clear" title="Alles löschen">
-                <i class="fas fa-trash text-sm"></i>
+            <button class="drawing-action-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center bg-red-600 text-white hover:bg-red-700 active:bg-red-800 transition-colors" data-action="clear" title="Alles löschen">
+                <i class="fas fa-trash text-base sm:text-sm"></i>
             </button>
-            <button class="drawing-action-btn p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors" data-action="save" title="Speichern">
-                <i class="fas fa-save text-sm"></i>
+            <button class="drawing-action-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center bg-green-600 text-white hover:bg-green-700 active:bg-green-800 transition-colors" data-action="save" title="Speichern">
+                <i class="fas fa-check text-base sm:text-sm"></i>
+            </button>
+            <button class="drawing-action-btn w-11 h-11 sm:w-9 sm:h-9 rounded-xl sm:rounded-lg flex items-center justify-center bg-gray-600 text-white hover:bg-gray-500 active:bg-gray-400 transition-colors" data-action="close" title="Schließen">
+                <i class="fas fa-times text-base sm:text-sm"></i>
             </button>
         `;
         this.toolbar.appendChild(actionGroup);
@@ -239,6 +243,7 @@ class VideoDrawingTool {
                 else if (action === 'redo') this.redo();
                 else if (action === 'clear') this.clear();
                 else if (action === 'save') this.save();
+                else if (action === 'close') this.deactivate();
             });
         });
     }
@@ -261,11 +266,11 @@ class VideoDrawingTool {
         // Farben
         this.toolbar.querySelectorAll('.drawing-color-btn').forEach(btn => {
             if (btn.dataset.color === this.options.color) {
-                btn.classList.add('border-white', 'scale-110');
-                btn.classList.remove('border-transparent');
+                btn.classList.add('border-white', 'scale-110', 'ring-2', 'ring-white/50');
+                btn.classList.remove('border-gray-600');
             } else {
-                btn.classList.remove('border-white', 'scale-110');
-                btn.classList.add('border-transparent');
+                btn.classList.remove('border-white', 'scale-110', 'ring-2', 'ring-white/50');
+                btn.classList.add('border-gray-600');
             }
         });
     }
