@@ -244,6 +244,9 @@ async function initializeRegistration() {
         }
 
         // Check if this code is linked to an offline player
+        console.log('[REGISTER] Code data:', JSON.stringify(codeData, null, 2));
+        console.log('[REGISTER] player_id in code:', codeData.player_id);
+
         if (codeData.player_id) {
             // Fetch the player's data (use maybeSingle to handle missing player)
             const { data: playerData, error: playerError } = await supabase
@@ -252,6 +255,8 @@ async function initializeRegistration() {
                 .eq('id', codeData.player_id)
                 .maybeSingle();
 
+            console.log('[REGISTER] Player data from DB:', JSON.stringify(playerData, null, 2));
+
             if (playerError) {
                 console.error('[REGISTER] Error fetching linked player:', playerError);
             } else if (playerData) {
@@ -259,13 +264,14 @@ async function initializeRegistration() {
                 linkedPlayerBirthdate = playerData.birthdate || null;
 
                 const age = playerData.birthdate ? calculateAge(playerData.birthdate) : null;
-                console.log('[REGISTER] Linked player:', playerData.first_name, 'age:', age, 'birthdate:', playerData.birthdate);
+                console.log('[REGISTER] Calculated age:', age, 'from birthdate:', playerData.birthdate);
+                console.log('[REGISTER] Age check: age !== null =', age !== null, ', age < 16 =', age < 16);
 
                 loader.classList.add('hidden');
 
                 // If player is under 16, go DIRECTLY to guardian registration (skip role selection)
                 if (age !== null && age < 16) {
-                    console.log('[REGISTER] Player is under 16 - going directly to guardian registration');
+                    console.log('[REGISTER] ✅ Player is under 16 - going directly to guardian registration');
                     registrationType = 'guardian-link';
 
                     // Show name fields for guardian
@@ -285,6 +291,7 @@ async function initializeRegistration() {
                 }
 
                 // If player is 16+ OR age unknown, show role selection modal
+                console.log('[REGISTER] ⚠️ Player is 16+ or age unknown - showing role selection modal');
                 showRoleSelectionModal(age, playerData.first_name);
                 return;
             } else {
