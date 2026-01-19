@@ -198,5 +198,7 @@ function clearChildSession() {
 // Export for use in other modules
 export { getChildSession, clearChildSession, saveChildSession };
 
-// Initialize on load
-initialize();
+// Initialize only on child-login page (check if form exists)
+if (document.getElementById('child-login-form')) {
+    initialize();
+}

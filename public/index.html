@@ -420,24 +420,13 @@
                             Anmelden
                         </button>
                     </div>
-
-                    <!-- Child Login Link -->
-                    <div class="mt-4 pt-4 border-t border-gray-200">
-                        <a
-                            href="/child-login.html"
-                            class="flex items-center justify-center gap-2 text-purple-600 hover:text-purple-700 font-medium text-sm"
-                        >
-                            <i class="fas fa-child"></i>
-                            Kinder-Login (mit Code von Eltern)
-                        </a>
-                    </div>
                 </form>
 
                 <form id="code-form" class="mt-8 space-y-6 hidden">
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p class="text-sm text-blue-800 text-center">
                             <i class="fas fa-info-circle mr-1"></i>
-                            Gib hier deinen Einladungscode vom Trainer ein, um dich zu registrieren.
+                            Gib deinen Code ein (Einladungscode vom Verein oder Kinder-Code von den Eltern).
                         </p>
                     </div>
 
@@ -445,7 +434,7 @@
                         <label
                             for="invitation-code"
                             class="block text-sm font-medium text-gray-700 mb-2"
-                            >Einladungscode</label
+                            >Code</label
                         >
                         <input
                             id="invitation-code"
@@ -453,10 +442,9 @@
                             maxlength="11"
                             required
                             class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
-                            placeholder="TTV-XXX-YYY"
-                            pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{3}-[A-Za-z0-9]{3}"
+                            placeholder="ABC123 oder TTV-XXX-YYY"
                         />
-                        <p class="mt-2 text-xs text-gray-500 text-center">Format: TTV-XXX-YYY</p>
+                        <p class="mt-2 text-xs text-gray-500 text-center">Kinder: 6 Zeichen · Einladung: TTV-XXX-YYY</p>
                     </div>
 
                     <div>

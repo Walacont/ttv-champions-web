@@ -8,6 +8,7 @@ import {
     resetPassword,
     getSupabase
 } from './supabase-init.js';
+import { saveChildSession, getChildSession } from './child-login-supabase.js';
 
 console.log('[INDEX-SUPABASE] Script starting...');
 
@@ -73,12 +74,14 @@ function switchToCodeTab() {
     feedbackMessage.textContent = '';
 }
 
-// Auto-Formatierung des Codes (Bindestriche einfügen für bessere Lesbarkeit)
+// Auto-Formatierung des Codes
+// - Kinder-Code: 6 Zeichen ohne Bindestriche (z.B. ABC123)
+// - Einladungscode: 9 Zeichen mit Bindestrichen (z.B. TTV-XXX-YYY)
 invitationCodeInput?.addEventListener('input', e => {
     let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-    if (value.length > 3 && value.length <= 6) {
-        value = value.slice(0, 3) + '-' + value.slice(3);
-    } else if (value.length > 6) {
+
+    // Nur Bindestriche einfügen wenn mehr als 6 Zeichen (= Einladungscode)
+    if (value.length > 6) {
         value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 9);
     }
     e.target.value = value;
@@ -217,54 +220,108 @@ resetForm?.addEventListener('submit', async e => {
 
 codeForm?.addEventListener('submit', async e => {
     e.preventDefault();
-    const code = invitationCodeInput.value.trim().toUpperCase();
+    const rawCode = invitationCodeInput.value.trim().toUpperCase();
+    const codeWithoutDashes = rawCode.replace(/-/g, '');
     feedbackMessage.textContent = '';
     feedbackMessage.className = 'mt-2 text-center text-sm';
 
-    const codeRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
-    if (!codeRegex.test(code)) {
-        feedbackMessage.textContent = 'Ungültiges Code-Format. Format: TTV-XXX-YYY';
+    // Determine code type:
+    // - 6 chars without dashes = Child login code
+    // - 9 chars (with dashes: XXX-XXX-XXX) = Invitation code
+    const isChildCode = codeWithoutDashes.length === 6 && !rawCode.includes('-');
+    const invitationCodeRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
+    const isInvitationCode = invitationCodeRegex.test(rawCode);
+
+    if (!isChildCode && !isInvitationCode) {
+        feedbackMessage.textContent = 'Ungültiges Code-Format. Kinder-Code: 6 Zeichen, Einladungscode: TTV-XXX-YYY';
         feedbackMessage.classList.add('text-red-600');
         return;
     }
 
     try {
-        const { data: codeData, error } = await supabase
-            .from('invitation_codes')
-            .select('*')
-            .eq('code', code)
-            .single();
+        if (isChildCode) {
+            // Handle child login code
+            console.log('[INDEX-SUPABASE] Validating child login code...');
+            feedbackMessage.textContent = 'Prüfe Kinder-Code...';
+            feedbackMessage.classList.add('text-gray-600');
 
-        if (error || !codeData) {
-            feedbackMessage.textContent = 'Dieser Code existiert nicht.';
-            feedbackMessage.classList.add('text-red-600');
-            return;
+            const { data, error } = await supabase.rpc('validate_child_login_code', {
+                p_code: codeWithoutDashes
+            });
+
+            if (error) throw error;
+
+            if (!data || !data.success) {
+                const errorMsg = data?.error || 'Ungültiger Code';
+                feedbackMessage.textContent = errorMsg;
+                feedbackMessage.classList.remove('text-gray-600');
+                feedbackMessage.classList.add('text-red-600');
+                return;
+            }
+
+            // Create child session
+            const childSession = {
+                childId: data.child_id,
+                firstName: data.first_name,
+                lastName: data.last_name,
+                ageMode: data.age_mode,
+                clubId: data.club_id,
+                guardianId: data.guardian_id,
+                loginAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            };
+
+            saveChildSession(childSession);
+
+            feedbackMessage.textContent = `Willkommen, ${data.first_name}! Weiterleitung...`;
+            feedbackMessage.classList.remove('text-gray-600');
+            feedbackMessage.classList.add('text-green-600');
+
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 1500);
+
+        } else {
+            // Handle invitation code (existing logic)
+            console.log('[INDEX-SUPABASE] Validating invitation code...');
+
+            const { data: codeData, error } = await supabase
+                .from('invitation_codes')
+                .select('*')
+                .eq('code', rawCode)
+                .single();
+
+            if (error || !codeData) {
+                feedbackMessage.textContent = 'Dieser Code existiert nicht.';
+                feedbackMessage.classList.add('text-red-600');
+                return;
+            }
+
+            if (!codeData.is_active) {
+                feedbackMessage.textContent = 'Dieser Code ist nicht mehr aktiv.';
+                feedbackMessage.classList.add('text-red-600');
+                return;
+            }
+
+            if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+                feedbackMessage.textContent = 'Dieser Code ist abgelaufen.';
+                feedbackMessage.classList.add('text-red-600');
+                return;
+            }
+
+            if (codeData.max_uses && codeData.use_count >= codeData.max_uses) {
+                feedbackMessage.textContent = 'Dieser Code wurde bereits zu oft verwendet.';
+                feedbackMessage.classList.add('text-red-600');
+                return;
+            }
+
+            feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
+            feedbackMessage.classList.add('text-green-600');
+
+            setTimeout(() => {
+                window.location.href = `/register.html?code=${rawCode}`;
+            }, 1000);
         }
-
-        if (!codeData.is_active) {
-            feedbackMessage.textContent = 'Dieser Code ist nicht mehr aktiv.';
-            feedbackMessage.classList.add('text-red-600');
-            return;
-        }
-
-        if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
-            feedbackMessage.textContent = 'Dieser Code ist abgelaufen.';
-            feedbackMessage.classList.add('text-red-600');
-            return;
-        }
-
-        if (codeData.max_uses && codeData.use_count >= codeData.max_uses) {
-            feedbackMessage.textContent = 'Dieser Code wurde bereits zu oft verwendet.';
-            feedbackMessage.classList.add('text-red-600');
-            return;
-        }
-
-        feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
-        feedbackMessage.classList.add('text-green-600');
-
-        setTimeout(() => {
-            window.location.href = `/register.html?code=${code}`;
-        }, 1000);
 
     } catch (error) {
         console.error('[INDEX-SUPABASE] Code validation error:', error);
