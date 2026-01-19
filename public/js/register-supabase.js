@@ -296,7 +296,7 @@ async function initializeRegistration() {
                 return;
             } else {
                 console.warn('[REGISTER] Linked player not found (may have been deleted):', codeData.player_id);
-                // Player profile doesn't exist, but code might have birthdate info
+                // Player profile doesn't exist, but code has all the data to create one
                 // Use the birthdate from the code to check age
                 if (codeData.birthdate) {
                     const age = calculateAge(codeData.birthdate);
@@ -304,6 +304,8 @@ async function initializeRegistration() {
 
                     if (age !== null && age < 16) {
                         console.log('[REGISTER] ✅ Player is under 16 (from code) - going directly to guardian registration');
+                        // Store the code's player_id - we'll create the child profile during registration
+                        linkedPlayerId = codeData.player_id;
                         linkedPlayerBirthdate = codeData.birthdate;
                         registrationType = 'guardian-link';
 
@@ -779,10 +781,50 @@ registrationForm?.addEventListener('submit', async e => {
         }
 
         // 4. Guardian-Link erstellen (wenn Vormund sich für bestehendes Kind registriert)
-        if (registrationType === 'guardian-link' && linkedPlayerId) {
-            console.log('[REGISTER] Creating guardian link for child:', linkedPlayerId);
+        if (registrationType === 'guardian-link' && linkedPlayerId && invitationCodeData) {
+            console.log('[REGISTER] Setting up guardian link for child:', linkedPlayerId);
 
-            // Use RPC function to link guardian to child (validates birthdate server-side)
+            // First check if child profile exists
+            const { data: existingChild } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', linkedPlayerId)
+                .maybeSingle();
+
+            if (!existingChild) {
+                // Child profile doesn't exist - create it using data from invitation code
+                console.log('[REGISTER] Child profile does not exist, creating it...');
+
+                const childProfileData = {
+                    id: linkedPlayerId,
+                    first_name: invitationCodeData.first_name,
+                    last_name: invitationCodeData.last_name,
+                    display_name: `${invitationCodeData.first_name} ${invitationCodeData.last_name}`.trim(),
+                    birthdate: invitationCodeData.birthdate,
+                    gender: invitationCodeData.gender,
+                    club_id: invitationCodeData.club_id,
+                    active_sport_id: invitationCodeData.sport_id,
+                    account_type: 'child',
+                    role: 'player',
+                    is_offline: false,
+                    elo_rating: 800,
+                    highest_elo: 800,
+                    xp: 0,
+                    points: 0
+                };
+
+                const { error: createError } = await supabase
+                    .from('profiles')
+                    .insert(childProfileData);
+
+                if (createError) {
+                    console.error('[REGISTER] Failed to create child profile:', createError);
+                } else {
+                    console.log('[REGISTER] Child profile created successfully');
+                }
+            }
+
+            // Now create the guardian link
             const { data: linkResult, error: linkError } = await supabase.rpc('link_guardian_to_child', {
                 p_child_id: linkedPlayerId,
                 p_child_birthdate: linkedPlayerBirthdate
