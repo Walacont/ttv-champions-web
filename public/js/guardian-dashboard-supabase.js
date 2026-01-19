@@ -36,7 +36,7 @@ async function initialize(user) {
         const { data: profile } = await supabase
             .from('profiles')
             .select('account_type, is_guardian, first_name')
-            .eq('id', session.user.id)
+            .eq('id', user.id)
             .single();
 
         if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
@@ -121,12 +121,57 @@ async function loadChildStats(child) {
             child.wins = 0;
             child.recentMatches = [];
         }
+
+        // Load points history
+        const { data: pointsHistory } = await supabase
+            .from('points_history')
+            .select('*')
+            .eq('user_id', child.id)
+            .order('timestamp', { ascending: false })
+            .limit(10);
+
+        child.pointsHistory = pointsHistory || [];
+
+        // Load completed challenges
+        const { data: completedChallenges } = await supabase
+            .from('completed_challenges')
+            .select(`
+                id,
+                completed_at,
+                challenges (
+                    id,
+                    title,
+                    description,
+                    points
+                )
+            `)
+            .eq('user_id', child.id)
+            .order('completed_at', { ascending: false })
+            .limit(5);
+
+        child.completedChallenges = completedChallenges || [];
+
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
         child.totalMatches = 0;
         child.wins = 0;
         child.recentMatches = [];
+        child.pointsHistory = [];
+        child.completedChallenges = [];
     }
+}
+
+// Helper functions for points display
+function getColorClass(value) {
+    if (value > 0) return 'text-green-600';
+    if (value < 0) return 'text-red-600';
+    return 'text-gray-500';
+}
+
+function getSign(value) {
+    if (value > 0) return '+';
+    if (value < 0) return '';
+    return '±';
 }
 
 // Render children list
@@ -144,21 +189,67 @@ function renderChildren() {
         const age = child.age || calculateAge(child.birthdate);
         const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=6366f1&color=fff`;
 
-        // Format recent matches
-        let recentActivityHtml = '';
-        if (child.recentMatches && child.recentMatches.length > 0) {
-            recentActivityHtml = child.recentMatches.map(match => {
-                const isWin = match.winner_id === child.id;
-                const date = new Date(match.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        // Format points history
+        let pointsHistoryHtml = '';
+        if (child.pointsHistory && child.pointsHistory.length > 0) {
+            pointsHistoryHtml = child.pointsHistory.slice(0, 5).map(entry => {
+                const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                const reason = entry.reason || entry.description || 'Punkte';
+                const points = entry.points || 0;
+                const xp = entry.xp !== undefined ? entry.xp : points;
+                const elo = entry.elo_change || 0;
+
                 return `
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="${isWin ? 'text-green-600' : 'text-red-500'} font-medium">${isWin ? 'S' : 'N'}</span>
-                        <span class="text-gray-400">${date}</span>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                        <div class="flex-1 min-w-0">
+                            <span class="text-gray-700 text-xs">${escapeHtml(reason)}</span>
+                            <span class="text-[10px] text-gray-400 ml-1">${date}</span>
+                        </div>
+                        <div class="flex gap-2 text-[10px] flex-shrink-0">
+                            <div class="text-center min-w-[28px]">
+                                <div class="text-gray-400 leading-tight">Elo</div>
+                                <div class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</div>
+                            </div>
+                            <div class="text-center min-w-[28px]">
+                                <div class="text-gray-400 leading-tight">XP</div>
+                                <div class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp}</div>
+                            </div>
+                            <div class="text-center min-w-[28px]">
+                                <div class="text-gray-400 leading-tight">Pkt</div>
+                                <div class="${getColorClass(points)} font-semibold">${getSign(points)}${points}</div>
+                            </div>
+                        </div>
                     </div>
                 `;
             }).join('');
         } else {
-            recentActivityHtml = '<p class="text-xs text-gray-400">Keine Spiele</p>';
+            pointsHistoryHtml = '<p class="text-xs text-gray-400 py-2">Keine Einträge</p>';
+        }
+
+        // Format completed challenges
+        let challengesHtml = '';
+        if (child.completedChallenges && child.completedChallenges.length > 0) {
+            challengesHtml = child.completedChallenges.slice(0, 3).map(cc => {
+                const challenge = cc.challenges;
+                if (!challenge) return '';
+
+                const completedDate = cc.completed_at ? new Date(cc.completed_at).toLocaleDateString('de-DE', {
+                    day: 'numeric',
+                    month: 'short'
+                }) : '';
+
+                return `
+                    <div class="flex items-center justify-between py-1.5">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <i class="fas fa-check-circle text-green-600 text-xs"></i>
+                            <span class="text-xs text-gray-700 truncate">${escapeHtml(challenge.title)}</span>
+                        </div>
+                        <span class="text-[10px] text-green-600 font-semibold flex-shrink-0">+${challenge.points}</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            challengesHtml = '<p class="text-xs text-gray-400 py-2">Keine Challenges</p>';
         }
 
         return `
@@ -209,12 +300,18 @@ function renderChildren() {
                     </div>
                 </div>
 
-                <!-- Recent Activity -->
+                <!-- Points History -->
                 <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-2">Letzte Spiele</p>
-                    <div class="flex gap-3">
-                        ${recentActivityHtml}
+                    <p class="text-xs text-gray-500 mb-1 font-medium">Punkte-Historie</p>
+                    <div class="max-h-40 overflow-y-auto">
+                        ${pointsHistoryHtml}
                     </div>
+                </div>
+
+                <!-- Challenges -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-500 mb-1 font-medium">Challenges</p>
+                    ${challengesHtml}
                 </div>
             </div>
         `;
