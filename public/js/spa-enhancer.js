@@ -83,6 +83,8 @@ class SPAEnhancer {
             '/onboarding.html',
             '/register.html',
             '/guardian-dashboard.html',
+            '/profile.html',
+
         ];
 
         let linkPath = href.split('?')[0];
