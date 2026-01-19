@@ -17,8 +17,23 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null; // 'code', 'no-code', 'guardian'
+let registrationType = null; // 'code', 'no-code', 'guardian', 'guardian-link'
 let isAgeBlocked = false;
+let linkedPlayerId = null; // ID of offline player to link (for guardian registration)
+let linkedPlayerBirthdate = null; // Birthdate of offline player for verification
+
+// Role selection modal elements
+const roleSelectionModal = document.getElementById('role-selection-modal');
+const roleSelectPlayer = document.getElementById('role-select-player');
+const roleSelectGuardian = document.getElementById('role-select-guardian');
+const roleAgeBlock = document.getElementById('role-age-block');
+
+// Guardian verification modal elements
+const guardianVerifyModal = document.getElementById('guardian-verify-modal');
+const verifyBirthdateBtn = document.getElementById('verify-birthdate-btn');
+const verifyBackBtn = document.getElementById('verify-back-btn');
+const verifyError = document.getElementById('verify-error');
+const verifyErrorText = document.getElementById('verify-error-text');
 
 // Initialize birthdate dropdowns
 function initBirthdateDropdowns() {
@@ -28,6 +43,27 @@ function initBirthdateDropdowns() {
 
     if (!daySelect || !monthSelect || !yearSelect) return;
 
+    populateBirthdateDropdown(daySelect, monthSelect, yearSelect);
+
+    // Add change listeners for real-time age validation
+    [daySelect, monthSelect, yearSelect].forEach(select => {
+        select.addEventListener('change', validateAgeOnChange);
+    });
+}
+
+// Initialize verify birthdate dropdowns (for guardian verification modal)
+function initVerifyBirthdateDropdowns() {
+    const daySelect = document.getElementById('verify-birthdate-day');
+    const monthSelect = document.getElementById('verify-birthdate-month');
+    const yearSelect = document.getElementById('verify-birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    populateBirthdateDropdown(daySelect, monthSelect, yearSelect);
+}
+
+// Populate birthdate dropdown elements
+function populateBirthdateDropdown(daySelect, monthSelect, yearSelect) {
     // Days (1-31)
     for (let i = 1; i <= 31; i++) {
         const option = document.createElement('option');
@@ -54,11 +90,6 @@ function initBirthdateDropdowns() {
         option.textContent = i;
         yearSelect.appendChild(option);
     }
-
-    // Add change listeners for real-time age validation
-    [daySelect, monthSelect, yearSelect].forEach(select => {
-        select.addEventListener('change', validateAgeOnChange);
-    });
 }
 
 // Validate age when birthdate changes
@@ -122,6 +153,7 @@ function hideAgeBlockMessage() {
 
 // Initialize on page load
 initBirthdateDropdowns();
+initVerifyBirthdateDropdowns();
 
 async function initializeRegistration() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -174,6 +206,34 @@ async function initializeRegistration() {
             return displayError('Dieser Code wurde bereits zu oft verwendet.');
         }
 
+        // Check if this code is linked to an offline player
+        if (codeData.player_id) {
+            // Fetch the player's birthdate to check age
+            const { data: playerData, error: playerError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, birthdate')
+                .eq('id', codeData.player_id)
+                .single();
+
+            if (playerError) {
+                console.error('[REGISTER] Error fetching linked player:', playerError);
+            } else if (playerData && playerData.birthdate) {
+                const age = calculateAge(playerData.birthdate);
+                console.log('[REGISTER] Linked player age:', age, 'birthdate:', playerData.birthdate);
+
+                if (age < 16) {
+                    // Player is under 16 - show role selection modal
+                    linkedPlayerId = playerData.id;
+                    linkedPlayerBirthdate = playerData.birthdate;
+
+                    loader.classList.add('hidden');
+                    showRoleSelectionModal(age, playerData.first_name);
+                    return;
+                }
+            }
+        }
+
+        // Normal flow - player is 16+ or no linked player
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         loader.classList.add('hidden');
@@ -516,7 +576,7 @@ registrationForm?.addEventListener('submit', async e => {
             console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
         }
 
-        // Guardian-Registrierung
+        // Guardian-Registrierung (ohne Code)
         if (registrationType === 'guardian') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
@@ -524,12 +584,37 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
             profileUpdates.account_type = 'guardian';
+            profileUpdates.is_guardian = true;
             profileUpdates.role = 'player'; // Guardians are also players by default
             profileUpdates.is_match_ready = true;
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
-            console.log('[REGISTER] Registering as guardian');
+            console.log('[REGISTER] Registering as guardian (no code)');
+        }
+
+        // Guardian-Link Registrierung (Vormund verknüpft mit bestehendem Kind via Code)
+        if (registrationType === 'guardian-link') {
+            const firstName = document.getElementById('first-name')?.value?.trim() || '';
+            const lastName = document.getElementById('last-name')?.value?.trim() || '';
+            profileUpdates.first_name = firstName;
+            profileUpdates.last_name = lastName;
+            profileUpdates.display_name = `${firstName} ${lastName}`.trim();
+            profileUpdates.is_guardian = true;
+            profileUpdates.role = 'player';
+            profileUpdates.is_match_ready = true;
+            profileUpdates.elo_rating = 800;
+            profileUpdates.highest_elo = 800;
+
+            // Join the same club as the child
+            if (invitationCodeData?.club_id) {
+                profileUpdates.club_id = invitationCodeData.club_id;
+            }
+            if (invitationCodeData?.sport_id) {
+                profileUpdates.active_sport_id = invitationCodeData.sport_id;
+            }
+
+            console.log('[REGISTER] Registering as guardian linked to child:', linkedPlayerId);
         }
 
         if (Object.keys(profileUpdates).length > 0) {
@@ -566,7 +651,7 @@ registrationForm?.addEventListener('submit', async e => {
         }
 
         // 3. Invitation Code aktualisieren (use_count erhöhen)
-        if (registrationType === 'code' && invitationCodeData) {
+        if ((registrationType === 'code' || registrationType === 'guardian-link') && invitationCodeData) {
             await supabase
                 .from('invitation_codes')
                 .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
@@ -583,12 +668,35 @@ registrationForm?.addEventListener('submit', async e => {
             }));
         }
 
+        // 4. Guardian-Link erstellen (wenn Vormund sich für bestehendes Kind registriert)
+        if (registrationType === 'guardian-link' && linkedPlayerId) {
+            console.log('[REGISTER] Creating guardian link for child:', linkedPlayerId);
+
+            // Use RPC function to link guardian to child (validates birthdate server-side)
+            const { data: linkResult, error: linkError } = await supabase.rpc('link_guardian_to_child', {
+                p_child_id: linkedPlayerId,
+                p_child_birthdate: linkedPlayerBirthdate
+            });
+
+            if (linkError) {
+                console.error('[REGISTER] Failed to create guardian link:', linkError);
+                // Non-critical - continue anyway, link can be created later
+            } else if (linkResult && linkResult.success) {
+                console.log('[REGISTER] Guardian link created successfully');
+            } else {
+                console.warn('[REGISTER] Guardian link result:', linkResult);
+            }
+        }
+
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
         // Redirect based on registration type
         if (registrationType === 'guardian') {
-            // Guardians go to guardian onboarding to create child profile
+            // Guardians (no code) go to guardian onboarding to create child profile
             window.location.href = '/guardian-onboarding.html';
+        } else if (registrationType === 'guardian-link') {
+            // Guardians linked to existing child go directly to dashboard
+            window.location.href = '/dashboard.html';
         } else {
             window.location.href = '/onboarding.html';
         }
@@ -641,6 +749,160 @@ function displayError(message) {
 
         tokenRequiredMessageContainer.classList.remove('hidden');
     }
+}
+
+// =====================================================
+// Role Selection Modal Functions (for minor players)
+// =====================================================
+
+// Show role selection modal when invitation code is for a player under 16
+function showRoleSelectionModal(age, playerName) {
+    const infoText = document.getElementById('role-selection-info');
+    if (infoText) {
+        infoText.textContent = `Der Einladungscode ist für ${playerName} (${age} Jahre).`;
+    }
+
+    // Show/hide age block based on whether player is under 14
+    if (age < 14) {
+        roleAgeBlock?.classList.remove('hidden');
+        roleSelectPlayer?.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        roleAgeBlock?.classList.add('hidden');
+        roleSelectPlayer?.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    roleSelectionModal?.classList.remove('hidden');
+}
+
+// Hide role selection modal
+function hideRoleSelectionModal() {
+    roleSelectionModal?.classList.add('hidden');
+}
+
+// Role selection: Player selected themselves
+roleSelectPlayer?.addEventListener('click', () => {
+    // Check age - block if under 14
+    if (linkedPlayerBirthdate) {
+        const age = calculateAge(linkedPlayerBirthdate);
+        if (age < 14) {
+            // Can't self-register under 14
+            return;
+        }
+    }
+
+    // Hide modal, proceed with normal code registration
+    hideRoleSelectionModal();
+    registrationType = 'code';
+    formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
+    registrationFormContainer.classList.remove('hidden');
+});
+
+// Role selection: Guardian selected
+roleSelectGuardian?.addEventListener('click', () => {
+    // Hide role modal, show guardian verification modal
+    hideRoleSelectionModal();
+    showGuardianVerifyModal();
+});
+
+// =====================================================
+// Guardian Verification Modal Functions
+// =====================================================
+
+// Show guardian birthdate verification modal
+function showGuardianVerifyModal() {
+    // Reset the form
+    document.getElementById('verify-birthdate-day').value = '';
+    document.getElementById('verify-birthdate-month').value = '';
+    document.getElementById('verify-birthdate-year').value = '';
+    verifyError?.classList.add('hidden');
+
+    guardianVerifyModal?.classList.remove('hidden');
+}
+
+// Hide guardian verification modal
+function hideGuardianVerifyModal() {
+    guardianVerifyModal?.classList.add('hidden');
+}
+
+// Back button in verification modal
+verifyBackBtn?.addEventListener('click', () => {
+    hideGuardianVerifyModal();
+    // Re-show role selection if we came from there
+    if (linkedPlayerId) {
+        const age = calculateAge(linkedPlayerBirthdate);
+        const playerName = invitationCodeData?.first_name || 'das Kind';
+        showRoleSelectionModal(age, playerName);
+    }
+});
+
+// Verify birthdate button
+verifyBirthdateBtn?.addEventListener('click', () => {
+    const day = document.getElementById('verify-birthdate-day')?.value;
+    const month = document.getElementById('verify-birthdate-month')?.value;
+    const year = document.getElementById('verify-birthdate-year')?.value;
+
+    // Validate inputs
+    if (!day || !month || !year) {
+        showVerifyError('Bitte gib das vollständige Geburtsdatum ein.');
+        return;
+    }
+
+    // Parse entered birthdate
+    const enteredBirthdate = parseBirthdate(day, month, year);
+    if (!enteredBirthdate) {
+        showVerifyError('Ungültiges Datum.');
+        return;
+    }
+
+    // Compare with stored birthdate
+    const storedDate = new Date(linkedPlayerBirthdate);
+    const enteredDate = new Date(enteredBirthdate);
+
+    // Compare dates (ignoring time)
+    const storedDateStr = storedDate.toISOString().split('T')[0];
+    const enteredDateStr = enteredDate.toISOString().split('T')[0];
+
+    console.log('[REGISTER] Comparing birthdates:', enteredDateStr, 'vs', storedDateStr);
+
+    if (enteredDateStr !== storedDateStr) {
+        showVerifyError('Das Geburtsdatum stimmt nicht mit den Daten des Kindes überein.');
+        return;
+    }
+
+    // Birthdate matches! Proceed with guardian registration
+    console.log('[REGISTER] Birthdate verified! Proceeding with guardian registration.');
+    hideGuardianVerifyModal();
+
+    // Set registration type to guardian-link (guardian linking to existing child)
+    registrationType = 'guardian-link';
+
+    // Show registration form with guardian settings
+    const nameFields = document.getElementById('name-fields');
+    if (nameFields) {
+        nameFields.classList.remove('hidden');
+        document.getElementById('first-name').required = true;
+        document.getElementById('last-name').required = true;
+    }
+
+    // Hide birthdate fields (guardian doesn't need age verification)
+    const birthdateFields = document.getElementById('birthdate-fields');
+    if (birthdateFields) {
+        birthdateFields.classList.add('hidden');
+    }
+
+    formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}.`;
+    registrationFormContainer.classList.remove('hidden');
+});
+
+// Show error in verification modal
+function showVerifyError(message) {
+    if (verifyErrorText) verifyErrorText.textContent = message;
+    verifyError?.classList.remove('hidden');
+}
+
+// Hide error in verification modal
+function hideVerifyError() {
+    verifyError?.classList.add('hidden');
 }
 
 console.log('[REGISTER-SUPABASE] Setup complete');
