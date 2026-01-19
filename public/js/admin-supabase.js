@@ -2314,7 +2314,7 @@ async function handleStartNewSeason(e) {
         `Sportart: ${sportName}\n` +
         `Saison: ${name}\n` +
         `Zeitraum: ${formatDate(startDate)} - ${formatDate(endDate)}\n\n` +
-        `⚠️ ACHTUNG: Die Saison-Punkte aller Spieler dieser Sportart werden auf 0 gesetzt!`
+        `⚠️ ACHTUNG: Die Saison-Punkte aller Spieler deines Vereins für diese Sportart werden auf 0 gesetzt!`
     );
 
     if (!confirmed) return;

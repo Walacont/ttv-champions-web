@@ -1012,10 +1012,11 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Sport-ID für sportspezifischen Countdown übergeben
+    // Sport-ID und Club-ID für spezifischen Countdown übergeben
     const activeSportId = userData.activeSportId || null;
-    updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId), 1000);
+    const activeClubId = userData.clubId || null;
+    updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId, activeClubId);
+    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId, activeClubId), 1000);
     setInterval(updateAllCountdowns, 1000);
 }
 
