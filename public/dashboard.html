@@ -1360,10 +1360,10 @@
 
         <!-- Video Comparison Modal -->
         <div id="video-comparison-modal"
-             class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 overflow-hidden">
-            <div class="h-full w-full flex flex-col">
-                <!-- Header -->
-                <div class="bg-gray-900 text-white p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
+             class="fixed inset-0 bg-black bg-opacity-90 hidden z-50">
+            <div class="h-full w-full flex flex-col overflow-hidden">
+                <!-- Header - Fixed at top -->
+                <div class="bg-gray-900 text-white p-3 sm:p-4 flex items-center justify-between flex-shrink-0 z-10">
                     <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2">
                         <i class="fas fa-columns"></i>
                         <span class="hidden sm:inline">Video-Vergleich</span>
@@ -1383,16 +1383,16 @@
                     </div>
                 </div>
 
-                <!-- Video Container -->
-                <div class="flex-1 flex flex-col lg:flex-row gap-2 p-2 sm:p-4 overflow-hidden min-h-0">
+                <!-- Video Container - Scrollable middle section -->
+                <div class="flex-1 flex flex-col lg:flex-row gap-2 p-2 sm:p-4 overflow-y-auto min-h-0">
                     <!-- Left Video -->
-                    <div class="flex-1 flex flex-col min-h-0">
+                    <div class="flex flex-col lg:flex-1 min-h-[35vh] lg:min-h-0">
                         <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
                             <select id="comparison-video-left" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-purple-500">
                                 <option value="">Video 1 auswählen...</option>
                             </select>
                         </div>
-                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[25vh] lg:min-h-0">
                             <video id="comparison-player-left" class="max-w-full max-h-full" controls playsinline></video>
                         </div>
                         <div id="comparison-info-left" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
@@ -1402,13 +1402,13 @@
                     </div>
 
                     <!-- Right Video -->
-                    <div class="flex-1 flex flex-col min-h-0">
+                    <div class="flex flex-col lg:flex-1 min-h-[35vh] lg:min-h-0">
                         <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
                             <select id="comparison-video-right" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-purple-500">
                                 <option value="">Video 2 auswählen...</option>
                             </select>
                         </div>
-                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[25vh] lg:min-h-0">
                             <video id="comparison-player-right" class="max-w-full max-h-full" controls playsinline></video>
                         </div>
                         <div id="comparison-info-right" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
@@ -1418,8 +1418,8 @@
                     </div>
                 </div>
 
-                <!-- Playback Controls -->
-                <div class="bg-gray-900 p-3 sm:p-4 flex items-center justify-center gap-2 sm:gap-4 flex-shrink-0">
+                <!-- Playback Controls - Fixed at bottom -->
+                <div class="bg-gray-900 p-3 sm:p-4 flex items-center justify-center gap-2 sm:gap-4 flex-shrink-0 z-10">
                     <button id="comparison-play-pause" class="bg-purple-600 hover:bg-purple-700 text-white px-4 sm:px-6 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base">
                         <i class="fas fa-play"></i>
                         <span class="hidden sm:inline">Abspielen</span>
