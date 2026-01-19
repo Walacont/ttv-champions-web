@@ -350,17 +350,25 @@ function applyKidsModeUI() {
 
     // Show child logout button for ALL child sessions (kids and teens)
     // They don't have a Supabase auth session, so they can't use the normal settings/logout
+    console.log('[DASHBOARD-SUPABASE] Checking child logout button, isChildMode:', isChildMode);
     if (isChildMode) {
         const childLogoutBtn = document.getElementById('child-logout-btn');
-        if (childLogoutBtn && !childLogoutBtn.hasAttribute('data-listener-attached')) {
+        console.log('[DASHBOARD-SUPABASE] Child logout button element:', childLogoutBtn);
+        if (childLogoutBtn) {
             childLogoutBtn.classList.remove('hidden');
-            childLogoutBtn.setAttribute('data-listener-attached', 'true');
-            childLogoutBtn.addEventListener('click', () => {
-                if (confirm('Möchtest du dich wirklich abmelden?')) {
-                    clearChildSession();
-                    window.location.href = '/child-login.html';
-                }
-            });
+            // Override the white color set by kids mode styling - make it yellow for visibility on purple bg
+            childLogoutBtn.style.color = currentAgeMode === 'kids' ? '#fbbf24' : '#ef4444';
+            console.log('[DASHBOARD-SUPABASE] Child logout button shown with color:', childLogoutBtn.style.color);
+
+            if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
+                childLogoutBtn.setAttribute('data-listener-attached', 'true');
+                childLogoutBtn.addEventListener('click', () => {
+                    if (confirm('Möchtest du dich wirklich abmelden?')) {
+                        clearChildSession();
+                        window.location.href = '/child-login.html';
+                    }
+                });
+            }
         }
     }
 
