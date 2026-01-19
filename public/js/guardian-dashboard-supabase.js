@@ -168,6 +168,16 @@ async function loadChildStats(child) {
 
         child.completedChallenges = completedChallenges || [];
 
+        // Load notifications for child
+        const { data: notifications } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', child.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        child.notifications = notifications || [];
+
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
         child.totalMatches = 0;
@@ -175,6 +185,7 @@ async function loadChildStats(child) {
         child.recentMatches = [];
         child.pointsHistory = [];
         child.completedChallenges = [];
+        child.notifications = [];
     }
 }
 
@@ -189,6 +200,23 @@ function getSign(value) {
     if (value > 0) return '+';
     if (value < 0) return '';
     return '±';
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'match_request': 'fas fa-table-tennis',
+        'match_result': 'fas fa-trophy',
+        'challenge': 'fas fa-flag-checkered',
+        'points': 'fas fa-star',
+        'attendance': 'fas fa-calendar-check',
+        'coach': 'fas fa-user-tie',
+        'event': 'fas fa-calendar',
+        'club': 'fas fa-users',
+        'system': 'fas fa-info-circle',
+        'friend_request': 'fas fa-user-plus',
+        'message': 'fas fa-envelope'
+    };
+    return icons[type] || 'fas fa-bell';
 }
 
 // Render children list
@@ -269,6 +297,30 @@ function renderChildren() {
             challengesHtml = '<p class="text-xs text-gray-400 py-2">Keine Challenges</p>';
         }
 
+        // Format notifications
+        let notificationsHtml = '';
+        const unreadCount = (child.notifications || []).filter(n => !n.is_read).length;
+        if (child.notifications && child.notifications.length > 0) {
+            notificationsHtml = child.notifications.slice(0, 5).map(notif => {
+                const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                const isUnread = !notif.is_read;
+                const icon = getNotificationIcon(notif.type);
+
+                return `
+                    <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0 ${isUnread ? 'bg-indigo-50 -mx-2 px-2 rounded' : ''}">
+                        <i class="${icon} text-xs mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-400'}"></i>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-700'} truncate">${escapeHtml(notif.title || '')}</p>
+                            <p class="text-[10px] text-gray-500 truncate">${escapeHtml(notif.message || '')}</p>
+                            <p class="text-[10px] text-gray-400">${date}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            notificationsHtml = '<p class="text-xs text-gray-400 py-2">Keine Mitteilungen</p>';
+        }
+
         return `
             <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <!-- Header with basic info -->
@@ -329,6 +381,17 @@ function renderChildren() {
                 <div class="px-4 pb-3 border-t border-gray-100 pt-3">
                     <p class="text-xs text-gray-500 mb-1 font-medium">Challenges</p>
                     ${challengesHtml}
+                </div>
+
+                <!-- Notifications -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
+                        Mitteilungen
+                        ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">${unreadCount}</span>` : ''}
+                    </p>
+                    <div class="max-h-40 overflow-y-auto">
+                        ${notificationsHtml}
+                    </div>
                 </div>
             </div>
         `;
