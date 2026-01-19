@@ -356,9 +356,7 @@ function applyKidsModeUI() {
         console.log('[DASHBOARD-SUPABASE] Logout button element:', childLogoutBtn);
         if (childLogoutBtn) {
             childLogoutBtn.classList.remove('hidden');
-            // Override the white color set by kids mode styling
-            childLogoutBtn.style.color = '#ef4444'; // Red for visibility
-            console.log('[DASHBOARD-SUPABASE] Logout button shown with color:', childLogoutBtn.style.color);
+            console.log('[DASHBOARD-SUPABASE] Logout button shown');
 
             if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
                 childLogoutBtn.setAttribute('data-listener-attached', 'true');
