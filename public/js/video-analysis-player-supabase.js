@@ -1141,17 +1141,22 @@ function showPlayerVideoDetailModal(video, comments) {
                 </div>
                 <div class="p-4 sm:p-6">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                        <div>
-                            <video id="player-detail-video" class="w-full rounded-lg bg-black max-h-[50vh]" controls playsinline>
+                        <div class="flex justify-center">
+                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[35vh] sm:max-h-[50vh] max-w-full" controls playsinline>
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
+                        </div>
+                        ${video.exercise ? `
+                            <p class="mt-2 text-sm text-indigo-600 text-center lg:hidden">
+                                <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
+                            </p>
+                        ` : ''}
+                        <div>
                             ${video.exercise ? `
-                                <p class="mt-3 text-sm text-indigo-600">
+                                <p class="mb-3 text-sm text-indigo-600 hidden lg:block">
                                     <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise.name)}
                                 </p>
                             ` : ''}
-                        </div>
-                        <div>
                             <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
                             <div class="space-y-2">${commentsHtml}</div>
                         </div>
