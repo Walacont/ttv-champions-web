@@ -1256,15 +1256,16 @@
         </div>
 
         <!-- Video-Upload Modal für Spieler -->
-        <div id="player-video-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                    <h3 class="text-lg font-bold">Video zur Analyse hochladen</h3>
-                    <button id="close-player-video-upload" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-                <form id="player-video-upload-form" class="p-6 space-y-4">
+        <div id="player-video-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" style="z-index: 100001;">
+            <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg">
+                    <div class="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
+                        <h3 class="text-base sm:text-lg font-bold truncate mr-2">Video zur Analyse hochladen</h3>
+                        <button id="close-player-video-upload" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
+                            <i class="fas fa-times text-xl sm:text-2xl"></i>
+                        </button>
+                    </div>
+                <form id="player-video-upload-form" class="p-4 sm:p-6 space-y-4">
                     <input type="hidden" id="player-video-exercise-id">
 
                     <!-- Video-Datei -->
@@ -1355,6 +1356,7 @@
                         <span>Hochladen</span>
                     </button>
                 </form>
+                </div>
             </div>
         </div>
 
@@ -1998,10 +2000,14 @@
                     topNav.style.borderBottom = '1px solid #e5e7eb';
                 }
 
-                // Move video comparison modal to body to avoid CSS parent issues
+                // Move modals to body to avoid CSS parent issues
                 var videoComparisonModal = document.getElementById('video-comparison-modal');
                 if (videoComparisonModal) {
                     document.body.appendChild(videoComparisonModal);
+                }
+                var playerVideoUploadModal = document.getElementById('player-video-upload-modal');
+                if (playerVideoUploadModal) {
+                    document.body.appendChild(playerVideoUploadModal);
                 }
             });
         </script>
