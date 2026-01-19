@@ -1428,9 +1428,10 @@ async function handleDrawingSave(dataUrl, metadata = {}) {
         const response = await fetch(dataUrl);
         const blob = await response.blob();
 
-        // Dateiname generieren
+        // Dateiname generieren - Format: {userId}/drawings/{videoId}_{timestamp}.png
+        // (Policy erwartet userId als erstes Verzeichnis)
         const timestamp = Date.now();
-        const fileName = `drawings/${userId}/${currentVideoId}_${timestamp}.png`;
+        const fileName = `${userId}/drawings/${currentVideoId}_${timestamp}.png`;
 
         // Upload zu Supabase Storage
         const { data: uploadData, error: uploadError } = await db.storage
