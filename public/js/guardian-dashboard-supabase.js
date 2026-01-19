@@ -15,6 +15,7 @@ const supabase = getSupabase();
 let currentUser = null;
 let children = [];
 let currentChildId = null; // For modal
+let initialized = false;
 
 // DOM Elements
 const pageLoader = document.getElementById('page-loader');
@@ -23,19 +24,13 @@ const childrenList = document.getElementById('children-list');
 const noChildrenMessage = document.getElementById('no-children-message');
 const loginCodeModal = document.getElementById('login-code-modal');
 
-// Initialize
-async function initialize() {
+// Initialize with auth state
+async function initialize(user) {
+    if (initialized) return;
+    initialized = true;
+
     try {
-        // Wait for auth state to be ready
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session?.user) {
-            console.log('[GUARDIAN-DASHBOARD] No session, redirecting...');
-            window.location.href = '/index.html';
-            return;
-        }
-
-        currentUser = session.user;
+        currentUser = user;
 
         // Check if user is a guardian
         const { data: profile } = await supabase
@@ -307,5 +302,23 @@ function setupEventListeners() {
     });
 }
 
-// Initialize on load
-initialize();
+// Wait for auth state and initialize
+supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('[GUARDIAN-DASHBOARD] Auth state changed:', event);
+
+    if (event === 'SIGNED_OUT') {
+        window.location.href = '/index.html';
+        return;
+    }
+
+    if (session?.user && !initialized) {
+        await initialize(session.user);
+    }
+});
+
+// Also try to initialize immediately if session already exists
+supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user && !initialized) {
+        initialize(session.user);
+    }
+});
