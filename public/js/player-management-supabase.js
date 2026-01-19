@@ -1208,7 +1208,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                         }
                     </div>
                 `
-                        : '<p class="text-sm text-green-600 font-semibold text-center">🏆 Höchster Rang erreicht!</p>'
+                        : '<p class="text-sm text-green-600 font-semibold text-center"><i class="fas fa-trophy mr-1"></i>Höchster Rang erreicht!</p>'
                 }
 
                 ${guardianHtml}
