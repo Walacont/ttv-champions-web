@@ -24,29 +24,20 @@ const childrenList = document.getElementById('children-list');
 const noChildrenMessage = document.getElementById('no-children-message');
 const loginCodeModal = document.getElementById('login-code-modal');
 
-// Initialize - simple version that worked before
-async function initialize() {
+// Initialize with user
+async function initializeWithUser(user) {
     if (initialized) return;
     initialized = true;
 
     try {
-        // Get session directly
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session?.user) {
-            console.log('[GUARDIAN-DASHBOARD] No session, redirecting...');
-            window.location.href = '/index.html';
-            return;
-        }
-
-        currentUser = session.user;
+        currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] User:', currentUser.id);
 
         // Check if user is a guardian
         const { data: profile } = await supabase
             .from('profiles')
             .select('account_type, is_guardian')
-            .eq('id', session.user.id)
+            .eq('id', user.id)
             .single();
 
         if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
@@ -73,6 +64,28 @@ async function initialize() {
                 <a href="/dashboard.html" class="text-indigo-600 underline mt-2 block">Zum Dashboard</a>
             </div>
         `;
+    }
+}
+
+// Try to initialize - first with getSession, fallback to onAuthStateChange
+async function initialize() {
+    // First try getSession
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (session?.user) {
+        console.log('[GUARDIAN-DASHBOARD] Session found immediately');
+        await initializeWithUser(session.user);
+    } else {
+        console.log('[GUARDIAN-DASHBOARD] No session yet, waiting for auth state...');
+        // Wait for auth state change
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[GUARDIAN-DASHBOARD] Auth state changed:', event);
+            if (session?.user && !initialized) {
+                await initializeWithUser(session.user);
+            } else if (event === 'SIGNED_OUT' || (!session && event === 'INITIAL_SESSION')) {
+                window.location.href = '/index.html';
+            }
+        });
     }
 }
 
