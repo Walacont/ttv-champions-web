@@ -557,6 +557,7 @@ async function openVideoDetailModal(videoId) {
         <video id="analysis-video-player"
                class="w-full rounded-lg bg-black"
                controls
+               crossorigin="anonymous"
                preload="metadata">
             <source src="${escapeHtml(video.video_url)}" type="video/mp4">
             Dein Browser unterstützt keine Videowiedergabe.
@@ -1416,13 +1417,15 @@ function initializeDrawingTool() {
 
 /**
  * Handler wenn eine Zeichnung gespeichert wird
+ * @param {string} dataUrl - Die Zeichnung als Data-URL
+ * @param {Object} metadata - Zusätzliche Infos (timestamp, includesVideoFrame, shapes)
  */
-async function handleDrawingSave(imageData) {
+async function handleDrawingSave(dataUrl, metadata = {}) {
     const { db, userId, clubId } = videoAnalysisContext;
 
     try {
         // Konvertiere DataURL zu Blob
-        const response = await fetch(imageData);
+        const response = await fetch(dataUrl);
         const blob = await response.blob();
 
         // Dateiname generieren

@@ -624,7 +624,6 @@ class VideoDrawingTool {
      * Speichert das annotierte Bild
      */
     async save() {
-        // Video-Frame + Zeichnungen kombinieren
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
 
@@ -632,12 +631,29 @@ class VideoDrawingTool {
         tempCanvas.width = this.video.videoWidth || rect.width;
         tempCanvas.height = this.video.videoHeight || rect.height;
 
-        // Video-Frame zeichnen
-        tempCtx.drawImage(this.video, 0, 0, tempCanvas.width, tempCanvas.height);
-
         // Skalierungsfaktoren für Zeichnungen
         const scaleX = tempCanvas.width / rect.width;
         const scaleY = tempCanvas.height / rect.height;
+
+        let includesVideoFrame = false;
+
+        // Video-Frame zeichnen (mit try-catch für CORS-Probleme)
+        try {
+            tempCtx.drawImage(this.video, 0, 0, tempCanvas.width, tempCanvas.height);
+            // Test ob Canvas "tainted" ist
+            tempCanvas.toDataURL();
+            includesVideoFrame = true;
+        } catch (securityError) {
+            console.warn('[VideoDrawingTool] CORS-Fehler beim Video-Frame, speichere nur Zeichnungen:', securityError.message);
+            // Canvas zurücksetzen und mit dunklem Hintergrund füllen
+            tempCtx.fillStyle = '#1a1a2e';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            // Hinweis-Text hinzufügen
+            tempCtx.fillStyle = '#666';
+            tempCtx.font = '14px sans-serif';
+            tempCtx.textAlign = 'center';
+            tempCtx.fillText('Video-Frame konnte nicht eingebettet werden', tempCanvas.width / 2, 20);
+        }
 
         // Zeichnungen mit Skalierung übertragen
         tempCtx.scale(scaleX, scaleY);
@@ -668,21 +684,20 @@ class VideoDrawingTool {
             }
         }
 
-        // Als Blob exportieren
-        const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/png'));
+        // Als DataURL exportieren
+        const dataUrl = tempCanvas.toDataURL('image/png');
         const timestamp = this.video.currentTime;
 
         // Callback aufrufen
         if (this.options.onSave) {
-            this.options.onSave({
-                blob,
+            this.options.onSave(dataUrl, {
                 timestamp,
-                dataUrl: tempCanvas.toDataURL('image/png'),
+                includesVideoFrame,
                 shapes: this.history.slice(0, this.historyIndex + 1)
             });
         }
 
-        return { blob, timestamp, dataUrl: tempCanvas.toDataURL('image/png') };
+        return { dataUrl, timestamp, includesVideoFrame };
     }
 
     // Helper-Methoden für externen Context
