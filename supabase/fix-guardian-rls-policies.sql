@@ -197,6 +197,7 @@ BEGIN
     END IF;
 
     -- Anonymize the profile
+    -- Note: phone and address columns can be added later if needed
     UPDATE profiles
     SET
         first_name = 'Gelöschter',
@@ -206,8 +207,6 @@ BEGIN
         gender = NULL,
         avatar_url = NULL,
         qttr_points = NULL,
-        phone = NULL,
-        address = NULL,
         privacy_settings = '{}'::jsonb,
         notification_preferences = '{}'::jsonb,
         is_deleted = true,
