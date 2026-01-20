@@ -841,19 +841,12 @@
                 }));
             }
 
-            // Load coach comments (direct query instead of RPC for better RLS support)
-            const { data: comments, error: commentsError } = await supabase
-                .from('video_comments')
-                .select(`
-                    id,
-                    content,
-                    timestamp_seconds,
-                    user_id,
-                    created_at,
-                    profiles(first_name, last_name, role, avatar_url)
-                `)
-                .eq('video_id', video.id)
-                .order('timestamp_seconds');
+            // Load coach comments using RPC (SECURITY DEFINER bypasses RLS)
+            const { data: comments, error: commentsError } = await supabase.rpc('get_video_comments', {
+                p_video_id: video.id
+            });
+
+            console.log('Comments loaded:', comments, 'Error:', commentsError);
 
             if (commentsError) {
                 console.error('Error loading comments:', commentsError);
@@ -862,9 +855,8 @@
             const commentsContainer = document.getElementById('coach-comments');
             if (comments?.length > 0) {
                 commentsContainer.innerHTML = comments.map(c => {
-                    const profile = c.profiles;
-                    const userName = profile ? `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.` : 'Unbekannt';
-                    const isCoach = profile?.role === 'coach' || profile?.role === 'head_coach';
+                    const userName = c.user_name || 'Unbekannt';
+                    const isCoach = c.user_role === 'coach' || c.user_role === 'head_coach';
 
                     // Check if comment has a drawing (embedded in content as markdown)
                     const drawingMatch = c.content?.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
