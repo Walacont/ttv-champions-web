@@ -11,17 +11,26 @@ let exerciseContext = {
     userRole: null,
     clubId: null,
     sportId: null,
+    descriptionEditor: null,
 };
 
 /**
  * Setzt den Kontext für Übungs-Fortschrittsverfolgung
  */
-export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null) {
+export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null, descriptionEditor = null) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
     exerciseContext.userRole = userRole;
     exerciseContext.clubId = clubId;
     exerciseContext.sportId = sportId;
+    exerciseContext.descriptionEditor = descriptionEditor;
+}
+
+/**
+ * Setzt den Beschreibungs-Editor für Übungen (nachträglich)
+ */
+export function setExerciseDescriptionEditor(editor) {
+    exerciseContext.descriptionEditor = editor;
 }
 
 /**
@@ -1365,18 +1374,30 @@ window.editExercise = async function(exerciseId) {
             visibilityRadio.checked = true;
         }
 
-        let descriptionText = '';
+        // Beschreibungs-Editor mit vorhandenen Daten füllen
         try {
             const descContent = JSON.parse(exerciseData.descriptionContent || '{}');
-            if (descContent.type === 'text') {
-                descriptionText = descContent.text || '';
-            } else if (descContent.type === 'table') {
-                descriptionText = descContent.additionalText || '';
+            if (exerciseContext.descriptionEditor) {
+                // Verwende den Editor um Tabellen korrekt zu laden
+                exerciseContext.descriptionEditor.setContent(descContent);
+            } else {
+                // Fallback: Nur Text-Feld setzen
+                let descriptionText = '';
+                if (descContent.type === 'text') {
+                    descriptionText = descContent.text || '';
+                } else if (descContent.type === 'table') {
+                    descriptionText = descContent.additionalText || '';
+                }
+                document.getElementById('exercise-description-form').value = descriptionText;
             }
         } catch (e) {
-            descriptionText = exerciseData.description || '';
+            const descriptionText = exerciseData.description || '';
+            if (exerciseContext.descriptionEditor) {
+                exerciseContext.descriptionEditor.setContent({ type: 'text', text: descriptionText });
+            } else {
+                document.getElementById('exercise-description-form').value = descriptionText;
+            }
         }
-        document.getElementById('exercise-description-form').value = descriptionText;
 
         const hasMilestones = exerciseData.tieredPoints?.enabled && exerciseData.tieredPoints?.milestones?.length > 0;
         const milestonesCheckbox = document.getElementById('exercise-milestones-enabled');

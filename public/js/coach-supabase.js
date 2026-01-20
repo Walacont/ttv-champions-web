@@ -70,6 +70,7 @@ import {
     setupExercisePointsCalculation,
     setupExerciseMilestones,
     setExerciseContext,
+    setExerciseDescriptionEditor,
 } from './exercises-supabase.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
@@ -635,6 +636,9 @@ async function initializeCoachPage(userData) {
         toggleContainerId: 'description-toggle-container-coach',
         tableEditorContainerId: 'description-table-editor-coach',
     });
+
+    // Editor für editExercise verfügbar machen
+    setExerciseDescriptionEditor(descriptionEditor);
 
     document
         .getElementById('add-offline-player-form')
