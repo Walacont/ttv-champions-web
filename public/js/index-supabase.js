@@ -136,6 +136,7 @@ onAuthStateChange(async (event, session) => {
 
                 let targetUrl;
                 if (profile.role === 'admin') targetUrl = '/admin.html';
+                else if (profile.role === 'labeler') targetUrl = '/label.html';
                 else if (profile.role === 'coach' || profile.role === 'head_coach') targetUrl = '/coach.html';
                 else targetUrl = '/dashboard.html';
 

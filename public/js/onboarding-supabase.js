@@ -338,6 +338,8 @@ function redirectToDashboard(role) {
     let targetUrl;
     if (role === 'admin') {
         targetUrl = '/admin.html';
+    } else if (role === 'labeler') {
+        targetUrl = '/label.html';
     } else if (role === 'coach' || role === 'head_coach') {
         targetUrl = '/coach.html';
     } else {
