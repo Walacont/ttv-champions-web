@@ -848,7 +848,6 @@
                     id,
                     content,
                     timestamp_seconds,
-                    drawing_url,
                     user_id,
                     created_at,
                     profiles(first_name, last_name, role, avatar_url)
@@ -867,9 +866,10 @@
                     const userName = profile ? `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.` : 'Unbekannt';
                     const isCoach = profile?.role === 'coach' || profile?.role === 'head_coach';
 
-                    // Check if comment has a drawing
-                    const hasDrawing = c.drawing_url || (c.content && c.content.includes('[Zeichnung]'));
-                    const drawingUrl = c.drawing_url || (c.content?.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/)?.[1]);
+                    // Check if comment has a drawing (embedded in content as markdown)
+                    const drawingMatch = c.content?.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
+                    const hasDrawing = !!drawingMatch;
+                    const drawingUrl = drawingMatch?.[1];
 
                     return `
                     <div class="bg-gray-50 rounded-lg p-2 text-sm">
