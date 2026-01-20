@@ -172,7 +172,11 @@ AS $$
 DECLARE
     v_is_own_account BOOLEAN;
     v_is_guardian_of_child BOOLEAN;
+    random_suffix TEXT;
 BEGIN
+    -- Generate random suffix for anonymized email
+    random_suffix := substr(md5(random()::text), 1, 8);
+
     -- Check if user is deleting their own account
     v_is_own_account := (p_user_id = auth.uid());
 
@@ -197,20 +201,19 @@ BEGIN
     END IF;
 
     -- Anonymize the profile
-    -- Note: phone and address columns can be added later if needed
+    -- Note: Deleted profiles are identified by email LIKE 'deleted_%@anonymous.local'
     UPDATE profiles
     SET
         first_name = 'Gelöschter',
         last_name = 'Nutzer',
-        email = NULL,
+        email = 'deleted_' || random_suffix || '@anonymous.local',
         birthdate = NULL,
         gender = NULL,
         avatar_url = NULL,
         qttr_points = NULL,
         privacy_settings = '{}'::jsonb,
         notification_preferences = '{}'::jsonb,
-        is_deleted = true,
-        deleted_at = NOW()
+        updated_at = NOW()
     WHERE id = p_user_id;
 
     -- Delete notifications

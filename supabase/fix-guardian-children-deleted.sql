@@ -3,8 +3,11 @@
 -- ============================================
 -- Problem: When a child profile is deleted (anonymized), it still appears
 -- in the guardian dashboard because:
--- 1. get_guardian_children() doesn't filter by is_deleted
+-- 1. get_guardian_children() doesn't filter deleted profiles
 -- 2. guardian_links may not be properly deleted
+--
+-- Note: Deleted profiles are identified by email LIKE 'deleted_%@anonymous.local'
+-- (set by anonymize_account function), NOT by an is_deleted column
 -- ============================================
 
 -- ============================================
@@ -48,7 +51,7 @@ BEGIN
     FROM guardian_links gl
     JOIN profiles p ON p.id = gl.child_id
     WHERE gl.guardian_id = v_guardian_id
-      AND (p.is_deleted IS NULL OR p.is_deleted = FALSE);  -- Filter out deleted profiles
+      AND p.email NOT LIKE 'deleted_%@anonymous.local';  -- Filter out deleted/anonymized profiles
 
     RETURN json_build_object(
         'success', TRUE,
@@ -67,14 +70,14 @@ $$;
 -- PART 2: Clean up orphaned guardian_links for deleted profiles
 -- ============================================
 
--- Remove any guardian_links where the child profile has been deleted
+-- Remove any guardian_links where the child profile has been deleted/anonymized
 DELETE FROM guardian_links
 WHERE child_id IN (
-    SELECT id FROM profiles WHERE is_deleted = TRUE
+    SELECT id FROM profiles WHERE email LIKE 'deleted_%@anonymous.local'
 );
 
 -- ============================================
--- PART 3: Add trigger to auto-delete guardian_links when profile is deleted
+-- PART 3: Add trigger to auto-delete guardian_links when profile is anonymized
 -- ============================================
 
 CREATE OR REPLACE FUNCTION cleanup_guardian_links_on_delete()
@@ -83,8 +86,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-    -- When a profile is marked as deleted, remove all guardian links
-    IF NEW.is_deleted = TRUE AND (OLD.is_deleted IS NULL OR OLD.is_deleted = FALSE) THEN
+    -- When a profile is anonymized (email changed to deleted_*), remove all guardian links
+    IF NEW.email LIKE 'deleted_%@anonymous.local' AND (OLD.email IS NULL OR OLD.email NOT LIKE 'deleted_%@anonymous.local') THEN
         DELETE FROM guardian_links WHERE child_id = NEW.id;
     END IF;
     RETURN NEW;
@@ -95,9 +98,9 @@ $$;
 DROP TRIGGER IF EXISTS trigger_cleanup_guardian_links ON profiles;
 
 CREATE TRIGGER trigger_cleanup_guardian_links
-    AFTER UPDATE OF is_deleted ON profiles
+    AFTER UPDATE OF email ON profiles
     FOR EACH ROW
-    WHEN (NEW.is_deleted = TRUE)
+    WHEN (NEW.email LIKE 'deleted_%@anonymous.local')
     EXECUTE FUNCTION cleanup_guardian_links_on_delete();
 
 -- ============================================
@@ -108,7 +111,7 @@ DO $$
 BEGIN
     RAISE NOTICE 'Guardian Children Delete Fix Complete!';
     RAISE NOTICE 'Changes:';
-    RAISE NOTICE '  1. get_guardian_children() now filters out is_deleted=TRUE profiles';
+    RAISE NOTICE '  1. get_guardian_children() now filters out anonymized profiles (email LIKE deleted_%)';
     RAISE NOTICE '  2. Cleaned up orphaned guardian_links for already-deleted profiles';
-    RAISE NOTICE '  3. Added trigger to auto-cleanup guardian_links when profile is deleted';
+    RAISE NOTICE '  3. Added trigger to auto-cleanup guardian_links when profile is anonymized';
 END $$;
