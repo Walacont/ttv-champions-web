@@ -45,8 +45,10 @@ const POSITIONS = {
 };
 
 // Table dimensions (relative)
+// Real table: 2.74m long x 1.525m wide = aspect ratio ~0.56 (width/height)
+// Table is viewed from player's perspective: longer dimension is vertical
 const TABLE = {
-    aspectRatio: 1.8, // length / width
+    aspectRatio: 0.56, // width / height (table is taller than wide)
     padding: 40,
     netPosition: 0.5,  // Middle of table
     color: '#1e3a5f',
@@ -82,10 +84,12 @@ class TableTennisExerciseBuilder {
     resizeCanvas() {
         const container = this.canvas.parentElement;
         const containerWidth = container.clientWidth;
-        const maxHeight = 500;
+        const maxHeight = 600;
+        const maxWidth = 400; // Table is taller than wide, so limit width
 
         // Calculate dimensions maintaining aspect ratio
-        let width = containerWidth;
+        // Start from width since table is narrow
+        let width = Math.min(containerWidth, maxWidth);
         let height = width / TABLE.aspectRatio;
 
         if (height > maxHeight) {
