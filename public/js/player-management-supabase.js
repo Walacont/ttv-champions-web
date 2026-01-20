@@ -1037,7 +1037,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 .select(`
                     guardian_id,
                     is_primary,
-                    profiles!guardian_links_guardian_id_fkey (
+                    profiles!guardian_links_guardian_id_profiles_fkey (
                         id,
                         first_name,
                         last_name,
