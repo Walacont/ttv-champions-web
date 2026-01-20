@@ -130,8 +130,9 @@ function mapExerciseFromSupabase(row) {
         descriptionContent: descriptionContent,
         imageUrl: row.image_url,
         points: row.xp_reward || row.points || 10,
-        level: row.difficulty || row.level,
+        level: row.category || row.difficulty || row.level,  // category wird in handleCreateExercise verwendet
         difficulty: row.difficulty,
+        category: row.category,
         tags: row.tags || [],
         visibility: row.visibility || 'global',
         clubId: row.club_id,
@@ -496,8 +497,11 @@ function renderCoachExercises(exercises, filterTag) {
                 <div class="mb-3 pointer-events-none">${tagsHtml}</div>
                 <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
                 ${canEdit ? `
-                <div class="mt-auto pointer-events-auto">
-                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+                <div class="mt-auto pointer-events-auto flex gap-2">
+                    <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
+                        ✏️ Bearbeiten
+                    </button>
+                    <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
                         🗑️ Löschen
                     </button>
                 </div>
@@ -1208,7 +1212,8 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         const exerciseData = {
             name: title,  // DB-Spalte ist 'name', nicht 'title'
             description_content: JSON.stringify(descriptionContent),
-            category: level,  // Speichere Level-Text in 'category' (level/difficulty sind INTEGER in DB)
+            category: level,  // Speichere Level-Text in 'category'
+            difficulty: difficulty,  // Speichere Schwierigkeit (easy, normal, hard)
             points,
             xp_reward: points,  // Setze auch xp_reward für Kompatibilität
             tags,
@@ -1337,6 +1342,19 @@ window.editExercise = async function(exerciseId) {
         document.getElementById('exercise-difficulty-form').value = exerciseData.difficulty || '';
         document.getElementById('exercise-tags-form').value = (exerciseData.tags || []).join(', ');
 
+        // Einheit setzen
+        const unitSelect = document.getElementById('exercise-unit-form');
+        if (unitSelect) {
+            unitSelect.value = exerciseData.unit || 'Wiederholungen';
+        }
+
+        // Sichtbarkeit setzen
+        const visibilityValue = exerciseData.visibility || 'global';
+        const visibilityRadio = document.querySelector(`input[name="exercise-visibility"][value="${visibilityValue}"]`);
+        if (visibilityRadio) {
+            visibilityRadio.checked = true;
+        }
+
         let descriptionText = '';
         try {
             const descContent = JSON.parse(exerciseData.descriptionContent || '{}');
@@ -1384,6 +1402,14 @@ window.editExercise = async function(exerciseId) {
 
         document.getElementById('create-exercise-form').dataset.editingId = exerciseId;
         document.getElementById('create-exercise-submit').textContent = 'Übung aktualisieren';
+
+        // Formular aufklappen falls zugeklappt
+        const formContainer = document.getElementById('exercise-form-container');
+        const formIcon = document.getElementById('exercise-form-icon');
+        if (formContainer?.classList.contains('hidden')) {
+            formContainer.classList.remove('hidden');
+            if (formIcon) formIcon.style.transform = 'rotate(180deg)';
+        }
 
         document.getElementById('create-exercise-form').scrollIntoView({ behavior: 'smooth' });
 
