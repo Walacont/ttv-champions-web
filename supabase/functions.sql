@@ -712,40 +712,53 @@ END;
 $$;
 
 -- ========================================================================
--- FUNCTION 10: Anonymize Account
+-- FUNCTION 10: Anonymize Account (and delete auth)
 -- ========================================================================
 CREATE OR REPLACE FUNCTION anonymize_account(p_user_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     random_suffix TEXT;
+    user_exists BOOLEAN;
 BEGIN
+    -- Check if user exists
+    SELECT EXISTS(SELECT 1 FROM profiles WHERE id = p_user_id) INTO user_exists;
+
+    IF NOT user_exists THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'message', 'Benutzer nicht gefunden'
+        );
+    END IF;
+
     -- Generate random suffix
     random_suffix := substr(md5(random()::text), 1, 8);
 
-    -- Anonymize profile
+    -- Anonymize profile first
     UPDATE profiles SET
         email = 'deleted_' || random_suffix || '@anonymous.local',
         first_name = 'Gelöschter',
         last_name = 'Nutzer',
-        display_name = 'Gelöschter Nutzer',
         avatar_url = NULL,
-        phone = NULL,
         birthdate = NULL,
         gender = NULL,
-        is_anonymized = true,
-        anonymized_at = NOW(),
+        fcm_token = NULL,
         updated_at = NOW()
     WHERE id = p_user_id;
 
-    -- Delete sensitive subcollection data
-    -- Note: In Supabase, related data should be handled by CASCADE or separate deletes
+    -- Delete sensitive data from related tables
+    DELETE FROM points_history WHERE user_id = p_user_id;
+    DELETE FROM xp_history WHERE user_id = p_user_id;
+
+    -- IMPORTANT: Delete the auth account so user cannot login anymore
+    DELETE FROM auth.users WHERE id = p_user_id;
 
     RETURN jsonb_build_object(
         'success', true,
-        'message', 'Account anonymisiert'
+        'message', 'Account vollständig gelöscht'
     );
 END;
 $$;
