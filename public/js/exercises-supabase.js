@@ -498,19 +498,11 @@ function renderCoachExercises(exercises, filterTag) {
                 <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
                 ${canEdit ? `
                 <div class="mt-auto pointer-events-auto flex gap-2">
-<<<<<<< HEAD
                     <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
-                        ✏️ Bearbeiten
-                    </button>
-                    <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
-                        🗑️ Löschen
-=======
-                    <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
                         Bearbeiten
                     </button>
-                    <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+                    <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
                         Löschen
->>>>>>> 54414e3 (emojis entfernt)
                     </button>
                 </div>
                 ` : ''}
