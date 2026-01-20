@@ -1259,28 +1259,38 @@ function showPlayerVideoDetailModal(video, comments) {
  * Zeigt den Lösch-Bestätigungsdialog
  */
 function showDeleteConfirmation(video, parentModal) {
+    const { userId } = playerVideoContext;
+    const isOwnVideo = video.uploaded_by === userId;
+
     const confirmModal = document.createElement('div');
     confirmModal.id = 'delete-confirm-modal';
     confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
+
+    // Unterschiedliche Texte je nach Video-Besitzer
+    const title = isOwnVideo ? 'Video löschen?' : 'Video entfernen?';
+    const message = isOwnVideo
+        ? 'Möchtest du dieses Video wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'
+        : 'Das Video wird aus deiner Mediathek entfernt. Der Coach behält das Original.';
+    const buttonText = isOwnVideo ? 'Löschen' : 'Entfernen';
+    const icon = isOwnVideo ? 'fa-trash' : 'fa-times-circle';
+    const successMessage = isOwnVideo ? 'Video wurde gelöscht' : 'Video wurde entfernt';
 
     confirmModal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <div class="text-center mb-6">
                 <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-trash text-red-500 text-2xl"></i>
+                    <i class="fas ${icon} text-red-500 text-2xl"></i>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 mb-2">Video löschen?</h3>
-                <p class="text-gray-600">
-                    Möchtest du dieses Video wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">${title}</h3>
+                <p class="text-gray-600">${message}</p>
             </div>
             <div class="flex gap-3">
                 <button id="cancel-delete" class="flex-1 py-2.5 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Abbrechen
                 </button>
                 <button id="confirm-delete" class="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
-                    <i class="fas fa-trash"></i>
-                    Löschen
+                    <i class="fas ${icon}"></i>
+                    ${buttonText}
                 </button>
             </div>
         </div>
@@ -1301,20 +1311,20 @@ function showDeleteConfirmation(video, parentModal) {
     document.getElementById('confirm-delete')?.addEventListener('click', async () => {
         const confirmBtn = document.getElementById('confirm-delete');
         confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Löschen...';
+        confirmBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${buttonText}...`;
 
         const success = await deletePlayerVideo(video);
 
         if (success) {
             confirmModal.remove();
             parentModal.remove();
-            showToast('Video wurde gelöscht', 'success');
+            showToast(successMessage, 'success');
             // Mediathek neu laden
             loadMyVideos();
         } else {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
-            showToast('Fehler beim Löschen des Videos', 'error');
+            confirmBtn.innerHTML = `<i class="fas ${icon}"></i> ${buttonText}`;
+            showToast('Fehler beim Entfernen des Videos', 'error');
         }
     });
 }
@@ -1323,6 +1333,18 @@ function showDeleteConfirmation(video, parentModal) {
  * Zeigt den Lösch-Bestätigungsdialog (von Karte aus)
  */
 function showDeleteConfirmationFromCard(video) {
+    const { userId } = playerVideoContext;
+    const isOwnVideo = video.uploaded_by === userId;
+
+    // Unterschiedliche Texte je nach Video-Besitzer
+    const title = isOwnVideo ? 'Video löschen?' : 'Video entfernen?';
+    const message = isOwnVideo
+        ? `Möchtest du "<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+        : `"<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wird aus deiner Mediathek entfernt. Der Coach behält das Original.`;
+    const buttonText = isOwnVideo ? 'Löschen' : 'Entfernen';
+    const icon = isOwnVideo ? 'fa-trash' : 'fa-times-circle';
+    const successMessage = isOwnVideo ? 'Video wurde gelöscht' : 'Video wurde entfernt';
+
     const confirmModal = document.createElement('div');
     confirmModal.id = 'delete-confirm-modal';
     confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
@@ -1331,20 +1353,18 @@ function showDeleteConfirmationFromCard(video) {
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <div class="text-center mb-6">
                 <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-trash text-red-500 text-2xl"></i>
+                    <i class="fas ${icon} text-red-500 text-2xl"></i>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 mb-2">Video löschen?</h3>
-                <p class="text-gray-600">
-                    Möchtest du "<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">${title}</h3>
+                <p class="text-gray-600">${message}</p>
             </div>
             <div class="flex gap-3">
                 <button id="cancel-delete-card" class="flex-1 py-2.5 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Abbrechen
                 </button>
                 <button id="confirm-delete-card" class="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
-                    <i class="fas fa-trash"></i>
-                    Löschen
+                    <i class="fas ${icon}"></i>
+                    ${buttonText}
                 </button>
             </div>
         </div>
@@ -1365,64 +1385,75 @@ function showDeleteConfirmationFromCard(video) {
     document.getElementById('confirm-delete-card')?.addEventListener('click', async () => {
         const confirmBtn = document.getElementById('confirm-delete-card');
         confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Löschen...';
+        confirmBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${buttonText}...`;
 
         const success = await deletePlayerVideo(video);
 
         if (success) {
             confirmModal.remove();
-            showToast('Video wurde gelöscht', 'success');
+            showToast(successMessage, 'success');
             // Mediathek neu laden
             loadMyVideos();
         } else {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
-            showToast('Fehler beim Löschen des Videos', 'error');
+            confirmBtn.innerHTML = `<i class="fas ${icon}"></i> ${buttonText}`;
+            showToast('Fehler beim Entfernen des Videos', 'error');
         }
     });
 }
 
 /**
- * Löscht ein Video (Storage + Datenbank)
+ * Löscht ein Video (Storage + Datenbank) oder entfernt nur die Zuweisung
  */
 async function deletePlayerVideo(video) {
     const { db, userId } = playerVideoContext;
 
     if (!db || !userId) return false;
 
-    // Sicherheitsprüfung: Nur eigene Videos löschen
-    if (video.uploaded_by !== userId) {
-        showToast('Du kannst nur eigene Videos löschen', 'error');
-        return false;
-    }
+    const isOwnVideo = video.uploaded_by === userId;
 
     try {
-        // 1. Video-Datei aus Storage löschen
-        if (video.video_url) {
-            const videoPath = extractStoragePath(video.video_url, 'training-videos');
-            if (videoPath) {
-                await db.storage.from('training-videos').remove([videoPath]);
+        if (isOwnVideo) {
+            // Eigenes Video: Komplett löschen (Storage + DB)
+            // 1. Video-Datei aus Storage löschen
+            if (video.video_url) {
+                const videoPath = extractStoragePath(video.video_url, 'training-videos');
+                if (videoPath) {
+                    await db.storage.from('training-videos').remove([videoPath]);
+                }
             }
-        }
 
-        // 2. Thumbnail aus Storage löschen
-        if (video.thumbnail_url) {
-            const thumbPath = extractStoragePath(video.thumbnail_url, 'training-videos');
-            if (thumbPath) {
-                await db.storage.from('training-videos').remove([thumbPath]);
+            // 2. Thumbnail aus Storage löschen
+            if (video.thumbnail_url) {
+                const thumbPath = extractStoragePath(video.thumbnail_url, 'training-videos');
+                if (thumbPath) {
+                    await db.storage.from('training-videos').remove([thumbPath]);
+                }
             }
-        }
 
-        // 3. Datenbank-Eintrag löschen (Cascade löscht auch assignments und comments)
-        const { error } = await db
-            .from('video_analyses')
-            .delete()
-            .eq('id', video.id)
-            .eq('uploaded_by', userId);
+            // 3. Datenbank-Eintrag löschen (Cascade löscht auch assignments und comments)
+            const { error } = await db
+                .from('video_analyses')
+                .delete()
+                .eq('id', video.id)
+                .eq('uploaded_by', userId);
 
-        if (error) {
-            console.error('Fehler beim Löschen:', error);
-            return false;
+            if (error) {
+                console.error('Fehler beim Löschen:', error);
+                return false;
+            }
+        } else {
+            // Zugewiesenes Video vom Coach: Nur die Zuweisung entfernen
+            const { error } = await db
+                .from('video_assignments')
+                .delete()
+                .eq('video_id', video.id)
+                .eq('player_id', userId);
+
+            if (error) {
+                console.error('Fehler beim Entfernen der Zuweisung:', error);
+                return false;
+            }
         }
 
         return true;
