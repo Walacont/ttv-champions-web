@@ -842,7 +842,7 @@
             }
 
             // Load coach comments (direct query instead of RPC for better RLS support)
-            const { data: comments } = await supabase
+            const { data: comments, error: commentsError } = await supabase
                 .from('video_comments')
                 .select(`
                     id,
@@ -851,16 +851,21 @@
                     drawing_url,
                     user_id,
                     created_at,
-                    user:profiles!user_id(first_name, last_name, role, avatar_url)
+                    profiles(first_name, last_name, role, avatar_url)
                 `)
                 .eq('video_id', video.id)
-                .order('timestamp_seconds', { ascending: true, nullsFirst: false });
+                .order('timestamp_seconds');
+
+            if (commentsError) {
+                console.error('Error loading comments:', commentsError);
+            }
 
             const commentsContainer = document.getElementById('coach-comments');
             if (comments?.length > 0) {
                 commentsContainer.innerHTML = comments.map(c => {
-                    const userName = c.user ? `${c.user.first_name} ${c.user.last_name?.charAt(0) || ''}.` : 'Unbekannt';
-                    const isCoach = c.user?.role === 'coach' || c.user?.role === 'head_coach';
+                    const profile = c.profiles;
+                    const userName = profile ? `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.` : 'Unbekannt';
+                    const isCoach = profile?.role === 'coach' || profile?.role === 'head_coach';
 
                     // Check if comment has a drawing
                     const hasDrawing = c.drawing_url || (c.content && c.content.includes('[Zeichnung]'));
