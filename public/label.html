@@ -95,6 +95,55 @@
 
                 <!-- Rechts: Labeling Form -->
                 <div class="space-y-4">
+                    <!-- Video-Info Panel -->
+                    <div class="bg-white rounded-xl shadow-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-info-circle text-blue-500"></i>
+                            Video-Info
+                        </h3>
+
+                        <!-- Video-Typ -->
+                        <div class="mb-3">
+                            <label class="text-xs text-gray-600 block mb-1">Video-Typ</label>
+                            <div class="flex flex-wrap gap-1">
+                                <button type="button" data-vtype="ballmaschine"
+                                        class="vtype-btn px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-blue-50 transition-colors">
+                                    🎾 Balleimer
+                                </button>
+                                <button type="button" data-vtype="match"
+                                        class="vtype-btn px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-blue-50 transition-colors">
+                                    🏓 Spiel
+                                </button>
+                                <button type="button" data-vtype="exercise"
+                                        class="vtype-btn px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-blue-50 transition-colors">
+                                    📋 Übung
+                                </button>
+                                <button type="button" data-vtype="freeplay"
+                                        class="vtype-btn px-2 py-1 text-xs rounded border border-gray-300 bg-white hover:bg-blue-50 transition-colors">
+                                    🎯 Freies Training
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Übungs-Auswahl (nur wenn video_type = exercise) -->
+                        <div id="exercise-selection" class="mb-3 hidden">
+                            <label class="text-xs text-gray-600 block mb-1">Übung aus Datenbank</label>
+                            <select id="exercise-select" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded">
+                                <option value="">-- Übung auswählen --</option>
+                            </select>
+                        </div>
+
+                        <!-- Info wenn vom Upload bereits gesetzt -->
+                        <div id="upload-info" class="hidden">
+                            <div class="bg-blue-50 rounded-lg p-2 text-xs">
+                                <p class="font-medium text-blue-800 mb-1">
+                                    <i class="fas fa-check-circle mr-1"></i>Vom Upload festgelegt:
+                                </p>
+                                <p id="upload-exercise-name" class="text-blue-700"></p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Neuen Schlag hinzufügen -->
                     <div class="bg-white rounded-xl shadow-lg p-4">
                         <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -301,6 +350,18 @@
         let currentVideo = null;
         let currentShots = [];
         let videoPlayer;
+        let exercisesList = [];
+        let selectedVideoType = null;
+        let selectedExerciseId = null;
+
+        // Video type labels
+        const videoTypeLabels = {
+            'ballmaschine': '🎾 Balleimer',
+            'match': '🏓 Spiel',
+            'exercise': '📋 Übung',
+            'freeplay': '🎯 Freies Training',
+            'other': 'Sonstiges'
+        };
 
         // Shot type labels for display
         const shotTypeLabels = {
@@ -342,12 +403,50 @@
                 return;
             }
 
+            // Load exercises for dropdown
+            await loadExercises();
+
             // Load videos
             loadPendingVideos();
 
             // Setup event listeners
             setupEventListeners();
         });
+
+        async function loadExercises() {
+            const { data: exercises } = await supabase
+                .from('exercises')
+                .select('id, name, category, difficulty')
+                .order('category')
+                .order('name');
+
+            exercisesList = exercises || [];
+
+            // Populate dropdown
+            const select = document.getElementById('exercise-select');
+            if (select && exercisesList.length > 0) {
+                // Group by category
+                const byCategory = {};
+                exercisesList.forEach(ex => {
+                    const cat = ex.category || 'Sonstiges';
+                    if (!byCategory[cat]) byCategory[cat] = [];
+                    byCategory[cat].push(ex);
+                });
+
+                select.innerHTML = '<option value="">-- Übung auswählen --</option>';
+                Object.entries(byCategory).forEach(([cat, exercises]) => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = cat;
+                    exercises.forEach(ex => {
+                        const opt = document.createElement('option');
+                        opt.value = ex.id;
+                        opt.textContent = ex.name;
+                        optgroup.appendChild(opt);
+                    });
+                    select.appendChild(optgroup);
+                });
+            }
+        }
 
         async function loadPendingVideos() {
             const feedContainer = document.getElementById('video-feed');
@@ -359,7 +458,8 @@
                 .select(`
                     *,
                     uploader:profiles!uploaded_by(first_name, last_name),
-                    comments:video_comments(count)
+                    comments:video_comments(count),
+                    exercise:exercises(id, name, category)
                 `)
                 .eq('allow_ai_training', true)
                 .eq('ai_ready', false)
@@ -422,6 +522,8 @@
         async function openLabelingInterface(video) {
             currentVideo = video;
             currentShots = [];
+            selectedVideoType = video.video_type || null;
+            selectedExerciseId = video.exercise_id || null;
 
             document.getElementById('video-feed').classList.add('hidden');
             document.getElementById('labeling-interface').classList.remove('hidden');
@@ -430,6 +532,43 @@
             videoPlayer = document.getElementById('label-video');
             videoPlayer.src = video.video_url;
             document.getElementById('video-title').textContent = video.title || 'Ohne Titel';
+
+            // Reset and set video type buttons
+            document.querySelectorAll('.vtype-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+                btn.classList.add('bg-white', 'border-gray-300');
+            });
+            if (selectedVideoType) {
+                const vtypeBtn = document.querySelector(`.vtype-btn[data-vtype="${selectedVideoType}"]`);
+                if (vtypeBtn) {
+                    vtypeBtn.classList.remove('bg-white', 'border-gray-300');
+                    vtypeBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                }
+            }
+
+            // Show/hide exercise selection
+            const exerciseSelection = document.getElementById('exercise-selection');
+            exerciseSelection.classList.toggle('hidden', selectedVideoType !== 'exercise');
+
+            // Set exercise dropdown
+            if (selectedExerciseId) {
+                document.getElementById('exercise-select').value = selectedExerciseId;
+            } else {
+                document.getElementById('exercise-select').value = '';
+            }
+
+            // Show upload info if exercise was set
+            const uploadInfo = document.getElementById('upload-info');
+            const uploadExerciseName = document.getElementById('upload-exercise-name');
+            if (video.exercise_id && video.exercise) {
+                uploadInfo.classList.remove('hidden');
+                uploadExerciseName.textContent = `📋 ${video.exercise.name}`;
+            } else if (video.video_type) {
+                uploadInfo.classList.remove('hidden');
+                uploadExerciseName.textContent = `${videoTypeLabels[video.video_type] || video.video_type}`;
+            } else {
+                uploadInfo.classList.add('hidden');
+            }
 
             // Load existing labels for this video
             const { data: existingLabels } = await supabase
@@ -503,6 +642,36 @@
                 document.getElementById('video-feed').classList.remove('hidden');
                 currentVideo = null;
                 currentShots = [];
+                selectedVideoType = null;
+                selectedExerciseId = null;
+            });
+
+            // Video type buttons
+            document.querySelectorAll('.vtype-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.vtype-btn').forEach(b => {
+                        b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+                        b.classList.add('bg-white', 'border-gray-300');
+                    });
+                    btn.classList.remove('bg-white', 'border-gray-300');
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                    selectedVideoType = btn.dataset.vtype;
+
+                    // Show/hide exercise selection
+                    const exerciseSelection = document.getElementById('exercise-selection');
+                    exerciseSelection.classList.toggle('hidden', selectedVideoType !== 'exercise');
+
+                    // Reset exercise if not exercise type
+                    if (selectedVideoType !== 'exercise') {
+                        selectedExerciseId = null;
+                        document.getElementById('exercise-select').value = '';
+                    }
+                });
+            });
+
+            // Exercise dropdown
+            document.getElementById('exercise-select').addEventListener('change', (e) => {
+                selectedExerciseId = e.target.value || null;
             });
 
             // "Von" position buttons
@@ -800,10 +969,14 @@
                     if (insertError) throw insertError;
                 }
 
-                // Mark video as ai_ready
+                // Mark video as ai_ready and save video type/exercise
+                const updateData = { ai_ready: true };
+                if (selectedVideoType) updateData.video_type = selectedVideoType;
+                if (selectedExerciseId) updateData.exercise_id = selectedExerciseId;
+
                 const { error: updateError } = await supabase
                     .from('video_analyses')
-                    .update({ ai_ready: true })
+                    .update(updateData)
                     .eq('id', currentVideo.id);
 
                 if (updateError) throw updateError;
