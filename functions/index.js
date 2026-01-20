@@ -28,44 +28,38 @@ const CONFIG = {
         K_FACTOR: 32,
         SEASON_POINT_FACTOR: 0.2, // Season Points = Elo-Gewinn × 0.2
         HANDICAP_SEASON_POINTS: 8, // Feste Punktzahl für Handicap-Spiele
-        // Elo Gates: Once reached, Elo can never fall below these thresholds
-        // 800 is the absolute floor - no player can ever fall below
-        GATES: [800, 850, 900, 1000, 1100, 1300, 1600],
+        // Elo Gates: DISABLED - Elo can fall freely (only prevented from going negative)
+        GATES: [],
     },
     REGION: 'europe-west3',
 };
 
 // ========================================================================
-// ===== FUNKTION: Elo-Gates =====
+// ===== FUNKTION: Elo-Gates (DISABLED) =====
 // ========================================================================
 /**
  * Find the highest Elo gate a player has reached
+ * DISABLED: No gates - always returns 0
  * @param {number} currentElo - Player's current Elo
  * @param {number} highestElo - Player's highest Elo ever
- * @return {number} The highest gate reached (or 0 if none)
+ * @return {number} Always returns 0 (no gates)
  */
 function getHighestEloGate(currentElo, highestElo) {
-    const maxReached = Math.max(currentElo, highestElo || 0);
-    const gates = CONFIG.ELO.GATES;
-
-    for (let i = gates.length - 1; i >= 0; i--) {
-        if (maxReached >= gates[i]) {
-            return gates[i];
-        }
-    }
-    return 0; // No gate reached
+    // No gates - always return 0
+    return 0;
 }
 
 /**
- * Apply Elo gate protection: Elo can never fall below the highest gate reached
+ * Apply Elo gate protection
+ * DISABLED: Only prevents negative Elo, no gate protection
  * @param {number} newElo - The calculated new Elo
  * @param {number} currentElo - Player's current Elo
  * @param {number} highestElo - Player's highest Elo ever
- * @return {number} Protected Elo (at least as high as the gate)
+ * @return {number} Elo (minimum 0)
  */
 function applyEloGate(newElo, currentElo, highestElo) {
-    const gate = getHighestEloGate(currentElo, highestElo);
-    return Math.max(newElo, gate);
+    // No gate protection - only prevent negative Elo
+    return Math.max(newElo, 0);
 }
 
 // ========================================================================

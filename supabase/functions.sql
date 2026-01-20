@@ -23,7 +23,7 @@ BEGIN
         "season_point_factor": 0.2,
         "handicap_season_points": 8,
         "handicap_elo_change": 8,
-        "gates": [800, 850, 900, 1000, 1100, 1300, 1600]
+        "gates": []
     }'::jsonb)
     ON CONFLICT (key) DO NOTHING;
 
