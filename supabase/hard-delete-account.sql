@@ -16,6 +16,8 @@ DECLARE
     v_is_own_account BOOLEAN;
     v_is_guardian_of_child BOOLEAN;
     v_profile_exists BOOLEAN;
+    v_singles_match_ids UUID[];
+    v_doubles_match_ids UUID[];
 BEGIN
     -- Check if profile exists
     SELECT EXISTS (SELECT 1 FROM profiles WHERE id = p_user_id) INTO v_profile_exists;
@@ -52,7 +54,45 @@ BEGIN
     -- 1. Delete guardian relationships (both as guardian and as child)
     DELETE FROM guardian_links WHERE guardian_id = p_user_id OR child_id = p_user_id;
 
-    -- 2. Delete all match-related data
+    -- 2. FIRST: Collect all match IDs where user is involved (for activity cleanup)
+    SELECT ARRAY_AGG(id) INTO v_singles_match_ids
+    FROM matches
+    WHERE player_a_id = p_user_id
+       OR player_b_id = p_user_id
+       OR winner_id = p_user_id
+       OR loser_id = p_user_id;
+
+    SELECT ARRAY_AGG(id) INTO v_doubles_match_ids
+    FROM doubles_matches
+    WHERE team_a_player1_id = p_user_id
+       OR team_a_player2_id = p_user_id
+       OR team_b_player1_id = p_user_id
+       OR team_b_player2_id = p_user_id;
+
+    -- 3. Delete all likes and comments on user's matches (activity cards)
+    BEGIN
+        IF v_singles_match_ids IS NOT NULL AND array_length(v_singles_match_ids, 1) > 0 THEN
+            DELETE FROM activity_likes
+            WHERE activity_type = 'singles_match'
+            AND activity_id = ANY(v_singles_match_ids);
+
+            DELETE FROM activity_comments
+            WHERE activity_type = 'singles_match'
+            AND activity_id = ANY(v_singles_match_ids);
+        END IF;
+
+        IF v_doubles_match_ids IS NOT NULL AND array_length(v_doubles_match_ids, 1) > 0 THEN
+            DELETE FROM activity_likes
+            WHERE activity_type = 'doubles_match'
+            AND activity_id = ANY(v_doubles_match_ids);
+
+            DELETE FROM activity_comments
+            WHERE activity_type = 'doubles_match'
+            AND activity_id = ANY(v_doubles_match_ids);
+        END IF;
+    EXCEPTION WHEN undefined_table THEN NULL; END;
+
+    -- 4. Delete all match-related data
     -- Singles matches (as player A, B, winner, or loser)
     DELETE FROM matches
     WHERE player_a_id = p_user_id
@@ -71,7 +111,7 @@ BEGIN
     DELETE FROM match_proposals
     WHERE requester_id = p_user_id OR recipient_id = p_user_id;
 
-    -- 3. Delete doubles match data
+    -- 5. Delete doubles match data
     DELETE FROM doubles_matches
     WHERE team_a_player1_id = p_user_id
        OR team_a_player2_id = p_user_id
@@ -89,25 +129,25 @@ BEGIN
     DELETE FROM doubles_pairings
     WHERE player1_id = p_user_id OR player2_id = p_user_id;
 
-    -- 4. Delete attendance records
+    -- 6. Delete attendance records
     DELETE FROM attendance WHERE user_id = p_user_id;
 
-    -- 5. Delete history records
+    -- 7. Delete history records
     DELETE FROM points_history WHERE user_id = p_user_id;
     DELETE FROM xp_history WHERE user_id = p_user_id;
 
-    -- 6. Delete streaks
+    -- 8. Delete streaks
     DELETE FROM streaks WHERE user_id = p_user_id;
 
-    -- 7. Delete completed challenges and exercises
+    -- 9. Delete completed challenges and exercises
     DELETE FROM completed_challenges WHERE user_id = p_user_id;
     DELETE FROM completed_exercises WHERE user_id = p_user_id;
     DELETE FROM exercise_milestones WHERE user_id = p_user_id;
 
-    -- 8. Delete notifications
+    -- 10. Delete notifications
     DELETE FROM notifications WHERE user_id = p_user_id;
 
-    -- 9. Delete social data (friends, followers)
+    -- 11. Delete social data (friends, followers)
     DELETE FROM friends WHERE user_id = p_user_id OR friend_id = p_user_id;
     DELETE FROM followers WHERE follower_id = p_user_id OR followed_id = p_user_id;
 
@@ -118,7 +158,7 @@ BEGIN
         -- Table doesn't exist, skip
     END;
 
-    -- 10. Delete activity events (posts, likes, comments)
+    -- 12. Delete remaining activity data (user's own likes, comments, events)
     BEGIN
         DELETE FROM activity_likes WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
@@ -131,7 +171,7 @@ BEGIN
         DELETE FROM activity_events WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
-    -- 11. Delete community posts
+    -- 13. Delete community posts
     BEGIN
         DELETE FROM posts WHERE author_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
@@ -140,38 +180,38 @@ BEGIN
         DELETE FROM poll_votes WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
-    -- 12. Delete club requests
+    -- 14. Delete club requests
     DELETE FROM club_requests WHERE player_id = p_user_id;
     DELETE FROM leave_club_requests WHERE player_id = p_user_id;
 
-    -- 13. Delete subgroup memberships
+    -- 15. Delete subgroup memberships
     DELETE FROM subgroup_members WHERE user_id = p_user_id;
 
-    -- 14. Clear record holder references in exercises (set to NULL)
+    -- 16. Clear record holder references in exercises (set to NULL)
     UPDATE exercises SET
         record_holder_id = NULL,
         record_holder_name = NULL
     WHERE record_holder_id = p_user_id;
 
-    -- 15. Delete user preferences if table exists
+    -- 17. Delete user preferences if table exists
     BEGIN
         DELETE FROM user_preferences WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
-    -- 16. Delete user sport stats if table exists
+    -- 18. Delete user sport stats if table exists
     BEGIN
         DELETE FROM user_sport_stats WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
-    -- 17. Delete profile club sports if table exists
+    -- 19. Delete profile club sports if table exists
     BEGIN
         DELETE FROM profile_club_sports WHERE profile_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
-    -- 18. FINALLY: Delete the profile itself
+    -- 20. FINALLY: Delete the profile itself
     DELETE FROM profiles WHERE id = p_user_id;
 
-    -- 19. Delete the auth account (for regular accounts, not child accounts)
+    -- 21. Delete the auth account (for regular accounts, not child accounts)
     -- Child accounts don't have auth.users entries
     IF v_is_own_account THEN
         DELETE FROM auth.users WHERE id = p_user_id;
