@@ -217,6 +217,29 @@
                             </div>
                         </div>
 
+                        <!-- Ergebnis -->
+                        <div class="mb-4">
+                            <label class="text-xs text-gray-600 block mb-1">Ergebnis</label>
+                            <div class="flex rounded-lg border border-gray-300 overflow-hidden">
+                                <button type="button" data-result="hit"
+                                        class="result-btn flex-1 px-2 py-2 text-xs bg-green-600 text-white transition-colors">
+                                    ✓ Getroffen
+                                </button>
+                                <button type="button" data-result="net"
+                                        class="result-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-orange-50 transition-colors border-l">
+                                    Netz
+                                </button>
+                                <button type="button" data-result="out"
+                                        class="result-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-red-50 transition-colors border-l">
+                                    Aus
+                                </button>
+                                <button type="button" data-result="miss"
+                                        class="result-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-gray-100 transition-colors border-l">
+                                    Verfehlt
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Hinzufügen Button -->
                         <button id="add-shot-btn"
                                 class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
@@ -423,6 +446,7 @@
                     shotType: label.shot_type,
                     shotFrom: label.shot_from,
                     shotTo: label.shot_to,
+                    shotResult: label.shot_result || 'hit',
                     saved: true
                 }));
             }
@@ -520,6 +544,24 @@
                 });
             });
 
+            // Result buttons
+            document.querySelectorAll('.result-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.result-btn').forEach(b => {
+                        b.classList.remove('bg-green-600', 'bg-orange-500', 'bg-red-500', 'bg-gray-500', 'text-white');
+                        b.classList.add('bg-white');
+                    });
+                    btn.classList.remove('bg-white');
+                    const colors = {
+                        'hit': 'bg-green-600',
+                        'net': 'bg-orange-500',
+                        'out': 'bg-red-500',
+                        'miss': 'bg-gray-500'
+                    };
+                    btn.classList.add(colors[btn.dataset.result], 'text-white');
+                });
+            });
+
             // Set current time buttons (with milliseconds)
             document.getElementById('set-start-current').addEventListener('click', () => {
                 if (videoPlayer) {
@@ -609,6 +651,10 @@
             const shotTypeBtn = document.querySelector('.shot-type-btn.bg-indigo-600, .shot-type-btn.bg-purple-600');
             const shotType = shotTypeBtn?.dataset.type || null;
 
+            // Get result
+            const resultBtn = document.querySelector('.result-btn.bg-green-600, .result-btn.bg-orange-500, .result-btn.bg-red-500, .result-btn.bg-gray-500');
+            const shotResult = resultBtn?.dataset.result || 'hit'; // Default: hit
+
             // Validation
             if (!shotType) {
                 showToast('Bitte Schlagtyp auswählen', 'warning');
@@ -628,6 +674,7 @@
                 shotType,
                 shotFrom,
                 shotTo,
+                shotResult,
                 saved: false
             });
 
@@ -636,6 +683,14 @@
                 btn.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white', 'border-indigo-600', 'border-purple-600');
                 btn.classList.add('bg-white', 'border-gray-300');
             });
+
+            // Reset result to default (hit)
+            document.querySelectorAll('.result-btn').forEach(btn => {
+                btn.classList.remove('bg-green-600', 'bg-orange-500', 'bg-red-500', 'bg-gray-500', 'text-white');
+                btn.classList.add('bg-white');
+            });
+            document.querySelector('.result-btn[data-result="hit"]').classList.remove('bg-white');
+            document.querySelector('.result-btn[data-result="hit"]').classList.add('bg-green-600', 'text-white');
 
             renderShotsList();
             renderTimeline();
@@ -652,6 +707,8 @@
             }
 
             const posLabels = { vh: 'VH', mitte: 'M', rh: 'RH' };
+            const resultLabels = { hit: '✓', net: '🥅', out: '↗', miss: '✗' };
+            const resultColors = { hit: 'text-green-600', net: 'text-orange-500', out: 'text-red-500', miss: 'text-gray-500' };
             container.innerHTML = currentShots.map((shot, index) => `
                 <div class="shot-item flex items-center justify-between p-2 bg-gray-50 rounded-lg group">
                     <div class="flex items-center gap-2 flex-wrap">
@@ -660,6 +717,7 @@
                             ${shotTypeLabels[shot.shotType] || shot.shotType}
                         </span>
                         ${shot.shotFrom || shot.shotTo ? `<span class="text-xs text-gray-400">(${posLabels[shot.shotFrom] || '?'} → ${posLabels[shot.shotTo] || '?'})</span>` : ''}
+                        <span class="${resultColors[shot.shotResult] || 'text-green-600'}" title="${shot.shotResult}">${resultLabels[shot.shotResult] || '✓'}</span>
                     </div>
                     <button class="delete-shot opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 p-1 transition-opacity" data-index="${index}">
                         <i class="fas fa-trash text-xs"></i>
@@ -729,6 +787,7 @@
                         shot_type: shot.shotType,
                         shot_from: shot.shotFrom,
                         shot_to: shot.shotTo,
+                        shot_result: shot.shotResult,
                         confidence: 'certain',
                         is_verified: true,
                         verified_by: currentUser.id
