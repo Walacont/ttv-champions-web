@@ -361,7 +361,7 @@
             feedContainer.querySelectorAll('.video-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const videoId = card.dataset.videoId;
-                    const video = reviewedVideos.find(v => v.id === videoId);
+                    const video = pendingVideos.find(v => v.id === videoId);
                     if (video) openLabelingInterface(video);
                 });
             });
