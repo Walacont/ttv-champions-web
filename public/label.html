@@ -841,25 +841,47 @@
                 }));
             }
 
-            // Load coach comments
-            const { data: comments } = await supabase.rpc('get_video_comments', {
-                p_video_id: video.id
-            });
+            // Load coach comments (direct query instead of RPC for better RLS support)
+            const { data: comments } = await supabase
+                .from('video_comments')
+                .select(`
+                    id,
+                    content,
+                    timestamp_seconds,
+                    drawing_url,
+                    user_id,
+                    created_at,
+                    user:profiles!user_id(first_name, last_name, role, avatar_url)
+                `)
+                .eq('video_id', video.id)
+                .order('timestamp_seconds', { ascending: true, nullsFirst: false });
 
             const commentsContainer = document.getElementById('coach-comments');
             if (comments?.length > 0) {
-                commentsContainer.innerHTML = comments.map(c => `
+                commentsContainer.innerHTML = comments.map(c => {
+                    const userName = c.user ? `${c.user.first_name} ${c.user.last_name?.charAt(0) || ''}.` : 'Unbekannt';
+                    const isCoach = c.user?.role === 'coach' || c.user?.role === 'head_coach';
+
+                    // Check if comment has a drawing
+                    const hasDrawing = c.drawing_url || (c.content && c.content.includes('[Zeichnung]'));
+                    const drawingUrl = c.drawing_url || (c.content?.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/)?.[1]);
+
+                    return `
                     <div class="bg-gray-50 rounded-lg p-2 text-sm">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="font-medium text-indigo-600">${c.user_name}</span>
+                            <span class="font-medium ${isCoach ? 'text-indigo-600' : 'text-gray-700'}">${userName}</span>
+                            ${isCoach ? '<span class="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Coach</span>' : ''}
                             ${c.timestamp_seconds !== null
                                 ? `<button class="comment-timestamp text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded" data-time="${c.timestamp_seconds}">${formatTime(c.timestamp_seconds)}</button>`
                                 : ''
                             }
                         </div>
-                        <p class="text-gray-700">${c.content}</p>
+                        ${hasDrawing && drawingUrl
+                            ? `<img src="${drawingUrl}" class="max-w-full rounded border border-gray-200 mb-2 cursor-pointer hover:opacity-90" style="max-height: 150px;" onclick="window.open('${drawingUrl}', '_blank')">`
+                            : `<p class="text-gray-700">${c.content}</p>`
+                        }
                     </div>
-                `).join('');
+                `}).join('');
 
                 // Add click handlers for timestamps
                 commentsContainer.querySelectorAll('.comment-timestamp').forEach(btn => {
