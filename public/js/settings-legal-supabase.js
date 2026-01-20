@@ -254,7 +254,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/** Löscht den Account mit Anonymisierung */
+/** Löscht den Account komplett aus der Datenbank (Hard Delete) */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
@@ -266,23 +266,23 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
     const childName = isChild ? `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() : '';
 
     const confirmMessage = isChild
-        ? `⚠️ WARNUNG: Profil-Löschung\n\n` +
-          `Bist du sicher, dass du das Profil von ${childName} löschen möchtest?\n\n` +
+        ? `⚠️ WARNUNG: Vollständige Profil-Löschung\n\n` +
+          `Bist du sicher, dass du das Profil von ${childName} KOMPLETT löschen möchtest?\n\n` +
           `Was passiert:\n` +
-          `• Das Profil wird deaktiviert\n` +
-          `• Persönliche Daten werden gelöscht\n` +
-          `• Der Name wird durch "Gelöschter Nutzer" ersetzt\n` +
-          `• Match-Historie bleibt anonymisiert erhalten\n` +
+          `• ALLE Daten werden vollständig gelöscht\n` +
+          `• Alle Spiele und Match-Historie werden entfernt\n` +
+          `• Alle Statistiken werden gelöscht\n` +
+          `• Alle Aktivitäten und Beiträge werden entfernt\n` +
           `• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
           `Empfehlung: Lade zuerst die Daten herunter.\n\n` +
           `Fortfahren?`
-        : `⚠️ WARNUNG: Account-Löschung\n\n` +
-          `Bist du sicher, dass du deinen Account löschen möchtest?\n\n` +
+        : `⚠️ WARNUNG: Vollständige Account-Löschung\n\n` +
+          `Bist du sicher, dass du deinen Account KOMPLETT löschen möchtest?\n\n` +
           `Was passiert:\n` +
-          `• Dein Account wird deaktiviert\n` +
-          `• Persönliche Daten werden gelöscht\n` +
-          `• Dein Name wird durch "Gelöschter Nutzer" ersetzt\n` +
-          `• Match-Historie bleibt anonymisiert erhalten\n` +
+          `• ALLE deine Daten werden vollständig gelöscht\n` +
+          `• Alle Spiele und Match-Historie werden entfernt\n` +
+          `• Alle Statistiken werden gelöscht\n` +
+          `• Alle Aktivitäten und Beiträge werden entfernt\n` +
           `• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
           `Empfehlung: Lade zuerst deine Daten herunter.\n\n` +
           `Fortfahren?`;
@@ -292,7 +292,7 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
     if (!confirmed) return;
 
     const doubleConfirm = prompt(
-        'Bitte tippe "LÖSCHEN" ein, um die Löschung zu bestätigen:'
+        'Bitte tippe "LÖSCHEN" ein, um die vollständige Löschung zu bestätigen:'
     );
 
     if (doubleConfirm !== 'LÖSCHEN') {
@@ -304,25 +304,31 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     try {
         deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche...';
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche alle Daten...';
 
-        const { data, error } = await supabase.rpc('anonymize_account', {
+        // Use hard_delete_account for complete deletion
+        const { data, error } = await supabase.rpc('hard_delete_account', {
             p_user_id: profileId
         });
 
         if (error) throw error;
 
+        // Check if the function returned an error
+        if (data && data.success === false) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
         if (isChild) {
             // For child accounts, redirect back to guardian dashboard
             alert(
-                `Das Profil von ${childName} wurde erfolgreich anonymisiert.\n\n` +
+                `Das Profil von ${childName} wurde vollständig gelöscht.\n\n` +
                 'Du wirst zum Vormund-Dashboard weitergeleitet.'
             );
             window.location.href = '/guardian-dashboard.html';
         } else {
             // For own account, sign out
             alert(
-                'Dein Account wurde erfolgreich anonymisiert.\n\n' +
+                'Dein Account und alle Daten wurden vollständig gelöscht.\n\n' +
                 'Du wirst jetzt abgemeldet.'
             );
             await supabase.auth.signOut();

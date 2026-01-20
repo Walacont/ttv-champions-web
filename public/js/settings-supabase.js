@@ -565,7 +565,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/** Löscht den Account mit Anonymisierung */
+/** Löscht den Account komplett aus der Datenbank (Hard Delete) */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
@@ -573,13 +573,13 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
     }
 
     const confirmed = confirm(
-        '⚠️ WARNUNG: Account-Löschung\n\n' +
-        'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
+        '⚠️ WARNUNG: Vollständige Account-Löschung\n\n' +
+        'Bist du sicher, dass du deinen Account KOMPLETT löschen möchtest?\n\n' +
         'Was passiert:\n' +
-        '• Dein Account wird deaktiviert\n' +
-        '• Persönliche Daten werden gelöscht\n' +
-        '• Dein Name wird durch "Gelöschter Nutzer" ersetzt\n' +
-        '• Match-Historie bleibt anonymisiert erhalten\n' +
+        '• ALLE deine Daten werden vollständig gelöscht\n' +
+        '• Alle Spiele und Match-Historie werden entfernt\n' +
+        '• Alle Statistiken werden gelöscht\n' +
+        '• Alle Aktivitäten und Beiträge werden entfernt\n' +
         '• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n' +
         'Empfehlung: Lade zuerst deine Daten herunter.\n\n' +
         'Fortfahren?'
@@ -588,7 +588,7 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
     if (!confirmed) return;
 
     const doubleConfirm = prompt(
-        'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
+        'Bitte tippe "LÖSCHEN" ein, um die vollständige Löschung zu bestätigen:'
     );
 
     if (doubleConfirm !== 'LÖSCHEN') {
@@ -600,16 +600,22 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     try {
         deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche alle Daten...';
 
-        const { data, error } = await supabase.rpc('anonymize_account', {
+        // Use hard_delete_account for complete deletion
+        const { data, error } = await supabase.rpc('hard_delete_account', {
             p_user_id: currentUser.id
         });
 
         if (error) throw error;
 
+        // Check if the function returned an error
+        if (data && data.success === false) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
         alert(
-            'Dein Account wurde erfolgreich anonymisiert.\n\n' +
+            'Dein Account und alle Daten wurden vollständig gelöscht.\n\n' +
             'Du wirst jetzt abgemeldet.'
         );
 
