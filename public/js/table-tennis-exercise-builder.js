@@ -147,14 +147,19 @@ class TableTennisExerciseBuilder {
 
     getPositionCoords(position, isPlayerA) {
         const posData = POSITIONS[position] || POSITIONS.M;
-        const x = this.tableX + this.tableWidth * posData.xRatio;
+
+        // Mirror x-position for Player B (opponent stands on opposite side)
+        // Player A: VH=right(0.75), RH=left(0.25)
+        // Player B: VH=left(0.25), RH=right(0.75) from our view
+        const xRatio = isPlayerA ? posData.xRatio : (1 - posData.xRatio);
+        const x = this.tableX + this.tableWidth * xRatio;
 
         // Player A is at bottom, Player B is at top
         let y;
         if (isPlayerA) {
-            y = this.tableY + this.tableHeight * 0.8; // Bottom area
+            y = this.tableY + this.tableHeight * 0.85; // Bottom area (near edge)
         } else {
-            y = this.tableY + this.tableHeight * 0.2; // Top area
+            y = this.tableY + this.tableHeight * 0.15; // Top area (near edge)
         }
 
         return { x, y };
@@ -162,14 +167,20 @@ class TableTennisExerciseBuilder {
 
     getTargetZoneCoords(position, isPlayerA) {
         const posData = POSITIONS[position] || POSITIONS.M;
-        const x = this.tableX + this.tableWidth * posData.xRatio;
 
-        // Target zone is on opponent's side
+        // Target position is where the ball lands on opponent's side
+        // The position (VH/RH/M) refers to where on the opponent's side
+        // From our view: if targeting opponent's VH and opponent is Player B (top),
+        // that's on the LEFT side (0.25) because Player B's VH is mirrored
+        const xRatio = isPlayerA ? (1 - posData.xRatio) : posData.xRatio;
+        const x = this.tableX + this.tableWidth * xRatio;
+
+        // Target zone is on opponent's side of the table
         let y;
         if (isPlayerA) {
-            y = this.tableY + this.tableHeight * 0.25; // Top area (opponent's side)
+            y = this.tableY + this.tableHeight * 0.30; // Top area (opponent's side)
         } else {
-            y = this.tableY + this.tableHeight * 0.75; // Bottom area (opponent's side)
+            y = this.tableY + this.tableHeight * 0.70; // Bottom area (opponent's side)
         }
 
         return { x, y };
