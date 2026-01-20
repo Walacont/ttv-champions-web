@@ -39,6 +39,32 @@
         </div>
     </header>
 
+    <!-- Statistik-Leiste -->
+    <div class="bg-white border-b shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3">
+            <div class="flex flex-wrap items-center gap-4 text-sm">
+                <span class="text-gray-600 font-medium">Gelabelte Videos:</span>
+                <div class="flex flex-wrap gap-3">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+                        🎾 Balleimer: <strong id="stat-ballmaschine">0</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded">
+                        🏓 Spiel: <strong id="stat-match">0</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                        📋 Übung: <strong id="stat-exercise">0</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded">
+                        🎯 Freies Training: <strong id="stat-freeplay">0</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded">
+                        📊 Gesamt: <strong id="stat-total">0</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto p-4">
         <!-- Video Feed (wenn kein Video ausgewählt) -->
@@ -406,12 +432,54 @@
             // Load exercises for dropdown
             await loadExercises();
 
+            // Load statistics
+            loadStats();
+
             // Load videos
             loadPendingVideos();
 
             // Setup event listeners
             setupEventListeners();
         });
+
+        async function loadStats() {
+            // Get count of labeled videos (ai_ready = true) by video_type
+            const { data: stats, error } = await supabase
+                .from('video_analyses')
+                .select('video_type')
+                .eq('ai_ready', true);
+
+            if (error) {
+                console.error('Error loading stats:', error);
+                return;
+            }
+
+            // Count by type
+            const counts = {
+                ballmaschine: 0,
+                match: 0,
+                exercise: 0,
+                freeplay: 0,
+                other: 0,
+                null: 0
+            };
+
+            (stats || []).forEach(v => {
+                const type = v.video_type || 'null';
+                if (counts.hasOwnProperty(type)) {
+                    counts[type]++;
+                } else {
+                    counts.other++;
+                }
+            });
+
+            // Update UI
+            document.getElementById('stat-ballmaschine').textContent = counts.ballmaschine;
+            document.getElementById('stat-match').textContent = counts.match;
+            document.getElementById('stat-exercise').textContent = counts.exercise;
+            document.getElementById('stat-freeplay').textContent = counts.freeplay;
+            document.getElementById('stat-total').textContent = stats?.length || 0;
+        }
 
         async function loadExercises() {
             const { data: exercises } = await supabase
@@ -982,6 +1050,9 @@
                 if (updateError) throw updateError;
 
                 showToast('Video verifiziert und gespeichert!', 'success');
+
+                // Update stats
+                loadStats();
 
                 // Go back to feed
                 document.getElementById('back-to-feed').click();
