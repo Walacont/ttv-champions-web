@@ -39,6 +39,16 @@ CREATE POLICY "video_analyses_select" ON video_analyses
                 AND p.role = 'labeler'
             )
         )
+        OR
+        -- Admin sieht ALLE Videos mit allow_ai_training = true (auch ohne Club)
+        (
+            allow_ai_training = true
+            AND EXISTS (
+                SELECT 1 FROM profiles p
+                WHERE p.id = auth.uid()
+                AND p.role = 'admin'
+            )
+        )
     );
 
 -- ============================================
@@ -66,6 +76,16 @@ CREATE POLICY "video_analyses_update" ON video_analyses
                 SELECT 1 FROM profiles p
                 WHERE p.id = auth.uid()
                 AND p.role = 'labeler'
+            )
+        )
+        OR
+        -- Admin kann ALLE Videos mit allow_ai_training=true updaten
+        (
+            allow_ai_training = true
+            AND EXISTS (
+                SELECT 1 FROM profiles p
+                WHERE p.id = auth.uid()
+                AND p.role = 'admin'
             )
         )
     );
