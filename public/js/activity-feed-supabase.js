@@ -1884,14 +1884,20 @@ async function checkIfParticipant(matchId, matchType) {
  * Render a singles match activity card - Strava style
  */
 function renderSinglesActivityCard(match, profileMap, followingIds) {
-    const playerA = profileMap[match.player_a_id] || {};
-    const playerB = profileMap[match.player_b_id] || {};
+    // Gelöschte Spieler erkennen (NULL-IDs)
+    const playerADeleted = match.player_a_id === null;
+    const playerBDeleted = match.player_b_id === null;
+    const playerA = playerADeleted ? {} : (profileMap[match.player_a_id] || {});
+    const playerB = playerBDeleted ? {} : (profileMap[match.player_b_id] || {});
 
-    const winnerProfile = match.winner_id === match.player_a_id ? playerA : playerB;
-    const loserProfile = match.winner_id === match.player_a_id ? playerB : playerA;
+    const isWinnerA = match.winner_id === match.player_a_id;
+    const winnerProfile = isWinnerA ? playerA : playerB;
+    const loserProfile = isWinnerA ? playerB : playerA;
+    const winnerDeleted = isWinnerA ? playerADeleted : playerBDeleted;
+    const loserDeleted = isWinnerA ? playerBDeleted : playerADeleted;
 
-    const winnerName = getDisplayName(winnerProfile);
-    const loserName = getDisplayName(loserProfile);
+    const winnerName = getDisplayName(winnerProfile, winnerDeleted);
+    const loserName = getDisplayName(loserProfile, loserDeleted);
 
     const winnerAvatar = winnerProfile.avatar_url || DEFAULT_AVATAR;
     const loserAvatar = loserProfile.avatar_url || DEFAULT_AVATAR;
@@ -2056,17 +2062,25 @@ function storeMatchForDetails(match, matchType, profileMap) {
  * Render a doubles match activity card - Strava style
  */
 function renderDoublesActivityCard(match, profileMap, followingIds) {
-    const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
-    const teamAPlayer2 = profileMap[match.team_a_player2_id] || {};
-    const teamBPlayer1 = profileMap[match.team_b_player1_id] || {};
-    const teamBPlayer2 = profileMap[match.team_b_player2_id] || {};
+    // Gelöschte Spieler erkennen (NULL-IDs)
+    const teamAP1Deleted = match.team_a_player1_id === null;
+    const teamAP2Deleted = match.team_a_player2_id === null;
+    const teamBP1Deleted = match.team_b_player1_id === null;
+    const teamBP2Deleted = match.team_b_player2_id === null;
+
+    const teamAPlayer1 = teamAP1Deleted ? {} : (profileMap[match.team_a_player1_id] || {});
+    const teamAPlayer2 = teamAP2Deleted ? {} : (profileMap[match.team_a_player2_id] || {});
+    const teamBPlayer1 = teamBP1Deleted ? {} : (profileMap[match.team_b_player1_id] || {});
+    const teamBPlayer2 = teamBP2Deleted ? {} : (profileMap[match.team_b_player2_id] || {});
 
     const isTeamAWinner = match.winning_team === 'A';
     const winnerTeam = isTeamAWinner ? [teamAPlayer1, teamAPlayer2] : [teamBPlayer1, teamBPlayer2];
     const loserTeam = isTeamAWinner ? [teamBPlayer1, teamBPlayer2] : [teamAPlayer1, teamAPlayer2];
+    const winnerDeleted = isTeamAWinner ? [teamAP1Deleted, teamAP2Deleted] : [teamBP1Deleted, teamBP2Deleted];
+    const loserDeleted = isTeamAWinner ? [teamBP1Deleted, teamBP2Deleted] : [teamAP1Deleted, teamAP2Deleted];
 
-    const winnerNames = winnerTeam.map(p => getDisplayName(p)).join(' & ');
-    const loserNames = loserTeam.map(p => getDisplayName(p)).join(' & ');
+    const winnerNames = winnerTeam.map((p, i) => getDisplayName(p, winnerDeleted[i])).join(' & ');
+    const loserNames = loserTeam.map((p, i) => getDisplayName(p, loserDeleted[i])).join(' & ');
 
     // Satzstand berechnen
     let winnerSets = 0;
@@ -2208,7 +2222,8 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 /**
  * Get display name for a player
  */
-function getDisplayName(profile) {
+function getDisplayName(profile, isDeleted = false) {
+    if (isDeleted) return 'Gelöschter Spieler';
     if (!profile) return 'Unbekannt';
     if (profile.display_name) return profile.display_name;
     if (profile.first_name && profile.last_name) {

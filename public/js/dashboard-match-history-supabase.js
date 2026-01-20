@@ -147,15 +147,29 @@ function renderMatchHistory(container) {
     window.matchHistoryData = { matches: singlesMatchesForModal, doublesMatches: doublesMatchesForModal, profileMap: profileMapCache };
 }
 
+/** Placeholder für gelöschte Spieler */
+const DELETED_PLAYER = {
+    first_name: 'Gelöschter',
+    last_name: 'Spieler',
+    display_name: 'Gelöschter Spieler',
+    avatar_url: null,
+    rank: '-',
+    elo_rating: null
+};
+
 /** Rendert eine Einzel-Wettkampf-Karte */
 function renderSinglesMatchCard(match, profileMap) {
-    const playerA = profileMap[match.player_a_id] || {};
-    const playerB = profileMap[match.player_b_id] || {};
+    // Gelöschte Spieler (NULL-IDs) erkennen und Placeholder verwenden
+    const playerADeleted = match.player_a_id === null;
+    const playerBDeleted = match.player_b_id === null;
+    const playerA = playerADeleted ? DELETED_PLAYER : (profileMap[match.player_a_id] || {});
+    const playerB = playerBDeleted ? DELETED_PLAYER : (profileMap[match.player_b_id] || {});
     const isCurrentUserA = match.player_a_id === currentUser.id;
     const isWinner = match.winner_id === currentUser.id;
 
     const currentPlayer = isCurrentUserA ? playerA : playerB;
     const opponent = isCurrentUserA ? playerB : playerA;
+    const opponentDeleted = isCurrentUserA ? playerBDeleted : playerADeleted;
 
     let playerASetWins = 0;
     let playerBSetWins = 0;
@@ -195,8 +209,8 @@ function renderSinglesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
-    const oppName = opponent.first_name || opponent.display_name || 'Gegner';
-    const oppNameDisplay = oppName.length > 10 ? oppName.substring(0, 10) + '.' : oppName;
+    const oppName = opponentDeleted ? 'Gelöschter Spieler' : (opponent.first_name || opponent.display_name || 'Gegner');
+    const oppNameDisplay = oppName.length > 12 ? oppName.substring(0, 12) + '.' : oppName;
 
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
@@ -259,10 +273,17 @@ function renderDoublesMatchCard(match, profileMap) {
     const partnerId = isTeamA
         ? (match.team_a_player1_id === currentUser.id ? match.team_a_player2_id : match.team_a_player1_id)
         : (match.team_b_player1_id === currentUser.id ? match.team_b_player2_id : match.team_b_player1_id);
-    const partner = profileMap[partnerId] || {};
 
-    const oppTeamPlayer1 = isTeamA ? profileMap[match.team_b_player1_id] : profileMap[match.team_a_player1_id];
-    const oppTeamPlayer2 = isTeamA ? profileMap[match.team_b_player2_id] : profileMap[match.team_a_player2_id];
+    // Gelöschte Spieler erkennen (NULL-IDs)
+    const partnerDeleted = partnerId === null;
+    const partner = partnerDeleted ? DELETED_PLAYER : (profileMap[partnerId] || {});
+
+    const opp1Id = isTeamA ? match.team_b_player1_id : match.team_a_player1_id;
+    const opp2Id = isTeamA ? match.team_b_player2_id : match.team_a_player2_id;
+    const opp1Deleted = opp1Id === null;
+    const opp2Deleted = opp2Id === null;
+    const oppTeamPlayer1 = opp1Deleted ? DELETED_PLAYER : (profileMap[opp1Id] || {});
+    const oppTeamPlayer2 = opp2Deleted ? DELETED_PLAYER : (profileMap[opp2Id] || {});
 
     let teamASetWins = 0;
     let teamBSetWins = 0;
@@ -286,9 +307,9 @@ function renderDoublesMatchCard(match, profileMap) {
     const opp1Avatar = oppTeamPlayer1?.avatar_url || DEFAULT_AVATAR;
     const opp2Avatar = oppTeamPlayer2?.avatar_url || DEFAULT_AVATAR;
 
-    const partnerName = partner.first_name || partner.display_name || 'Partner';
-    const opp1Name = oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner';
-    const opp2Name = oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner';
+    const partnerName = partnerDeleted ? 'Gelöscht' : (partner.first_name || partner.display_name || 'Partner');
+    const opp1Name = opp1Deleted ? 'Gelöscht' : (oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner');
+    const opp2Name = opp2Deleted ? 'Gelöscht' : (oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner');
 
     const handicapBadge = match.handicap_used
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
