@@ -200,7 +200,7 @@ BEGIN
 
     -- 19. Delete profile club sports if table exists
     BEGIN
-        DELETE FROM profile_club_sports WHERE profile_id = p_user_id;
+        DELETE FROM profile_club_sports WHERE user_id = p_user_id;
     EXCEPTION WHEN undefined_table THEN NULL; END;
 
     -- 20. FINALLY: Delete the profile itself
