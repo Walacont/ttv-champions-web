@@ -842,11 +842,19 @@
             }
 
             // Load coach comments using RPC (SECURITY DEFINER bypasses RLS)
+            console.log('Loading comments for video:', video.id);
             const { data: comments, error: commentsError } = await supabase.rpc('get_video_comments', {
                 p_video_id: video.id
             });
 
             console.log('Comments loaded:', comments, 'Error:', commentsError);
+
+            // Debug: Also try direct query
+            const { data: directComments } = await supabase
+                .from('video_comments')
+                .select('*')
+                .eq('video_id', video.id);
+            console.log('Direct query comments:', directComments);
 
             if (commentsError) {
                 console.error('Error loading comments:', commentsError);
