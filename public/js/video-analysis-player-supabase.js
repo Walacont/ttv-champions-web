@@ -946,6 +946,9 @@ async function handlePlayerVideoUpload(e) {
         const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
         const shouldShareWithCoach = clubId && requestCoachFeedback;
 
+        // Check: KI-Training erlaubt? (DSGVO)
+        const allowAiTraining = document.getElementById('allow-ai-training')?.checked ?? false;
+
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
@@ -960,6 +963,7 @@ async function handlePlayerVideoUpload(e) {
                 title: title || null,
                 tags: selectedTags,
                 is_reference: false,
+                allow_ai_training: allowAiTraining,
             })
             .select()
             .single();

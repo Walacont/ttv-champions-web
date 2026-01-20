@@ -764,8 +764,11 @@ function subscribeToComments(videoId) {
 
 /**
  * Fügt einen Kommentar hinzu
+ * @param {string} content - Kommentar-Text
+ * @param {boolean} includeTimestamp - Zeitstempel anhängen
+ * @param {Object} labelData - Optional: ML-Label-Daten {shotType, playerPosition, qualityRating}
  */
-export async function addVideoComment(content, includeTimestamp = true) {
+export async function addVideoComment(content, includeTimestamp = true, labelData = null) {
     const { db, userId, clubId, userRole } = videoAnalysisContext;
     if (!currentVideoId || !content.trim()) return;
 
@@ -786,6 +789,27 @@ export async function addVideoComment(content, includeTimestamp = true) {
         console.error('Fehler beim Speichern:', error);
         showToast('Fehler beim Speichern des Kommentars', 'error');
         return false;
+    }
+
+    // ML-Label speichern wenn Daten vorhanden
+    if (labelData && (labelData.shotType || labelData.playerPosition || labelData.qualityRating)) {
+        try {
+            await db.from('video_labels').insert({
+                video_id: currentVideoId,
+                labeled_by: userId,
+                club_id: clubId,
+                timestamp_start: timestampSeconds,
+                event_type: 'shot',
+                shot_type: labelData.shotType || null,
+                player_position: labelData.playerPosition || null,
+                shot_quality: labelData.qualityRating || null,
+                notes: content.trim(),
+                confidence: 'certain',
+            });
+        } catch (labelError) {
+            // Label-Fehler sollte Kommentar nicht blockieren
+            console.warn('Fehler beim Speichern des Labels:', labelError);
+        }
     }
 
     // Benachrichtigung an den Video-Eigentümer senden (wenn Coach kommentiert)
@@ -1240,6 +1264,9 @@ async function handleVideoUpload(e) {
             assignedPlayers.push(cb.value);
         });
 
+        // KI-Training Consent
+        const allowAiTraining = document.getElementById('coach-allow-ai-training')?.checked ?? false;
+
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
@@ -1252,6 +1279,7 @@ async function handleVideoUpload(e) {
                 thumbnail_url: thumbnailUrl,
                 title: title || null,
                 tags: selectedTags,
+                allow_ai_training: allowAiTraining,
             })
             .select()
             .single();
@@ -1333,13 +1361,33 @@ function setupVideoDetailModal() {
             const input = document.getElementById('video-comment-input');
             const includeTimestamp = document.getElementById('include-timestamp-checkbox')?.checked ?? true;
 
+            // ML-Labeling Felder auslesen
+            const shotType = document.getElementById('comment-shot-type')?.value || null;
+            const playerPosition = document.querySelector('.player-position-btn.bg-indigo-600')?.dataset.position || null;
+            const qualityRating = document.querySelector('.quality-star.text-yellow-400:last-of-type')?.dataset.rating ||
+                                  document.querySelectorAll('.quality-star.text-yellow-400').length || null;
+
             if (input?.value.trim()) {
-                const success = await addVideoComment(input.value, includeTimestamp);
+                const labelData = (shotType || playerPosition || qualityRating) ? {
+                    shotType,
+                    playerPosition,
+                    qualityRating: qualityRating ? parseInt(qualityRating) : null
+                } : null;
+
+                const success = await addVideoComment(input.value, includeTimestamp, labelData);
                 if (success) {
                     input.value = '';
+                    // Reset ML-Labeling Felder
+                    resetLabelingFields();
                 }
             }
         });
+
+        // Player Position Toggle Buttons
+        setupPlayerPositionButtons();
+
+        // Quality Star Rating
+        setupQualityStarRating();
     }
 
     if (compareBtn) {
@@ -1388,6 +1436,68 @@ function setupVideoDetailModal() {
             }
         });
     }
+}
+
+/**
+ * Setup für Spieler-Position Toggle Buttons
+ */
+function setupPlayerPositionButtons() {
+    const buttons = document.querySelectorAll('.player-position-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Alle Buttons zurücksetzen
+            buttons.forEach(b => {
+                b.classList.remove('bg-indigo-600', 'text-white');
+                b.classList.add('bg-white');
+            });
+            // Geklickten Button aktivieren
+            btn.classList.remove('bg-white');
+            btn.classList.add('bg-indigo-600', 'text-white');
+        });
+    });
+}
+
+/**
+ * Setup für Qualitäts-Sterne-Rating
+ */
+function setupQualityStarRating() {
+    const stars = document.querySelectorAll('.quality-star');
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            const rating = parseInt(star.dataset.rating);
+            stars.forEach(s => {
+                const starRating = parseInt(s.dataset.rating);
+                if (starRating <= rating) {
+                    s.classList.remove('text-gray-300');
+                    s.classList.add('text-yellow-400');
+                } else {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-300');
+                }
+            });
+        });
+    });
+}
+
+/**
+ * Setzt die ML-Labeling Felder zurück
+ */
+function resetLabelingFields() {
+    // Shot-Type Dropdown
+    const shotTypeSelect = document.getElementById('comment-shot-type');
+    if (shotTypeSelect) shotTypeSelect.value = '';
+
+    // Player Position Buttons
+    document.querySelectorAll('.player-position-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-white');
+    });
+
+    // Quality Stars
+    document.querySelectorAll('.quality-star').forEach(star => {
+        star.classList.remove('text-yellow-400');
+        star.classList.add('text-gray-300');
+    });
 }
 
 /**
