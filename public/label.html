@@ -132,18 +132,41 @@
                             </div>
                         </div>
 
-                        <!-- Spieler -->
-                        <div class="mb-4">
-                            <label class="text-xs text-gray-600 block mb-1">Spieler</label>
-                            <div class="flex rounded-lg border border-gray-300 overflow-hidden">
-                                <button type="button" id="player-near"
-                                        class="player-btn flex-1 px-3 py-2 text-sm bg-white hover:bg-gray-100 transition-colors">
-                                    <i class="fas fa-user mr-1"></i>Nah
-                                </button>
-                                <button type="button" id="player-far"
-                                        class="player-btn flex-1 px-3 py-2 text-sm bg-white hover:bg-gray-100 transition-colors border-l">
-                                    <i class="fas fa-user mr-1"></i>Fern
-                                </button>
+                        <!-- Position: Von wo / Nach wo -->
+                        <div class="mb-4 grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Von (Spieler)</label>
+                                <div class="flex rounded-lg border border-gray-300 overflow-hidden">
+                                    <button type="button" data-from="vh"
+                                            class="from-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-indigo-50 transition-colors">
+                                        VH
+                                    </button>
+                                    <button type="button" data-from="mitte"
+                                            class="from-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-gray-50 transition-colors border-l">
+                                        Mitte
+                                    </button>
+                                    <button type="button" data-from="rh"
+                                            class="from-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-purple-50 transition-colors border-l">
+                                        RH
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Nach (Gegner)</label>
+                                <div class="flex rounded-lg border border-gray-300 overflow-hidden">
+                                    <button type="button" data-to="vh"
+                                            class="to-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-indigo-50 transition-colors">
+                                        VH
+                                    </button>
+                                    <button type="button" data-to="mitte"
+                                            class="to-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-gray-50 transition-colors border-l">
+                                        Mitte
+                                    </button>
+                                    <button type="button" data-to="rh"
+                                            class="to-btn flex-1 px-2 py-2 text-xs bg-white hover:bg-purple-50 transition-colors border-l">
+                                        RH
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -392,7 +415,8 @@
                     startTime: label.timestamp_start,
                     endTime: label.timestamp_end,
                     shotType: label.shot_type,
-                    playerPosition: label.player_position,
+                    shotFrom: label.shot_from,
+                    shotTo: label.shot_to,
                     saved: true
                 }));
             }
@@ -451,15 +475,29 @@
                 currentShots = [];
             });
 
-            // Player position buttons
-            document.querySelectorAll('.player-btn').forEach(btn => {
+            // "Von" position buttons
+            document.querySelectorAll('.from-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    document.querySelectorAll('.player-btn').forEach(b => {
-                        b.classList.remove('bg-indigo-600', 'text-white');
+                    document.querySelectorAll('.from-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white');
                         b.classList.add('bg-white');
                     });
                     btn.classList.remove('bg-white');
-                    btn.classList.add('bg-indigo-600', 'text-white');
+                    const color = btn.dataset.from === 'rh' ? 'bg-purple-600' : 'bg-indigo-600';
+                    btn.classList.add(color, 'text-white');
+                });
+            });
+
+            // "Nach" position buttons
+            document.querySelectorAll('.to-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.to-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white');
+                        b.classList.add('bg-white');
+                    });
+                    btn.classList.remove('bg-white');
+                    const color = btn.dataset.to === 'rh' ? 'bg-purple-600' : 'bg-indigo-600';
+                    btn.classList.add(color, 'text-white');
                 });
             });
 
@@ -549,8 +587,13 @@
             const startTime = startMin * 60 + startSec;
             const endTime = endMin * 60 + endSec;
 
-            const playerBtn = document.querySelector('.player-btn.bg-indigo-600');
-            const playerPosition = playerBtn?.id === 'player-near' ? 'near' : (playerBtn?.id === 'player-far' ? 'far' : null);
+            // Get "Von" position
+            const fromBtn = document.querySelector('.from-btn.bg-indigo-600, .from-btn.bg-purple-600');
+            const shotFrom = fromBtn?.dataset.from || null;
+
+            // Get "Nach" position
+            const toBtn = document.querySelector('.to-btn.bg-indigo-600, .to-btn.bg-purple-600');
+            const shotTo = toBtn?.dataset.to || null;
 
             const shotTypeBtn = document.querySelector('.shot-type-btn.bg-indigo-600, .shot-type-btn.bg-purple-600');
             const shotType = shotTypeBtn?.dataset.type || null;
@@ -572,12 +615,13 @@
                 startTime,
                 endTime,
                 shotType,
-                playerPosition,
+                shotFrom,
+                shotTo,
                 saved: false
             });
 
             // Reset form
-            document.querySelectorAll('.player-btn, .shot-type-btn').forEach(btn => {
+            document.querySelectorAll('.from-btn, .to-btn, .shot-type-btn').forEach(btn => {
                 btn.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white', 'border-indigo-600', 'border-purple-600');
                 btn.classList.add('bg-white', 'border-gray-300');
             });
@@ -596,16 +640,17 @@
                 return;
             }
 
+            const posLabels = { vh: 'VH', mitte: 'M', rh: 'RH' };
             container.innerHTML = currentShots.map((shot, index) => `
                 <div class="shot-item flex items-center justify-between p-2 bg-gray-50 rounded-lg group">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs font-mono text-gray-500">${formatTime(shot.startTime)}-${formatTime(shot.endTime)}</span>
                         <span class="text-sm font-medium ${shot.shotType.startsWith('backhand') ? 'text-purple-600' : 'text-indigo-600'}">
                             ${shotTypeLabels[shot.shotType] || shot.shotType}
                         </span>
-                        ${shot.playerPosition ? `<span class="text-xs text-gray-400">(${shot.playerPosition === 'near' ? 'Nah' : 'Fern'})</span>` : ''}
+                        ${shot.shotFrom || shot.shotTo ? `<span class="text-xs text-gray-400">(${posLabels[shot.shotFrom] || '?'} → ${posLabels[shot.shotTo] || '?'})</span>` : ''}
                     </div>
-                    <button class="delete-shot opacity-0 text-red-500 hover:text-red-700 p-1 transition-opacity" data-index="${index}">
+                    <button class="delete-shot opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 p-1 transition-opacity" data-index="${index}">
                         <i class="fas fa-trash text-xs"></i>
                     </button>
                 </div>
@@ -671,7 +716,8 @@
                         timestamp_end: shot.endTime,
                         event_type: 'shot',
                         shot_type: shot.shotType,
-                        player_position: shot.playerPosition,
+                        shot_from: shot.shotFrom,
+                        shot_to: shot.shotTo,
                         confidence: 'certain',
                         is_verified: true,
                         verified_by: currentUser.id
