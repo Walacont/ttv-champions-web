@@ -42,24 +42,35 @@
     <!-- Statistik-Leiste -->
     <div class="bg-white border-b shadow-sm">
         <div class="max-w-7xl mx-auto px-4 py-3">
-            <div class="flex flex-wrap items-center gap-4 text-sm">
-                <span class="text-gray-600 font-medium">Gelabelte Videos:</span>
-                <div class="flex flex-wrap gap-3">
-                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
-                        🎾 Balleimer: <strong id="stat-ballmaschine">0</strong>
-                    </span>
-                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded">
-                        🏓 Spiel: <strong id="stat-match">0</strong>
-                    </span>
-                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                        📋 Übung: <strong id="stat-exercise">0</strong>
-                    </span>
-                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded">
-                        🎯 Freies Training: <strong id="stat-freeplay">0</strong>
-                    </span>
-                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded">
-                        📊 Gesamt: <strong id="stat-total">0</strong>
-                    </span>
+            <div class="flex flex-wrap items-center justify-between gap-4 text-sm">
+                <div class="flex flex-wrap items-center gap-4">
+                    <span class="text-gray-600 font-medium">Gelabelte Videos:</span>
+                    <div class="flex flex-wrap gap-3">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+                            🎾 Balleimer: <strong id="stat-ballmaschine">0</strong>
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded">
+                            🏓 Spiel: <strong id="stat-match">0</strong>
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                            📋 Übung: <strong id="stat-exercise">0</strong>
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded">
+                            🎯 Freies Training: <strong id="stat-freeplay">0</strong>
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded">
+                            📊 Gesamt: <strong id="stat-total">0</strong>
+                        </span>
+                    </div>
+                </div>
+                <!-- Export Buttons -->
+                <div class="flex gap-2">
+                    <button id="export-csv-btn" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg flex items-center gap-1">
+                        <i class="fas fa-file-csv"></i> CSV Export
+                    </button>
+                    <button id="export-json-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg flex items-center gap-1">
+                        <i class="fas fa-file-code"></i> JSON Export
+                    </button>
                 </div>
             </div>
         </div>
@@ -481,6 +492,178 @@
             document.getElementById('stat-total').textContent = stats?.length || 0;
         }
 
+        async function exportCSV() {
+            showToast('Exportiere CSV...', 'info');
+
+            // Get all labeled data
+            const { data, error } = await supabase
+                .from('video_labels')
+                .select(`
+                    id,
+                    timestamp_start,
+                    timestamp_end,
+                    shot_type,
+                    shot_from,
+                    shot_to,
+                    shot_result,
+                    confidence,
+                    created_at,
+                    video:video_analyses(
+                        id,
+                        title,
+                        video_url,
+                        video_type,
+                        exercise_id
+                    )
+                `)
+                .order('created_at');
+
+            if (error) {
+                showToast('Export fehlgeschlagen: ' + error.message, 'error');
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                showToast('Keine Daten zum Exportieren', 'warning');
+                return;
+            }
+
+            // Build CSV
+            const headers = [
+                'label_id',
+                'video_id',
+                'video_title',
+                'video_url',
+                'video_type',
+                'timestamp_start',
+                'timestamp_end',
+                'duration_ms',
+                'shot_type',
+                'shot_from',
+                'shot_to',
+                'shot_result',
+                'confidence',
+                'created_at'
+            ];
+
+            const rows = data.map(row => [
+                row.id,
+                row.video?.id || '',
+                `"${(row.video?.title || '').replace(/"/g, '""')}"`,
+                row.video?.video_url || '',
+                row.video?.video_type || '',
+                row.timestamp_start,
+                row.timestamp_end,
+                Math.round((row.timestamp_end - row.timestamp_start) * 1000),
+                row.shot_type,
+                row.shot_from || '',
+                row.shot_to || '',
+                row.shot_result || 'hit',
+                row.confidence,
+                row.created_at
+            ]);
+
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tt-labels-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showToast(`${data.length} Labels exportiert!`, 'success');
+        }
+
+        async function exportJSON() {
+            showToast('Exportiere JSON...', 'info');
+
+            // Get all labeled data with video info
+            const { data, error } = await supabase
+                .from('video_labels')
+                .select(`
+                    id,
+                    timestamp_start,
+                    timestamp_end,
+                    shot_type,
+                    shot_from,
+                    shot_to,
+                    shot_result,
+                    confidence,
+                    created_at,
+                    video:video_analyses(
+                        id,
+                        title,
+                        video_url,
+                        video_type,
+                        exercise_id,
+                        exercise:exercises(name, category)
+                    )
+                `)
+                .order('created_at');
+
+            if (error) {
+                showToast('Export fehlgeschlagen: ' + error.message, 'error');
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                showToast('Keine Daten zum Exportieren', 'warning');
+                return;
+            }
+
+            // Group by video for better structure
+            const videoMap = {};
+            data.forEach(label => {
+                const videoId = label.video?.id;
+                if (!videoId) return;
+
+                if (!videoMap[videoId]) {
+                    videoMap[videoId] = {
+                        video_id: videoId,
+                        title: label.video.title,
+                        video_url: label.video.video_url,
+                        video_type: label.video.video_type,
+                        exercise: label.video.exercise?.name || null,
+                        exercise_category: label.video.exercise?.category || null,
+                        labels: []
+                    };
+                }
+
+                videoMap[videoId].labels.push({
+                    label_id: label.id,
+                    timestamp_start: label.timestamp_start,
+                    timestamp_end: label.timestamp_end,
+                    duration_ms: Math.round((label.timestamp_end - label.timestamp_start) * 1000),
+                    shot_type: label.shot_type,
+                    shot_from: label.shot_from,
+                    shot_to: label.shot_to,
+                    shot_result: label.shot_result || 'hit',
+                    confidence: label.confidence
+                });
+            });
+
+            const exportData = {
+                export_date: new Date().toISOString(),
+                total_labels: data.length,
+                total_videos: Object.keys(videoMap).length,
+                videos: Object.values(videoMap)
+            };
+
+            // Download
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tt-labels-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showToast(`${data.length} Labels in ${Object.keys(videoMap).length} Videos exportiert!`, 'success');
+        }
+
         async function loadExercises() {
             const { data: exercises } = await supabase
                 .from('exercises')
@@ -713,6 +896,10 @@
                 selectedVideoType = null;
                 selectedExerciseId = null;
             });
+
+            // Export buttons
+            document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+            document.getElementById('export-json-btn').addEventListener('click', exportJSON);
 
             // Video type buttons
             document.querySelectorAll('.vtype-btn').forEach(btn => {
