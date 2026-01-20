@@ -236,9 +236,16 @@ BEGIN
     DELETE FROM leave_club_requests WHERE player_id = p_user_id;
     DELETE FROM match_requests WHERE sender_id = p_user_id OR receiver_id = p_user_id;
 
+    -- IMPORTANT: Delete the auth account so user cannot login anymore
+    -- Only for regular accounts (not child accounts, which don't have auth accounts)
+    -- Child accounts are deleted by guardians (v_is_guardian_of_child = true)
+    IF v_is_own_account THEN
+        DELETE FROM auth.users WHERE id = p_user_id;
+    END IF;
+
     RETURN jsonb_build_object(
         'success', true,
-        'message', 'Account wurde anonymisiert'
+        'message', 'Account wurde vollständig gelöscht'
     );
 EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object(
