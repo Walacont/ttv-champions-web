@@ -4,6 +4,12 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
 const supabase = getSupabase();
 
+// Check for child_id parameter (guardian editing child's privacy settings)
+const urlParams = new URLSearchParams(window.location.search);
+const childId = urlParams.get('child_id');
+let isChildMode = false;
+let targetProfileId = null; // The profile ID being edited (user's own or child's)
+
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 
@@ -38,6 +44,46 @@ const privacyFeedback = document.getElementById('privacy-feedback');
 let currentUser = null;
 let currentUserData = null;
 
+// Verify guardian has permission to edit this child's privacy settings
+async function verifyGuardianAccess() {
+    if (!childId) return true;
+
+    const { data: guardianLink, error } = await supabase
+        .from('guardian_links')
+        .select('id, permissions')
+        .eq('guardian_id', currentUser.id)
+        .eq('child_id', childId)
+        .single();
+
+    if (error || !guardianLink) {
+        console.error('Guardian access denied:', error);
+        alert('Kein Zugriff auf die Privatsphäre-Einstellungen dieses Kindes.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    return true;
+}
+
+// Setup child mode UI
+function setupChildModeUI(childProfile) {
+    isChildMode = true;
+    targetProfileId = childId;
+
+    // Update page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        titleElement.textContent = `Privatsphäre für ${childProfile.first_name}`;
+    }
+    document.title = `Privatsphäre für ${childProfile.first_name} - SC Champions`;
+
+    // Update back link to include child_id
+    const backLink = document.querySelector('a[href="/settings.html"]');
+    if (backLink) {
+        backLink.href = `/settings.html?child_id=${childId}`;
+    }
+}
+
 // Auth-Status beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -45,22 +91,56 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        // Benutzerprofil aus Supabase abrufen
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // If editing child's privacy settings, verify access first
+        if (childId) {
+            const hasAccess = await verifyGuardianAccess();
+            if (!hasAccess) return;
 
-        if (!error && profile) {
+            // Load child's profile
+            const { data: childProfile, error: childError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', childId)
+                .single();
+
+            if (childError || !childProfile) {
+                console.error('Child profile not found:', childError);
+                window.location.href = '/guardian-dashboard.html';
+                return;
+            }
+
+            // Setup child mode UI
+            setupChildModeUI(childProfile);
+
             currentUserData = {
-                id: currentUser.id,
-                clubId: profile.club_id || null,
-                privacySettings: profile.privacy_settings || {},
+                id: childId,
+                clubId: childProfile.club_id || null,
+                privacySettings: childProfile.privacy_settings || {},
             };
 
             // Datenschutz-Einstellungen laden
             loadPrivacySettings(currentUserData);
+        } else {
+            // Normal mode - editing own privacy settings
+            targetProfileId = currentUser.id;
+
+            // Benutzerprofil aus Supabase abrufen
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (!error && profile) {
+                currentUserData = {
+                    id: currentUser.id,
+                    clubId: profile.club_id || null,
+                    privacySettings: profile.privacy_settings || {},
+                };
+
+                // Datenschutz-Einstellungen laden
+                loadPrivacySettings(currentUserData);
+            }
         }
 
         pageLoader.style.display = 'none';
@@ -247,7 +327,7 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         const { error } = await supabase
             .from('profiles')
             .update({ privacy_settings: newPrivacySettings })
-            .eq('id', currentUser.id);
+            .eq('id', targetProfileId || currentUser.id);
 
         if (error) throw error;
 

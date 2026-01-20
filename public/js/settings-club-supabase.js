@@ -4,6 +4,12 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
 const supabase = getSupabase();
 
+// Check for child_id parameter (guardian editing child's club settings)
+const urlParams = new URLSearchParams(window.location.search);
+const childId = urlParams.get('child_id');
+let isChildMode = false;
+let targetProfileId = null; // The profile ID being managed (user's own or child's)
+
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 const currentClubStatus = document.getElementById('current-club-status');
@@ -40,6 +46,46 @@ const guardianChildSubmit = document.getElementById('guardian-child-submit');
 let pendingJoinClubId = null;
 let pendingJoinClubName = null;
 
+// Verify guardian has permission to manage this child's club settings
+async function verifyGuardianAccess() {
+    if (!childId) return true;
+
+    const { data: guardianLink, error } = await supabase
+        .from('guardian_links')
+        .select('id, permissions')
+        .eq('guardian_id', currentUser.id)
+        .eq('child_id', childId)
+        .single();
+
+    if (error || !guardianLink) {
+        console.error('Guardian access denied:', error);
+        alert('Kein Zugriff auf die Vereinsverwaltung dieses Kindes.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    return true;
+}
+
+// Setup child mode UI
+function setupChildModeUI(childProfile) {
+    isChildMode = true;
+    targetProfileId = childId;
+
+    // Update page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        titleElement.textContent = `Vereinsverwaltung für ${childProfile.first_name}`;
+    }
+    document.title = `Vereinsverwaltung für ${childProfile.first_name} - SC Champions`;
+
+    // Update back link to include child_id
+    const backLink = document.querySelector('a[href="/settings.html"]');
+    if (backLink) {
+        backLink.href = `/settings.html?child_id=${childId}`;
+    }
+}
+
 // Authentifizierungsstatus beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -47,26 +93,64 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        // Benutzerprofil von Supabase abrufen
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // If managing child's club settings, verify access first
+        if (childId) {
+            const hasAccess = await verifyGuardianAccess();
+            if (!hasAccess) return;
 
-        if (!error && profile) {
+            // Load child's profile
+            const { data: childProfile, error: childError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', childId)
+                .single();
+
+            if (childError || !childProfile) {
+                console.error('Child profile not found:', childError);
+                window.location.href = '/guardian-dashboard.html';
+                return;
+            }
+
+            // Setup child mode UI
+            setupChildModeUI(childProfile);
+
             currentUserData = {
-                id: currentUser.id,
-                email: profile.email || currentUser.email,
-                firstName: profile.first_name || '',
-                lastName: profile.last_name || '',
-                role: profile.role || 'player',
-                clubId: profile.club_id || null,
-                activeSportId: profile.active_sport_id || null,
+                id: childId,
+                email: childProfile.email || '',
+                firstName: childProfile.first_name || '',
+                lastName: childProfile.last_name || '',
+                role: childProfile.role || 'player',
+                clubId: childProfile.club_id || null,
+                activeSportId: childProfile.active_sport_id || null,
             };
 
             // Vereinsverwaltung initialisieren
             initializeClubManagement();
+        } else {
+            // Normal mode - managing own club
+            targetProfileId = currentUser.id;
+
+            // Benutzerprofil von Supabase abrufen
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (!error && profile) {
+                currentUserData = {
+                    id: currentUser.id,
+                    email: profile.email || currentUser.email,
+                    firstName: profile.first_name || '',
+                    lastName: profile.last_name || '',
+                    role: profile.role || 'player',
+                    clubId: profile.club_id || null,
+                    activeSportId: profile.active_sport_id || null,
+                };
+
+                // Vereinsverwaltung initialisieren
+                initializeClubManagement();
+            }
         }
 
         pageLoader.style.display = 'none';
@@ -162,13 +246,14 @@ function listenToClubRequests() {
         clubRequestsSubscription.unsubscribe();
     }
 
+    const profileId = targetProfileId || currentUser.id;
     clubRequestsSubscription = supabase
         .channel('club-requests-changes')
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
             table: 'club_requests',
-            filter: `player_id=eq.${currentUser.id}`
+            filter: `player_id=eq.${profileId}`
         }, async (payload) => {
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('join', payload.new);
@@ -186,13 +271,14 @@ function listenToLeaveRequests() {
         leaveRequestsSubscription.unsubscribe();
     }
 
+    const profileId = targetProfileId || currentUser.id;
     leaveRequestsSubscription = supabase
         .channel('leave-requests-changes')
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
             table: 'leave_club_requests',
-            filter: `player_id=eq.${currentUser.id}`
+            filter: `player_id=eq.${profileId}`
         }, async (payload) => {
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('leave', payload.new);
@@ -208,11 +294,13 @@ function listenToLeaveRequests() {
 async function updateClubManagementUI() {
     if (!currentUser || !currentUserData) return;
 
+    const profileId = targetProfileId || currentUser.id;
+
     // Benutzerdaten aktualisieren
     const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', currentUser.id)
+        .eq('id', profileId)
         .single();
 
     if (profile) {
@@ -223,7 +311,7 @@ async function updateClubManagementUI() {
     const { data: joinRequests } = await supabase
         .from('club_requests')
         .select('*')
-        .eq('player_id', currentUser.id)
+        .eq('player_id', profileId)
         .eq('status', 'pending');
 
     const hasPendingJoinRequest = joinRequests && joinRequests.length > 0;
@@ -232,7 +320,7 @@ async function updateClubManagementUI() {
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
         .select('*')
-        .eq('player_id', currentUser.id)
+        .eq('player_id', profileId)
         .eq('status', 'pending');
 
     const hasPendingLeaveRequest = leaveRequests && leaveRequests.length > 0;
@@ -581,8 +669,9 @@ leaveClubBtn?.addEventListener('click', async () => {
         leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende Anfrage...';
         clubManagementFeedback.textContent = '';
 
+        const profileId = targetProfileId || currentUser.id;
         const { error } = await supabase.from('leave_club_requests').insert({
-            player_id: currentUser.id,
+            player_id: profileId,
             club_id: currentUserData.clubId,
             status: 'pending'
         });
@@ -894,8 +983,9 @@ async function submitMemberJoinRequest(clubId, clubName) {
         clubManagementFeedback.textContent = 'Sende Anfrage...';
         clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
 
+        const profileId = targetProfileId || currentUser.id;
         const { error } = await supabase.from('club_requests').insert({
-            player_id: currentUser.id,
+            player_id: profileId,
             club_id: clubId,
             status: 'pending',
             request_type: 'member'

@@ -336,6 +336,12 @@
         <script type="module">
             import { getSupabase } from '/js/supabase-init.js';
             import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            import { escapeHtml } from '/js/utils/security.js';
+
+            // Check for child_id parameter (guardian viewing child's settings)
+            const urlParams = new URLSearchParams(window.location.search);
+            const childId = urlParams.get('child_id');
+            let childProfile = null;
 
             // Prüft ob Push-Benachrichtigungen unterstützt werden (PWA oder native App)
             function isPushSupported() {
@@ -345,8 +351,124 @@
                 return false;
             }
 
+            // Verify guardian has access to this child
+            async function verifyGuardianAccess() {
+                if (!childId) return true; // Not in child mode
+
+                const supabase = getSupabase();
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return false;
+
+                // Check if current user is guardian of this child
+                const { data: guardianLink, error } = await supabase
+                    .from('guardian_links')
+                    .select('id, permissions')
+                    .eq('guardian_id', user.id)
+                    .eq('child_id', childId)
+                    .single();
+
+                if (error || !guardianLink) {
+                    console.error('Guardian access denied:', error);
+                    alert('Kein Zugriff auf die Einstellungen dieses Kindes.');
+                    window.location.href = '/guardian-dashboard.html';
+                    return false;
+                }
+
+                // Load child profile
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, avatar_url')
+                    .eq('id', childId)
+                    .single();
+
+                if (profileError || !profile) {
+                    console.error('Child profile not found:', profileError);
+                    window.location.href = '/guardian-dashboard.html';
+                    return false;
+                }
+
+                childProfile = profile;
+                return true;
+            }
+
+            // Setup child mode UI
+            function setupChildModeUI() {
+                if (!childId || !childProfile) return;
+
+                // Update page title and header
+                const titleElement = document.querySelector('h1');
+                if (titleElement) {
+                    titleElement.textContent = `Einstellungen für ${childProfile.first_name}`;
+                }
+                document.title = `Einstellungen für ${childProfile.first_name} - SC Champions`;
+
+                // Update back link to go to guardian dashboard
+                const backLink = document.querySelector('a[href="/dashboard.html"]');
+                if (backLink) {
+                    backLink.href = '/guardian-dashboard.html';
+                }
+
+                // Update links to pass child_id parameter
+                const profileLink = document.querySelector('a[href="/settings-profile.html"]');
+                if (profileLink) {
+                    profileLink.href = `/settings-profile.html?child_id=${childId}`;
+                    // Update subtitle to show limited options
+                    const subtitle = profileLink.querySelector('p.text-sm');
+                    if (subtitle) {
+                        subtitle.textContent = 'Name, Foto, Persönliche Daten';
+                    }
+                }
+
+                const privacyLink = document.querySelector('a[href="/settings-privacy.html"]');
+                if (privacyLink) {
+                    privacyLink.href = `/settings-privacy.html?child_id=${childId}`;
+                }
+
+                const clubLink = document.querySelector('a[href="/settings-club.html"]');
+                if (clubLink) {
+                    clubLink.href = `/settings-club.html?child_id=${childId}`;
+                }
+
+                const legalLink = document.querySelector('a[href="/settings-legal.html"]');
+                if (legalLink) {
+                    legalLink.href = `/settings-legal.html?child_id=${childId}`;
+                }
+
+                // Hide cards that guardians should NOT see for children:
+                // - Notifications (not applicable for child)
+                // - Meine Kinder (not applicable)
+                // - Support (guardian can use their own)
+                // - Language (should be their own setting)
+                // - Cache reset (technical, not for children)
+                // - Logout button (don't log out guardian)
+
+                const elementsToHide = [
+                    '#notifications-card',
+                    '#my-children-card',
+                    'a[href="/settings-support.html"]',
+                    '#language-card',
+                    '#cache-reset-card',
+                    '#logout-button'
+                ];
+
+                elementsToHide.forEach(selector => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        // For logout button, hide the parent div too
+                        if (selector === '#logout-button') {
+                            element.parentElement?.classList.add('hidden');
+                        } else {
+                            element.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+
             // Check if user is a guardian and show children card
             async function checkGuardianStatus() {
+                // Don't show "Meine Kinder" when already viewing child's settings
+                if (childId) return;
+
                 const supabase = getSupabase();
                 const { data: { user } } = await supabase.auth.getUser();
 
@@ -393,6 +515,11 @@
 
             // Initialize immediately or on DOMContentLoaded
             async function init() {
+                // If viewing child settings, verify access first
+                if (childId) {
+                    const hasAccess = await verifyGuardianAccess();
+                    if (!hasAccess) return;
+                }
                 // Initialize i18n first
                 await initI18n();
                 setupAutoTranslate();
@@ -409,6 +536,9 @@
 
                 // Check if user is a guardian and show "Meine Kinder" card
                 await checkGuardianStatus();
+
+                // Setup child mode UI if viewing child's settings
+                setupChildModeUI();
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';

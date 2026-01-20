@@ -4,6 +4,12 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
 const supabase = getSupabase();
 
+// Check for child_id parameter (guardian editing child's profile)
+const urlParams = new URLSearchParams(window.location.search);
+const childId = urlParams.get('child_id');
+let isChildMode = false;
+let targetProfileId = null; // The profile ID being edited (user's own or child's)
+
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 const profileImagePreview = document.getElementById('profile-image-preview');
@@ -36,41 +42,133 @@ const passwordFeedback = document.getElementById('password-feedback');
 let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
+
+// Verify guardian has permission to edit this child's profile
+async function verifyGuardianAccess() {
+    if (!childId) return true;
+
+    const { data: guardianLink, error } = await supabase
+        .from('guardian_links')
+        .select('id, permissions')
+        .eq('guardian_id', currentUser.id)
+        .eq('child_id', childId)
+        .single();
+
+    if (error || !guardianLink) {
+        console.error('Guardian access denied:', error);
+        alert('Kein Zugriff auf dieses Kindprofil.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    // Check if guardian has permission to edit profile
+    const permissions = guardianLink.permissions || {};
+    if (permissions.can_edit_profile === false) {
+        alert('Du hast keine Berechtigung, dieses Profil zu bearbeiten.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    return true;
+}
+
+// Setup child mode UI (hide email/password sections, update titles)
+function setupChildModeUI(childProfile) {
+    isChildMode = true;
+    targetProfileId = childId;
+
+    // Update page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        titleElement.textContent = `Profil von ${childProfile.first_name} bearbeiten`;
+    }
+    document.title = `Profil von ${childProfile.first_name} - SC Champions`;
+
+    // Update back link to include child_id
+    const backLink = document.querySelector('a[href="/settings.html"]');
+    if (backLink) {
+        backLink.href = `/settings.html?child_id=${childId}`;
+    }
+
+    // Hide email and password sections (guardians cannot change these for children)
+    const emailSection = document.getElementById('email-section');
+    const passwordSection = document.getElementById('password-section');
+
+    if (emailSection) emailSection.classList.add('hidden');
+    if (passwordSection) passwordSection.classList.add('hidden');
+}
+
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         currentUser = session.user;
 
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // If editing child's profile, verify access first
+        if (childId) {
+            const hasAccess = await verifyGuardianAccess();
+            if (!hasAccess) return;
 
-        if (!error && profile) {
+            // Load child's profile
+            const { data: childProfile, error: childError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', childId)
+                .single();
+
+            if (childError || !childProfile) {
+                console.error('Child profile not found:', childError);
+                window.location.href = '/guardian-dashboard.html';
+                return;
+            }
+
+            // Setup child mode UI
+            setupChildModeUI(childProfile);
+
             currentUserData = {
-                id: currentUser.id,
-                email: profile.email || currentUser.email,
-                firstName: profile.first_name || '',
-                lastName: profile.last_name || '',
-                gender: profile.gender || null,
-                birthdate: profile.birthdate || null,
-                photoURL: profile.avatar_url || null,
+                id: childId,
+                email: childProfile.email || '',
+                firstName: childProfile.first_name || '',
+                lastName: childProfile.last_name || '',
+                gender: childProfile.gender || null,
+                birthdate: childProfile.birthdate || null,
+                photoURL: childProfile.avatar_url || null,
             };
+        } else {
+            // Normal mode - editing own profile
+            targetProfileId = currentUser.id;
 
-            const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
-            profileImagePreview.src =
-                currentUserData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
-            firstNameInput.value = currentUserData.firstName || '';
-            lastNameInput.value = currentUserData.lastName || '';
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
 
-            genderInput.value = currentUserData.gender || '';
-            birthdateInput.value = currentUserData.birthdate || '';
+            if (!error && profile) {
+                currentUserData = {
+                    id: currentUser.id,
+                    email: profile.email || currentUser.email,
+                    firstName: profile.first_name || '',
+                    lastName: profile.last_name || '',
+                    gender: profile.gender || null,
+                    birthdate: profile.birthdate || null,
+                    photoURL: profile.avatar_url || null,
+                };
+            }
+
+            // Show email info (only in normal mode)
+            currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
+            updateEmailVerificationStatus(currentUser.email_confirmed_at != null);
         }
 
-        currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
-        updateEmailVerificationStatus(currentUser.email_confirmed_at != null);
+        // Populate form fields
+        const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
+        profileImagePreview.src =
+            currentUserData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
+        firstNameInput.value = currentUserData.firstName || '';
+        lastNameInput.value = currentUserData.lastName || '';
+        genderInput.value = currentUserData.gender || '';
+        birthdateInput.value = currentUserData.birthdate || '';
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
@@ -158,7 +256,7 @@ photoUpload.addEventListener('change', e => {
 
 uploadPhotoForm.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!selectedFile || !currentUser) return;
+    if (!selectedFile || !targetProfileId) return;
 
     savePhotoButton.disabled = true;
     savePhotoButton.textContent = 'Speichere...';
@@ -167,7 +265,7 @@ uploadPhotoForm.addEventListener('submit', async e => {
 
     try {
         const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${currentUser.id}/profile.${fileExt}`;
+        const fileName = `${targetProfileId}/profile.${fileExt}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('profile-pictures')
@@ -184,7 +282,7 @@ uploadPhotoForm.addEventListener('submit', async e => {
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ avatar_url: photoURL })
-            .eq('id', currentUser.id);
+            .eq('id', targetProfileId);
 
         if (updateError) throw updateError;
 
@@ -215,7 +313,7 @@ updateNameForm.addEventListener('submit', async e => {
                 first_name: firstName,
                 last_name: lastName,
             })
-            .eq('id', currentUser.id);
+            .eq('id', targetProfileId);
 
         if (error) throw error;
 
@@ -322,7 +420,7 @@ updatePersonalDataForm.addEventListener('submit', async e => {
                 gender: gender || null,
                 birthdate: birthdate || null,
             })
-            .eq('id', currentUser.id);
+            .eq('id', targetProfileId);
 
         if (error) throw error;
 
