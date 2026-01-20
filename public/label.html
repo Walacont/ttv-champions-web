@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Labeling - SC Champions Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .time-input::-webkit-inner-spin-button,
+        .time-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .shot-item:hover .delete-shot {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-robot text-2xl"></i>
+                <div>
+                    <h1 class="text-xl font-bold">Video Labeling</h1>
+                    <p class="text-indigo-200 text-sm">ML-Training Daten vorbereiten</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="stats" class="text-sm text-indigo-200">
+                    <span id="pending-count">0</span> Videos warten
+                </div>
+                <a href="coach.html" class="text-indigo-200 hover:text-white">
+                    <i class="fas fa-arrow-left mr-1"></i>Zurück
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto p-4">
+        <!-- Video Feed (wenn kein Video ausgewählt) -->
+        <div id="video-feed" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Videos werden hier dynamisch eingefügt -->
+            <div class="col-span-full text-center py-12 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+                <p>Videos werden geladen...</p>
+            </div>
+        </div>
+
+        <!-- Labeling Interface (wenn Video ausgewählt) -->
+        <div id="labeling-interface" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Links: Video -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="bg-gray-900 p-2 flex justify-between items-center">
+                            <button id="back-to-feed" class="text-white hover:text-gray-300 px-3 py-1 text-sm">
+                                <i class="fas fa-arrow-left mr-1"></i>Zurück zur Liste
+                            </button>
+                            <span id="video-title" class="text-white text-sm truncate"></span>
+                            <div class="text-gray-400 text-sm">
+                                <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                            </div>
+                        </div>
+                        <video id="label-video" class="w-full bg-black" controls>
+                            <source src="" type="video/mp4">
+                        </video>
+
+                        <!-- Zeitleiste mit Markierungen -->
+                        <div class="p-4 bg-gray-50 border-t">
+                            <div class="relative h-8 bg-gray-200 rounded-full overflow-hidden cursor-pointer" id="timeline">
+                                <!-- Shot-Markierungen werden hier eingefügt -->
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>0:00</span>
+                                <span id="timeline-end">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coach-Kommentare -->
+                    <div class="bg-white rounded-xl shadow-lg mt-4 p-4">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-comments text-indigo-500"></i>
+                            Coach-Kommentare
+                        </h3>
+                        <div id="coach-comments" class="space-y-2 max-h-48 overflow-y-auto">
+                            <!-- Kommentare werden hier eingefügt -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rechts: Labeling Form -->
+                <div class="space-y-4">
+                    <!-- Neuen Schlag hinzufügen -->
+                    <div class="bg-white rounded-xl shadow-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-plus-circle text-green-500"></i>
+                            Schlag markieren
+                        </h3>
+
+                        <!-- Zeit-Eingabe -->
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Start</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="shot-start-min" min="0" max="59" value="0"
+                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                    <span>:</span>
+                                    <input type="number" id="shot-start-sec" min="0" max="59" value="0"
+                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                    <button id="set-start-current" class="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded text-xs" title="Aktuelle Position">
+                                        <i class="fas fa-crosshairs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Ende</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="shot-end-min" min="0" max="59" value="0"
+                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                    <span>:</span>
+                                    <input type="number" id="shot-end-sec" min="0" max="59" value="0"
+                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                    <button id="set-end-current" class="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded text-xs" title="Aktuelle Position">
+                                        <i class="fas fa-crosshairs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Spieler -->
+                        <div class="mb-4">
+                            <label class="text-xs text-gray-600 block mb-1">Spieler</label>
+                            <div class="flex rounded-lg border border-gray-300 overflow-hidden">
+                                <button type="button" id="player-near"
+                                        class="player-btn flex-1 px-3 py-2 text-sm bg-white hover:bg-gray-100 transition-colors">
+                                    <i class="fas fa-user mr-1"></i>Nah
+                                </button>
+                                <button type="button" id="player-far"
+                                        class="player-btn flex-1 px-3 py-2 text-sm bg-white hover:bg-gray-100 transition-colors border-l">
+                                    <i class="fas fa-user mr-1"></i>Fern
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Schlagtyp -->
+                        <div class="mb-4">
+                            <label class="text-xs text-gray-600 block mb-1">Schlagtyp</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <p class="text-xs text-indigo-600 font-medium mb-1">Vorhand</p>
+                                    <div class="space-y-1">
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-indigo-500 text-left" data-type="forehand_serve">
+                                            VH Aufschlag
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-indigo-500 text-left" data-type="forehand_topspin">
+                                            VH Topspin
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-indigo-500 text-left" data-type="forehand_push">
+                                            VH Schupf
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-indigo-500 text-left" data-type="forehand_block">
+                                            VH Block
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-purple-600 font-medium mb-1">Rückhand</p>
+                                    <div class="space-y-1">
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-purple-500 text-left" data-type="backhand_serve">
+                                            RH Aufschlag
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-purple-500 text-left" data-type="backhand_topspin">
+                                            RH Topspin
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-purple-500 text-left" data-type="backhand_push">
+                                            RH Schupf
+                                        </button>
+                                        <button class="shot-type-btn w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:border-purple-500 text-left" data-type="backhand_block">
+                                            RH Block
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hinzufügen Button -->
+                        <button id="add-shot-btn"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            Schlag hinzufügen
+                        </button>
+                    </div>
+
+                    <!-- Bereits markierte Schläge -->
+                    <div class="bg-white rounded-xl shadow-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-list text-indigo-500"></i>
+                            Markierte Schläge
+                            <span id="shot-count" class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">0</span>
+                        </h3>
+                        <div id="shots-list" class="space-y-2 max-h-64 overflow-y-auto">
+                            <p class="text-gray-500 text-sm text-center py-4">Noch keine Schläge markiert</p>
+                        </div>
+                    </div>
+
+                    <!-- Aktionen -->
+                    <div class="bg-white rounded-xl shadow-lg p-4 space-y-3">
+                        <button id="verify-btn"
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-check-circle"></i>
+                            Verifizieren & Speichern
+                        </button>
+                        <button id="skip-btn"
+                                class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-forward"></i>
+                            Überspringen (ungeeignet)
+                        </button>
+                    </div>
+
+                    <!-- Keyboard Shortcuts -->
+                    <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+                        <p class="font-medium mb-1">Tastenkürzel:</p>
+                        <div class="grid grid-cols-2 gap-1">
+                            <span><kbd class="bg-white px-1 rounded">Space</kbd> Play/Pause</span>
+                            <span><kbd class="bg-white px-1 rounded">S</kbd> Start setzen</span>
+                            <span><kbd class="bg-white px-1 rounded">E</kbd> Ende setzen</span>
+                            <span><kbd class="bg-white px-1 rounded">Enter</kbd> Schlag hinzufügen</span>
+                            <span><kbd class="bg-white px-1 rounded">1-8</kbd> Schlagtyp</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <script type="module">
+        import { getSupabaseClient } from './js/supabase-init.js';
+
+        let supabase;
+        let currentUser;
+        let currentVideo = null;
+        let currentShots = [];
+        let videoPlayer;
+
+        // Shot type labels for display
+        const shotTypeLabels = {
+            'forehand_serve': 'VH Aufschlag',
+            'backhand_serve': 'RH Aufschlag',
+            'forehand_topspin': 'VH Topspin',
+            'backhand_topspin': 'RH Topspin',
+            'forehand_push': 'VH Schupf',
+            'backhand_push': 'RH Schupf',
+            'forehand_block': 'VH Block',
+            'backhand_block': 'RH Block',
+            'other': 'Sonstige'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            supabase = getSupabaseClient();
+
+            // Check auth
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+
+            // Check if user is admin/coach
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            if (!profile || !['admin', 'head_coach', 'coach'].includes(profile.role)) {
+                showToast('Zugriff verweigert', 'error');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            // Load videos
+            loadPendingVideos();
+
+            // Setup event listeners
+            setupEventListeners();
+        });
+
+        async function loadPendingVideos() {
+            const feedContainer = document.getElementById('video-feed');
+
+            // Get videos that need labeling
+            // allow_ai_training = true AND has reviewed assignments AND ai_ready = false
+            const { data: videos, error } = await supabase
+                .from('video_analyses')
+                .select(`
+                    *,
+                    uploader:profiles!uploaded_by(first_name, last_name),
+                    assignments:video_assignments(status)
+                `)
+                .eq('allow_ai_training', true)
+                .eq('ai_ready', false)
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error('Error loading videos:', error);
+                feedContainer.innerHTML = '<p class="col-span-full text-center text-red-500 py-8">Fehler beim Laden</p>';
+                return;
+            }
+
+            // Filter to only show videos with at least one reviewed assignment
+            const reviewedVideos = (videos || []).filter(v =>
+                v.assignments?.some(a => a.status === 'reviewed')
+            );
+
+            document.getElementById('pending-count').textContent = reviewedVideos.length;
+
+            if (reviewedVideos.length === 0) {
+                feedContainer.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-check-circle text-5xl text-green-400 mb-4"></i>
+                        <p class="text-gray-600 font-medium">Alle Videos sind gelabelt!</p>
+                        <p class="text-gray-500 text-sm mt-1">Es gibt keine Videos zum Labeln.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            feedContainer.innerHTML = reviewedVideos.map(video => `
+                <div class="video-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                     data-video-id="${video.id}">
+                    <div class="aspect-video bg-gray-200 relative">
+                        ${video.thumbnail_url
+                            ? `<img src="${video.thumbnail_url}" class="w-full h-full object-cover">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video text-4xl"></i></div>`
+                        }
+                    </div>
+                    <div class="p-3">
+                        <p class="font-medium text-sm truncate">${video.title || 'Ohne Titel'}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            von ${video.uploader?.first_name || 'Unbekannt'} ${video.uploader?.last_name?.charAt(0) || ''}.
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            feedContainer.querySelectorAll('.video-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const videoId = card.dataset.videoId;
+                    const video = reviewedVideos.find(v => v.id === videoId);
+                    if (video) openLabelingInterface(video);
+                });
+            });
+        }
+
+        async function openLabelingInterface(video) {
+            currentVideo = video;
+            currentShots = [];
+
+            document.getElementById('video-feed').classList.add('hidden');
+            document.getElementById('labeling-interface').classList.remove('hidden');
+
+            // Set video
+            videoPlayer = document.getElementById('label-video');
+            videoPlayer.src = video.video_url;
+            document.getElementById('video-title').textContent = video.title || 'Ohne Titel';
+
+            // Load existing labels for this video
+            const { data: existingLabels } = await supabase
+                .from('video_labels')
+                .select('*')
+                .eq('video_id', video.id)
+                .order('timestamp_start');
+
+            if (existingLabels?.length > 0) {
+                currentShots = existingLabels.map(label => ({
+                    id: label.id,
+                    startTime: label.timestamp_start,
+                    endTime: label.timestamp_end,
+                    shotType: label.shot_type,
+                    playerPosition: label.player_position,
+                    saved: true
+                }));
+            }
+
+            // Load coach comments
+            const { data: comments } = await supabase.rpc('get_video_comments', {
+                p_video_id: video.id
+            });
+
+            const commentsContainer = document.getElementById('coach-comments');
+            if (comments?.length > 0) {
+                commentsContainer.innerHTML = comments.map(c => `
+                    <div class="bg-gray-50 rounded-lg p-2 text-sm">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-medium text-indigo-600">${c.user_name}</span>
+                            ${c.timestamp_seconds !== null
+                                ? `<button class="comment-timestamp text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded" data-time="${c.timestamp_seconds}">${formatTime(c.timestamp_seconds)}</button>`
+                                : ''
+                            }
+                        </div>
+                        <p class="text-gray-700">${c.content}</p>
+                    </div>
+                `).join('');
+
+                // Add click handlers for timestamps
+                commentsContainer.querySelectorAll('.comment-timestamp').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        videoPlayer.currentTime = parseFloat(btn.dataset.time);
+                    });
+                });
+            } else {
+                commentsContainer.innerHTML = '<p class="text-gray-500 text-sm text-center">Keine Kommentare</p>';
+            }
+
+            // Video time update
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                document.getElementById('total-time').textContent = formatTime(videoPlayer.duration);
+                document.getElementById('timeline-end').textContent = formatTime(videoPlayer.duration);
+            });
+
+            videoPlayer.addEventListener('timeupdate', () => {
+                document.getElementById('current-time').textContent = formatTime(videoPlayer.currentTime);
+                updateTimelineMarker();
+            });
+
+            renderShotsList();
+            renderTimeline();
+        }
+
+        function setupEventListeners() {
+            // Back button
+            document.getElementById('back-to-feed').addEventListener('click', () => {
+                document.getElementById('labeling-interface').classList.add('hidden');
+                document.getElementById('video-feed').classList.remove('hidden');
+                currentVideo = null;
+                currentShots = [];
+            });
+
+            // Player position buttons
+            document.querySelectorAll('.player-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.player-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'text-white');
+                        b.classList.add('bg-white');
+                    });
+                    btn.classList.remove('bg-white');
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                });
+            });
+
+            // Shot type buttons
+            document.querySelectorAll('.shot-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.shot-type-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white', 'border-indigo-600', 'border-purple-600');
+                        b.classList.add('border-gray-300');
+                    });
+                    const isBackhand = btn.dataset.type.startsWith('backhand');
+                    btn.classList.remove('border-gray-300');
+                    btn.classList.add(isBackhand ? 'bg-purple-600' : 'bg-indigo-600', 'text-white');
+                });
+            });
+
+            // Set current time buttons
+            document.getElementById('set-start-current').addEventListener('click', () => {
+                if (videoPlayer) {
+                    const time = videoPlayer.currentTime;
+                    document.getElementById('shot-start-min').value = Math.floor(time / 60);
+                    document.getElementById('shot-start-sec').value = Math.floor(time % 60);
+                }
+            });
+
+            document.getElementById('set-end-current').addEventListener('click', () => {
+                if (videoPlayer) {
+                    const time = videoPlayer.currentTime;
+                    document.getElementById('shot-end-min').value = Math.floor(time / 60);
+                    document.getElementById('shot-end-sec').value = Math.floor(time % 60);
+                }
+            });
+
+            // Add shot button
+            document.getElementById('add-shot-btn').addEventListener('click', addShot);
+
+            // Verify button
+            document.getElementById('verify-btn').addEventListener('click', verifyAndSave);
+
+            // Skip button
+            document.getElementById('skip-btn').addEventListener('click', skipVideo);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (!currentVideo) return;
+                if (e.target.tagName === 'INPUT') return;
+
+                switch(e.key) {
+                    case ' ':
+                        e.preventDefault();
+                        videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause();
+                        break;
+                    case 's':
+                    case 'S':
+                        document.getElementById('set-start-current').click();
+                        break;
+                    case 'e':
+                    case 'E':
+                        document.getElementById('set-end-current').click();
+                        break;
+                    case 'Enter':
+                        addShot();
+                        break;
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                        const shotTypes = document.querySelectorAll('.shot-type-btn');
+                        const index = parseInt(e.key) - 1;
+                        if (shotTypes[index]) shotTypes[index].click();
+                        break;
+                }
+            });
+        }
+
+        function addShot() {
+            // Get values
+            const startMin = parseInt(document.getElementById('shot-start-min').value) || 0;
+            const startSec = parseInt(document.getElementById('shot-start-sec').value) || 0;
+            const endMin = parseInt(document.getElementById('shot-end-min').value) || 0;
+            const endSec = parseInt(document.getElementById('shot-end-sec').value) || 0;
+
+            const startTime = startMin * 60 + startSec;
+            const endTime = endMin * 60 + endSec;
+
+            const playerBtn = document.querySelector('.player-btn.bg-indigo-600');
+            const playerPosition = playerBtn?.id === 'player-near' ? 'near' : (playerBtn?.id === 'player-far' ? 'far' : null);
+
+            const shotTypeBtn = document.querySelector('.shot-type-btn.bg-indigo-600, .shot-type-btn.bg-purple-600');
+            const shotType = shotTypeBtn?.dataset.type || null;
+
+            // Validation
+            if (!shotType) {
+                showToast('Bitte Schlagtyp auswählen', 'warning');
+                return;
+            }
+
+            if (endTime <= startTime) {
+                showToast('Endzeit muss nach Startzeit liegen', 'warning');
+                return;
+            }
+
+            // Add shot
+            currentShots.push({
+                id: Date.now().toString(),
+                startTime,
+                endTime,
+                shotType,
+                playerPosition,
+                saved: false
+            });
+
+            // Reset form
+            document.querySelectorAll('.player-btn, .shot-type-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white', 'border-indigo-600', 'border-purple-600');
+                btn.classList.add('bg-white', 'border-gray-300');
+            });
+
+            renderShotsList();
+            renderTimeline();
+            showToast('Schlag hinzugefügt', 'success');
+        }
+
+        function renderShotsList() {
+            const container = document.getElementById('shots-list');
+            document.getElementById('shot-count').textContent = currentShots.length;
+
+            if (currentShots.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Noch keine Schläge markiert</p>';
+                return;
+            }
+
+            container.innerHTML = currentShots.map((shot, index) => `
+                <div class="shot-item flex items-center justify-between p-2 bg-gray-50 rounded-lg group">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-gray-500">${formatTime(shot.startTime)}-${formatTime(shot.endTime)}</span>
+                        <span class="text-sm font-medium ${shot.shotType.startsWith('backhand') ? 'text-purple-600' : 'text-indigo-600'}">
+                            ${shotTypeLabels[shot.shotType] || shot.shotType}
+                        </span>
+                        ${shot.playerPosition ? `<span class="text-xs text-gray-400">(${shot.playerPosition === 'near' ? 'Nah' : 'Fern'})</span>` : ''}
+                    </div>
+                    <button class="delete-shot opacity-0 text-red-500 hover:text-red-700 p-1 transition-opacity" data-index="${index}">
+                        <i class="fas fa-trash text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            // Delete handlers
+            container.querySelectorAll('.delete-shot').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    currentShots.splice(index, 1);
+                    renderShotsList();
+                    renderTimeline();
+                });
+            });
+        }
+
+        function renderTimeline() {
+            const timeline = document.getElementById('timeline');
+            const duration = videoPlayer?.duration || 1;
+
+            // Clear existing markers
+            timeline.querySelectorAll('.shot-marker').forEach(m => m.remove());
+
+            // Add shot markers
+            currentShots.forEach(shot => {
+                const startPercent = (shot.startTime / duration) * 100;
+                const widthPercent = ((shot.endTime - shot.startTime) / duration) * 100;
+                const isBackhand = shot.shotType.startsWith('backhand');
+
+                const marker = document.createElement('div');
+                marker.className = `shot-marker absolute top-0 h-full ${isBackhand ? 'bg-purple-500' : 'bg-indigo-500'} opacity-50 hover:opacity-75 cursor-pointer`;
+                marker.style.left = `${startPercent}%`;
+                marker.style.width = `${widthPercent}%`;
+                marker.title = `${shotTypeLabels[shot.shotType]}: ${formatTime(shot.startTime)} - ${formatTime(shot.endTime)}`;
+
+                marker.addEventListener('click', () => {
+                    videoPlayer.currentTime = shot.startTime;
+                });
+
+                timeline.appendChild(marker);
+            });
+        }
+
+        function updateTimelineMarker() {
+            // Could add a current position marker here
+        }
+
+        async function verifyAndSave() {
+            if (currentShots.length === 0) {
+                showToast('Bitte mindestens einen Schlag markieren', 'warning');
+                return;
+            }
+
+            try {
+                // Save new shots to video_labels
+                const newShots = currentShots.filter(s => !s.saved);
+                if (newShots.length > 0) {
+                    const labelsToInsert = newShots.map(shot => ({
+                        video_id: currentVideo.id,
+                        labeled_by: currentUser.id,
+                        club_id: currentVideo.club_id,
+                        timestamp_start: shot.startTime,
+                        timestamp_end: shot.endTime,
+                        event_type: 'shot',
+                        shot_type: shot.shotType,
+                        player_position: shot.playerPosition,
+                        confidence: 'certain',
+                        is_verified: true,
+                        verified_by: currentUser.id
+                    }));
+
+                    const { error: insertError } = await supabase
+                        .from('video_labels')
+                        .insert(labelsToInsert);
+
+                    if (insertError) throw insertError;
+                }
+
+                // Mark video as ai_ready
+                const { error: updateError } = await supabase
+                    .from('video_analyses')
+                    .update({ ai_ready: true })
+                    .eq('id', currentVideo.id);
+
+                if (updateError) throw updateError;
+
+                showToast('Video verifiziert und gespeichert!', 'success');
+
+                // Go back to feed
+                document.getElementById('back-to-feed').click();
+                loadPendingVideos();
+
+            } catch (error) {
+                console.error('Error saving:', error);
+                showToast('Fehler beim Speichern', 'error');
+            }
+        }
+
+        async function skipVideo() {
+            try {
+                // Mark as ai_ready but add metadata that it's unsuitable
+                const { error } = await supabase
+                    .from('video_analyses')
+                    .update({ ai_ready: true })
+                    .eq('id', currentVideo.id);
+
+                // Also add to ml_metadata as unsuitable
+                await supabase.from('video_ml_metadata').upsert({
+                    video_id: currentVideo.id,
+                    suitable_for_training: false,
+                    exclusion_reason: 'Manually marked as unsuitable'
+                });
+
+                if (error) throw error;
+
+                showToast('Video übersprungen', 'info');
+                document.getElementById('back-to-feed').click();
+                loadPendingVideos();
+
+            } catch (error) {
+                console.error('Error skipping:', error);
+                showToast('Fehler beim Überspringen', 'error');
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                info: 'bg-indigo-500'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+            toast.textContent = message;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
