@@ -102,16 +102,19 @@
                             Schlag markieren
                         </h3>
 
-                        <!-- Zeit-Eingabe -->
+                        <!-- Zeit-Eingabe (mit Millisekunden) -->
                         <div class="grid grid-cols-2 gap-3 mb-4">
                             <div>
                                 <label class="text-xs text-gray-600 block mb-1">Start</label>
                                 <div class="flex items-center gap-1">
                                     <input type="number" id="shot-start-min" min="0" max="59" value="0"
-                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                           class="time-input w-10 px-1 py-2 border border-gray-300 rounded text-center text-sm">
                                     <span>:</span>
                                     <input type="number" id="shot-start-sec" min="0" max="59" value="0"
-                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                           class="time-input w-10 px-1 py-2 border border-gray-300 rounded text-center text-sm">
+                                    <span>.</span>
+                                    <input type="number" id="shot-start-ms" min="0" max="999" value="0"
+                                           class="time-input w-12 px-1 py-2 border border-gray-300 rounded text-center text-sm" placeholder="ms">
                                     <button id="set-start-current" class="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded text-xs" title="Aktuelle Position">
                                         <i class="fas fa-crosshairs"></i>
                                     </button>
@@ -121,10 +124,13 @@
                                 <label class="text-xs text-gray-600 block mb-1">Ende</label>
                                 <div class="flex items-center gap-1">
                                     <input type="number" id="shot-end-min" min="0" max="59" value="0"
-                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                           class="time-input w-10 px-1 py-2 border border-gray-300 rounded text-center text-sm">
                                     <span>:</span>
                                     <input type="number" id="shot-end-sec" min="0" max="59" value="0"
-                                           class="time-input w-12 px-2 py-2 border border-gray-300 rounded text-center">
+                                           class="time-input w-10 px-1 py-2 border border-gray-300 rounded text-center text-sm">
+                                    <span>.</span>
+                                    <input type="number" id="shot-end-ms" min="0" max="999" value="0"
+                                           class="time-input w-12 px-1 py-2 border border-gray-300 rounded text-center text-sm" placeholder="ms">
                                     <button id="set-end-current" class="px-2 py-2 bg-gray-100 hover:bg-gray-200 rounded text-xs" title="Aktuelle Position">
                                         <i class="fas fa-crosshairs"></i>
                                     </button>
@@ -514,12 +520,13 @@
                 });
             });
 
-            // Set current time buttons
+            // Set current time buttons (with milliseconds)
             document.getElementById('set-start-current').addEventListener('click', () => {
                 if (videoPlayer) {
                     const time = videoPlayer.currentTime;
                     document.getElementById('shot-start-min').value = Math.floor(time / 60);
                     document.getElementById('shot-start-sec').value = Math.floor(time % 60);
+                    document.getElementById('shot-start-ms').value = Math.floor((time % 1) * 1000);
                 }
             });
 
@@ -528,6 +535,7 @@
                     const time = videoPlayer.currentTime;
                     document.getElementById('shot-end-min').value = Math.floor(time / 60);
                     document.getElementById('shot-end-sec').value = Math.floor(time % 60);
+                    document.getElementById('shot-end-ms').value = Math.floor((time % 1) * 1000);
                 }
             });
 
@@ -581,11 +589,14 @@
             // Get values
             const startMin = parseInt(document.getElementById('shot-start-min').value) || 0;
             const startSec = parseInt(document.getElementById('shot-start-sec').value) || 0;
+            const startMs = parseInt(document.getElementById('shot-start-ms').value) || 0;
             const endMin = parseInt(document.getElementById('shot-end-min').value) || 0;
             const endSec = parseInt(document.getElementById('shot-end-sec').value) || 0;
+            const endMs = parseInt(document.getElementById('shot-end-ms').value) || 0;
 
-            const startTime = startMin * 60 + startSec;
-            const endTime = endMin * 60 + endSec;
+            // Zeit in Sekunden mit Millisekunden-Präzision
+            const startTime = startMin * 60 + startSec + (startMs / 1000);
+            const endTime = endMin * 60 + endSec + (endMs / 1000);
 
             // Get "Von" position
             const fromBtn = document.querySelector('.from-btn.bg-indigo-600, .from-btn.bg-purple-600');
@@ -780,7 +791,8 @@
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
         }
 
         function showToast(message, type = 'info') {
