@@ -147,16 +147,11 @@ BEGIN
     -- 10. Delete notifications
     DELETE FROM notifications WHERE user_id = p_user_id;
 
-    -- 11. Delete social data (friends, followers)
-    DELETE FROM friends WHERE user_id = p_user_id OR friend_id = p_user_id;
-    DELETE FROM followers WHERE follower_id = p_user_id OR followed_id = p_user_id;
-
-    -- Delete follow requests if table exists
+    -- 11. Delete social data (friendships)
+    -- Friendships table uses requester_id and addressee_id columns
     BEGIN
-        DELETE FROM follow_requests WHERE requester_id = p_user_id OR target_id = p_user_id;
-    EXCEPTION WHEN undefined_table THEN
-        -- Table doesn't exist, skip
-    END;
+        DELETE FROM friendships WHERE requester_id = p_user_id OR addressee_id = p_user_id;
+    EXCEPTION WHEN undefined_table THEN NULL; END;
 
     -- 12. Delete remaining activity data (user's own likes, comments, events)
     BEGIN
