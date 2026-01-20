@@ -498,10 +498,10 @@ function renderCoachExercises(exercises, filterTag) {
                 <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
                 ${canEdit ? `
                 <div class="mt-auto pointer-events-auto flex gap-2">
-                    <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
+                    <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
                         ✏️ Bearbeiten
                     </button>
-                    <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+                    <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
                         🗑️ Löschen
                     </button>
                 </div>
@@ -1209,11 +1209,15 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             imageUrl = urlData.publicUrl;
         }
 
+        // Difficulty String zu Integer konvertieren (DB erwartet INTEGER)
+        const difficultyMap = { 'easy': 1, 'normal': 2, 'hard': 3 };
+        const difficultyInt = difficultyMap[difficulty] || 1;
+
         const exerciseData = {
             name: title,  // DB-Spalte ist 'name', nicht 'title'
             description_content: JSON.stringify(descriptionContent),
             category: level,  // Speichere Level-Text in 'category'
-            difficulty: difficulty,  // Speichere Schwierigkeit (easy, normal, hard)
+            difficulty: difficultyInt,  // DB erwartet Integer: 1=easy, 2=normal, 3=hard
             points,
             xp_reward: points,  // Setze auch xp_reward für Kompatibilität
             tags,
@@ -1337,9 +1341,15 @@ window.editExercise = async function(exerciseId) {
 
         const exerciseData = mapExerciseFromSupabase(exerciseRow);
 
+        // Difficulty Integer zu String konvertieren für das Select-Feld
+        const difficultyIntToString = { 1: 'easy', 2: 'normal', 3: 'hard' };
+        const difficultyValue = typeof exerciseData.difficulty === 'number'
+            ? difficultyIntToString[exerciseData.difficulty] || ''
+            : exerciseData.difficulty || '';
+
         document.getElementById('exercise-title-form').value = exerciseData.title || '';
         document.getElementById('exercise-level-form').value = exerciseData.level || '';
-        document.getElementById('exercise-difficulty-form').value = exerciseData.difficulty || '';
+        document.getElementById('exercise-difficulty-form').value = difficultyValue;
         document.getElementById('exercise-tags-form').value = (exerciseData.tags || []).join(', ');
 
         // Einheit setzen
