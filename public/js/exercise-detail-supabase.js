@@ -20,6 +20,10 @@ let showAllMode = true; // Start by showing all steps
 let availableHandedness = ['R-R']; // Available handedness modes
 let currentHandedness = 'R-R'; // Current viewing mode
 
+// Multiple animations support
+let allAnimations = []; // Array of { handedness, steps, description }
+let currentExercise = null; // Current exercise data for description switching
+
 // Stroke types for display
 const STROKE_TYPES = {
     A: 'Aufschlag',
@@ -240,8 +244,15 @@ function renderExercise(exercise) {
         imageContainer.classList.remove('hidden');
     }
 
-    // Animation
-    if (exercise.animation_steps) {
+    // Store exercise for later use (handedness switching)
+    currentExercise = exercise;
+
+    // Animation - support both new format (animations array) and old format (animation_steps)
+    if (exercise.animations && Array.isArray(exercise.animations) && exercise.animations.length > 0) {
+        // New format: array of animations with handedness
+        setupMultipleAnimations(exercise.animations);
+    } else if (exercise.animation_steps) {
+        // Old format: single animation with handedness array
         setupAnimation(exercise.animation_steps);
     }
 
@@ -548,6 +559,68 @@ function setupAnimation(rawSteps) {
     }
 }
 
+// Setup multiple animations (new format with handedness-specific animations)
+function setupMultipleAnimations(animations) {
+    if (!animations || animations.length === 0) return;
+
+    // Store all animations
+    allAnimations = animations;
+
+    // Get available handedness options from animations
+    availableHandedness = animations.map(a => a.handedness);
+    currentHandedness = availableHandedness[0] || 'R-R';
+
+    // Get the first animation
+    const firstAnimation = animations[0];
+    animationSteps = firstAnimation.steps || [];
+    currentStepIndex = -1;
+    showAllMode = true;
+
+    const container = document.getElementById('exercise-animation-container');
+    const canvas = document.getElementById('exercise-animation-canvas');
+    const handednessSelector = document.getElementById('animation-handedness-selector');
+    const handednessSelect = document.getElementById('animation-handedness-select');
+
+    // Setup handedness dropdown
+    setupHandednessDropdown(handednessSelector, handednessSelect);
+
+    // Render initial description from first animation if available
+    if (firstAnimation.description) {
+        // Delay slightly to ensure DOM is ready
+        setTimeout(() => renderDescriptionFromData(firstAnimation.description), 0);
+    }
+
+    // Initialize animation player
+    const initPlayer = (PlayerClass) => {
+        try {
+            container.classList.remove('hidden');
+
+            requestAnimationFrame(() => {
+                animationPlayer = new PlayerClass(canvas.id);
+                animationPlayer.loopAnimation = false;
+                animationPlayer.setSteps(animationSteps);
+                updateStepDisplay();
+                renderAllSteps();
+            });
+        } catch (e) {
+            console.error('Error initializing animation:', e);
+        }
+    };
+
+    if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+        initPlayer(window.TableTennisExerciseBuilder);
+    } else {
+        const script = document.createElement('script');
+        script.src = '/js/table-tennis-exercise-builder.js';
+        script.onload = () => {
+            if (window.TableTennisExerciseBuilder) {
+                initPlayer(window.TableTennisExerciseBuilder);
+            }
+        };
+        document.head.appendChild(script);
+    }
+}
+
 function setupHandednessDropdown(selectorContainer, selectElement) {
     if (!selectorContainer || !selectElement) return;
 
@@ -590,9 +663,45 @@ function setupHandednessDropdown(selectorContainer, selectElement) {
 
 function changeHandedness(newHandedness) {
     currentHandedness = newHandedness;
-    // Note: In the future, when we support multiple animations per exercise,
-    // we would load the corresponding animation data here.
-    // For now, the handedness dropdown only shows if multiple options exist.
+
+    // Find animation for this handedness
+    const animation = allAnimations.find(a => a.handedness === newHandedness);
+    if (!animation) return;
+
+    // Update animation steps
+    animationSteps = animation.steps || [];
+    currentStepIndex = -1;
+    showAllMode = true;
+
+    // Update animation player
+    if (animationPlayer && typeof animationPlayer.setSteps === 'function') {
+        animationPlayer.setSteps(animationSteps);
+        updateStepDisplay();
+        renderAllSteps();
+    }
+
+    // Update description if animation has its own
+    if (animation.description) {
+        renderDescriptionFromData(animation.description);
+    } else if (currentExercise) {
+        // Fall back to exercise description
+        renderDescription(currentExercise);
+    }
+}
+
+// Render description from provided data object
+function renderDescriptionFromData(descriptionData) {
+    const descriptionEl = document.getElementById('exercise-description');
+
+    if (descriptionData && descriptionData.type === 'table') {
+        const tableHtml = renderTableForDisplay(descriptionData.tableData);
+        const additionalText = descriptionData.additionalText || '';
+        descriptionEl.innerHTML = tableHtml + (additionalText ? `<p class="mt-4">${escapeHtml(additionalText)}</p>` : '');
+    } else if (descriptionData && descriptionData.type === 'text') {
+        descriptionEl.textContent = descriptionData.text || '';
+    } else if (typeof descriptionData === 'string') {
+        descriptionEl.textContent = descriptionData;
+    }
 }
 
 function updateStepDisplay() {

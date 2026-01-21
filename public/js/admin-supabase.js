@@ -1860,10 +1860,9 @@ async function handleCreateExercise(e) {
         .map(tag => tag.trim())
         .filter(tag => tag);
 
-    // Händigkeits-Tags hinzufügen wenn Animation aktiv
-    const animationToggleForTags = document.getElementById('exercise-animation-toggle');
-    if (animationToggleForTags?.checked) {
-        const handednessTags = getSelectedHandednessTags();
+    // Händigkeits-Tags aus Animationen hinzufügen
+    if (exerciseAnimations.length > 0) {
+        const handednessTags = getAnimationHandednessTags();
         // Händigkeits-Tags hinzufügen (ohne Duplikate)
         handednessTags.forEach(ht => {
             if (!tags.includes(ht)) {
@@ -1954,22 +1953,15 @@ async function handleCreateExercise(e) {
             sport_id: exerciseSport || null,
         };
 
-        // Animation-Steps hinzufügen falls vorhanden
-        const animationToggle = document.getElementById('exercise-animation-toggle');
-        const animationStepsInput = document.getElementById('exercise-animation-steps');
-        if (animationToggle?.checked && animationStepsInput?.value) {
-            try {
-                const animationData = JSON.parse(animationStepsInput.value);
-                if (animationData && animationData.steps && animationData.steps.length > 0) {
-                    // Händigkeits-Optionen hinzufügen
-                    const handednessTags = getSelectedHandednessTags();
-                    animationData.handedness = handednessTags;
-
-                    exerciseData.animation_steps = animationData;
-                }
-            } catch (e) {
-                console.warn('Fehler beim Parsen der Animation-Steps:', e);
-            }
+        // Animationen hinzufügen falls vorhanden
+        if (exerciseAnimations.length > 0) {
+            exerciseData.animations = exerciseAnimations;
+            // Für Abwärtskompatibilität: Erste Animation auch als animation_steps speichern
+            const firstAnimation = exerciseAnimations[0];
+            exerciseData.animation_steps = {
+                steps: firstAnimation.steps,
+                handedness: exerciseAnimations.map(a => a.handedness)
+            };
         }
 
         const { data: insertedExercise, error } = await supabase
@@ -2008,23 +2000,8 @@ async function handleCreateExercise(e) {
         if (partnerContainer) partnerContainer.classList.add('hidden');
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
-        // Animation-Felder zurücksetzen
-        const animationContainerReset = document.getElementById('exercise-animation-container');
-        const animationPreview = document.getElementById('exercise-animation-steps-preview');
-        if (animationToggle) animationToggle.checked = false;
-        if (animationContainerReset) animationContainerReset.classList.add('hidden');
-        if (animationStepsInput) animationStepsInput.value = '';
-        if (animationPreview) animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
-
-        // Händigkeits-Felder zurücksetzen
-        const handednessContainer = document.getElementById('exercise-handedness-container');
-        const autoDescContainer = document.getElementById('exercise-auto-description-container');
-        if (handednessContainer) handednessContainer.classList.add('hidden');
-        if (autoDescContainer) autoDescContainer.classList.add('hidden');
-        document.getElementById('handedness-rr').checked = true;
-        document.getElementById('handedness-ll').checked = false;
-        document.getElementById('handedness-rl').checked = false;
-        document.getElementById('handedness-lr').checked = false;
+        // Animationen zurücksetzen
+        resetExerciseAnimations();
 
         descriptionEditor.clear();
     } catch (error) {
@@ -2544,122 +2521,195 @@ async function initializeAuditSection() {
 // ANIMATION INTEGRATION FÜR ÜBUNGSERSTELLUNG
 // ============================================
 
+// Globale Liste der Animationen für die aktuelle Übung
+let exerciseAnimations = [];
+
 function initializeAnimationToggle() {
-    const animationToggle = document.getElementById('exercise-animation-toggle');
-    const animationContainer = document.getElementById('exercise-animation-container');
-    const handednessContainer = document.getElementById('exercise-handedness-container');
-    const autoDescContainer = document.getElementById('exercise-auto-description-container');
-    const importBtn = document.getElementById('exercise-import-animation-btn');
-    const animationStepsInput = document.getElementById('exercise-animation-steps');
-    const animationPreview = document.getElementById('exercise-animation-steps-preview');
-    const generateDescBtn = document.getElementById('generate-description-btn');
+    const addBtn = document.getElementById('add-animation-btn');
+    const handednessSelect = document.getElementById('new-animation-handedness');
+    const animationsListEl = document.getElementById('exercise-animations-list');
+    const animationsDataInput = document.getElementById('exercise-animations-data');
 
-    if (!animationToggle || !animationContainer) return;
+    if (!addBtn || !handednessSelect || !animationsListEl) return;
 
-    // Toggle-Listener
-    animationToggle.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            animationContainer.classList.remove('hidden');
-            if (handednessContainer) handednessContainer.classList.remove('hidden');
-            if (autoDescContainer) autoDescContainer.classList.remove('hidden');
-        } else {
-            animationContainer.classList.add('hidden');
-            if (handednessContainer) handednessContainer.classList.add('hidden');
-            if (autoDescContainer) autoDescContainer.classList.add('hidden');
+    // Animation hinzufügen Button
+    addBtn.addEventListener('click', () => {
+        // Funktion aus table-tennis-exercise-ui.js verwenden
+        if (typeof window.ttGetCurrentSteps !== 'function') {
+            showAdminNotification('Animator nicht verfügbar. Bitte Seite neu laden.', 'error');
+            return;
+        }
+
+        const animationData = window.ttGetCurrentSteps();
+        if (!animationData || !animationData.steps || animationData.steps.length === 0) {
+            showAdminNotification('Keine Schritte im Animator vorhanden. Erstelle zuerst Schritte im Übungs-Animator oben.', 'warning');
+            return;
+        }
+
+        const handedness = handednessSelect.value;
+
+        // Prüfen ob für diese Händigkeit schon eine Animation existiert
+        const existingIndex = exerciseAnimations.findIndex(a => a.handedness === handedness);
+        if (existingIndex !== -1) {
+            showAdminNotification(`Animation für ${handedness} existiert bereits. Bitte erst entfernen.`, 'warning');
+            return;
+        }
+
+        // Beschreibung automatisch generieren
+        const description = generateDescriptionFromSteps(animationData.steps);
+
+        // Animation zur Liste hinzufügen
+        exerciseAnimations.push({
+            handedness: handedness,
+            steps: animationData.steps,
+            description: description
+        });
+
+        // Hidden Input aktualisieren
+        animationsDataInput.value = JSON.stringify(exerciseAnimations);
+
+        // UI aktualisieren
+        renderAnimationsList();
+
+        // Dropdown Option als "verwendet" markieren
+        updateHandednessDropdown();
+
+        showAdminNotification(`Animation für ${handedness} hinzugefügt!`, 'success');
+    });
+
+    // Initial rendern
+    renderAnimationsList();
+}
+
+// Animationen Liste rendern
+function renderAnimationsList() {
+    const animationsListEl = document.getElementById('exercise-animations-list');
+    if (!animationsListEl) return;
+
+    if (exerciseAnimations.length === 0) {
+        animationsListEl.innerHTML = `
+            <div class="text-sm text-gray-400 italic py-2">
+                Noch keine Animationen hinzugefügt
+            </div>
+        `;
+        return;
+    }
+
+    const handednessLabels = {
+        'R-R': 'Rechts vs Rechts',
+        'L-L': 'Links vs Links',
+        'R-L': 'Rechts vs Links',
+        'L-R': 'Links vs Rechts'
+    };
+
+    const strokeTypes = window.TT_STROKE_TYPES || {};
+
+    animationsListEl.innerHTML = exerciseAnimations.map((anim, index) => {
+        const stepsPreviewHtml = anim.steps.slice(0, 4).map(step => {
+            const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
+            const playerClass = step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700';
+            return `
+                <span class="inline-flex items-center gap-1 text-xs">
+                    <span class="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${playerClass}">${step.player}</span>
+                    ${step.side} ${strokeData.name}
+                </span>
+            `;
+        }).join(' → ');
+
+        const moreSteps = anim.steps.length > 4 ? `<span class="text-xs text-gray-400">+${anim.steps.length - 4} mehr</span>` : '';
+
+        return `
+            <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm" data-index="${index}">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-sm font-medium">
+                            ${anim.handedness}
+                        </span>
+                        <span class="text-sm text-gray-600">${handednessLabels[anim.handedness]}</span>
+                    </div>
+                    <button type="button" class="remove-animation-btn text-red-500 hover:text-red-700 text-sm" data-index="${index}">
+                        <i class="fas fa-trash mr-1"></i>Entfernen
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-1 text-gray-600">
+                    ${stepsPreviewHtml} ${moreSteps}
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <i class="fas fa-list-ol mr-1"></i>${anim.steps.length} Schritte
+                    ${anim.description ? '<i class="fas fa-check-circle text-green-500 ml-2"></i> Beschreibung generiert' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Remove-Button Listener hinzufügen
+    animationsListEl.querySelectorAll('.remove-animation-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.currentTarget.dataset.index);
+            removeAnimation(index);
+        });
+    });
+}
+
+// Animation entfernen
+function removeAnimation(index) {
+    if (index >= 0 && index < exerciseAnimations.length) {
+        const removed = exerciseAnimations.splice(index, 1)[0];
+
+        // Hidden Input aktualisieren
+        const animationsDataInput = document.getElementById('exercise-animations-data');
+        if (animationsDataInput) {
+            animationsDataInput.value = JSON.stringify(exerciseAnimations);
+        }
+
+        // UI aktualisieren
+        renderAnimationsList();
+        updateHandednessDropdown();
+
+        showAdminNotification(`Animation für ${removed.handedness} entfernt.`, 'info');
+    }
+}
+
+// Dropdown aktualisieren (bereits verwendete Optionen markieren)
+function updateHandednessDropdown() {
+    const handednessSelect = document.getElementById('new-animation-handedness');
+    if (!handednessSelect) return;
+
+    const usedHandedness = exerciseAnimations.map(a => a.handedness);
+
+    Array.from(handednessSelect.options).forEach(option => {
+        const isUsed = usedHandedness.includes(option.value);
+        option.disabled = isUsed;
+        option.textContent = option.value === 'R-R' ? 'R-R (Rechts gegen Rechts)' :
+                            option.value === 'L-L' ? 'L-L (Links gegen Links)' :
+                            option.value === 'R-L' ? 'R-L (Rechts gegen Links)' :
+                            'L-R (Links gegen Rechts)';
+        if (isUsed) {
+            option.textContent += ' ✓';
         }
     });
 
-    // Auto-Beschreibung generieren
-    if (generateDescBtn) {
-        generateDescBtn.addEventListener('click', () => {
-            const stepsJson = animationStepsInput?.value;
-            if (!stepsJson) {
-                showAdminNotification('Bitte zuerst Animation vom Animator übernehmen.', 'warning');
-                return;
-            }
-            try {
-                const animationData = JSON.parse(stepsJson);
-                if (animationData && animationData.steps && animationData.steps.length > 0) {
-                    const description = generateDescriptionFromSteps(animationData.steps);
-                    if (description) {
-                        // Speichere JSON in hidden textarea für Formular-Submission
-                        const descTextarea = document.getElementById('exercise-description');
-                        if (descTextarea) {
-                            descTextarea.value = JSON.stringify(description);
-                        }
-                        // Zeige Tabelle im Editor an
-                        if (descriptionEditor && typeof descriptionEditor.setContent === 'function') {
-                            descriptionEditor.setContent(description);
-                        }
-                        showAdminNotification('Beschreibung generiert!', 'success');
-                    }
-                }
-            } catch (e) {
-                showAdminNotification('Fehler beim Parsen der Animation-Schritte.', 'error');
-            }
-        });
+    // Erste nicht-verwendete Option auswählen
+    const firstAvailable = Array.from(handednessSelect.options).find(o => !o.disabled);
+    if (firstAvailable) {
+        handednessSelect.value = firstAvailable.value;
     }
+}
 
-    // Import-Button Listener
-    if (importBtn) {
-        importBtn.addEventListener('click', () => {
-            // Funktion aus table-tennis-exercise-ui.js verwenden
-            if (typeof window.ttGetCurrentSteps === 'function') {
-                const animationData = window.ttGetCurrentSteps();
-
-                if (animationData && animationData.steps && animationData.steps.length > 0) {
-                    // Animation-Steps speichern
-                    animationStepsInput.value = JSON.stringify(animationData);
-
-                    // Preview aktualisieren
-                    const strokeTypes = window.TT_STROKE_TYPES || {};
-                    const stepsPreviewHtml = animationData.steps.map((step, index) => {
-                        const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
-                        const playerClass = step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700';
-                        const shortBadge = step.isShort ? '<span class="bg-amber-100 text-amber-700 px-1 rounded text-xs ml-1">kurz</span>' : '';
-
-                        return `
-                            <div class="flex items-center gap-2 py-1 border-b border-slate-100 last:border-0">
-                                <span class="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${playerClass}">
-                                    ${step.player}
-                                </span>
-                                <span class="text-slate-600">
-                                    ${step.side} ${strokeData.name} ${step.fromPosition}→${step.toPosition}${shortBadge}
-                                </span>
-                            </div>
-                        `;
-                    }).join('');
-
-                    animationPreview.innerHTML = `
-                        <div class="text-slate-600 not-italic">
-                            <div class="flex items-center justify-between mb-1">
-                                <span class="font-medium">${animationData.steps.length} Schritte</span>
-                                <button type="button" id="exercise-clear-animation-btn" class="text-red-500 hover:text-red-700 text-[10px]">
-                                    <i class="fas fa-trash mr-1"></i>Entfernen
-                                </button>
-                            </div>
-                            ${stepsPreviewHtml}
-                        </div>
-                    `;
-
-                    // Clear-Button Listener
-                    const clearBtn = document.getElementById('exercise-clear-animation-btn');
-                    if (clearBtn) {
-                        clearBtn.addEventListener('click', () => {
-                            animationStepsInput.value = '';
-                            animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
-                        });
-                    }
-
-                    showAdminNotification('Animation übernommen!', 'success');
-                } else {
-                    showAdminNotification('Keine Schritte im Animator vorhanden. Erstelle zuerst Schritte im Übungs-Animator oben.', 'warning');
-                }
-            } else {
-                showAdminNotification('Animator nicht verfügbar. Bitte Seite neu laden.', 'error');
-            }
-        });
+// Animationen zurücksetzen (nach Formular-Submit)
+function resetExerciseAnimations() {
+    exerciseAnimations = [];
+    const animationsDataInput = document.getElementById('exercise-animations-data');
+    if (animationsDataInput) {
+        animationsDataInput.value = '[]';
     }
+    renderAnimationsList();
+    updateHandednessDropdown();
+}
+
+// Alle Händigkeits-Tags aus Animationen sammeln
+function getAnimationHandednessTags() {
+    return exerciseAnimations.map(a => a.handedness);
 }
 
 // Beschreibung aus Animation-Steps generieren (als strukturiertes Tabellen-Objekt)
@@ -2714,26 +2764,6 @@ function generateDescriptionFromSteps(steps) {
         },
         additionalText: ''
     };
-}
-
-// Händigkeits-Tags aus Checkboxen sammeln
-function getSelectedHandednessTags() {
-    const tags = [];
-    const checkboxes = [
-        { id: 'handedness-rr', tag: 'R-R' },
-        { id: 'handedness-ll', tag: 'L-L' },
-        { id: 'handedness-rl', tag: 'R-L' },
-        { id: 'handedness-lr', tag: 'L-R' }
-    ];
-
-    checkboxes.forEach(({ id, tag }) => {
-        const checkbox = document.getElementById(id);
-        if (checkbox?.checked) {
-            tags.push(tag);
-        }
-    });
-
-    return tags;
 }
 
 // Hilfsfunktion für Benachrichtigungen

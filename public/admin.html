@@ -814,84 +814,43 @@
                                     />
                                 </div>
 
-                                <!-- Animation (Optional) -->
+                                <!-- Animationen (Optional, mehrere pro Händigkeit) -->
                                 <div class="border-t border-gray-200 pt-4">
-                                    <div class="flex items-center mb-3">
-                                        <input
-                                            type="checkbox"
-                                            id="exercise-animation-toggle"
-                                            class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                                        />
-                                        <label
-                                            for="exercise-animation-toggle"
-                                            class="ml-2 text-sm font-medium text-gray-700"
-                                        >
-                                            🏓 Animation hinzufügen (optional)
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="text-sm font-medium text-gray-700">
+                                            🏓 Animationen (optional)
                                         </label>
                                     </div>
-                                    <div id="exercise-animation-container" class="hidden">
-                                        <p class="text-xs text-gray-500 mb-3">
-                                            Füge eine animierte Ballwechsel-Visualisierung hinzu. Du kannst den Animator oben verwenden und die Schritte hier übernehmen.
-                                        </p>
-                                        <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                                            <div class="flex items-center justify-between mb-2">
-                                                <span class="text-xs font-medium text-slate-600">Animation-Schritte</span>
-                                                <button
-                                                    type="button"
-                                                    id="exercise-import-animation-btn"
-                                                    class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-md transition-colors"
-                                                >
-                                                    <i class="fas fa-download mr-1"></i>Vom Animator übernehmen
-                                                </button>
-                                            </div>
-                                            <div id="exercise-animation-steps-preview" class="text-xs text-slate-500 italic">
-                                                Keine Animation-Schritte vorhanden
-                                            </div>
-                                            <input type="hidden" id="exercise-animation-steps" value="" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Händigkeit (nur bei Animation) -->
-                                <div id="exercise-handedness-container" class="hidden border-t border-gray-200 pt-4">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        <i class="fas fa-hands mr-1"></i>
-                                        Händigkeits-Kombinationen
-                                    </label>
                                     <p class="text-xs text-gray-500 mb-3">
-                                        Wähle für welche Händigkeits-Paarungen diese Übung gilt. Tags werden automatisch hinzugefügt.
+                                        Füge Animationen für verschiedene Händigkeits-Kombinationen hinzu. Erstelle zuerst die Animation im Animator oben.
                                     </p>
-                                    <div class="space-y-2">
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id="handedness-rr" value="R-R" checked
-                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
-                                            <span class="text-sm">R-R (Rechts gegen Rechts)</span>
-                                            <span class="text-xs text-gray-400">Standard</span>
-                                        </label>
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id="handedness-ll" value="L-L"
-                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
-                                            <span class="text-sm">L-L (Links gegen Links)</span>
-                                        </label>
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id="handedness-rl" value="R-L"
-                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
-                                            <span class="text-sm">R-L (Rechts gegen Links)</span>
-                                        </label>
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" id="handedness-lr" value="L-R"
-                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
-                                            <span class="text-sm">L-R (Links gegen Rechts)</span>
-                                        </label>
-                                    </div>
-                                </div>
 
-                                <!-- Auto-Beschreibung aus Animation -->
-                                <div id="exercise-auto-description-container" class="hidden">
-                                    <button type="button" id="generate-description-btn"
-                                        class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                                        <i class="fas fa-magic mr-2"></i>Beschreibung aus Animation generieren
-                                    </button>
+                                    <!-- Liste der hinzugefügten Animationen -->
+                                    <div id="exercise-animations-list" class="space-y-3 mb-4">
+                                        <!-- Dynamisch befüllt -->
+                                    </div>
+
+                                    <!-- Animation hinzufügen Panel -->
+                                    <div id="add-animation-panel" class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <select id="new-animation-handedness" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-emerald-500 focus:border-emerald-500">
+                                                <option value="R-R">R-R (Rechts gegen Rechts)</option>
+                                                <option value="L-L">L-L (Links gegen Links)</option>
+                                                <option value="R-L">R-L (Rechts gegen Links)</option>
+                                                <option value="L-R">L-R (Links gegen Rechts)</option>
+                                            </select>
+                                            <button type="button" id="add-animation-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                                <i class="fas fa-plus mr-1"></i>Animation hinzufügen
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-400">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Tipp: Erstelle zuerst die Animation im Animator, dann wähle die Händigkeit und klicke "Animation hinzufügen".
+                                        </p>
+                                    </div>
+
+                                    <!-- Hidden input für alle Animationen (JSON) -->
+                                    <input type="hidden" id="exercise-animations-data" value="[]" />
                                 </div>
 
                                 <button
