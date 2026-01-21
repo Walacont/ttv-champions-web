@@ -74,7 +74,6 @@ class TableTennisExerciseBuilder {
         this.ballTarget = { x: 0, y: 0 };
         this.animationProgress = 0;
         this.loopAnimation = true;
-        this.mirrored = false; // For left-handers: mirrors VH/RH positions
 
         // Calculate table dimensions
         this.resizeCanvas();
@@ -82,17 +81,6 @@ class TableTennisExerciseBuilder {
 
         // Initial draw
         this.drawTable();
-    }
-
-    // Set mirrored mode for left-handers (swaps VH and RH sides)
-    setMirrored(mirrored) {
-        this.mirrored = mirrored;
-        // Redraw with new mirroring
-        if (this.steps.length > 0) {
-            this.drawAllSteps();
-        } else {
-            this.drawTable();
-        }
     }
 
     resizeCanvas() {
@@ -192,18 +180,10 @@ class TableTennisExerciseBuilder {
     getPositionCoords(position, isPlayerA, previousStepWasShort = false) {
         const posData = POSITIONS[position] || POSITIONS.M;
 
-        // Get base xRatio from position data
-        let baseXRatio = posData.xRatio;
-
-        // For left-handers (mirrored mode): swap VH and RH
-        // Normal: VH=right(0.75), RH=left(0.25)
-        // Mirrored: VH=left(0.25), RH=right(0.75)
-        if (this.mirrored && position !== 'M' && position !== 'FREI') {
-            baseXRatio = 1 - baseXRatio;
-        }
-
         // Mirror x-position for Player B (opponent stands on opposite side)
-        const xRatio = isPlayerA ? baseXRatio : (1 - baseXRatio);
+        // Player A: VH=right(0.75), RH=left(0.25)
+        // Player B: VH=left(0.25), RH=right(0.75) from our view
+        const xRatio = isPlayerA ? posData.xRatio : (1 - posData.xRatio);
         const x = this.tableX + this.tableWidth * xRatio;
 
         // Player A is at bottom, Player B is at top
@@ -229,19 +209,11 @@ class TableTennisExerciseBuilder {
     getTargetZoneCoords(position, isPlayerA) {
         const posData = POSITIONS[position] || POSITIONS.M;
 
-        // Get base xRatio from position data
-        let baseXRatio = posData.xRatio;
-
-        // For left-handers (mirrored mode): swap VH and RH
-        if (this.mirrored && position !== 'M' && position !== 'FREI') {
-            baseXRatio = 1 - baseXRatio;
-        }
-
         // Target position is where the ball lands on opponent's side
         // The position (VH/RH/M) refers to where on the opponent's side
         // From our view: if targeting opponent's VH and opponent is Player B (top),
         // that's on the LEFT side (0.25) because Player B's VH is mirrored
-        const xRatio = isPlayerA ? (1 - baseXRatio) : baseXRatio;
+        const xRatio = isPlayerA ? (1 - posData.xRatio) : posData.xRatio;
         const x = this.tableX + this.tableWidth * xRatio;
 
         // Target zone is on opponent's side of the table (deep, near baseline)

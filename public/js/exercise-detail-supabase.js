@@ -596,9 +596,6 @@ function setupMultipleAnimations(animations) {
         setTimeout(() => renderDescriptionFromData(firstAnimation.description), 0);
     }
 
-    // Set mirroring for left-handers
-    const shouldMirror = currentHandedness === 'L-L';
-
     // Initialize animation player
     const initPlayer = (PlayerClass) => {
         try {
@@ -607,10 +604,6 @@ function setupMultipleAnimations(animations) {
             requestAnimationFrame(() => {
                 animationPlayer = new PlayerClass(canvas.id);
                 animationPlayer.loopAnimation = false;
-                // Set mirroring for left-handers
-                if (typeof animationPlayer.setMirrored === 'function') {
-                    animationPlayer.setMirrored(shouldMirror);
-                }
                 animationPlayer.setSteps(animationSteps);
                 updateStepDisplay();
                 renderAllSteps();
@@ -686,21 +679,11 @@ function changeHandedness(newHandedness) {
     currentStepIndex = -1;
     showAllMode = true;
 
-    // Set mirroring for left-handers (L-L means both players are left-handed)
-    // For left-handers, VH is on the left side, RH is on the right side
-    const shouldMirror = newHandedness === 'L-L';
-
     // Update animation player
-    if (animationPlayer) {
-        // Set mirroring first
-        if (typeof animationPlayer.setMirrored === 'function') {
-            animationPlayer.setMirrored(shouldMirror);
-        }
-        if (typeof animationPlayer.setSteps === 'function') {
-            animationPlayer.setSteps(animationSteps);
-            updateStepDisplay();
-            renderAllSteps();
-        }
+    if (animationPlayer && typeof animationPlayer.setSteps === 'function') {
+        animationPlayer.setSteps(animationSteps);
+        updateStepDisplay();
+        renderAllSteps();
     }
 
     // Update description if animation has its own
