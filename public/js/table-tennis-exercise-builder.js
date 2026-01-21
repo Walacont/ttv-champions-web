@@ -175,12 +175,12 @@ class TableTennisExerciseBuilder {
         const xRatio = isPlayerA ? (1 - posData.xRatio) : posData.xRatio;
         const x = this.tableX + this.tableWidth * xRatio;
 
-        // Target zone is on opponent's side of the table
+        // Target zone is on opponent's side of the table (deep, near baseline)
         let y;
         if (isPlayerA) {
-            y = this.tableY + this.tableHeight * 0.30; // Top area (opponent's side)
+            y = this.tableY + this.tableHeight * 0.18; // Deep in opponent's side (near top edge)
         } else {
-            y = this.tableY + this.tableHeight * 0.70; // Bottom area (opponent's side)
+            y = this.tableY + this.tableHeight * 0.82; // Deep in opponent's side (near bottom edge)
         }
 
         return { x, y };
