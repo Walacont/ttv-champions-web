@@ -49,9 +49,9 @@ const POSITIONS = {
 // Table is viewed from player's perspective: longer dimension is vertical
 const TABLE = {
     aspectRatio: 0.56, // width / height (table is taller than wide)
-    padding: 40,
+    padding: 20,       // Reduced padding for compact design
     netPosition: 0.5,  // Middle of table
-    color: '#1e3a5f',
+    color: '#0d4f3c',  // Modern green table color
     lineColor: '#ffffff',
     lineWidth: 2
 };
@@ -84,8 +84,8 @@ class TableTennisExerciseBuilder {
     resizeCanvas() {
         const container = this.canvas.parentElement;
         const containerWidth = container.clientWidth;
-        const maxHeight = 600;
-        const maxWidth = 400; // Table is taller than wide, so limit width
+        const maxHeight = 380;  // Smaller for compact design
+        const maxWidth = 220;   // Smaller table width
 
         // Calculate dimensions maintaining aspect ratio
         // Start from width since table is narrow
@@ -113,19 +113,40 @@ class TableTennisExerciseBuilder {
     drawTable() {
         const ctx = this.ctx;
         const { tableX, tableY, tableWidth, tableHeight } = this;
+        const cornerRadius = 6;
 
-        // Clear canvas with black background
-        ctx.fillStyle = '#000000';
+        // Clear canvas with dark background
+        ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw table surface
+        // Draw table shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 4;
+        ctx.shadowOffsetY = 4;
         ctx.fillStyle = TABLE.color;
-        ctx.fillRect(tableX, tableY, tableWidth, tableHeight);
+        ctx.beginPath();
+        ctx.roundRect(tableX, tableY, tableWidth, tableHeight, cornerRadius);
+        ctx.fill();
+        ctx.restore();
+
+        // Draw table surface with subtle gradient
+        const gradient = ctx.createLinearGradient(tableX, tableY, tableX + tableWidth, tableY + tableHeight);
+        gradient.addColorStop(0, '#0d5c47');
+        gradient.addColorStop(0.5, TABLE.color);
+        gradient.addColorStop(1, '#0a3d2e');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.roundRect(tableX, tableY, tableWidth, tableHeight, cornerRadius);
+        ctx.fill();
 
         // Draw outer border
         ctx.strokeStyle = TABLE.lineColor;
-        ctx.lineWidth = TABLE.lineWidth * 2;
-        ctx.strokeRect(tableX, tableY, tableWidth, tableHeight);
+        ctx.lineWidth = TABLE.lineWidth * 1.5;
+        ctx.beginPath();
+        ctx.roundRect(tableX, tableY, tableWidth, tableHeight, cornerRadius);
+        ctx.stroke();
 
         // Draw center line (vertical)
         ctx.beginPath();
@@ -135,10 +156,10 @@ class TableTennisExerciseBuilder {
         ctx.lineTo(tableX + tableWidth / 2, tableY + tableHeight);
         ctx.stroke();
 
-        // Draw net line (horizontal at middle)
+        // Draw net line (horizontal at middle) with slight glow
         ctx.beginPath();
-        ctx.strokeStyle = TABLE.lineColor;
-        ctx.lineWidth = TABLE.lineWidth;
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = TABLE.lineWidth + 1;
         const netY = tableY + tableHeight * TABLE.netPosition;
         ctx.moveTo(tableX, netY);
         ctx.lineTo(tableX + tableWidth, netY);
@@ -230,9 +251,9 @@ class TableTennisExerciseBuilder {
             }
         }
 
-        // Draw target zone (dashed rectangle)
-        const zoneWidth = 80;
-        const zoneHeight = 50;
+        // Draw target zone (dashed rectangle) - scaled for compact table
+        const zoneWidth = 50;
+        const zoneHeight = 30;
         ctx.save();
         ctx.strokeStyle = strokeData.color;
         ctx.lineWidth = 2;
@@ -272,25 +293,25 @@ class TableTennisExerciseBuilder {
             this.drawArrowhead(ctx, startPos.x, startPos.y, adjustedEndPos.x, adjustedEndPos.y, strokeData.color);
         }
 
-        // Draw ball
+        // Draw ball - smaller for compact design
         ctx.beginPath();
         ctx.fillStyle = '#ffffff';
-        ctx.arc(currentX, currentY, 8, 0, Math.PI * 2);
+        ctx.arc(currentX, currentY, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Draw stroke label
+        // Draw stroke label - compact version
         const labelText = `${step.side} ${strokeData.name}`;
-        const labelY = isPlayerA ? startPos.y + 40 : startPos.y - 30;
+        const labelY = isPlayerA ? startPos.y + 25 : startPos.y - 20;
 
-        // Label background
-        ctx.font = 'bold 14px Inter, sans-serif';
+        // Label background - smaller for compact design
+        ctx.font = 'bold 10px Inter, sans-serif';
         const textMetrics = ctx.measureText(labelText);
-        const labelPadding = 12;
+        const labelPadding = 6;
         const labelWidth = textMetrics.width + labelPadding * 2;
-        const labelHeight = 28;
+        const labelHeight = 18;
 
         ctx.fillStyle = strokeData.color;
         ctx.beginPath();
@@ -299,7 +320,7 @@ class TableTennisExerciseBuilder {
             labelY - labelHeight / 2,
             labelWidth,
             labelHeight,
-            14
+            9
         );
         ctx.fill();
 
@@ -312,7 +333,7 @@ class TableTennisExerciseBuilder {
 
     drawArrowhead(ctx, fromX, fromY, toX, toY, color) {
         const angle = Math.atan2(toY - fromY, toX - fromX);
-        const headLength = 12;
+        const headLength = 8;  // Smaller for compact design
 
         ctx.save();
         ctx.fillStyle = color;

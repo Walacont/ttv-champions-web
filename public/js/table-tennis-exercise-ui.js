@@ -17,6 +17,37 @@
         const canvas = document.getElementById('tt-exercise-canvas');
         if (!canvas) return;
 
+        // Wait for the main content to become visible (after auth check)
+        const mainContent = document.getElementById('main-content');
+        if (mainContent && mainContent.style.display === 'none') {
+            // Use MutationObserver to detect when main-content becomes visible
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        if (mainContent.style.display !== 'none') {
+                            observer.disconnect();
+                            initializeExerciseBuilder();
+                        }
+                    }
+                }
+            });
+            observer.observe(mainContent, { attributes: true });
+
+            // Also try after a short delay as fallback
+            setTimeout(() => {
+                if (!exerciseBuilder) {
+                    observer.disconnect();
+                    initializeExerciseBuilder();
+                }
+            }, 1000);
+        } else {
+            initializeExerciseBuilder();
+        }
+    }
+
+    function initializeExerciseBuilder() {
+        if (exerciseBuilder) return; // Already initialized
+
         // Initialize the canvas builder
         exerciseBuilder = new TableTennisExerciseBuilder('tt-exercise-canvas');
 
@@ -218,7 +249,7 @@
         if (!listContainer) return;
 
         if (steps.length === 0) {
-            listContainer.innerHTML = '<p class="text-gray-500 text-sm italic">Noch keine Schritte hinzugefügt.</p>';
+            listContainer.innerHTML = '<p class="text-slate-400 text-[10px] italic">Keine Schritte</p>';
             return;
         }
 
@@ -226,22 +257,22 @@
 
         listContainer.innerHTML = steps.map((step, index) => {
             const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType, color: '#6B7280' };
-            const shortLabel = step.isShort ? ' <span class="text-xs text-orange-600">(kurz)</span>' : '';
+            const shortLabel = step.isShort ? '<span class="text-amber-600 ml-1">K</span>' : '';
 
             return `
-                <div class="flex items-center justify-between bg-white border rounded-lg p-2 hover:bg-gray-50">
-                    <div class="flex items-center gap-2">
-                        <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}">
+                <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
                             ${step.player}
                         </span>
-                        <span class="text-sm">
-                            <span class="font-medium">${step.side} ${strokeData.name}</span>
-                            <span class="text-gray-500"> aus ${step.fromPosition} in ${step.toPosition}</span>
+                        <span class="text-[10px] text-slate-600">
+                            <span class="font-semibold">${step.side} ${strokeData.name}</span>
+                            <span class="text-slate-400">${step.fromPosition}→${step.toPosition}</span>
                             ${shortLabel}
                         </span>
                     </div>
-                    <button onclick="window.ttRemoveStep(${index})" class="text-red-500 hover:text-red-700 p-1">
-                        <i class="fas fa-times"></i>
+                    <button onclick="window.ttRemoveStep(${index})" class="text-slate-400 hover:text-red-500 p-0.5 transition-colors">
+                        <i class="fas fa-times text-[10px]"></i>
                     </button>
                 </div>
             `;
