@@ -76,6 +76,81 @@
         if (saveBtn) {
             saveBtn.addEventListener('click', handleSaveExercise);
         }
+
+        // Variants toggle
+        const hasVariantsCheckbox = document.getElementById('tt-has-variants');
+        const variantsContainer = document.getElementById('tt-variants-container');
+        if (hasVariantsCheckbox && variantsContainer) {
+            hasVariantsCheckbox.addEventListener('change', (e) => {
+                variantsContainer.classList.toggle('hidden', !e.target.checked);
+                if (e.target.checked) {
+                    // Add initial variant if none exists
+                    const variantsList = document.getElementById('tt-variants-list');
+                    if (variantsList && variantsList.children.length === 0) {
+                        addVariantRow();
+                    }
+                }
+            });
+        }
+
+        // Add variant button
+        const addVariantBtn = document.getElementById('tt-add-variant-btn');
+        if (addVariantBtn) {
+            addVariantBtn.addEventListener('click', addVariantRow);
+        }
+    }
+
+    let variantCounter = 0;
+
+    function addVariantRow() {
+        const variantsList = document.getElementById('tt-variants-list');
+        if (!variantsList) return;
+
+        const variantId = variantCounter++;
+        const variantHtml = `
+            <div class="variant-row bg-slate-50 rounded-lg p-2 border border-slate-200" data-variant-id="${variantId}">
+                <div class="flex items-center gap-1 mb-1">
+                    <span class="text-[9px] text-slate-500">Wenn</span>
+                    <select class="variant-condition px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white">
+                        <option value="RH">in RH</option>
+                        <option value="VH">in VH</option>
+                        <option value="kurz">kurz</option>
+                        <option value="lang">lang</option>
+                    </select>
+                    <span class="text-[9px] text-slate-500">→</span>
+                    <select class="variant-side px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white">
+                        <option value="RH">RH</option>
+                        <option value="VH">VH</option>
+                    </select>
+                    <select class="variant-stroke px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white">
+                        <option value="T">T</option>
+                        <option value="SCH">SCH</option>
+                        <option value="B">B</option>
+                        <option value="K">K</option>
+                        <option value="F">F</option>
+                        <option value="S">S</option>
+                    </select>
+                    <span class="text-[9px] text-slate-500">→</span>
+                    <select class="variant-to px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white">
+                        <option value="RH">RH</option>
+                        <option value="M">M</option>
+                        <option value="VH">VH</option>
+                        <option value="FREI">Frei</option>
+                    </select>
+                    <button type="button" class="variant-remove text-red-400 hover:text-red-600 ml-1">
+                        <i class="fas fa-times text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        variantsList.insertAdjacentHTML('beforeend', variantHtml);
+
+        // Add remove handler
+        const newRow = variantsList.querySelector(`[data-variant-id="${variantId}"]`);
+        const removeBtn = newRow.querySelector('.variant-remove');
+        removeBtn.addEventListener('click', () => {
+            newRow.remove();
+        });
     }
 
     function setupPlaybackControls() {
@@ -182,6 +257,21 @@
         const fromPosition = document.getElementById('tt-from-position').value;
         const toPosition = document.getElementById('tt-to-position').value;
         const isShort = document.getElementById('tt-short-checkbox').checked;
+        const hasVariants = document.getElementById('tt-has-variants').checked;
+
+        // Collect variants if enabled
+        let variants = [];
+        if (hasVariants) {
+            const variantRows = document.querySelectorAll('#tt-variants-list .variant-row');
+            variantRows.forEach(row => {
+                variants.push({
+                    condition: row.querySelector('.variant-condition').value,
+                    side: row.querySelector('.variant-side').value,
+                    strokeType: row.querySelector('.variant-stroke').value,
+                    toPosition: row.querySelector('.variant-to').value
+                });
+            });
+        }
 
         const step = {
             player,
@@ -189,20 +279,45 @@
             side,
             fromPosition,
             toPosition,
-            isShort
+            isShort,
+            variants: variants.length > 0 ? variants : undefined
         };
 
         steps.push(step);
-        exerciseBuilder.addStep(player, strokeType, side, fromPosition, toPosition, isShort);
+        exerciseBuilder.addStep(player, strokeType, side, fromPosition, toPosition, isShort, variants.length > 0 ? variants : undefined);
 
         updateStepsList();
 
         // Reset short checkbox
         document.getElementById('tt-short-checkbox').checked = false;
 
+        // Reset variants
+        const hasVariantsCheckbox = document.getElementById('tt-has-variants');
+        if (hasVariantsCheckbox) {
+            hasVariantsCheckbox.checked = false;
+            document.getElementById('tt-variants-container').classList.add('hidden');
+            document.getElementById('tt-variants-list').innerHTML = '';
+        }
+
         // Auto-switch player for next step
         const playerSelect = document.getElementById('tt-player-select');
         playerSelect.value = player === 'A' ? 'B' : 'A';
+
+        // Auto-select "from" position based on where the ball landed (toPosition)
+        // Only if toPosition is not "FREI" (free)
+        if (toPosition && toPosition !== 'FREI') {
+            const fromPositionSelect = document.getElementById('tt-from-position');
+            fromPositionSelect.value = toPosition;
+
+            // Also auto-select the side based on where the ball landed
+            const sideSelect = document.getElementById('tt-side-select');
+            if (toPosition === 'VH') {
+                sideSelect.value = 'VH';
+            } else if (toPosition === 'RH') {
+                sideSelect.value = 'RH';
+            }
+            // For 'M' (Mitte), keep the previous side selection
+        }
 
         showToast('Schritt hinzugefügt', 'success');
     }
@@ -229,7 +344,8 @@
                 step.side,
                 step.fromPosition,
                 step.toPosition,
-                step.isShort
+                step.isShort,
+                step.variants
             );
         });
 
@@ -259,17 +375,30 @@
             const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType, color: '#6B7280' };
             const shortLabel = step.isShort ? '<span class="text-amber-600 ml-1">K</span>' : '';
 
+            // Build variants display
+            let variantsHtml = '';
+            if (step.variants && step.variants.length > 0) {
+                const variantTexts = step.variants.map(v => {
+                    const vStrokeData = strokeTypes[v.strokeType] || { name: v.strokeType };
+                    return `<span class="text-violet-600">${v.condition}→${v.side} ${vStrokeData.name}→${v.toPosition}</span>`;
+                }).join(' | ');
+                variantsHtml = `<div class="text-[9px] text-slate-400 mt-0.5">oder: ${variantTexts}</div>`;
+            }
+
             return `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors">
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
-                            ${step.player}
-                        </span>
-                        <span class="text-[10px] text-slate-600">
-                            <span class="font-semibold">${step.side} ${strokeData.name}</span>
-                            <span class="text-slate-400">${step.fromPosition}→${step.toPosition}</span>
-                            ${shortLabel}
-                        </span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
+                                ${step.player}
+                            </span>
+                            <span class="text-[10px] text-slate-600">
+                                <span class="font-semibold">${step.side} ${strokeData.name}</span>
+                                <span class="text-slate-400">${step.fromPosition}→${step.toPosition}</span>
+                                ${shortLabel}
+                            </span>
+                        </div>
+                        ${variantsHtml}
                     </div>
                     <button onclick="window.ttRemoveStep(${index})" class="text-slate-400 hover:text-red-500 p-0.5 transition-colors">
                         <i class="fas fa-times text-[10px]"></i>
@@ -292,7 +421,8 @@
                 step.side,
                 step.fromPosition,
                 step.toPosition,
-                step.isShort
+                step.isShort,
+                step.variants
             );
         });
 
@@ -342,7 +472,17 @@
         steps.forEach((step, index) => {
             const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
             const shortText = step.isShort ? ' kurz' : '';
-            description += `${index + 1}. Spieler ${step.player}: ${step.side} ${strokeData.name}${shortText} aus ${step.fromPosition} in die ${step.toPosition}\n`;
+            const toText = step.toPosition === 'FREI' ? 'frei' : step.toPosition;
+            description += `${index + 1}. Spieler ${step.player}: ${step.side} ${strokeData.name}${shortText} aus ${step.fromPosition} in die ${toText}\n`;
+
+            // Add variants to description
+            if (step.variants && step.variants.length > 0) {
+                step.variants.forEach(variant => {
+                    const variantStrokeData = strokeTypes[variant.strokeType] || { name: variant.strokeType };
+                    const variantToText = variant.toPosition === 'FREI' ? 'frei' : variant.toPosition;
+                    description += `   oder wenn ${variant.condition}: ${variant.side} ${variantStrokeData.name} → ${variantToText}\n`;
+                });
+            }
         });
 
         return description;

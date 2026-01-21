@@ -437,7 +437,25 @@
                                                 <option value="RH">RH</option>
                                                 <option value="M">Mitte</option>
                                                 <option value="VH">VH</option>
+                                                <option value="FREI">Frei</option>
                                             </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Conditional Branching (Variants) -->
+                                    <div class="border-t border-slate-200 pt-2 mt-2">
+                                        <div class="flex items-center gap-1.5 mb-2">
+                                            <input type="checkbox" id="tt-has-variants" class="h-3.5 w-3.5 text-emerald-500 rounded">
+                                            <label for="tt-has-variants" class="text-[10px] font-medium text-slate-600">Bedingte Verzweigung (oder)</label>
+                                        </div>
+                                        <div id="tt-variants-container" class="hidden space-y-2">
+                                            <p class="text-[9px] text-slate-400 italic">Alternative Reaktion hinzufügen (z.B. wenn RH → SCH, wenn VH → T)</p>
+                                            <div id="tt-variants-list" class="space-y-1.5">
+                                                <!-- Variants will be added here -->
+                                            </div>
+                                            <button type="button" id="tt-add-variant-btn" class="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium">
+                                                <i class="fas fa-plus mr-0.5"></i>Alternative hinzufügen
+                                            </button>
                                         </div>
                                     </div>
 

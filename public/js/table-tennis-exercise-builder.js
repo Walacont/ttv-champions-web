@@ -41,7 +41,8 @@ const STROKE_TYPES = {
 const POSITIONS = {
     VH: { name: 'Vorhand', xRatio: 0.75 },  // Right side of table (from player's view)
     RH: { name: 'Rückhand', xRatio: 0.25 }, // Left side of table
-    M: { name: 'Mitte', xRatio: 0.50 }      // Middle of table
+    M: { name: 'Mitte', xRatio: 0.50 },     // Middle of table
+    FREI: { name: 'Frei', xRatio: 0.50, isFree: true }  // Free placement - anywhere
 };
 
 // Table dimensions (relative)
@@ -216,14 +217,15 @@ class TableTennisExerciseBuilder {
         return { x, y };
     }
 
-    addStep(player, strokeType, side, fromPosition, toPosition, isShort = false) {
+    addStep(player, strokeType, side, fromPosition, toPosition, isShort = false, variants = undefined) {
         this.steps.push({
             player,       // 'A' or 'B'
             strokeType,   // 'T', 'B', 'SCH', etc.
             side,         // 'VH' or 'RH'
             fromPosition, // 'VH', 'RH', 'M'
-            toPosition,   // 'VH', 'RH', 'M'
-            isShort       // true for short balls
+            toPosition,   // 'VH', 'RH', 'M', 'FREI'
+            isShort,      // true for short balls
+            variants      // Array of alternative actions: [{condition, side, strokeType, toPosition}]
         });
     }
 
@@ -243,6 +245,7 @@ class TableTennisExerciseBuilder {
         const ctx = this.ctx;
         const isPlayerA = step.player === 'A';
         const strokeData = STROKE_TYPES[step.strokeType] || STROKE_TYPES.T;
+        const toPositionData = POSITIONS[step.toPosition] || POSITIONS.M;
 
         // Check if previous step was a short ball that landed on this player's side
         // If so, this player must start from near the table
@@ -250,43 +253,62 @@ class TableTennisExerciseBuilder {
 
         // Get positions
         const startPos = this.getPositionCoords(step.fromPosition, isPlayerA, previousStepWasShort);
-        const endPos = this.getTargetZoneCoords(step.toPosition, isPlayerA);
 
-        // Adjust end position for short balls
-        let adjustedEndPos = { ...endPos };
-        if (step.isShort) {
-            // Short balls land closer to the net
-            const netY = this.tableY + this.tableHeight * TABLE.netPosition;
-            if (isPlayerA) {
-                adjustedEndPos.y = netY - this.tableHeight * 0.1;
-            } else {
-                adjustedEndPos.y = netY + this.tableHeight * 0.1;
+        // Check if target is "FREI" (free placement)
+        const isFreeTarget = toPositionData.isFree;
+
+        let adjustedEndPos;
+        if (isFreeTarget) {
+            // For "frei", target the center of opponent's side
+            adjustedEndPos = {
+                x: this.tableX + this.tableWidth / 2,
+                y: isPlayerA ? this.tableY + this.tableHeight * 0.25 : this.tableY + this.tableHeight * 0.75
+            };
+        } else {
+            const endPos = this.getTargetZoneCoords(step.toPosition, isPlayerA);
+            adjustedEndPos = { ...endPos };
+
+            // Adjust end position for short balls
+            if (step.isShort) {
+                // Short balls land closer to the net
+                const netY = this.tableY + this.tableHeight * TABLE.netPosition;
+                if (isPlayerA) {
+                    adjustedEndPos.y = netY - this.tableHeight * 0.1;
+                } else {
+                    adjustedEndPos.y = netY + this.tableHeight * 0.1;
+                }
             }
         }
 
-        // Draw target zone (dashed rectangle) - scaled for compact table
-        const zoneWidth = 50;
-        const zoneHeight = 30;
-        ctx.save();
-        ctx.strokeStyle = strokeData.color;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(
-            adjustedEndPos.x - zoneWidth / 2,
-            adjustedEndPos.y - zoneHeight / 2,
-            zoneWidth,
-            zoneHeight
-        );
+        // Draw target zone or "frei" indicator
+        if (isFreeTarget) {
+            // Draw "frei" text on opponent's side instead of target zone
+            this.drawFreeZone(ctx, isPlayerA, strokeData.color);
+        } else {
+            // Draw target zone (dashed rectangle) - scaled for compact table
+            const zoneWidth = 50;
+            const zoneHeight = 30;
+            ctx.save();
+            ctx.strokeStyle = strokeData.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(
+                adjustedEndPos.x - zoneWidth / 2,
+                adjustedEndPos.y - zoneHeight / 2,
+                zoneWidth,
+                zoneHeight
+            );
 
-        // Fill target zone with diagonal stripes
-        ctx.fillStyle = strokeData.color + '30';
-        ctx.fillRect(
-            adjustedEndPos.x - zoneWidth / 2,
-            adjustedEndPos.y - zoneHeight / 2,
-            zoneWidth,
-            zoneHeight
-        );
-        ctx.restore();
+            // Fill target zone with diagonal stripes
+            ctx.fillStyle = strokeData.color + '30';
+            ctx.fillRect(
+                adjustedEndPos.x - zoneWidth / 2,
+                adjustedEndPos.y - zoneHeight / 2,
+                zoneWidth,
+                zoneHeight
+            );
+            ctx.restore();
+        }
 
         // Calculate current ball position based on progress
         const currentX = startPos.x + (adjustedEndPos.x - startPos.x) * progress;
@@ -342,6 +364,91 @@ class TableTennisExerciseBuilder {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, startPos.x, labelY);
+
+        // Draw variants if present
+        if (step.variants && step.variants.length > 0 && progress >= 1) {
+            this.drawVariants(step, startPos, isPlayerA, previousStepWasShort);
+        }
+    }
+
+    drawVariants(step, mainStartPos, isPlayerA, previousStepWasShort) {
+        const ctx = this.ctx;
+
+        step.variants.forEach((variant, index) => {
+            const variantStrokeData = STROKE_TYPES[variant.strokeType] || STROKE_TYPES.T;
+            const variantToPositionData = POSITIONS[variant.toPosition] || POSITIONS.M;
+
+            // Calculate variant end position
+            let variantEndPos;
+            if (variantToPositionData.isFree) {
+                variantEndPos = {
+                    x: this.tableX + this.tableWidth / 2,
+                    y: isPlayerA ? this.tableY + this.tableHeight * 0.25 : this.tableY + this.tableHeight * 0.75
+                };
+            } else {
+                variantEndPos = this.getTargetZoneCoords(variant.toPosition, isPlayerA);
+            }
+
+            // Offset the start position slightly for visual distinction
+            const offsetX = (index + 1) * 8;
+            const startPos = {
+                x: mainStartPos.x + offsetX,
+                y: mainStartPos.y
+            };
+
+            // Draw variant trajectory (dashed line, different color)
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = variantStrokeData.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.globalAlpha = 0.7;
+            ctx.moveTo(startPos.x, startPos.y);
+            ctx.lineTo(variantEndPos.x, variantEndPos.y);
+            ctx.stroke();
+
+            // Draw variant arrowhead
+            this.drawArrowhead(ctx, startPos.x, startPos.y, variantEndPos.x, variantEndPos.y, variantStrokeData.color);
+
+            // Draw variant target zone (smaller, semi-transparent)
+            if (!variantToPositionData.isFree) {
+                const zoneWidth = 40;
+                const zoneHeight = 24;
+                ctx.strokeStyle = variantStrokeData.color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.globalAlpha = 0.5;
+                ctx.strokeRect(
+                    variantEndPos.x - zoneWidth / 2,
+                    variantEndPos.y - zoneHeight / 2,
+                    zoneWidth,
+                    zoneHeight
+                );
+            }
+
+            ctx.restore();
+
+            // Draw small condition label near the variant line
+            const conditionLabelX = (startPos.x + variantEndPos.x) / 2;
+            const conditionLabelY = (startPos.y + variantEndPos.y) / 2;
+
+            ctx.save();
+            ctx.font = 'bold 8px Inter, sans-serif';
+            ctx.fillStyle = variantStrokeData.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = 0.9;
+
+            // Background for readability
+            const condText = `${variant.condition}→${variant.side} ${variantStrokeData.name}`;
+            const textWidth = ctx.measureText(condText).width;
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.8)';
+            ctx.fillRect(conditionLabelX - textWidth / 2 - 3, conditionLabelY - 6, textWidth + 6, 12);
+
+            ctx.fillStyle = variantStrokeData.color;
+            ctx.fillText(condText, conditionLabelX, conditionLabelY);
+            ctx.restore();
+        });
     }
 
     drawArrowhead(ctx, fromX, fromY, toX, toY, color) {
@@ -362,6 +469,34 @@ class TableTennisExerciseBuilder {
         );
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
+    }
+
+    drawFreeZone(ctx, isPlayerA, color) {
+        // Draw "frei" text on the opponent's half of the table
+        const netY = this.tableY + this.tableHeight * TABLE.netPosition;
+        const centerX = this.tableX + this.tableWidth / 2;
+
+        // Determine which half of the table (opponent's side)
+        let zoneY;
+        if (isPlayerA) {
+            // Opponent is at top, draw in top half
+            zoneY = this.tableY + (netY - this.tableY) / 2;
+        } else {
+            // Opponent is at bottom, draw in bottom half
+            zoneY = netY + (this.tableY + this.tableHeight - netY) / 2;
+        }
+
+        ctx.save();
+
+        // Draw "frei" text
+        ctx.font = 'bold 16px Inter, sans-serif';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.7;
+        ctx.fillText('frei', centerX, zoneY);
+
         ctx.restore();
     }
 
@@ -503,7 +638,8 @@ class TableTennisExerciseBuilder {
                 side: step.side,
                 fromPosition: step.fromPosition,
                 toPosition: step.toPosition,
-                isShort: step.isShort
+                isShort: step.isShort,
+                variants: step.variants
             }))
         };
     }
