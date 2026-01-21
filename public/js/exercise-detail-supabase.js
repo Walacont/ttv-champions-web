@@ -12,7 +12,6 @@ let exerciseId = null;
 
 // Animation state
 let animationSteps = [];
-let originalAnimationSteps = []; // Keep original for mirroring
 let currentStepIndex = -1; // -1 means "show all steps", 0+ is individual step
 let animationPlayer = null;
 let isAnimating = false;
@@ -20,7 +19,6 @@ let stepAnimationFrame = null;
 let showAllMode = true; // Start by showing all steps
 let availableHandedness = ['R-R']; // Available handedness modes
 let currentHandedness = 'R-R'; // Current viewing mode
-let autoMirrorLL = false; // Whether to auto-mirror for L-L
 
 // Stroke types for display
 const STROKE_TYPES = {
@@ -493,12 +491,10 @@ function setupAnimation(rawSteps) {
 
     if (!steps || steps.length === 0) return;
 
-    // Store original steps and handedness info
-    originalAnimationSteps = steps;
+    // Store steps and handedness info
     animationSteps = steps;
     availableHandedness = data?.handedness || ['R-R'];
-    autoMirrorLL = data?.autoMirrorLL || false;
-    currentHandedness = 'R-R';
+    currentHandedness = availableHandedness[0] || 'R-R';
     currentStepIndex = -1; // Start in "show all" mode
     showAllMode = true;
 
@@ -552,11 +548,8 @@ function setupAnimation(rawSteps) {
 function setupHandednessDropdown(selectorContainer, selectElement) {
     if (!selectorContainer || !selectElement) return;
 
-    // Check if we should show the dropdown
-    // Show if there are multiple handedness options OR if auto-mirror is enabled for L-L
-    const showDropdown = availableHandedness.length > 1 || autoMirrorLL;
-
-    if (!showDropdown) {
+    // Only show dropdown if there are multiple handedness options available
+    if (availableHandedness.length <= 1) {
         selectorContainer.classList.add('hidden');
         return;
     }
@@ -580,14 +573,6 @@ function setupHandednessDropdown(selectorContainer, selectElement) {
         selectElement.appendChild(option);
     });
 
-    // If auto-mirror is enabled and L-L is not already available, add it
-    if (autoMirrorLL && !availableHandedness.includes('L-L')) {
-        const option = document.createElement('option');
-        option.value = 'L-L';
-        option.textContent = handednessLabels['L-L'] + ' (gespiegelt)';
-        selectElement.appendChild(option);
-    }
-
     // Set default value
     selectElement.value = currentHandedness;
 
@@ -602,28 +587,9 @@ function setupHandednessDropdown(selectorContainer, selectElement) {
 
 function changeHandedness(newHandedness) {
     currentHandedness = newHandedness;
-
-    // If L-L is selected but not in available and auto-mirror is enabled, mirror the steps
-    if (newHandedness === 'L-L' && !availableHandedness.includes('L-L') && autoMirrorLL) {
-        // Use the player's mirroring function
-        if (animationPlayer && typeof animationPlayer.mirrorStepsForLeftHanders === 'function') {
-            animationSteps = animationPlayer.mirrorStepsForLeftHanders(originalAnimationSteps);
-        }
-    } else {
-        // Use original steps
-        animationSteps = originalAnimationSteps;
-    }
-
-    // Update the player's steps
-    if (animationPlayer) {
-        animationPlayer.setSteps(animationSteps);
-    }
-
-    // Re-render
-    currentStepIndex = -1;
-    showAllMode = true;
-    updateStepDisplay();
-    renderAllSteps();
+    // Note: In the future, when we support multiple animations per exercise,
+    // we would load the corresponding animation data here.
+    // For now, the handedness dropdown only shows if multiple options exist.
 }
 
 function updateStepDisplay() {

@@ -1963,10 +1963,7 @@ async function handleCreateExercise(e) {
                 if (animationData && animationData.steps && animationData.steps.length > 0) {
                     // Händigkeits-Optionen hinzufügen
                     const handednessTags = getSelectedHandednessTags();
-                    const autoMirror = document.getElementById('handedness-auto-mirror')?.checked || false;
-
                     animationData.handedness = handednessTags;
-                    animationData.autoMirrorLL = autoMirror;
 
                     exerciseData.animation_steps = animationData;
                 }
@@ -2028,8 +2025,6 @@ async function handleCreateExercise(e) {
         document.getElementById('handedness-ll').checked = false;
         document.getElementById('handedness-rl').checked = false;
         document.getElementById('handedness-lr').checked = false;
-        const autoMirror = document.getElementById('handedness-auto-mirror');
-        if (autoMirror) autoMirror.checked = false;
 
         descriptionEditor.clear();
     } catch (error) {
