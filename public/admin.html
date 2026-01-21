@@ -526,9 +526,14 @@
                             <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
                                 <h4 class="text-xs font-semibold text-slate-600 mb-2">Speichern</h4>
                                 <input type="text" id="tt-exercise-name" placeholder="Übungsname" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 mb-2 bg-slate-50">
-                                <button id="tt-save-exercise" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
-                                    <i class="fas fa-save mr-1"></i>Speichern
-                                </button>
+                                <div class="flex gap-2">
+                                    <button id="tt-save-exercise" class="flex-1 bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
+                                        <i class="fas fa-save mr-1"></i>Speichern
+                                    </button>
+                                    <button id="tt-export-gif" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
+                                        <i class="fas fa-film mr-1"></i>GIF
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1174,6 +1179,7 @@
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Firebase: <script type="module" src="/js/admin.js"></script> -->
         <script type="module" src="/js/admin-supabase.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
         <script src="/js/table-tennis-exercise-builder.js"></script>
         <script src="/js/table-tennis-exercise-ui.js"></script>
     </body>

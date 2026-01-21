@@ -77,6 +77,12 @@
             saveBtn.addEventListener('click', handleSaveExercise);
         }
 
+        // Export GIF
+        const exportGifBtn = document.getElementById('tt-export-gif');
+        if (exportGifBtn) {
+            exportGifBtn.addEventListener('click', handleExportGif);
+        }
+
         // Variants toggle
         const hasVariantsCheckbox = document.getElementById('tt-has-variants');
         const variantsContainer = document.getElementById('tt-variants-container');
@@ -536,6 +542,206 @@
         copyToClipboard(description);
 
         showToast('Beschreibung in Zwischenablage kopiert', 'info');
+    }
+
+    async function handleExportGif() {
+        if (steps.length === 0) {
+            showToast('Bitte füge zuerst Schritte hinzu', 'warning');
+            return;
+        }
+
+        // Check if gif.js is available
+        if (typeof GIF === 'undefined') {
+            showToast('GIF-Library nicht geladen', 'error');
+            return;
+        }
+
+        const exportBtn = document.getElementById('tt-export-gif');
+        const originalText = exportBtn.innerHTML;
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>...';
+        exportBtn.disabled = true;
+
+        try {
+            // Create a temporary high-resolution canvas for GIF
+            const tempCanvas = document.createElement('canvas');
+            const gifWidth = 440;  // 2x resolution for quality
+            const gifHeight = 760;
+            tempCanvas.width = gifWidth;
+            tempCanvas.height = gifHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Create GIF encoder
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: gifWidth,
+                height: gifHeight,
+                workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+            });
+
+            // Helper function to draw a frame
+            function drawFrame(stepIndex, progress) {
+                const step = steps[stepIndex];
+                const previousStep = stepIndex > 0 ? steps[stepIndex - 1] : null;
+
+                // Clear and draw table
+                tempCtx.fillStyle = '#1a1a2e';
+                tempCtx.fillRect(0, 0, gifWidth, gifHeight);
+
+                // Scale for the temp canvas
+                const scale = gifWidth / 220;
+                tempCtx.save();
+                tempCtx.scale(scale, scale);
+
+                // Draw table (simplified version)
+                const tableX = 20;
+                const tableY = 20;
+                const tableWidth = 180;
+                const tableHeight = 340;
+
+                // Table surface
+                tempCtx.fillStyle = '#0d4f3c';
+                tempCtx.beginPath();
+                tempCtx.roundRect(tableX, tableY, tableWidth, tableHeight, 6);
+                tempCtx.fill();
+
+                // Table border
+                tempCtx.strokeStyle = '#ffffff';
+                tempCtx.lineWidth = 3;
+                tempCtx.beginPath();
+                tempCtx.roundRect(tableX, tableY, tableWidth, tableHeight, 6);
+                tempCtx.stroke();
+
+                // Center line
+                tempCtx.beginPath();
+                tempCtx.lineWidth = 2;
+                tempCtx.moveTo(tableX + tableWidth / 2, tableY);
+                tempCtx.lineTo(tableX + tableWidth / 2, tableY + tableHeight);
+                tempCtx.stroke();
+
+                // Net line
+                const netY = tableY + tableHeight * 0.5;
+                tempCtx.beginPath();
+                tempCtx.strokeStyle = '#e0e0e0';
+                tempCtx.lineWidth = 3;
+                tempCtx.moveTo(tableX, netY);
+                tempCtx.lineTo(tableX + tableWidth, netY);
+                tempCtx.stroke();
+
+                // Draw step information
+                const strokeTypes = window.TT_STROKE_TYPES || {};
+                const positions = window.TT_POSITIONS || {};
+                const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType, color: '#8B5CF6' };
+                const isPlayerA = step.player === 'A';
+
+                // Calculate positions
+                const fromPosData = positions[step.fromPosition] || { xRatio: 0.5 };
+                const toPosData = positions[step.toPosition] || { xRatio: 0.5 };
+
+                const fromX = tableX + tableWidth * (isPlayerA ? fromPosData.xRatio : (1 - fromPosData.xRatio));
+                const fromY = isPlayerA ? tableY + tableHeight * 0.85 : tableY + tableHeight * 0.15;
+
+                const toXRatio = isPlayerA ? (1 - toPosData.xRatio) : toPosData.xRatio;
+                const toX = tableX + tableWidth * toXRatio;
+                let toY = isPlayerA ? tableY + tableHeight * 0.08 : tableY + tableHeight * 0.92;
+
+                if (step.isShort) {
+                    toY = isPlayerA ? netY - tableHeight * 0.1 : netY + tableHeight * 0.1;
+                }
+
+                // Animated position
+                const currentX = fromX + (toX - fromX) * progress;
+                const currentY = fromY + (toY - fromY) * progress;
+
+                // Draw trajectory
+                tempCtx.beginPath();
+                tempCtx.strokeStyle = strokeData.color;
+                tempCtx.lineWidth = 4;
+                tempCtx.setLineDash([]);
+                tempCtx.moveTo(fromX, fromY);
+                tempCtx.lineTo(currentX, currentY);
+                tempCtx.stroke();
+
+                // Draw ball
+                tempCtx.beginPath();
+                tempCtx.fillStyle = '#ffffff';
+                tempCtx.arc(currentX, currentY, 8, 0, Math.PI * 2);
+                tempCtx.fill();
+                tempCtx.strokeStyle = '#cccccc';
+                tempCtx.lineWidth = 1;
+                tempCtx.stroke();
+
+                // Draw label
+                const labelText = `${step.side} ${strokeData.name}`;
+                const labelY = isPlayerA ? fromY + 30 : fromY - 25;
+
+                tempCtx.font = 'bold 14px Inter, sans-serif';
+                const textWidth = tempCtx.measureText(labelText).width;
+
+                tempCtx.fillStyle = strokeData.color;
+                tempCtx.beginPath();
+                tempCtx.roundRect(fromX - textWidth / 2 - 10, labelY - 12, textWidth + 20, 24, 12);
+                tempCtx.fill();
+
+                tempCtx.fillStyle = '#000000';
+                tempCtx.textAlign = 'center';
+                tempCtx.textBaseline = 'middle';
+                tempCtx.fillText(labelText, fromX, labelY);
+
+                // Draw step number
+                const stepText = `${stepIndex + 1}/${steps.length}`;
+                tempCtx.font = 'bold 14px Inter, sans-serif';
+                tempCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                tempCtx.beginPath();
+                tempCtx.roundRect(180, 8, 30, 24, 12);
+                tempCtx.fill();
+                tempCtx.fillStyle = '#1a1a2e';
+                tempCtx.fillText(stepText, 195, 20);
+
+                tempCtx.restore();
+            }
+
+            // Generate frames for each step
+            const framesPerStep = 15;
+            const holdFrames = 20;
+
+            for (let stepIdx = 0; stepIdx < steps.length; stepIdx++) {
+                // Animation frames
+                for (let frame = 0; frame <= framesPerStep; frame++) {
+                    const progress = frame / framesPerStep;
+                    drawFrame(stepIdx, progress);
+                    gif.addFrame(tempCtx, { copy: true, delay: 50 });
+                }
+                // Hold frames at end
+                for (let hold = 0; hold < holdFrames; hold++) {
+                    drawFrame(stepIdx, 1);
+                    gif.addFrame(tempCtx, { copy: true, delay: 50 });
+                }
+            }
+
+            // Render and download
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const nameInput = document.getElementById('tt-exercise-name');
+                const name = nameInput ? nameInput.value.trim() : 'uebung';
+                link.download = `${name || 'tischtennis-uebung'}.gif`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+                showToast('GIF exportiert!', 'success');
+            });
+
+            gif.render();
+        } catch (error) {
+            console.error('GIF export error:', error);
+            showToast('Fehler beim GIF-Export', 'error');
+            exportBtn.innerHTML = originalText;
+            exportBtn.disabled = false;
+        }
     }
 
     function generateExerciseDescription() {

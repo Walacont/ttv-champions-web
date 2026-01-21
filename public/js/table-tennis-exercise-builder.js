@@ -99,8 +99,18 @@ class TableTennisExerciseBuilder {
             width = height * TABLE.aspectRatio;
         }
 
-        this.canvas.width = width;
-        this.canvas.height = height;
+        // High-DPI support for crisp rendering
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = width * dpr;
+        this.canvas.height = height * dpr;
+        this.canvas.style.width = width + 'px';
+        this.canvas.style.height = height + 'px';
+        this.ctx.scale(dpr, dpr);
+        this.dpr = dpr;
+
+        // Store logical dimensions (before scaling)
+        this.logicalWidth = width;
+        this.logicalHeight = height;
 
         // Calculate table bounds
         this.tableX = TABLE.padding;
@@ -117,9 +127,15 @@ class TableTennisExerciseBuilder {
         const { tableX, tableY, tableWidth, tableHeight } = this;
         const cornerRadius = 6;
 
-        // Clear canvas with dark background
+        // Reset transform and apply DPI scaling fresh each frame
+        const dpr = this.dpr || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Clear canvas with dark background (use logical dimensions)
+        const width = this.logicalWidth || this.canvas.width;
+        const height = this.logicalHeight || this.canvas.height;
         ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillRect(0, 0, width, height);
 
         // Draw table shadow
         ctx.save();
@@ -403,7 +419,7 @@ class TableTennisExerciseBuilder {
         // Draw "player decides" indicator if present
         if (step.playerDecides) {
             const decideY = labelY + (isPlayerA ? (step.repetitions ? 26 : 14) : (step.repetitions ? -26 : -14));
-            const decideText = '👤 entscheidet';
+            const decideText = 'entscheidet';
 
             ctx.font = 'bold 8px Inter, sans-serif';
             const decideMetrics = ctx.measureText(decideText);
@@ -615,8 +631,8 @@ class TableTennisExerciseBuilder {
 
         ctx.save();
 
-        // Position: top right corner
-        const x = this.canvas.width - 10;
+        // Position: top right corner (use logical width)
+        const x = (this.logicalWidth || this.canvas.width) - 10;
         const y = 12;
 
         // Draw background pill
