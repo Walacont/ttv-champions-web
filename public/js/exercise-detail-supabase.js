@@ -366,33 +366,20 @@ async function loadMilestoneProgress(exercise) {
 async function loadExampleVideos() {
     try {
         const clubId = currentUserData?.club_id;
+
+        // Mustervideos nur fuer Benutzer in einem Club anzeigen
+        if (!clubId) return;
+
         let videos = [];
 
-        // Try RPC function first (for club-linked examples)
-        if (clubId) {
-            const { data: rpcVideos, error: rpcError } = await supabase.rpc('get_exercise_example_videos', {
-                p_exercise_id: exerciseId,
-                p_club_id: clubId
-            });
+        // Load club-linked example videos via RPC
+        const { data: rpcVideos, error: rpcError } = await supabase.rpc('get_exercise_example_videos', {
+            p_exercise_id: exerciseId,
+            p_club_id: clubId
+        });
 
-            if (!rpcError && rpcVideos && rpcVideos.length > 0) {
-                videos = rpcVideos;
-            }
-        }
-
-        // Fallback to direct query if RPC returns nothing
-        if (videos.length === 0) {
-            const { data: directVideos, error: directError } = await supabase
-                .from('training_videos')
-                .select('id, title, video_url, thumbnail_url')
-                .eq('exercise_id', exerciseId)
-                .eq('is_example', true)
-                .order('created_at', { ascending: false })
-                .limit(5);
-
-            if (!directError && directVideos) {
-                videos = directVideos;
-            }
+        if (!rpcError && rpcVideos && rpcVideos.length > 0) {
+            videos = rpcVideos;
         }
 
         if (videos.length === 0) return;
