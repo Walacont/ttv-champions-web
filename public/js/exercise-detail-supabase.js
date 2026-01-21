@@ -175,10 +175,23 @@ function setupEventListeners() {
     // Video upload form
     document.getElementById('video-upload-form').addEventListener('submit', handleVideoUpload);
 
-    // Animation controls
-    document.getElementById('animation-play-pause').addEventListener('click', toggleStepAnimation);
-    document.getElementById('animation-prev-btn').addEventListener('click', () => goToStep(currentStepIndex - 1));
-    document.getElementById('animation-next-btn').addEventListener('click', () => goToStep(currentStepIndex + 1));
+    // Animation controls - use both click and touchend for better mobile support
+    const playPauseBtn = document.getElementById('animation-play-pause');
+    const prevBtn = document.getElementById('animation-prev-btn');
+    const nextBtn = document.getElementById('animation-next-btn');
+
+    // Helper to handle both click and touch
+    function addClickHandler(element, handler) {
+        if (!element) return;
+        element.addEventListener('click', (e) => {
+            e.preventDefault();
+            handler();
+        });
+    }
+
+    addClickHandler(playPauseBtn, toggleStepAnimation);
+    addClickHandler(prevBtn, () => goToStep(currentStepIndex - 1));
+    addClickHandler(nextBtn, () => goToStep(currentStepIndex + 1));
 }
 
 async function loadExercise() {
