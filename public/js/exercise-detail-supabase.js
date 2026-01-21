@@ -64,17 +64,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             .eq('id', user.id)
             .single();
         currentUserData = userData;
+        console.log('User data loaded:', { club_id: userData?.club_id, role: userData?.role });
 
         // If user is a coach without club_id, try to find their club
-        if (userData && !userData.club_id && userData.role === 'coach') {
-            const { data: clubData } = await supabase
+        if (userData && !userData.club_id && (userData.role === 'coach' || userData.role === 'head_coach')) {
+            console.log('Coach without club_id, searching for club...');
+
+            // Try 1: Check clubs table for coach_id
+            const { data: clubData1 } = await supabase
                 .from('clubs')
                 .select('id')
                 .eq('coach_id', user.id)
                 .maybeSingle();
 
-            if (clubData) {
-                currentUserData.club_id = clubData.id;
+            if (clubData1) {
+                console.log('Found club via coach_id:', clubData1.id);
+                currentUserData.club_id = clubData1.id;
+            } else {
+                // Try 2: Check if coach has uploaded any example videos and get club from there
+                const { data: videoData } = await supabase
+                    .from('exercise_example_videos')
+                    .select('club_id')
+                    .eq('uploaded_by', user.id)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (videoData?.club_id) {
+                    console.log('Found club via uploaded videos:', videoData.club_id);
+                    currentUserData.club_id = videoData.club_id;
+                } else {
+                    // Try 3: Check if there are any players that have this coach
+                    // by finding users with same club as players the coach manages
+                    const { data: managedPlayers } = await supabase
+                        .from('users')
+                        .select('club_id')
+                        .neq('club_id', null)
+                        .limit(1);
+
+                    // For now, just log that no club was found
+                    console.log('Could not find club for coach');
+                }
             }
         }
 
