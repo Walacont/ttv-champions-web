@@ -2581,16 +2581,18 @@ function initializeAnimationToggle() {
                 const animationData = JSON.parse(stepsJson);
                 if (animationData && animationData.steps && animationData.steps.length > 0) {
                     const description = generateDescriptionFromSteps(animationData.steps);
-                    // In Beschreibungsfeld einfügen
-                    const descTextarea = document.getElementById('exercise-description');
-                    if (descTextarea) {
-                        descTextarea.value = description;
+                    if (description) {
+                        // Speichere JSON in hidden textarea für Formular-Submission
+                        const descTextarea = document.getElementById('exercise-description');
+                        if (descTextarea) {
+                            descTextarea.value = JSON.stringify(description);
+                        }
+                        // Zeige Tabelle im Editor an
+                        if (descriptionEditor && typeof descriptionEditor.setContent === 'function') {
+                            descriptionEditor.setContent(description);
+                        }
+                        showAdminNotification('Beschreibung generiert!', 'success');
                     }
-                    // Falls Table-Editor aktiv ist, auch dort aktualisieren
-                    if (descriptionEditor && typeof descriptionEditor.setContent === 'function') {
-                        descriptionEditor.setContent(description);
-                    }
-                    showAdminNotification('Beschreibung generiert!', 'success');
                 }
             } catch (e) {
                 showAdminNotification('Fehler beim Parsen der Animation-Schritte.', 'error');
@@ -2660,9 +2662,9 @@ function initializeAnimationToggle() {
     }
 }
 
-// Beschreibung aus Animation-Steps generieren
+// Beschreibung aus Animation-Steps generieren (als strukturiertes Tabellen-Objekt)
 function generateDescriptionFromSteps(steps) {
-    if (!steps || steps.length === 0) return '';
+    if (!steps || steps.length === 0) return null;
 
     const strokeAbbr = {
         'A': 'A',      // Aufschlag
@@ -2693,18 +2695,25 @@ function generateDescriptionFromSteps(steps) {
         }
     });
 
-    // Erstelle Tabellen-Format
-    let description = '| Spieler A | Spieler B |\n';
-    description += '|-----------|----------|\n';
-
+    // Erstelle Tabellen-Daten für den Editor
     const maxRows = Math.max(playerASteps.length, playerBSteps.length);
+    const rows = [];
+
     for (let i = 0; i < maxRows; i++) {
-        const aStep = playerASteps[i] || '';
-        const bStep = playerBSteps[i] || '';
-        description += `| ${aStep} | ${bStep} |\n`;
+        rows.push([
+            playerASteps[i] || '',
+            playerBSteps[i] || ''
+        ]);
     }
 
-    return description;
+    return {
+        type: 'table',
+        tableData: {
+            headers: ['Spieler A', 'Spieler B'],
+            rows: rows
+        },
+        additionalText: ''
+    };
 }
 
 // Händigkeits-Tags aus Checkboxen sammeln
