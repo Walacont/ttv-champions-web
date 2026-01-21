@@ -22,7 +22,6 @@ import {
     getExerciseMilestones,
     isExerciseTieredPointsEnabled,
     initializeExercisePartnerSystem,
-    getExercisePartnerSettings,
 } from './milestone-management.js';
 import { escapeHtml } from './utils/security.js';
 
@@ -1939,20 +1938,6 @@ async function handleCreateExercise(e) {
             // Admin kann spezifische Sportart oder null für alle setzen
             sport_id: exerciseSport || null,
         };
-
-        // Partner-System-Einstellungen hinzufügen falls aktiviert
-        const partnerSettings = getExercisePartnerSettings();
-        if (partnerSettings) {
-            exerciseData.partner_system = {
-                enabled: true,
-                partner_percentage: partnerSettings.partnerPercentage,
-            };
-        } else {
-            exerciseData.partner_system = {
-                enabled: false,
-                partner_percentage: 50,
-            };
-        }
 
         // Animation-Steps hinzufügen falls vorhanden
         const animationToggle = document.getElementById('exercise-animation-toggle');
