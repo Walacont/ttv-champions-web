@@ -84,20 +84,13 @@ class TableTennisExerciseBuilder {
     }
 
     resizeCanvas() {
-        const container = this.canvas.parentElement;
-        const containerWidth = container.clientWidth;
-        const maxHeight = 380;  // Smaller for compact design
-        const maxWidth = 220;   // Smaller table width
+        // Fixed dimensions for consistent display
+        // Table is taller than wide (aspect ratio 0.56)
+        const targetHeight = 380;
+        const targetWidth = Math.round(targetHeight * TABLE.aspectRatio); // ~213px
 
-        // Calculate dimensions maintaining aspect ratio
-        // Start from width since table is narrow
-        let width = Math.min(containerWidth, maxWidth);
-        let height = width / TABLE.aspectRatio;
-
-        if (height > maxHeight) {
-            height = maxHeight;
-            width = height * TABLE.aspectRatio;
-        }
+        let width = targetWidth;
+        let height = targetHeight;
 
         // High-DPI support for crisp rendering
         const dpr = window.devicePixelRatio || 1;
