@@ -400,6 +400,12 @@ function switchSportFilter(sportId) {
         }
     }
 
+    // Übungs-Sportart-Dropdown automatisch vorauswählen
+    const exerciseSportSelect = document.getElementById('exercise-sport');
+    if (exerciseSportSelect) {
+        exerciseSportSelect.value = sportId !== 'all' ? sportId : '';
+    }
+
     // Daten mit neuem Filter neu laden
     loadStatistics();
     loadAllExercises();
@@ -2034,6 +2040,23 @@ function renderExercises(exercises) {
             )
             .join('');
 
+        // Meilensteine für die Karte vorbereiten
+        let milestonesHtml = '';
+        let pointsHtml = `<span class="text-sm font-semibold text-indigo-600">+${exercise.points} P.</span>`;
+
+        if (exercise.tiered_points?.enabled && exercise.tiered_points?.milestones?.length > 0) {
+            const sortedMilestones = [...exercise.tiered_points.milestones].sort((a, b) => a.count - b.count);
+            milestonesHtml = `
+                <div class="mt-2 space-y-1">
+                    ${sortedMilestones.map((m, idx) => {
+                        const prevPoints = idx === 0 ? 0 : sortedMilestones[idx - 1].points;
+                        const diff = m.points - prevPoints;
+                        return `<div class="text-xs text-gray-600">${m.count}x = ${m.points} P. (+${diff})</div>`;
+                    }).join('')}
+                </div>`;
+            pointsHtml = `<span class="text-sm font-semibold text-indigo-600">bis ${exercise.points} P.</span>`;
+        }
+
         const imageHtml = exercise.image_url
             ? `<img src="${exercise.image_url}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
             : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
@@ -2047,8 +2070,12 @@ function renderExercises(exercises) {
 
         card.innerHTML = `${imageHtml}
                       <div class="p-4 flex flex-col flex-grow pointer-events-none">
-                          <h3 class="font-bold text-md mb-2 flex-grow">${exercise.title}</h3>
-                          <div class="pt-2">${tagsHtml}</div>
+                          <h3 class="font-bold text-lg mb-2 text-gray-900">${exercise.title}</h3>
+                          <div class="flex items-center justify-between mb-2">
+                              ${pointsHtml}
+                          </div>
+                          ${milestonesHtml}
+                          <div class="pt-2 mt-auto">${tagsHtml}</div>
                       </div>`;
         exercisesListAdminEl.appendChild(card);
     });
