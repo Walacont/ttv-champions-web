@@ -538,6 +538,11 @@ function setupAnimation(rawSteps) {
                 animationPlayer = new PlayerClass(canvas.id);
                 animationPlayer.loopAnimation = false;
 
+                // Set handedness for correct VH/RH positions
+                if (typeof animationPlayer.setHandedness === 'function') {
+                    animationPlayer.setHandedness(currentHandedness);
+                }
+
                 // Pass the steps to the player
                 animationPlayer.setSteps(animationSteps);
 
@@ -674,34 +679,44 @@ function setupHandednessDropdown(selectorContainer, selectElement) {
 function changeHandedness(newHandedness) {
     currentHandedness = newHandedness;
 
-    // Find animation for this handedness
+    // Find animation for this handedness (new format with multiple animations)
     const animation = allAnimations.find(a => a.handedness === newHandedness);
-    if (!animation) return;
 
-    // Update animation steps
-    animationSteps = animation.steps || [];
-    currentStepIndex = -1;
-    showAllMode = true;
+    if (animation) {
+        // New format: different steps and description for each handedness
+        animationSteps = animation.steps || [];
+        currentStepIndex = -1;
+        showAllMode = true;
 
-    // Update animation player
-    if (animationPlayer) {
-        // Set handedness first so positions are calculated correctly
-        if (typeof animationPlayer.setHandedness === 'function') {
-            animationPlayer.setHandedness(newHandedness);
+        // Update animation player with new steps
+        if (animationPlayer) {
+            if (typeof animationPlayer.setHandedness === 'function') {
+                animationPlayer.setHandedness(newHandedness);
+            }
+            if (typeof animationPlayer.setSteps === 'function') {
+                animationPlayer.setSteps(animationSteps);
+                updateStepDisplay();
+                renderAllSteps();
+            }
         }
-        if (typeof animationPlayer.setSteps === 'function') {
-            animationPlayer.setSteps(animationSteps);
+
+        // Update description from animation
+        if (animation.description) {
+            renderDescriptionFromData(animation.description);
+        } else if (currentExercise) {
+            renderDescription(currentExercise);
+        }
+    } else {
+        // Old format: same steps for all handedness, just change display
+        // Only update the handedness setting on the player (affects VH/RH positions)
+        if (animationPlayer) {
+            if (typeof animationPlayer.setHandedness === 'function') {
+                animationPlayer.setHandedness(newHandedness);
+            }
+            // Redraw with new handedness positions
             updateStepDisplay();
             renderAllSteps();
         }
-    }
-
-    // Update description if animation has its own
-    if (animation.description) {
-        renderDescriptionFromData(animation.description);
-    } else if (currentExercise) {
-        // Fall back to exercise description
-        renderDescription(currentExercise);
     }
 }
 
