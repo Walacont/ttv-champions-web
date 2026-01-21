@@ -813,6 +813,45 @@
                                         class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                     />
                                 </div>
+
+                                <!-- Animation (Optional) -->
+                                <div class="border-t border-gray-200 pt-4">
+                                    <div class="flex items-center mb-3">
+                                        <input
+                                            type="checkbox"
+                                            id="exercise-animation-toggle"
+                                            class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                                        />
+                                        <label
+                                            for="exercise-animation-toggle"
+                                            class="ml-2 text-sm font-medium text-gray-700"
+                                        >
+                                            🏓 Animation hinzufügen (optional)
+                                        </label>
+                                    </div>
+                                    <div id="exercise-animation-container" class="hidden">
+                                        <p class="text-xs text-gray-500 mb-3">
+                                            Füge eine animierte Ballwechsel-Visualisierung hinzu. Du kannst den Animator oben verwenden und die Schritte hier übernehmen.
+                                        </p>
+                                        <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-xs font-medium text-slate-600">Animation-Schritte</span>
+                                                <button
+                                                    type="button"
+                                                    id="exercise-import-animation-btn"
+                                                    class="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-md transition-colors"
+                                                >
+                                                    <i class="fas fa-download mr-1"></i>Vom Animator übernehmen
+                                                </button>
+                                            </div>
+                                            <div id="exercise-animation-steps-preview" class="text-xs text-slate-500 italic">
+                                                Keine Animation-Schritte vorhanden
+                                            </div>
+                                            <input type="hidden" id="exercise-animation-steps" value="" />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <button
                                     type="submit"
                                     id="create-exercise-submit"
@@ -959,6 +998,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"

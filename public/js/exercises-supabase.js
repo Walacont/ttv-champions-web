@@ -154,6 +154,7 @@ function mapExerciseFromSupabase(row) {
         recordCount: row.record_count,
         procedure: row.procedure,
         unit: row.unit || 'Wiederholungen',
+        animationSteps: row.animation_steps,
     };
 }
 
@@ -186,6 +187,12 @@ function createExerciseCard(docSnap, exercise) {
 
     if (exercise.tieredPoints) {
         card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+    }
+
+    if (exercise.animationSteps) {
+        card.dataset.animationSteps = typeof exercise.animationSteps === 'string'
+            ? exercise.animationSteps
+            : JSON.stringify(exercise.animationSteps);
     }
 
     const exerciseTags = exercise.tags || [];
@@ -584,9 +591,9 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } =
+        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } =
             card.dataset;
-        openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
+        openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps);
     }
 }
 
@@ -600,7 +607,8 @@ export async function openExerciseModal(
     imageUrl,
     points,
     tags,
-    tieredPoints
+    tieredPoints,
+    animationSteps = null
 ) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
@@ -614,6 +622,78 @@ export async function openExerciseModal(
         modalImage.style.display = 'block';
     } else {
         modalImage.style.display = 'none';
+    }
+
+    // Animation-Container handling
+    const animationContainer = document.getElementById('modal-exercise-animation');
+    const animationCanvas = document.getElementById('modal-animation-canvas');
+    if (animationContainer && animationCanvas) {
+        let animationData = null;
+
+        // Parse animation steps from argument or from DB data
+        if (animationSteps) {
+            try {
+                animationData = typeof animationSteps === 'string'
+                    ? JSON.parse(animationSteps)
+                    : animationSteps;
+            } catch (e) {
+                console.log('Could not parse animation steps:', e);
+            }
+        }
+
+        if (animationData && animationData.steps && animationData.steps.length > 0) {
+            animationContainer.classList.remove('hidden');
+
+            // Initialize the exercise builder for the modal if TableTennisExerciseBuilder is available
+            if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+                // Clean up any existing player
+                if (window.modalExerciseBuilder) {
+                    window.modalExerciseBuilder.stopAnimation();
+                }
+
+                // Initialize new player
+                window.modalExerciseBuilder = new window.TableTennisExerciseBuilder('modal-animation-canvas');
+
+                // Load the steps
+                animationData.steps.forEach(step => {
+                    window.modalExerciseBuilder.addStep(
+                        step.player,
+                        step.strokeType,
+                        step.side,
+                        step.fromPosition,
+                        step.toPosition,
+                        step.isShort,
+                        step.variants,
+                        step.repetitions,
+                        step.playerDecides
+                    );
+                });
+
+                // Auto-play the animation
+                window.modalExerciseBuilder.loopAnimation = true;
+                window.modalExerciseBuilder.play();
+
+                // Setup play/pause button
+                const playPauseBtn = document.getElementById('modal-animation-play-pause');
+                if (playPauseBtn) {
+                    playPauseBtn.onclick = () => {
+                        if (window.modalExerciseBuilder.isPlaying) {
+                            window.modalExerciseBuilder.pause();
+                            playPauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Play';
+                        } else {
+                            window.modalExerciseBuilder.play();
+                            playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                        }
+                    };
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                }
+            }
+        } else {
+            animationContainer.classList.add('hidden');
+            if (window.modalExerciseBuilder) {
+                window.modalExerciseBuilder.stopAnimation();
+            }
+        }
     }
 
     // Lade Übungsdaten ZUERST (benötigt für Ablauf und Rekorde)

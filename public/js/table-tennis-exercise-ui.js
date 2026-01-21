@@ -897,6 +897,43 @@
         showToast('Schritt entfernt', 'info');
     };
 
+    // Get current steps (globally accessible for exercise form integration)
+    window.ttGetCurrentSteps = function() {
+        return steps.length > 0 ? { steps: [...steps] } : null;
+    };
+
+    // Set steps from external data (for loading animations)
+    window.ttSetSteps = function(animationData) {
+        if (!animationData || !animationData.steps || !Array.isArray(animationData.steps)) {
+            return false;
+        }
+
+        steps = [...animationData.steps];
+        exerciseBuilder.clearSteps();
+
+        steps.forEach(step => {
+            exerciseBuilder.addStep(
+                step.player,
+                step.strokeType,
+                step.side,
+                step.fromPosition,
+                step.toPosition,
+                step.isShort,
+                step.variants,
+                step.repetitions,
+                step.playerDecides
+            );
+        });
+
+        updateStepsList();
+        return true;
+    };
+
+    // Get the exercise builder instance (for creating mini-players)
+    window.ttGetBuilder = function() {
+        return exerciseBuilder;
+    };
+
     function handleSaveExercise() {
         const nameInput = document.getElementById('tt-exercise-name');
         const name = nameInput ? nameInput.value.trim() : '';

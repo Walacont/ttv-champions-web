@@ -181,6 +181,9 @@ function initializeAdminPage(userData, user) {
         // Partner-System initialisieren
         initializeExercisePartnerSystem();
 
+        // Animation-Toggle für Übungserstellung
+        initializeAnimationToggle();
+
         // Modal-Listener
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
         closeExerciseModalButton.addEventListener('click', () =>
@@ -772,9 +775,74 @@ function copyInviteLink() {
 }
 
 function openExerciseModal(dataset) {
-    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } = dataset;
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl || '';
+
+    // Animation-Container handling
+    const animationContainer = document.getElementById('modal-exercise-animation');
+    const animationCanvas = document.getElementById('modal-animation-canvas');
+    if (animationContainer && animationCanvas) {
+        let animationData = null;
+
+        if (animationSteps) {
+            try {
+                animationData = typeof animationSteps === 'string'
+                    ? JSON.parse(animationSteps)
+                    : animationSteps;
+            } catch (e) {
+                console.log('Could not parse animation steps:', e);
+            }
+        }
+
+        if (animationData && animationData.steps && animationData.steps.length > 0) {
+            animationContainer.classList.remove('hidden');
+
+            if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+                if (window.modalExerciseBuilder) {
+                    window.modalExerciseBuilder.stopAnimation();
+                }
+
+                window.modalExerciseBuilder = new window.TableTennisExerciseBuilder('modal-animation-canvas');
+
+                animationData.steps.forEach(step => {
+                    window.modalExerciseBuilder.addStep(
+                        step.player,
+                        step.strokeType,
+                        step.side,
+                        step.fromPosition,
+                        step.toPosition,
+                        step.isShort,
+                        step.variants,
+                        step.repetitions,
+                        step.playerDecides
+                    );
+                });
+
+                window.modalExerciseBuilder.loopAnimation = true;
+                window.modalExerciseBuilder.play();
+
+                const playPauseBtn = document.getElementById('modal-animation-play-pause');
+                if (playPauseBtn) {
+                    playPauseBtn.onclick = () => {
+                        if (window.modalExerciseBuilder.isPlaying) {
+                            window.modalExerciseBuilder.pause();
+                            playPauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Play';
+                        } else {
+                            window.modalExerciseBuilder.play();
+                            playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                        }
+                    };
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                }
+            }
+        } else {
+            animationContainer.classList.add('hidden');
+            if (window.modalExerciseBuilder) {
+                window.modalExerciseBuilder.stopAnimation();
+            }
+        }
+    }
 
     // Beschreibungsinhalt rendern
     let descriptionData;
@@ -1886,6 +1954,20 @@ async function handleCreateExercise(e) {
             };
         }
 
+        // Animation-Steps hinzufügen falls vorhanden
+        const animationToggle = document.getElementById('exercise-animation-toggle');
+        const animationStepsInput = document.getElementById('exercise-animation-steps');
+        if (animationToggle?.checked && animationStepsInput?.value) {
+            try {
+                const animationData = JSON.parse(animationStepsInput.value);
+                if (animationData && animationData.steps && animationData.steps.length > 0) {
+                    exerciseData.animation_steps = animationData;
+                }
+            } catch (e) {
+                console.warn('Fehler beim Parsen der Animation-Steps:', e);
+            }
+        }
+
         const { data: insertedExercise, error } = await supabase
             .from('exercises')
             .insert(exerciseData)
@@ -1921,6 +2003,16 @@ async function handleCreateExercise(e) {
         if (partnerToggle) partnerToggle.checked = false;
         if (partnerContainer) partnerContainer.classList.add('hidden');
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
+
+        // Animation-Felder zurücksetzen
+        const animationToggle = document.getElementById('exercise-animation-toggle');
+        const animationContainer = document.getElementById('exercise-animation-container');
+        const animationStepsInput = document.getElementById('exercise-animation-steps');
+        const animationPreview = document.getElementById('exercise-animation-steps-preview');
+        if (animationToggle) animationToggle.checked = false;
+        if (animationContainer) animationContainer.classList.add('hidden');
+        if (animationStepsInput) animationStepsInput.value = '';
+        if (animationPreview) animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
 
         descriptionEditor.clear();
     } catch (error) {
@@ -2015,6 +2107,12 @@ function renderExercises(exercises) {
 
         if (exercise.tiered_points) {
             card.dataset.tieredPoints = JSON.stringify(exercise.tiered_points);
+        }
+
+        if (exercise.animation_steps) {
+            card.dataset.animationSteps = typeof exercise.animation_steps === 'string'
+                ? exercise.animation_steps
+                : JSON.stringify(exercise.animation_steps);
         }
 
         const tagsHtml = (exercise.tags || [])
@@ -2428,6 +2526,115 @@ async function initializeAuditSection() {
     await populateAuditFilters();
     setupAuditListeners();
     await loadAuditLogs();
+}
+
+// ============================================
+// ANIMATION INTEGRATION FÜR ÜBUNGSERSTELLUNG
+// ============================================
+
+function initializeAnimationToggle() {
+    const animationToggle = document.getElementById('exercise-animation-toggle');
+    const animationContainer = document.getElementById('exercise-animation-container');
+    const importBtn = document.getElementById('exercise-import-animation-btn');
+    const animationStepsInput = document.getElementById('exercise-animation-steps');
+    const animationPreview = document.getElementById('exercise-animation-steps-preview');
+
+    if (!animationToggle || !animationContainer) return;
+
+    // Toggle-Listener
+    animationToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            animationContainer.classList.remove('hidden');
+        } else {
+            animationContainer.classList.add('hidden');
+        }
+    });
+
+    // Import-Button Listener
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            // Funktion aus table-tennis-exercise-ui.js verwenden
+            if (typeof window.ttGetCurrentSteps === 'function') {
+                const animationData = window.ttGetCurrentSteps();
+
+                if (animationData && animationData.steps && animationData.steps.length > 0) {
+                    // Animation-Steps speichern
+                    animationStepsInput.value = JSON.stringify(animationData);
+
+                    // Preview aktualisieren
+                    const strokeTypes = window.TT_STROKE_TYPES || {};
+                    const stepsPreviewHtml = animationData.steps.map((step, index) => {
+                        const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
+                        const playerClass = step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700';
+                        const shortBadge = step.isShort ? '<span class="bg-amber-100 text-amber-700 px-1 rounded text-xs ml-1">kurz</span>' : '';
+
+                        return `
+                            <div class="flex items-center gap-2 py-1 border-b border-slate-100 last:border-0">
+                                <span class="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${playerClass}">
+                                    ${step.player}
+                                </span>
+                                <span class="text-slate-600">
+                                    ${step.side} ${strokeData.name} ${step.fromPosition}→${step.toPosition}${shortBadge}
+                                </span>
+                            </div>
+                        `;
+                    }).join('');
+
+                    animationPreview.innerHTML = `
+                        <div class="text-slate-600 not-italic">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-medium">${animationData.steps.length} Schritte</span>
+                                <button type="button" id="exercise-clear-animation-btn" class="text-red-500 hover:text-red-700 text-[10px]">
+                                    <i class="fas fa-trash mr-1"></i>Entfernen
+                                </button>
+                            </div>
+                            ${stepsPreviewHtml}
+                        </div>
+                    `;
+
+                    // Clear-Button Listener
+                    const clearBtn = document.getElementById('exercise-clear-animation-btn');
+                    if (clearBtn) {
+                        clearBtn.addEventListener('click', () => {
+                            animationStepsInput.value = '';
+                            animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
+                        });
+                    }
+
+                    showAdminNotification('Animation übernommen!', 'success');
+                } else {
+                    showAdminNotification('Keine Schritte im Animator vorhanden. Erstelle zuerst Schritte im Übungs-Animator oben.', 'warning');
+                }
+            } else {
+                showAdminNotification('Animator nicht verfügbar. Bitte Seite neu laden.', 'error');
+            }
+        });
+    }
+}
+
+// Hilfsfunktion für Benachrichtigungen
+function showAdminNotification(message, type = 'info') {
+    // Versuche globale Funktion zu nutzen
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type);
+        return;
+    }
+
+    // Fallback: Einfache Toast-Nachricht
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white z-50 transition-opacity duration-300 ${
+        type === 'success' ? 'bg-green-600' :
+        type === 'warning' ? 'bg-yellow-600' :
+        type === 'error' ? 'bg-red-600' :
+        'bg-blue-600'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Aufräumen beim Seiten-Entladen

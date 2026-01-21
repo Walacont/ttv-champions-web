@@ -1159,6 +1159,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"
@@ -2041,6 +2057,8 @@
         </script>
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
+        <!-- Table Tennis Exercise Builder for animation playback -->
+        <script src="/js/table-tennis-exercise-builder.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Supabase Version - keine Firebase-Abhängigkeiten -->
