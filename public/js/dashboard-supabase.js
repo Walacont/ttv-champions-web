@@ -2399,17 +2399,17 @@ async function fetchSeasonEndDate() {
             query = query.eq('sport_id', userSportId);
         }
 
-        // Nach Benutzer-Club filtern - nur eigene Vereins-Saisons anzeigen
+        // Nach Benutzer-Club filtern - eigene Vereins-Saisons ODER globale Saisons
         if (userClubId) {
-            query = query.eq('club_id', userClubId);
+            query = query.or(`club_id.eq.${userClubId},club_id.is.null`);
         }
 
         const { data: activeSeasons, error } = await query
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .order('created_at', { ascending: false });
 
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            const activeSeason = activeSeasons[0];
+            // Prefer club-specific season over global (null club_id)
+            const activeSeason = activeSeasons.find(s => s.club_id === userClubId) || activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
             // Ergebnis cachen

@@ -30,15 +30,16 @@ async function fetchSeasonEndDate(supabase, sportId = null, clubId = null) {
             query = query.eq('sport_id', sportId);
         }
 
-        // Filter by club_id - nur Saisons des eigenen Vereins anzeigen
+        // Filter by club_id - eigene Vereins-Saisons ODER globale Saisons (club_id = null)
         if (clubId) {
-            query = query.eq('club_id', clubId);
+            query = query.or(`club_id.eq.${clubId},club_id.is.null`);
         }
 
         const { data: activeSeasons, error } = await query;
 
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            const activeSeason = activeSeasons[0];
+            // Prefer club-specific season over global (null club_id)
+            const activeSeason = activeSeasons.find(s => s.club_id === clubId) || activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
             cachedSeasonEnd = seasonEnd;
