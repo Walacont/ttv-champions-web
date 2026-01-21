@@ -178,9 +178,9 @@ class TableTennisExerciseBuilder {
         // Target zone is on opponent's side of the table (deep, near baseline)
         let y;
         if (isPlayerA) {
-            y = this.tableY + this.tableHeight * 0.18; // Deep in opponent's side (near top edge)
+            y = this.tableY + this.tableHeight * 0.08; // Deep in opponent's side (near top edge/baseline)
         } else {
-            y = this.tableY + this.tableHeight * 0.82; // Deep in opponent's side (near bottom edge)
+            y = this.tableY + this.tableHeight * 0.92; // Deep in opponent's side (near bottom edge/baseline)
         }
 
         return { x, y };
