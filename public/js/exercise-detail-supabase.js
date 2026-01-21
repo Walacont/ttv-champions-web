@@ -127,12 +127,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    // Back button
+    // Back button - always go back in history, fallback to exercises section
     document.getElementById('back-button').addEventListener('click', () => {
-        if (document.referrer && document.referrer.includes(window.location.host)) {
+        // Check if we have history to go back to
+        if (window.history.length > 1) {
             history.back();
         } else {
-            window.location.href = '/dashboard.html#exercises';
+            // Fallback: go to exercises section based on user role
+            const isCoach = currentUserData?.role === 'coach' || currentUserData?.role === 'head_coach';
+            window.location.href = isCoach ? '/coach.html#exercises' : '/dashboard.html#exercises';
         }
     });
 
