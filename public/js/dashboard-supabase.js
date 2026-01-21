@@ -1874,6 +1874,8 @@ async function loadExercises() {
     const container = document.getElementById('exercises-list');
     if (!container) return;
 
+    let allExerciseItems = []; // Für die Suchfunktion
+
     try {
         // Abfrage mit optionalem Sport-Filter erstellen
         let query = supabase
@@ -1893,11 +1895,11 @@ async function loadExercises() {
         if (error) throw error;
 
         if (!exercises || exercises.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Keine Übungen verfügbar</p>';
+            container.innerHTML = '<p class="p-4 text-gray-500 text-center">Keine Übungen verfügbar</p>';
             return;
         }
 
-        // Tags sammeln und Übungskarten mit Tag-Daten erstellen
+        // Tags sammeln und Übungs-Items erstellen
         const allTags = new Set();
         const exerciseCards = [];
 
@@ -1907,35 +1909,71 @@ async function loadExercises() {
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer';
-            card.dataset.tags = JSON.stringify(exerciseTags);
-            card.onclick = () => openExerciseModal(exercise.id);
-            card.innerHTML = `
-                <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
-                    <img src="${exercise.image_url || ''}"
-                         alt="${exercise.name}"
-                         class="w-full h-full object-cover"
-                         onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-4xl\\'>🏓</div>'">
-                </div>
-                <h4 class="font-semibold">${exercise.name}</h4>
-                <p class="text-sm text-gray-600 mt-1 line-clamp-2">${exercise.description || ''}</p>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${exercise.xp_reward || 0} XP</span>
+            // Max Punkte berechnen (Meilensteine zusammenrechnen)
+            let maxPoints = exercise.xp_reward || exercise.points || 0;
+            const tieredPoints = exercise.tiered_points;
+            if (tieredPoints && tieredPoints.enabled && tieredPoints.milestones) {
+                maxPoints = tieredPoints.milestones.reduce((sum, m) => sum + (m.points || 0), 0);
+            }
+
+            const item = document.createElement('div');
+            item.className = 'exercise-item flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors';
+            item.dataset.id = exercise.id;
+            item.dataset.tags = JSON.stringify(exerciseTags);
+            item.onclick = () => navigateToExerciseDetail(exercise.id);
+            item.innerHTML = `
+                <span class="text-gray-900 font-medium truncate pr-4">${escapeHtml(exercise.name || '')}</span>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                    <i class="fas fa-chevron-right text-gray-400"></i>
                 </div>
             `;
 
-            container.appendChild(card);
-            exerciseCards.push({ card, tags: exerciseTags });
+            container.appendChild(item);
+            exerciseCards.push({ card: item, tags: exerciseTags });
+            allExerciseItems.push({ item, title: exercise.name || '', tags: exerciseTags });
         });
 
         // Tag-Filter Setup
         setupExerciseTagFilter(allTags, exerciseCards);
 
+        // Suchfunktion einrichten
+        setupExerciseSearchDashboard(allExerciseItems);
+
     } catch (error) {
         console.error('Error loading exercises:', error);
-        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Übungen</p>';
+        container.innerHTML = '<p class="p-4 text-red-500 text-center">Fehler beim Laden der Übungen</p>';
     }
+}
+
+// Navigation zur Übungs-Detailseite
+function navigateToExerciseDetail(exerciseId) {
+    window.location.href = `/exercise-detail.html?id=${exerciseId}`;
+}
+
+// Suchfunktion für Dashboard Übungsliste
+function setupExerciseSearchDashboard(allExerciseItems) {
+    const searchInput = document.getElementById('exercise-search-input');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        allExerciseItems.forEach(({ item, title }) => {
+            const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+            const isTagHidden = item.classList.contains('tag-hidden');
+
+            if (matchesSearch) {
+                item.classList.remove('search-hidden');
+                if (!isTagHidden) {
+                    item.style.display = '';
+                }
+            } else {
+                item.classList.add('search-hidden');
+                item.style.display = 'none';
+            }
+        });
+    });
 }
 
 /**
@@ -1984,12 +2022,17 @@ function setupExerciseTagFilter(allTags, exerciseCards) {
         e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
         e.target.classList.remove('bg-gray-200', 'text-gray-700');
 
-        // Übungen filtern
+        // Übungen filtern (mit Berücksichtigung der Suche)
         exerciseCards.forEach(({ card, tags }) => {
             if (selectedTag === 'all' || tags.includes(selectedTag)) {
-                card.classList.remove('hidden');
+                card.classList.remove('tag-hidden');
+                // Nur anzeigen wenn auch nicht durch Suche versteckt
+                if (!card.classList.contains('search-hidden')) {
+                    card.style.display = '';
+                }
             } else {
-                card.classList.add('hidden');
+                card.classList.add('tag-hidden');
+                card.style.display = 'none';
             }
         });
     };

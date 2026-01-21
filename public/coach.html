@@ -2234,39 +2234,52 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
-                            <!-- Tag Filter Section (Collapsible) -->
-                            <div class="mb-4">
+                        <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                            <!-- Header mit Suche und Filter -->
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                                 <button
                                     id="toggle-tags-filter-coach"
-                                    class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm mb-2"
+                                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
-                                    Tags filtern
+                                    <i class="fas fa-filter"></i>
+                                    <span>Filter</span>
                                 </button>
-                                <div
-                                    id="tags-filter-section-coach"
-                                    class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50"
-                                >
-                                    <input
-                                        type="text"
-                                        id="tag-search-coach"
-                                        placeholder="Tag suchen..."
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                    <div
-                                        id="tags-filter-container-coach"
-                                        class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
-                                    >
-                                        <!-- Tag buttons will be dynamically inserted here -->
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="exercise-search-input-coach"
+                                            placeholder="Suche nach Übungen"
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
                                     </div>
                                 </div>
                             </div>
+                            <!-- Tag Filter Section (Collapsible) -->
+                            <div
+                                id="tags-filter-section-coach"
+                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4"
+                            >
+                                <input
+                                    type="text"
+                                    id="tag-search-coach"
+                                    placeholder="Tag suchen..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <div
+                                    id="tags-filter-container-coach"
+                                    class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
+                                >
+                                    <!-- Tag buttons will be dynamically inserted here -->
+                                </div>
+                            </div>
+                            <!-- Übungsliste -->
                             <div
                                 id="exercises-list-coach"
-                                class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto"
+                                class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto"
                             >
-                                <p>Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500">Übungen werden geladen...</p>
                             </div>
                         </div>
                     </div>

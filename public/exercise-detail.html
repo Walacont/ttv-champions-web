@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+        <script src="/js/capacitor-init.js"></script>
+
+        <title>Übung - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            html, body {
+                font-family: 'Inter', sans-serif;
+                height: 100%;
+                overflow-x: hidden;
+            }
+            #page-loader {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #f3f4f6;
+                z-index: 9999;
+            }
+            #main-content {
+                display: none;
+            }
+
+            /* PWA standalone mode */
+            @media all and (display-mode: standalone) {
+                html {
+                    background-color: white;
+                }
+                body {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+            @supports (-webkit-touch-callout: none) {
+                body.standalone-mode {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
+            /* Milestone progress bar */
+            .milestone-achieved {
+                background-color: #10b981;
+                color: white;
+            }
+            .milestone-current {
+                background-color: #fbbf24;
+                color: #1f2937;
+            }
+            .milestone-pending {
+                background-color: #e5e7eb;
+                color: #6b7280;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <!-- Page Loader -->
+        <div id="page-loader">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Wird geladen...</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="min-h-screen pb-8">
+            <!-- Header -->
+            <header class="bg-white shadow-sm sticky top-0 z-40">
+                <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+                    <button
+                        id="back-button"
+                        class="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        aria-label="Zurück"
+                    >
+                        <i class="fas fa-arrow-left text-gray-600 text-lg"></i>
+                    </button>
+                    <h1 id="page-title" class="text-lg font-semibold text-gray-900 truncate">Übung</h1>
+                </div>
+            </header>
+
+            <!-- Exercise Content -->
+            <main class="max-w-4xl mx-auto px-4 py-6">
+                <!-- Loading State -->
+                <div id="exercise-loading" class="text-center py-12">
+                    <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p class="text-gray-500">Übung wird geladen...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="exercise-error" class="hidden text-center py-12">
+                    <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
+                    <p class="text-gray-600">Übung konnte nicht geladen werden.</p>
+                    <button
+                        onclick="history.back()"
+                        class="mt-4 text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                        Zurück zur Übersicht
+                    </button>
+                </div>
+
+                <!-- Exercise Content -->
+                <div id="exercise-content" class="hidden space-y-6">
+                    <!-- Title & Points -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-start justify-between gap-4">
+                            <h2 id="exercise-title" class="text-2xl font-bold text-gray-900"></h2>
+                            <span id="exercise-points" class="flex-shrink-0 text-sm font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full"></span>
+                        </div>
+
+                        <!-- Tags -->
+                        <div id="exercise-tags" class="mt-4 flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- Image -->
+                    <div id="exercise-image-container" class="hidden">
+                        <img
+                            id="exercise-image"
+                            src=""
+                            alt=""
+                            class="w-full rounded-xl shadow-sm object-contain max-h-96 bg-white"
+                        />
+                    </div>
+
+                    <!-- Animation -->
+                    <div id="exercise-animation-container" class="hidden bg-slate-900 rounded-xl p-3 shadow-sm">
+                        <canvas id="exercise-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="flex justify-center mt-2">
+                            <button
+                                id="animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-sm px-4 py-2 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-2"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div id="exercise-description-section" class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Beschreibung</h3>
+                        <div id="exercise-description" class="text-gray-600" style="white-space: pre-wrap;"></div>
+                    </div>
+
+                    <!-- Procedure/Steps -->
+                    <div id="exercise-procedure-section" class="hidden bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Ablauf</h3>
+                        <div id="exercise-procedure" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Abbreviations Legend -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <button
+                            id="toggle-abbreviations"
+                            class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 font-medium w-full"
+                        >
+                            <i class="fas fa-chevron-right transition-transform" id="abbreviations-icon"></i>
+                            <span>Abkürzungen anzeigen</span>
+                        </button>
+                        <div id="abbreviations-content" class="hidden mt-4 bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                                <div><span class="font-semibold">VH</span> = Vorhand</div>
+                                <div><span class="font-semibold">RH</span> = Rückhand</div>
+                                <div><span class="font-semibold">T</span> = Topspin</div>
+                                <div><span class="font-semibold">K</span> = Konter</div>
+                                <div><span class="font-semibold">B</span> = Block</div>
+                                <div><span class="font-semibold">S</span> = Smash</div>
+                                <div><span class="font-semibold">F</span> = Flip</div>
+                                <div><span class="font-semibold">SCH</span> = Schupf</div>
+                                <div><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
+                                <div><span class="font-semibold">A</span> = Aufschlag</div>
+                                <div><span class="font-semibold">OS</span> = Oberschnitt</div>
+                                <div><span class="font-semibold">US</span> = Unterschnitt</div>
+                                <div><span class="font-semibold">SS</span> = Seitenschnitt</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Milestones Section -->
+                    <div id="exercise-milestones-section" class="hidden bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Meilensteine</h3>
+                        <div id="exercise-milestones" class="space-y-3"></div>
+                        <div id="exercise-progress-summary" class="mt-4 pt-4 border-t border-gray-200"></div>
+                    </div>
+
+                    <!-- Example Videos Section -->
+                    <div id="example-videos-section" class="hidden bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <i class="fas fa-play-circle text-indigo-600"></i>
+                            Musterbeispiele
+                        </h3>
+                        <div id="example-videos-list" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Global Record -->
+                    <div id="exercise-record-section" class="hidden bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-yellow-800 flex items-center gap-2 mb-2">
+                            <i class="fas fa-trophy text-yellow-600"></i>
+                            Globaler Rekord
+                        </h3>
+                        <p id="exercise-record-info" class="text-yellow-700"></p>
+                    </div>
+
+                    <!-- Video Upload Button -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <button
+                            id="upload-video-btn"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                            <i class="fas fa-video"></i>
+                            <span>Video zur Analyse hochladen</span>
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Video Upload Modal -->
+        <div id="video-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+            <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg">
+                    <div class="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
+                        <h3 class="text-base sm:text-lg font-bold truncate mr-2">Video zur Analyse hochladen</h3>
+                        <button id="close-video-upload" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
+                            <i class="fas fa-times text-xl sm:text-2xl"></i>
+                        </button>
+                    </div>
+                    <form id="video-upload-form" class="p-4 sm:p-6 space-y-4">
+                        <input type="hidden" id="video-exercise-id">
+
+                        <!-- Video File -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Video-Datei *</label>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors">
+                                <input type="file" id="video-file-input" accept="video/mp4,video/quicktime,video/webm" required class="hidden">
+                                <label for="video-file-input" class="cursor-pointer">
+                                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                    <p class="text-sm text-gray-600">Klicken zum Auswählen</p>
+                                    <p class="text-xs text-gray-400 mt-1">MP4, MOV, WebM (max. 100 MB)</p>
+                                </label>
+                            </div>
+                            <p id="selected-file-name" class="text-sm text-purple-600 mt-2 hidden"></p>
+                        </div>
+
+                        <!-- Title -->
+                        <div>
+                            <label for="video-title" class="block text-sm font-medium text-gray-700 mb-1">Titel (optional)</label>
+                            <input type="text" id="video-title" placeholder="z.B. Mein Aufschlag"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+
+                        <!-- Notes -->
+                        <div>
+                            <label for="video-notes" class="block text-sm font-medium text-gray-700 mb-1">Notizen (optional)</label>
+                            <textarea id="video-notes" rows="3" placeholder="Worauf soll der Coach achten?"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button
+                            type="submit"
+                            id="submit-video-btn"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                            <i class="fas fa-upload"></i>
+                            <span>Video hochladen</span>
+                        </button>
+
+                        <!-- Progress -->
+                        <div id="upload-progress" class="hidden">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="upload-progress-bar" class="bg-purple-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <p id="upload-progress-text" class="text-sm text-gray-600 mt-2 text-center">Wird hochgeladen...</p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script type="module" src="/js/exercise-detail-supabase.js"></script>
+    </body>
+</html>

@@ -686,16 +686,7 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => {
         document.getElementById('pairings-modal').classList.add('hidden');
     });
-    document.getElementById('exercises-list-coach').addEventListener('click', async e => {
-        const card = e.target.closest('[data-id]');
-        if (card) {
-            openExerciseModalFromDataset(card.dataset);
-            // Musterlösungen für diese Übung laden
-            if (card.dataset.id) {
-                await loadExerciseExampleVideos(card.dataset.id);
-            }
-        }
-    });
+    // Event-Handler für Übungsliste ist nicht mehr nötig - Navigation zur Detailseite erfolgt via onclick
     document
         .getElementById('close-exercise-modal-button')
         .addEventListener('click', closeExerciseModal);

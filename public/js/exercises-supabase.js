@@ -41,6 +41,7 @@ export async function loadExercises(db, unsubscribes) {
     if (!exercisesListEl) return;
 
     let exercisesData = [];
+    let allExerciseItems = []; // Speichert alle Übungs-Items für die Suche
 
     await loadExercisesList();
 
@@ -59,6 +60,9 @@ export async function loadExercises(db, unsubscribes) {
         unsubscribes.push(() => subscription.unsubscribe());
     }
 
+    // Suchfunktion einrichten
+    setupExerciseSearch();
+
     async function loadExercisesList() {
         let query = db
             .from('exercises')
@@ -74,7 +78,7 @@ export async function loadExercises(db, unsubscribes) {
         const { data: exercisesRaw, error } = await query;
 
         if (error || !exercisesRaw || exercisesRaw.length === 0) {
-            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            exercisesListEl.innerHTML = `<p class="p-4 text-gray-500 text-center">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
         }
 
@@ -82,6 +86,7 @@ export async function loadExercises(db, unsubscribes) {
         const allTags = new Set();
         const exercises = [];
         exercisesData = [];
+        allExerciseItems = [];
 
         const userClubId = exerciseContext.clubId;
         const visibleDocs = exercisesRaw.filter(exercise => {
@@ -95,7 +100,7 @@ export async function loadExercises(db, unsubscribes) {
         });
 
         if (visibleDocs.length === 0) {
-            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            exercisesListEl.innerHTML = `<p class="p-4 text-gray-500 text-center">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
         }
 
@@ -105,19 +110,41 @@ export async function loadExercises(db, unsubscribes) {
 
             exercisesData.push({ exercise, exerciseId });
 
-            // Fortschritt wird nur im Modal angezeigt, nicht auf Karten
-            const card = createExerciseCard({ id: exerciseId }, exercise);
+            const item = createExerciseCard({ id: exerciseId }, exercise);
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
-            exercises.push({ card, tags: exerciseTags });
-            exercisesListEl.appendChild(card);
+            exercises.push({ card: item, tags: exerciseTags });
+            allExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
+            exercisesListEl.appendChild(item);
         }
 
         renderTagFilters(allTags, exercises);
     }
 
-    // Hinweis: Echtzeit-Updates für Karten-Fortschritt wurden entfernt
+    function setupExerciseSearch() {
+        const searchInput = document.getElementById('exercise-search-input');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            allExerciseItems.forEach(({ item, title }) => {
+                const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+                const isTagHidden = item.classList.contains('tag-hidden');
+
+                if (matchesSearch) {
+                    item.classList.remove('search-hidden');
+                    if (!isTagHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('search-hidden');
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 /**
@@ -159,66 +186,64 @@ function mapExerciseFromSupabase(row) {
 }
 
 /**
- * Erstellt HTML für eine Übungskarte
+ * Berechnet die maximalen Punkte einer Übung
+ * Bei Meilensteinen werden alle Punkte zusammengerechnet
+ */
+function calculateMaxPoints(exercise) {
+    if (exercise.tieredPoints && exercise.tieredPoints.enabled && exercise.tieredPoints.milestones) {
+        const milestones = exercise.tieredPoints.milestones;
+        return milestones.reduce((sum, m) => sum + (m.points || 0), 0);
+    }
+    return exercise.points || 0;
+}
+
+/**
+ * Erstellt HTML für ein Übungs-Listenelement (neue Listen-Ansicht)
  */
 function createExerciseCard(docSnap, exercise) {
-    const card = document.createElement('div');
-    card.className =
-        'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
-    card.dataset.id = docSnap.id;
-    card.dataset.title = exercise.title;
+    const item = document.createElement('div');
+    item.className =
+        'exercise-item flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors';
+    item.dataset.id = docSnap.id;
+    item.dataset.title = exercise.title;
 
     if (exercise.descriptionContent) {
-        // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
-        card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
+        item.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
             ? exercise.descriptionContent
             : JSON.stringify(exercise.descriptionContent);
     } else {
-        card.dataset.descriptionContent = JSON.stringify({
+        item.dataset.descriptionContent = JSON.stringify({
             type: 'text',
             text: exercise.description || '',
         });
     }
     if (exercise.imageUrl) {
-        card.dataset.imageUrl = exercise.imageUrl;
+        item.dataset.imageUrl = exercise.imageUrl;
     }
-    card.dataset.points = exercise.points;
-    card.dataset.tags = JSON.stringify(exercise.tags || []);
+    item.dataset.points = exercise.points;
+    item.dataset.tags = JSON.stringify(exercise.tags || []);
 
     if (exercise.tieredPoints) {
-        card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+        item.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
     }
 
     if (exercise.animationSteps) {
-        card.dataset.animationSteps = typeof exercise.animationSteps === 'string'
+        item.dataset.animationSteps = typeof exercise.animationSteps === 'string'
             ? exercise.animationSteps
             : JSON.stringify(exercise.animationSteps);
     }
 
-    const exerciseTags = exercise.tags || [];
-    const tagsHtml = exerciseTags
-        .map(
-            tag =>
-                `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-        )
-        .join('');
+    const maxPoints = calculateMaxPoints(exercise);
+    const safeTitle = escapeHtml(exercise.title || '');
 
-    card.innerHTML = `
-        <div class="p-5 flex flex-col flex-grow relative">
-            <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">${exercise.points} XP</span>
-            <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20">${exercise.title}</h3>
-            <div class="mb-3">${tagsHtml}</div>
-            <p class="text-sm text-gray-600 mb-4 flex-grow">${exercise.description || ''}</p>
-            <div class="flex items-center text-xs text-gray-500">
-                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-                </svg>
-                Wiederholbar mit Meilensteinen
-            </div>
+    item.innerHTML = `
+        <span class="text-gray-900 font-medium truncate pr-4">${safeTitle}</span>
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+            <i class="fas fa-chevron-right text-gray-400"></i>
         </div>`;
 
-    return card;
+    return item;
 }
 
 /**
@@ -267,9 +292,14 @@ export function renderTagFilters(tags, exercises) {
 
             exercises.forEach(({ card, tags }) => {
                 if (selectedTag === 'all' || tags.includes(selectedTag)) {
-                    card.classList.remove('hidden');
+                    card.classList.remove('tag-hidden');
+                    // Nur anzeigen wenn auch nicht durch Suche versteckt
+                    if (!card.classList.contains('search-hidden')) {
+                        card.style.display = '';
+                    }
                 } else {
-                    card.classList.add('hidden');
+                    card.classList.add('tag-hidden');
+                    card.style.display = 'none';
                 }
             });
         }
@@ -283,6 +313,8 @@ export function loadAllExercises(db) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
 
+    let allExerciseItems = []; // Für die Suchfunktion
+
     loadCoachExercisesList();
 
     db.channel('coach-exercises-changes')
@@ -294,6 +326,9 @@ export function loadAllExercises(db) {
             loadCoachExercisesList();
         })
         .subscribe();
+
+    // Suchfunktion einrichten
+    setupCoachExerciseSearch();
 
     async function loadCoachExercisesList() {
         let query = db
@@ -312,7 +347,7 @@ export function loadAllExercises(db) {
         if (error) {
             console.error('[Exercises] Error loading exercises:', error.message);
             exercisesListCoachEl.innerHTML =
-                '<p class="text-gray-400 col-span-full">Keine Übungen verfügbar</p>';
+                '<p class="p-4 text-gray-500 text-center">Keine Übungen verfügbar</p>';
             return;
         }
 
@@ -337,15 +372,39 @@ export function loadAllExercises(db) {
             (exercise.tags || []).forEach(tag => allTags.add(tag));
         });
 
-        renderTagFiltersCoach(allTags, exercises);
-        renderCoachExercises(exercises, 'all');
+        allExerciseItems = renderCoachExercises(exercises, 'all');
+        renderTagFiltersCoach(allTags, exercises, allExerciseItems);
+    }
+
+    function setupCoachExerciseSearch() {
+        const searchInput = document.getElementById('exercise-search-input-coach');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            allExerciseItems.forEach(({ item, title }) => {
+                const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+                const isTagHidden = item.classList.contains('tag-hidden');
+
+                if (matchesSearch) {
+                    item.classList.remove('search-hidden');
+                    if (!isTagHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('search-hidden');
+                    item.style.display = 'none';
+                }
+            });
+        });
     }
 }
 
 /**
  * Rendert Tag-Filter-Buttons für Coach-Übungsliste
  */
-function renderTagFiltersCoach(tags, exercises) {
+function renderTagFiltersCoach(tags, exercises, allExerciseItems) {
     const oldContainer = document.getElementById('tags-filter-container-coach');
     if (!oldContainer) return;
 
@@ -383,7 +442,21 @@ function renderTagFiltersCoach(tags, exercises) {
             e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
             e.target.classList.remove('bg-gray-200', 'text-gray-700');
 
-            renderCoachExercises(exercises, selectedTag);
+            // Filter Items basierend auf Tag (mit Berücksichtigung der Suche)
+            allExerciseItems.forEach(({ item, tags }) => {
+                const matchesTag = selectedTag === 'all' || tags.includes(selectedTag);
+                const isSearchHidden = item.classList.contains('search-hidden');
+
+                if (matchesTag) {
+                    item.classList.remove('tag-hidden');
+                    if (!isSearchHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('tag-hidden');
+                    item.style.display = 'none';
+                }
+            });
         }
     });
 }
@@ -438,9 +511,10 @@ function setupTagSearch(context) {
  */
 function renderCoachExercises(exercises, filterTag) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
-    if (!exercisesListCoachEl) return;
+    if (!exercisesListCoachEl) return [];
 
     exercisesListCoachEl.innerHTML = '';
+    const allExerciseItems = [];
 
     const filteredExercises =
         filterTag === 'all'
@@ -449,82 +523,52 @@ function renderCoachExercises(exercises, filterTag) {
 
     if (filteredExercises.length === 0) {
         exercisesListCoachEl.innerHTML =
-            '<p class="text-gray-500 col-span-full">Keine Übungen für diesen Filter gefunden.</p>';
-        return;
+            '<p class="p-4 text-gray-500 text-center">Keine Übungen für diesen Filter gefunden.</p>';
+        return allExerciseItems;
     }
 
     filteredExercises.forEach(exercise => {
-        const card = document.createElement('div');
-        card.className =
-            'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-        card.dataset.id = exercise.id;
-        card.dataset.title = exercise.title;
-        if (exercise.descriptionContent) {
-            // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
-            card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
-                ? exercise.descriptionContent
-                : JSON.stringify(exercise.descriptionContent);
-        } else {
-            card.dataset.descriptionContent = JSON.stringify({
-                type: 'text',
-                text: exercise.description || '',
-            });
-        }
-        if (exercise.imageUrl) {
-            card.dataset.imageUrl = exercise.imageUrl;
-        }
-        card.dataset.points = exercise.points;
-        card.dataset.tags = JSON.stringify(exercise.tags || []);
-
-        if (exercise.tieredPoints) {
-            card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
-        }
-
-        const tagsHtml = (exercise.tags || [])
-            .map(
-                tag =>
-                    `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-            )
-            .join('');
-
         const currentUserId = exerciseContext.userId;
         const isCreator = currentUserId && exercise.createdBy === currentUserId;
         const isAdmin = exerciseContext.userRole === 'admin';
         const canEdit = isCreator || isAdmin;
 
-        const coachBadge = isCreator
-            ? ' Von dir erstellt'
-            : exercise.createdByName
-              ? `👤 ${exercise.createdByName}`
-              : 'System';
+        const maxPoints = calculateMaxPoints(exercise);
+        const safeTitle = escapeHtml(exercise.title || '');
+        const exerciseTags = exercise.tags || [];
 
-        const visibilityBadge = exercise.visibility === 'club'
-            ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
-            : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
+        const item = document.createElement('div');
+        item.className = 'exercise-item flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors';
+        item.dataset.id = exercise.id;
+        item.dataset.tags = JSON.stringify(exerciseTags);
 
-        card.innerHTML = `
-            <div class="p-5 flex flex-col flex-grow relative">
-                <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold pointer-events-none">${exercise.points} XP</span>
-                <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20 pointer-events-none">${exercise.title}</h3>
-                <div class="flex items-center gap-2 mb-3 pointer-events-none">
-                    ${visibilityBadge}
-                    <span class="text-xs text-gray-600">${coachBadge}</span>
-                </div>
-                <div class="mb-3 pointer-events-none">${tagsHtml}</div>
-                <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
+        // Visibility Badge
+        const visibilityIcon = exercise.visibility === 'club' ? '🏠' : '🌍';
+
+        item.innerHTML = `
+            <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'">
+                <span class="text-gray-900 font-medium truncate">${safeTitle}</span>
+                <span class="text-xs flex-shrink-0">${visibilityIcon}</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
                 ${canEdit ? `
-                <div class="mt-auto pointer-events-auto flex gap-2">
-                    <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
-                        Bearbeiten
-                    </button>
-                    <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
-                        Löschen
-                    </button>
-                </div>
-                ` : ''}
+                <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Löschen">
+                    <i class="fas fa-trash"></i>
+                </button>
+                ` : `
+                <i class="fas fa-chevron-right text-gray-400 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'"></i>
+                `}
             </div>`;
-        exercisesListCoachEl.appendChild(card);
+
+        exercisesListCoachEl.appendChild(item);
+        allExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
     });
+
+    return allExerciseItems;
 }
 
 /**
