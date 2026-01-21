@@ -333,11 +333,56 @@
         // Initialize the canvas builder
         exerciseBuilder = new TableTennisExerciseBuilder('tt-exercise-canvas');
 
+        // Setup handedness from dropdowns and apply to builder
+        setupHandednessListeners();
+        applyHandednessToBuilder();
+
         // Setup event listeners
         setupFormListeners();
         setupPlaybackControls();
         setupPresets();
         setupLegendToggle();
+    }
+
+    // Get current handedness code from dropdowns (e.g., "R-R", "L-L", "R-L", "L-R")
+    function getCurrentHandednessCode() {
+        const playerAHand = document.getElementById('tt-player-a-hand')?.value || 'R';
+        const playerBHand = document.getElementById('tt-player-b-hand')?.value || 'R';
+        return `${playerAHand}-${playerBHand}`;
+    }
+
+    // Apply current handedness settings to the builder
+    function applyHandednessToBuilder() {
+        if (exerciseBuilder && typeof exerciseBuilder.setHandedness === 'function') {
+            const handednessCode = getCurrentHandednessCode();
+            exerciseBuilder.setHandedness(handednessCode);
+        }
+    }
+
+    // Setup listeners for handedness dropdowns
+    function setupHandednessListeners() {
+        const playerASelect = document.getElementById('tt-player-a-hand');
+        const playerBSelect = document.getElementById('tt-player-b-hand');
+
+        if (playerASelect) {
+            playerASelect.addEventListener('change', () => {
+                applyHandednessToBuilder();
+                // Redraw current steps with new handedness
+                if (exerciseBuilder && steps.length > 0) {
+                    exerciseBuilder.drawAllSteps();
+                }
+            });
+        }
+
+        if (playerBSelect) {
+            playerBSelect.addEventListener('change', () => {
+                applyHandednessToBuilder();
+                // Redraw current steps with new handedness
+                if (exerciseBuilder && steps.length > 0) {
+                    exerciseBuilder.drawAllSteps();
+                }
+            });
+        }
     }
 
     function setupFormListeners() {
@@ -899,7 +944,11 @@
 
     // Get current steps (globally accessible for exercise form integration)
     window.ttGetCurrentSteps = function() {
-        return steps.length > 0 ? { steps: [...steps] } : null;
+        if (steps.length === 0) return null;
+        return {
+            steps: [...steps],
+            handedness: getCurrentHandednessCode()
+        };
     };
 
     // Set steps from external data (for loading animations)

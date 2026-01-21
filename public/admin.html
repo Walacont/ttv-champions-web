@@ -327,6 +327,30 @@
                         </div>
                     </div>
 
+                    <!-- Händigkeits-Auswahl für Animator -->
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-indigo-700">Spieler A (unten):</label>
+                                <select id="tt-player-a-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="R">Rechtshänder</option>
+                                    <option value="L">Linkshänder</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-indigo-700">Spieler B (oben):</label>
+                                <select id="tt-player-b-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="R">Rechtshänder</option>
+                                    <option value="L">Linkshänder</option>
+                                </select>
+                            </div>
+                            <div class="text-xs text-indigo-600 ml-auto">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                VH/RH wird automatisch angepasst
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                         <!-- Canvas and Controls - Compact -->
                         <div class="lg:col-span-1">

@@ -2547,7 +2547,8 @@ function initializeAnimationToggle() {
             return;
         }
 
-        const handedness = handednessSelect.value;
+        // Händigkeit aus dem Animator übernehmen (dort wurde sie beim Erstellen ausgewählt)
+        const handedness = animationData.handedness || handednessSelect.value;
 
         // Prüfen ob für diese Händigkeit schon eine Animation existiert
         const existingIndex = exerciseAnimations.findIndex(a => a.handedness === handedness);
