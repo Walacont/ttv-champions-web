@@ -12,10 +12,11 @@ let exerciseId = null;
 
 // Animation state
 let animationSteps = [];
-let currentStepIndex = 0;
+let currentStepIndex = -1; // -1 means "show all steps", 0+ is individual step
 let animationPlayer = null;
 let isAnimating = false;
 let stepAnimationFrame = null;
+let showAllMode = true; // Start by showing all steps
 
 // Stroke types for display
 const STROKE_TYPES = {
@@ -366,9 +367,13 @@ async function loadMilestoneProgress(exercise) {
 async function loadExampleVideos() {
     try {
         const clubId = currentUserData?.club_id;
+        console.log('Loading example videos for exercise:', exerciseId, 'club:', clubId);
 
         // Mustervideos nur fuer Benutzer in einem Club anzeigen
-        if (!clubId) return;
+        if (!clubId) {
+            console.log('No club_id, skipping example videos');
+            return;
+        }
 
         let videos = [];
 
@@ -378,11 +383,32 @@ async function loadExampleVideos() {
             p_club_id: clubId
         });
 
+        console.log('RPC result:', { rpcVideos, rpcError });
+
         if (!rpcError && rpcVideos && rpcVideos.length > 0) {
             videos = rpcVideos;
+        } else if (rpcError) {
+            console.warn('RPC error, trying direct query:', rpcError);
+
+            // Fallback: direct query to exercise_example_videos table
+            const { data: directVideos, error: directError } = await supabase
+                .from('exercise_example_videos')
+                .select('*')
+                .eq('exercise_id', exerciseId)
+                .eq('club_id', clubId);
+
+            if (!directError && directVideos && directVideos.length > 0) {
+                videos = directVideos;
+            }
+            console.log('Direct query result:', { directVideos, directError });
         }
 
-        if (videos.length === 0) return;
+        console.log('Final videos:', videos);
+
+        if (videos.length === 0) {
+            console.log('No example videos found');
+            return;
+        }
 
         const section = document.getElementById('example-videos-section');
         const list = document.getElementById('example-videos-list');
@@ -426,7 +452,8 @@ function setupAnimation(rawSteps) {
     if (!steps || steps.length === 0) return;
 
     animationSteps = steps;
-    currentStepIndex = 0;
+    currentStepIndex = -1; // Start in "show all" mode
+    showAllMode = true;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
@@ -434,14 +461,22 @@ function setupAnimation(rawSteps) {
     // Initialize animation player
     const initPlayer = (PlayerClass) => {
         try {
-            // Create player with canvas element directly
-            animationPlayer = new PlayerClass(canvas.id);
-            animationPlayer.loopAnimation = false; // Don't loop - we control steps manually
-
-            // Show container and render first step
+            // Show container FIRST so canvas has dimensions
             container.classList.remove('hidden');
-            updateStepDisplay();
-            renderCurrentStep();
+
+            // Small delay to ensure DOM has updated dimensions
+            requestAnimationFrame(() => {
+                // Create player with canvas element
+                animationPlayer = new PlayerClass(canvas.id);
+                animationPlayer.loopAnimation = false;
+
+                // Pass the steps to the player
+                animationPlayer.setSteps(animationSteps);
+
+                // Update display and render all steps initially
+                updateStepDisplay();
+                renderAllSteps();
+            });
         } catch (e) {
             console.error('Error initializing animation:', e);
         }
@@ -463,25 +498,60 @@ function setupAnimation(rawSteps) {
 }
 
 function updateStepDisplay() {
-    const step = animationSteps[currentStepIndex];
-    if (!step) return;
+    const stepInfoEl = document.getElementById('animation-step-info');
 
-    // Update counter
-    document.getElementById('animation-step-counter').textContent =
-        `Schritt ${currentStepIndex + 1} / ${animationSteps.length}`;
+    if (showAllMode) {
+        // Show "all steps" mode
+        document.getElementById('animation-step-counter').textContent =
+            `Alle ${animationSteps.length} Schritte`;
 
-    // Update step info
-    const playerLabel = step.player === 'A' ? 'Spieler' : 'Gegner';
-    const strokeName = STROKE_TYPES[step.strokeType] || step.strokeType || 'Schlag';
-    const positionName = POSITIONS[step.toPosition] || step.toPosition || 'Position';
+        // Hide step info when showing all
+        stepInfoEl.classList.add('hidden');
 
-    document.getElementById('animation-step-player').textContent = playerLabel;
-    document.getElementById('animation-step-stroke').textContent = strokeName;
-    document.getElementById('animation-step-position').textContent = positionName;
+        // Update button states
+        document.getElementById('animation-prev-btn').disabled = true;
+        document.getElementById('animation-next-btn').disabled = animationSteps.length === 0;
+    } else {
+        const step = animationSteps[currentStepIndex];
+        if (!step) return;
 
-    // Update button states
-    document.getElementById('animation-prev-btn').disabled = currentStepIndex === 0;
-    document.getElementById('animation-next-btn').disabled = currentStepIndex === animationSteps.length - 1;
+        // Update counter
+        document.getElementById('animation-step-counter').textContent =
+            `Schritt ${currentStepIndex + 1} / ${animationSteps.length}`;
+
+        // Show step info
+        stepInfoEl.classList.remove('hidden');
+
+        // Update step info
+        const playerLabel = step.player === 'A' ? 'Spieler' : 'Gegner';
+        const strokeName = STROKE_TYPES[step.strokeType] || step.strokeType || 'Schlag';
+        const positionName = POSITIONS[step.toPosition] || step.toPosition || 'Position';
+
+        document.getElementById('animation-step-player').textContent = playerLabel;
+        document.getElementById('animation-step-stroke').textContent = strokeName;
+        document.getElementById('animation-step-position').textContent = positionName;
+
+        // Update button states: prev goes back to "all" mode when at step 0
+        document.getElementById('animation-prev-btn').disabled = false;
+        document.getElementById('animation-next-btn').disabled = currentStepIndex === animationSteps.length - 1;
+    }
+}
+
+function renderAllSteps() {
+    if (!animationPlayer || animationSteps.length === 0) return;
+
+    // Stop any ongoing animation
+    if (stepAnimationFrame) {
+        cancelAnimationFrame(stepAnimationFrame);
+        stepAnimationFrame = null;
+    }
+    isAnimating = false;
+
+    // Use the player's showAllSteps method to display all steps at once
+    animationPlayer.showAllSteps();
+
+    // Update play button state
+    updatePlayButton(false);
 }
 
 function renderCurrentStep() {
@@ -494,17 +564,17 @@ function renderCurrentStep() {
     }
     isAnimating = false;
 
+    if (showAllMode) {
+        renderAllSteps();
+        return;
+    }
+
     // Get current step and previous step for context
     const currentStep = animationSteps[currentStepIndex];
     const previousStep = currentStepIndex > 0 ? animationSteps[currentStepIndex - 1] : null;
 
-    // Draw table first
-    animationPlayer.drawTable();
-
-    // Draw the current step with full progress (ball at destination)
-    if (currentStep) {
-        animationPlayer.drawStep(currentStep, 1, previousStep);
-    }
+    // Use showStepStatic for cleaner single step display
+    animationPlayer.showStepStatic(currentStepIndex);
 
     // Update play button state
     updatePlayButton(false);
@@ -512,6 +582,15 @@ function renderCurrentStep() {
 
 function animateCurrentStep() {
     if (!animationPlayer || animationSteps.length === 0 || isAnimating) return;
+
+    if (showAllMode) {
+        // In "show all" mode, play the full animation sequence
+        isAnimating = true;
+        animationPlayer.loopAnimation = true;
+        animationPlayer.play();
+        updatePlayButton(true);
+        return;
+    }
 
     isAnimating = true;
     const currentStep = animationSteps[currentStepIndex];
@@ -563,6 +642,9 @@ function toggleStepAnimation() {
             cancelAnimationFrame(stepAnimationFrame);
             stepAnimationFrame = null;
         }
+        if (animationPlayer) {
+            animationPlayer.pause();
+        }
         isAnimating = false;
         renderCurrentStep();
     } else {
@@ -572,8 +654,6 @@ function toggleStepAnimation() {
 }
 
 function goToStep(index) {
-    if (index < 0 || index >= animationSteps.length) return;
-
     // Stop any ongoing animation
     if (stepAnimationFrame) {
         cancelAnimationFrame(stepAnimationFrame);
@@ -581,7 +661,21 @@ function goToStep(index) {
     }
     isAnimating = false;
 
-    currentStepIndex = index;
+    if (showAllMode) {
+        // We're in "show all" mode, pressing next goes to step 0
+        showAllMode = false;
+        currentStepIndex = 0;
+    } else if (index < 0) {
+        // Going before step 0 returns to "show all" mode
+        showAllMode = true;
+        currentStepIndex = -1;
+    } else if (index >= animationSteps.length) {
+        // Can't go past last step
+        return;
+    } else {
+        currentStepIndex = index;
+    }
+
     updateStepDisplay();
     renderCurrentStep();
 }
