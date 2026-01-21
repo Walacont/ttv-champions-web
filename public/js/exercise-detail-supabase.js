@@ -53,13 +53,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         currentUser = user;
 
-        // Load user data for club_id
+        // Load user data for club_id and role
         const { data: userData } = await supabase
             .from('users')
-            .select('club_id')
+            .select('club_id, role')
             .eq('id', user.id)
             .single();
         currentUserData = userData;
+
+        // If user is a coach without club_id, try to find their club
+        if (userData && !userData.club_id && userData.role === 'coach') {
+            const { data: clubData } = await supabase
+                .from('clubs')
+                .select('id')
+                .eq('coach_id', user.id)
+                .maybeSingle();
+
+            if (clubData) {
+                currentUserData.club_id = clubData.id;
+            }
+        }
 
         // Get exercise ID from URL
         const urlParams = new URLSearchParams(window.location.search);
