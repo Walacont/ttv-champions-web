@@ -161,11 +161,12 @@ function initializeAdminPage(userData, user) {
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
 
-        // Beschreibungs-Editoren initialisieren
+        // Beschreibungs-Editoren initialisieren (Tabellen-Modus als Standard)
         descriptionEditor = setupDescriptionEditor({
             textAreaId: 'exercise-description',
             toggleContainerId: 'description-toggle-container',
             tableEditorContainerId: 'description-table-editor',
+            initialData: { type: 'table', tableData: { headers: ['Spieler A', 'Spieler B'], rows: [] }, additionalText: '' }
         });
 
         editDescriptionEditor = setupDescriptionEditor({
@@ -1953,13 +1954,13 @@ async function handleCreateExercise(e) {
             sport_id: exerciseSport || null,
         };
 
-        // Animationen hinzufügen falls vorhanden
+        // Animationen hinzufügen falls vorhanden (alles in animation_steps speichern)
         if (exerciseAnimations.length > 0) {
-            exerciseData.animations = exerciseAnimations;
-            // Für Abwärtskompatibilität: Erste Animation auch als animation_steps speichern
-            const firstAnimation = exerciseAnimations[0];
+            // Speichere alle Animationen mit Händigkeit und Beschreibung
             exerciseData.animation_steps = {
-                steps: firstAnimation.steps,
+                animations: exerciseAnimations,
+                // Für Abwärtskompatibilität: Erste Animation Steps direkt verfügbar
+                steps: exerciseAnimations[0].steps,
                 handedness: exerciseAnimations.map(a => a.handedness)
             };
         }

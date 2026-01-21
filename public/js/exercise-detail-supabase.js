@@ -247,13 +247,19 @@ function renderExercise(exercise) {
     // Store exercise for later use (handedness switching)
     currentExercise = exercise;
 
-    // Animation - support both new format (animations array) and old format (animation_steps)
-    if (exercise.animations && Array.isArray(exercise.animations) && exercise.animations.length > 0) {
-        // New format: array of animations with handedness
-        setupMultipleAnimations(exercise.animations);
-    } else if (exercise.animation_steps) {
-        // Old format: single animation with handedness array
-        setupAnimation(exercise.animation_steps);
+    // Animation - support both new format (animations in animation_steps) and old format
+    if (exercise.animation_steps) {
+        const animData = typeof exercise.animation_steps === 'string'
+            ? JSON.parse(exercise.animation_steps)
+            : exercise.animation_steps;
+
+        if (animData.animations && Array.isArray(animData.animations) && animData.animations.length > 0) {
+            // New format: multiple animations with handedness stored in animation_steps.animations
+            setupMultipleAnimations(animData.animations);
+        } else {
+            // Old format: single animation with steps array
+            setupAnimation(exercise.animation_steps);
+        }
     }
 
     // Description
