@@ -352,6 +352,39 @@ class TableTennisExerciseBuilder {
         ctx.restore();
     }
 
+    drawStepNumber(currentStep, totalSteps) {
+        if (totalSteps === 0) return;
+
+        const ctx = this.ctx;
+        const text = `${currentStep}/${totalSteps}`;
+
+        ctx.save();
+
+        // Position: top right corner
+        const x = this.canvas.width - 10;
+        const y = 12;
+
+        // Draw background pill
+        ctx.font = 'bold 12px Inter, sans-serif';
+        const textMetrics = ctx.measureText(text);
+        const padding = 8;
+        const bgWidth = textMetrics.width + padding * 2;
+        const bgHeight = 20;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(x - bgWidth, y - bgHeight / 2 + 2, bgWidth, bgHeight, 10);
+        ctx.fill();
+
+        // Draw text
+        ctx.fillStyle = '#1a1a2e';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x - padding, y + 2);
+
+        ctx.restore();
+    }
+
     animate() {
         if (!this.isPlaying || this.steps.length === 0) return;
 
@@ -362,6 +395,9 @@ class TableTennisExerciseBuilder {
 
         // Draw current step with animation progress
         this.drawStep(step, this.animationProgress);
+
+        // Draw step number indicator
+        this.drawStepNumber(this.currentStepIndex + 1, this.steps.length);
 
         // Update progress
         this.animationProgress += 0.02;
@@ -427,6 +463,7 @@ class TableTennisExerciseBuilder {
         if (stepIndex >= 0 && stepIndex < this.steps.length) {
             this.drawTable();
             this.drawStep(this.steps[stepIndex], 1);
+            this.drawStepNumber(stepIndex + 1, this.steps.length);
         }
     }
 
@@ -435,6 +472,10 @@ class TableTennisExerciseBuilder {
         this.steps.forEach((step, index) => {
             this.drawStep(step, 1);
         });
+        // Show total count when displaying all steps
+        if (this.steps.length > 0) {
+            this.drawStepNumber(this.steps.length, this.steps.length);
+        }
     }
 
     // Export exercise data
