@@ -1921,6 +1921,7 @@ async function handleCreateExercise(e) {
         const exerciseSport = document.getElementById('exercise-sport')?.value || null;
 
         const exerciseData = {
+            name: title,
             title,
             description_content: JSON.stringify(descriptionContent),
             points,
