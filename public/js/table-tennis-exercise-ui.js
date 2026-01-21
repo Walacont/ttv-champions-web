@@ -8,6 +8,288 @@
 
     let exerciseBuilder = null;
     let steps = [];
+    // Simple embedded GIF encoder that runs synchronously (no worker needed)
+    // Based on jsgif by antimatter15 (MIT License)
+    const GIFEncoder = (function() {
+        function ByteArray() {
+            this.data = [];
+        }
+        ByteArray.prototype.writeByte = function(val) {
+            this.data.push(val);
+        };
+        ByteArray.prototype.writeUTFBytes = function(str) {
+            for (let i = 0; i < str.length; i++) {
+                this.writeByte(str.charCodeAt(i));
+            }
+        };
+        ByteArray.prototype.writeBytes = function(arr, offset, length) {
+            for (let i = offset; i < length; i++) {
+                this.writeByte(arr[i]);
+            }
+        };
+        ByteArray.prototype.getData = function() {
+            return new Uint8Array(this.data);
+        };
+
+        // LZW encoder
+        function LZWEncoder(width, height, pixels, colorDepth) {
+            const EOF = -1;
+            const BITS = 12;
+            const HSIZE = 5003;
+            const masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F,
+                          0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
+
+            let initCodeSize = Math.max(2, colorDepth);
+            let accum = new Uint8Array(256);
+            let htab = new Int32Array(HSIZE);
+            let codetab = new Int32Array(HSIZE);
+            let cur_accum = 0, cur_bits = 0, a_count = 0;
+            let free_ent = 0, maxcode, clear_flg = false;
+            let g_init_bits, ClearCode, EOFCode;
+            let remaining, curPixel, n_bits;
+
+            function char_out(c, outs) {
+                accum[a_count++] = c;
+                if (a_count >= 254) flush_char(outs);
+            }
+
+            function cl_block(outs) {
+                cl_hash(HSIZE);
+                free_ent = ClearCode + 2;
+                clear_flg = true;
+                output(ClearCode, outs);
+            }
+
+            function cl_hash(hsize) {
+                for (let i = 0; i < hsize; ++i) htab[i] = -1;
+            }
+
+            function compress(init_bits, outs) {
+                let fcode, c, i, ent, disp, hsize_reg, hshift;
+                g_init_bits = init_bits;
+                clear_flg = false;
+                n_bits = g_init_bits;
+                maxcode = (1 << n_bits) - 1;
+                ClearCode = 1 << (init_bits - 1);
+                EOFCode = ClearCode + 1;
+                free_ent = ClearCode + 2;
+                a_count = 0;
+                ent = nextPixel();
+                hshift = 0;
+                for (fcode = HSIZE; fcode < 65536; fcode *= 2) ++hshift;
+                hshift = 8 - hshift;
+                hsize_reg = HSIZE;
+                cl_hash(hsize_reg);
+                output(ClearCode, outs);
+                outer_loop: while ((c = nextPixel()) != EOF) {
+                    fcode = (c << BITS) + ent;
+                    i = (c << hshift) ^ ent;
+                    if (htab[i] === fcode) { ent = codetab[i]; continue; }
+                    else if (htab[i] >= 0) {
+                        disp = hsize_reg - i;
+                        if (i === 0) disp = 1;
+                        do {
+                            if ((i -= disp) < 0) i += hsize_reg;
+                            if (htab[i] === fcode) { ent = codetab[i]; continue outer_loop; }
+                        } while (htab[i] >= 0);
+                    }
+                    output(ent, outs);
+                    ent = c;
+                    if (free_ent < 1 << BITS) {
+                        codetab[i] = free_ent++;
+                        htab[i] = fcode;
+                    } else {
+                        cl_block(outs);
+                    }
+                }
+                output(ent, outs);
+                output(EOFCode, outs);
+            }
+
+            function flush_char(outs) {
+                if (a_count > 0) {
+                    outs.writeByte(a_count);
+                    outs.writeBytes(accum, 0, a_count);
+                    a_count = 0;
+                }
+            }
+
+            function nextPixel() {
+                if (remaining === 0) return EOF;
+                --remaining;
+                return pixels[curPixel++] & 0xff;
+            }
+
+            function output(code, outs) {
+                cur_accum &= masks[cur_bits];
+                if (cur_bits > 0) cur_accum |= (code << cur_bits);
+                else cur_accum = code;
+                cur_bits += n_bits;
+                while (cur_bits >= 8) {
+                    char_out((cur_accum & 0xff), outs);
+                    cur_accum >>= 8;
+                    cur_bits -= 8;
+                }
+                if (free_ent > maxcode || clear_flg) {
+                    if (clear_flg) {
+                        maxcode = (1 << (n_bits = g_init_bits)) - 1;
+                        clear_flg = false;
+                    } else {
+                        ++n_bits;
+                        maxcode = n_bits == BITS ? (1 << BITS) : (1 << n_bits) - 1;
+                    }
+                }
+                if (code == EOFCode) {
+                    while (cur_bits > 0) {
+                        char_out((cur_accum & 0xff), outs);
+                        cur_accum >>= 8;
+                        cur_bits -= 8;
+                    }
+                    flush_char(outs);
+                }
+            }
+
+            this.encode = function(outs) {
+                outs.writeByte(initCodeSize);
+                remaining = width * height;
+                curPixel = 0;
+                compress(initCodeSize + 1, outs);
+                outs.writeByte(0);
+            };
+        }
+
+        // Simple color quantizer using median cut
+        function quantizePixels(imageData, numColors) {
+            const pixels = imageData.data;
+            const colorMap = new Uint8Array(numColors * 3);
+            const indexedPixels = new Uint8Array(imageData.width * imageData.height);
+
+            // Build a simple 256-color palette using color frequency
+            const colorCounts = {};
+            for (let i = 0; i < pixels.length; i += 4) {
+                // Reduce color space for palette building
+                const r = pixels[i] >> 4;
+                const g = pixels[i + 1] >> 4;
+                const b = pixels[i + 2] >> 4;
+                const key = (r << 8) | (g << 4) | b;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            }
+
+            // Get top colors
+            const sortedColors = Object.entries(colorCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, numColors);
+
+            // Build palette
+            for (let i = 0; i < Math.min(sortedColors.length, numColors); i++) {
+                const key = parseInt(sortedColors[i][0]);
+                colorMap[i * 3] = ((key >> 8) & 0xF) << 4;
+                colorMap[i * 3 + 1] = ((key >> 4) & 0xF) << 4;
+                colorMap[i * 3 + 2] = (key & 0xF) << 4;
+            }
+
+            // Map pixels to palette
+            for (let i = 0, j = 0; i < pixels.length; i += 4, j++) {
+                const r = pixels[i] >> 4;
+                const g = pixels[i + 1] >> 4;
+                const b = pixels[i + 2] >> 4;
+
+                // Find closest color in palette
+                let minDist = Infinity, minIdx = 0;
+                for (let k = 0; k < numColors; k++) {
+                    const pr = colorMap[k * 3] >> 4;
+                    const pg = colorMap[k * 3 + 1] >> 4;
+                    const pb = colorMap[k * 3 + 2] >> 4;
+                    const dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+                    if (dist < minDist) { minDist = dist; minIdx = k; }
+                }
+                indexedPixels[j] = minIdx;
+            }
+
+            return { colorMap, indexedPixels };
+        }
+
+        // GIF Encoder class
+        function Encoder(width, height) {
+            this.width = width;
+            this.height = height;
+            this.out = new ByteArray();
+            this.delay = 100;
+            this.repeat = 0;
+            this.firstFrame = true;
+            this.globalPalette = null;
+        }
+
+        Encoder.prototype.setDelay = function(ms) { this.delay = Math.round(ms / 10); };
+        Encoder.prototype.setRepeat = function(n) { this.repeat = n; };
+
+        Encoder.prototype.start = function() {
+            this.out.writeUTFBytes('GIF89a');
+            this.writeShort(this.width);
+            this.writeShort(this.height);
+            this.out.writeByte(0xF0 | 7); // Global color table flag + color resolution + sorted flag + size
+            this.out.writeByte(0); // Background color index
+            this.out.writeByte(0); // Pixel aspect ratio
+        };
+
+        Encoder.prototype.writeShort = function(val) {
+            this.out.writeByte(val & 0xFF);
+            this.out.writeByte((val >> 8) & 0xFF);
+        };
+
+        Encoder.prototype.addFrame = function(imageData) {
+            const { colorMap, indexedPixels } = quantizePixels(imageData, 256);
+
+            if (this.firstFrame) {
+                // Write global color table
+                this.out.writeBytes(colorMap, 0, colorMap.length);
+                for (let i = colorMap.length; i < 768; i++) this.out.writeByte(0);
+
+                // Write NETSCAPE extension for looping
+                this.out.writeByte(0x21); // Extension
+                this.out.writeByte(0xFF); // Application Extension
+                this.out.writeByte(11);   // Block size
+                this.out.writeUTFBytes('NETSCAPE2.0');
+                this.out.writeByte(3);    // Sub-block size
+                this.out.writeByte(1);    // Loop indicator
+                this.writeShort(this.repeat);
+                this.out.writeByte(0);    // Block terminator
+
+                this.firstFrame = false;
+            }
+
+            // Graphic Control Extension
+            this.out.writeByte(0x21);
+            this.out.writeByte(0xF9);
+            this.out.writeByte(4);
+            this.out.writeByte(0); // Disposal + user input + transparent
+            this.writeShort(this.delay);
+            this.out.writeByte(0); // Transparent color index
+            this.out.writeByte(0);
+
+            // Image Descriptor
+            this.out.writeByte(0x2C);
+            this.writeShort(0); // Left
+            this.writeShort(0); // Top
+            this.writeShort(this.width);
+            this.writeShort(this.height);
+            this.out.writeByte(0); // No local color table
+
+            // Encode pixels
+            const encoder = new LZWEncoder(this.width, this.height, indexedPixels, 8);
+            encoder.encode(this.out);
+        };
+
+        Encoder.prototype.finish = function() {
+            this.out.writeByte(0x3B); // GIF trailer
+        };
+
+        Encoder.prototype.getBlob = function() {
+            return new Blob([this.out.getData()], { type: 'image/gif' });
+        };
+
+        return Encoder;
+    })();
 
     // Wait for DOM to be ready
     document.addEventListener('DOMContentLoaded', initTableTennisUI);
@@ -656,15 +938,9 @@
             return;
         }
 
-        // Check if gif.js is available
-        if (typeof GIF === 'undefined') {
-            showToast('GIF-Library nicht geladen', 'error');
-            return;
-        }
-
         const exportBtn = document.getElementById('tt-export-gif');
         const originalText = exportBtn.innerHTML;
-        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>...';
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Generiere...';
         exportBtn.disabled = true;
 
         try {
@@ -676,19 +952,9 @@
             tempCanvas.height = gifHeight;
             const tempCtx = tempCanvas.getContext('2d');
 
-            // Create GIF encoder
-            const gif = new GIF({
-                workers: 2,
-                quality: 10,
-                width: gifWidth,
-                height: gifHeight,
-                workerScript: '/js/gif.worker.js'
-            });
-
             // Helper function to draw a frame
             function drawFrame(stepIndex, progress) {
                 const step = steps[stepIndex];
-                const previousStep = stepIndex > 0 ? steps[stepIndex - 1] : null;
 
                 // Clear and draw table
                 tempCtx.fillStyle = '#1a1a2e';
@@ -807,47 +1073,68 @@
                 tempCtx.restore();
             }
 
-            // Generate frames for each step
-            const framesPerStep = 15;
-            const holdFrames = 20;
+            // Collect frames as image data
+            const frames = [];
+            const framesPerStep = 10;
+            const holdFrames = 15;
 
             for (let stepIdx = 0; stepIdx < steps.length; stepIdx++) {
                 // Animation frames
                 for (let frame = 0; frame <= framesPerStep; frame++) {
                     const progress = frame / framesPerStep;
                     drawFrame(stepIdx, progress);
-                    gif.addFrame(tempCtx, { copy: true, delay: 50 });
+                    frames.push(tempCtx.getImageData(0, 0, gifWidth, gifHeight));
                 }
                 // Hold frames at end
                 for (let hold = 0; hold < holdFrames; hold++) {
                     drawFrame(stepIdx, 1);
-                    gif.addFrame(tempCtx, { copy: true, delay: 50 });
+                    frames.push(tempCtx.getImageData(0, 0, gifWidth, gifHeight));
                 }
             }
 
-            // Render and download
-            gif.on('finished', function(blob) {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                const nameInput = document.getElementById('tt-exercise-name');
-                const name = nameInput ? nameInput.value.trim() : 'uebung';
-                link.download = `${name || 'tischtennis-uebung'}.gif`;
-                link.href = url;
-                link.click();
-                URL.revokeObjectURL(url);
+            // Use built-in GIF encoder (no external dependencies)
+            const gif = new GIFEncoder(gifWidth, gifHeight);
+            gif.setDelay(80);
+            gif.setRepeat(0); // Loop forever
+            gif.start();
 
-                exportBtn.innerHTML = originalText;
-                exportBtn.disabled = false;
-                showToast('GIF exportiert!', 'success');
-            });
+            // Add frames with progress updates
+            for (let i = 0; i < frames.length; i++) {
+                gif.addFrame(frames[i]);
 
-            gif.render();
+                // Update progress every 10 frames
+                if (i % 10 === 0) {
+                    const progress = Math.round((i / frames.length) * 100);
+                    exportBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i>${progress}%`;
+                    // Allow UI to update
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+
+            gif.finish();
+            const blob = gif.getBlob();
+            downloadGif(blob, exportBtn, originalText);
         } catch (error) {
             console.error('GIF export error:', error);
-            showToast('Fehler beim GIF-Export', 'error');
+            showToast('Fehler beim GIF-Export: ' + error.message, 'error');
             exportBtn.innerHTML = originalText;
             exportBtn.disabled = false;
         }
+    }
+
+    function downloadGif(blob, exportBtn, originalText) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const nameInput = document.getElementById('tt-exercise-name');
+        const name = nameInput ? nameInput.value.trim() : 'uebung';
+        link.download = `${name || 'tischtennis-uebung'}.gif`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+        showToast('GIF exportiert!', 'success');
     }
 
     function generateExerciseDescription() {
