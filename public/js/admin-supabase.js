@@ -2005,12 +2005,10 @@ async function handleCreateExercise(e) {
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
         // Animation-Felder zurücksetzen
-        const animationToggle = document.getElementById('exercise-animation-toggle');
-        const animationContainer = document.getElementById('exercise-animation-container');
-        const animationStepsInput = document.getElementById('exercise-animation-steps');
+        const animationContainerReset = document.getElementById('exercise-animation-container');
         const animationPreview = document.getElementById('exercise-animation-steps-preview');
         if (animationToggle) animationToggle.checked = false;
-        if (animationContainer) animationContainer.classList.add('hidden');
+        if (animationContainerReset) animationContainerReset.classList.add('hidden');
         if (animationStepsInput) animationStepsInput.value = '';
         if (animationPreview) animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
 
