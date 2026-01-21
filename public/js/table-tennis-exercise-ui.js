@@ -682,7 +682,7 @@
                 quality: 10,
                 width: gifWidth,
                 height: gifHeight,
-                workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+                workerScript: '/js/gif.worker.js'
             });
 
             // Helper function to draw a frame
