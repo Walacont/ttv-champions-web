@@ -7,9 +7,37 @@ import { escapeHtml } from './utils/security.js';
 
 let supabase = null;
 let currentUser = null;
+let currentUserData = null;
 let exerciseId = null;
+
+// Animation state
+let animationSteps = [];
+let currentStepIndex = 0;
 let animationPlayer = null;
-let animationPlaying = true;
+let isAnimating = false;
+let stepAnimationFrame = null;
+
+// Stroke types for display
+const STROKE_TYPES = {
+    A: 'Aufschlag',
+    T: 'Topspin',
+    K: 'Konter',
+    B: 'Block',
+    F: 'Flip',
+    S: 'Smash',
+    SCH: 'Schupf',
+    U: 'Unterschnitt-Abwehr',
+    OS: 'Oberschnitt',
+    US: 'Unterschnitt',
+    SS: 'Seitenschnitt'
+};
+
+const POSITIONS = {
+    VH: 'Vorhand',
+    RH: 'Rückhand',
+    M: 'Mitte',
+    FREI: 'Frei'
+};
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async () => {
@@ -23,6 +51,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         currentUser = user;
+
+        // Load user data for club_id
+        const { data: userData } = await supabase
+            .from('users')
+            .select('club_id')
+            .eq('id', user.id)
+            .single();
+        currentUserData = userData;
 
         // Get exercise ID from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -91,8 +127,10 @@ function setupEventListeners() {
     // Video upload form
     document.getElementById('video-upload-form').addEventListener('submit', handleVideoUpload);
 
-    // Animation play/pause
-    document.getElementById('animation-play-pause').addEventListener('click', toggleAnimation);
+    // Animation controls
+    document.getElementById('animation-play-pause').addEventListener('click', toggleStepAnimation);
+    document.getElementById('animation-prev-btn').addEventListener('click', () => goToStep(currentStepIndex - 1));
+    document.getElementById('animation-next-btn').addEventListener('click', () => goToStep(currentStepIndex + 1));
 }
 
 async function loadExercise() {
@@ -327,15 +365,37 @@ async function loadMilestoneProgress(exercise) {
 
 async function loadExampleVideos() {
     try {
-        const { data: videos, error } = await supabase
-            .from('training_videos')
-            .select('id, title, video_url, thumbnail_url')
-            .eq('exercise_id', exerciseId)
-            .eq('is_example', true)
-            .order('created_at', { ascending: false })
-            .limit(5);
+        const clubId = currentUserData?.club_id;
+        let videos = [];
 
-        if (error || !videos || videos.length === 0) return;
+        // Try RPC function first (for club-linked examples)
+        if (clubId) {
+            const { data: rpcVideos, error: rpcError } = await supabase.rpc('get_exercise_example_videos', {
+                p_exercise_id: exerciseId,
+                p_club_id: clubId
+            });
+
+            if (!rpcError && rpcVideos && rpcVideos.length > 0) {
+                videos = rpcVideos;
+            }
+        }
+
+        // Fallback to direct query if RPC returns nothing
+        if (videos.length === 0) {
+            const { data: directVideos, error: directError } = await supabase
+                .from('training_videos')
+                .select('id, title, video_url, thumbnail_url')
+                .eq('exercise_id', exerciseId)
+                .eq('is_example', true)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (!directError && directVideos) {
+                videos = directVideos;
+            }
+        }
+
+        if (videos.length === 0) return;
 
         const section = document.getElementById('example-videos-section');
         const list = document.getElementById('example-videos-list');
@@ -361,9 +421,9 @@ async function loadExampleVideos() {
     }
 }
 
-function setupAnimation(animationSteps) {
+function setupAnimation(rawSteps) {
     // Parse animation steps if needed
-    let steps = animationSteps;
+    let steps = rawSteps;
     if (typeof steps === 'string') {
         try {
             steps = JSON.parse(steps);
@@ -375,46 +435,165 @@ function setupAnimation(animationSteps) {
 
     if (!steps || !Array.isArray(steps) || steps.length === 0) return;
 
+    animationSteps = steps;
+    currentStepIndex = 0;
+
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
 
-    // Initialize animation player if the module is available
-    if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+    // Initialize animation player
+    const initPlayer = (PlayerClass) => {
         try {
-            animationPlayer = new window.TableTennisExerciseBuilder(canvas);
-            animationPlayer.loadSteps(steps);
-            animationPlayer.play();
+            // Create player with canvas element directly
+            animationPlayer = new PlayerClass(canvas.id);
+            animationPlayer.loopAnimation = false; // Don't loop - we control steps manually
+
+            // Show container and render first step
             container.classList.remove('hidden');
+            updateStepDisplay();
+            renderCurrentStep();
         } catch (e) {
             console.error('Error initializing animation:', e);
         }
+    };
+
+    if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+        initPlayer(window.TableTennisExerciseBuilder);
     } else {
         // Try to load the animation module dynamically
-        import('./table-tennis-exercise-builder.js').then(module => {
-            if (module.TableTennisExerciseBuilder) {
-                animationPlayer = new module.TableTennisExerciseBuilder(canvas);
-                animationPlayer.loadSteps(steps);
-                animationPlayer.play();
-                container.classList.remove('hidden');
+        const script = document.createElement('script');
+        script.src = '/js/table-tennis-exercise-builder.js';
+        script.onload = () => {
+            if (window.TableTennisExerciseBuilder) {
+                initPlayer(window.TableTennisExerciseBuilder);
             }
-        }).catch(e => {
-            console.warn('Animation module not available:', e);
-        });
+        };
+        document.head.appendChild(script);
     }
 }
 
-function toggleAnimation() {
-    if (!animationPlayer) return;
+function updateStepDisplay() {
+    const step = animationSteps[currentStepIndex];
+    if (!step) return;
 
-    const btn = document.getElementById('animation-play-pause');
-    if (animationPlaying) {
-        animationPlayer.pause();
-        btn.innerHTML = '<i class="fas fa-play mr-2"></i>Abspielen';
-    } else {
-        animationPlayer.play();
-        btn.innerHTML = '<i class="fas fa-pause mr-2"></i>Pause';
+    // Update counter
+    document.getElementById('animation-step-counter').textContent =
+        `Schritt ${currentStepIndex + 1} / ${animationSteps.length}`;
+
+    // Update step info
+    const playerLabel = step.player === 'A' ? 'Spieler' : 'Gegner';
+    const strokeName = STROKE_TYPES[step.strokeType] || step.strokeType || 'Schlag';
+    const positionName = POSITIONS[step.toPosition] || step.toPosition || 'Position';
+
+    document.getElementById('animation-step-player').textContent = playerLabel;
+    document.getElementById('animation-step-stroke').textContent = strokeName;
+    document.getElementById('animation-step-position').textContent = positionName;
+
+    // Update button states
+    document.getElementById('animation-prev-btn').disabled = currentStepIndex === 0;
+    document.getElementById('animation-next-btn').disabled = currentStepIndex === animationSteps.length - 1;
+}
+
+function renderCurrentStep() {
+    if (!animationPlayer || animationSteps.length === 0) return;
+
+    // Stop any ongoing animation
+    if (stepAnimationFrame) {
+        cancelAnimationFrame(stepAnimationFrame);
+        stepAnimationFrame = null;
     }
-    animationPlaying = !animationPlaying;
+    isAnimating = false;
+
+    // Get current step and previous step for context
+    const currentStep = animationSteps[currentStepIndex];
+    const previousStep = currentStepIndex > 0 ? animationSteps[currentStepIndex - 1] : null;
+
+    // Draw table first
+    animationPlayer.drawTable();
+
+    // Draw the current step with full progress (ball at destination)
+    if (currentStep) {
+        animationPlayer.drawStep(currentStep, 1, previousStep);
+    }
+
+    // Update play button state
+    updatePlayButton(false);
+}
+
+function animateCurrentStep() {
+    if (!animationPlayer || animationSteps.length === 0 || isAnimating) return;
+
+    isAnimating = true;
+    const currentStep = animationSteps[currentStepIndex];
+    const previousStep = currentStepIndex > 0 ? animationSteps[currentStepIndex - 1] : null;
+
+    let progress = 0;
+    const duration = 800; // Animation duration in ms
+    const startTime = performance.now();
+
+    const animate = (timestamp) => {
+        progress = Math.min((timestamp - startTime) / duration, 1);
+
+        // Redraw
+        animationPlayer.drawTable();
+        animationPlayer.drawStep(currentStep, progress, previousStep);
+
+        if (progress < 1) {
+            stepAnimationFrame = requestAnimationFrame(animate);
+        } else {
+            isAnimating = false;
+            stepAnimationFrame = null;
+            updatePlayButton(false);
+        }
+    };
+
+    updatePlayButton(true);
+    stepAnimationFrame = requestAnimationFrame(animate);
+}
+
+function updatePlayButton(playing) {
+    const icon = document.getElementById('animation-play-icon');
+    const text = document.getElementById('animation-play-text');
+
+    if (playing) {
+        icon.classList.remove('fa-play');
+        icon.classList.add('fa-redo');
+        text.textContent = 'Animation';
+    } else {
+        icon.classList.remove('fa-redo');
+        icon.classList.add('fa-play');
+        text.textContent = 'Abspielen';
+    }
+}
+
+function toggleStepAnimation() {
+    if (isAnimating) {
+        // Stop animation
+        if (stepAnimationFrame) {
+            cancelAnimationFrame(stepAnimationFrame);
+            stepAnimationFrame = null;
+        }
+        isAnimating = false;
+        renderCurrentStep();
+    } else {
+        // Start animation for current step
+        animateCurrentStep();
+    }
+}
+
+function goToStep(index) {
+    if (index < 0 || index >= animationSteps.length) return;
+
+    // Stop any ongoing animation
+    if (stepAnimationFrame) {
+        cancelAnimationFrame(stepAnimationFrame);
+        stepAnimationFrame = null;
+    }
+    isAnimating = false;
+
+    currentStepIndex = index;
+    updateStepDisplay();
+    renderCurrentStep();
 }
 
 async function handleVideoUpload(e) {
