@@ -57,12 +57,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         currentUser = user;
 
-        // Load user data for club_id and role
-        const { data: userData } = await supabase
-            .from('users')
+        // Load user data for club_id and role (table is 'profiles', not 'users')
+        const { data: userData, error: userError } = await supabase
+            .from('profiles')
             .select('club_id, role')
             .eq('id', user.id)
             .single();
+
+        if (userError) {
+            console.error('Error loading user profile:', userError);
+        }
         currentUserData = userData;
         console.log('User data loaded:', { club_id: userData?.club_id, role: userData?.role });
 
@@ -93,14 +97,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log('Found club via uploaded videos:', videoData.club_id);
                     currentUserData.club_id = videoData.club_id;
                 } else {
-                    // Try 3: Check if there are any players that have this coach
-                    // by finding users with same club as players the coach manages
-                    const { data: managedPlayers } = await supabase
-                        .from('users')
-                        .select('club_id')
-                        .neq('club_id', null)
-                        .limit(1);
-
                     // For now, just log that no club was found
                     console.log('Could not find club for coach');
                 }
