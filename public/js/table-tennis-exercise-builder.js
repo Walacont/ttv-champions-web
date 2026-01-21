@@ -166,7 +166,7 @@ class TableTennisExerciseBuilder {
         ctx.stroke();
     }
 
-    getPositionCoords(position, isPlayerA) {
+    getPositionCoords(position, isPlayerA, previousStepWasShort = false) {
         const posData = POSITIONS[position] || POSITIONS.M;
 
         // Mirror x-position for Player B (opponent stands on opposite side)
@@ -176,11 +176,20 @@ class TableTennisExerciseBuilder {
         const x = this.tableX + this.tableWidth * xRatio;
 
         // Player A is at bottom, Player B is at top
+        // If previous shot was short, player must be near the table to return it
         let y;
         if (isPlayerA) {
-            y = this.tableY + this.tableHeight * 0.85; // Bottom area (near edge)
+            if (previousStepWasShort) {
+                y = this.tableY + this.tableHeight * 0.60; // Near the table (to reach short ball)
+            } else {
+                y = this.tableY + this.tableHeight * 0.85; // Bottom area (near edge)
+            }
         } else {
-            y = this.tableY + this.tableHeight * 0.15; // Top area (near edge)
+            if (previousStepWasShort) {
+                y = this.tableY + this.tableHeight * 0.40; // Near the table (to reach short ball)
+            } else {
+                y = this.tableY + this.tableHeight * 0.15; // Top area (near edge)
+            }
         }
 
         return { x, y };
@@ -230,13 +239,17 @@ class TableTennisExerciseBuilder {
         this.currentStepIndex = 0;
     }
 
-    drawStep(step, progress = 1) {
+    drawStep(step, progress = 1, previousStep = null) {
         const ctx = this.ctx;
         const isPlayerA = step.player === 'A';
         const strokeData = STROKE_TYPES[step.strokeType] || STROKE_TYPES.T;
 
+        // Check if previous step was a short ball that landed on this player's side
+        // If so, this player must start from near the table
+        const previousStepWasShort = previousStep && previousStep.isShort && previousStep.player !== step.player;
+
         // Get positions
-        const startPos = this.getPositionCoords(step.fromPosition, isPlayerA);
+        const startPos = this.getPositionCoords(step.fromPosition, isPlayerA, previousStepWasShort);
         const endPos = this.getTargetZoneCoords(step.toPosition, isPlayerA);
 
         // Adjust end position for short balls
@@ -389,12 +402,13 @@ class TableTennisExerciseBuilder {
         if (!this.isPlaying || this.steps.length === 0) return;
 
         const step = this.steps[this.currentStepIndex];
+        const previousStep = this.currentStepIndex > 0 ? this.steps[this.currentStepIndex - 1] : null;
 
         // Clear and redraw table
         this.drawTable();
 
         // Draw current step with animation progress
-        this.drawStep(step, this.animationProgress);
+        this.drawStep(step, this.animationProgress, previousStep);
 
         // Draw step number indicator
         this.drawStepNumber(this.currentStepIndex + 1, this.steps.length);
@@ -462,7 +476,8 @@ class TableTennisExerciseBuilder {
     showStepStatic(stepIndex) {
         if (stepIndex >= 0 && stepIndex < this.steps.length) {
             this.drawTable();
-            this.drawStep(this.steps[stepIndex], 1);
+            const previousStep = stepIndex > 0 ? this.steps[stepIndex - 1] : null;
+            this.drawStep(this.steps[stepIndex], 1, previousStep);
             this.drawStepNumber(stepIndex + 1, this.steps.length);
         }
     }
@@ -470,7 +485,8 @@ class TableTennisExerciseBuilder {
     showAllSteps() {
         this.drawTable();
         this.steps.forEach((step, index) => {
-            this.drawStep(step, 1);
+            const previousStep = index > 0 ? this.steps[index - 1] : null;
+            this.drawStep(step, 1, previousStep);
         });
         // Show total count when displaying all steps
         if (this.steps.length > 0) {
