@@ -793,7 +793,12 @@ function renderAllSteps() {
 }
 
 function renderCurrentStep() {
-    if (!animationPlayer || animationSteps.length === 0) return;
+    console.log('renderCurrentStep called, showAllMode:', showAllMode, 'currentStepIndex:', currentStepIndex);
+
+    if (!animationPlayer || animationSteps.length === 0) {
+        console.log('renderCurrentStep: No player or no steps');
+        return;
+    }
 
     // Stop any ongoing animation
     if (stepAnimationFrame) {
@@ -803,6 +808,7 @@ function renderCurrentStep() {
     isAnimating = false;
 
     if (showAllMode) {
+        console.log('renderCurrentStep: Showing all steps');
         renderAllSteps();
         return;
     }
@@ -810,6 +816,8 @@ function renderCurrentStep() {
     // Get current step and previous step for context
     const currentStep = animationSteps[currentStepIndex];
     const previousStep = currentStepIndex > 0 ? animationSteps[currentStepIndex - 1] : null;
+
+    console.log('renderCurrentStep: Showing single step', currentStepIndex, currentStep);
 
     // Use showStepStatic for cleaner single step display
     animationPlayer.showStepStatic(currentStepIndex);
@@ -892,6 +900,8 @@ function toggleStepAnimation() {
 }
 
 function goToStep(index) {
+    console.log('goToStep called with index:', index, 'current showAllMode:', showAllMode, 'current step:', currentStepIndex);
+
     // Stop any ongoing animation
     if (stepAnimationFrame) {
         cancelAnimationFrame(stepAnimationFrame);
@@ -901,19 +911,24 @@ function goToStep(index) {
 
     if (showAllMode) {
         // We're in "show all" mode, pressing next goes to step 0
+        console.log('goToStep: Was in showAllMode, switching to step 0');
         showAllMode = false;
         currentStepIndex = 0;
     } else if (index < 0) {
         // Going before step 0 returns to "show all" mode
+        console.log('goToStep: Going back to showAllMode');
         showAllMode = true;
         currentStepIndex = -1;
     } else if (index >= animationSteps.length) {
         // Can't go past last step
+        console.log('goToStep: Cannot go past last step');
         return;
     } else {
+        console.log('goToStep: Setting currentStepIndex to', index);
         currentStepIndex = index;
     }
 
+    console.log('goToStep: After update - showAllMode:', showAllMode, 'currentStepIndex:', currentStepIndex);
     updateStepDisplay();
     renderCurrentStep();
 }

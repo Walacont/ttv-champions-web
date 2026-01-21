@@ -762,11 +762,26 @@ class TableTennisExerciseBuilder {
     }
 
     showStepStatic(stepIndex) {
+        // Ensure we have steps to show
+        if (!this.steps || this.steps.length === 0) {
+            console.warn('showStepStatic: No steps available');
+            return;
+        }
+
         if (stepIndex >= 0 && stepIndex < this.steps.length) {
+            // Clear and redraw table first
             this.drawTable();
+
+            // Get previous step for context (player position after short ball, etc.)
             const previousStep = stepIndex > 0 ? this.steps[stepIndex - 1] : null;
+
+            // Draw only this single step
             this.drawStep(this.steps[stepIndex], 1, previousStep);
+
+            // Show step number
             this.drawStepNumber(stepIndex + 1, this.steps.length);
+        } else {
+            console.warn('showStepStatic: Invalid step index', stepIndex, 'steps length:', this.steps.length);
         }
     }
 
