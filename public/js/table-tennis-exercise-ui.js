@@ -369,7 +369,7 @@
                 applyHandednessToBuilder();
                 // Redraw current steps with new handedness
                 if (exerciseBuilder && steps.length > 0) {
-                    exerciseBuilder.drawAllSteps();
+                    exerciseBuilder.showAllSteps();
                 }
             });
         }
@@ -379,7 +379,7 @@
                 applyHandednessToBuilder();
                 // Redraw current steps with new handedness
                 if (exerciseBuilder && steps.length > 0) {
-                    exerciseBuilder.drawAllSteps();
+                    exerciseBuilder.showAllSteps();
                 }
             });
         }

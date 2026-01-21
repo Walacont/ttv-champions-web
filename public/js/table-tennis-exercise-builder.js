@@ -102,7 +102,7 @@ class TableTennisExerciseBuilder {
 
         // Redraw if we have steps
         if (this.steps.length > 0) {
-            this.drawAllSteps();
+            this.showAllSteps();
         }
     }
 
