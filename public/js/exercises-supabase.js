@@ -835,10 +835,13 @@ export async function openExerciseModal(
         pointsContainer.textContent = `Bis zu ${points} P.`;
 
         if (milestonesContainer) {
+            // Support both 'count' and 'completions' for backward compatibility
+            const getMilestoneCount = (m) => m.count || m.completions;
+
             let progressHtml = '';
             if (exerciseContext.userRole === 'player') {
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+                const nextMilestone = tieredPointsData.milestones.find(m => getMilestoneCount(m) > currentCount);
+                const remaining = nextMilestone ? getMilestoneCount(nextMilestone) - currentCount : 0;
 
                 let globalRecordHtml = '';
                 if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
@@ -881,12 +884,13 @@ export async function openExerciseModal(
                 `;
             }
 
-            const sortedMilestones = tieredPointsData.milestones.sort((a, b) => a.count - b.count);
+            const sortedMilestones = tieredPointsData.milestones.sort((a, b) => getMilestoneCount(a) - getMilestoneCount(b));
 
             // Kumulative Summe berechnen
             let cumulativePoints = 0;
             const milestonesHtml = sortedMilestones
                 .map((milestone, index) => {
+                    const milestoneCount = getMilestoneCount(milestone);
                     cumulativePoints += milestone.points;
                     const isFirst = index === 0;
                     const displayPoints = isFirst
@@ -895,14 +899,14 @@ export async function openExerciseModal(
 
                     let bgColor, borderColor, iconColor, textColor;
                     if (exerciseContext.userRole === 'player') {
-                        if (currentCount >= milestone.count) {
+                        if (currentCount >= milestoneCount) {
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                         } else if (
                             index === 0 ||
-                            currentCount >= sortedMilestones[index - 1].count
+                            currentCount >= getMilestoneCount(sortedMilestones[index - 1])
                         ) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
@@ -923,7 +927,7 @@ export async function openExerciseModal(
 
                     return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
-                            <span class="text-base font-semibold ${textColor}">${milestone.count} ${exerciseData?.unit || 'Wiederholungen'}</span>
+                            <span class="text-base font-semibold ${textColor}">${milestoneCount} ${exerciseData?.unit || 'Wiederholungen'}</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
@@ -1011,8 +1015,8 @@ export async function openExerciseModal(
  * Öffnet das Übungs-Modal aus Dataset (für Coach)
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
-    openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } = dataset;
+    openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps);
 }
 
 /**

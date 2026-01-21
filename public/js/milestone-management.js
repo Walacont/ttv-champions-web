@@ -248,7 +248,7 @@ function updateChallengeMaxPoints() {
 
 /**
  * Get exercise milestones from the form
- * @returns {Array} Array of {completions, points} objects, sorted by completions
+ * @returns {Array} Array of {count, points} objects, sorted by count
  */
 export function getExerciseMilestones() {
     const toggle = document.getElementById('exercise-tiered-points-toggle');
@@ -265,22 +265,22 @@ export function getExerciseMilestones() {
         const pointsInput = row.querySelector('.milestone-points');
 
         if (completionsInput && pointsInput) {
-            const completions = parseInt(completionsInput.value) || 0;
+            const count = parseInt(completionsInput.value) || 0;
             const points = parseInt(pointsInput.value) || 0;
 
-            if (completions > 0) {
-                milestones.push({ completions, points });
+            if (count > 0) {
+                milestones.push({ count, points });
             }
         }
     });
 
     // Nach Absolvierungen aufsteigend sortieren
-    return milestones.sort((a, b) => a.completions - b.completions);
+    return milestones.sort((a, b) => a.count - b.count);
 }
 
 /**
  * Get challenge milestones from the form
- * @returns {Array} Array of {completions, points} objects, sorted by completions
+ * @returns {Array} Array of {count, points} objects, sorted by count
  */
 export function getChallengeMilestones() {
     const toggle = document.getElementById('challenge-tiered-points-toggle');
@@ -297,17 +297,17 @@ export function getChallengeMilestones() {
         const pointsInput = row.querySelector('.milestone-points');
 
         if (completionsInput && pointsInput) {
-            const completions = parseInt(completionsInput.value) || 0;
+            const count = parseInt(completionsInput.value) || 0;
             const points = parseInt(pointsInput.value) || 0;
 
-            if (completions > 0) {
-                milestones.push({ completions, points });
+            if (count > 0) {
+                milestones.push({ count, points });
             }
         }
     });
 
     // Nach Absolvierungen aufsteigend sortieren
-    return milestones.sort((a, b) => a.completions - b.completions);
+    return milestones.sort((a, b) => a.count - b.count);
 }
 
 /**

@@ -3242,10 +3242,13 @@ window.openExerciseModal = async (exerciseId) => {
             if (pointsEl) pointsEl.textContent = `Bis zu ${points} P.`;
 
             if (milestonesContainer) {
+                // Support both 'count' and 'completions' for backward compatibility
+                const getMilestoneCount = (m) => m.count || m.completions;
+
                 // Spielerfortschritt-Bereich
                 let progressHtml = '';
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+                const nextMilestone = tieredPointsData.milestones.find(m => getMilestoneCount(m) > currentCount);
+                const remaining = nextMilestone ? getMilestoneCount(nextMilestone) - currentCount : 0;
 
                 progressHtml = `
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -3267,12 +3270,13 @@ window.openExerciseModal = async (exerciseId) => {
                 `;
 
                 // Meilensteine-Liste
-                const sortedMilestones = tieredPointsData.milestones.sort((a, b) => a.count - b.count);
+                const sortedMilestones = tieredPointsData.milestones.sort((a, b) => getMilestoneCount(a) - getMilestoneCount(b));
 
                 // Kumulative Summe berechnen
                 let cumulativePoints = 0;
                 const milestonesHtml = sortedMilestones
                     .map((milestone, index) => {
+                        const milestoneCount = getMilestoneCount(milestone);
                         cumulativePoints += milestone.points;
                         const isFirst = index === 0;
                         const displayPoints = isFirst
@@ -3280,12 +3284,12 @@ window.openExerciseModal = async (exerciseId) => {
                             : `+${milestone.points}`;
 
                         let bgColor, borderColor, iconColor, textColor;
-                        if (currentCount >= milestone.count) {
+                        if (currentCount >= milestoneCount) {
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
-                        } else if (index === 0 || currentCount >= sortedMilestones[index - 1].count) {
+                        } else if (index === 0 || currentCount >= getMilestoneCount(sortedMilestones[index - 1])) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
                             iconColor = 'text-orange-600';
@@ -3299,7 +3303,7 @@ window.openExerciseModal = async (exerciseId) => {
 
                         return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                             <div class="flex items-center gap-3">
-                                <span class="text-base font-semibold ${textColor}">${milestone.count} ${exercise.unit || 'Wiederholungen'}</span>
+                                <span class="text-base font-semibold ${textColor}">${milestoneCount} ${exercise.unit || 'Wiederholungen'}</span>
                             </div>
                             <div class="text-right">
                                 <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
