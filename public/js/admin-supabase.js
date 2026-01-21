@@ -220,12 +220,7 @@ function initializeAdminPage(userData, user) {
             }
         });
 
-        exercisesListAdminEl.addEventListener('click', e => {
-            const card = e.target.closest('[data-id]');
-            if (card) {
-                openExerciseModal(card.dataset);
-            }
-        });
+        // Alte Card-Click-Handler entfernt - jetzt mit inline onclick in renderExercises
 
         modalEditExerciseButton.addEventListener('click', e => {
             openEditExerciseModal(e.target.dataset);
@@ -246,6 +241,7 @@ function initializeAdminPage(userData, user) {
 
         loadClubsAndPlayers();
         loadAllExercises();
+        initAdminExerciseSearch();
         loadStatistics();
     } catch (error) {
         showAuthError(`Initialisierungsfehler: ${error.message}`);
@@ -2084,90 +2080,169 @@ async function loadAllExercises() {
     }
 }
 
+// Admin Übungskatalog - Alle Übungen für Suche/Filter
+let allAdminExercises = [];
+let allAdminExerciseItems = [];
+let currentAdminTagFilter = 'all';
+
 function renderExercises(exercises) {
+    allAdminExercises = exercises;
+
     exercisesListAdminEl.innerHTML = exercises.length === 0
-        ? '<p class="text-gray-500 col-span-full">Keine Übungen gefunden.</p>'
+        ? '<p class="p-4 text-gray-500 text-center">Keine Übungen gefunden.</p>'
         : '';
 
-    exercises.forEach(exercise => {
-        const card = document.createElement('div');
-        card.className =
-            'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-        card.dataset.id = exercise.id;
-        card.dataset.title = exercise.title;
+    allAdminExerciseItems = [];
 
-        // Sowohl altes als auch neues Format unterstützen
+    // Tags sammeln für Filter
+    const allTags = new Set();
+    exercises.forEach(ex => {
+        (ex.tags || []).forEach(tag => allTags.add(tag));
+    });
+    renderAdminTagFilter(Array.from(allTags).sort());
+
+    // Übungen filtern nach aktuellem Tag-Filter
+    const filteredExercises = currentAdminTagFilter === 'all'
+        ? exercises
+        : exercises.filter(ex => (ex.tags || []).includes(currentAdminTagFilter));
+
+    if (filteredExercises.length === 0 && exercises.length > 0) {
+        exercisesListAdminEl.innerHTML = '<p class="p-4 text-gray-500 text-center">Keine Übungen für diesen Filter gefunden.</p>';
+        return;
+    }
+
+    filteredExercises.forEach(exercise => {
+        const exerciseTags = exercise.tags || [];
+        const maxPoints = calculateAdminMaxPoints(exercise);
+        const safeTitle = escapeHtml(exercise.title || '');
+
+        const item = document.createElement('div');
+        item.className = 'exercise-item flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors bg-white';
+        item.dataset.id = exercise.id;
+        item.dataset.tags = JSON.stringify(exerciseTags);
+
+        // Dataset für Modal beibehalten
+        item.dataset.title = exercise.title;
         if (exercise.description_content) {
-            card.dataset.descriptionContent = exercise.description_content;
+            item.dataset.descriptionContent = exercise.description_content;
         } else {
-            card.dataset.descriptionContent = JSON.stringify({
+            item.dataset.descriptionContent = JSON.stringify({
                 type: 'text',
                 text: exercise.description || '',
             });
         }
-
         if (exercise.image_url) {
-            card.dataset.imageUrl = exercise.image_url;
+            item.dataset.imageUrl = exercise.image_url;
         }
-        card.dataset.points = exercise.points;
-        card.dataset.tags = JSON.stringify(exercise.tags || []);
-
+        item.dataset.points = exercise.points;
         if (exercise.tiered_points) {
-            card.dataset.tieredPoints = JSON.stringify(exercise.tiered_points);
+            item.dataset.tieredPoints = JSON.stringify(exercise.tiered_points);
         }
-
         if (exercise.animation_steps) {
-            card.dataset.animationSteps = typeof exercise.animation_steps === 'string'
+            item.dataset.animationSteps = typeof exercise.animation_steps === 'string'
                 ? exercise.animation_steps
                 : JSON.stringify(exercise.animation_steps);
         }
 
-        const tagsHtml = (exercise.tags || [])
-            .map(
-                tag =>
-                    `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-            )
-            .join('');
+        item.innerHTML = `
+            <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'">
+                <span class="text-gray-900 font-medium truncate">${safeTitle}</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                <button onclick="event.stopPropagation(); openExerciseModal(this.closest('[data-id]').dataset)" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="event.stopPropagation(); handleDeleteExercise('${exercise.id}', '${exercise.image_url || ''}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Löschen">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
 
-        // Meilensteine für die Karte vorbereiten
-        let milestonesHtml = '';
-        let pointsHtml = `<span class="text-sm font-semibold text-indigo-600">+${exercise.points} P.</span>`;
-
-        if (exercise.tiered_points?.enabled && exercise.tiered_points?.milestones?.length > 0) {
-            const sortedMilestones = [...exercise.tiered_points.milestones].sort((a, b) => a.count - b.count);
-            milestonesHtml = `
-                <div class="mt-2 space-y-1">
-                    ${sortedMilestones.map((m, idx) => {
-                        const prevPoints = idx === 0 ? 0 : sortedMilestones[idx - 1].points;
-                        const diff = m.points - prevPoints;
-                        return `<div class="text-xs text-gray-600">${m.count}x = ${m.points} P. (+${diff})</div>`;
-                    }).join('')}
-                </div>`;
-            pointsHtml = `<span class="text-sm font-semibold text-indigo-600">bis ${exercise.points} P.</span>`;
-        }
-
-        const imageHtml = exercise.image_url
-            ? `<img src="${exercise.image_url}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-            : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
-               <div class="text-center">
-                   <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                   </svg>
-                   <p class="text-xs text-gray-400">Kein Bild</p>
-               </div>
-           </div>`;
-
-        card.innerHTML = `${imageHtml}
-                      <div class="p-4 flex flex-col flex-grow pointer-events-none">
-                          <h3 class="font-bold text-lg mb-2 text-gray-900">${exercise.title}</h3>
-                          <div class="flex items-center justify-between mb-2">
-                              ${pointsHtml}
-                          </div>
-                          ${milestonesHtml}
-                          <div class="pt-2 mt-auto">${tagsHtml}</div>
-                      </div>`;
-        exercisesListAdminEl.appendChild(card);
+        exercisesListAdminEl.appendChild(item);
+        allAdminExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
     });
+}
+
+function calculateAdminMaxPoints(exercise) {
+    const tieredPoints = exercise.tiered_points || exercise.tieredPoints;
+    if (tieredPoints?.enabled && tieredPoints?.milestones?.length > 0) {
+        return tieredPoints.milestones.reduce((max, m) => Math.max(max, m.points || 0), 0);
+    }
+    return exercise.points || 0;
+}
+
+function renderAdminTagFilter(tags) {
+    const container = document.getElementById('tags-filter-container-admin');
+    if (!container) return;
+
+    container.innerHTML = `
+        <button class="tag-filter-btn ${currentAdminTagFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-3 py-1 rounded-full text-sm font-medium transition-colors" data-tag="all">
+            Alle
+        </button>
+        ${tags.map(tag => `
+            <button class="tag-filter-btn ${currentAdminTagFilter === tag ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-3 py-1 rounded-full text-sm font-medium transition-colors" data-tag="${escapeHtml(tag)}">
+                ${escapeHtml(tag)}
+            </button>
+        `).join('')}
+    `;
+
+    // Tag-Filter Event-Listener
+    container.querySelectorAll('.tag-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentAdminTagFilter = btn.dataset.tag;
+            renderExercises(allAdminExercises);
+        });
+    });
+}
+
+function filterAdminExercisesBySearch(searchTerm) {
+    const items = document.querySelectorAll('#exercises-list-admin .exercise-item');
+    const term = searchTerm.toLowerCase().trim();
+
+    items.forEach(item => {
+        const title = (item.querySelector('.text-gray-900')?.textContent || '').toLowerCase();
+        const tags = JSON.parse(item.dataset.tags || '[]').join(' ').toLowerCase();
+
+        if (term === '' || title.includes(term) || tags.includes(term)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function initAdminExerciseSearch() {
+    const searchInput = document.getElementById('exercise-search-input-admin');
+    const toggleBtn = document.getElementById('toggle-tags-filter-admin');
+    const filterSection = document.getElementById('tags-filter-section-admin');
+    const tagSearchInput = document.getElementById('tag-search-admin');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            filterAdminExercisesBySearch(e.target.value);
+        });
+    }
+
+    if (toggleBtn && filterSection) {
+        toggleBtn.addEventListener('click', () => {
+            filterSection.classList.toggle('hidden');
+        });
+    }
+
+    if (tagSearchInput) {
+        tagSearchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            const buttons = document.querySelectorAll('#tags-filter-container-admin .tag-filter-btn');
+            buttons.forEach(btn => {
+                const tag = btn.dataset.tag.toLowerCase();
+                if (term === '' || tag.includes(term) || tag === 'all') {
+                    btn.style.display = '';
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 async function handleDeleteExercise(exerciseId, imageUrl) {
@@ -2814,6 +2889,10 @@ function showAdminNotification(message, type = 'info') {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+// Globale Exports für inline onclick-Handler
+window.openExerciseModal = openExerciseModal;
+window.handleDeleteExercise = handleDeleteExercise;
 
 // Aufräumen beim Seiten-Entladen
 window.addEventListener('beforeunload', () => {
