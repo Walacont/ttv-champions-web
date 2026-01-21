@@ -2269,6 +2269,28 @@ async function confirmAddVideoAsExample() {
     }
 }
 
+/**
+ * Öffnet das Musterbeispiel-Modal für eine bestimmte Übung (für Coach-Liste)
+ */
+export async function openExerciseExamplesModal(exerciseId) {
+    if (!exerciseId) return;
+
+    currentExampleExerciseId = exerciseId;
+
+    // Vorhandene Musterbeispiele laden
+    await loadExerciseExampleVideos(exerciseId);
+
+    // Modal öffnen und Video-Auswahl starten
+    const modal = document.getElementById('select-example-video-modal');
+    if (modal) {
+        // Direkt die Video-Auswahl öffnen
+        const addBtn = document.getElementById('add-example-video-btn');
+        if (addBtn) {
+            addBtn.click();
+        }
+    }
+}
+
 // Export für globalen Zugriff
 window.videoAnalysis = {
     loadPendingVideos,
@@ -2278,4 +2300,5 @@ window.videoAnalysis = {
     loadExerciseExampleVideos,
     initExampleVideos,
     openAddExampleForVideoModal,
+    openExerciseExamplesModal,
 };

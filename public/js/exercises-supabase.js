@@ -542,16 +542,15 @@ function renderCoachExercises(exercises, filterTag) {
         item.dataset.id = exercise.id;
         item.dataset.tags = JSON.stringify(exerciseTags);
 
-        // Visibility Badge
-        const visibilityIcon = exercise.visibility === 'club' ? '🏠' : '🌍';
-
         item.innerHTML = `
             <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'">
                 <span class="text-gray-900 font-medium truncate">${safeTitle}</span>
-                <span class="text-xs flex-shrink-0">${visibilityIcon}</span>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                <button onclick="event.stopPropagation(); window.videoAnalysis?.openExerciseExamplesModal('${exercise.id}')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Musterbeispiele verwalten">
+                    <i class="fas fa-video"></i>
+                </button>
                 ${canEdit ? `
                 <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
                     <i class="fas fa-edit"></i>
