@@ -217,7 +217,7 @@ class TableTennisExerciseBuilder {
         return { x, y };
     }
 
-    addStep(player, strokeType, side, fromPosition, toPosition, isShort = false, variants = undefined) {
+    addStep(player, strokeType, side, fromPosition, toPosition, isShort = false, variants = undefined, repetitions = undefined, playerDecides = false) {
         this.steps.push({
             player,       // 'A' or 'B'
             strokeType,   // 'T', 'B', 'SCH', etc.
@@ -225,7 +225,9 @@ class TableTennisExerciseBuilder {
             fromPosition, // 'VH', 'RH', 'M'
             toPosition,   // 'VH', 'RH', 'M', 'FREI'
             isShort,      // true for short balls
-            variants      // Array of alternative actions: [{condition, side, strokeType, toPosition}]
+            variants,     // Array of alternative actions: [{condition, side, strokeType, toPosition}]
+            repetitions,  // { min: number, max: number } for variable repetitions (e.g., 3-8x)
+            playerDecides // true if the player decides when/where to execute (not random/system)
         });
     }
 
@@ -364,6 +366,66 @@ class TableTennisExerciseBuilder {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, startPos.x, labelY);
+
+        // Draw repetitions badge if present
+        if (step.repetitions && (step.repetitions.min || step.repetitions.max)) {
+            const repText = step.repetitions.min === step.repetitions.max
+                ? `${step.repetitions.min}x`
+                : `${step.repetitions.min}-${step.repetitions.max}x`;
+            const repY = labelY + (isPlayerA ? 14 : -14);
+
+            ctx.font = 'bold 8px Inter, sans-serif';
+            const repMetrics = ctx.measureText(repText);
+            const repPadding = 4;
+            const repWidth = repMetrics.width + repPadding * 2;
+            const repHeight = 14;
+
+            // Blue pill for repetitions
+            ctx.fillStyle = '#3B82F6';
+            ctx.beginPath();
+            ctx.roundRect(
+                startPos.x - repWidth / 2,
+                repY - repHeight / 2,
+                repWidth,
+                repHeight,
+                7
+            );
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(repText, startPos.x, repY);
+        }
+
+        // Draw "player decides" indicator if present
+        if (step.playerDecides) {
+            const decideY = labelY + (isPlayerA ? (step.repetitions ? 26 : 14) : (step.repetitions ? -26 : -14));
+            const decideText = '👤 entscheidet';
+
+            ctx.font = 'bold 8px Inter, sans-serif';
+            const decideMetrics = ctx.measureText(decideText);
+            const decidePadding = 4;
+            const decideWidth = decideMetrics.width + decidePadding * 2;
+            const decideHeight = 14;
+
+            // Purple pill for player decides
+            ctx.fillStyle = '#8B5CF6';
+            ctx.beginPath();
+            ctx.roundRect(
+                startPos.x - decideWidth / 2,
+                decideY - decideHeight / 2,
+                decideWidth,
+                decideHeight,
+                7
+            );
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(decideText, startPos.x, decideY);
+        }
 
         // Draw variants if present
         if (step.variants && step.variants.length > 0 && progress >= 1) {
@@ -639,7 +701,9 @@ class TableTennisExerciseBuilder {
                 fromPosition: step.fromPosition,
                 toPosition: step.toPosition,
                 isShort: step.isShort,
-                variants: step.variants
+                variants: step.variants,
+                repetitions: step.repetitions,
+                playerDecides: step.playerDecides
             }))
         };
     }

@@ -422,6 +422,29 @@
                                         </div>
                                     </div>
 
+                                    <!-- Repetitions -->
+                                    <div class="border-t border-slate-200 pt-2 mt-2">
+                                        <div class="flex items-center gap-1.5 mb-2">
+                                            <input type="checkbox" id="tt-has-repetitions" class="h-3.5 w-3.5 text-blue-500 rounded">
+                                            <label for="tt-has-repetitions" class="text-[10px] font-medium text-slate-600">Wiederholungen</label>
+                                        </div>
+                                        <div id="tt-repetitions-container" class="hidden">
+                                            <div class="flex items-center gap-2">
+                                                <input type="number" id="tt-rep-min" min="1" max="99" value="3" class="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50">
+                                                <span class="text-[10px] text-slate-500">bis</span>
+                                                <input type="number" id="tt-rep-max" min="1" max="99" value="8" class="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50">
+                                                <span class="text-[10px] text-slate-500">mal</span>
+                                            </div>
+                                            <p class="text-[9px] text-slate-400 italic mt-1">z.B. 3-8x Schupfen kurz</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Player Decides -->
+                                    <div class="flex items-center gap-1.5 mt-2">
+                                        <input type="checkbox" id="tt-player-decides" class="h-3.5 w-3.5 text-violet-500 rounded">
+                                        <label for="tt-player-decides" class="text-[10px] font-medium text-slate-600">Spieler entscheidet (wann/wohin)</label>
+                                    </div>
+
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Von</label>
@@ -477,6 +500,9 @@
                                     </button>
                                     <button id="tt-preset-topspin-counter" class="bg-violet-50 hover:bg-violet-100 text-violet-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-violet-100">
                                         Topspin
+                                    </button>
+                                    <button id="tt-preset-schupf-var" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-amber-100">
+                                        Schupf variabel
                                     </button>
                                 </div>
                             </div>

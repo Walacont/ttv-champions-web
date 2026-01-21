@@ -93,6 +93,15 @@
             });
         }
 
+        // Repetitions toggle
+        const hasRepetitionsCheckbox = document.getElementById('tt-has-repetitions');
+        const repetitionsContainer = document.getElementById('tt-repetitions-container');
+        if (hasRepetitionsCheckbox && repetitionsContainer) {
+            hasRepetitionsCheckbox.addEventListener('change', (e) => {
+                repetitionsContainer.classList.toggle('hidden', !e.target.checked);
+            });
+        }
+
         // Add variant button
         const addVariantBtn = document.getElementById('tt-add-variant-btn');
         if (addVariantBtn) {
@@ -233,6 +242,24 @@
                 ], 'Topspin-Konter');
             });
         }
+
+        // Aufschlag Schupf with player decides preset
+        const schupfVarBtn = document.getElementById('tt-preset-schupf-var');
+        if (schupfVarBtn) {
+            schupfVarBtn.addEventListener('click', () => {
+                loadPreset([
+                    { player: 'A', strokeType: 'A', side: 'RH', fromPosition: 'RH', toPosition: 'VH', isShort: true },
+                    { player: 'B', strokeType: 'SCH', side: 'VH', fromPosition: 'VH', toPosition: 'RH', isShort: true, repetitions: { min: 3, max: 8 } },
+                    { player: 'A', strokeType: 'SCH', side: 'RH', fromPosition: 'RH', toPosition: 'VH', isShort: true, repetitions: { min: 3, max: 8 } },
+                    { player: 'B', strokeType: 'SCH', side: 'VH', fromPosition: 'VH', toPosition: 'FREI', isShort: false, playerDecides: true,
+                      variants: [
+                          { condition: 'lang', side: 'VH', strokeType: 'SCH', toPosition: 'VH' },
+                          { condition: 'lang', side: 'VH', strokeType: 'SCH', toPosition: 'RH' }
+                      ]
+                    }
+                ], 'Schupf variabel');
+            });
+        }
     }
 
     function setupLegendToggle() {
@@ -258,6 +285,8 @@
         const toPosition = document.getElementById('tt-to-position').value;
         const isShort = document.getElementById('tt-short-checkbox').checked;
         const hasVariants = document.getElementById('tt-has-variants').checked;
+        const hasRepetitions = document.getElementById('tt-has-repetitions').checked;
+        const playerDecides = document.getElementById('tt-player-decides').checked;
 
         // Collect variants if enabled
         let variants = [];
@@ -273,6 +302,14 @@
             });
         }
 
+        // Collect repetitions if enabled
+        let repetitions = undefined;
+        if (hasRepetitions) {
+            const repMin = parseInt(document.getElementById('tt-rep-min').value) || 1;
+            const repMax = parseInt(document.getElementById('tt-rep-max').value) || repMin;
+            repetitions = { min: repMin, max: Math.max(repMin, repMax) };
+        }
+
         const step = {
             player,
             strokeType,
@@ -280,11 +317,13 @@
             fromPosition,
             toPosition,
             isShort,
-            variants: variants.length > 0 ? variants : undefined
+            variants: variants.length > 0 ? variants : undefined,
+            repetitions,
+            playerDecides
         };
 
         steps.push(step);
-        exerciseBuilder.addStep(player, strokeType, side, fromPosition, toPosition, isShort, variants.length > 0 ? variants : undefined);
+        exerciseBuilder.addStep(player, strokeType, side, fromPosition, toPosition, isShort, variants.length > 0 ? variants : undefined, repetitions, playerDecides);
 
         updateStepsList();
 
@@ -297,6 +336,21 @@
             hasVariantsCheckbox.checked = false;
             document.getElementById('tt-variants-container').classList.add('hidden');
             document.getElementById('tt-variants-list').innerHTML = '';
+        }
+
+        // Reset repetitions
+        const hasRepetitionsCheckbox = document.getElementById('tt-has-repetitions');
+        if (hasRepetitionsCheckbox) {
+            hasRepetitionsCheckbox.checked = false;
+            document.getElementById('tt-repetitions-container').classList.add('hidden');
+            document.getElementById('tt-rep-min').value = '3';
+            document.getElementById('tt-rep-max').value = '8';
+        }
+
+        // Reset player decides
+        const playerDecidesCheckbox = document.getElementById('tt-player-decides');
+        if (playerDecidesCheckbox) {
+            playerDecidesCheckbox.checked = false;
         }
 
         // Auto-switch player for next step
@@ -345,7 +399,9 @@
                 step.fromPosition,
                 step.toPosition,
                 step.isShort,
-                step.variants
+                step.variants,
+                step.repetitions,
+                step.playerDecides
             );
         });
 
@@ -375,6 +431,21 @@
             const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType, color: '#6B7280' };
             const shortLabel = step.isShort ? '<span class="text-amber-600 ml-1">K</span>' : '';
 
+            // Build repetitions display
+            let repLabel = '';
+            if (step.repetitions && (step.repetitions.min || step.repetitions.max)) {
+                const repText = step.repetitions.min === step.repetitions.max
+                    ? `${step.repetitions.min}x`
+                    : `${step.repetitions.min}-${step.repetitions.max}x`;
+                repLabel = `<span class="bg-blue-100 text-blue-700 px-1 rounded text-[9px] ml-1">${repText}</span>`;
+            }
+
+            // Build player decides display
+            let decidesLabel = '';
+            if (step.playerDecides) {
+                decidesLabel = `<span class="bg-violet-100 text-violet-700 px-1 rounded text-[9px] ml-1">entscheidet</span>`;
+            }
+
             // Build variants display
             let variantsHtml = '';
             if (step.variants && step.variants.length > 0) {
@@ -388,14 +459,14 @@
             return `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors">
                     <div class="flex-1">
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5 flex-wrap">
                             <span class="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
                                 ${step.player}
                             </span>
                             <span class="text-[10px] text-slate-600">
                                 <span class="font-semibold">${step.side} ${strokeData.name}</span>
                                 <span class="text-slate-400">${step.fromPosition}→${step.toPosition}</span>
-                                ${shortLabel}
+                                ${shortLabel}${repLabel}${decidesLabel}
                             </span>
                         </div>
                         ${variantsHtml}
@@ -422,7 +493,9 @@
                 step.fromPosition,
                 step.toPosition,
                 step.isShort,
-                step.variants
+                step.variants,
+                step.repetitions,
+                step.playerDecides
             );
         });
 
@@ -473,7 +546,19 @@
             const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
             const shortText = step.isShort ? ' kurz' : '';
             const toText = step.toPosition === 'FREI' ? 'frei' : step.toPosition;
-            description += `${index + 1}. Spieler ${step.player}: ${step.side} ${strokeData.name}${shortText} aus ${step.fromPosition} in die ${toText}\n`;
+
+            // Build repetition text
+            let repText = '';
+            if (step.repetitions && (step.repetitions.min || step.repetitions.max)) {
+                repText = step.repetitions.min === step.repetitions.max
+                    ? ` (${step.repetitions.min}x)`
+                    : ` (${step.repetitions.min}-${step.repetitions.max}x)`;
+            }
+
+            // Build player decides text
+            const decidesText = step.playerDecides ? ' [Spieler entscheidet]' : '';
+
+            description += `${index + 1}. Spieler ${step.player}: ${step.side} ${strokeData.name}${shortText} aus ${step.fromPosition} in die ${toText}${repText}${decidesText}\n`;
 
             // Add variants to description
             if (step.variants && step.variants.length > 0) {
