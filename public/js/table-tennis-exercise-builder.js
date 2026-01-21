@@ -23,18 +23,19 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 }
 
 // Stroke types with their display names and colors
+// SC Champions purple: #8B5CF6, Gray: #9CA3AF
 const STROKE_TYPES = {
-    A: { name: 'Aufschlag', color: '#10B981', isOffensive: true },
-    T: { name: 'Topspin', color: '#10B981', isOffensive: true },
-    K: { name: 'Konter', color: '#10B981', isOffensive: true },
+    A: { name: 'Aufschlag', color: '#8B5CF6', isOffensive: true },
+    T: { name: 'Topspin', color: '#8B5CF6', isOffensive: true },
+    K: { name: 'Konter', color: '#8B5CF6', isOffensive: true },
     B: { name: 'Block', color: '#9CA3AF', isOffensive: false },
-    F: { name: 'Flip', color: '#10B981', isOffensive: true },
+    F: { name: 'Flip', color: '#8B5CF6', isOffensive: true },
     S: { name: 'Smash', color: '#EF4444', isOffensive: true },
     SCH: { name: 'Schupf', color: '#9CA3AF', isOffensive: false },
     U: { name: 'Unterschnitt-Abwehr', color: '#9CA3AF', isOffensive: false },
-    OS: { name: 'Oberschnitt', color: '#F59E0B', isOffensive: true },
+    OS: { name: 'Oberschnitt', color: '#8B5CF6', isOffensive: true },
     US: { name: 'Unterschnitt', color: '#9CA3AF', isOffensive: false },
-    SS: { name: 'Seitenschnitt', color: '#F59E0B', isOffensive: true }
+    SS: { name: 'Seitenschnitt', color: '#8B5CF6', isOffensive: true }
 };
 
 // Position types
@@ -282,10 +283,11 @@ class TableTennisExerciseBuilder {
             }
         }
 
-        // Draw target zone or "frei" indicator
+        // Draw target zone or "frei" indicator (three lines)
         if (isFreeTarget) {
-            // Draw "frei" text on opponent's side instead of target zone
-            this.drawFreeZone(ctx, isPlayerA, strokeData.color);
+            // Draw three lines to VH, MITTE, and RH simultaneously
+            this.drawFreeZone(ctx, isPlayerA, strokeData.color, startPos, progress);
+            // Skip drawing single trajectory line and ball for free target
         } else {
             // Draw target zone (dashed rectangle) - scaled for compact table
             const zoneWidth = 50;
@@ -310,34 +312,34 @@ class TableTennisExerciseBuilder {
                 zoneHeight
             );
             ctx.restore();
+
+            // Calculate current ball position based on progress
+            const currentX = startPos.x + (adjustedEndPos.x - startPos.x) * progress;
+            const currentY = startPos.y + (adjustedEndPos.y - startPos.y) * progress;
+
+            // Draw trajectory line
+            ctx.beginPath();
+            ctx.strokeStyle = strokeData.color;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+            ctx.moveTo(startPos.x, startPos.y);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            // Draw arrowhead if animation complete
+            if (progress >= 1) {
+                this.drawArrowhead(ctx, startPos.x, startPos.y, adjustedEndPos.x, adjustedEndPos.y, strokeData.color);
+            }
+
+            // Draw ball - smaller for compact design
+            ctx.beginPath();
+            ctx.fillStyle = '#ffffff';
+            ctx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
-
-        // Calculate current ball position based on progress
-        const currentX = startPos.x + (adjustedEndPos.x - startPos.x) * progress;
-        const currentY = startPos.y + (adjustedEndPos.y - startPos.y) * progress;
-
-        // Draw trajectory line
-        ctx.beginPath();
-        ctx.strokeStyle = strokeData.color;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-        ctx.moveTo(startPos.x, startPos.y);
-        ctx.lineTo(currentX, currentY);
-        ctx.stroke();
-
-        // Draw arrowhead if animation complete
-        if (progress >= 1) {
-            this.drawArrowhead(ctx, startPos.x, startPos.y, adjustedEndPos.x, adjustedEndPos.y, strokeData.color);
-        }
-
-        // Draw ball - smaller for compact design
-        ctx.beginPath();
-        ctx.fillStyle = '#ffffff';
-        ctx.arc(currentX, currentY, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#cccccc';
-        ctx.lineWidth = 1;
-        ctx.stroke();
 
         // Draw stroke label - compact version
         const labelText = `${step.side} ${strokeData.name}`;
@@ -534,31 +536,74 @@ class TableTennisExerciseBuilder {
         ctx.restore();
     }
 
-    drawFreeZone(ctx, isPlayerA, color) {
-        // Draw "frei" text on the opponent's half of the table
+    drawFreeZone(ctx, isPlayerA, color, startPos, progress = 1) {
+        // Draw three lines to VH, MITTE, and RH simultaneously
+        const positions = ['VH', 'M', 'RH'];
+
+        positions.forEach(pos => {
+            const targetPos = this.getTargetZoneCoords(pos, isPlayerA);
+
+            // Calculate current position based on progress
+            const currentX = startPos.x + (targetPos.x - startPos.x) * progress;
+            const currentY = startPos.y + (targetPos.y - startPos.y) * progress;
+
+            // Draw trajectory line
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+            ctx.moveTo(startPos.x, startPos.y);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+
+            // Draw arrowhead if animation complete
+            if (progress >= 1) {
+                this.drawArrowhead(ctx, startPos.x, startPos.y, targetPos.x, targetPos.y, color);
+            }
+
+            // Draw small target zone
+            if (progress >= 1) {
+                const zoneWidth = 40;
+                const zoneHeight = 24;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(
+                    targetPos.x - zoneWidth / 2,
+                    targetPos.y - zoneHeight / 2,
+                    zoneWidth,
+                    zoneHeight
+                );
+                ctx.fillStyle = color + '30';
+                ctx.fillRect(
+                    targetPos.x - zoneWidth / 2,
+                    targetPos.y - zoneHeight / 2,
+                    zoneWidth,
+                    zoneHeight
+                );
+            }
+
+            ctx.restore();
+        });
+
+        // Draw "frei" label in center of opponent's side
         const netY = this.tableY + this.tableHeight * TABLE.netPosition;
         const centerX = this.tableX + this.tableWidth / 2;
-
-        // Determine which half of the table (opponent's side)
         let zoneY;
         if (isPlayerA) {
-            // Opponent is at top, draw in top half
             zoneY = this.tableY + (netY - this.tableY) / 2;
         } else {
-            // Opponent is at bottom, draw in bottom half
             zoneY = netY + (this.tableY + this.tableHeight - netY) / 2;
         }
 
         ctx.save();
-
-        // Draw "frei" text
-        ctx.font = 'bold 16px Inter, sans-serif';
+        ctx.font = 'bold 14px Inter, sans-serif';
         ctx.fillStyle = color;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.globalAlpha = 0.7;
         ctx.fillText('frei', centerX, zoneY);
-
         ctx.restore();
     }
 
