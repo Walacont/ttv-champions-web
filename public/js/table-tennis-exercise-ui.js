@@ -463,7 +463,12 @@
             }
 
             return `
-                <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors">
+                <div class="tt-step-item flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors cursor-grab active:cursor-grabbing"
+                     draggable="true"
+                     data-step-index="${index}">
+                    <div class="flex items-center gap-1 mr-1 text-slate-300 hover:text-slate-500 drag-handle">
+                        <i class="fas fa-grip-vertical text-[10px]"></i>
+                    </div>
                     <div class="flex-1">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <span class="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}">
@@ -483,7 +488,108 @@
                 </div>
             `;
         }).join('');
+
+        // Setup drag and drop event listeners
+        setupStepDragAndDrop();
     }
+
+    let draggedStepIndex = null;
+
+    function setupStepDragAndDrop() {
+        const listContainer = document.getElementById('tt-steps-list');
+        if (!listContainer) return;
+
+        const stepItems = listContainer.querySelectorAll('.tt-step-item');
+
+        stepItems.forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('dragenter', handleDragEnter);
+            item.addEventListener('dragleave', handleDragLeave);
+            item.addEventListener('drop', handleDrop);
+        });
+    }
+
+    function handleDragStart(e) {
+        draggedStepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+        e.currentTarget.classList.add('opacity-50', 'border-purple-400', 'border-2');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedStepIndex);
+    }
+
+    function handleDragEnd(e) {
+        e.currentTarget.classList.remove('opacity-50', 'border-purple-400', 'border-2');
+        // Remove all drag-over styles
+        document.querySelectorAll('.tt-step-item').forEach(item => {
+            item.classList.remove('border-t-2', 'border-b-2', 'border-purple-500');
+        });
+        draggedStepIndex = null;
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragEnter(e) {
+        e.preventDefault();
+        const targetIndex = parseInt(e.currentTarget.dataset.stepIndex);
+        if (targetIndex !== draggedStepIndex) {
+            // Show drop indicator
+            e.currentTarget.classList.remove('border-t-2', 'border-b-2');
+            if (targetIndex < draggedStepIndex) {
+                e.currentTarget.classList.add('border-t-2', 'border-purple-500');
+            } else {
+                e.currentTarget.classList.add('border-b-2', 'border-purple-500');
+            }
+        }
+    }
+
+    function handleDragLeave(e) {
+        e.currentTarget.classList.remove('border-t-2', 'border-b-2', 'border-purple-500');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const targetIndex = parseInt(e.currentTarget.dataset.stepIndex);
+
+        if (draggedStepIndex !== null && draggedStepIndex !== targetIndex) {
+            moveStep(draggedStepIndex, targetIndex);
+        }
+
+        e.currentTarget.classList.remove('border-t-2', 'border-b-2', 'border-purple-500');
+    }
+
+    function moveStep(fromIndex, toIndex) {
+        // Remove the step from its original position
+        const [movedStep] = steps.splice(fromIndex, 1);
+
+        // Insert at the new position
+        steps.splice(toIndex, 0, movedStep);
+
+        // Rebuild exercise builder steps
+        exerciseBuilder.clearSteps();
+        steps.forEach(step => {
+            exerciseBuilder.addStep(
+                step.player,
+                step.strokeType,
+                step.side,
+                step.fromPosition,
+                step.toPosition,
+                step.isShort,
+                step.variants,
+                step.repetitions,
+                step.playerDecides
+            );
+        });
+
+        updateStepsList();
+        showToast('Reihenfolge geändert', 'success');
+    }
+
+    // Make moveStep globally accessible for potential external use
+    window.ttMoveStep = moveStep;
 
     // Remove step function (globally accessible)
     window.ttRemoveStep = function(index) {
