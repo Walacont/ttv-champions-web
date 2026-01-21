@@ -604,6 +604,10 @@ function setupMultipleAnimations(animations) {
             requestAnimationFrame(() => {
                 animationPlayer = new PlayerClass(canvas.id);
                 animationPlayer.loopAnimation = false;
+                // Set handedness so VH/RH positions are correct for left/right-handers
+                if (typeof animationPlayer.setHandedness === 'function') {
+                    animationPlayer.setHandedness(currentHandedness);
+                }
                 animationPlayer.setSteps(animationSteps);
                 updateStepDisplay();
                 renderAllSteps();
@@ -680,10 +684,16 @@ function changeHandedness(newHandedness) {
     showAllMode = true;
 
     // Update animation player
-    if (animationPlayer && typeof animationPlayer.setSteps === 'function') {
-        animationPlayer.setSteps(animationSteps);
-        updateStepDisplay();
-        renderAllSteps();
+    if (animationPlayer) {
+        // Set handedness first so positions are calculated correctly
+        if (typeof animationPlayer.setHandedness === 'function') {
+            animationPlayer.setHandedness(newHandedness);
+        }
+        if (typeof animationPlayer.setSteps === 'function') {
+            animationPlayer.setSteps(animationSteps);
+            updateStepDisplay();
+            renderAllSteps();
+        }
     }
 
     // Update description if animation has its own

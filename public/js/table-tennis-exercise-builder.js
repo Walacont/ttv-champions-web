@@ -75,12 +75,35 @@ class TableTennisExerciseBuilder {
         this.animationProgress = 0;
         this.loopAnimation = true;
 
+        // Handedness for each player (false = right-handed, true = left-handed)
+        this.playerALeftHanded = false;
+        this.playerBLeftHanded = false;
+
         // Calculate table dimensions
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
 
         // Initial draw
         this.drawTable();
+    }
+
+    // Set handedness from handedness code (R-R, L-L, R-L, L-R)
+    // First letter = Player A, Second letter = Player B
+    setHandedness(handednessCode) {
+        if (!handednessCode || handednessCode.length < 3) {
+            this.playerALeftHanded = false;
+            this.playerBLeftHanded = false;
+            return;
+        }
+        // Parse: "R-R", "L-L", "R-L", "L-R"
+        const parts = handednessCode.split('-');
+        this.playerALeftHanded = parts[0] === 'L';
+        this.playerBLeftHanded = parts[1] === 'L';
+
+        // Redraw if we have steps
+        if (this.steps.length > 0) {
+            this.drawAllSteps();
+        }
     }
 
     resizeCanvas() {
@@ -180,10 +203,17 @@ class TableTennisExerciseBuilder {
     getPositionCoords(position, isPlayerA, previousStepWasShort = false) {
         const posData = POSITIONS[position] || POSITIONS.M;
 
-        // Mirror x-position for Player B (opponent stands on opposite side)
-        // Player A: VH=right(0.75), RH=left(0.25)
-        // Player B: VH=left(0.25), RH=right(0.75) from our view
-        const xRatio = isPlayerA ? posData.xRatio : (1 - posData.xRatio);
+        // Get base xRatio - for right-handers: VH=right(0.75), RH=left(0.25)
+        let baseXRatio = posData.xRatio;
+
+        // For left-handed players, flip VH and RH (VH is on left side for left-handers)
+        const isLeftHanded = isPlayerA ? this.playerALeftHanded : this.playerBLeftHanded;
+        if (isLeftHanded && position !== 'M' && position !== 'FREI') {
+            baseXRatio = 1 - baseXRatio; // Flip: VH becomes 0.25, RH becomes 0.75
+        }
+
+        // Mirror x-position for Player B (opponent stands on opposite side from our view)
+        const xRatio = isPlayerA ? baseXRatio : (1 - baseXRatio);
         const x = this.tableX + this.tableWidth * xRatio;
 
         // Player A is at bottom, Player B is at top
@@ -209,11 +239,18 @@ class TableTennisExerciseBuilder {
     getTargetZoneCoords(position, isPlayerA) {
         const posData = POSITIONS[position] || POSITIONS.M;
 
-        // Target position is where the ball lands on opponent's side
-        // The position (VH/RH/M) refers to where on the opponent's side
-        // From our view: if targeting opponent's VH and opponent is Player B (top),
-        // that's on the LEFT side (0.25) because Player B's VH is mirrored
-        const xRatio = isPlayerA ? (1 - posData.xRatio) : posData.xRatio;
+        // Get base xRatio - target is on opponent's side
+        let baseXRatio = posData.xRatio;
+
+        // The target position refers to the opponent's VH/RH
+        // If the opponent is left-handed, their VH is on the left side
+        const opponentIsLeftHanded = isPlayerA ? this.playerBLeftHanded : this.playerALeftHanded;
+        if (opponentIsLeftHanded && position !== 'M' && position !== 'FREI') {
+            baseXRatio = 1 - baseXRatio; // Flip for left-handed opponent
+        }
+
+        // From our view: Player B is at top, so their positions are mirrored
+        const xRatio = isPlayerA ? (1 - baseXRatio) : baseXRatio;
         const x = this.tableX + this.tableWidth * xRatio;
 
         // Target zone is on opponent's side of the table (deep, near baseline)
