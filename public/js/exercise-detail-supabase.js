@@ -288,7 +288,9 @@ function renderExercise(exercise) {
     if (exercise.record_holder_name && exercise.record_count) {
         const recordSection = document.getElementById('exercise-record-section');
         const recordInfo = document.getElementById('exercise-record-info');
-        recordInfo.textContent = `${exercise.record_holder_name}${exercise.record_holder_club ? ` (${exercise.record_holder_club})` : ''} - ${exercise.record_count} ${exercise.unit || 'Wiederholungen'}`;
+        const tieredPts = exercise.tiered_points || exercise.tieredPoints;
+        const recordUnit = exercise.unit || tieredPts?.unit || 'Wiederholungen';
+        recordInfo.textContent = `${exercise.record_holder_name}${exercise.record_holder_club ? ` (${exercise.record_holder_club})` : ''} - ${exercise.record_count} ${recordUnit}`;
         recordSection.classList.remove('hidden');
     }
 }
@@ -358,7 +360,7 @@ function renderMilestones(exercise) {
 
     const milestonesSection = document.getElementById('exercise-milestones-section');
     const milestonesContainer = document.getElementById('exercise-milestones');
-    const unit = exercise.unit || 'Wiederholungen';
+    const unit = exercise.unit || tieredPoints.unit || 'Wiederholungen';
 
     milestonesContainer.innerHTML = tieredPoints.milestones
         .map((milestone, index) => {
@@ -398,7 +400,7 @@ async function loadMilestoneProgress(exercise) {
 
         const currentCount = progress?.current_count || 0;
         const achievedMilestones = progress?.achieved_milestones || [];
-        const unit = exercise.unit || 'Wiederholungen';
+        const unit = exercise.unit || tieredPoints.unit || 'Wiederholungen';
 
         // Update milestone display
         const milestoneItems = document.querySelectorAll('.milestone-item');

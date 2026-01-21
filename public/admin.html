@@ -751,6 +751,34 @@
                                             Punkte sammeln, indem sie diese Übung mehrmals schaffen.
                                             Punkte sind kumulativ!
                                         </p>
+
+                                        <!-- Einheit für Meilensteine -->
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <label for="exercise-milestone-unit" class="text-sm font-medium text-indigo-700 whitespace-nowrap">
+                                                Einheit:
+                                            </label>
+                                            <select
+                                                id="exercise-milestone-unit"
+                                                class="flex-1 px-3 py-1.5 text-sm border border-indigo-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            >
+                                                <option value="Wiederholungen">Wiederholungen</option>
+                                                <option value="Ballberührungen">Ballberührungen</option>
+                                                <option value="Treffer">Treffer</option>
+                                                <option value="Sterne">Sterne</option>
+                                                <option value="Punkte">Punkte</option>
+                                                <option value="Runden">Runden</option>
+                                                <option value="Sekunden">Sekunden</option>
+                                                <option value="Minuten">Minuten</option>
+                                            </select>
+                                            <span class="text-xs text-indigo-600">oder:</span>
+                                            <input
+                                                type="text"
+                                                id="exercise-milestone-unit-custom"
+                                                placeholder="Eigene Einheit"
+                                                class="w-32 px-2 py-1.5 text-sm border border-indigo-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            />
+                                        </div>
+
                                         <div id="exercise-milestones-list" class="space-y-2">
                                             <!-- Milestones will be added here dynamically -->
                                         </div>

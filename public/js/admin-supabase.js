@@ -1875,6 +1875,14 @@ async function handleCreateExercise(e) {
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
 
+    // Einheit für Meilensteine ermitteln
+    let milestoneUnit = 'Wiederholungen';
+    if (tieredPoints) {
+        const customUnit = document.getElementById('exercise-milestone-unit-custom')?.value?.trim();
+        const selectUnit = document.getElementById('exercise-milestone-unit')?.value;
+        milestoneUnit = customUnit || selectUnit || 'Wiederholungen';
+    }
+
     let points = 0;
     if (tieredPoints) {
         if (milestones.length === 0) {
@@ -1944,10 +1952,13 @@ async function handleCreateExercise(e) {
             tiered_points: tieredPoints ? {
                 enabled: true,
                 milestones: milestones,
+                unit: milestoneUnit,
             } : {
                 enabled: false,
                 milestones: [],
             },
+            // Einheit als Top-Level Feld für einfacheren Zugriff
+            unit: tieredPoints ? milestoneUnit : null,
             // Admin kann spezifischen Verein oder null für global setzen
             club_id: exerciseClub || null,
             // Admin kann spezifische Sportart oder null für alle setzen
@@ -1993,6 +2004,12 @@ async function handleCreateExercise(e) {
         document.getElementById('exercise-tiered-points-toggle').checked = false;
         document.getElementById('exercise-points-container-admin').classList.remove('hidden');
         document.getElementById('exercise-milestones-container').classList.add('hidden');
+
+        // Meilenstein-Einheit zurücksetzen
+        const unitSelect = document.getElementById('exercise-milestone-unit');
+        const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+        if (unitSelect) unitSelect.value = 'Wiederholungen';
+        if (unitCustom) unitCustom.value = '';
 
         const partnerToggle = document.getElementById('exercise-partner-system-toggle');
         const partnerContainer = document.getElementById('exercise-partner-container');
