@@ -315,7 +315,7 @@ async function loadMilestoneProgress(exercise) {
             .select('*')
             .eq('user_id', currentUser.id)
             .eq('exercise_id', exerciseId)
-            .single();
+            .maybeSingle();
 
         if (error && error.code !== 'PGRST116') {
             console.error('Error loading milestone progress:', error);
@@ -410,17 +410,20 @@ async function loadExampleVideos() {
 
 function setupAnimation(rawSteps) {
     // Parse animation steps if needed
-    let steps = rawSteps;
-    if (typeof steps === 'string') {
+    let data = rawSteps;
+    if (typeof data === 'string') {
         try {
-            steps = JSON.parse(steps);
+            data = JSON.parse(data);
         } catch (e) {
             console.error('Error parsing animation steps:', e);
             return;
         }
     }
 
-    if (!steps || !Array.isArray(steps) || steps.length === 0) return;
+    // Handle both formats: { steps: [...] } and direct array [...]
+    let steps = Array.isArray(data) ? data : (data?.steps || []);
+
+    if (!steps || steps.length === 0) return;
 
     animationSteps = steps;
     currentStepIndex = 0;
