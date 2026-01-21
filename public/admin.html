@@ -852,6 +852,55 @@
                                     </div>
                                 </div>
 
+                                <!-- Händigkeit (nur bei Animation) -->
+                                <div id="exercise-handedness-container" class="hidden border-t border-gray-200 pt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        <i class="fas fa-hands mr-1"></i>
+                                        Händigkeits-Kombinationen
+                                    </label>
+                                    <p class="text-xs text-gray-500 mb-3">
+                                        Wähle für welche Händigkeits-Paarungen diese Übung gilt. Tags werden automatisch hinzugefügt.
+                                    </p>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="handedness-rr" value="R-R" checked
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                                            <span class="text-sm">R-R (Rechts gegen Rechts)</span>
+                                            <span class="text-xs text-gray-400">Standard</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="handedness-ll" value="L-L"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                                            <span class="text-sm">L-L (Links gegen Links)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="handedness-rl" value="R-L"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                                            <span class="text-sm">R-L (Rechts gegen Links)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="handedness-lr" value="L-R"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                                            <span class="text-sm">L-R (Links gegen Rechts)</span>
+                                        </label>
+                                    </div>
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <input type="checkbox" id="handedness-auto-mirror"
+                                            class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded" />
+                                        <label for="handedness-auto-mirror" class="text-sm text-gray-600">
+                                            L-L automatisch aus R-R spiegeln (VH↔RH tauschen)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Auto-Beschreibung aus Animation -->
+                                <div id="exercise-auto-description-container" class="hidden">
+                                    <button type="button" id="generate-description-btn"
+                                        class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                                        <i class="fas fa-magic mr-2"></i>Beschreibung aus Animation generieren
+                                    </button>
+                                </div>
+
                                 <button
                                     type="submit"
                                     id="create-exercise-submit"

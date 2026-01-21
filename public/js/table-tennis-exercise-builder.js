@@ -253,6 +253,48 @@ class TableTennisExerciseBuilder {
         this.currentStepIndex = 0;
     }
 
+    // Mirror steps for left-handers (swap VH <-> RH)
+    mirrorStepsForLeftHanders(steps) {
+        return steps.map(step => {
+            const mirroredStep = { ...step };
+
+            // Swap side (VH <-> RH)
+            if (step.side === 'VH') {
+                mirroredStep.side = 'RH';
+            } else if (step.side === 'RH') {
+                mirroredStep.side = 'VH';
+            }
+
+            // Swap fromPosition (VH <-> RH)
+            if (step.fromPosition === 'VH') {
+                mirroredStep.fromPosition = 'RH';
+            } else if (step.fromPosition === 'RH') {
+                mirroredStep.fromPosition = 'VH';
+            }
+
+            // Swap toPosition (VH <-> RH), but keep M and FREI
+            if (step.toPosition === 'VH') {
+                mirroredStep.toPosition = 'RH';
+            } else if (step.toPosition === 'RH') {
+                mirroredStep.toPosition = 'VH';
+            }
+
+            return mirroredStep;
+        });
+    }
+
+    // Set steps with optional mirroring for handedness
+    setStepsWithHandedness(steps, viewMode = 'R-R', availableHandedness = ['R-R']) {
+        // If requested mode is L-L and we only have R-R, auto-mirror
+        if (viewMode === 'L-L' && !availableHandedness.includes('L-L') && availableHandedness.includes('R-R')) {
+            this.steps = this.mirrorStepsForLeftHanders(steps);
+        } else {
+            this.steps = steps;
+        }
+        this.currentStepIndex = 0;
+        this.currentHandedness = viewMode;
+    }
+
     drawStep(step, progress = 1, previousStep = null) {
         const ctx = this.ctx;
         const isPlayerA = step.player === 'A';

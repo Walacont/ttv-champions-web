@@ -1855,10 +1855,22 @@ async function handleCreateExercise(e) {
     const descriptionContent = descriptionEditor.getContent();
     const file = document.getElementById('exercise-image').files[0];
     const tagsInput = document.getElementById('exercise-tags').value;
-    const tags = tagsInput
+    let tags = tagsInput
         .split(',')
         .map(tag => tag.trim())
         .filter(tag => tag);
+
+    // Händigkeits-Tags hinzufügen wenn Animation aktiv
+    const animationToggleForTags = document.getElementById('exercise-animation-toggle');
+    if (animationToggleForTags?.checked) {
+        const handednessTags = getSelectedHandednessTags();
+        // Händigkeits-Tags hinzufügen (ohne Duplikate)
+        handednessTags.forEach(ht => {
+            if (!tags.includes(ht)) {
+                tags.push(ht);
+            }
+        });
+    }
 
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
@@ -1949,6 +1961,13 @@ async function handleCreateExercise(e) {
             try {
                 const animationData = JSON.parse(animationStepsInput.value);
                 if (animationData && animationData.steps && animationData.steps.length > 0) {
+                    // Händigkeits-Optionen hinzufügen
+                    const handednessTags = getSelectedHandednessTags();
+                    const autoMirror = document.getElementById('handedness-auto-mirror')?.checked || false;
+
+                    animationData.handedness = handednessTags;
+                    animationData.autoMirrorLL = autoMirror;
+
                     exerciseData.animation_steps = animationData;
                 }
             } catch (e) {
@@ -1999,6 +2018,18 @@ async function handleCreateExercise(e) {
         if (animationContainerReset) animationContainerReset.classList.add('hidden');
         if (animationStepsInput) animationStepsInput.value = '';
         if (animationPreview) animationPreview.innerHTML = '<span class="italic">Keine Animation-Schritte vorhanden</span>';
+
+        // Händigkeits-Felder zurücksetzen
+        const handednessContainer = document.getElementById('exercise-handedness-container');
+        const autoDescContainer = document.getElementById('exercise-auto-description-container');
+        if (handednessContainer) handednessContainer.classList.add('hidden');
+        if (autoDescContainer) autoDescContainer.classList.add('hidden');
+        document.getElementById('handedness-rr').checked = true;
+        document.getElementById('handedness-ll').checked = false;
+        document.getElementById('handedness-rl').checked = false;
+        document.getElementById('handedness-lr').checked = false;
+        const autoMirror = document.getElementById('handedness-auto-mirror');
+        if (autoMirror) autoMirror.checked = false;
 
         descriptionEditor.clear();
     } catch (error) {
@@ -2521,9 +2552,12 @@ async function initializeAuditSection() {
 function initializeAnimationToggle() {
     const animationToggle = document.getElementById('exercise-animation-toggle');
     const animationContainer = document.getElementById('exercise-animation-container');
+    const handednessContainer = document.getElementById('exercise-handedness-container');
+    const autoDescContainer = document.getElementById('exercise-auto-description-container');
     const importBtn = document.getElementById('exercise-import-animation-btn');
     const animationStepsInput = document.getElementById('exercise-animation-steps');
     const animationPreview = document.getElementById('exercise-animation-steps-preview');
+    const generateDescBtn = document.getElementById('generate-description-btn');
 
     if (!animationToggle || !animationContainer) return;
 
@@ -2531,10 +2565,43 @@ function initializeAnimationToggle() {
     animationToggle.addEventListener('change', (e) => {
         if (e.target.checked) {
             animationContainer.classList.remove('hidden');
+            if (handednessContainer) handednessContainer.classList.remove('hidden');
+            if (autoDescContainer) autoDescContainer.classList.remove('hidden');
         } else {
             animationContainer.classList.add('hidden');
+            if (handednessContainer) handednessContainer.classList.add('hidden');
+            if (autoDescContainer) autoDescContainer.classList.add('hidden');
         }
     });
+
+    // Auto-Beschreibung generieren
+    if (generateDescBtn) {
+        generateDescBtn.addEventListener('click', () => {
+            const stepsJson = animationStepsInput?.value;
+            if (!stepsJson) {
+                showAdminNotification('Bitte zuerst Animation vom Animator übernehmen.', 'warning');
+                return;
+            }
+            try {
+                const animationData = JSON.parse(stepsJson);
+                if (animationData && animationData.steps && animationData.steps.length > 0) {
+                    const description = generateDescriptionFromSteps(animationData.steps);
+                    // In Beschreibungsfeld einfügen
+                    const descTextarea = document.getElementById('exercise-description');
+                    if (descTextarea) {
+                        descTextarea.value = description;
+                    }
+                    // Falls Table-Editor aktiv ist, auch dort aktualisieren
+                    if (descriptionEditor && typeof descriptionEditor.setContent === 'function') {
+                        descriptionEditor.setContent(description);
+                    }
+                    showAdminNotification('Beschreibung generiert!', 'success');
+                }
+            } catch (e) {
+                showAdminNotification('Fehler beim Parsen der Animation-Schritte.', 'error');
+            }
+        });
+    }
 
     // Import-Button Listener
     if (importBtn) {
@@ -2596,6 +2663,73 @@ function initializeAnimationToggle() {
             }
         });
     }
+}
+
+// Beschreibung aus Animation-Steps generieren
+function generateDescriptionFromSteps(steps) {
+    if (!steps || steps.length === 0) return '';
+
+    const strokeAbbr = {
+        'A': 'A',      // Aufschlag
+        'T': 'T',      // Topspin
+        'K': 'K',      // Konter
+        'B': 'B',      // Block
+        'F': 'F',      // Flip
+        'S': 'S',      // Smash
+        'SCH': 'SCH',  // Schupf
+        'U': 'U',      // Unterschnitt-Abwehr
+        'OS': 'OS',    // Oberschnitt
+        'US': 'US',    // Unterschnitt
+        'SS': 'SS'     // Seitenschnitt
+    };
+
+    // Gruppiere Schritte nach Spieler A und B
+    const playerASteps = [];
+    const playerBSteps = [];
+
+    steps.forEach(step => {
+        const stroke = strokeAbbr[step.strokeType] || step.strokeType;
+        const formatted = `${step.side}${stroke} aus ${step.fromPosition} in ${step.toPosition}${step.isShort ? ' (kurz)' : ''}`;
+
+        if (step.player === 'A') {
+            playerASteps.push(formatted);
+        } else {
+            playerBSteps.push(formatted);
+        }
+    });
+
+    // Erstelle Tabellen-Format
+    let description = '| Spieler A | Spieler B |\n';
+    description += '|-----------|----------|\n';
+
+    const maxRows = Math.max(playerASteps.length, playerBSteps.length);
+    for (let i = 0; i < maxRows; i++) {
+        const aStep = playerASteps[i] || '';
+        const bStep = playerBSteps[i] || '';
+        description += `| ${aStep} | ${bStep} |\n`;
+    }
+
+    return description;
+}
+
+// Händigkeits-Tags aus Checkboxen sammeln
+function getSelectedHandednessTags() {
+    const tags = [];
+    const checkboxes = [
+        { id: 'handedness-rr', tag: 'R-R' },
+        { id: 'handedness-ll', tag: 'L-L' },
+        { id: 'handedness-rl', tag: 'R-L' },
+        { id: 'handedness-lr', tag: 'L-R' }
+    ];
+
+    checkboxes.forEach(({ id, tag }) => {
+        const checkbox = document.getElementById(id);
+        if (checkbox?.checked) {
+            tags.push(tag);
+        }
+    });
+
+    return tags;
 }
 
 // Hilfsfunktion für Benachrichtigungen

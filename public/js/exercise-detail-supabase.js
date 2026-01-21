@@ -12,11 +12,15 @@ let exerciseId = null;
 
 // Animation state
 let animationSteps = [];
+let originalAnimationSteps = []; // Keep original for mirroring
 let currentStepIndex = -1; // -1 means "show all steps", 0+ is individual step
 let animationPlayer = null;
 let isAnimating = false;
 let stepAnimationFrame = null;
 let showAllMode = true; // Start by showing all steps
+let availableHandedness = ['R-R']; // Available handedness modes
+let currentHandedness = 'R-R'; // Current viewing mode
+let autoMirrorLL = false; // Whether to auto-mirror for L-L
 
 // Stroke types for display
 const STROKE_TYPES = {
@@ -464,12 +468,22 @@ function setupAnimation(rawSteps) {
 
     if (!steps || steps.length === 0) return;
 
+    // Store original steps and handedness info
+    originalAnimationSteps = steps;
     animationSteps = steps;
+    availableHandedness = data?.handedness || ['R-R'];
+    autoMirrorLL = data?.autoMirrorLL || false;
+    currentHandedness = 'R-R';
     currentStepIndex = -1; // Start in "show all" mode
     showAllMode = true;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
+    const handednessSelector = document.getElementById('animation-handedness-selector');
+    const handednessSelect = document.getElementById('animation-handedness-select');
+
+    // Setup handedness dropdown if multiple options available
+    setupHandednessDropdown(handednessSelector, handednessSelect);
 
     // Initialize animation player
     const initPlayer = (PlayerClass) => {
@@ -508,6 +522,83 @@ function setupAnimation(rawSteps) {
         };
         document.head.appendChild(script);
     }
+}
+
+function setupHandednessDropdown(selectorContainer, selectElement) {
+    if (!selectorContainer || !selectElement) return;
+
+    // Check if we should show the dropdown
+    // Show if there are multiple handedness options OR if auto-mirror is enabled for L-L
+    const showDropdown = availableHandedness.length > 1 || autoMirrorLL;
+
+    if (!showDropdown) {
+        selectorContainer.classList.add('hidden');
+        return;
+    }
+
+    // Clear existing options
+    selectElement.innerHTML = '';
+
+    // Build available options
+    const handednessLabels = {
+        'R-R': 'Rechts vs Rechts (R-R)',
+        'L-L': 'Links vs Links (L-L)',
+        'R-L': 'Rechts vs Links (R-L)',
+        'L-R': 'Links vs Rechts (L-R)'
+    };
+
+    // Add options that are explicitly available
+    availableHandedness.forEach(h => {
+        const option = document.createElement('option');
+        option.value = h;
+        option.textContent = handednessLabels[h] || h;
+        selectElement.appendChild(option);
+    });
+
+    // If auto-mirror is enabled and L-L is not already available, add it
+    if (autoMirrorLL && !availableHandedness.includes('L-L')) {
+        const option = document.createElement('option');
+        option.value = 'L-L';
+        option.textContent = handednessLabels['L-L'] + ' (gespiegelt)';
+        selectElement.appendChild(option);
+    }
+
+    // Set default value
+    selectElement.value = currentHandedness;
+
+    // Show selector
+    selectorContainer.classList.remove('hidden');
+
+    // Add change listener
+    selectElement.addEventListener('change', (e) => {
+        changeHandedness(e.target.value);
+    });
+}
+
+function changeHandedness(newHandedness) {
+    currentHandedness = newHandedness;
+
+    // If L-L is selected but not in available and auto-mirror is enabled, mirror the steps
+    if (newHandedness === 'L-L' && !availableHandedness.includes('L-L') && autoMirrorLL) {
+        // Use the player's mirroring function
+        if (animationPlayer && typeof animationPlayer.mirrorStepsForLeftHanders === 'function') {
+            animationSteps = animationPlayer.mirrorStepsForLeftHanders(originalAnimationSteps);
+        }
+    } else {
+        // Use original steps
+        animationSteps = originalAnimationSteps;
+    }
+
+    // Update the player's steps
+    if (animationPlayer) {
+        animationPlayer.setSteps(animationSteps);
+    }
+
+    // Re-render
+    currentStepIndex = -1;
+    showAllMode = true;
+    updateStepDisplay();
+    renderAllSteps();
 }
 
 function updateStepDisplay() {
