@@ -2575,6 +2575,11 @@ function initializeAnimationToggle() {
         // Dropdown Option als "verwendet" markieren
         updateHandednessDropdown();
 
+        // Beschreibung im Editor anzeigen (bei erster Animation oder aktualisieren)
+        if (description && descriptionEditor) {
+            descriptionEditor.setContent(description);
+        }
+
         showAdminNotification(`Animation für ${handedness} hinzugefügt!`, 'success');
     });
 
