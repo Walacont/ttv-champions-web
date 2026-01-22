@@ -528,9 +528,18 @@ function handleExerciseChange() {
         timeInputContainer?.classList.add('hidden');
     }
 
-    // Spielmodus-Auswahl anzeigen wenn eine Übung ausgewählt ist
+    // Spielmodus-Auswahl anzeigen wenn eine Paarungs-Übung ausgewählt ist
+    // Bei Einzelübungen (solo) wird keine Spielmodus-Auswahl benötigt
     if (selectedOption?.value) {
-        playModeContainer?.classList.remove('hidden');
+        if (playerType === 'solo') {
+            // Einzelübung: Keine Spielmodus-Auswahl, direkt Spielerliste anzeigen
+            playModeContainer?.classList.add('hidden');
+            selectedPlayMode = 'solo'; // Automatisch solo-Modus setzen
+            document.getElementById('quick-points-player-list')?.classList.remove('hidden');
+        } else {
+            // Paarungs-Übung: Spielmodus-Auswahl anzeigen
+            playModeContainer?.classList.remove('hidden');
+        }
     } else {
         playModeContainer?.classList.add('hidden');
     }

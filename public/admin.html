@@ -736,10 +736,20 @@
                                             <input
                                                 type="radio"
                                                 name="exercise-player-type"
+                                                value="solo"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            />
+                                            <span class="text-sm text-gray-700">Einzelübung / Allgemein</span>
+                                            <span class="text-xs text-gray-500">(Seilspringen, Laufen, etc. - keine Paarung)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="exercise-player-type"
                                                 value="both_active"
                                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span class="text-sm text-gray-700">Spieler A & B beide aktiv</span>
+                                            <span class="text-sm text-gray-700">Paarung: Beide aktiv</span>
                                             <span class="text-xs text-gray-500">(beide bekommen 100% der Punkte)</span>
                                         </label>
                                         <label class="flex items-center gap-2 cursor-pointer">
@@ -750,7 +760,7 @@
                                                 checked
                                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span class="text-sm text-gray-700">Spieler A aktiv & Spieler B passiv</span>
+                                            <span class="text-sm text-gray-700">Paarung: A aktiv & B passiv</span>
                                             <span class="text-xs text-gray-500">(A: 100%, B: 50% der Punkte)</span>
                                         </label>
                                     </div>
