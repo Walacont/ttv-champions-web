@@ -434,9 +434,21 @@ async function loadMilestoneProgress(exercise) {
             </div>
         `;
 
+        // Load detailed records from exercise_records table
+        let detailedRecords = null;
+        try {
+            const { data: records } = await supabase.rpc('get_user_exercise_records', {
+                p_user_id: currentUser.id,
+                p_exercise_id: exerciseId
+            });
+            detailedRecords = records;
+        } catch (rpcErr) {
+            console.warn('[ExerciseDetail] RPC get_user_exercise_records not available');
+        }
+
         // Show personal record if any
-        if (currentCount > 0) {
-            renderPersonalRecord(exercise, progress);
+        if (currentCount > 0 || (detailedRecords && detailedRecords.length > 0)) {
+            renderPersonalRecord(exercise, progress, detailedRecords);
         }
 
     } catch (error) {
@@ -447,17 +459,17 @@ async function loadMilestoneProgress(exercise) {
 /**
  * Rendert den persönlichen Rekord des Benutzers
  */
-function renderPersonalRecord(exercise, progress) {
+function renderPersonalRecord(exercise, progress, detailedRecords = null) {
     const recordSection = document.getElementById('exercise-personal-record-section');
     const recordContent = document.getElementById('exercise-personal-record-content');
 
-    if (!recordSection || !recordContent || !progress) return;
+    if (!recordSection || !recordContent) return;
 
     const tieredPoints = exercise.tiered_points || exercise.tieredPoints;
     const unit = exercise.unit || tieredPoints?.unit || 'Wiederholungen';
     const timeDirection = exercise.time_direction || tieredPoints?.time_direction;
-    const currentCount = progress.current_count || 0;
-    const updatedAt = progress.updated_at ? new Date(progress.updated_at) : new Date();
+    const currentCount = progress?.current_count || 0;
+    const updatedAt = progress?.updated_at ? new Date(progress.updated_at) : new Date();
 
     // Format date
     const dateStr = updatedAt.toLocaleDateString('de-DE', {
@@ -495,15 +507,17 @@ function renderPersonalRecord(exercise, progress) {
         `;
     }
 
-    // Check if we have partner info (for future extension)
-    const partnerRecords = progress.partner_records || [];
-    const soloRecord = progress.solo_record;
-
-    if (partnerRecords.length > 0 || soloRecord) {
+    // Check if we have detailed records from exercise_records table
+    if (detailedRecords && detailedRecords.length > 0) {
         // Extended record display with partner info
         recordHtml = '';
 
-        partnerRecords.forEach(pr => {
+        // Separate pair and solo records
+        const pairRecords = detailedRecords.filter(r => r.play_mode === 'pair' && r.partner_name);
+        const soloRecords = detailedRecords.filter(r => r.play_mode === 'solo' || !r.partner_name);
+
+        // Show pair records
+        pairRecords.forEach(pr => {
             const prDate = new Date(pr.achieved_at).toLocaleDateString('de-DE', {
                 day: '2-digit',
                 month: '2-digit',
@@ -512,14 +526,16 @@ function renderPersonalRecord(exercise, progress) {
             recordHtml += `
                 <div class="flex items-center gap-2 text-indigo-700">
                     <i class="fas fa-user-friends text-indigo-500"></i>
-                    <span>mit <strong>${pr.partner_name}</strong>: ${formatRecordValue(pr.count, unit, timeDirection)}</span>
+                    <span>mit <strong>${pr.partner_name}</strong>: ${formatRecordValue(pr.record_value, unit, timeDirection)}</span>
                     <span class="text-indigo-500 text-xs">am ${prDate}</span>
                 </div>
             `;
         });
 
-        if (soloRecord) {
-            const soloDate = new Date(soloRecord.achieved_at).toLocaleDateString('de-DE', {
+        // Show best solo record
+        if (soloRecords.length > 0) {
+            const bestSolo = soloRecords[0]; // Already sorted by record_value DESC
+            const soloDate = new Date(bestSolo.achieved_at).toLocaleDateString('de-DE', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric'
@@ -527,7 +543,7 @@ function renderPersonalRecord(exercise, progress) {
             recordHtml += `
                 <div class="flex items-center gap-2 text-indigo-700">
                     <i class="fas fa-robot text-indigo-500"></i>
-                    <span>Balleimer: <strong>${formatRecordValue(soloRecord.count, unit, timeDirection)}</strong></span>
+                    <span>Balleimer: <strong>${formatRecordValue(bestSolo.record_value, unit, timeDirection)}</strong></span>
                     <span class="text-indigo-500 text-xs">am ${soloDate}</span>
                 </div>
             `;

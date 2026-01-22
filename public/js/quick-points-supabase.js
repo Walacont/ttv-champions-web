@@ -1074,6 +1074,14 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         }
                     }
 
+                    // Partner-ID ermitteln
+                    let historyPartnerId = null;
+                    if (selectedPlayMode === 'pair') {
+                        const playerAId = document.getElementById('quick-points-player-a')?.value;
+                        const playerBId = document.getElementById('quick-points-player-b')?.value;
+                        historyPartnerId = playerId === playerAId ? playerBId : playerAId;
+                    }
+
                     // Punkte-Historie eintragen
                     await supabase.from('points_history').insert({
                         user_id: playerId,
@@ -1082,7 +1090,9 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         elo_change: 0,
                         reason,
                         timestamp: now,
-                        awarded_by: awardedBy
+                        awarded_by: awardedBy,
+                        play_mode: selectedPlayMode || 'solo',
+                        partner_id: historyPartnerId
                     });
 
                     // XP-Historie eintragen
@@ -1096,38 +1106,64 @@ async function handleQuickPointsSubmit(closeAfter = true) {
 
                     // Completed exercises/challenges eintragen
                     if (exerciseId) {
+                        // Partner-ID ermitteln für Paarung
+                        let partnerId = null;
+                        if (selectedPlayMode === 'pair') {
+                            const playerAId = document.getElementById('quick-points-player-a')?.value;
+                            const playerBId = document.getElementById('quick-points-player-b')?.value;
+                            // Partner ist der jeweils andere Spieler
+                            partnerId = playerId === playerAId ? playerBId : playerAId;
+                        }
+
                         await supabase.from('completed_exercises').upsert({
                             user_id: playerId,
                             exercise_id: exerciseId,
+                            play_mode: selectedPlayMode || 'solo',
+                            partner_id: partnerId,
                             completed_at: now
                         });
 
-                        // Bei Meilenstein-Übungen: Fortschritt speichern
+                        // Bei Meilenstein-Übungen: Fortschritt und Rekord speichern
                         if (milestoneCount !== null && milestoneCount > 0) {
-                            // Prüfe ob bereits ein Fortschritt existiert
-                            const { data: existingProgress } = await supabase
-                                .from('exercise_milestones')
-                                .select('current_count')
-                                .eq('user_id', playerId)
-                                .eq('exercise_id', exerciseId)
-                                .maybeSingle();
-
-                            const currentCount = existingProgress?.current_count || 0;
-                            // Nur aktualisieren wenn der neue Wert höher ist
-                            if (milestoneCount > currentCount) {
-                                const { error: milestoneError } = await supabase.from('exercise_milestones').upsert({
-                                    user_id: playerId,
-                                    exercise_id: exerciseId,
-                                    current_count: milestoneCount,
-                                    updated_at: now
-                                }, {
-                                    onConflict: 'user_id,exercise_id'
+                            // Rekord über die neue Funktion speichern
+                            try {
+                                await supabase.rpc('update_exercise_record', {
+                                    p_user_id: playerId,
+                                    p_exercise_id: exerciseId,
+                                    p_record_value: milestoneCount,
+                                    p_play_mode: selectedPlayMode || 'solo',
+                                    p_partner_id: partnerId,
+                                    p_points_earned: playerPoints
                                 });
+                            } catch (rpcErr) {
+                                console.warn('[QuickPoints] RPC update_exercise_record not available, using fallback');
 
-                                if (milestoneError) {
-                                    console.error('[QuickPoints] Error saving milestone progress:', milestoneError);
-                                } else {
-                                    console.log('[QuickPoints] Milestone progress saved:', playerId, exerciseId, milestoneCount);
+                                // Fallback: Alte Methode
+                                const { data: existingProgress } = await supabase
+                                    .from('exercise_milestones')
+                                    .select('current_count')
+                                    .eq('user_id', playerId)
+                                    .eq('exercise_id', exerciseId)
+                                    .maybeSingle();
+
+                                const currentCount = existingProgress?.current_count || 0;
+                                if (milestoneCount > currentCount) {
+                                    const { error: milestoneError } = await supabase.from('exercise_milestones').upsert({
+                                        user_id: playerId,
+                                        exercise_id: exerciseId,
+                                        current_count: milestoneCount,
+                                        play_mode: selectedPlayMode || 'solo',
+                                        partner_id: partnerId,
+                                        updated_at: now
+                                    }, {
+                                        onConflict: 'user_id,exercise_id'
+                                    });
+
+                                    if (milestoneError) {
+                                        console.error('[QuickPoints] Error saving milestone progress:', milestoneError);
+                                    } else {
+                                        console.log('[QuickPoints] Milestone progress saved:', playerId, exerciseId, milestoneCount);
+                                    }
                                 }
                             }
                         }
