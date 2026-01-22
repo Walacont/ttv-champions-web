@@ -1176,15 +1176,14 @@ async function handleVideoUpload(e) {
         // Status: pending (für Coach) oder private (nur Mediathek)
         const status = (isInClub && requestCoachFeedback) ? 'pending' : 'private';
 
+        // Datenbank-Eintrag in video_analyses erstellen
         const { data: insertedVideo, error: dbError } = await supabase
-            .from('training_videos')
+            .from('video_analyses')
             .insert({
-                user_id: currentUser.id,
+                uploaded_by: currentUser.id,
                 exercise_id: exerciseId,
                 title: title,
-                notes: notes,
                 video_url: publicUrl,
-                status: status,
                 allow_ai_training: allowAiTraining,
                 club_id: isInClub ? currentUserData.club_id : null
             })
@@ -1192,6 +1191,22 @@ async function handleVideoUpload(e) {
             .single();
 
         if (dbError) throw dbError;
+
+        // Wenn Coach-Feedback angefragt, Video-Assignment erstellen
+        if (isInClub && requestCoachFeedback && insertedVideo?.id) {
+            const { error: assignError } = await supabase
+                .from('video_assignments')
+                .insert({
+                    video_id: insertedVideo.id,
+                    player_id: currentUser.id,
+                    club_id: currentUserData.club_id,
+                    status: 'pending'
+                });
+
+            if (assignError) {
+                console.error('Fehler bei Coach-Zuweisung:', assignError);
+            }
+        }
 
         progressBar.style.width = '100%';
         progressText.textContent = 'Erfolgreich hochgeladen!';
@@ -1208,7 +1223,7 @@ async function handleVideoUpload(e) {
             // Wenn KI-Training erlaubt, zur Label-Seite weiterleiten
             if (allowAiTraining && insertedVideo?.id) {
                 window.location.href = `/label.html?video=${insertedVideo.id}`;
-            } else if (status === 'pending') {
+            } else if (isInClub && requestCoachFeedback) {
                 alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
             } else {
                 alert('Video wurde in deiner persönlichen Mediathek gespeichert.');
