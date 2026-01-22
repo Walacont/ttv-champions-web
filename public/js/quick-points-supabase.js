@@ -1037,16 +1037,29 @@ async function handleQuickPointsSubmit(closeAfter = true) {
             return points;
         };
 
-        // Paar-Info für Reason hinzufügen
-        if (selectedPlayMode === 'pair') {
-            const playerAId = document.getElementById('quick-points-player-a')?.value;
-            const playerBId = document.getElementById('quick-points-player-b')?.value;
-            const playerA = currentClubPlayers.find(p => p.id === playerAId);
-            const playerB = currentClubPlayers.find(p => p.id === playerBId);
-            if (playerA && playerB) {
-                reason += ` [Paarung: ${playerA.firstName} & ${playerB.firstName}]`;
+        // Reason pro Spieler (mit Info ob aktiv/passiv bei Paarung)
+        const getPlayerReason = (playerId) => {
+            let playerReason = reason;
+            if (selectedPlayMode === 'pair') {
+                const playerAId = document.getElementById('quick-points-player-a')?.value;
+                const playerBId = document.getElementById('quick-points-player-b')?.value;
+                const playerA = currentClubPlayers.find(p => p.id === playerAId);
+                const playerB = currentClubPlayers.find(p => p.id === playerBId);
+                if (playerA && playerB) {
+                    if (selectedExerciseData?.playerType === 'a_active_b_passive') {
+                        // Bei A aktiv / B passiv: Rolle anzeigen
+                        if (playerId === playerBId) {
+                            playerReason += ` [Paarung: ${playerA.firstName} & ${playerB.firstName}] (passiv)`;
+                        } else {
+                            playerReason += ` [Paarung: ${playerA.firstName} & ${playerB.firstName}]`;
+                        }
+                    } else {
+                        playerReason += ` [Paarung: ${playerA.firstName} & ${playerB.firstName}]`;
+                    }
+                }
             }
-        }
+            return playerReason;
+        };
 
         // Batch-Verarbeitung um Netzwerküberlastung zu vermeiden
         const BATCH_SIZE = 5;
@@ -1094,13 +1107,16 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                         historyPartnerId = playerId === playerAId ? playerBId : playerAId;
                     }
 
+                    // Reason für diesen Spieler (mit passiv-Hinweis falls zutreffend)
+                    const playerReason = getPlayerReason(playerId);
+
                     // Punkte-Historie eintragen
                     await supabase.from('points_history').insert({
                         user_id: playerId,
                         points: playerPoints,
                         xp: playerPoints,
                         elo_change: 0,
-                        reason,
+                        reason: playerReason,
                         timestamp: now,
                         awarded_by: awardedBy,
                         play_mode: selectedPlayMode || 'solo',
@@ -1111,7 +1127,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                     await supabase.from('xp_history').insert({
                         user_id: playerId,
                         xp: playerPoints,
-                        reason,
+                        reason: playerReason,
                         source: selectedPointsType === 'exercise' ? 'exercise' :
                                selectedPointsType === 'challenge' ? 'challenge' : 'manual'
                     });
