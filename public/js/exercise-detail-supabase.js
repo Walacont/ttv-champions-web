@@ -12,11 +12,11 @@ let exerciseId = null;
 
 // Animation state
 let animationSteps = [];
-let currentStepIndex = -1; // -1 means "show all steps", 0+ is individual step
+let currentStepIndex = 0; // 0+ is individual step, -1 means "show all steps"
 let animationPlayer = null;
 let isAnimating = false;
 let stepAnimationFrame = null;
-let showAllMode = true; // Start by showing all steps
+let showAllMode = false; // Start by showing first step
 let availableHandedness = ['R-R']; // Available handedness modes
 let currentHandedness = 'R-R'; // Current viewing mode
 
@@ -660,8 +660,8 @@ function setupAnimation(rawSteps) {
     animationSteps = steps;
     availableHandedness = data?.handedness || ['R-R'];
     currentHandedness = availableHandedness[0] || 'R-R';
-    currentStepIndex = -1; // Start in "show all" mode
-    showAllMode = true;
+    currentStepIndex = 0; // Start at first step
+    showAllMode = false;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
@@ -729,8 +729,8 @@ function setupMultipleAnimations(animations) {
     // Get the first animation
     const firstAnimation = animations[0];
     animationSteps = firstAnimation.steps || [];
-    currentStepIndex = -1;
-    showAllMode = true;
+    currentStepIndex = 0; // Start at first step
+    showAllMode = false;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
@@ -830,8 +830,8 @@ function changeHandedness(newHandedness) {
     if (animation) {
         // New format: different steps and description for each handedness
         animationSteps = animation.steps || [];
-        currentStepIndex = -1;
-        showAllMode = true;
+        currentStepIndex = 0; // Start at first step
+        showAllMode = false;
 
         // Update animation player with new steps
         if (animationPlayer) {
@@ -841,7 +841,7 @@ function changeHandedness(newHandedness) {
             if (typeof animationPlayer.setSteps === 'function') {
                 animationPlayer.setSteps(animationSteps);
                 updateStepDisplay();
-                renderAllSteps();
+                renderCurrentStep();
             }
         }
 
