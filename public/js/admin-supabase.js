@@ -82,6 +82,10 @@ let clubExistingSports = [];
 let currentSportFilter = 'all';
 let isAdminPageInitialized = false;
 
+// Bearbeitungsmodus für Übungen
+let editingExerciseId = null;
+let editingExerciseImageUrl = null;
+
 function showAuthError(message) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'none';
@@ -962,6 +966,213 @@ function openEditExerciseModal(dataset) {
 
     exerciseModal.classList.add('hidden');
     editExerciseModal.classList.remove('hidden');
+}
+
+/**
+ * Startet den Bearbeitungsmodus für eine Übung
+ * Lädt alle Daten und füllt das Erstellungsformular aus
+ */
+async function startEditExercise(exerciseId) {
+    try {
+        // Übung aus der Datenbank laden
+        const { data: exercise, error } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('id', exerciseId)
+            .single();
+
+        if (error) throw error;
+        if (!exercise) throw new Error('Übung nicht gefunden');
+
+        // Bearbeitungsmodus aktivieren
+        editingExerciseId = exerciseId;
+        editingExerciseImageUrl = exercise.image_url;
+
+        // Titel
+        document.getElementById('exercise-title').value = exercise.title || '';
+
+        // Tags
+        document.getElementById('exercise-tags').value = (exercise.tags || []).join(', ');
+
+        // Übungstyp (Spieler-Aktivität)
+        const playerType = exercise.player_type || 'a_active_b_passive';
+        const playerTypeRadio = document.querySelector(`input[name="exercise-player-type"][value="${playerType}"]`);
+        if (playerTypeRadio) playerTypeRadio.checked = true;
+
+        // Tiered Points / Meilensteine
+        const tieredPoints = exercise.tiered_points;
+        const tieredPointsToggle = document.getElementById('exercise-tiered-points-toggle');
+        const pointsContainer = document.getElementById('exercise-points-container-admin');
+        const milestonesContainer = document.getElementById('exercise-milestones-container');
+
+        if (tieredPoints?.enabled) {
+            tieredPointsToggle.checked = true;
+            pointsContainer?.classList.add('hidden');
+            milestonesContainer?.classList.remove('hidden');
+
+            // Einheit setzen
+            const unitSelect = document.getElementById('exercise-milestone-unit');
+            const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+            const unit = exercise.unit || tieredPoints.unit || 'Wiederholungen';
+            const timeDirection = exercise.time_direction || tieredPoints.time_direction;
+
+            if (unitSelect) {
+                if (unit === 'Zeit' && timeDirection) {
+                    unitSelect.value = `Zeit_${timeDirection}`;
+                } else if (['Wiederholungen', 'Ballberührungen', 'Sterne', 'Treffer'].includes(unit)) {
+                    unitSelect.value = unit;
+                } else {
+                    unitSelect.value = 'custom';
+                    if (unitCustom) unitCustom.value = unit;
+                }
+            }
+
+            // Meilensteine einfügen
+            const milestonesList = document.getElementById('exercise-milestones-list');
+            if (milestonesList) {
+                milestonesList.innerHTML = '';
+                (tieredPoints.milestones || []).forEach(m => {
+                    addMilestoneToList(m.count, m.points);
+                });
+            }
+        } else {
+            tieredPointsToggle.checked = false;
+            pointsContainer?.classList.remove('hidden');
+            milestonesContainer?.classList.add('hidden');
+            document.getElementById('exercise-points').value = exercise.points || '';
+        }
+
+        // Beschreibung
+        if (exercise.description_content) {
+            try {
+                const descriptionData = JSON.parse(exercise.description_content);
+                descriptionEditor.setContent(descriptionData);
+            } catch (e) {
+                descriptionEditor.setContent({ type: 'text', text: exercise.description_content });
+            }
+        }
+
+        // Animationen laden falls vorhanden
+        if (exercise.animation_steps?.animations) {
+            exerciseAnimations = exercise.animation_steps.animations;
+            renderAnimationsList();
+            updateHandednessDropdown();
+        }
+
+        // Submit-Button Text ändern
+        const submitBtn = document.getElementById('create-exercise-submit');
+        if (submitBtn) {
+            submitBtn.textContent = 'Übung aktualisieren';
+        }
+
+        // Abbrechen-Button anzeigen
+        showCancelEditButton();
+
+        // Zum Formular scrollen
+        const formSection = document.getElementById('create-exercise-form');
+        if (formSection) {
+            formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        showAdminNotification('Übung zur Bearbeitung geladen', 'info');
+    } catch (error) {
+        console.error('Fehler beim Laden der Übung:', error);
+        showAdminNotification('Fehler beim Laden der Übung', 'error');
+    }
+}
+
+/**
+ * Zeigt den Abbrechen-Button für den Bearbeitungsmodus
+ */
+function showCancelEditButton() {
+    const submitBtn = document.getElementById('create-exercise-submit');
+    if (!submitBtn) return;
+
+    // Prüfen ob Button schon existiert
+    let cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancel-edit-exercise-btn';
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-colors mt-2';
+        cancelBtn.textContent = 'Bearbeitung abbrechen';
+        cancelBtn.addEventListener('click', resetExerciseFormToCreate);
+        submitBtn.parentNode.insertBefore(cancelBtn, submitBtn.nextSibling);
+    }
+    cancelBtn.classList.remove('hidden');
+}
+
+/**
+ * Setzt das Formular zurück in den Erstellungsmodus
+ */
+function resetExerciseFormToCreate() {
+    editingExerciseId = null;
+    editingExerciseImageUrl = null;
+
+    // Formular zurücksetzen
+    createExerciseForm.reset();
+
+    // Felder manuell zurücksetzen
+    document.getElementById('exercise-title').value = '';
+    document.getElementById('exercise-tags').value = '';
+    document.getElementById('exercise-points').value = '';
+
+    // Übungstyp auf Standard setzen
+    const defaultPlayerType = document.querySelector('input[name="exercise-player-type"][value="a_active_b_passive"]');
+    if (defaultPlayerType) defaultPlayerType.checked = true;
+
+    // Meilensteine zurücksetzen
+    document.getElementById('exercise-tiered-points-toggle').checked = false;
+    document.getElementById('exercise-points-container-admin')?.classList.remove('hidden');
+    document.getElementById('exercise-milestones-container')?.classList.add('hidden');
+    document.getElementById('exercise-milestones-list').innerHTML = '';
+
+    // Einheit zurücksetzen
+    const unitSelect = document.getElementById('exercise-milestone-unit');
+    const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+    if (unitSelect) unitSelect.value = 'Wiederholungen';
+    if (unitCustom) unitCustom.value = '';
+
+    // Beschreibung zurücksetzen
+    descriptionEditor.clear();
+
+    // Animationen zurücksetzen
+    resetExerciseAnimations();
+
+    // Submit-Button Text zurücksetzen
+    const submitBtn = document.getElementById('create-exercise-submit');
+    if (submitBtn) {
+        submitBtn.textContent = 'Übung erstellen';
+    }
+
+    // Abbrechen-Button verstecken
+    const cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+
+    showAdminNotification('Bearbeitung abgebrochen', 'info');
+}
+
+/**
+ * Hilfsfunktion zum Hinzufügen eines Meilensteins zur Liste
+ */
+function addMilestoneToList(count, points) {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return;
+
+    const item = document.createElement('div');
+    item.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg milestone-item';
+    item.innerHTML = `
+        <input type="number" class="milestone-count w-20 px-2 py-1 border border-gray-300 rounded text-sm" value="${count}" min="1" placeholder="Anzahl">
+        <span class="text-gray-500">=</span>
+        <input type="number" class="milestone-points w-20 px-2 py-1 border border-gray-300 rounded text-sm" value="${points}" min="1" placeholder="XP">
+        <span class="text-gray-500">XP</span>
+        <button type="button" class="remove-milestone-btn text-red-500 hover:text-red-700 ml-auto">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+
+    item.querySelector('.remove-milestone-btn').addEventListener('click', () => item.remove());
+    list.appendChild(item);
 }
 
 async function handleUpdateExercise(e) {
@@ -1949,7 +2160,6 @@ async function handleCreateExercise(e) {
             description_content: JSON.stringify(descriptionContent),
             points,
             tags,
-            image_url: imageUrl,
             tiered_points: tieredPoints ? {
                 enabled: true,
                 milestones: milestones,
@@ -1971,6 +2181,13 @@ async function handleCreateExercise(e) {
             sport_id: exerciseSport || null,
         };
 
+        // Bild-URL: neues Bild oder bestehendes behalten (bei Bearbeitung)
+        if (imageUrl) {
+            exerciseData.image_url = imageUrl;
+        } else if (editingExerciseId && editingExerciseImageUrl) {
+            exerciseData.image_url = editingExerciseImageUrl;
+        }
+
         // Animationen hinzufügen falls vorhanden (alles in animation_steps speichern)
         if (exerciseAnimations.length > 0) {
             // Speichere alle Animationen mit Händigkeit und Beschreibung
@@ -1982,27 +2199,57 @@ async function handleCreateExercise(e) {
             };
         }
 
-        const { data: insertedExercise, error } = await supabase
-            .from('exercises')
-            .insert(exerciseData)
-            .select()
-            .single();
+        let resultExercise;
+        let isUpdate = !!editingExerciseId;
 
-        if (error) throw error;
+        if (isUpdate) {
+            // UPDATE: Bestehende Übung aktualisieren
+            const { data: updatedExercise, error } = await supabase
+                .from('exercises')
+                .update(exerciseData)
+                .eq('id', editingExerciseId)
+                .select()
+                .single();
 
-        // Audit-Ereignis protokollieren
-        await logAuditEvent(
-            'exercise_created',
-            insertedExercise?.id,
-            'exercise',
-            null,
-            currentSportFilter !== 'all' ? currentSportFilter : null,
-            { title, points }
-        );
+            if (error) throw error;
+            resultExercise = updatedExercise;
 
-        feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+            // Audit-Ereignis protokollieren
+            await logAuditEvent(
+                'exercise_updated',
+                editingExerciseId,
+                'exercise',
+                null,
+                currentSportFilter !== 'all' ? currentSportFilter : null,
+                { title, points }
+            );
+
+            feedbackEl.textContent = 'Übung erfolgreich aktualisiert!';
+        } else {
+            // INSERT: Neue Übung erstellen
+            const { data: insertedExercise, error } = await supabase
+                .from('exercises')
+                .insert(exerciseData)
+                .select()
+                .single();
+
+            if (error) throw error;
+            resultExercise = insertedExercise;
+
+            // Audit-Ereignis protokollieren
+            await logAuditEvent(
+                'exercise_created',
+                insertedExercise?.id,
+                'exercise',
+                null,
+                currentSportFilter !== 'all' ? currentSportFilter : null,
+                { title, points }
+            );
+
+            feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+        }
+
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
-        createExerciseForm.reset();
 
         // Formularfelder zurücksetzen
         document.getElementById('exercise-points').value = '';
@@ -2017,9 +2264,9 @@ async function handleCreateExercise(e) {
         if (unitSelect) unitSelect.value = 'Wiederholungen';
         if (unitCustom) unitCustom.value = '';
 
-        // Übungstyp zurücksetzen (auf "beide aktiv")
-        const bothActiveRadio = document.querySelector('input[name="exercise-player-type"][value="both_active"]');
-        if (bothActiveRadio) bothActiveRadio.checked = true;
+        // Übungstyp zurücksetzen (auf Standard)
+        const defaultPlayerType = document.querySelector('input[name="exercise-player-type"][value="a_active_b_passive"]');
+        if (defaultPlayerType) defaultPlayerType.checked = true;
 
         const partnerToggle = document.getElementById('exercise-partner-system-toggle');
         const partnerContainer = document.getElementById('exercise-partner-container');
@@ -2031,10 +2278,20 @@ async function handleCreateExercise(e) {
         // Animationen zurücksetzen
         resetExerciseAnimations();
 
+        // Beschreibung zurücksetzen
         descriptionEditor.clear();
+
+        // Submit-Button Text zurücksetzen
+        const submitBtnReset = document.getElementById('create-exercise-submit');
+        if (submitBtnReset) submitBtnReset.textContent = 'Übung erstellen';
+
+        // Abbrechen-Button verstecken
+        const cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+
     } catch (error) {
-        console.error('Fehler beim Erstellen der Übung:', error);
-        feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
+        console.error('Fehler beim Speichern der Übung:', error);
+        feedbackEl.textContent = 'Fehler: Übung konnte nicht gespeichert werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
@@ -2164,7 +2421,7 @@ function renderExercises(exercises) {
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
-                <button onclick="event.stopPropagation(); openExerciseModal(this.closest('[data-id]').dataset)" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
+                <button onclick="event.stopPropagation(); window.startEditExercise('${exercise.id}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
                     <i class="fas fa-edit"></i>
                 </button>
                 <button onclick="event.stopPropagation(); handleDeleteExercise('${exercise.id}', '${exercise.image_url || ''}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Löschen">
@@ -2907,6 +3164,8 @@ function showAdminNotification(message, type = 'info') {
 // Globale Exports für inline onclick-Handler
 window.openExerciseModal = openExerciseModal;
 window.handleDeleteExercise = handleDeleteExercise;
+window.startEditExercise = startEditExercise;
+window.resetExerciseFormToCreate = resetExerciseFormToCreate;
 
 // Aufräumen beim Seiten-Entladen
 window.addEventListener('beforeunload', () => {
