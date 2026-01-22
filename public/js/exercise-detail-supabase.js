@@ -362,17 +362,20 @@ function renderMilestones(exercise) {
     const milestonesContainer = document.getElementById('exercise-milestones');
     const unit = exercise.unit || tieredPoints.unit || 'Wiederholungen';
 
+    // Kumulative Punkte berechnen
+    let cumulativePoints = 0;
     milestonesContainer.innerHTML = tieredPoints.milestones
         .map((milestone, index) => {
             const count = milestone.count || milestone.completions || 0;
             const points = milestone.points || 0;
+            cumulativePoints += points; // Kumulativ addieren
             return `
-                <div class="milestone-item flex items-center justify-between p-3 rounded-lg milestone-pending" data-milestone-index="${index}" data-count="${count}">
+                <div class="milestone-item flex items-center justify-between p-3 rounded-lg milestone-pending" data-milestone-index="${index}" data-count="${count}" data-cumulative-points="${cumulativePoints}">
                     <div class="flex items-center gap-3">
                         <i class="fas fa-circle text-xs"></i>
                         <span class="font-medium">${count} ${unit}</span>
                     </div>
-                    <span class="text-sm font-semibold">${points} XP</span>
+                    <span class="text-sm font-semibold">${cumulativePoints} XP</span>
                 </div>
             `;
         })
