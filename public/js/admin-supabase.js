@@ -1857,17 +1857,6 @@ async function handleCreateExercise(e) {
         .map(tag => tag.trim())
         .filter(tag => tag);
 
-    // Händigkeits-Tags aus Animationen hinzufügen
-    if (exerciseAnimations.length > 0) {
-        const handednessTags = getAnimationHandednessTags();
-        // Händigkeits-Tags hinzufügen (ohne Duplikate)
-        handednessTags.forEach(ht => {
-            if (!tags.includes(ht)) {
-                tags.push(ht);
-            }
-        });
-    }
-
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
 
