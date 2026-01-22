@@ -434,9 +434,123 @@ async function loadMilestoneProgress(exercise) {
             </div>
         `;
 
+        // Show personal record if any
+        if (currentCount > 0) {
+            renderPersonalRecord(exercise, progress);
+        }
+
     } catch (error) {
         console.error('Error loading milestone progress:', error);
     }
+}
+
+/**
+ * Rendert den persönlichen Rekord des Benutzers
+ */
+function renderPersonalRecord(exercise, progress) {
+    const recordSection = document.getElementById('exercise-personal-record-section');
+    const recordContent = document.getElementById('exercise-personal-record-content');
+
+    if (!recordSection || !recordContent || !progress) return;
+
+    const tieredPoints = exercise.tiered_points || exercise.tieredPoints;
+    const unit = exercise.unit || tieredPoints?.unit || 'Wiederholungen';
+    const timeDirection = exercise.time_direction || tieredPoints?.time_direction;
+    const currentCount = progress.current_count || 0;
+    const updatedAt = progress.updated_at ? new Date(progress.updated_at) : new Date();
+
+    // Format date
+    const dateStr = updatedAt.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+
+    let recordHtml = '';
+
+    // Format based on unit type
+    if (unit === 'Zeit') {
+        const hours = Math.floor(currentCount / 3600);
+        const minutes = Math.floor((currentCount % 3600) / 60);
+        const seconds = currentCount % 60;
+        const timeStr = hours > 0
+            ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const directionText = timeDirection === 'faster' ? '(schneller ist besser)' : '(länger ist besser)';
+
+        recordHtml = `
+            <div class="flex items-center gap-2 text-indigo-700">
+                <i class="fas fa-stopwatch"></i>
+                <span><strong>${timeStr}</strong> ${directionText}</span>
+                <span class="text-indigo-500 text-xs">am ${dateStr}</span>
+            </div>
+        `;
+    } else {
+        recordHtml = `
+            <div class="flex items-center gap-2 text-indigo-700">
+                <i class="fas fa-star"></i>
+                <span><strong>${currentCount}</strong> ${unit}</span>
+                <span class="text-indigo-500 text-xs">am ${dateStr}</span>
+            </div>
+        `;
+    }
+
+    // Check if we have partner info (for future extension)
+    const partnerRecords = progress.partner_records || [];
+    const soloRecord = progress.solo_record;
+
+    if (partnerRecords.length > 0 || soloRecord) {
+        // Extended record display with partner info
+        recordHtml = '';
+
+        partnerRecords.forEach(pr => {
+            const prDate = new Date(pr.achieved_at).toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            recordHtml += `
+                <div class="flex items-center gap-2 text-indigo-700">
+                    <i class="fas fa-user-friends text-indigo-500"></i>
+                    <span>mit <strong>${pr.partner_name}</strong>: ${formatRecordValue(pr.count, unit, timeDirection)}</span>
+                    <span class="text-indigo-500 text-xs">am ${prDate}</span>
+                </div>
+            `;
+        });
+
+        if (soloRecord) {
+            const soloDate = new Date(soloRecord.achieved_at).toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            recordHtml += `
+                <div class="flex items-center gap-2 text-indigo-700">
+                    <i class="fas fa-robot text-indigo-500"></i>
+                    <span>Balleimer: <strong>${formatRecordValue(soloRecord.count, unit, timeDirection)}</strong></span>
+                    <span class="text-indigo-500 text-xs">am ${soloDate}</span>
+                </div>
+            `;
+        }
+    }
+
+    recordContent.innerHTML = recordHtml;
+    recordSection.classList.remove('hidden');
+}
+
+/**
+ * Formatiert einen Rekordwert basierend auf der Einheit
+ */
+function formatRecordValue(count, unit, timeDirection) {
+    if (unit === 'Zeit') {
+        const hours = Math.floor(count / 3600);
+        const minutes = Math.floor((count % 3600) / 60);
+        const seconds = count % 60;
+        return hours > 0
+            ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${count} ${unit}`;
 }
 
 async function loadExampleVideos() {

@@ -127,6 +127,8 @@ export function closeQuickPointsModal() {
 function resetQuickPointsUI() {
     selectedPointsType = null;
     selectedPlayerIds.clear();
+    selectedPlayMode = null;
+    selectedExerciseData = null;
 
     // Reset type buttons
     document.querySelectorAll('.quick-points-type-btn').forEach(btn => {
@@ -141,6 +143,24 @@ function resetQuickPointsUI() {
     document.getElementById('quick-points-preview')?.classList.add('hidden');
     document.getElementById('quick-points-exercise-milestone')?.classList.add('hidden');
     document.getElementById('quick-points-challenge-milestone')?.classList.add('hidden');
+
+    // Reset play mode UI
+    document.getElementById('quick-points-play-mode-container')?.classList.add('hidden');
+    document.getElementById('quick-points-pair-info')?.classList.add('hidden');
+    document.getElementById('quick-points-pair-selection')?.classList.add('hidden');
+    document.getElementById('quick-points-time-input-container')?.classList.add('hidden');
+
+    // Reset play mode buttons
+    const soloBtn = document.getElementById('quick-points-mode-solo');
+    const pairBtn = document.getElementById('quick-points-mode-pair');
+    [soloBtn, pairBtn].forEach(btn => {
+        if (btn) {
+            btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-600');
+        }
+    });
+
+    // Show player list again
+    document.getElementById('quick-points-player-list')?.classList.remove('hidden');
 
     // Reset inputs
     const exerciseSelect = document.getElementById('quick-points-exercise-select');
@@ -161,6 +181,20 @@ function resetQuickPointsUI() {
     const challengeCount = document.getElementById('quick-points-challenge-count');
     if (challengeCount) challengeCount.value = '';
 
+    // Reset pair selects
+    const playerA = document.getElementById('quick-points-player-a');
+    const playerB = document.getElementById('quick-points-player-b');
+    if (playerA) playerA.value = '';
+    if (playerB) playerB.value = '';
+
+    // Reset time inputs
+    const timeHours = document.getElementById('quick-points-time-hours');
+    const timeMinutes = document.getElementById('quick-points-time-minutes');
+    const timeSeconds = document.getElementById('quick-points-time-seconds');
+    if (timeHours) timeHours.value = '0';
+    if (timeMinutes) timeMinutes.value = '0';
+    if (timeSeconds) timeSeconds.value = '0';
+
     // Reset feedback
     const feedback = document.getElementById('quick-points-feedback');
     if (feedback) {
@@ -170,7 +204,9 @@ function resetQuickPointsUI() {
 
     // Disable submit
     const submitBtn = document.getElementById('quick-points-submit-btn');
+    const submitContinueBtn = document.getElementById('quick-points-submit-continue-btn');
     if (submitBtn) submitBtn.disabled = true;
+    if (submitContinueBtn) submitContinueBtn.disabled = true;
 }
 
 /**
@@ -1237,6 +1273,40 @@ function resetFormForContinue() {
     // Milestone-Container ausblenden
     document.getElementById('quick-points-exercise-milestone')?.classList.add('hidden');
     document.getElementById('quick-points-challenge-milestone')?.classList.add('hidden');
+
+    // Play mode UI zurücksetzen
+    selectedPlayMode = null;
+    selectedExerciseData = null;
+    document.getElementById('quick-points-play-mode-container')?.classList.add('hidden');
+    document.getElementById('quick-points-pair-info')?.classList.add('hidden');
+    document.getElementById('quick-points-pair-selection')?.classList.add('hidden');
+    document.getElementById('quick-points-time-input-container')?.classList.add('hidden');
+
+    // Play mode buttons zurücksetzen
+    const soloBtn = document.getElementById('quick-points-mode-solo');
+    const pairBtn = document.getElementById('quick-points-mode-pair');
+    [soloBtn, pairBtn].forEach(btn => {
+        if (btn) {
+            btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-600');
+        }
+    });
+
+    // Spielerliste wieder anzeigen
+    document.getElementById('quick-points-player-list')?.classList.remove('hidden');
+
+    // Paar-Auswahl zurücksetzen
+    const playerASelect = document.getElementById('quick-points-player-a');
+    const playerBSelect = document.getElementById('quick-points-player-b');
+    if (playerASelect) playerASelect.value = '';
+    if (playerBSelect) playerBSelect.value = '';
+
+    // Zeit-Eingaben zurücksetzen
+    const timeHours = document.getElementById('quick-points-time-hours');
+    const timeMinutes = document.getElementById('quick-points-time-minutes');
+    const timeSeconds = document.getElementById('quick-points-time-seconds');
+    if (timeHours) timeHours.value = '0';
+    if (timeMinutes) timeMinutes.value = '0';
+    if (timeSeconds) timeSeconds.value = '0';
 
     // Vorschau zurücksetzen
     const previewAmount = document.getElementById('quick-points-preview-amount');
