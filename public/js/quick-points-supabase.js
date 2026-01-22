@@ -1153,7 +1153,35 @@ async function handleQuickPointsSubmit(closeAfter = true) {
 
                         // Bei Meilenstein-Übungen: Fortschritt und Rekord speichern
                         if (milestoneCount !== null && milestoneCount > 0) {
-                            // Rekord über die neue Funktion speichern
+                            // IMMER exercise_milestones aktualisieren für Fortschrittsanzeige
+                            const { data: existingProgress } = await supabase
+                                .from('exercise_milestones')
+                                .select('current_count')
+                                .eq('user_id', playerId)
+                                .eq('exercise_id', exerciseId)
+                                .maybeSingle();
+
+                            const currentCount = existingProgress?.current_count || 0;
+                            if (milestoneCount > currentCount) {
+                                const { error: milestoneError } = await supabase.from('exercise_milestones').upsert({
+                                    user_id: playerId,
+                                    exercise_id: exerciseId,
+                                    current_count: milestoneCount,
+                                    play_mode: selectedPlayMode || 'solo',
+                                    partner_id: partnerId,
+                                    updated_at: now
+                                }, {
+                                    onConflict: 'user_id,exercise_id'
+                                });
+
+                                if (milestoneError) {
+                                    console.error('[QuickPoints] Error saving milestone progress:', milestoneError);
+                                } else {
+                                    console.log('[QuickPoints] Milestone progress saved:', playerId, exerciseId, milestoneCount);
+                                }
+                            }
+
+                            // Zusätzlich: Detaillierten Rekord über RPC speichern (für Partner-Info)
                             try {
                                 await supabase.rpc('update_exercise_record', {
                                     p_user_id: playerId,
@@ -1164,35 +1192,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                                     p_points_earned: playerPoints
                                 });
                             } catch (rpcErr) {
-                                console.warn('[QuickPoints] RPC update_exercise_record not available, using fallback');
-
-                                // Fallback: Alte Methode
-                                const { data: existingProgress } = await supabase
-                                    .from('exercise_milestones')
-                                    .select('current_count')
-                                    .eq('user_id', playerId)
-                                    .eq('exercise_id', exerciseId)
-                                    .maybeSingle();
-
-                                const currentCount = existingProgress?.current_count || 0;
-                                if (milestoneCount > currentCount) {
-                                    const { error: milestoneError } = await supabase.from('exercise_milestones').upsert({
-                                        user_id: playerId,
-                                        exercise_id: exerciseId,
-                                        current_count: milestoneCount,
-                                        play_mode: selectedPlayMode || 'solo',
-                                        partner_id: partnerId,
-                                        updated_at: now
-                                    }, {
-                                        onConflict: 'user_id,exercise_id'
-                                    });
-
-                                    if (milestoneError) {
-                                        console.error('[QuickPoints] Error saving milestone progress:', milestoneError);
-                                    } else {
-                                        console.log('[QuickPoints] Milestone progress saved:', playerId, exerciseId, milestoneCount);
-                                    }
-                                }
+                                console.warn('[QuickPoints] RPC update_exercise_record not available');
                             }
                         }
                     }
