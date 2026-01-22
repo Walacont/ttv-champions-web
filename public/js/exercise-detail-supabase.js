@@ -46,6 +46,63 @@ const POSITIONS = {
     FREI: 'Frei'
 };
 
+// Thumbnail-Generierung aus Video (erste Sekunde)
+async function generateVideoThumbnail(videoFile, seekTime = 1) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.muted = true;
+        video.playsInline = true;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let hasResolved = false;
+
+        const captureThumbnail = () => {
+            if (hasResolved) return;
+            hasResolved = true;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(video.src);
+                if (blob) {
+                    resolve(blob);
+                } else {
+                    reject(new Error('Thumbnail konnte nicht erstellt werden'));
+                }
+            }, 'image/jpeg', 0.8);
+        };
+
+        video.onloadedmetadata = () => {
+            video.currentTime = Math.min(seekTime, video.duration * 0.1);
+        };
+
+        video.onseeked = captureThumbnail;
+
+        video.onerror = () => {
+            if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Video konnte nicht geladen werden'));
+            }
+        };
+
+        // Timeout nach 10 Sekunden
+        setTimeout(() => {
+            if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Thumbnail Timeout'));
+            }
+        }, 10000);
+
+        video.src = URL.createObjectURL(videoFile);
+    });
+}
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -1140,13 +1197,43 @@ async function handleVideoUpload(e) {
     progressContainer.classList.remove('hidden');
 
     try {
-        // Generate unique filename
         const timestamp = Date.now();
         const fileExt = file.name.split('.').pop();
         const filePath = `${currentUser.id}/${exerciseId}/${timestamp}.${fileExt}`;
 
-        // Upload to Supabase Storage
-        progressText.textContent = 'Wird hochgeladen...';
+        // 1. Thumbnail generieren (0-10%)
+        progressText.textContent = 'Thumbnail wird erstellt...';
+        progressBar.style.width = '5%';
+        let thumbnailUrl = null;
+
+        try {
+            const thumbnailBlob = await generateVideoThumbnail(file);
+            const thumbFileName = `${currentUser.id}/${exerciseId}/${timestamp}_thumb.jpg`;
+
+            progressText.textContent = 'Thumbnail wird hochgeladen...';
+            progressBar.style.width = '10%';
+
+            const { error: thumbError } = await supabase.storage
+                .from('training-videos')
+                .upload(thumbFileName, thumbnailBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: false,
+                });
+
+            if (!thumbError) {
+                const { data: thumbUrlData } = supabase.storage
+                    .from('training-videos')
+                    .getPublicUrl(thumbFileName);
+                thumbnailUrl = thumbUrlData.publicUrl;
+            }
+        } catch (thumbErr) {
+            console.warn('Thumbnail-Generierung fehlgeschlagen:', thumbErr);
+        }
+
+        // 2. Video hochladen (10-70%)
+        progressText.textContent = 'Video wird hochgeladen...';
+        progressBar.style.width = '15%';
+
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('training-videos')
             .upload(filePath, file, {
@@ -1164,19 +1251,17 @@ async function handleVideoUpload(e) {
             .from('training-videos')
             .getPublicUrl(filePath);
 
-        // Create database entry
+        // 3. Datenbank-Eintrag erstellen (70-90%)
         const title = document.getElementById('video-title').value.trim() || file.name;
         const notes = document.getElementById('video-notes').value.trim();
 
-        // Optionen prüfen
         const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
         const allowAiTraining = document.getElementById('allow-ai-training')?.checked ?? false;
         const isInClub = !!currentUserData?.club_id;
 
-        // Status: pending (für Coach) oder private (nur Mediathek)
-        const status = (isInClub && requestCoachFeedback) ? 'pending' : 'private';
+        progressBar.style.width = '80%';
+        progressText.textContent = 'Speichere in Datenbank...';
 
-        // Datenbank-Eintrag in video_analyses erstellen
         const { data: insertedVideo, error: dbError } = await supabase
             .from('video_analyses')
             .insert({
@@ -1184,6 +1269,7 @@ async function handleVideoUpload(e) {
                 exercise_id: exerciseId,
                 title: title,
                 video_url: publicUrl,
+                thumbnail_url: thumbnailUrl,
                 allow_ai_training: allowAiTraining,
                 club_id: isInClub ? currentUserData.club_id : null
             })
