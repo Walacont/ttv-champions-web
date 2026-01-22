@@ -365,6 +365,46 @@
                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
                         </div>
 
+                        <!-- Coach Feedback Option (nur für Club-Spieler) -->
+                        <div id="coach-feedback-option" class="hidden">
+                            <label class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors">
+                                <input type="checkbox" id="request-coach-feedback" checked
+                                       class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500">
+                                <div>
+                                    <span class="font-medium text-purple-900">Coach um Feedback bitten</span>
+                                    <p class="text-xs text-purple-700 mt-0.5">Dein Coach kann das Video analysieren und dir Tipps geben</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Info (dynamisch basierend auf Checkbox) -->
+                        <div id="upload-info-coach" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-sm text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Nach dem Hochladen kann dein Coach das Video analysieren und dir Feedback mit Zeitstempeln geben.
+                            </p>
+                        </div>
+                        <div id="upload-info-private" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <p class="text-sm text-gray-700">
+                                <i class="fas fa-lock mr-1"></i>
+                                Das Video wird nur in deiner persönlichen Mediathek gespeichert.
+                            </p>
+                        </div>
+
+                        <!-- KI-Training Consent (DSGVO) -->
+                        <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <label class="flex items-start gap-3 cursor-pointer">
+                                <input type="checkbox" id="allow-ai-training"
+                                       class="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+                                <div>
+                                    <span class="font-medium text-gray-800 text-sm">KI-Verbesserung unterstützen</span>
+                                    <p class="text-xs text-gray-600 mt-0.5">
+                                        Mein Video darf anonymisiert zur Verbesserung der automatischen Schlag-Erkennung genutzt werden.
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+
                         <!-- Submit Button -->
                         <button
                             type="submit"

@@ -154,12 +154,46 @@ function setupEventListeners() {
     // Video upload button
     document.getElementById('upload-video-btn').addEventListener('click', () => {
         document.getElementById('video-exercise-id').value = exerciseId;
+
+        // Coach-Feedback Option basierend auf Club-Mitgliedschaft anzeigen
+        const coachFeedbackOption = document.getElementById('coach-feedback-option');
+        const uploadInfoCoach = document.getElementById('upload-info-coach');
+        const uploadInfoPrivate = document.getElementById('upload-info-private');
+        const requestCoachCheckbox = document.getElementById('request-coach-feedback');
+
+        if (currentUserData?.club_id) {
+            // Spieler ist im Club - Coach-Option anzeigen
+            coachFeedbackOption?.classList.remove('hidden');
+            requestCoachCheckbox.checked = true;
+            uploadInfoCoach?.classList.remove('hidden');
+            uploadInfoPrivate?.classList.add('hidden');
+        } else {
+            // Spieler ohne Club - nur private Mediathek
+            coachFeedbackOption?.classList.add('hidden');
+            uploadInfoCoach?.classList.add('hidden');
+            uploadInfoPrivate?.classList.remove('hidden');
+        }
+
         document.getElementById('video-upload-modal').classList.remove('hidden');
     });
 
     // Close video upload modal
     document.getElementById('close-video-upload').addEventListener('click', () => {
         document.getElementById('video-upload-modal').classList.add('hidden');
+    });
+
+    // Coach Feedback Checkbox Toggle
+    document.getElementById('request-coach-feedback')?.addEventListener('change', (e) => {
+        const uploadInfoCoach = document.getElementById('upload-info-coach');
+        const uploadInfoPrivate = document.getElementById('upload-info-private');
+
+        if (e.target.checked) {
+            uploadInfoCoach?.classList.remove('hidden');
+            uploadInfoPrivate?.classList.add('hidden');
+        } else {
+            uploadInfoCoach?.classList.add('hidden');
+            uploadInfoPrivate?.classList.remove('hidden');
+        }
     });
 
     // Video file input
@@ -1134,7 +1168,15 @@ async function handleVideoUpload(e) {
         const title = document.getElementById('video-title').value.trim() || file.name;
         const notes = document.getElementById('video-notes').value.trim();
 
-        const { error: dbError } = await supabase
+        // Optionen prüfen
+        const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
+        const allowAiTraining = document.getElementById('allow-ai-training')?.checked ?? false;
+        const isInClub = !!currentUserData?.club_id;
+
+        // Status: pending (für Coach) oder private (nur Mediathek)
+        const status = (isInClub && requestCoachFeedback) ? 'pending' : 'private';
+
+        const { data: insertedVideo, error: dbError } = await supabase
             .from('training_videos')
             .insert({
                 user_id: currentUser.id,
@@ -1142,8 +1184,12 @@ async function handleVideoUpload(e) {
                 title: title,
                 notes: notes,
                 video_url: publicUrl,
-                status: 'pending'
-            });
+                status: status,
+                allow_ai_training: allowAiTraining,
+                club_id: isInClub ? currentUserData.club_id : null
+            })
+            .select()
+            .single();
 
         if (dbError) throw dbError;
 
@@ -1159,7 +1205,14 @@ async function handleVideoUpload(e) {
             progressBar.style.width = '0%';
             submitBtn.disabled = false;
 
-            alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
+            // Wenn KI-Training erlaubt, zur Label-Seite weiterleiten
+            if (allowAiTraining && insertedVideo?.id) {
+                window.location.href = `/label.html?video=${insertedVideo.id}`;
+            } else if (status === 'pending') {
+                alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
+            } else {
+                alert('Video wurde in deiner persönlichen Mediathek gespeichert.');
+            }
         }, 1000);
 
     } catch (error) {
