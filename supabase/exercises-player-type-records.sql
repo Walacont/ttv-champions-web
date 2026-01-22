@@ -118,6 +118,17 @@ ADD COLUMN IF NOT EXISTS play_mode TEXT DEFAULT 'solo';
 ALTER TABLE completed_exercises
 DROP CONSTRAINT IF EXISTS completed_exercises_user_id_exercise_id_season_key;
 
+-- Clean up duplicate entries before creating new unique index
+-- Keep only the most recent entry for each user/exercise/season combination
+DELETE FROM completed_exercises a
+USING completed_exercises b
+WHERE a.id < b.id
+  AND a.user_id = b.user_id
+  AND a.exercise_id = b.exercise_id
+  AND COALESCE(a.season, '') = COALESCE(b.season, '')
+  AND COALESCE(a.play_mode, 'solo') = COALESCE(b.play_mode, 'solo')
+  AND COALESCE(a.partner_id, '00000000-0000-0000-0000-000000000000') = COALESCE(b.partner_id, '00000000-0000-0000-0000-000000000000');
+
 -- Create new unique index with partner and play_mode
 CREATE UNIQUE INDEX IF NOT EXISTS idx_completed_exercises_unique
 ON completed_exercises(user_id, exercise_id, COALESCE(season, ''), COALESCE(play_mode, 'solo'), COALESCE(partner_id, '00000000-0000-0000-0000-000000000000'));
