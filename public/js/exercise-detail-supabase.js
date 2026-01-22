@@ -308,6 +308,9 @@ async function loadExercise() {
         // Load example videos
         await loadExampleVideos();
 
+        // Load player's own videos for this exercise
+        await loadMyVideos();
+
         // Hide loading, show content
         document.getElementById('exercise-loading').classList.add('hidden');
         document.getElementById('exercise-content').classList.remove('hidden');
@@ -730,6 +733,110 @@ async function loadExampleVideos() {
 
     } catch (error) {
         console.error('Error loading example videos:', error);
+    }
+}
+
+/**
+ * Lädt Videos des aktuellen Spielers zu dieser Übung
+ * (eigene uploads + vom Coach zugewiesene Videos)
+ */
+async function loadMyVideos() {
+    if (!currentUser || !exerciseId) return;
+
+    try {
+        // 1. Eigene Videos für diese Übung laden
+        const { data: ownVideos, error: ownError } = await supabase
+            .from('video_analyses')
+            .select('id, title, video_url, thumbnail_url, created_at, status:video_assignments(status)')
+            .eq('uploaded_by', currentUser.id)
+            .eq('exercise_id', exerciseId)
+            .order('created_at', { ascending: false });
+
+        if (ownError) {
+            console.error('Fehler beim Laden eigener Videos:', ownError);
+        }
+
+        // 2. Vom Coach zugewiesene Videos laden (die nicht von mir sind)
+        let assignedVideos = [];
+        if (currentUserData?.club_id) {
+            const { data: assignments, error: assignError } = await supabase
+                .from('video_assignments')
+                .select(`
+                    id,
+                    status,
+                    video:video_analyses(id, title, video_url, thumbnail_url, created_at, exercise_id, uploaded_by)
+                `)
+                .eq('player_id', currentUser.id)
+                .eq('club_id', currentUserData.club_id);
+
+            if (assignError) {
+                console.error('Fehler beim Laden zugewiesener Videos:', assignError);
+            } else if (assignments) {
+                // Nur Videos für diese Übung filtern (die nicht von mir sind)
+                assignedVideos = assignments
+                    .filter(a => a.video && a.video.exercise_id === exerciseId && a.video.uploaded_by !== currentUser.id)
+                    .map(a => ({
+                        ...a.video,
+                        assignment_status: a.status,
+                        is_assigned: true
+                    }));
+            }
+        }
+
+        // Alle Videos kombinieren
+        const allVideos = [
+            ...(ownVideos || []).map(v => ({ ...v, is_own: true })),
+            ...assignedVideos
+        ];
+
+        // Duplikate entfernen (nach video id)
+        const uniqueVideos = allVideos.filter((v, i, self) =>
+            i === self.findIndex(t => t.id === v.id)
+        );
+
+        const section = document.getElementById('my-videos-section');
+        const list = document.getElementById('my-videos-list');
+
+        if (!uniqueVideos || uniqueVideos.length === 0) {
+            section?.classList.add('hidden');
+            return;
+        }
+
+        section?.classList.remove('hidden');
+        list.innerHTML = uniqueVideos.map(video => {
+            const statusBadge = video.is_assigned
+                ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Vom Coach</span>`
+                : video.is_own
+                    ? `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Mein Video</span>`
+                    : '';
+
+            const feedbackBadge = video.assignment_status === 'completed'
+                ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Feedback erhalten</span>`
+                : video.assignment_status === 'pending'
+                    ? `<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full"><i class="fas fa-clock mr-1"></i>Wartet auf Feedback</span>`
+                    : '';
+
+            return `
+                <a href="${escapeHtml(video.video_url)}" target="_blank" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+                    <div class="w-20 h-14 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                        ${video.thumbnail_url
+                            ? `<img src="${escapeHtml(video.thumbnail_url)}" alt="" class="w-full h-full object-cover">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-play"></i></div>`}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-gray-700 font-medium truncate block">${escapeHtml(video.title || 'Video')}</span>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            ${statusBadge}
+                            ${feedbackBadge}
+                        </div>
+                    </div>
+                    <i class="fas fa-external-link-alt text-gray-400 flex-shrink-0"></i>
+                </a>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading my videos:', error);
     }
 }
 
