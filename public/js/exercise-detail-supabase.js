@@ -1223,17 +1223,13 @@ async function handleVideoUpload(e) {
             // Nachricht basierend auf Optionen erstellen
             const coachRequested = isInClub && requestCoachFeedback;
 
-            if (allowAiTraining && insertedVideo?.id) {
-                // KI-Training: zur Label-Seite weiterleiten
-                if (coachRequested) {
-                    alert('Video wurde hochgeladen und an deinen Coach gesendet! Du wirst jetzt zur Schlag-Markierung weitergeleitet.');
-                }
-                window.location.href = `/label.html?video=${insertedVideo.id}`;
+            if (coachRequested && allowAiTraining) {
+                alert('Video wurde hochgeladen und an deinen Coach gesendet! Zusätzlich wird es für die KI-Verbesserung genutzt.');
             } else if (coachRequested) {
-                // Nur Coach-Feedback
                 alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
+            } else if (allowAiTraining) {
+                alert('Video wurde hochgeladen und wird für die KI-Verbesserung genutzt.');
             } else {
-                // Nur Mediathek
                 alert('Video wurde in deiner persönlichen Mediathek gespeichert.');
             }
         }, 1000);
