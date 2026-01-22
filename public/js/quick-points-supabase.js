@@ -15,6 +15,8 @@ let selectedPlayerIds = new Set();
 let selectedPointsType = null;
 let exercisesData = [];
 let challengesData = [];
+let selectedPlayMode = null; // 'solo' oder 'pair'
+let selectedExerciseData = null; // Aktuell ausgewählte Übung
 
 /**
  * Initialisiert den Quick Points Dialog
@@ -57,6 +59,19 @@ export function initQuickPointsDialog() {
     // Milestone count inputs
     document.getElementById('quick-points-exercise-count')?.addEventListener('input', updateExerciseMilestonePreview);
     document.getElementById('quick-points-challenge-count')?.addEventListener('input', updateChallengeMilestonePreview);
+
+    // Spielmodus-Buttons (Solo/Paarung)
+    document.getElementById('quick-points-mode-solo')?.addEventListener('click', () => selectPlayMode('solo'));
+    document.getElementById('quick-points-mode-pair')?.addEventListener('click', () => selectPlayMode('pair'));
+
+    // Paar-Auswahl änderungen
+    document.getElementById('quick-points-player-a')?.addEventListener('change', updatePairSelection);
+    document.getElementById('quick-points-player-b')?.addEventListener('change', updatePairSelection);
+
+    // Zeit-Eingabe änderungen
+    document.getElementById('quick-points-time-hours')?.addEventListener('input', updateTimeInput);
+    document.getElementById('quick-points-time-minutes')?.addEventListener('input', updateTimeInput);
+    document.getElementById('quick-points-time-seconds')?.addEventListener('input', updateTimeInput);
 }
 
 /**
@@ -332,9 +347,12 @@ async function loadExercisesForQuickPoints() {
             option.dataset.title = e.name;
             option.dataset.hasMilestones = hasTieredPoints;
             option.dataset.unit = e.unit || 'Wiederholungen';
+            option.dataset.playerType = e.player_type || 'both_active';
+            option.dataset.timeDirection = e.time_direction || '';
 
             if (hasTieredPoints) {
                 option.dataset.milestones = JSON.stringify(e.tiered_points.milestones);
+                option.dataset.timeDirection = e.tiered_points?.time_direction || e.time_direction || '';
             }
 
             select.appendChild(option);
@@ -417,30 +435,68 @@ async function loadChallengesForQuickPoints() {
 function handleExerciseChange() {
     const select = document.getElementById('quick-points-exercise-select');
     const milestoneContainer = document.getElementById('quick-points-exercise-milestone');
+    const playModeContainer = document.getElementById('quick-points-play-mode-container');
+    const timeInputContainer = document.getElementById('quick-points-time-input-container');
 
     if (!select || !milestoneContainer) return;
 
     const selectedOption = select.options[select.selectedIndex];
     const hasMilestones = selectedOption?.dataset.hasMilestones === 'true';
+    const unit = selectedOption?.dataset.unit || 'Wiederholungen';
+    const timeDirection = selectedOption?.dataset.timeDirection || '';
+    const playerType = selectedOption?.dataset.playerType || 'both_active';
+
+    // Aktuelle Übungsdaten speichern
+    selectedExerciseData = selectedOption?.value ? {
+        id: selectedOption.value,
+        title: selectedOption.dataset.title,
+        points: parseInt(selectedOption.dataset.points) || 0,
+        unit,
+        playerType,
+        timeDirection,
+        hasMilestones,
+        milestones: hasMilestones ? JSON.parse(selectedOption.dataset.milestones || '[]') : []
+    } : null;
+
+    // Spielmodus zurücksetzen
+    selectedPlayMode = null;
+    resetPlayModeUI();
 
     if (hasMilestones) {
         milestoneContainer.classList.remove('hidden');
         const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
-        const unit = selectedOption.dataset.unit || 'Wiederholungen';
 
-        // Label mit korrekter Einheit aktualisieren
-        const labelEl = milestoneContainer.querySelector('label');
-        if (labelEl) {
-            labelEl.textContent = `Anzahl ${unit}`;
-        }
+        // Zeit-Eingabe anzeigen wenn Einheit "Zeit" ist
+        if (unit === 'Zeit') {
+            milestoneContainer.classList.add('hidden'); // Normale Milestone-Input verstecken
+            timeInputContainer?.classList.remove('hidden');
+            const directionInfo = timeDirection === 'faster' ? '(schneller ist besser)' : '(länger ist besser)';
+            const infoEl = timeInputContainer?.querySelector('p');
+            if (infoEl) infoEl.textContent = `Format: Stunden : Minuten : Sekunden ${directionInfo}`;
+        } else {
+            timeInputContainer?.classList.add('hidden');
+            // Label mit korrekter Einheit aktualisieren
+            const labelEl = milestoneContainer.querySelector('label');
+            if (labelEl) {
+                labelEl.textContent = `Anzahl ${unit}`;
+            }
 
-        const infoEl = document.getElementById('quick-points-exercise-milestone-info');
-        if (infoEl) {
-            const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');
-            infoEl.textContent = `Meilensteine: ${milestoneText}`;
+            const infoEl = document.getElementById('quick-points-exercise-milestone-info');
+            if (infoEl) {
+                const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');
+                infoEl.textContent = `Meilensteine: ${milestoneText}`;
+            }
         }
     } else {
         milestoneContainer.classList.add('hidden');
+        timeInputContainer?.classList.add('hidden');
+    }
+
+    // Spielmodus-Auswahl anzeigen wenn eine Übung ausgewählt ist
+    if (selectedOption?.value) {
+        playModeContainer?.classList.remove('hidden');
+    } else {
+        playModeContainer?.classList.add('hidden');
     }
 
     document.getElementById('quick-points-preview')?.classList.remove('hidden');
@@ -560,6 +616,157 @@ function updateChallengeMilestonePreview() {
 }
 
 /**
+ * Wählt den Spielmodus (solo/pair)
+ */
+function selectPlayMode(mode) {
+    selectedPlayMode = mode;
+
+    const soloBtn = document.getElementById('quick-points-mode-solo');
+    const pairBtn = document.getElementById('quick-points-mode-pair');
+    const pairInfo = document.getElementById('quick-points-pair-info');
+    const pairSelection = document.getElementById('quick-points-pair-selection');
+    const playerListContainer = document.getElementById('quick-points-player-list');
+
+    // Button-Styling aktualisieren
+    if (soloBtn) {
+        soloBtn.classList.toggle('border-indigo-500', mode === 'solo');
+        soloBtn.classList.toggle('bg-indigo-50', mode === 'solo');
+        soloBtn.classList.toggle('text-indigo-600', mode === 'solo');
+    }
+    if (pairBtn) {
+        pairBtn.classList.toggle('border-indigo-500', mode === 'pair');
+        pairBtn.classList.toggle('bg-indigo-50', mode === 'pair');
+        pairBtn.classList.toggle('text-indigo-600', mode === 'pair');
+    }
+
+    if (mode === 'pair') {
+        // Paarung-Modus
+        pairInfo?.classList.remove('hidden');
+        pairSelection?.classList.remove('hidden');
+        playerListContainer?.classList.add('hidden');
+
+        // Info über Punkteverteilung anzeigen
+        const pointsInfoEl = document.getElementById('quick-points-pair-points-info');
+        if (pointsInfoEl && selectedExerciseData) {
+            if (selectedExerciseData.playerType === 'a_active_b_passive') {
+                pointsInfoEl.textContent = 'Spieler A erhält 100%, Spieler B erhält 50% der Punkte.';
+            } else {
+                pointsInfoEl.textContent = 'Beide Spieler erhalten 100% der Punkte.';
+            }
+        }
+
+        // Spieler-Dropdowns befüllen
+        populatePairSelects();
+    } else {
+        // Solo/Balleimer-Modus - normale Spielerauswahl
+        pairInfo?.classList.add('hidden');
+        pairSelection?.classList.add('hidden');
+        playerListContainer?.classList.remove('hidden');
+    }
+
+    updatePreview();
+    updateSubmitButton();
+}
+
+/**
+ * Setzt die Spielmodus-UI zurück
+ */
+function resetPlayModeUI() {
+    const soloBtn = document.getElementById('quick-points-mode-solo');
+    const pairBtn = document.getElementById('quick-points-mode-pair');
+    const pairInfo = document.getElementById('quick-points-pair-info');
+    const pairSelection = document.getElementById('quick-points-pair-selection');
+    const playerListContainer = document.getElementById('quick-points-player-list');
+
+    selectedPlayMode = null;
+
+    // Button-Styling zurücksetzen
+    [soloBtn, pairBtn].forEach(btn => {
+        if (btn) {
+            btn.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-600');
+        }
+    });
+
+    pairInfo?.classList.add('hidden');
+    pairSelection?.classList.add('hidden');
+    playerListContainer?.classList.remove('hidden');
+}
+
+/**
+ * Befüllt die Spieler-Dropdowns für Paarung
+ */
+function populatePairSelects() {
+    const playerASelect = document.getElementById('quick-points-player-a');
+    const playerBSelect = document.getElementById('quick-points-player-b');
+
+    if (!playerASelect || !playerBSelect) return;
+
+    const presentPlayers = currentClubPlayers.filter(p => currentPresentPlayerIds.includes(p.id));
+
+    // Spieler A befüllen
+    playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
+    presentPlayers.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = `${p.first_name} ${p.last_name}`;
+        playerASelect.appendChild(option);
+    });
+
+    // Spieler B befüllen
+    playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
+    presentPlayers.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = `${p.first_name} ${p.last_name}`;
+        playerBSelect.appendChild(option);
+    });
+}
+
+/**
+ * Aktualisiert die Paar-Auswahl wenn sich Spieler ändern
+ */
+function updatePairSelection() {
+    const playerAId = document.getElementById('quick-points-player-a')?.value;
+    const playerBId = document.getElementById('quick-points-player-b')?.value;
+
+    // Spieler in selectedPlayerIds aktualisieren
+    selectedPlayerIds.clear();
+    if (playerAId) selectedPlayerIds.add(playerAId);
+    if (playerBId) selectedPlayerIds.add(playerBId);
+
+    updatePreview();
+    updateSubmitButton();
+}
+
+/**
+ * Aktualisiert die Zeit-Eingabe
+ */
+function updateTimeInput() {
+    updatePreview();
+    updateSubmitButton();
+}
+
+/**
+ * Holt die eingegebene Zeit in Sekunden
+ */
+function getTimeInSeconds() {
+    const hours = parseInt(document.getElementById('quick-points-time-hours')?.value) || 0;
+    const minutes = parseInt(document.getElementById('quick-points-time-minutes')?.value) || 0;
+    const seconds = parseInt(document.getElementById('quick-points-time-seconds')?.value) || 0;
+    return hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Formatiert Sekunden zu HH:MM:SS
+ */
+function formatTimeFromSeconds(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
  * Berechnet die Punkte basierend auf der aktuellen Auswahl
  */
 function calculatePoints() {
@@ -616,9 +823,17 @@ function updatePreview() {
     const previewAmount = document.getElementById('quick-points-preview-amount');
 
     if (previewAmount) {
-        const sign = points >= 0 ? '+' : '';
-        previewAmount.textContent = `${sign}${points} Punkte`;
-        previewAmount.className = points >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600';
+        // Bei Paarung mit unterschiedlicher Punkteverteilung
+        if (selectedPlayMode === 'pair' && selectedExerciseData?.playerType === 'a_active_b_passive') {
+            const pointsA = points;
+            const pointsB = Math.round(points * 0.5);
+            previewAmount.textContent = `A: +${pointsA} / B: +${pointsB} Punkte`;
+            previewAmount.className = 'font-bold text-green-600';
+        } else {
+            const sign = points >= 0 ? '+' : '';
+            previewAmount.textContent = `${sign}${points} Punkte`;
+            previewAmount.className = points >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600';
+        }
     }
 
     updatePlayerCount();
@@ -643,13 +858,33 @@ function updateSubmitButton() {
         isValid = isValid && !!reason;
     }
 
-    // Für Meilenstein-Übungen/Challenges: Anzahl muss angegeben sein
+    // Für Übungen: Spielmodus muss ausgewählt sein
     if (selectedPointsType === 'exercise') {
         const select = document.getElementById('quick-points-exercise-select');
         const selectedOption = select?.options[select.selectedIndex];
+
+        // Spielmodus muss ausgewählt sein
+        if (selectedOption?.value) {
+            isValid = isValid && !!selectedPlayMode;
+
+            // Bei Paarung: beide Spieler müssen ausgewählt sein
+            if (selectedPlayMode === 'pair') {
+                const playerAId = document.getElementById('quick-points-player-a')?.value;
+                const playerBId = document.getElementById('quick-points-player-b')?.value;
+                isValid = isValid && !!playerAId && !!playerBId && playerAId !== playerBId;
+            }
+        }
+
+        // Für Meilenstein-Übungen: Anzahl muss angegeben sein (außer Zeit)
         if (selectedOption?.dataset.hasMilestones === 'true') {
-            const count = parseInt(document.getElementById('quick-points-exercise-count')?.value) || 0;
-            isValid = isValid && count > 0;
+            const unit = selectedOption?.dataset.unit || 'Wiederholungen';
+            if (unit === 'Zeit') {
+                const timeInSeconds = getTimeInSeconds();
+                isValid = isValid && timeInSeconds > 0;
+            } else {
+                const count = parseInt(document.getElementById('quick-points-exercise-count')?.value) || 0;
+                isValid = isValid && count > 0;
+            }
         }
     }
 
@@ -735,6 +970,36 @@ async function handleQuickPointsSubmit(closeAfter = true) {
         let successCount = 0;
         const playerIds = Array.from(selectedPlayerIds);
 
+        // Punkte pro Spieler berechnen (für Paarung mit unterschiedlicher Verteilung)
+        const getPlayerPoints = (playerId) => {
+            if (selectedPlayMode === 'pair' && selectedExerciseData) {
+                const playerAId = document.getElementById('quick-points-player-a')?.value;
+                const playerBId = document.getElementById('quick-points-player-b')?.value;
+
+                if (selectedExerciseData.playerType === 'a_active_b_passive') {
+                    // Spieler A: 100%, Spieler B: 50%
+                    if (playerId === playerAId) {
+                        return points;
+                    } else if (playerId === playerBId) {
+                        return Math.round(points * 0.5);
+                    }
+                }
+                // both_active: beide 100%
+            }
+            return points;
+        };
+
+        // Paar-Info für Reason hinzufügen
+        if (selectedPlayMode === 'pair') {
+            const playerAId = document.getElementById('quick-points-player-a')?.value;
+            const playerBId = document.getElementById('quick-points-player-b')?.value;
+            const playerA = currentClubPlayers.find(p => p.id === playerAId);
+            const playerB = currentClubPlayers.find(p => p.id === playerBId);
+            if (playerA && playerB) {
+                reason += ` [Paarung: ${playerA.first_name} & ${playerB.first_name}]`;
+            }
+        }
+
         // Batch-Verarbeitung um Netzwerküberlastung zu vermeiden
         const BATCH_SIZE = 5;
         for (let i = 0; i < playerIds.length; i += BATCH_SIZE) {
@@ -742,11 +1007,14 @@ async function handleQuickPointsSubmit(closeAfter = true) {
 
             await Promise.all(batch.map(async (playerId) => {
                 try {
+                    // Punkte für diesen Spieler berechnen (kann unterschiedlich sein bei Paarung)
+                    const playerPoints = getPlayerPoints(playerId);
+
                     // Punkte zum Spieler hinzufügen
                     const { error: rpcError } = await supabase.rpc('add_player_points', {
                         p_user_id: playerId,
-                        p_points: points,
-                        p_xp: points
+                        p_points: playerPoints,
+                        p_xp: playerPoints
                     });
 
                     if (rpcError) {
@@ -763,8 +1031,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                             const currentXP = playerData.xp || 0;
 
                             await supabase.from('profiles').update({
-                                points: Math.max(0, currentPoints + points),
-                                xp: Math.max(0, currentXP + points),
+                                points: Math.max(0, currentPoints + playerPoints),
+                                xp: Math.max(0, currentXP + playerPoints),
                                 last_xp_update: now
                             }).eq('id', playerId);
                         }
@@ -773,8 +1041,8 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                     // Punkte-Historie eintragen
                     await supabase.from('points_history').insert({
                         user_id: playerId,
-                        points: points,
-                        xp: points,
+                        points: playerPoints,
+                        xp: playerPoints,
                         elo_change: 0,
                         reason,
                         timestamp: now,
@@ -784,7 +1052,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
                     // XP-Historie eintragen
                     await supabase.from('xp_history').insert({
                         user_id: playerId,
-                        xp: points,
+                        xp: playerPoints,
                         reason,
                         source: selectedPointsType === 'exercise' ? 'exercise' :
                                selectedPointsType === 'challenge' ? 'challenge' : 'manual'

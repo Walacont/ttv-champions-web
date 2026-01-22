@@ -1871,12 +1871,28 @@ async function handleCreateExercise(e) {
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
 
+    // Übungstyp (Spieler-Aktivität) ermitteln
+    const playerTypeRadio = document.querySelector('input[name="exercise-player-type"]:checked');
+    const playerType = playerTypeRadio?.value || 'both_active';
+
     // Einheit für Meilensteine ermitteln
     let milestoneUnit = 'Wiederholungen';
+    let timeDirection = null; // 'faster' oder 'longer' für Zeit-basierte Einheiten
     if (tieredPoints) {
         const customUnit = document.getElementById('exercise-milestone-unit-custom')?.value?.trim();
         const selectUnit = document.getElementById('exercise-milestone-unit')?.value;
-        milestoneUnit = customUnit || selectUnit || 'Wiederholungen';
+
+        if (customUnit) {
+            milestoneUnit = customUnit;
+        } else if (selectUnit) {
+            // Zeit-Einheiten haben Format "Zeit_faster" oder "Zeit_longer"
+            if (selectUnit.startsWith('Zeit_')) {
+                milestoneUnit = 'Zeit';
+                timeDirection = selectUnit.replace('Zeit_', ''); // 'faster' oder 'longer'
+            } else {
+                milestoneUnit = selectUnit;
+            }
+        }
     }
 
     let points = 0;
@@ -1949,12 +1965,17 @@ async function handleCreateExercise(e) {
                 enabled: true,
                 milestones: milestones,
                 unit: milestoneUnit,
+                time_direction: timeDirection, // 'faster', 'longer' oder null
             } : {
                 enabled: false,
                 milestones: [],
             },
             // Einheit als Top-Level Feld für einfacheren Zugriff
             unit: tieredPoints ? milestoneUnit : null,
+            // Zeit-Richtung als Top-Level Feld
+            time_direction: timeDirection,
+            // Übungstyp: 'both_active' oder 'a_active_b_passive'
+            player_type: playerType,
             // Admin kann spezifischen Verein oder null für global setzen
             club_id: exerciseClub || null,
             // Admin kann spezifische Sportart oder null für alle setzen
@@ -2006,6 +2027,10 @@ async function handleCreateExercise(e) {
         const unitCustom = document.getElementById('exercise-milestone-unit-custom');
         if (unitSelect) unitSelect.value = 'Wiederholungen';
         if (unitCustom) unitCustom.value = '';
+
+        // Übungstyp zurücksetzen (auf "beide aktiv")
+        const bothActiveRadio = document.querySelector('input[name="exercise-player-type"][value="both_active"]');
+        if (bothActiveRadio) bothActiveRadio.checked = true;
 
         const partnerToggle = document.getElementById('exercise-partner-system-toggle');
         const partnerContainer = document.getElementById('exercise-partner-container');

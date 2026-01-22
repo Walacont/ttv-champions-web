@@ -3348,6 +3348,66 @@
                             />
                             <p id="quick-points-exercise-milestone-info" class="mt-1 text-xs text-indigo-700"></p>
                         </div>
+
+                        <!-- Spielmodus Auswahl (Balleimer vs Paarung) -->
+                        <div id="quick-points-play-mode-container" class="hidden mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Spielmodus</label>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    id="quick-points-mode-solo"
+                                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+                                >
+                                    <i class="fas fa-robot mr-1"></i> Balleimer/Roboter
+                                </button>
+                                <button
+                                    type="button"
+                                    id="quick-points-mode-pair"
+                                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+                                >
+                                    <i class="fas fa-user-friends mr-1"></i> Paarung
+                                </button>
+                            </div>
+
+                            <!-- Info für Paarung-Modus -->
+                            <div id="quick-points-pair-info" class="hidden mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p class="text-sm text-blue-800">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    <strong>Paarung:</strong> Der erste ausgewählte Spieler ist <strong>Spieler A</strong> (aktiv),
+                                    der zweite ist <strong>Spieler B</strong>.
+                                </p>
+                                <p id="quick-points-pair-points-info" class="text-xs text-blue-600 mt-1"></p>
+                            </div>
+
+                            <!-- Paar-Auswahl Container -->
+                            <div id="quick-points-pair-selection" class="hidden mt-3 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-700 w-24">Spieler A:</span>
+                                    <select id="quick-points-player-a" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Spieler A wählen...</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-700 w-24">Spieler B:</span>
+                                    <select id="quick-points-player-b" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Spieler B wählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zeit-Eingabe für Zeit-basierte Übungen -->
+                        <div id="quick-points-time-input-container" class="hidden mt-2 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                            <label class="block text-sm font-medium text-purple-900 mb-1">Zeit eingeben</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="quick-points-time-hours" min="0" max="23" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                                <span class="text-purple-700">:</span>
+                                <input type="number" id="quick-points-time-minutes" min="0" max="59" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                                <span class="text-purple-700">:</span>
+                                <input type="number" id="quick-points-time-seconds" min="0" max="59" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                            </div>
+                            <p class="text-xs text-purple-600 mt-1">Format: Stunden : Minuten : Sekunden</p>
+                        </div>
                     </div>
 
                     <!-- Challenge Selection (hidden by default) -->
