@@ -1220,12 +1220,20 @@ async function handleVideoUpload(e) {
             progressBar.style.width = '0%';
             submitBtn.disabled = false;
 
-            // Wenn KI-Training erlaubt, zur Label-Seite weiterleiten
+            // Nachricht basierend auf Optionen erstellen
+            const coachRequested = isInClub && requestCoachFeedback;
+
             if (allowAiTraining && insertedVideo?.id) {
+                // KI-Training: zur Label-Seite weiterleiten
+                if (coachRequested) {
+                    alert('Video wurde hochgeladen und an deinen Coach gesendet! Du wirst jetzt zur Schlag-Markierung weitergeleitet.');
+                }
                 window.location.href = `/label.html?video=${insertedVideo.id}`;
-            } else if (isInClub && requestCoachFeedback) {
+            } else if (coachRequested) {
+                // Nur Coach-Feedback
                 alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
             } else {
+                // Nur Mediathek
                 alert('Video wurde in deiner persönlichen Mediathek gespeichert.');
             }
         }, 1000);
