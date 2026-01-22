@@ -114,9 +114,13 @@ ALTER TABLE completed_exercises
 ADD COLUMN IF NOT EXISTS play_mode TEXT DEFAULT 'solo';
 
 -- Update unique constraint to include partner
-DROP INDEX IF EXISTS completed_exercises_user_id_exercise_id_season_key;
+-- First drop the old constraint (not index!)
+ALTER TABLE completed_exercises
+DROP CONSTRAINT IF EXISTS completed_exercises_user_id_exercise_id_season_key;
+
+-- Create new unique index with partner and play_mode
 CREATE UNIQUE INDEX IF NOT EXISTS idx_completed_exercises_unique
-ON completed_exercises(user_id, exercise_id, COALESCE(season, ''), play_mode, COALESCE(partner_id, '00000000-0000-0000-0000-000000000000'));
+ON completed_exercises(user_id, exercise_id, COALESCE(season, ''), COALESCE(play_mode, 'solo'), COALESCE(partner_id, '00000000-0000-0000-0000-000000000000'));
 
 -- ============================================
 -- HELPER FUNCTION: Update exercise record
