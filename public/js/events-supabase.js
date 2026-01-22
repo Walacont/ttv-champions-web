@@ -1533,8 +1533,9 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             return;
         }
 
-        // Modal schließen
+        // Alle Event-Modals schließen
         document.getElementById('event-details-modal')?.remove();
+        document.getElementById('event-day-modal')?.classList.add('hidden');
 
         // Spieler-Daten laden
         const { data: playersData } = await supabase
