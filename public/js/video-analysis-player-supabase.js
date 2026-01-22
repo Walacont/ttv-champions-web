@@ -521,9 +521,20 @@ function setupExerciseVideoButton() {
  * Lädt Übungen für das Dropdown im Upload-Modal
  */
 async function loadExercisesForDropdown() {
-    const { db } = playerVideoContext;
     const select = document.getElementById('player-video-exercise-select');
     if (!select) return;
+
+    // Fallback: Supabase direkt importieren wenn playerVideoContext nicht bereit
+    let db = playerVideoContext.db;
+    if (!db) {
+        try {
+            const { getSupabase } = await import('./supabase-init.js');
+            db = await getSupabase();
+        } catch (e) {
+            console.error('Supabase nicht verfügbar:', e);
+            return;
+        }
+    }
 
     try {
         const { data: exercises, error } = await db
@@ -532,13 +543,21 @@ async function loadExercisesForDropdown() {
             .order('category', { ascending: true })
             .order('name', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Fehler beim Laden der Übungen:', error);
+            return;
+        }
 
         // Dropdown befüllen
         select.innerHTML = '<option value="">-- Keine Übung --</option>';
 
+        if (!exercises || exercises.length === 0) {
+            console.log('Keine Übungen gefunden');
+            return;
+        }
+
         let currentCategory = '';
-        exercises?.forEach(ex => {
+        exercises.forEach(ex => {
             if (ex.category && ex.category !== currentCategory) {
                 currentCategory = ex.category;
                 const optgroup = document.createElement('optgroup');
@@ -554,6 +573,8 @@ async function loadExercisesForDropdown() {
                 select.appendChild(option);
             }
         });
+
+        console.log(`${exercises.length} Übungen geladen`);
     } catch (err) {
         console.error('Fehler beim Laden der Übungen:', err);
     }
