@@ -519,7 +519,12 @@ function handleExerciseChange() {
 
             const infoEl = document.getElementById('quick-points-exercise-milestone-info');
             if (infoEl) {
-                const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');
+                // Kumulative Punkte berechnen
+                let cumulative = 0;
+                const milestoneText = milestones.map(m => {
+                    cumulative += m.points;
+                    return `${m.count}× = ${cumulative}P`;
+                }).join(', ');
                 infoEl.textContent = `Meilensteine: ${milestoneText}`;
             }
         }
@@ -574,7 +579,12 @@ function handleChallengeChange() {
 
         const infoEl = document.getElementById('quick-points-challenge-milestone-info');
         if (infoEl) {
-            const milestoneText = milestones.map(m => `${m.count}× = ${m.points}P`).join(', ');
+            // Kumulative Punkte berechnen
+            let cumulative = 0;
+            const milestoneText = milestones.map(m => {
+                cumulative += m.points;
+                return `${m.count}× = ${cumulative}P`;
+            }).join(', ');
             infoEl.textContent = `Meilensteine: ${milestoneText}`;
         }
     } else {
