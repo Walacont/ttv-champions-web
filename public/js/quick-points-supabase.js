@@ -681,12 +681,24 @@ function selectPlayMode(mode) {
         pairSelection?.classList.remove('hidden');
         playerListContainer?.classList.add('hidden');
 
-        // Info über Punkteverteilung anzeigen
+        // Info-Text je nach Übungstyp anzeigen
+        const pairTextEl = document.getElementById('quick-points-pair-text');
         const pointsInfoEl = document.getElementById('quick-points-pair-points-info');
-        if (pointsInfoEl && selectedExerciseData) {
-            if (selectedExerciseData.playerType === 'a_active_b_passive') {
+
+        if (selectedExerciseData && selectedExerciseData.playerType === 'a_active_b_passive') {
+            // A aktiv, B passiv
+            if (pairTextEl) {
+                pairTextEl.innerHTML = '<i class="fas fa-info-circle mr-1"></i><strong>Paarung:</strong> Spieler A ist <strong>aktiv</strong>, Spieler B ist <strong>passiv</strong>.';
+            }
+            if (pointsInfoEl) {
                 pointsInfoEl.textContent = 'Spieler A erhält 100%, Spieler B erhält 50% der Punkte.';
-            } else {
+            }
+        } else {
+            // Beide aktiv
+            if (pairTextEl) {
+                pairTextEl.innerHTML = '<i class="fas fa-info-circle mr-1"></i><strong>Paarung:</strong> Beide Spieler sind <strong>aktiv</strong>.';
+            }
+            if (pointsInfoEl) {
                 pointsInfoEl.textContent = 'Beide Spieler erhalten 100% der Punkte.';
             }
         }
@@ -744,7 +756,7 @@ function populatePairSelects() {
     presentPlayers.forEach(p => {
         const option = document.createElement('option');
         option.value = p.id;
-        option.textContent = `${p.first_name} ${p.last_name}`;
+        option.textContent = `${p.firstName} ${p.lastName}`;
         playerASelect.appendChild(option);
     });
 
@@ -753,7 +765,7 @@ function populatePairSelects() {
     presentPlayers.forEach(p => {
         const option = document.createElement('option');
         option.value = p.id;
-        option.textContent = `${p.first_name} ${p.last_name}`;
+        option.textContent = `${p.firstName} ${p.lastName}`;
         playerBSelect.appendChild(option);
     });
 }
@@ -1032,7 +1044,7 @@ async function handleQuickPointsSubmit(closeAfter = true) {
             const playerA = currentClubPlayers.find(p => p.id === playerAId);
             const playerB = currentClubPlayers.find(p => p.id === playerBId);
             if (playerA && playerB) {
-                reason += ` [Paarung: ${playerA.first_name} & ${playerB.first_name}]`;
+                reason += ` [Paarung: ${playerA.firstName} & ${playerB.firstName}]`;
             }
         }
 
