@@ -558,7 +558,7 @@
                             childrenCount: children?.children?.length
                         });
 
-                        if (!childrenError && children?.success && children.children) {
+                        if (!childrenError && children?.success && children.children && children.children.length > 0) {
                             // Filter children under 18
                             const childrenUnder18 = children.children.filter(child => {
                                 if (!child.birthdate) return true; // If no birthdate, show to be safe
@@ -579,10 +579,10 @@
                                     myChildrenSubtitle.textContent = `${childrenUnder18.length} Kinder verknüpft`;
                                 }
                             } else {
-                                // Guardian but no children under 18 - don't show either card
-                                console.log('[Guardian Debug] → Guardian but no children under 18 - hiding both cards');
+                                // Guardian with children, but all are 18+ - show "Kind hinzufügen" to add more
+                                console.log('[Guardian Debug] → Guardian but all children are 18+ - showing "Kind hinzufügen"');
                                 myChildrenCard?.classList.add('hidden');
-                                addChildCard?.classList.add('hidden');
+                                addChildCard?.classList.remove('hidden');
                             }
                         } else {
                             // Guardian but no children - show "Kind hinzufügen"
