@@ -21,6 +21,7 @@ let registrationType = null; // 'code', 'no-code', 'guardian', 'guardian-link'
 let isAgeBlocked = false;
 let linkedPlayerId = null; // ID of offline player to link (for guardian registration)
 let linkedPlayerBirthdate = null; // Birthdate of offline player for verification
+let linkedPlayerData = null; // Full data of linked offline player (for prefilling form)
 
 // Role selection modal elements
 const roleSelectionModal = document.getElementById('role-selection-modal');
@@ -285,6 +286,34 @@ async function loadSports(preAssignedSportId = null) {
     }
 }
 
+// Prefill form with existing player data (for offline player migration)
+function prefillFormWithPlayerData() {
+    // Use linkedPlayerData if available, otherwise fall back to invitationCodeData
+    const data = linkedPlayerData || invitationCodeData;
+    if (!data) return;
+
+    console.log('[REGISTER] Prefilling form with player data:', data);
+
+    // Prefill birthdate if available
+    if (data.birthdate) {
+        const dateParts = data.birthdate.split('-');
+        if (dateParts.length === 3) {
+            const yearSelect = document.getElementById('birthdate-year');
+            const monthSelect = document.getElementById('birthdate-month');
+            const daySelect = document.getElementById('birthdate-day');
+            if (yearSelect) yearSelect.value = dateParts[0];
+            if (monthSelect) monthSelect.value = parseInt(dateParts[1], 10);
+            if (daySelect) daySelect.value = parseInt(dateParts[2], 10);
+        }
+    }
+
+    // Prefill gender if available
+    if (data.gender) {
+        const genderSelect = document.getElementById('gender-select');
+        if (genderSelect) genderSelect.value = data.gender;
+    }
+}
+
 // Profile photo preview
 const profilePhotoUpload = document.getElementById('profile-photo-upload');
 const profilePhotoPreview = document.getElementById('profile-photo-preview');
@@ -367,7 +396,7 @@ async function initializeRegistration() {
             // Fetch the player's data (use maybeSingle to handle missing player)
             const { data: playerData, error: playerError } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, birthdate')
+                .select('id, first_name, last_name, birthdate, gender')
                 .eq('id', codeData.player_id)
                 .maybeSingle();
 
@@ -378,6 +407,7 @@ async function initializeRegistration() {
             } else if (playerData) {
                 linkedPlayerId = playerData.id;
                 linkedPlayerBirthdate = playerData.birthdate || null;
+                linkedPlayerData = playerData; // Store full player data for prefilling
 
                 const age = playerData.birthdate ? calculateAge(playerData.birthdate) : null;
                 console.log('[REGISTER] Calculated age:', age, 'from birthdate:', playerData.birthdate);
@@ -457,6 +487,8 @@ async function initializeRegistration() {
         showBirthdateFields();
         // Show profile fields (photo, gender) - sport comes from invitation code
         showProfileFields();
+        // Prefill form with data from invitation code (if available)
+        prefillFormWithPlayerData();
         registrationFormContainer.classList.remove('hidden');
 
     } catch (error) {
@@ -1225,6 +1257,7 @@ roleSelectPlayer?.addEventListener('click', () => {
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         hideBirthdateFields();
         showProfileFields();
+        prefillFormWithPlayerData();
         registrationFormContainer.classList.remove('hidden');
     } else {
         // Birthdate unknown - need to ask and validate
@@ -1233,11 +1266,12 @@ roleSelectPlayer?.addEventListener('click', () => {
         formSubtitle.textContent = 'Bitte gib dein Geburtsdatum an, um fortzufahren.';
         showBirthdateFields();
         showProfileFields();
+        prefillFormWithPlayerData();
         registrationFormContainer.classList.remove('hidden');
     }
 });
 
-// Role selection: Guardian selected
+/// Role selection: Guardian selected
 roleSelectGuardian?.addEventListener('click', () => {
     // Hide role modal, show guardian verification modal
     hideRoleSelectionModal();
