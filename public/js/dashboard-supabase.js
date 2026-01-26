@@ -435,6 +435,13 @@ async function loadUserProfile() {
             return;
         }
 
+        // Pure guardians (is_guardian but NOT is_player) go to guardian dashboard
+        if ((profile.is_guardian || profile.account_type === 'guardian') && !profile.is_player && !isChildMode) {
+            console.log('[DASHBOARD-SUPABASE] Pure guardian detected, redirecting to guardian dashboard');
+            window.location.href = '/guardian-dashboard.html';
+            return;
+        }
+
         currentUserData = profile;
         currentClubData = profile.club;
 
@@ -852,17 +859,18 @@ function setupRoleSwitcher() {
     if (!roleSwitcherBtn || !roleDropdown || !currentUserData) return;
 
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
-    const isGuardian = currentUserData.is_guardian || currentUserData.account_type === 'guardian';
+    // Show guardian option only if user is guardian AND also a player (has dual role)
+    const isGuardianPlayer = (currentUserData.is_guardian || currentUserData.account_type === 'guardian') && currentUserData.is_player;
 
     // Show dropdown only if user has multiple roles
-    if (!isCoach && !isGuardian) return;
+    if (!isCoach && !isGuardianPlayer) return;
 
     // Show dropdown button, hide static title
     roleSwitcherBtn.classList.remove('hidden');
     headerTitleStatic?.classList.add('hidden');
 
     // Show relevant role options
-    if (isGuardian) {
+    if (isGuardianPlayer) {
         roleGuardian?.classList.remove('hidden');
     }
     if (isCoach) {

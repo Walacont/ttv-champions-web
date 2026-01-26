@@ -66,18 +66,82 @@
 
         <!-- Main Content -->
         <div id="main-content" class="hidden">
-            <!-- Simple Header like normal dashboard -->
+            <!-- Simple Header with separate guardian menu -->
             <header style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
                 <div class="flex justify-between items-center h-12 px-4 max-w-4xl mx-auto">
-                    <a href="/dashboard.html" class="text-gray-600 hover:text-indigo-600 transition-colors p-1">
-                        <i class="fas fa-arrow-left text-lg"></i>
-                    </a>
-                    <h1 class="text-base font-semibold text-gray-900">Meine Kinder</h1>
-                    <a href="/guardian-onboarding.html" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen">
+                    <!-- Left: Menu button -->
+                    <button id="open-menu-btn" class="text-gray-600 hover:text-indigo-600 transition-colors p-1">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
+                    <h1 class="text-base font-semibold text-gray-900">Eltern-Dashboard</h1>
+                    <a href="/guardian-onboarding.html" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufuegen">
                         <i class="fas fa-plus text-lg"></i>
                     </a>
                 </div>
             </header>
+
+            <!-- Guardian Menu Sidebar -->
+            <div id="guardian-menu" class="fixed inset-0 z-[10000] hidden">
+                <!-- Backdrop -->
+                <div id="menu-backdrop" class="absolute inset-0 bg-black/50"></div>
+                <!-- Menu Panel -->
+                <div id="menu-panel" class="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl transform -translate-x-full transition-transform duration-200">
+                    <!-- Menu Header -->
+                    <div class="p-4 border-b border-gray-200 bg-indigo-600">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                                <i class="fas fa-user-shield text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <p id="menu-user-name" class="text-white font-semibold">Eltern-Account</p>
+                                <p class="text-indigo-200 text-xs">Vormund</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Menu Items -->
+                    <nav class="p-2">
+                        <!-- My Children -->
+                        <a href="/guardian-dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
+                            <i class="fas fa-child w-5 text-center"></i>
+                            Meine Kinder
+                        </a>
+                        <!-- Add Child -->
+                        <a href="/guardian-onboarding.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-user-plus w-5 text-center"></i>
+                            Kind hinzufuegen
+                        </a>
+                        <!-- Settings -->
+                        <a href="/settings.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-cog w-5 text-center"></i>
+                            Einstellungen
+                        </a>
+
+                        <!-- Divider -->
+                        <div class="border-t border-gray-200 my-2"></div>
+
+                        <!-- Switch to Player (only shown if is_player=true) -->
+                        <a id="switch-to-player-btn" href="/dashboard.html" class="hidden flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-table-tennis-paddle-ball w-5 text-center"></i>
+                            Zur Spieler-Ansicht
+                        </a>
+
+                        <!-- Become Player (only shown if is_player=false) -->
+                        <button id="become-player-btn" class="hidden w-full flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-600 hover:bg-indigo-50 font-medium">
+                            <i class="fas fa-gamepad w-5 text-center"></i>
+                            Auch als Spieler mitmachen
+                        </button>
+
+                        <!-- Divider -->
+                        <div class="border-t border-gray-200 my-2"></div>
+
+                        <!-- Logout -->
+                        <button id="logout-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50">
+                            <i class="fas fa-sign-out-alt w-5 text-center"></i>
+                            Abmelden
+                        </button>
+                    </nav>
+                </div>
+            </div>
 
             <!-- Content with top padding for fixed header -->
             <div class="container mx-auto px-4 pt-16 pb-6 max-w-4xl">

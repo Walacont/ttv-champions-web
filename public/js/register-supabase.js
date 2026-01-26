@@ -609,6 +609,7 @@ registrationForm?.addEventListener('submit', async e => {
 
         if (registrationType === 'code' && invitationCodeData) {
             profileUpdates.club_id = invitationCodeData.club_id;
+            profileUpdates.is_player = true; // This is a player registration
 
             if (invitationCodeData.role) {
                 profileUpdates.role = invitationCodeData.role;
@@ -700,7 +701,9 @@ registrationForm?.addEventListener('submit', async e => {
 
                     // Migration RPC hat alles erledigt - manuelles Profil-Update nicht nötig
                     profileUpdates = {};
-                    // But if user entered birthdate (because offline player had none), save it
+                    // But always set is_player for code registrations
+                    profileUpdates.is_player = true;
+                    // And if user entered birthdate (because offline player had none), save it
                     if (birthdate) {
                         profileUpdates.birthdate = birthdate;
                     }
@@ -733,6 +736,7 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.first_name = firstName;
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
+            profileUpdates.is_player = true; // This is a player
             profileUpdates.is_match_ready = true;
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
@@ -749,6 +753,7 @@ registrationForm?.addEventListener('submit', async e => {
         }
 
         // Guardian-Registrierung (ohne Code)
+        // Pure guardians are NOT players by default - they only see guardian-dashboard
         if (registrationType === 'guardian') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
@@ -757,8 +762,9 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
             profileUpdates.account_type = 'guardian';
             profileUpdates.is_guardian = true;
-            profileUpdates.role = 'player'; // Guardians are also players by default
-            profileUpdates.is_match_ready = true;
+            profileUpdates.is_player = false; // Pure guardian - not a player
+            profileUpdates.role = 'player';
+            profileUpdates.is_match_ready = false; // Not a player yet
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
@@ -777,6 +783,7 @@ registrationForm?.addEventListener('submit', async e => {
         }
 
         // Guardian-Link Registrierung (Vormund verknüpft mit bestehendem Kind via Code)
+        // Pure guardians are NOT players by default - they only see guardian-dashboard
         if (registrationType === 'guardian-link') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
@@ -785,8 +792,9 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
             profileUpdates.account_type = 'guardian';
             profileUpdates.is_guardian = true;
+            profileUpdates.is_player = false; // Pure guardian - not a player
             profileUpdates.role = 'player';
-            profileUpdates.is_match_ready = true;
+            profileUpdates.is_match_ready = false; // Not a player yet
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
@@ -988,8 +996,8 @@ registrationForm?.addEventListener('submit', async e => {
             // Guardians (no code) go to guardian onboarding to create child profile
             window.location.href = '/guardian-onboarding.html';
         } else if (registrationType === 'guardian-link') {
-            // Guardian-link: all data collected during registration, go directly to dashboard
-            window.location.href = '/dashboard.html';
+            // Guardian-link: all data collected, go directly to guardian dashboard (pure guardian)
+            window.location.href = '/guardian-dashboard.html';
         } else {
             // All other registrations go to onboarding
             window.location.href = '/onboarding.html';

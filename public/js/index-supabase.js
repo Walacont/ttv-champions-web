@@ -106,7 +106,7 @@ onAuthStateChange(async (event, session) => {
         try {
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('*, is_player, is_guardian')
                 .eq('id', session.user.id)
                 .single();
 
@@ -141,6 +141,10 @@ onAuthStateChange(async (event, session) => {
                 if (profile.role === 'admin') targetUrl = '/admin.html';
                 else if (profile.role === 'labeler') targetUrl = '/label.html';
                 else if (profile.role === 'coach' || profile.role === 'head_coach') targetUrl = '/coach.html';
+                // Pure guardians (is_guardian but NOT is_player) go to guardian dashboard
+                else if ((profile.is_guardian || profile.account_type === 'guardian') && !profile.is_player) {
+                    targetUrl = '/guardian-dashboard.html';
+                }
                 else targetUrl = '/dashboard.html';
 
                 console.log('[INDEX-SUPABASE] Redirecting to:', targetUrl);

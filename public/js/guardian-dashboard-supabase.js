@@ -13,6 +13,7 @@ const supabase = getSupabase();
 
 // State
 let currentUser = null;
+let currentProfile = null;
 let children = [];
 let currentChildId = null; // For modal
 let initialized = false;
@@ -24,6 +25,16 @@ const childrenList = document.getElementById('children-list');
 const noChildrenMessage = document.getElementById('no-children-message');
 const loginCodeModal = document.getElementById('login-code-modal');
 
+// Menu Elements
+const guardianMenu = document.getElementById('guardian-menu');
+const menuBackdrop = document.getElementById('menu-backdrop');
+const menuPanel = document.getElementById('menu-panel');
+const openMenuBtn = document.getElementById('open-menu-btn');
+const switchToPlayerBtn = document.getElementById('switch-to-player-btn');
+const becomePlayerBtn = document.getElementById('become-player-btn');
+const logoutBtn = document.getElementById('logout-btn');
+const menuUserName = document.getElementById('menu-user-name');
+
 // Initialize with user
 async function initializeWithUser(user) {
     if (initialized) return;
@@ -33,10 +44,10 @@ async function initializeWithUser(user) {
         currentUser = user;
         console.log('[GUARDIAN-DASHBOARD] User:', currentUser.id);
 
-        // Check if user is a guardian
+        // Check if user is a guardian and get full profile
         const { data: profile } = await supabase
             .from('profiles')
-            .select('account_type, is_guardian')
+            .select('account_type, is_guardian, is_player, first_name, last_name, display_name')
             .eq('id', user.id)
             .single();
 
@@ -44,6 +55,24 @@ async function initializeWithUser(user) {
             console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
             window.location.href = '/dashboard.html';
             return;
+        }
+
+        currentProfile = profile;
+
+        // Update menu user name
+        if (menuUserName) {
+            menuUserName.textContent = profile.display_name || profile.first_name || 'Eltern-Account';
+        }
+
+        // Show/hide menu buttons based on is_player
+        if (profile.is_player) {
+            // User is also a player - show switch button
+            switchToPlayerBtn?.classList.remove('hidden');
+            becomePlayerBtn?.classList.add('hidden');
+        } else {
+            // Pure guardian - show become player button
+            switchToPlayerBtn?.classList.add('hidden');
+            becomePlayerBtn?.classList.remove('hidden');
         }
 
         // Load children using RPC
@@ -61,7 +90,7 @@ async function initializeWithUser(user) {
         pageLoader.innerHTML = `
             <div class="text-center text-red-600 p-6">
                 <p class="mb-2">Fehler beim Laden: ${err.message || 'Unbekannter Fehler'}</p>
-                <a href="/dashboard.html" class="text-indigo-600 underline mt-2 block">Zum Dashboard</a>
+                <a href="/index.html" class="text-indigo-600 underline mt-2 block">Zur Startseite</a>
             </div>
         `;
     }
@@ -448,8 +477,66 @@ window.generateLoginCode = async function(childId, childName) {
     }
 };
 
+// Open menu
+function openMenu() {
+    guardianMenu?.classList.remove('hidden');
+    // Trigger animation after a frame
+    requestAnimationFrame(() => {
+        menuPanel?.classList.remove('-translate-x-full');
+    });
+}
+
+// Close menu
+function closeMenu() {
+    menuPanel?.classList.add('-translate-x-full');
+    setTimeout(() => {
+        guardianMenu?.classList.add('hidden');
+    }, 200);
+}
+
+// Upgrade to player
+async function upgradeToPlayer() {
+    if (!confirm('Moechtest du auch als Spieler mitmachen? Du kannst dann selbst trainieren und an Wettkampfen teilnehmen.')) {
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('upgrade_guardian_to_player');
+
+        if (error) throw error;
+
+        if (!data.success) {
+            throw new Error(data.error);
+        }
+
+        // Success - reload page to reflect changes
+        alert('Du bist jetzt auch als Spieler registriert!');
+        window.location.reload();
+
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error upgrading to player:', err);
+        alert('Fehler: ' + err.message);
+    }
+}
+
+// Logout
+async function logout() {
+    try {
+        await supabase.auth.signOut();
+        window.location.href = '/index.html';
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Logout error:', err);
+    }
+}
+
 // Setup event listeners
 function setupEventListeners() {
+    // Menu events
+    openMenuBtn?.addEventListener('click', openMenu);
+    menuBackdrop?.addEventListener('click', closeMenu);
+    becomePlayerBtn?.addEventListener('click', upgradeToPlayer);
+    logoutBtn?.addEventListener('click', logout);
+
     // Close modal
     document.getElementById('close-code-modal')?.addEventListener('click', () => {
         loginCodeModal.classList.add('hidden');
