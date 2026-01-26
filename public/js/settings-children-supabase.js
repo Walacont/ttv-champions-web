@@ -152,6 +152,9 @@ function showNoChildren() {
     noChildrenState?.classList.remove('hidden');
 }
 
+// Subtle default avatar SVG (similar to profile.html)
+const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
+
 /**
  * Render children cards
  */
@@ -163,14 +166,19 @@ function renderChildren(children) {
         const ageMode = age < 14 ? 'kids' : (age < 16 ? 'teen' : 'full');
         const ageModeLabel = ageMode === 'kids' ? 'Kind (<14)' : (ageMode === 'teen' ? 'Teen (14-15)' : 'Erwachsen');
         const ageModeColor = ageMode === 'kids' ? 'pink' : (ageMode === 'teen' ? 'purple' : 'green');
+        const childId = child.id || child.child_id; // Support both formats
+        const avatarUrl = child.avatar_url || DEFAULT_AVATAR;
 
         return `
             <div class="child-card bg-white rounded-xl shadow-md p-5 border border-gray-200">
                 <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
-                            ${(child.first_name?.[0] || '?').toUpperCase()}
-                        </div>
+                        <img
+                            src="${avatarUrl}"
+                            alt="${child.first_name}"
+                            class="w-14 h-14 rounded-full object-cover border-2 border-white shadow-md bg-gray-100"
+                            onerror="this.src='${DEFAULT_AVATAR}'"
+                        />
                         <div>
                             <h3 class="font-semibold text-gray-900 text-lg">${child.first_name} ${child.last_name}</h3>
                             <div class="flex items-center gap-2 mt-1">
@@ -195,7 +203,7 @@ function renderChildren(children) {
                 <div class="flex flex-wrap gap-2">
                     <button
                         class="generate-login-code-btn flex-1 bg-green-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors"
-                        data-child-id="${child.child_id}"
+                        data-child-id="${childId}"
                         data-child-name="${child.first_name}"
                     >
                         <i class="fas fa-key mr-1"></i>
@@ -203,7 +211,7 @@ function renderChildren(children) {
                     </button>
                     <button
                         class="invite-guardian-btn flex-1 bg-purple-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors"
-                        data-child-id="${child.child_id}"
+                        data-child-id="${childId}"
                         data-child-name="${child.first_name} ${child.last_name}"
                     >
                         <i class="fas fa-user-plus mr-1"></i>
@@ -215,7 +223,7 @@ function renderChildren(children) {
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <button
                             class="upgrade-child-btn w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:from-green-600 hover:to-teal-600 transition-colors"
-                            data-child-id="${child.child_id}"
+                            data-child-id="${childId}"
                             data-child-name="${child.first_name} ${child.last_name}"
                         >
                             <i class="fas fa-graduation-cap mr-2"></i>
@@ -299,33 +307,21 @@ async function showLoginCodeModal(childId, childName) {
     loginCodeModal?.classList.remove('hidden');
 
     try {
-        // Generate login code via RPC
-        const { data, error } = await supabase.rpc('validate_child_login_code', {
-            p_code: 'GENERATE_NEW'
+        // Generate login code via RPC (validity 1440 minutes = 24 hours)
+        const { data, error } = await supabase.rpc('generate_child_login_code', {
+            p_child_id: childId,
+            p_validity_minutes: 1440
         });
 
-        // Actually we need a different RPC to generate codes - let's use a direct insert approach
-        // For now, generate a simple 6-char code
-        const code = generateRandomCode(6);
-
-        // Store the code in child_login_codes table
-        const { error: insertError } = await supabase
-            .from('child_login_codes')
-            .upsert({
-                child_id: childId,
-                code: code,
-                created_by: currentUser.id,
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-                is_active: true
-            }, {
-                onConflict: 'child_id'
-            });
-
-        if (insertError) {
-            throw insertError;
+        if (error) {
+            throw error;
         }
 
-        loginCodeValue.textContent = code;
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Generieren des Codes');
+        }
+
+        loginCodeValue.textContent = data.code;
         loginCodeValidity.textContent = '24 Stunden';
         loginCodeLoading?.classList.add('hidden');
         loginCodeDisplay?.classList.remove('hidden');
@@ -336,18 +332,6 @@ async function showLoginCodeModal(childId, childName) {
         loginCodeErrorText.textContent = error.message || 'Fehler beim Generieren des Codes';
         loginCodeError?.classList.remove('hidden');
     }
-}
-
-/**
- * Generate random alphanumeric code
- */
-function generateRandomCode(length) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar chars like 0/O, 1/I
-    let code = '';
-    for (let i = 0; i < length; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
 }
 
 // Close login code modal
