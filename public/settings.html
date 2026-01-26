@@ -499,13 +499,23 @@
 
             // Check if user is a guardian and show appropriate card
             async function checkGuardianStatus() {
+                console.log('[Guardian Debug] checkGuardianStatus started');
+
                 // Don't show "Meine Kinder" when already viewing child's settings
-                if (childId) return;
+                if (childId) {
+                    console.log('[Guardian Debug] Skipping - viewing child settings (childId:', childId, ')');
+                    return;
+                }
 
                 const supabase = getSupabase();
                 const { data: { user } } = await supabase.auth.getUser();
 
-                if (!user) return;
+                if (!user) {
+                    console.log('[Guardian Debug] Skipping - no user logged in');
+                    return;
+                }
+
+                console.log('[Guardian Debug] User ID:', user.id);
 
                 try {
                     // Get profile and check is_guardian flag
@@ -516,20 +526,37 @@
                         .single();
 
                     if (error) {
-                        console.error('Error checking guardian status:', error);
+                        console.error('[Guardian Debug] Error fetching profile:', error);
                         return;
                     }
+
+                    console.log('[Guardian Debug] Profile data:', {
+                        is_guardian: profile?.is_guardian,
+                        account_type: profile?.account_type
+                    });
 
                     const myChildrenCard = document.getElementById('my-children-card');
                     const myChildrenSubtitle = document.getElementById('my-children-subtitle');
                     const addChildCard = document.getElementById('add-child-card');
 
+                    console.log('[Guardian Debug] Card elements found:', {
+                        myChildrenCard: !!myChildrenCard,
+                        addChildCard: !!addChildCard
+                    });
+
                     // Check if user has children that are minors
                     const isGuardian = profile?.is_guardian || profile?.account_type === 'guardian';
+                    console.log('[Guardian Debug] isGuardian:', isGuardian);
 
                     if (isGuardian) {
                         // Get children and check if any are under 18
                         const { data: children, error: childrenError } = await supabase.rpc('get_my_children');
+
+                        console.log('[Guardian Debug] get_my_children result:', {
+                            error: childrenError,
+                            success: children?.success,
+                            childrenCount: children?.children?.length
+                        });
 
                         if (!childrenError && children?.success && children.children) {
                             // Filter children under 18
@@ -538,8 +565,11 @@
                                 return calculateAge(child.birthdate) < 18;
                             });
 
+                            console.log('[Guardian Debug] Children under 18:', childrenUnder18.length);
+
                             // Only show "Meine Kinder" card if there are children under 18
                             if (childrenUnder18.length > 0) {
+                                console.log('[Guardian Debug] → Showing "Meine Kinder" card');
                                 myChildrenCard?.classList.remove('hidden');
                                 addChildCard?.classList.add('hidden');
 
@@ -550,21 +580,24 @@
                                 }
                             } else {
                                 // Guardian but no children under 18 - don't show either card
+                                console.log('[Guardian Debug] → Guardian but no children under 18 - hiding both cards');
                                 myChildrenCard?.classList.add('hidden');
                                 addChildCard?.classList.add('hidden');
                             }
                         } else {
                             // Guardian but no children - show "Kind hinzufügen"
+                            console.log('[Guardian Debug] → Guardian but no children - showing "Kind hinzufügen"');
                             myChildrenCard?.classList.add('hidden');
                             addChildCard?.classList.remove('hidden');
                         }
                     } else {
                         // Not a guardian - show "Kind hinzufügen" option
+                        console.log('[Guardian Debug] → Not a guardian - showing "Kind hinzufügen"');
                         myChildrenCard?.classList.add('hidden');
                         addChildCard?.classList.remove('hidden');
                     }
                 } catch (error) {
-                    console.error('Error in checkGuardianStatus:', error);
+                    console.error('[Guardian Debug] Exception in checkGuardianStatus:', error);
                 }
             }
 
