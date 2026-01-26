@@ -48,6 +48,11 @@ const closeUpgradeModal = document.getElementById('close-upgrade-modal');
 // Add child modal elements
 const addChildModal = document.getElementById('add-child-modal');
 const addChildBtn = document.getElementById('add-child-btn');
+const addChildModalTitle = document.getElementById('add-child-modal-title');
+const addChildModalSubtitle = document.getElementById('add-child-modal-subtitle');
+const addChildStepChoice = document.getElementById('add-child-step-choice');
+const btnWithCode = document.getElementById('btn-with-code');
+const btnManual = document.getElementById('btn-manual');
 const invitationCodeInput = document.getElementById('invitation-code-input');
 const validateCodeBtn = document.getElementById('validate-code-btn');
 const addChildCodeError = document.getElementById('add-child-code-error');
@@ -55,16 +60,26 @@ const addChildCodeErrorText = document.getElementById('add-child-code-error-text
 const addChildStepCode = document.getElementById('add-child-step-code');
 const addChildStepConfirm = document.getElementById('add-child-step-confirm');
 const addChildStepSuccess = document.getElementById('add-child-step-success');
+const addChildStepManual = document.getElementById('add-child-step-manual');
 const childPreviewInitial = document.getElementById('child-preview-initial');
 const childPreviewName = document.getElementById('child-preview-name');
 const childPreviewAge = document.getElementById('child-preview-age');
 const backToCodeBtn = document.getElementById('back-to-code-btn');
+const backToChoiceBtn = document.getElementById('back-to-choice-btn');
 const confirmLinkBtn = document.getElementById('confirm-link-btn');
 const addChildConfirmError = document.getElementById('add-child-confirm-error');
 const addChildConfirmErrorText = document.getElementById('add-child-confirm-error-text');
 const addChildSuccessName = document.getElementById('add-child-success-name');
 const addChildDoneBtn = document.getElementById('add-child-done-btn');
 const closeAddChildModal = document.getElementById('close-add-child-modal');
+// Manual form elements
+const manualChildForm = document.getElementById('manual-child-form');
+const manualFirstName = document.getElementById('manual-first-name');
+const manualLastName = document.getElementById('manual-last-name');
+const manualBirthdate = document.getElementById('manual-birthdate');
+const manualGender = document.getElementById('manual-gender');
+const manualChildError = document.getElementById('manual-child-error');
+const manualChildErrorText = document.getElementById('manual-child-error-text');
 
 let currentUser = null;
 let childrenData = [];
@@ -564,17 +579,57 @@ function showUpgradeError(message) {
  * Show add child modal
  */
 function showAddChildModal() {
-    // Reset to step 1
-    addChildStepCode?.classList.remove('hidden');
+    // Reset to choice step
+    addChildStepChoice?.classList.remove('hidden');
+    addChildStepCode?.classList.add('hidden');
     addChildStepConfirm?.classList.add('hidden');
     addChildStepSuccess?.classList.add('hidden');
+    addChildStepManual?.classList.add('hidden');
     addChildCodeError?.classList.add('hidden');
     addChildConfirmError?.classList.add('hidden');
+    manualChildError?.classList.add('hidden');
     if (invitationCodeInput) invitationCodeInput.value = '';
+    if (manualChildForm) manualChildForm.reset();
     validatedCodeData = null;
 
+    // Reset title
+    if (addChildModalTitle) addChildModalTitle.textContent = 'Kind hinzufügen';
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Wie möchtest du das Kind hinzufügen?';
+
     addChildModal?.classList.remove('hidden');
+}
+
+/**
+ * Show code entry step
+ */
+function showCodeStep() {
+    addChildStepChoice?.classList.add('hidden');
+    addChildStepCode?.classList.remove('hidden');
+    addChildCodeError?.classList.add('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Gib den Einladungscode vom Trainer ein';
     invitationCodeInput?.focus();
+}
+
+/**
+ * Show manual entry step
+ */
+function showManualStep() {
+    addChildStepChoice?.classList.add('hidden');
+    addChildStepManual?.classList.remove('hidden');
+    manualChildError?.classList.add('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Gib die Daten deines Kindes ein';
+    manualFirstName?.focus();
+}
+
+/**
+ * Back to choice step
+ */
+function backToChoice() {
+    addChildStepCode?.classList.add('hidden');
+    addChildStepManual?.classList.add('hidden');
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepChoice?.classList.remove('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Wie möchtest du das Kind hinzufügen?';
 }
 
 /**
@@ -806,3 +861,94 @@ backToCodeBtn?.addEventListener('click', () => {
 confirmLinkBtn?.addEventListener('click', confirmLinkChild);
 
 addChildDoneBtn?.addEventListener('click', closeAddChildModalAndRefresh);
+
+// Choice step buttons
+btnWithCode?.addEventListener('click', showCodeStep);
+btnManual?.addEventListener('click', showManualStep);
+backToChoiceBtn?.addEventListener('click', backToChoice);
+
+// Manual form submission
+manualChildForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await submitManualChild();
+});
+
+/**
+ * Submit manually entered child
+ */
+async function submitManualChild() {
+    const firstName = manualFirstName?.value?.trim();
+    const lastName = manualLastName?.value?.trim();
+    const birthdate = manualBirthdate?.value;
+    const gender = manualGender?.value || null;
+
+    // Validation
+    if (!firstName || !lastName) {
+        showManualChildError('Bitte gib Vor- und Nachname ein.');
+        return;
+    }
+
+    if (!birthdate) {
+        showManualChildError('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    // Check age - must be under 18
+    const age = calculateAge(birthdate);
+    if (age >= 18) {
+        showManualChildError('Das Kind muss unter 18 Jahre alt sein.');
+        return;
+    }
+
+    // Show loading
+    const submitBtn = document.getElementById('submit-manual-child-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird hinzugefügt...';
+    }
+
+    try {
+        // Create child profile using RPC
+        const { data, error } = await supabase.rpc('create_child_profile', {
+            p_first_name: firstName,
+            p_last_name: lastName,
+            p_birthdate: birthdate,
+            p_gender: gender
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Erstellen des Profils');
+        }
+
+        // Show success
+        if (addChildSuccessName) {
+            addChildSuccessName.textContent = `${firstName} ${lastName} wurde hinzugefügt.`;
+        }
+        addChildStepManual?.classList.add('hidden');
+        addChildStepSuccess?.classList.remove('hidden');
+
+        // Update guardian status
+        await updateGuardianStatus();
+
+    } catch (error) {
+        console.error('Error creating child profile:', error);
+        showManualChildError(error.message || 'Fehler beim Hinzufügen des Kindes');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Hinzufügen';
+        }
+    }
+}
+
+/**
+ * Show manual form error
+ */
+function showManualChildError(message) {
+    if (manualChildErrorText) manualChildErrorText.textContent = message;
+    manualChildError?.classList.remove('hidden');
+}

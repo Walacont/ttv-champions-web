@@ -102,9 +102,9 @@
             <div class="mb-6">
                 <button
                     id="add-child-btn"
-                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
                 >
-                    <i class="fas fa-plus-circle text-xl"></i>
+                    <i class="fas fa-plus"></i>
                     <span>Kind hinzufügen</span>
                 </button>
             </div>
@@ -256,19 +256,56 @@
             </div>
         </div>
 
-        <!-- Modal: Add Child via Invitation Code -->
+        <!-- Modal: Add Child -->
         <div id="add-child-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
             <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
                 <div class="text-center mb-6">
-                    <div class="inline-flex items-center justify-center w-14 h-14 bg-pink-100 rounded-full mb-3">
-                        <i class="fas fa-child text-2xl text-pink-600"></i>
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-full mb-3">
+                        <i class="fas fa-child text-2xl text-indigo-600"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-900">Kind hinzufügen</h2>
-                    <p class="text-gray-600 text-sm mt-1">Gib den Einladungscode vom Trainer ein</p>
+                    <h2 id="add-child-modal-title" class="text-xl font-bold text-gray-900">Kind hinzufügen</h2>
+                    <p id="add-child-modal-subtitle" class="text-gray-600 text-sm mt-1">Wie möchtest du das Kind hinzufügen?</p>
+                </div>
+
+                <!-- Step 0: Choose method -->
+                <div id="add-child-step-choice">
+                    <div class="space-y-3">
+                        <!-- Option: With code -->
+                        <button
+                            type="button"
+                            id="btn-with-code"
+                            class="w-full border border-gray-200 rounded-lg p-4 hover:border-indigo-400 hover:bg-indigo-50 transition text-left flex items-center gap-3"
+                        >
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-ticket-alt text-indigo-600"></i>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-900 text-sm block">Ich habe einen Trainer-Code</span>
+                                <span class="text-xs text-gray-500">Code vom Trainer eingeben</span>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+                        </button>
+
+                        <!-- Option: Manual -->
+                        <button
+                            type="button"
+                            id="btn-manual"
+                            class="w-full border border-gray-200 rounded-lg p-4 hover:border-indigo-400 hover:bg-indigo-50 transition text-left flex items-center gap-3"
+                        >
+                            <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-user-plus text-gray-600"></i>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-900 text-sm block">Kind manuell hinzufügen</span>
+                                <span class="text-xs text-gray-500">Daten selbst eingeben</span>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Step 1: Enter Code -->
-                <div id="add-child-step-code">
+                <div id="add-child-step-code" class="hidden">
                     <div class="mb-4">
                         <label for="invitation-code-input" class="block text-sm font-medium text-gray-700 mb-1">
                             Einladungscode
@@ -346,7 +383,7 @@
                     <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                         <i class="fas fa-check text-3xl text-green-600"></i>
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Kind erfolgreich verknüpft!</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Kind erfolgreich hinzugefügt!</h3>
                     <p id="add-child-success-name" class="text-gray-600 mb-4">Name wurde hinzugefügt</p>
                     <button
                         id="add-child-done-btn"
@@ -354,6 +391,89 @@
                     >
                         Fertig
                     </button>
+                </div>
+
+                <!-- Step: Manual Entry -->
+                <div id="add-child-step-manual" class="hidden">
+                    <form id="manual-child-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="manual-first-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Vorname <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="manual-first-name"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label for="manual-last-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Nachname <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="manual-last-name"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="manual-birthdate" class="block text-sm font-medium text-gray-700 mb-1">
+                                Geburtsdatum <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                id="manual-birthdate"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div>
+                            <label for="manual-gender" class="block text-sm font-medium text-gray-700 mb-1">
+                                Geschlecht
+                            </label>
+                            <select
+                                id="manual-gender"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                <option value="">Bitte wählen</option>
+                                <option value="male">Männlich</option>
+                                <option value="female">Weiblich</option>
+                                <option value="diverse">Divers</option>
+                            </select>
+                        </div>
+
+                        <div id="manual-child-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+                            <p class="text-sm text-red-700">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span id="manual-child-error-text"></span>
+                            </p>
+                        </div>
+
+                        <div class="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                id="back-to-choice-btn"
+                                class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                            >
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Zurück
+                            </button>
+                            <button
+                                type="submit"
+                                id="submit-manual-child-btn"
+                                class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                <i class="fas fa-check mr-2"></i>
+                                Hinzufügen
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="mt-4 text-center">
