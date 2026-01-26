@@ -78,8 +78,12 @@ const manualFirstName = document.getElementById('manual-first-name');
 const manualLastName = document.getElementById('manual-last-name');
 const manualBirthdate = document.getElementById('manual-birthdate');
 const manualGender = document.getElementById('manual-gender');
+const manualSport = document.getElementById('manual-sport');
 const manualChildError = document.getElementById('manual-child-error');
 const manualChildErrorText = document.getElementById('manual-child-error-text');
+
+// Sports data cache
+let sportsData = [];
 
 let currentUser = null;
 let childrenData = [];
@@ -613,12 +617,47 @@ function showCodeStep() {
 /**
  * Show manual entry step
  */
-function showManualStep() {
+async function showManualStep() {
     addChildStepChoice?.classList.add('hidden');
     addChildStepManual?.classList.remove('hidden');
     manualChildError?.classList.add('hidden');
     if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Gib die Daten deines Kindes ein';
+
+    // Load sports if not already loaded
+    if (sportsData.length === 0) {
+        await loadSports();
+    }
+
     manualFirstName?.focus();
+}
+
+/**
+ * Load available sports
+ */
+async function loadSports() {
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        sportsData = sports || [];
+
+        // Populate sport dropdown
+        if (manualSport && sports) {
+            manualSport.innerHTML = '<option value="">Bitte wählen...</option>';
+            sports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = sport.display_name || sport.name;
+                manualSport.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading sports:', error);
+    }
 }
 
 /**
@@ -881,6 +920,7 @@ async function submitManualChild() {
     const lastName = manualLastName?.value?.trim();
     const birthdate = manualBirthdate?.value;
     const gender = manualGender?.value || null;
+    const sportId = manualSport?.value || null;
 
     // Validation
     if (!firstName || !lastName) {
@@ -890,6 +930,11 @@ async function submitManualChild() {
 
     if (!birthdate) {
         showManualChildError('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    if (!sportId) {
+        showManualChildError('Bitte wähle eine Sportart aus.');
         return;
     }
 
@@ -913,7 +958,8 @@ async function submitManualChild() {
             p_first_name: firstName,
             p_last_name: lastName,
             p_birthdate: birthdate,
-            p_gender: gender
+            p_gender: gender,
+            p_sport_id: sportId
         });
 
         if (error) {
