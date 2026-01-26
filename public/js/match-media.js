@@ -115,39 +115,52 @@ function setupUploadModal() {
 }
 
 /**
- * Setup gallery modal HTML
+ * Setup gallery modal HTML - Facebook/Instagram style fullscreen view
  */
 function setupGalleryModal() {
     if (document.getElementById('media-gallery-modal')) return;
 
     const modalHTML = `
-        <div id="media-gallery-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-            <div class="max-w-6xl w-full h-full flex flex-col">
-                <!-- Header -->
-                <div class="flex items-center justify-between p-4 text-white">
-                    <h3 class="text-lg font-semibold">
-                        <i class="fas fa-images mr-2"></i>
-                        <span data-i18n="dashboard.matchMedia.gallery">Match Medien</span>
-                    </h3>
-                    <button onclick="window.closeMediaGallery()" class="text-white hover:text-gray-300 transition">
-                        <i class="fas fa-times text-2xl"></i>
-                    </button>
-                </div>
+        <div id="media-gallery-modal" class="fixed inset-0 bg-black hidden flex flex-col" style="z-index: 99999;">
+            <!-- Close button (left side) -->
+            <button onclick="window.closeMediaGallery()" class="absolute top-4 left-4 text-white hover:text-gray-300 transition p-2" style="z-index: 100000;">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
 
-                <!-- Gallery Content -->
-                <div class="flex-1 flex items-center justify-center overflow-hidden">
-                    <div id="gallery-content" class="w-full h-full"></div>
-                </div>
+            <!-- Image counter (right side when multiple images) -->
+            <div id="gallery-counter" class="absolute top-4 right-4 text-white font-semibold bg-black/50 px-3 py-1 rounded-full text-sm hidden" style="z-index: 100000;"></div>
 
-                <!-- Navigation -->
-                <div class="flex items-center justify-between p-4">
-                    <button onclick="window.previousMedia()" id="prev-media-btn" class="text-white hover:text-gray-300 transition p-3">
-                        <i class="fas fa-chevron-left text-2xl"></i>
-                    </button>
-                    <div id="gallery-counter" class="text-white font-semibold"></div>
-                    <button onclick="window.nextMedia()" id="next-media-btn" class="text-white hover:text-gray-300 transition p-3">
-                        <i class="fas fa-chevron-right text-2xl"></i>
-                    </button>
+            <!-- Main content area - swipeable -->
+            <div id="gallery-swipe-area" class="flex-1 flex items-center justify-center overflow-hidden relative">
+                <!-- Navigation arrows (desktop) -->
+                <button onclick="window.previousMedia()" id="prev-media-btn" class="absolute left-2 text-white/70 hover:text-white transition p-3 hidden md:block" style="z-index: 100000;">
+                    <i class="fas fa-chevron-left text-3xl"></i>
+                </button>
+
+                <div id="gallery-content" class="w-full h-full flex items-center justify-center"></div>
+
+                <button onclick="window.nextMedia()" id="next-media-btn" class="absolute right-2 text-white/70 hover:text-white transition p-3 hidden md:block" style="z-index: 100000;">
+                    <i class="fas fa-chevron-right text-3xl"></i>
+                </button>
+            </div>
+
+            <!-- Bottom overlay with activity info -->
+            <div id="gallery-overlay" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 pb-safe" style="z-index: 100000;">
+                <div class="p-4 pb-8 max-w-2xl mx-auto">
+                    <!-- Activity description -->
+                    <div id="gallery-description" class="text-white mb-3 text-sm leading-relaxed"></div>
+
+                    <!-- Like and Comment buttons -->
+                    <div class="flex items-center gap-6">
+                        <button id="gallery-like-btn" class="flex items-center gap-2 text-white hover:text-blue-400 transition">
+                            <i class="far fa-thumbs-up text-xl"></i>
+                            <span id="gallery-like-count" class="text-sm"></span>
+                        </button>
+                        <button id="gallery-comment-btn" class="flex items-center gap-2 text-white hover:text-blue-400 transition">
+                            <i class="far fa-comment text-xl"></i>
+                            <span id="gallery-comment-count" class="text-sm"></span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,9 +168,91 @@ function setupGalleryModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Bei Hintergrund-Klick schließen
-    document.getElementById('media-gallery-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'media-gallery-modal') {
+    const modal = document.getElementById('media-gallery-modal');
+    const swipeArea = document.getElementById('gallery-swipe-area');
+    const galleryContent = document.getElementById('gallery-content');
+
+    // Touch swipe support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    swipeArea.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    swipeArea.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+        handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+        const diffX = touchStartX - touchEndX;
+        const diffY = touchStartY - touchEndY;
+        const minSwipeDistance = 50;
+
+        // Only handle horizontal swipes (ignore vertical scrolling)
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+            if (diffX > 0) {
+                // Swipe left - next image
+                window.nextMedia();
+            } else {
+                // Swipe right - previous image
+                window.previousMedia();
+            }
+        }
+    }
+
+    // Tap on image to toggle overlay
+    galleryContent.addEventListener('click', (e) => {
+        // Don't toggle if clicking on video controls
+        if (e.target.tagName === 'VIDEO' || e.target.closest('video')) {
+            return;
+        }
+        window.toggleGalleryOverlay();
+    });
+
+    // Like button click
+    document.getElementById('gallery-like-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (galleryMode === 'post' && currentActivityContext?.activityId) {
+            if (window.toggleLike) {
+                window.toggleLike(currentActivityContext.activityId, 'post');
+                setTimeout(updateGalleryLikeState, 300);
+            }
+        } else if (currentMatchId && currentMatchType) {
+            const activityType = currentMatchType === 'singles' ? 'singles_match' : 'doubles_match';
+            if (window.toggleLike) {
+                window.toggleLike(currentMatchId, activityType);
+                setTimeout(updateGalleryLikeState, 300);
+            }
+        }
+    });
+
+    // Comment button click
+    document.getElementById('gallery-comment-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (galleryMode === 'post' && currentActivityContext?.activityId) {
+            if (window.openComments) {
+                window.openComments(currentActivityContext.activityId, 'post');
+            }
+        } else if (currentMatchId && currentMatchType) {
+            if (window.openComments) {
+                window.openComments(currentMatchId, currentMatchType);
+            }
+        }
+    });
+
+    // Keyboard navigation
+    modal.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') {
+            window.previousMedia();
+        } else if (e.key === 'ArrowRight') {
+            window.nextMedia();
+        } else if (e.key === 'Escape') {
             window.closeMediaGallery();
         }
     });
@@ -452,11 +547,17 @@ export async function loadMatchMedia(matchId, matchType) {
  */
 let currentGalleryIndex = 0;
 let currentGalleryMedia = [];
+let currentActivityContext = null;
+let overlayVisible = true;
+let galleryMode = 'match'; // 'match' or 'post'
 
-export async function openMediaGallery(matchId, matchType, startIndex = 0) {
+export async function openMediaGallery(matchId, matchType, startIndex = 0, activityContext = null) {
     currentMatchId = matchId;
     currentMatchType = matchType;
     currentGalleryIndex = startIndex;
+    currentActivityContext = activityContext;
+    overlayVisible = true;
+    galleryMode = 'match';
 
     const media = await loadMatchMedia(matchId, matchType);
 
@@ -468,7 +569,69 @@ export async function openMediaGallery(matchId, matchType, startIndex = 0) {
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
+    // Show/hide counter based on media count
+    const counter = document.getElementById('gallery-counter');
+    if (currentGalleryMedia.length > 1) {
+        counter.classList.remove('hidden');
+    } else {
+        counter.classList.add('hidden');
+    }
+
+    // Reset overlay visibility
+    const overlay = document.getElementById('gallery-overlay');
+    if (overlay) {
+        overlay.style.opacity = '1';
+    }
+
     displayCurrentMedia();
+    updateGalleryOverlay();
+
+    // Focus modal for keyboard navigation
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+}
+
+/**
+ * Open gallery for post images (direct URLs)
+ */
+export function openPostGallery(imageUrls, startIndex = 0, activityContext = null) {
+    if (!imageUrls || imageUrls.length === 0) return;
+
+    currentGalleryIndex = startIndex;
+    currentActivityContext = activityContext;
+    overlayVisible = true;
+    galleryMode = 'post';
+
+    // Für Posts: URLs direkt als Media-Array speichern
+    currentGalleryMedia = imageUrls.map(url => ({
+        file_type: 'photo',
+        url: url
+    }));
+
+    const modal = document.getElementById('media-gallery-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Show/hide counter based on media count
+    const counter = document.getElementById('gallery-counter');
+    if (currentGalleryMedia.length > 1) {
+        counter.classList.remove('hidden');
+    } else {
+        counter.classList.add('hidden');
+    }
+
+    // Reset overlay visibility
+    const overlay = document.getElementById('gallery-overlay');
+    if (overlay) {
+        overlay.style.opacity = '1';
+    }
+
+    displayCurrentMedia();
+    updateGalleryOverlay();
+
+    // Focus modal for keyboard navigation
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
 }
 
 /**
@@ -483,25 +646,126 @@ function displayCurrentMedia() {
     if (currentGalleryMedia.length === 0) return;
 
     const media = currentGalleryMedia[currentGalleryIndex];
-    const { data: { publicUrl } } = supabase.storage
-        .from('match-media')
-        .getPublicUrl(media.file_path);
+
+    // URL bestimmen: Bei Posts direkt URL, bei Matches aus Supabase Storage
+    let publicUrl;
+    if (galleryMode === 'post') {
+        publicUrl = media.url;
+    } else {
+        const { data } = supabase.storage
+            .from('match-media')
+            .getPublicUrl(media.file_path);
+        publicUrl = data.publicUrl;
+    }
 
     if (media.file_type === 'photo') {
         content.innerHTML = `
-            <img src="${publicUrl}" alt="Match photo" class="max-w-full max-h-full object-contain mx-auto">
+            <img src="${publicUrl}" alt="Media" class="max-w-full max-h-full object-contain select-none" draggable="false">
         `;
     } else {
         content.innerHTML = `
-            <video controls class="max-w-full max-h-full mx-auto">
-                <source src="${publicUrl}" type="${media.mime_type}">
+            <video controls playsinline class="max-w-full max-h-full">
+                <source src="${publicUrl}" type="${media.mime_type || 'video/mp4'}">
             </video>
         `;
     }
 
-    counter.textContent = `${currentGalleryIndex + 1} / ${currentGalleryMedia.length}`;
-    prevBtn.disabled = currentGalleryIndex === 0;
-    nextBtn.disabled = currentGalleryIndex === currentGalleryMedia.length - 1;
+    // Update counter
+    if (currentGalleryMedia.length > 1) {
+        counter.textContent = `${currentGalleryIndex + 1} / ${currentGalleryMedia.length}`;
+    }
+
+    // Update navigation button visibility
+    prevBtn.style.visibility = currentGalleryIndex === 0 ? 'hidden' : 'visible';
+    nextBtn.style.visibility = currentGalleryIndex === currentGalleryMedia.length - 1 ? 'hidden' : 'visible';
+}
+
+/**
+ * Update the gallery overlay with activity context
+ */
+function updateGalleryOverlay() {
+    const descriptionEl = document.getElementById('gallery-description');
+    const likeCountEl = document.getElementById('gallery-like-count');
+    const commentCountEl = document.getElementById('gallery-comment-count');
+    const likeBtnIcon = document.querySelector('#gallery-like-btn i');
+
+    if (!descriptionEl) return;
+
+    // Set description from activity context
+    if (currentActivityContext) {
+        const description = currentActivityContext.description || currentActivityContext.title || '';
+        descriptionEl.textContent = description;
+        descriptionEl.style.display = description ? 'block' : 'none';
+    } else {
+        descriptionEl.style.display = 'none';
+    }
+
+    // Update like/comment counts from activity context or cache
+    updateGalleryLikeState();
+
+    if (currentActivityContext?.commentCount !== undefined) {
+        commentCountEl.textContent = currentActivityContext.commentCount > 0 ? currentActivityContext.commentCount : '';
+    } else {
+        commentCountEl.textContent = '';
+    }
+}
+
+/**
+ * Update gallery like button state
+ */
+function updateGalleryLikeState() {
+    const likeCountEl = document.getElementById('gallery-like-count');
+    const likeBtnIcon = document.querySelector('#gallery-like-btn i');
+
+    if (!likeCountEl || !likeBtnIcon) return;
+
+    // Key basierend auf Galerie-Modus erstellen
+    let key;
+    if (galleryMode === 'post' && currentActivityContext?.activityId) {
+        key = `post-${currentActivityContext.activityId}`;
+    } else {
+        const activityType = currentMatchType === 'singles' ? 'singles_match' : 'doubles_match';
+        key = `${activityType}-${currentMatchId}`;
+    }
+
+    // Check if toggleLike updated the DOM, sync from there
+    const feedLikeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+    const feedLikeCount = document.querySelector(`[data-like-count="${key}"]`);
+
+    if (feedLikeBtn) {
+        const isLiked = feedLikeBtn.classList.contains('text-blue-500');
+        likeBtnIcon.classList.toggle('fas', isLiked);
+        likeBtnIcon.classList.toggle('far', !isLiked);
+    } else if (currentActivityContext?.isLiked !== undefined) {
+        likeBtnIcon.classList.toggle('fas', currentActivityContext.isLiked);
+        likeBtnIcon.classList.toggle('far', !currentActivityContext.isLiked);
+    }
+
+    if (feedLikeCount) {
+        likeCountEl.textContent = feedLikeCount.textContent;
+    } else if (currentActivityContext?.likeCount !== undefined) {
+        likeCountEl.textContent = currentActivityContext.likeCount > 0 ? currentActivityContext.likeCount : '';
+    }
+}
+
+/**
+ * Toggle overlay visibility
+ */
+export function toggleGalleryOverlay() {
+    const overlay = document.getElementById('gallery-overlay');
+    const counter = document.getElementById('gallery-counter');
+
+    if (!overlay) return;
+
+    overlayVisible = !overlayVisible;
+
+    overlay.style.opacity = overlayVisible ? '1' : '0';
+    overlay.style.pointerEvents = overlayVisible ? 'auto' : 'none';
+
+    // Also toggle counter visibility if multiple images
+    if (counter && currentGalleryMedia.length > 1) {
+        counter.style.opacity = overlayVisible ? '1' : '0';
+    }
 }
 
 /**
@@ -534,6 +798,9 @@ export function closeMediaGallery() {
 
     currentGalleryMedia = [];
     currentGalleryIndex = 0;
+    currentActivityContext = null;
+    overlayVisible = true;
+    galleryMode = 'match';
 }
 
 /**
@@ -576,7 +843,9 @@ window.openMediaUpload = openMediaUpload;
 window.closeMediaUpload = closeMediaUpload;
 window.uploadMedia = uploadMedia;
 window.openMediaGallery = openMediaGallery;
+window.openPostGallery = openPostGallery;
 window.closeMediaGallery = closeMediaGallery;
 window.previousMedia = previousMedia;
 window.nextMedia = nextMedia;
 window.deleteMedia = deleteMedia;
+window.toggleGalleryOverlay = toggleGalleryOverlay;

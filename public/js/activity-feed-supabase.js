@@ -51,6 +51,82 @@ window.updateCarouselCounter = function(carousel, matchType, matchId, totalItems
     counter.textContent = `${currentIndex}/${totalItems}`;
 };
 
+/** Öffnet die Media-Galerie mit Aktivitätskontext */
+window.openMediaGalleryWithContext = function(matchId, matchType, startIndex) {
+    // Aktivitätskontext aus dem DOM und Cache sammeln
+    const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
+    const key = `${activityType}-${matchId}`;
+
+    // Like-Daten aus Cache holen
+    const likeData = likesDataCache[key] || { likeCount: 0, isLiked: false };
+
+    // Kommentar-Anzahl aus DOM holen
+    const commentCountEl = document.querySelector(`[data-comment-count="${activityType}-${matchId}"]`);
+    const commentCount = commentCountEl ? parseInt(commentCountEl.textContent) || 0 : 0;
+
+    // Beschreibung/Titel aus der Aktivitätskarte holen
+    const mediaContainer = document.getElementById(`media-${matchType}-${matchId}`);
+    let description = '';
+    if (mediaContainer) {
+        const card = mediaContainer.closest('.bg-white');
+        if (card) {
+            // Spielergebnis als Beschreibung nehmen
+            const scoreEl = card.querySelector('.text-2xl.font-bold, .text-xl.font-bold');
+            const playersEl = card.querySelector('.font-semibold');
+            if (scoreEl && playersEl) {
+                description = `${playersEl.textContent?.trim() || ''} - ${scoreEl.textContent?.trim() || ''}`;
+            }
+        }
+    }
+
+    const activityContext = {
+        description: description,
+        likeCount: likeData.likeCount,
+        isLiked: likeData.isLiked,
+        commentCount: commentCount
+    };
+
+    // openMediaGallery mit Kontext aufrufen
+    if (window.openMediaGallery) {
+        window.openMediaGallery(matchId, matchType, startIndex, activityContext);
+    }
+};
+
+/** Öffnet die Vollbild-Galerie für Post-Bilder */
+window.openPostImageGallery = function(postId, imageUrls, startIndex = 0) {
+    // Like-Daten aus Cache holen
+    const key = `post-${postId}`;
+    const likeData = likesDataCache[key] || { likeCount: 0, isLiked: false };
+
+    // Kommentar-Anzahl aus DOM holen
+    const commentCountEl = document.querySelector(`[data-comment-count="post-${postId}"]`);
+    const commentCount = commentCountEl ? parseInt(commentCountEl.textContent) || 0 : 0;
+
+    // Beschreibung aus dem Post-Inhalt holen
+    const card = document.querySelector(`[data-post-id="${postId}"]`);
+    let description = '';
+    if (card) {
+        const contentEl = card.querySelector('.text-gray-800.whitespace-pre-wrap');
+        if (contentEl) {
+            description = contentEl.textContent?.trim() || '';
+        }
+    }
+
+    const activityContext = {
+        description: description,
+        likeCount: likeData.likeCount,
+        isLiked: likeData.isLiked,
+        commentCount: commentCount,
+        activityType: 'post',
+        activityId: postId
+    };
+
+    // Galerie-Modal für Post-Bilder öffnen
+    if (window.openPostGallery) {
+        window.openPostGallery(imageUrls, startIndex, activityContext);
+    }
+};
+
 /** Löscht Match-Medien (Foto/Video) */
 window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) {
     if (!confirm('Möchtest du dieses Foto/Video wirklich löschen?')) {
@@ -1728,21 +1804,21 @@ async function injectMatchMedia(matchId, matchType) {
             ` : '';
 
             if (item.file_type === 'video') {
-                // Video-Element mit Play-Button-Overlay, spielt inline bei Klick
+                // Video-Element mit Play-Button-Overlay, öffnet Vollbild-Galerie bei Klick
                 carouselItems += `
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
-                        <div class="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
+                        <div class="relative bg-black rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGalleryWithContext('${matchId}', '${matchType}', ${index})">
                             ${deleteButton}
                             <video
                                 id="video-${matchId}-${index}"
-                                class="w-full h-full object-contain"
+                                class="w-full h-full object-contain pointer-events-none"
                                 playsinline
                                 preload="metadata"
-                                onclick="this.paused ? this.play() : this.pause(); this.parentElement.querySelector('.play-overlay').style.display = this.paused ? 'flex' : 'none';"
+                                muted
                             >
                                 <source src="${publicUrl}#t=0.5" type="${item.mime_type || 'video/mp4'}">
                             </video>
-                            <div class="play-overlay absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onclick="event.stopPropagation(); const v = this.previousElementSibling; v.play(); this.style.display='none';">
+                            <div class="play-overlay absolute inset-0 flex items-center justify-center bg-black/30">
                                 <div class="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
                                     <i class="fas fa-play text-gray-800 text-xl ml-1"></i>
                                 </div>
@@ -1757,7 +1833,7 @@ async function injectMatchMedia(matchId, matchType) {
                 // Foto-Element - klickbar zum Öffnen der Galerie
                 carouselItems += `
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
-                        <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">
+                        <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGalleryWithContext('${matchId}', '${matchType}', ${index})">
                             ${deleteButton}
                             <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover">
                         </div>
@@ -3006,8 +3082,11 @@ function renderPostCard(activity, profileMap) {
     const seasonBanner = renderSeasonBanner(activity.content);
     const displayContent = formatSeasonContent(activity.content);
 
+    // Bilder-Array für onclick als JSON-String (escaped für HTML-Attribut)
+    const imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+
     return `
-        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden" data-post-id="${postId}">
             ${seasonBanner}
             <div class="p-4">
             <!-- Post Header -->
@@ -3049,7 +3128,7 @@ function renderPostCard(activity, profileMap) {
                                     <img src="${url}" alt="Post image ${index + 1}"
                                          class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
                                          style="max-height: 600px;"
-                                         onclick="window.open('${url}', '_blank')">
+                                         onclick="openPostImageGallery('${postId}', ${imageUrlsJson}, ${index})">
                                 </div>
                             `).join('')}
                         </div>
