@@ -442,7 +442,7 @@ async function generateLoginCode() {
     try {
         const { data, error } = await supabase.rpc('generate_child_login_code', {
             p_child_id: createdChildId,
-            p_validity_minutes: 15
+            p_validity_minutes: 1440 // 24 hours
         });
 
         if (error) throw error;
