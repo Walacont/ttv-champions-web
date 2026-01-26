@@ -17,6 +17,7 @@ let currentStep = 'code-question';
 let validatedChild = null; // Child data from trainer code
 let createdChildId = null;
 let childName = '';
+let sportsData = [];
 
 // DOM Elements
 const pageLoader = document.getElementById('page-loader');
@@ -49,6 +50,7 @@ async function initialize() {
 
         // Initialize UI
         initBirthdateDropdowns();
+        await loadSports();
         setupEventListeners();
 
         // Show main content
@@ -63,6 +65,34 @@ async function initialize() {
                 <a href="/guardian-dashboard.html" class="text-indigo-600 underline mt-2 block">Zurück</a>
             </div>
         `;
+    }
+}
+
+// Load sports for dropdown
+async function loadSports() {
+    const sportSelect = document.getElementById('child-sport');
+    if (!sportSelect) return;
+
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        sportsData = sports || [];
+
+        // Populate dropdown
+        sports.forEach(sport => {
+            const option = document.createElement('option');
+            option.value = sport.id;
+            option.textContent = sport.display_name || sport.name;
+            sportSelect.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error('[GUARDIAN-ONBOARDING] Error loading sports:', error);
     }
 }
 
@@ -334,6 +364,7 @@ async function handleCreateChild(e) {
     const month = document.getElementById('child-birthdate-month')?.value;
     const year = document.getElementById('child-birthdate-year')?.value;
     const gender = document.getElementById('child-gender')?.value || null;
+    const sportId = document.getElementById('child-sport')?.value || null;
 
     // Validate
     if (!firstName || !lastName) {
@@ -366,7 +397,7 @@ async function handleCreateChild(e) {
             p_birthdate: birthdate,
             p_gender: gender,
             p_club_id: null,
-            p_sport_id: null,
+            p_sport_id: sportId,
             p_subgroup_ids: []
         });
 
