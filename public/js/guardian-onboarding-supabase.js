@@ -377,6 +377,11 @@ async function handleCreateChild(e) {
         return;
     }
 
+    if (!sportId) {
+        alert('Bitte wähle eine Sportart aus.');
+        return;
+    }
+
     const birthdate = parseBirthdate(day, month, year);
     const age = calculateAge(birthdate);
 
