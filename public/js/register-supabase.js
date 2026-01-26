@@ -226,15 +226,25 @@ function hideProfileFields() {
 // Helper function to show/hide sport selection
 function showSportSection() {
     const sportSection = document.getElementById('sport-section');
+    const sportSelect = document.getElementById('sport-select');
     if (sportSection) {
         sportSection.classList.remove('hidden');
+    }
+    // Add required attribute when visible
+    if (sportSelect) {
+        sportSelect.setAttribute('required', '');
     }
 }
 
 function hideSportSection() {
     const sportSection = document.getElementById('sport-section');
+    const sportSelect = document.getElementById('sport-select');
     if (sportSection) {
         sportSection.classList.add('hidden');
+    }
+    // Remove required attribute to prevent browser validation errors on hidden fields
+    if (sportSelect) {
+        sportSelect.removeAttribute('required');
     }
 }
 
