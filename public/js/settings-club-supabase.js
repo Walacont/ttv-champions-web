@@ -620,10 +620,17 @@ async function notifyClubCoaches(clubId, type, playerName) {
 }
 
 /**
- * Request to join a club - shows modal to choose join type
+ * Request to join a club - shows modal to choose join type (only if not in child mode)
  */
 async function requestToJoinClub(clubId, clubName) {
-    // Show join type modal instead of directly joining
+    // If we're managing a child's club settings, directly send the member join request
+    // (no need to ask "Member or Guardian?" - it's clear we're joining for the child)
+    if (isChildMode) {
+        await submitMemberJoinRequest(clubId, clubName);
+        return;
+    }
+
+    // Show join type modal for regular users to choose between member or guardian join
     showJoinTypeModal(clubId, clubName);
 }
 
