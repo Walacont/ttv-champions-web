@@ -92,6 +92,41 @@ window.openMediaGalleryWithContext = function(matchId, matchType, startIndex) {
     }
 };
 
+/** Öffnet die Vollbild-Galerie für Post-Bilder */
+window.openPostImageGallery = function(postId, imageUrls, startIndex = 0) {
+    // Like-Daten aus Cache holen
+    const key = `post-${postId}`;
+    const likeData = likesDataCache[key] || { likeCount: 0, isLiked: false };
+
+    // Kommentar-Anzahl aus DOM holen
+    const commentCountEl = document.querySelector(`[data-comment-count="post-${postId}"]`);
+    const commentCount = commentCountEl ? parseInt(commentCountEl.textContent) || 0 : 0;
+
+    // Beschreibung aus dem Post-Inhalt holen
+    const card = document.querySelector(`[data-post-id="${postId}"]`);
+    let description = '';
+    if (card) {
+        const contentEl = card.querySelector('.text-gray-800.whitespace-pre-wrap');
+        if (contentEl) {
+            description = contentEl.textContent?.trim() || '';
+        }
+    }
+
+    const activityContext = {
+        description: description,
+        likeCount: likeData.likeCount,
+        isLiked: likeData.isLiked,
+        commentCount: commentCount,
+        activityType: 'post',
+        activityId: postId
+    };
+
+    // Galerie-Modal für Post-Bilder öffnen
+    if (window.openPostGallery) {
+        window.openPostGallery(imageUrls, startIndex, activityContext);
+    }
+};
+
 /** Löscht Match-Medien (Foto/Video) */
 window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) {
     if (!confirm('Möchtest du dieses Foto/Video wirklich löschen?')) {
@@ -3018,8 +3053,11 @@ function renderPostCard(activity, profileMap) {
     const seasonBanner = renderSeasonBanner(activity.content);
     const displayContent = formatSeasonContent(activity.content);
 
+    // Bilder-Array für onclick als JSON-String (escaped für HTML-Attribut)
+    const imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+
     return `
-        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden" data-post-id="${postId}">
             ${seasonBanner}
             <div class="p-4">
             <!-- Post Header -->
@@ -3061,7 +3099,7 @@ function renderPostCard(activity, profileMap) {
                                     <img src="${url}" alt="Post image ${index + 1}"
                                          class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
                                          style="max-height: 600px;"
-                                         onclick="window.open('${url}', '_blank')">
+                                         onclick="openPostImageGallery('${postId}', ${imageUrlsJson}, ${index})">
                                 </div>
                             `).join('')}
                         </div>

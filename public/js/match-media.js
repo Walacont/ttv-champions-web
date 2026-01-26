@@ -218,11 +218,15 @@ function setupGalleryModal() {
     // Like button click
     document.getElementById('gallery-like-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        if (currentMatchId && currentMatchType) {
+        if (galleryMode === 'post' && currentActivityContext?.activityId) {
+            if (window.toggleLike) {
+                window.toggleLike(currentActivityContext.activityId, 'post');
+                setTimeout(updateGalleryLikeState, 300);
+            }
+        } else if (currentMatchId && currentMatchType) {
             const activityType = currentMatchType === 'singles' ? 'singles_match' : 'doubles_match';
             if (window.toggleLike) {
                 window.toggleLike(currentMatchId, activityType);
-                // Update gallery like button state after a short delay
                 setTimeout(updateGalleryLikeState, 300);
             }
         }
@@ -231,7 +235,11 @@ function setupGalleryModal() {
     // Comment button click
     document.getElementById('gallery-comment-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        if (currentMatchId && currentMatchType) {
+        if (galleryMode === 'post' && currentActivityContext?.activityId) {
+            if (window.openComments) {
+                window.openComments(currentActivityContext.activityId, 'post');
+            }
+        } else if (currentMatchId && currentMatchType) {
             if (window.openComments) {
                 window.openComments(currentMatchId, currentMatchType);
             }
@@ -541,6 +549,7 @@ let currentGalleryIndex = 0;
 let currentGalleryMedia = [];
 let currentActivityContext = null;
 let overlayVisible = true;
+let galleryMode = 'match'; // 'match' or 'post'
 
 export async function openMediaGallery(matchId, matchType, startIndex = 0, activityContext = null) {
     currentMatchId = matchId;
@@ -548,12 +557,56 @@ export async function openMediaGallery(matchId, matchType, startIndex = 0, activ
     currentGalleryIndex = startIndex;
     currentActivityContext = activityContext;
     overlayVisible = true;
+    galleryMode = 'match';
 
     const media = await loadMatchMedia(matchId, matchType);
 
     if (!media || media.length === 0) return;
 
     currentGalleryMedia = media;
+
+    const modal = document.getElementById('media-gallery-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Show/hide counter based on media count
+    const counter = document.getElementById('gallery-counter');
+    if (currentGalleryMedia.length > 1) {
+        counter.classList.remove('hidden');
+    } else {
+        counter.classList.add('hidden');
+    }
+
+    // Reset overlay visibility
+    const overlay = document.getElementById('gallery-overlay');
+    if (overlay) {
+        overlay.style.opacity = '1';
+    }
+
+    displayCurrentMedia();
+    updateGalleryOverlay();
+
+    // Focus modal for keyboard navigation
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+}
+
+/**
+ * Open gallery for post images (direct URLs)
+ */
+export function openPostGallery(imageUrls, startIndex = 0, activityContext = null) {
+    if (!imageUrls || imageUrls.length === 0) return;
+
+    currentGalleryIndex = startIndex;
+    currentActivityContext = activityContext;
+    overlayVisible = true;
+    galleryMode = 'post';
+
+    // Für Posts: URLs direkt als Media-Array speichern
+    currentGalleryMedia = imageUrls.map(url => ({
+        file_type: 'photo',
+        url: url
+    }));
 
     const modal = document.getElementById('media-gallery-modal');
     modal.classList.remove('hidden');
@@ -593,18 +646,26 @@ function displayCurrentMedia() {
     if (currentGalleryMedia.length === 0) return;
 
     const media = currentGalleryMedia[currentGalleryIndex];
-    const { data: { publicUrl } } = supabase.storage
-        .from('match-media')
-        .getPublicUrl(media.file_path);
+
+    // URL bestimmen: Bei Posts direkt URL, bei Matches aus Supabase Storage
+    let publicUrl;
+    if (galleryMode === 'post') {
+        publicUrl = media.url;
+    } else {
+        const { data } = supabase.storage
+            .from('match-media')
+            .getPublicUrl(media.file_path);
+        publicUrl = data.publicUrl;
+    }
 
     if (media.file_type === 'photo') {
         content.innerHTML = `
-            <img src="${publicUrl}" alt="Match photo" class="max-w-full max-h-full object-contain select-none" draggable="false">
+            <img src="${publicUrl}" alt="Media" class="max-w-full max-h-full object-contain select-none" draggable="false">
         `;
     } else {
         content.innerHTML = `
             <video controls playsinline class="max-w-full max-h-full">
-                <source src="${publicUrl}" type="${media.mime_type}">
+                <source src="${publicUrl}" type="${media.mime_type || 'video/mp4'}">
             </video>
         `;
     }
@@ -658,9 +719,14 @@ function updateGalleryLikeState() {
 
     if (!likeCountEl || !likeBtnIcon) return;
 
-    // Try to get like state from cache or context
-    const activityType = currentMatchType === 'singles' ? 'singles_match' : 'doubles_match';
-    const key = `${activityType}-${currentMatchId}`;
+    // Key basierend auf Galerie-Modus erstellen
+    let key;
+    if (galleryMode === 'post' && currentActivityContext?.activityId) {
+        key = `post-${currentActivityContext.activityId}`;
+    } else {
+        const activityType = currentMatchType === 'singles' ? 'singles_match' : 'doubles_match';
+        key = `${activityType}-${currentMatchId}`;
+    }
 
     // Check if toggleLike updated the DOM, sync from there
     const feedLikeBtn = document.querySelector(`[data-like-btn="${key}"]`);
@@ -734,6 +800,7 @@ export function closeMediaGallery() {
     currentGalleryIndex = 0;
     currentActivityContext = null;
     overlayVisible = true;
+    galleryMode = 'match';
 }
 
 /**
@@ -776,6 +843,7 @@ window.openMediaUpload = openMediaUpload;
 window.closeMediaUpload = closeMediaUpload;
 window.uploadMedia = uploadMedia;
 window.openMediaGallery = openMediaGallery;
+window.openPostGallery = openPostGallery;
 window.closeMediaGallery = closeMediaGallery;
 window.previousMedia = previousMedia;
 window.nextMedia = nextMedia;
