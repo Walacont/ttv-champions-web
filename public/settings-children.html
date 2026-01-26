@@ -98,6 +98,17 @@
                 <p class="text-gray-500 text-center mt-2">Verwalte die Profile deiner Kinder</p>
             </div>
 
+            <!-- Add Child Button -->
+            <div class="mb-6">
+                <button
+                    id="add-child-btn"
+                    class="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
+                >
+                    <i class="fas fa-plus-circle text-xl"></i>
+                    <span>Kind hinzufügen</span>
+                </button>
+            </div>
+
             <!-- Children List -->
             <div id="children-list" class="space-y-4">
                 <!-- Children cards will be inserted here -->
@@ -110,15 +121,9 @@
                 </div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-2">Keine Kinder verknüpft</h2>
                 <p class="text-gray-500 mb-6">
-                    Du kannst Kinder über die Vereinssuche oder einen Einladungscode hinzufügen.
+                    Hast du einen Einladungscode vom Trainer erhalten?<br>
+                    Klicke oben auf "Kind hinzufügen" und gib den Code ein.
                 </p>
-                <a
-                    href="/settings-club.html"
-                    class="inline-flex items-center bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                    <i class="fas fa-users mr-2"></i>
-                    Verein beitreten
-                </a>
             </div>
 
             <!-- Info Box -->
@@ -246,6 +251,114 @@
                 <div class="mt-4 text-center">
                     <button id="close-upgrade-modal" class="text-gray-500 hover:text-gray-700 text-sm">
                         Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Add Child via Invitation Code -->
+        <div id="add-child-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-pink-100 rounded-full mb-3">
+                        <i class="fas fa-child text-2xl text-pink-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Kind hinzufügen</h2>
+                    <p class="text-gray-600 text-sm mt-1">Gib den Einladungscode vom Trainer ein</p>
+                </div>
+
+                <!-- Step 1: Enter Code -->
+                <div id="add-child-step-code">
+                    <div class="mb-4">
+                        <label for="invitation-code-input" class="block text-sm font-medium text-gray-700 mb-1">
+                            Einladungscode
+                        </label>
+                        <input
+                            type="text"
+                            id="invitation-code-input"
+                            placeholder="z.B. TTV-ABC-123"
+                            class="w-full px-4 py-3 text-center text-lg font-mono uppercase border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            maxlength="11"
+                        />
+                    </div>
+
+                    <div id="add-child-code-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="add-child-code-error-text"></span>
+                        </p>
+                    </div>
+
+                    <button
+                        id="validate-code-btn"
+                        class="w-full bg-pink-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors"
+                    >
+                        <i class="fas fa-search mr-2"></i>
+                        Code prüfen
+                    </button>
+                </div>
+
+                <!-- Step 2: Confirm Child -->
+                <div id="add-child-step-confirm" class="hidden">
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                                <span id="child-preview-initial">?</span>
+                            </div>
+                            <div>
+                                <h3 id="child-preview-name" class="font-semibold text-gray-900 text-lg">Kind Name</h3>
+                                <p id="child-preview-age" class="text-sm text-gray-500">Alter unbekannt</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        Möchtest du dieses Kind mit deinem Account verknüpfen?
+                    </p>
+
+                    <div id="add-child-confirm-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="add-child-confirm-error-text"></span>
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button
+                            id="back-to-code-btn"
+                            class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Zurück
+                        </button>
+                        <button
+                            id="confirm-link-btn"
+                            class="flex-1 bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                            <i class="fas fa-check mr-2"></i>
+                            Verknüpfen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Success -->
+                <div id="add-child-step-success" class="hidden text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                        <i class="fas fa-check text-3xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Kind erfolgreich verknüpft!</h3>
+                    <p id="add-child-success-name" class="text-gray-600 mb-4">Name wurde hinzugefügt</p>
+                    <button
+                        id="add-child-done-btn"
+                        class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        Fertig
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="close-add-child-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Abbrechen
                     </button>
                 </div>
             </div>

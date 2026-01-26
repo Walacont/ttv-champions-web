@@ -829,13 +829,48 @@ function setupCoachIndicator() {
 }
 
 // --- Setup Guardian Indicator ---
-function setupGuardianIndicator() {
+async function setupGuardianIndicator() {
     const indicator = document.getElementById('guardian-indicator');
     if (!indicator || !currentUserData) return;
 
-    // Indikator anzeigen wenn Benutzer ein Vormund ist
-    if (currentUserData.account_type === 'guardian' || currentUserData.is_guardian) {
-        indicator.classList.remove('hidden');
+    // Nur prüfen wenn Benutzer ein Vormund ist
+    if (!(currentUserData.account_type === 'guardian' || currentUserData.is_guardian)) {
+        return;
+    }
+
+    try {
+        // Kinder laden und prüfen ob mindestens eines unter 18 ist
+        const { data, error } = await supabase.rpc('get_my_children');
+
+        if (error) {
+            console.error('Error loading children for guardian indicator:', error);
+            return;
+        }
+
+        if (!data?.success || !data.children || data.children.length === 0) {
+            // Keine Kinder verknüpft - Indikator nicht anzeigen
+            return;
+        }
+
+        // Prüfen ob mindestens ein Kind unter 18 ist
+        const hasChildUnder18 = data.children.some(child => {
+            if (!child.birthdate) return true; // Wenn kein Geburtsdatum, vorsichtshalber anzeigen
+            const birth = new Date(child.birthdate);
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age < 18;
+        });
+
+        // Indikator nur anzeigen wenn mindestens ein Kind unter 18 ist
+        if (hasChildUnder18) {
+            indicator.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error in setupGuardianIndicator:', error);
     }
 }
 

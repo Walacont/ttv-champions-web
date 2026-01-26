@@ -45,9 +45,31 @@ const upgradeSuccessText = document.getElementById('upgrade-success-text');
 const upgradeSubmitBtn = document.getElementById('upgrade-submit-btn');
 const closeUpgradeModal = document.getElementById('close-upgrade-modal');
 
+// Add child modal elements
+const addChildModal = document.getElementById('add-child-modal');
+const addChildBtn = document.getElementById('add-child-btn');
+const invitationCodeInput = document.getElementById('invitation-code-input');
+const validateCodeBtn = document.getElementById('validate-code-btn');
+const addChildCodeError = document.getElementById('add-child-code-error');
+const addChildCodeErrorText = document.getElementById('add-child-code-error-text');
+const addChildStepCode = document.getElementById('add-child-step-code');
+const addChildStepConfirm = document.getElementById('add-child-step-confirm');
+const addChildStepSuccess = document.getElementById('add-child-step-success');
+const childPreviewInitial = document.getElementById('child-preview-initial');
+const childPreviewName = document.getElementById('child-preview-name');
+const childPreviewAge = document.getElementById('child-preview-age');
+const backToCodeBtn = document.getElementById('back-to-code-btn');
+const confirmLinkBtn = document.getElementById('confirm-link-btn');
+const addChildConfirmError = document.getElementById('add-child-confirm-error');
+const addChildConfirmErrorText = document.getElementById('add-child-confirm-error-text');
+const addChildSuccessName = document.getElementById('add-child-success-name');
+const addChildDoneBtn = document.getElementById('add-child-done-btn');
+const closeAddChildModal = document.getElementById('close-add-child-modal');
+
 let currentUser = null;
 let childrenData = [];
 let upgradeChildId = null;
+let validatedCodeData = null; // Stores validated code information
 
 // Initialize authentication
 async function initializeAuth() {
@@ -533,3 +555,254 @@ function showUpgradeError(message) {
     upgradeError?.classList.remove('hidden');
     upgradeSuccess?.classList.add('hidden');
 }
+
+// =====================================================
+// Add Child Modal (via Invitation Code)
+// =====================================================
+
+/**
+ * Show add child modal
+ */
+function showAddChildModal() {
+    // Reset to step 1
+    addChildStepCode?.classList.remove('hidden');
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepSuccess?.classList.add('hidden');
+    addChildCodeError?.classList.add('hidden');
+    addChildConfirmError?.classList.add('hidden');
+    if (invitationCodeInput) invitationCodeInput.value = '';
+    validatedCodeData = null;
+
+    addChildModal?.classList.remove('hidden');
+    invitationCodeInput?.focus();
+}
+
+/**
+ * Validate invitation code
+ */
+async function validateInvitationCode() {
+    const code = invitationCodeInput?.value?.trim().toUpperCase();
+
+    if (!code) {
+        showAddChildCodeError('Bitte gib einen Code ein.');
+        return;
+    }
+
+    // Basic format validation (TTV-XXX-YYY)
+    if (!/^TTV-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(code)) {
+        showAddChildCodeError('Ungültiges Code-Format. Erwartet: TTV-XXX-YYY');
+        return;
+    }
+
+    // Show loading state
+    if (validateCodeBtn) {
+        validateCodeBtn.disabled = true;
+        validateCodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Prüfe...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('validate_guardian_invitation_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.valid) {
+            showAddChildCodeError(data?.error || 'Ungültiger Code');
+            return;
+        }
+
+        // Store validated data
+        validatedCodeData = {
+            code: code,
+            child: data.child,
+            code_id: data.code_id,
+            needs_profile: data.needs_profile || false
+        };
+
+        // Show child preview
+        showChildPreview(data.child);
+
+    } catch (error) {
+        console.error('Error validating code:', error);
+        showAddChildCodeError(error.message || 'Fehler beim Prüfen des Codes');
+    } finally {
+        if (validateCodeBtn) {
+            validateCodeBtn.disabled = false;
+            validateCodeBtn.innerHTML = '<i class="fas fa-search mr-2"></i>Code prüfen';
+        }
+    }
+}
+
+/**
+ * Show child preview (step 2)
+ */
+function showChildPreview(child) {
+    if (childPreviewInitial) {
+        childPreviewInitial.textContent = (child.first_name?.[0] || '?').toUpperCase();
+    }
+    if (childPreviewName) {
+        childPreviewName.textContent = `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'Unbekannt';
+    }
+    if (childPreviewAge) {
+        if (child.birthdate) {
+            const age = calculateAge(child.birthdate);
+            childPreviewAge.textContent = `${age} Jahre`;
+        } else {
+            childPreviewAge.textContent = 'Alter unbekannt';
+        }
+    }
+
+    // Switch to confirm step
+    addChildStepCode?.classList.add('hidden');
+    addChildStepConfirm?.classList.remove('hidden');
+    addChildConfirmError?.classList.add('hidden');
+}
+
+/**
+ * Confirm and link child
+ */
+async function confirmLinkChild() {
+    if (!validatedCodeData) {
+        showAddChildConfirmError('Kein gültiger Code. Bitte versuche es erneut.');
+        return;
+    }
+
+    // Show loading state
+    if (confirmLinkBtn) {
+        confirmLinkBtn.disabled = true;
+        confirmLinkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Verknüpfe...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('link_guardian_via_invitation_code', {
+            p_code: validatedCodeData.code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            showAddChildConfirmError(data?.error || 'Fehler beim Verknüpfen');
+            return;
+        }
+
+        // Show success
+        showAddChildSuccess(validatedCodeData.child);
+
+    } catch (error) {
+        console.error('Error linking child:', error);
+        showAddChildConfirmError(error.message || 'Fehler beim Verknüpfen des Kindes');
+    } finally {
+        if (confirmLinkBtn) {
+            confirmLinkBtn.disabled = false;
+            confirmLinkBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Verknüpfen';
+        }
+    }
+}
+
+/**
+ * Show success state (step 3)
+ */
+function showAddChildSuccess(child) {
+    const name = `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'Das Kind';
+    if (addChildSuccessName) {
+        addChildSuccessName.textContent = `${name} wurde mit deinem Account verknüpft.`;
+    }
+
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepSuccess?.classList.remove('hidden');
+
+    // Also update the profile to mark as guardian if not already
+    updateGuardianStatus();
+}
+
+/**
+ * Update user's guardian status
+ */
+async function updateGuardianStatus() {
+    try {
+        await supabase
+            .from('profiles')
+            .update({ is_guardian: true })
+            .eq('id', currentUser.id);
+    } catch (error) {
+        console.error('Error updating guardian status:', error);
+    }
+}
+
+/**
+ * Show code error
+ */
+function showAddChildCodeError(message) {
+    if (addChildCodeErrorText) addChildCodeErrorText.textContent = message;
+    addChildCodeError?.classList.remove('hidden');
+}
+
+/**
+ * Show confirm error
+ */
+function showAddChildConfirmError(message) {
+    if (addChildConfirmErrorText) addChildConfirmErrorText.textContent = message;
+    addChildConfirmError?.classList.remove('hidden');
+}
+
+/**
+ * Close add child modal and refresh list
+ */
+function closeAddChildModalAndRefresh() {
+    addChildModal?.classList.add('hidden');
+    validatedCodeData = null;
+    loadChildren();
+}
+
+// Add child modal event listeners
+addChildBtn?.addEventListener('click', showAddChildModal);
+
+closeAddChildModal?.addEventListener('click', () => {
+    addChildModal?.classList.add('hidden');
+});
+
+addChildModal?.addEventListener('click', (e) => {
+    if (e.target === addChildModal) {
+        addChildModal.classList.add('hidden');
+    }
+});
+
+validateCodeBtn?.addEventListener('click', validateInvitationCode);
+
+// Allow Enter key to validate code
+invitationCodeInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        validateInvitationCode();
+    }
+});
+
+// Auto-format code input (add dashes)
+invitationCodeInput?.addEventListener('input', (e) => {
+    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    // Format as TTV-XXX-YYY
+    if (value.length > 3) {
+        value = value.slice(0, 3) + '-' + value.slice(3);
+    }
+    if (value.length > 7) {
+        value = value.slice(0, 7) + '-' + value.slice(7);
+    }
+
+    e.target.value = value.slice(0, 11);
+});
+
+backToCodeBtn?.addEventListener('click', () => {
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepCode?.classList.remove('hidden');
+    addChildCodeError?.classList.add('hidden');
+});
+
+confirmLinkBtn?.addEventListener('click', confirmLinkChild);
+
+addChildDoneBtn?.addEventListener('click', closeAddChildModalAndRefresh);

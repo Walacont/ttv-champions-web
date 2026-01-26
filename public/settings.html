@@ -176,7 +176,7 @@
                     </div>
                 </a>
 
-                <!-- Meine Kinder (nur für Vormünder sichtbar) -->
+                <!-- Meine Kinder (für alle Benutzer, die Guardian sind oder werden wollen) -->
                 <a
                     id="my-children-card"
                     href="/settings-children.html"
@@ -190,6 +190,26 @@
                             <div>
                                 <h3 class="font-semibold text-gray-900">Meine Kinder</h3>
                                 <p id="my-children-subtitle" class="text-sm text-gray-500">Kinder verwalten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Kind hinzufügen (für alle Benutzer, die noch kein Guardian sind) -->
+                <a
+                    id="add-child-card"
+                    href="/settings-children.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-plus-circle text-pink-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Kind hinzufügen</h3>
+                                <p class="text-sm text-gray-500">Hast du einen Trainer-Code?</p>
                             </div>
                         </div>
                         <i class="fas fa-chevron-right text-gray-400"></i>
@@ -464,7 +484,20 @@
                 });
             }
 
-            // Check if user is a guardian and show children card
+            // Calculate age from birthdate
+            function calculateAge(birthdate) {
+                if (!birthdate) return 0;
+                const birth = new Date(birthdate);
+                const today = new Date();
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age--;
+                }
+                return age;
+            }
+
+            // Check if user is a guardian and show appropriate card
             async function checkGuardianStatus() {
                 // Don't show "Meine Kinder" when already viewing child's settings
                 if (childId) return;
@@ -478,7 +511,7 @@
                     // Get profile and check is_guardian flag
                     const { data: profile, error } = await supabase
                         .from('profiles')
-                        .select('is_guardian')
+                        .select('is_guardian, account_type')
                         .eq('id', user.id)
                         .single();
 
@@ -489,24 +522,46 @@
 
                     const myChildrenCard = document.getElementById('my-children-card');
                     const myChildrenSubtitle = document.getElementById('my-children-subtitle');
+                    const addChildCard = document.getElementById('add-child-card');
 
-                    if (profile?.is_guardian) {
-                        // Show the card for guardians
-                        myChildrenCard?.classList.remove('hidden');
+                    // Check if user has children that are minors
+                    const isGuardian = profile?.is_guardian || profile?.account_type === 'guardian';
 
-                        // Get children count
+                    if (isGuardian) {
+                        // Get children and check if any are under 18
                         const { data: children, error: childrenError } = await supabase.rpc('get_my_children');
 
                         if (!childrenError && children?.success && children.children) {
-                            const childCount = children.children.length;
-                            if (childCount === 0) {
-                                myChildrenSubtitle.textContent = 'Keine Kinder verknüpft';
-                            } else if (childCount === 1) {
-                                myChildrenSubtitle.textContent = '1 Kind verknüpft';
+                            // Filter children under 18
+                            const childrenUnder18 = children.children.filter(child => {
+                                if (!child.birthdate) return true; // If no birthdate, show to be safe
+                                return calculateAge(child.birthdate) < 18;
+                            });
+
+                            // Only show "Meine Kinder" card if there are children under 18
+                            if (childrenUnder18.length > 0) {
+                                myChildrenCard?.classList.remove('hidden');
+                                addChildCard?.classList.add('hidden');
+
+                                if (childrenUnder18.length === 1) {
+                                    myChildrenSubtitle.textContent = '1 Kind verknüpft';
+                                } else {
+                                    myChildrenSubtitle.textContent = `${childrenUnder18.length} Kinder verknüpft`;
+                                }
                             } else {
-                                myChildrenSubtitle.textContent = `${childCount} Kinder verknüpft`;
+                                // Guardian but no children under 18 - don't show either card
+                                myChildrenCard?.classList.add('hidden');
+                                addChildCard?.classList.add('hidden');
                             }
+                        } else {
+                            // Guardian but no children - show "Kind hinzufügen"
+                            myChildrenCard?.classList.add('hidden');
+                            addChildCard?.classList.remove('hidden');
                         }
+                    } else {
+                        // Not a guardian - show "Kind hinzufügen" option
+                        myChildrenCard?.classList.add('hidden');
+                        addChildCard?.classList.remove('hidden');
                     }
                 } catch (error) {
                     console.error('Error in checkGuardianStatus:', error);
