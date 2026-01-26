@@ -991,13 +991,27 @@ async function fetchActivities(userIds) {
         // Matches basierend auf Datenschutzeinstellungen filtern
         const viewerId = currentUser?.id;
         const viewerClubId = currentUserData?.club_id;
+        const viewerSubgroupIds = currentUserData?.subgroup_ids || [];
 
         allActivities = allActivities.filter(activity => {
             // Nur Einzel- und Doppel-Matches filtern
             if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
                 return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
             }
-            // Andere Aktivitätstypen (Posts, Umfragen, Events) durchlassen
+
+            // Untergruppen-Sichtbarkeit für Posts und Umfragen prüfen
+            if (activity.activityType === 'post' || activity.activityType === 'poll') {
+                if (activity.visibility === 'subgroup' && activity.target_subgroup_ids?.length > 0) {
+                    // Prüfen ob Benutzer in einer der Ziel-Untergruppen ist
+                    const isInSubgroup = activity.target_subgroup_ids.some(sgId => viewerSubgroupIds.includes(sgId));
+                    // Auch Coach/Head-Coach sehen alle Untergruppen-Posts ihres Vereins
+                    const isCoach = currentUserData?.role === 'coach' || currentUserData?.role === 'head_coach';
+                    const sameClub = viewerClubId && activity.club_id === viewerClubId;
+                    return isInSubgroup || (isCoach && sameClub) || activity.user_id === viewerId;
+                }
+            }
+
+            // Andere Aktivitätstypen (öffentliche Posts, Events) durchlassen
             return true;
         });
 
@@ -3013,8 +3027,8 @@ function renderPostCard(activity, profileMap) {
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : activity.visibility === 'subgroup' ? 'users' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>
@@ -3130,8 +3144,8 @@ function renderPollCard(activity, profileMap) {
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : activity.visibility === 'subgroup' ? 'users' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>

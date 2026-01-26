@@ -11,17 +11,26 @@ let exerciseContext = {
     userRole: null,
     clubId: null,
     sportId: null,
+    descriptionEditor: null,
 };
 
 /**
  * Setzt den Kontext für Übungs-Fortschrittsverfolgung
  */
-export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null) {
+export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null, descriptionEditor = null) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
     exerciseContext.userRole = userRole;
     exerciseContext.clubId = clubId;
     exerciseContext.sportId = sportId;
+    exerciseContext.descriptionEditor = descriptionEditor;
+}
+
+/**
+ * Setzt den Beschreibungs-Editor für Übungen (nachträglich)
+ */
+export function setExerciseDescriptionEditor(editor) {
+    exerciseContext.descriptionEditor = editor;
 }
 
 /**
@@ -32,6 +41,7 @@ export async function loadExercises(db, unsubscribes) {
     if (!exercisesListEl) return;
 
     let exercisesData = [];
+    let allExerciseItems = []; // Speichert alle Übungs-Items für die Suche
 
     await loadExercisesList();
 
@@ -50,6 +60,9 @@ export async function loadExercises(db, unsubscribes) {
         unsubscribes.push(() => subscription.unsubscribe());
     }
 
+    // Suchfunktion einrichten
+    setupExerciseSearch();
+
     async function loadExercisesList() {
         let query = db
             .from('exercises')
@@ -65,7 +78,7 @@ export async function loadExercises(db, unsubscribes) {
         const { data: exercisesRaw, error } = await query;
 
         if (error || !exercisesRaw || exercisesRaw.length === 0) {
-            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            exercisesListEl.innerHTML = `<p class="p-4 text-gray-500 text-center">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
         }
 
@@ -73,6 +86,7 @@ export async function loadExercises(db, unsubscribes) {
         const allTags = new Set();
         const exercises = [];
         exercisesData = [];
+        allExerciseItems = [];
 
         const userClubId = exerciseContext.clubId;
         const visibleDocs = exercisesRaw.filter(exercise => {
@@ -86,7 +100,7 @@ export async function loadExercises(db, unsubscribes) {
         });
 
         if (visibleDocs.length === 0) {
-            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            exercisesListEl.innerHTML = `<p class="p-4 text-gray-500 text-center">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
         }
 
@@ -96,19 +110,41 @@ export async function loadExercises(db, unsubscribes) {
 
             exercisesData.push({ exercise, exerciseId });
 
-            // Fortschritt wird nur im Modal angezeigt, nicht auf Karten
-            const card = createExerciseCard({ id: exerciseId }, exercise);
+            const item = createExerciseCard({ id: exerciseId }, exercise);
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
-            exercises.push({ card, tags: exerciseTags });
-            exercisesListEl.appendChild(card);
+            exercises.push({ card: item, tags: exerciseTags });
+            allExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
+            exercisesListEl.appendChild(item);
         }
 
         renderTagFilters(allTags, exercises);
     }
 
-    // Hinweis: Echtzeit-Updates für Karten-Fortschritt wurden entfernt
+    function setupExerciseSearch() {
+        const searchInput = document.getElementById('exercise-search-input');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            allExerciseItems.forEach(({ item, title }) => {
+                const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+                const isTagHidden = item.classList.contains('tag-hidden');
+
+                if (matchesSearch) {
+                    item.classList.remove('search-hidden');
+                    if (!isTagHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('search-hidden');
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 /**
@@ -130,8 +166,9 @@ function mapExerciseFromSupabase(row) {
         descriptionContent: descriptionContent,
         imageUrl: row.image_url,
         points: row.xp_reward || row.points || 10,
-        level: row.difficulty || row.level,
+        level: row.category || row.difficulty || row.level,  // category wird in handleCreateExercise verwendet
         difficulty: row.difficulty,
+        category: row.category,
         tags: row.tags || [],
         visibility: row.visibility || 'global',
         clubId: row.club_id,
@@ -144,64 +181,69 @@ function mapExerciseFromSupabase(row) {
         recordCount: row.record_count,
         procedure: row.procedure,
         unit: row.unit || 'Wiederholungen',
+        animationSteps: row.animation_steps,
     };
 }
 
 /**
- * Erstellt HTML für eine Übungskarte
+ * Berechnet die maximalen Punkte einer Übung
+ * Bei Meilensteinen werden alle Punkte zusammengerechnet
+ */
+function calculateMaxPoints(exercise) {
+    if (exercise.tieredPoints && exercise.tieredPoints.enabled && exercise.tieredPoints.milestones) {
+        const milestones = exercise.tieredPoints.milestones;
+        return milestones.reduce((sum, m) => sum + (m.points || 0), 0);
+    }
+    return exercise.points || 0;
+}
+
+/**
+ * Erstellt HTML für ein Übungs-Listenelement (neue Listen-Ansicht)
  */
 function createExerciseCard(docSnap, exercise) {
-    const card = document.createElement('div');
-    card.className =
-        'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
-    card.dataset.id = docSnap.id;
-    card.dataset.title = exercise.title;
+    const item = document.createElement('div');
+    item.className =
+        'exercise-item flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors';
+    item.dataset.id = docSnap.id;
+    item.dataset.title = exercise.title;
 
     if (exercise.descriptionContent) {
-        // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
-        card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
+        item.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
             ? exercise.descriptionContent
             : JSON.stringify(exercise.descriptionContent);
     } else {
-        card.dataset.descriptionContent = JSON.stringify({
+        item.dataset.descriptionContent = JSON.stringify({
             type: 'text',
             text: exercise.description || '',
         });
     }
     if (exercise.imageUrl) {
-        card.dataset.imageUrl = exercise.imageUrl;
+        item.dataset.imageUrl = exercise.imageUrl;
     }
-    card.dataset.points = exercise.points;
-    card.dataset.tags = JSON.stringify(exercise.tags || []);
+    item.dataset.points = exercise.points;
+    item.dataset.tags = JSON.stringify(exercise.tags || []);
 
     if (exercise.tieredPoints) {
-        card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+        item.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
     }
 
-    const exerciseTags = exercise.tags || [];
-    const tagsHtml = exerciseTags
-        .map(
-            tag =>
-                `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-        )
-        .join('');
+    if (exercise.animationSteps) {
+        item.dataset.animationSteps = typeof exercise.animationSteps === 'string'
+            ? exercise.animationSteps
+            : JSON.stringify(exercise.animationSteps);
+    }
 
-    card.innerHTML = `
-        <div class="p-5 flex flex-col flex-grow relative">
-            <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">${exercise.points} XP</span>
-            <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20">${exercise.title}</h3>
-            <div class="mb-3">${tagsHtml}</div>
-            <p class="text-sm text-gray-600 mb-4 flex-grow">${exercise.description || ''}</p>
-            <div class="flex items-center text-xs text-gray-500">
-                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-                </svg>
-                Wiederholbar mit Meilensteinen
-            </div>
+    const maxPoints = calculateMaxPoints(exercise);
+    const safeTitle = escapeHtml(exercise.title || '');
+
+    item.innerHTML = `
+        <span class="text-gray-900 font-medium truncate pr-4">${safeTitle}</span>
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+            <i class="fas fa-chevron-right text-gray-400"></i>
         </div>`;
 
-    return card;
+    return item;
 }
 
 /**
@@ -250,9 +292,14 @@ export function renderTagFilters(tags, exercises) {
 
             exercises.forEach(({ card, tags }) => {
                 if (selectedTag === 'all' || tags.includes(selectedTag)) {
-                    card.classList.remove('hidden');
+                    card.classList.remove('tag-hidden');
+                    // Nur anzeigen wenn auch nicht durch Suche versteckt
+                    if (!card.classList.contains('search-hidden')) {
+                        card.style.display = '';
+                    }
                 } else {
-                    card.classList.add('hidden');
+                    card.classList.add('tag-hidden');
+                    card.style.display = 'none';
                 }
             });
         }
@@ -266,6 +313,8 @@ export function loadAllExercises(db) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
 
+    let allExerciseItems = []; // Für die Suchfunktion
+
     loadCoachExercisesList();
 
     db.channel('coach-exercises-changes')
@@ -277,6 +326,9 @@ export function loadAllExercises(db) {
             loadCoachExercisesList();
         })
         .subscribe();
+
+    // Suchfunktion einrichten
+    setupCoachExerciseSearch();
 
     async function loadCoachExercisesList() {
         let query = db
@@ -295,7 +347,7 @@ export function loadAllExercises(db) {
         if (error) {
             console.error('[Exercises] Error loading exercises:', error.message);
             exercisesListCoachEl.innerHTML =
-                '<p class="text-gray-400 col-span-full">Keine Übungen verfügbar</p>';
+                '<p class="p-4 text-gray-500 text-center">Keine Übungen verfügbar</p>';
             return;
         }
 
@@ -320,15 +372,39 @@ export function loadAllExercises(db) {
             (exercise.tags || []).forEach(tag => allTags.add(tag));
         });
 
-        renderTagFiltersCoach(allTags, exercises);
-        renderCoachExercises(exercises, 'all');
+        allExerciseItems = renderCoachExercises(exercises, 'all');
+        renderTagFiltersCoach(allTags, exercises, allExerciseItems);
+    }
+
+    function setupCoachExerciseSearch() {
+        const searchInput = document.getElementById('exercise-search-input-coach');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            allExerciseItems.forEach(({ item, title }) => {
+                const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+                const isTagHidden = item.classList.contains('tag-hidden');
+
+                if (matchesSearch) {
+                    item.classList.remove('search-hidden');
+                    if (!isTagHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('search-hidden');
+                    item.style.display = 'none';
+                }
+            });
+        });
     }
 }
 
 /**
  * Rendert Tag-Filter-Buttons für Coach-Übungsliste
  */
-function renderTagFiltersCoach(tags, exercises) {
+function renderTagFiltersCoach(tags, exercises, allExerciseItems) {
     const oldContainer = document.getElementById('tags-filter-container-coach');
     if (!oldContainer) return;
 
@@ -366,7 +442,21 @@ function renderTagFiltersCoach(tags, exercises) {
             e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
             e.target.classList.remove('bg-gray-200', 'text-gray-700');
 
-            renderCoachExercises(exercises, selectedTag);
+            // Filter Items basierend auf Tag (mit Berücksichtigung der Suche)
+            allExerciseItems.forEach(({ item, tags }) => {
+                const matchesTag = selectedTag === 'all' || tags.includes(selectedTag);
+                const isSearchHidden = item.classList.contains('search-hidden');
+
+                if (matchesTag) {
+                    item.classList.remove('tag-hidden');
+                    if (!isSearchHidden) {
+                        item.style.display = '';
+                    }
+                } else {
+                    item.classList.add('tag-hidden');
+                    item.style.display = 'none';
+                }
+            });
         }
     });
 }
@@ -421,9 +511,10 @@ function setupTagSearch(context) {
  */
 function renderCoachExercises(exercises, filterTag) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
-    if (!exercisesListCoachEl) return;
+    if (!exercisesListCoachEl) return [];
 
     exercisesListCoachEl.innerHTML = '';
+    const allExerciseItems = [];
 
     const filteredExercises =
         filterTag === 'all'
@@ -432,79 +523,51 @@ function renderCoachExercises(exercises, filterTag) {
 
     if (filteredExercises.length === 0) {
         exercisesListCoachEl.innerHTML =
-            '<p class="text-gray-500 col-span-full">Keine Übungen für diesen Filter gefunden.</p>';
-        return;
+            '<p class="p-4 text-gray-500 text-center">Keine Übungen für diesen Filter gefunden.</p>';
+        return allExerciseItems;
     }
 
     filteredExercises.forEach(exercise => {
-        const card = document.createElement('div');
-        card.className =
-            'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-        card.dataset.id = exercise.id;
-        card.dataset.title = exercise.title;
-        if (exercise.descriptionContent) {
-            // Stelle sicher dass descriptionContent immer ein JSON-String ist, kein Objekt
-            card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
-                ? exercise.descriptionContent
-                : JSON.stringify(exercise.descriptionContent);
-        } else {
-            card.dataset.descriptionContent = JSON.stringify({
-                type: 'text',
-                text: exercise.description || '',
-            });
-        }
-        if (exercise.imageUrl) {
-            card.dataset.imageUrl = exercise.imageUrl;
-        }
-        card.dataset.points = exercise.points;
-        card.dataset.tags = JSON.stringify(exercise.tags || []);
-
-        if (exercise.tieredPoints) {
-            card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
-        }
-
-        const tagsHtml = (exercise.tags || [])
-            .map(
-                tag =>
-                    `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-            )
-            .join('');
-
         const currentUserId = exerciseContext.userId;
         const isCreator = currentUserId && exercise.createdBy === currentUserId;
         const isAdmin = exerciseContext.userRole === 'admin';
         const canEdit = isCreator || isAdmin;
 
-        const coachBadge = isCreator
-            ? ' Von dir erstellt'
-            : exercise.createdByName
-              ? `👤 ${exercise.createdByName}`
-              : 'System';
+        const maxPoints = calculateMaxPoints(exercise);
+        const safeTitle = escapeHtml(exercise.title || '');
+        const exerciseTags = exercise.tags || [];
 
-        const visibilityBadge = exercise.visibility === 'club'
-            ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
-            : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
+        const item = document.createElement('div');
+        item.className = 'exercise-item flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors';
+        item.dataset.id = exercise.id;
+        item.dataset.tags = JSON.stringify(exerciseTags);
 
-        card.innerHTML = `
-            <div class="p-5 flex flex-col flex-grow relative">
-                <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold pointer-events-none">${exercise.points} XP</span>
-                <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20 pointer-events-none">${exercise.title}</h3>
-                <div class="flex items-center gap-2 mb-3 pointer-events-none">
-                    ${visibilityBadge}
-                    <span class="text-xs text-gray-600">${coachBadge}</span>
-                </div>
-                <div class="mb-3 pointer-events-none">${tagsHtml}</div>
-                <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
+        item.innerHTML = `
+            <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'">
+                <span class="text-gray-900 font-medium truncate">${safeTitle}</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                <button onclick="event.stopPropagation(); window.videoAnalysis?.openExerciseExamplesModal('${exercise.id}')" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Musterbeispiele verwalten">
+                    <i class="fas fa-video"></i>
+                </button>
                 ${canEdit ? `
-                <div class="mt-auto pointer-events-auto">
-                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
-                        🗑️ Löschen
-                    </button>
-                </div>
-                ` : ''}
+                <button onclick="event.stopPropagation(); editExercise('${exercise.id}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="event.stopPropagation(); deleteExercise('${exercise.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Löschen">
+                    <i class="fas fa-trash"></i>
+                </button>
+                ` : `
+                <i class="fas fa-chevron-right text-gray-400 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'"></i>
+                `}
             </div>`;
-        exercisesListCoachEl.appendChild(card);
+
+        exercisesListCoachEl.appendChild(item);
+        allExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
     });
+
+    return allExerciseItems;
 }
 
 /**
@@ -571,9 +634,9 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } =
+        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } =
             card.dataset;
-        openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
+        openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps);
     }
 }
 
@@ -587,7 +650,8 @@ export async function openExerciseModal(
     imageUrl,
     points,
     tags,
-    tieredPoints
+    tieredPoints,
+    animationSteps = null
 ) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
@@ -601,6 +665,78 @@ export async function openExerciseModal(
         modalImage.style.display = 'block';
     } else {
         modalImage.style.display = 'none';
+    }
+
+    // Animation-Container handling
+    const animationContainer = document.getElementById('modal-exercise-animation');
+    const animationCanvas = document.getElementById('modal-animation-canvas');
+    if (animationContainer && animationCanvas) {
+        let animationData = null;
+
+        // Parse animation steps from argument or from DB data
+        if (animationSteps) {
+            try {
+                animationData = typeof animationSteps === 'string'
+                    ? JSON.parse(animationSteps)
+                    : animationSteps;
+            } catch (e) {
+                console.log('Could not parse animation steps:', e);
+            }
+        }
+
+        if (animationData && animationData.steps && animationData.steps.length > 0) {
+            animationContainer.classList.remove('hidden');
+
+            // Initialize the exercise builder for the modal if TableTennisExerciseBuilder is available
+            if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+                // Clean up any existing player
+                if (window.modalExerciseBuilder) {
+                    window.modalExerciseBuilder.stopAnimation();
+                }
+
+                // Initialize new player
+                window.modalExerciseBuilder = new window.TableTennisExerciseBuilder('modal-animation-canvas');
+
+                // Load the steps
+                animationData.steps.forEach(step => {
+                    window.modalExerciseBuilder.addStep(
+                        step.player,
+                        step.strokeType,
+                        step.side,
+                        step.fromPosition,
+                        step.toPosition,
+                        step.isShort,
+                        step.variants,
+                        step.repetitions,
+                        step.playerDecides
+                    );
+                });
+
+                // Auto-play the animation
+                window.modalExerciseBuilder.loopAnimation = true;
+                window.modalExerciseBuilder.play();
+
+                // Setup play/pause button
+                const playPauseBtn = document.getElementById('modal-animation-play-pause');
+                if (playPauseBtn) {
+                    playPauseBtn.onclick = () => {
+                        if (window.modalExerciseBuilder.isPlaying) {
+                            window.modalExerciseBuilder.pause();
+                            playPauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Play';
+                        } else {
+                            window.modalExerciseBuilder.play();
+                            playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                        }
+                    };
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                }
+            }
+        } else {
+            animationContainer.classList.add('hidden');
+            if (window.modalExerciseBuilder) {
+                window.modalExerciseBuilder.stopAnimation();
+            }
+        }
     }
 
     // Lade Übungsdaten ZUERST (benötigt für Ablauf und Rekorde)
@@ -742,10 +878,13 @@ export async function openExerciseModal(
         pointsContainer.textContent = `Bis zu ${points} P.`;
 
         if (milestonesContainer) {
+            // Support both 'count' and 'completions' for backward compatibility
+            const getMilestoneCount = (m) => m.count || m.completions;
+
             let progressHtml = '';
             if (exerciseContext.userRole === 'player') {
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+                const nextMilestone = tieredPointsData.milestones.find(m => getMilestoneCount(m) > currentCount);
+                const remaining = nextMilestone ? getMilestoneCount(nextMilestone) - currentCount : 0;
 
                 let globalRecordHtml = '';
                 if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
@@ -788,12 +927,13 @@ export async function openExerciseModal(
                 `;
             }
 
-            const sortedMilestones = tieredPointsData.milestones.sort((a, b) => a.count - b.count);
+            const sortedMilestones = tieredPointsData.milestones.sort((a, b) => getMilestoneCount(a) - getMilestoneCount(b));
 
             // Kumulative Summe berechnen
             let cumulativePoints = 0;
             const milestonesHtml = sortedMilestones
                 .map((milestone, index) => {
+                    const milestoneCount = getMilestoneCount(milestone);
                     cumulativePoints += milestone.points;
                     const isFirst = index === 0;
                     const displayPoints = isFirst
@@ -802,14 +942,14 @@ export async function openExerciseModal(
 
                     let bgColor, borderColor, iconColor, textColor;
                     if (exerciseContext.userRole === 'player') {
-                        if (currentCount >= milestone.count) {
+                        if (currentCount >= milestoneCount) {
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                         } else if (
                             index === 0 ||
-                            currentCount >= sortedMilestones[index - 1].count
+                            currentCount >= getMilestoneCount(sortedMilestones[index - 1])
                         ) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
@@ -830,7 +970,7 @@ export async function openExerciseModal(
 
                     return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
-                            <span class="text-base font-semibold ${textColor}">${milestone.count} ${exerciseData?.unit || 'Wiederholungen'}</span>
+                            <span class="text-base font-semibold ${textColor}">${milestoneCount} ${exerciseData?.unit || 'Wiederholungen'}</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
@@ -918,8 +1058,8 @@ export async function openExerciseModal(
  * Öffnet das Übungs-Modal aus Dataset (für Coach)
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
-    openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } = dataset;
+    openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps);
 }
 
 /**
@@ -1205,10 +1345,15 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             imageUrl = urlData.publicUrl;
         }
 
+        // Difficulty String zu Integer konvertieren (DB erwartet INTEGER)
+        const difficultyMap = { 'easy': 1, 'normal': 2, 'hard': 3 };
+        const difficultyInt = difficultyMap[difficulty] || 1;
+
         const exerciseData = {
             name: title,  // DB-Spalte ist 'name', nicht 'title'
             description_content: JSON.stringify(descriptionContent),
-            category: level,  // Speichere Level-Text in 'category' (level/difficulty sind INTEGER in DB)
+            category: level,  // Speichere Level-Text in 'category'
+            difficulty: difficultyInt,  // DB erwartet Integer: 1=easy, 2=normal, 3=hard
             points,
             xp_reward: points,  // Setze auch xp_reward für Kompatibilität
             tags,
@@ -1332,23 +1477,54 @@ window.editExercise = async function(exerciseId) {
 
         const exerciseData = mapExerciseFromSupabase(exerciseRow);
 
+        // Difficulty Integer zu String konvertieren für das Select-Feld
+        const difficultyIntToString = { 1: 'easy', 2: 'normal', 3: 'hard' };
+        const difficultyValue = typeof exerciseData.difficulty === 'number'
+            ? difficultyIntToString[exerciseData.difficulty] || ''
+            : exerciseData.difficulty || '';
+
         document.getElementById('exercise-title-form').value = exerciseData.title || '';
         document.getElementById('exercise-level-form').value = exerciseData.level || '';
-        document.getElementById('exercise-difficulty-form').value = exerciseData.difficulty || '';
+        document.getElementById('exercise-difficulty-form').value = difficultyValue;
         document.getElementById('exercise-tags-form').value = (exerciseData.tags || []).join(', ');
 
-        let descriptionText = '';
+        // Einheit setzen
+        const unitSelect = document.getElementById('exercise-unit-form');
+        if (unitSelect) {
+            unitSelect.value = exerciseData.unit || 'Wiederholungen';
+        }
+
+        // Sichtbarkeit setzen
+        const visibilityValue = exerciseData.visibility || 'global';
+        const visibilityRadio = document.querySelector(`input[name="exercise-visibility"][value="${visibilityValue}"]`);
+        if (visibilityRadio) {
+            visibilityRadio.checked = true;
+        }
+
+        // Beschreibungs-Editor mit vorhandenen Daten füllen
         try {
             const descContent = JSON.parse(exerciseData.descriptionContent || '{}');
-            if (descContent.type === 'text') {
-                descriptionText = descContent.text || '';
-            } else if (descContent.type === 'table') {
-                descriptionText = descContent.additionalText || '';
+            if (exerciseContext.descriptionEditor) {
+                // Verwende den Editor um Tabellen korrekt zu laden
+                exerciseContext.descriptionEditor.setContent(descContent);
+            } else {
+                // Fallback: Nur Text-Feld setzen
+                let descriptionText = '';
+                if (descContent.type === 'text') {
+                    descriptionText = descContent.text || '';
+                } else if (descContent.type === 'table') {
+                    descriptionText = descContent.additionalText || '';
+                }
+                document.getElementById('exercise-description-form').value = descriptionText;
             }
         } catch (e) {
-            descriptionText = exerciseData.description || '';
+            const descriptionText = exerciseData.description || '';
+            if (exerciseContext.descriptionEditor) {
+                exerciseContext.descriptionEditor.setContent({ type: 'text', text: descriptionText });
+            } else {
+                document.getElementById('exercise-description-form').value = descriptionText;
+            }
         }
-        document.getElementById('exercise-description-form').value = descriptionText;
 
         const hasMilestones = exerciseData.tieredPoints?.enabled && exerciseData.tieredPoints?.milestones?.length > 0;
         const milestonesCheckbox = document.getElementById('exercise-milestones-enabled');
@@ -1384,6 +1560,14 @@ window.editExercise = async function(exerciseId) {
 
         document.getElementById('create-exercise-form').dataset.editingId = exerciseId;
         document.getElementById('create-exercise-submit').textContent = 'Übung aktualisieren';
+
+        // Formular aufklappen falls zugeklappt
+        const formContainer = document.getElementById('exercise-form-container');
+        const formIcon = document.getElementById('exercise-form-icon');
+        if (formContainer?.classList.contains('hidden')) {
+            formContainer.classList.remove('hidden');
+            if (formIcon) formIcon.style.transform = 'rotate(180deg)';
+        }
 
         document.getElementById('create-exercise-form').scrollIntoView({ behavior: 'smooth' });
 

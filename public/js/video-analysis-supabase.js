@@ -1240,6 +1240,9 @@ async function handleVideoUpload(e) {
             assignedPlayers.push(cb.value);
         });
 
+        // KI-Training Consent
+        const allowAiTraining = document.getElementById('coach-allow-ai-training')?.checked ?? false;
+
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
@@ -1252,6 +1255,7 @@ async function handleVideoUpload(e) {
                 thumbnail_url: thumbnailUrl,
                 title: title || null,
                 tags: selectedTags,
+                allow_ai_training: allowAiTraining,
             })
             .select()
             .single();
@@ -2265,6 +2269,28 @@ async function confirmAddVideoAsExample() {
     }
 }
 
+/**
+ * Öffnet das Musterbeispiel-Modal für eine bestimmte Übung (für Coach-Liste)
+ */
+export async function openExerciseExamplesModal(exerciseId) {
+    if (!exerciseId) return;
+
+    currentExampleExerciseId = exerciseId;
+
+    // Vorhandene Musterbeispiele laden
+    await loadExerciseExampleVideos(exerciseId);
+
+    // Modal öffnen und Video-Auswahl starten
+    const modal = document.getElementById('select-example-video-modal');
+    if (modal) {
+        // Direkt die Video-Auswahl öffnen
+        const addBtn = document.getElementById('add-example-video-btn');
+        if (addBtn) {
+            addBtn.click();
+        }
+    }
+}
+
 // Export für globalen Zugriff
 window.videoAnalysis = {
     loadPendingVideos,
@@ -2274,4 +2300,5 @@ window.videoAnalysis = {
     loadExerciseExampleVideos,
     initExampleVideos,
     openAddExampleForVideoModal,
+    openExerciseExamplesModal,
 };

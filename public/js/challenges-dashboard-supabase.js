@@ -238,9 +238,11 @@ export function openChallengeModal(dataset) {
         if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} Punkte`;
 
         if (milestonesContainer) {
+            // Support both 'count' and 'completions' for backward compatibility
             const milestonesHtml = tieredPointsData.milestones
-                .sort((a, b) => a.count - b.count)
+                .sort((a, b) => (a.count || a.completions) - (b.count || b.completions))
                 .map((milestone, index) => {
+                    const milestoneCount = milestone.count || milestone.completions;
                     const isFirst = index === 0;
                     const displayPoints = isFirst
                         ? milestone.points
@@ -248,7 +250,7 @@ export function openChallengeModal(dataset) {
                     return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl">🎯</span>
-                            <span class="text-base font-semibold text-gray-800">${milestone.count}× abgeschlossen</span>
+                            <span class="text-base font-semibold text-gray-800">${milestoneCount}× abgeschlossen</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold text-indigo-600">${displayPoints} P.</div>

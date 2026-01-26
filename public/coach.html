@@ -2216,293 +2216,70 @@
                 <div id="tab-content-exercises" class="tab-content hidden">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                            <!-- Toggle Button for Exercise Creation -->
-                            <button
-                                id="toggle-exercise-form"
-                                class="w-full mb-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors"
-                            >
-                                <svg id="exercise-form-icon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                                <span>Neue Übung erstellen</span>
-                            </button>
-
-                            <!-- Collapsible Form Container -->
-                            <div id="exercise-form-container" class="hidden">
-                                <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
-                                <form id="create-exercise-form" class="space-y-4">
-                                <div>
-                                    <label
-                                        for="exercise-title-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Titel</label
-                                    >
-                                    <input
-                                        type="text"
-                                        id="exercise-title-form"
-                                        required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label
-                                        for="exercise-description-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Beschreibung</label
-                                    >
-                                    <div id="description-toggle-container-coach"></div>
-                                    <textarea
-                                        id="exercise-description-form"
-                                        rows="3"
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    ></textarea>
-                                    <div id="description-table-editor-coach" class="mt-2"></div>
-                                </div>
-                                <div>
-                                    <label
-                                        for="exercise-level-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Level</label
-                                    >
-                                    <select
-                                        id="exercise-level-form"
-                                        required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Level wählen...</option>
-                                        <option value="grundlagen">🎖️ Grundlagen (Rekruten)</option>
-                                        <option value="standard">🥉 Standard (ab Bronze)</option>
-                                        <option value="fortgeschritten">
-                                            🥇 Fortgeschritten (ab Gold)
-                                        </option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label
-                                        for="exercise-difficulty-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Schwierigkeit</label
-                                    >
-                                    <select
-                                        id="exercise-difficulty-form"
-                                        required
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Schwierigkeit wählen...</option>
-                                        <option value="easy">Einfach</option>
-                                        <option value="normal">Normal</option>
-                                        <option value="hard">Schwer</option>
-                                    </select>
-                                </div>
-                                <!-- Einheit für Meilensteine -->
-                                <div>
-                                    <label
-                                        for="exercise-unit-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Einheit</label
-                                    >
-                                    <select
-                                        id="exercise-unit-form"
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="Wiederholungen">Wiederholungen</option>
-                                        <option value="Sterne">Sterne</option>
-                                        <option value="Punkte">Punkte</option>
-                                        <option value="Treffer">Treffer</option>
-                                        <option value="Sekunden">Sekunden</option>
-                                        <option value="Minuten">Minuten</option>
-                                        <option value="Runden">Runden</option>
-                                    </select>
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        Die Einheit für Meilensteine (z.B. "7 Sterne" statt "7 Wiederholungen")
-                                    </p>
-                                </div>
-                                <!-- Points System Toggle -->
-                                <div class="border-t border-gray-200 pt-4">
-                                    <label class="flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            id="exercise-milestones-enabled"
-                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                        />
-                                        <span class="ml-2 text-sm font-medium text-gray-700"
-                                            >Abgestufte Punktevergabe (Meilensteine)</span
-                                        >
-                                    </label>
-                                    <p class="text-xs text-gray-500 mt-1 ml-6">
-                                        Z.B. 1× geschafft = 3 Punkte, 3× geschafft = +5 Punkte
-                                        zusätzlich
-                                    </p>
-                                </div>
-
-                                <!-- Standard Points (Auto-calculated) -->
-                                <div id="exercise-standard-points-container">
-                                    <label
-                                        for="exercise-points-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Punkte (automatisch berechnet)</label
-                                    >
-                                    <input
-                                        type="number"
-                                        id="exercise-points-form"
-                                        readonly
-                                        min="1"
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 font-semibold cursor-not-allowed"
-                                    />
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        Wird automatisch basierend auf Level + Schwierigkeit
-                                        berechnet
-                                    </p>
-                                </div>
-
-                                <!-- Milestone Points -->
-                                <div id="exercise-milestones-container" class="hidden space-y-3">
-                                    <label class="block text-sm font-medium text-gray-700"
-                                        >Meilensteine definieren</label
-                                    >
-                                    <div id="exercise-milestones-list" class="space-y-2">
-                                        <!-- Milestone entries will be added here dynamically -->
+                            <!-- Info Box for Coaches -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
                                     </div>
-                                    <button
-                                        type="button"
-                                        id="add-exercise-milestone-btn"
-                                        class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                                    >
-                                        + Meilenstein hinzufügen
-                                    </button>
-                                    <div class="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                                        <strong>Max. erreichbare Punkte:</strong>
-                                        <span
-                                            id="exercise-total-milestone-points"
-                                            class="font-bold text-indigo-600"
-                                            >0</span
-                                        >
-                                        P.
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-blue-800 mb-1">Hinweis</h3>
+                                        <p class="text-sm text-blue-700">
+                                            Neue Übungen werden vom Administrator erstellt und verwaltet.
+                                            Du kannst hier alle verfügbaren Übungen einsehen und für dein Training nutzen.
+                                        </p>
                                     </div>
                                 </div>
-                                <div>
-                                    <label
-                                        for="exercise-tags-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Tags (kommagetrennt)</label
-                                    >
-                                    <input
-                                        type="text"
-                                        id="exercise-tags-form"
-                                        placeholder="z.B. Aufschlag, Beinarbeit, Koordination"
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        💡 Tipp: Verwende "Grundlage" als Tag für Grundlagen-Übungen
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label
-                                        for="exercise-image-form"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Bild (optional)</label
-                                    >
-                                    <input
-                                        type="file"
-                                        id="exercise-image-form"
-                                        accept="image/*"
-                                        class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                                    />
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        📷 Nur Bilddateien erlaubt (JPG, PNG, GIF, WebP, SVG) - max. 5MB
-                                    </p>
-                                </div>
-
-                                <!-- Visibility Selection -->
-                                <div class="border-t border-gray-200 pt-4">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2"
-                                        >Sichtbarkeit</label
-                                    >
-                                    <div class="flex gap-2">
-                                        <label
-                                            class="flex-1 cursor-pointer"
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="exercise-visibility"
-                                                value="global"
-                                                checked
-                                                class="sr-only peer"
-                                            />
-                                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50 transition-colors">
-                                                <span class="block text-lg">🌍</span>
-                                                <span class="text-xs font-medium">Global</span>
-                                            </div>
-                                        </label>
-                                        <label
-                                            class="flex-1 cursor-pointer"
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="exercise-visibility"
-                                                value="club"
-                                                class="sr-only peer"
-                                            />
-                                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50 transition-colors">
-                                                <span class="block text-lg">🏠</span>
-                                                <span class="text-xs font-medium">Nur Verein</span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">
-                                        Global = für alle sichtbar, Nur Verein = nur für deinen Verein
-                                    </p>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    id="create-exercise-submit"
-                                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-                                >
-                                    Übung speichern
-                                </button>
-                            </form>
-                            <p
-                                id="exercise-feedback"
-                                class="mt-3 text-sm font-medium text-center"
-                            ></p>
                             </div>
-                            <!-- End Collapsible Form Container -->
                         </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
-                            <!-- Tag Filter Section (Collapsible) -->
-                            <div class="mb-4">
+                        <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                            <!-- Header mit Suche und Filter -->
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                                 <button
                                     id="toggle-tags-filter-coach"
-                                    class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm mb-2"
+                                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
-                                    Tags filtern
+                                    <i class="fas fa-filter"></i>
+                                    <span>Filter</span>
                                 </button>
-                                <div
-                                    id="tags-filter-section-coach"
-                                    class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50"
-                                >
-                                    <input
-                                        type="text"
-                                        id="tag-search-coach"
-                                        placeholder="Tag suchen..."
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                    <div
-                                        id="tags-filter-container-coach"
-                                        class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
-                                    >
-                                        <!-- Tag buttons will be dynamically inserted here -->
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="exercise-search-input-coach"
+                                            placeholder="Suche nach Übungen"
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
                                     </div>
                                 </div>
                             </div>
+                            <!-- Tag Filter Section (Collapsible) -->
+                            <div
+                                id="tags-filter-section-coach"
+                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4"
+                            >
+                                <input
+                                    type="text"
+                                    id="tag-search-coach"
+                                    placeholder="Tag suchen..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <div
+                                    id="tags-filter-container-coach"
+                                    class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
+                                >
+                                    <!-- Tag buttons will be dynamically inserted here -->
+                                </div>
+                            </div>
+                            <!-- Übungsliste -->
                             <div
                                 id="exercises-list-coach"
-                                class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto"
+                                class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto"
                             >
-                                <p>Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500">Übungen werden geladen...</p>
                             </div>
                         </div>
                     </div>
@@ -2547,7 +2324,7 @@
                                         id="season-countdown-coach"
                                         class="text-2xl font-bold text-yellow-900"
                                     >
-                                        Lädt...
+                                        Saisonpause
                                     </p>
                                 </div>
                             </div>
@@ -2884,6 +2661,20 @@
                                 <div id="video-player-assignment-list" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
                                     <!-- Spieler werden dynamisch eingefügt -->
                                 </div>
+                            </div>
+
+                            <!-- KI-Training Consent (DSGVO) -->
+                            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                <label class="flex items-start gap-3 cursor-pointer">
+                                    <input type="checkbox" id="coach-allow-ai-training"
+                                           class="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+                                    <div>
+                                        <span class="font-medium text-gray-800 text-sm">KI-Verbesserung unterstützen</span>
+                                        <p class="text-xs text-gray-600 mt-0.5">
+                                            Dieses Video darf anonymisiert zur Verbesserung der automatischen Schlag-Erkennung genutzt werden.
+                                        </p>
+                                    </div>
+                                </label>
                             </div>
 
                             <!-- Upload Progress -->
@@ -3236,6 +3027,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"
@@ -3540,6 +3347,65 @@
                                 class="block w-full px-3 py-2 text-base border-indigo-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                             />
                             <p id="quick-points-exercise-milestone-info" class="mt-1 text-xs text-indigo-700"></p>
+                        </div>
+
+                        <!-- Spielmodus Auswahl (Balleimer vs Paarung) -->
+                        <div id="quick-points-play-mode-container" class="hidden mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Spielmodus</label>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    id="quick-points-mode-solo"
+                                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+                                >
+                                    <i class="fas fa-robot mr-1"></i> Balleimer/Roboter
+                                </button>
+                                <button
+                                    type="button"
+                                    id="quick-points-mode-pair"
+                                    class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+                                >
+                                    <i class="fas fa-user-friends mr-1"></i> Paarung
+                                </button>
+                            </div>
+
+                            <!-- Info für Paarung-Modus -->
+                            <div id="quick-points-pair-info" class="hidden mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p id="quick-points-pair-text" class="text-sm text-blue-800">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    <strong>Paarung:</strong> Wähle zwei Spieler aus.
+                                </p>
+                                <p id="quick-points-pair-points-info" class="text-xs text-blue-600 mt-1"></p>
+                            </div>
+
+                            <!-- Paar-Auswahl Container -->
+                            <div id="quick-points-pair-selection" class="hidden mt-3 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-700 w-24">Spieler A:</span>
+                                    <select id="quick-points-player-a" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Spieler A wählen...</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-700 w-24">Spieler B:</span>
+                                    <select id="quick-points-player-b" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Spieler B wählen...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zeit-Eingabe für Zeit-basierte Übungen -->
+                        <div id="quick-points-time-input-container" class="hidden mt-2 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                            <label class="block text-sm font-medium text-purple-900 mb-1">Zeit eingeben</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="quick-points-time-hours" min="0" max="23" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                                <span class="text-purple-700">:</span>
+                                <input type="number" id="quick-points-time-minutes" min="0" max="59" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                                <span class="text-purple-700">:</span>
+                                <input type="number" id="quick-points-time-seconds" min="0" max="59" value="0" placeholder="00" class="w-16 px-2 py-2 text-center border border-purple-300 rounded-md text-sm" />
+                            </div>
+                            <p class="text-xs text-purple-600 mt-1">Format: Stunden : Minuten : Sekunden</p>
                         </div>
                     </div>
 
@@ -5512,6 +5378,9 @@
                 }
             });
         </script>
+
+        <!-- Table Tennis Exercise Builder for animation playback -->
+        <script src="/js/table-tennis-exercise-builder.js"></script>
 
         <script type="module">
             // Initialize i18n

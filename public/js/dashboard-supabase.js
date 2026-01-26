@@ -2105,6 +2105,8 @@ async function loadExercises() {
     const container = document.getElementById('exercises-list');
     if (!container) return;
 
+    let allExerciseItems = []; // Für die Suchfunktion
+
     try {
         // Abfrage mit optionalem Sport-Filter erstellen
         let query = supabase
@@ -2124,11 +2126,11 @@ async function loadExercises() {
         if (error) throw error;
 
         if (!exercises || exercises.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Keine Übungen verfügbar</p>';
+            container.innerHTML = '<p class="p-4 text-gray-500 text-center">Keine Übungen verfügbar</p>';
             return;
         }
 
-        // Tags sammeln und Übungskarten mit Tag-Daten erstellen
+        // Tags sammeln und Übungs-Items erstellen
         const allTags = new Set();
         const exerciseCards = [];
 
@@ -2138,35 +2140,71 @@ async function loadExercises() {
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
-            const card = document.createElement('div');
-            card.className = 'bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer';
-            card.dataset.tags = JSON.stringify(exerciseTags);
-            card.onclick = () => openExerciseModal(exercise.id);
-            card.innerHTML = `
-                <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
-                    <img src="${exercise.image_url || ''}"
-                         alt="${exercise.name}"
-                         class="w-full h-full object-cover"
-                         onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-4xl\\'>🏓</div>'">
-                </div>
-                <h4 class="font-semibold">${exercise.name}</h4>
-                <p class="text-sm text-gray-600 mt-1 line-clamp-2">${exercise.description || ''}</p>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${exercise.xp_reward || 0} XP</span>
+            // Max Punkte berechnen (Meilensteine zusammenrechnen)
+            let maxPoints = exercise.xp_reward || exercise.points || 0;
+            const tieredPoints = exercise.tiered_points;
+            if (tieredPoints && tieredPoints.enabled && tieredPoints.milestones) {
+                maxPoints = tieredPoints.milestones.reduce((sum, m) => sum + (m.points || 0), 0);
+            }
+
+            const item = document.createElement('div');
+            item.className = 'exercise-item flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors';
+            item.dataset.id = exercise.id;
+            item.dataset.tags = JSON.stringify(exerciseTags);
+            item.onclick = () => navigateToExerciseDetail(exercise.id);
+            item.innerHTML = `
+                <span class="text-gray-900 font-medium truncate pr-4">${escapeHtml(exercise.name || '')}</span>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                    <i class="fas fa-chevron-right text-gray-400"></i>
                 </div>
             `;
 
-            container.appendChild(card);
-            exerciseCards.push({ card, tags: exerciseTags });
+            container.appendChild(item);
+            exerciseCards.push({ card: item, tags: exerciseTags });
+            allExerciseItems.push({ item, title: exercise.name || '', tags: exerciseTags });
         });
 
         // Tag-Filter Setup
         setupExerciseTagFilter(allTags, exerciseCards);
 
+        // Suchfunktion einrichten
+        setupExerciseSearchDashboard(allExerciseItems);
+
     } catch (error) {
         console.error('Error loading exercises:', error);
-        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Übungen</p>';
+        container.innerHTML = '<p class="p-4 text-red-500 text-center">Fehler beim Laden der Übungen</p>';
     }
+}
+
+// Navigation zur Übungs-Detailseite
+function navigateToExerciseDetail(exerciseId) {
+    window.location.href = `/exercise-detail.html?id=${exerciseId}`;
+}
+
+// Suchfunktion für Dashboard Übungsliste
+function setupExerciseSearchDashboard(allExerciseItems) {
+    const searchInput = document.getElementById('exercise-search-input');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        allExerciseItems.forEach(({ item, title }) => {
+            const matchesSearch = !searchTerm || title.toLowerCase().includes(searchTerm);
+            const isTagHidden = item.classList.contains('tag-hidden');
+
+            if (matchesSearch) {
+                item.classList.remove('search-hidden');
+                if (!isTagHidden) {
+                    item.style.display = '';
+                }
+            } else {
+                item.classList.add('search-hidden');
+                item.style.display = 'none';
+            }
+        });
+    });
 }
 
 /**
@@ -2215,12 +2253,17 @@ function setupExerciseTagFilter(allTags, exerciseCards) {
         e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
         e.target.classList.remove('bg-gray-200', 'text-gray-700');
 
-        // Übungen filtern
+        // Übungen filtern (mit Berücksichtigung der Suche)
         exerciseCards.forEach(({ card, tags }) => {
             if (selectedTag === 'all' || tags.includes(selectedTag)) {
-                card.classList.remove('hidden');
+                card.classList.remove('tag-hidden');
+                // Nur anzeigen wenn auch nicht durch Suche versteckt
+                if (!card.classList.contains('search-hidden')) {
+                    card.style.display = '';
+                }
             } else {
-                card.classList.add('hidden');
+                card.classList.add('tag-hidden');
+                card.style.display = 'none';
             }
         });
     };
@@ -2630,17 +2673,17 @@ async function fetchSeasonEndDate() {
             query = query.eq('sport_id', userSportId);
         }
 
-        // Nach Benutzer-Club filtern - nur eigene Vereins-Saisons anzeigen
+        // Nach Benutzer-Club filtern - eigene Vereins-Saisons ODER globale Saisons
         if (userClubId) {
-            query = query.eq('club_id', userClubId);
+            query = query.or(`club_id.eq.${userClubId},club_id.is.null`);
         }
 
         const { data: activeSeasons, error } = await query
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .order('created_at', { ascending: false });
 
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            const activeSeason = activeSeasons[0];
+            // Prefer club-specific season over global (null club_id)
+            const activeSeason = activeSeasons.find(s => s.club_id === userClubId) || activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
             // Ergebnis cachen
@@ -3473,10 +3516,13 @@ window.openExerciseModal = async (exerciseId) => {
             if (pointsEl) pointsEl.textContent = `Bis zu ${points} P.`;
 
             if (milestonesContainer) {
+                // Support both 'count' and 'completions' for backward compatibility
+                const getMilestoneCount = (m) => m.count || m.completions;
+
                 // Spielerfortschritt-Bereich
                 let progressHtml = '';
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+                const nextMilestone = tieredPointsData.milestones.find(m => getMilestoneCount(m) > currentCount);
+                const remaining = nextMilestone ? getMilestoneCount(nextMilestone) - currentCount : 0;
 
                 progressHtml = `
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -3498,12 +3544,13 @@ window.openExerciseModal = async (exerciseId) => {
                 `;
 
                 // Meilensteine-Liste
-                const sortedMilestones = tieredPointsData.milestones.sort((a, b) => a.count - b.count);
+                const sortedMilestones = tieredPointsData.milestones.sort((a, b) => getMilestoneCount(a) - getMilestoneCount(b));
 
                 // Kumulative Summe berechnen
                 let cumulativePoints = 0;
                 const milestonesHtml = sortedMilestones
                     .map((milestone, index) => {
+                        const milestoneCount = getMilestoneCount(milestone);
                         cumulativePoints += milestone.points;
                         const isFirst = index === 0;
                         const displayPoints = isFirst
@@ -3511,12 +3558,12 @@ window.openExerciseModal = async (exerciseId) => {
                             : `+${milestone.points}`;
 
                         let bgColor, borderColor, iconColor, textColor;
-                        if (currentCount >= milestone.count) {
+                        if (currentCount >= milestoneCount) {
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
-                        } else if (index === 0 || currentCount >= sortedMilestones[index - 1].count) {
+                        } else if (index === 0 || currentCount >= getMilestoneCount(sortedMilestones[index - 1])) {
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
                             iconColor = 'text-orange-600';
@@ -3530,7 +3577,7 @@ window.openExerciseModal = async (exerciseId) => {
 
                         return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                             <div class="flex items-center gap-3">
-                                <span class="text-base font-semibold ${textColor}">${milestone.count} ${exercise.unit || 'Wiederholungen'}</span>
+                                <span class="text-base font-semibold ${textColor}">${milestoneCount} ${exercise.unit || 'Wiederholungen'}</span>
                             </div>
                             <div class="text-right">
                                 <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>

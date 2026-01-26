@@ -616,40 +616,54 @@
                         </div>
 
                         <!-- Sub-Tab Content: Übungskatalog -->
-                        <div id="exercises-subtab-catalog" class="p-6">
-                            <h2 class="text-xl font-semibold mb-4" data-i18n="dashboard.exercises.title">Übungskatalog</h2>
-                            <!-- Tag Filter Section (Collapsible) -->
-                            <div class="mb-4">
+                        <div id="exercises-subtab-catalog" class="p-4 sm:p-6">
+                            <!-- Header mit Suche und Filter -->
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                                 <button
                                     id="toggle-tags-filter-player"
-                                    class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm mb-2"
+                                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
-                                    <span data-i18n="dashboard.exercises.filterTags">Tags filtern</span>
+                                    <i class="fas fa-filter"></i>
+                                    <span data-i18n="dashboard.exercises.filterTags">Filter</span>
                                 </button>
-                                <div
-                                    id="tags-filter-section-player"
-                                    class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50"
-                                >
-                                    <input
-                                        type="text"
-                                        id="tag-search-player"
-                                        placeholder="Tag suchen..."
-                                        data-i18n-placeholder="dashboard.exercises.searchTag"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                    <div
-                                        id="tags-filter-container"
-                                        class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
-                                    >
-                                        <!-- Tag buttons will be dynamically inserted here -->
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="exercise-search-input"
+                                            placeholder="Suche nach Übungen"
+                                            data-i18n-placeholder="dashboard.exercises.searchExercises"
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
                                     </div>
                                 </div>
                             </div>
+                            <!-- Tag Filter Section (Collapsible) -->
+                            <div
+                                id="tags-filter-section-player"
+                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4"
+                            >
+                                <input
+                                    type="text"
+                                    id="tag-search-player"
+                                    placeholder="Tag suchen..."
+                                    data-i18n-placeholder="dashboard.exercises.searchTag"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <div
+                                    id="tags-filter-container"
+                                    class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
+                                >
+                                    <!-- Tag buttons will be dynamically inserted here -->
+                                </div>
+                            </div>
+                            <!-- Übungsliste -->
                             <div
                                 id="exercises-list"
-                                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                                class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden bg-white"
                             >
-                                <p data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500" data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
                             </div>
                         </div>
 
@@ -1200,6 +1214,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"
@@ -1330,6 +1360,16 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     </div>
 
+                    <!-- Übung zuordnen -->
+                    <div>
+                        <label for="player-video-exercise-select" class="block text-sm font-medium text-gray-700 mb-1">Übung zuordnen (optional)</label>
+                        <select id="player-video-exercise-select"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">-- Keine Übung --</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Ordne das Video einer Übung zu, damit dein Coach den Kontext sieht</p>
+                    </div>
+
                     <!-- Tags -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Tags (optional)</label>
@@ -1376,6 +1416,20 @@
                             <i class="fas fa-lock mr-1"></i>
                             Das Video wird nur in deiner persönlichen Mediathek gespeichert.
                         </p>
+                    </div>
+
+                    <!-- KI-Training Consent (DSGVO) -->
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" id="allow-ai-training"
+                                   class="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+                            <div>
+                                <span class="font-medium text-gray-800 text-sm">KI-Verbesserung unterstützen</span>
+                                <p class="text-xs text-gray-600 mt-0.5">
+                                    Mein Video darf anonymisiert zur Verbesserung der automatischen Schlag-Erkennung genutzt werden.
+                                </p>
+                            </div>
+                        </label>
                     </div>
 
                     <!-- Upload Progress -->
@@ -2068,6 +2122,8 @@
         </script>
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
+        <!-- Table Tennis Exercise Builder for animation playback -->
+        <script src="/js/table-tennis-exercise-builder.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Supabase Version - keine Firebase-Abhängigkeiten -->

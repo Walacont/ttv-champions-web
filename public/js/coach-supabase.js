@@ -65,13 +65,9 @@ import {
     loadAllExercises,
     loadExercisesForDropdown,
     openExerciseModalFromDataset,
-    handleCreateExercise,
     closeExerciseModal,
-    setupExercisePointsCalculation,
-    setupExerciseMilestones,
     setExerciseContext,
 } from './exercises-supabase.js';
-import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
 import {
     handleGeneratePairings,
@@ -116,10 +112,7 @@ import {
 } from './points-management-supabase.js';
 import { loadLeaguesForSelector, checkAndResetClubSeason } from './season-supabase.js';
 import { initQuickPointsDialog } from './quick-points-supabase.js';
-import {
-    initializeExercisePartnerSystemCoach,
-    initializeChallengePartnerSystemCoach,
-} from './milestone-management.js';
+import { initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics, initEventsNavigation } from './coach-statistics-supabase.js';
 import {
     loadSubgroupsList,
@@ -157,7 +150,6 @@ let clubPlayers = [];
 let currentSubgroupFilter = 'all';
 let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
-let descriptionEditor = null;
 
 // --- Initialisierung ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -629,13 +621,6 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
-    // Beschreibungs-Editor VOR Event-Handler initialisieren
-    descriptionEditor = setupDescriptionEditor({
-        textAreaId: 'exercise-description-form',
-        toggleContainerId: 'description-toggle-container-coach',
-        tableEditorContainerId: 'description-table-editor-coach',
-    });
-
     document
         .getElementById('add-offline-player-form')
         .addEventListener('submit', e => handleAddOfflinePlayer(e, supabase, userData));
@@ -654,9 +639,6 @@ async function initializeCoachPage(userData) {
                 renderCalendar(date, userData)
             )
         );
-    document
-        .getElementById('create-exercise-form')
-        .addEventListener('submit', e => handleCreateExercise(e, supabase, supabase.storage, descriptionEditor, userData));
     document.getElementById('match-form').addEventListener('submit', async e => {
         const matchType = getCurrentMatchType();
         if (matchType === 'doubles') {
@@ -665,13 +647,6 @@ async function initializeCoachPage(userData) {
             await handleMatchSave(e, supabase, userData, clubPlayers);
         }
     });
-
-    // Auto-Berechnung basierend auf Level + Schwierigkeit
-    setupExercisePointsCalculation();
-
-    setupExerciseMilestones();
-
-    initializeExercisePartnerSystemCoach();
 
     // Empfehlungen basierend auf Dauer
     setupChallengePointRecommendations();
@@ -711,16 +686,7 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => {
         document.getElementById('pairings-modal').classList.add('hidden');
     });
-    document.getElementById('exercises-list-coach').addEventListener('click', async e => {
-        const card = e.target.closest('[data-id]');
-        if (card) {
-            openExerciseModalFromDataset(card.dataset);
-            // Musterlösungen für diese Übung laden
-            if (card.dataset.id) {
-                await loadExerciseExampleVideos(card.dataset.id);
-            }
-        }
-    });
+    // Event-Handler für Übungsliste ist nicht mehr nötig - Navigation zur Detailseite erfolgt via onclick
     document
         .getElementById('close-exercise-modal-button')
         .addEventListener('click', closeExerciseModal);

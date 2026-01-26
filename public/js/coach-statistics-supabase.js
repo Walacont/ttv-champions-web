@@ -239,10 +239,18 @@ export async function loadEventsForDay(userData, supabase, date) {
         const attendanceMap = new Map();
         daysEvents.forEach(event => {
             const attendanceRecords = event.event_attendance || [];
-            // Für wiederkehrende Events: nur wenn occurrence_date = ausgewähltes Datum
-            const dayAttendance = attendanceRecords.find(att =>
-                !att.occurrence_date || att.occurrence_date === dateStr
-            );
+            // Für wiederkehrende Events: nur wenn occurrence_date exakt dem ausgewählten Datum entspricht
+            // Für nicht-wiederkehrende Events: occurrence_date kann fehlen oder gleich dem Event-Datum sein
+            const isRecurring = !!event.repeat_type;
+            const dayAttendance = attendanceRecords.find(att => {
+                if (isRecurring) {
+                    // Bei wiederkehrenden Events MUSS occurrence_date dem ausgewählten Datum entsprechen
+                    return att.occurrence_date === dateStr;
+                } else {
+                    // Bei einmaligen Events: occurrence_date kann fehlen oder gleich dem Datum sein
+                    return !att.occurrence_date || att.occurrence_date === dateStr;
+                }
+            });
             if (dayAttendance) {
                 attendanceMap.set(event.id, dayAttendance);
             }

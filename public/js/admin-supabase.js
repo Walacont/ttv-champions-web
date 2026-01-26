@@ -22,7 +22,6 @@ import {
     getExerciseMilestones,
     isExerciseTieredPointsEnabled,
     initializeExercisePartnerSystem,
-    getExercisePartnerSettings,
 } from './milestone-management.js';
 import { escapeHtml } from './utils/security.js';
 
@@ -82,6 +81,10 @@ let clubExistingSports = [];
 
 let currentSportFilter = 'all';
 let isAdminPageInitialized = false;
+
+// Bearbeitungsmodus für Übungen
+let editingExerciseId = null;
+let editingExerciseImageUrl = null;
 
 function showAuthError(message) {
     pageLoader.style.display = 'none';
@@ -162,11 +165,12 @@ function initializeAdminPage(userData, user) {
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
 
-        // Beschreibungs-Editoren initialisieren
+        // Beschreibungs-Editoren initialisieren (Tabellen-Modus als Standard)
         descriptionEditor = setupDescriptionEditor({
             textAreaId: 'exercise-description',
             toggleContainerId: 'description-toggle-container',
             tableEditorContainerId: 'description-table-editor',
+            initialData: { type: 'table', tableData: { headers: ['Spieler A', 'Spieler B'], rows: [] }, additionalText: '' }
         });
 
         editDescriptionEditor = setupDescriptionEditor({
@@ -180,6 +184,9 @@ function initializeAdminPage(userData, user) {
 
         // Partner-System initialisieren
         initializeExercisePartnerSystem();
+
+        // Animation-Toggle für Übungserstellung
+        initializeAnimationToggle();
 
         // Modal-Listener
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
@@ -217,12 +224,7 @@ function initializeAdminPage(userData, user) {
             }
         });
 
-        exercisesListAdminEl.addEventListener('click', e => {
-            const card = e.target.closest('[data-id]');
-            if (card) {
-                openExerciseModal(card.dataset);
-            }
-        });
+        // Alte Card-Click-Handler entfernt - jetzt mit inline onclick in renderExercises
 
         modalEditExerciseButton.addEventListener('click', e => {
             openEditExerciseModal(e.target.dataset);
@@ -238,15 +240,12 @@ function initializeAdminPage(userData, user) {
         loadSportsAndClubs();
         setupClubSearchListeners();
 
-        // Saisonen laden
-        loadSeasons();
-        setupSeasonForm();
-
         // Audit-Bereich initialisieren
         initializeAuditSection();
 
         loadClubsAndPlayers();
         loadAllExercises();
+        initAdminExerciseSearch();
         loadStatistics();
     } catch (error) {
         showAuthError(`Initialisierungsfehler: ${error.message}`);
@@ -271,7 +270,6 @@ async function loadSportsAndClubs() {
 
         // Sportarten-Dropdowns befüllen
         const sportSelect = document.getElementById('sportSelect');
-        const seasonSportSelect = document.getElementById('season-sport');
 
         if (sportSelect) {
             sportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
@@ -280,17 +278,6 @@ async function loadSportsAndClubs() {
                 option.value = sport.id;
                 option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
                 sportSelect.appendChild(option);
-            });
-        }
-
-        // Saison-Sportarten-Dropdown befüllen
-        if (seasonSportSelect) {
-            seasonSportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
-            allSports.forEach(sport => {
-                const option = document.createElement('option');
-                option.value = sport.id;
-                option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
-                seasonSportSelect.appendChild(option);
             });
         }
 
@@ -398,6 +385,12 @@ function switchSportFilter(sportId) {
             exerciseSportLabel.textContent = `${getSportIcon(sport?.name)} ${sport?.display_name || 'Unbekannt'}`;
             exerciseSportLabel.className = 'font-medium text-indigo-600';
         }
+    }
+
+    // Übungs-Sportart-Dropdown automatisch vorauswählen
+    const exerciseSportSelect = document.getElementById('exercise-sport');
+    if (exerciseSportSelect) {
+        exerciseSportSelect.value = sportId !== 'all' ? sportId : '';
     }
 
     // Daten mit neuem Filter neu laden
@@ -782,9 +775,74 @@ function copyInviteLink() {
 }
 
 function openExerciseModal(dataset) {
-    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints, animationSteps } = dataset;
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl || '';
+
+    // Animation-Container handling
+    const animationContainer = document.getElementById('modal-exercise-animation');
+    const animationCanvas = document.getElementById('modal-animation-canvas');
+    if (animationContainer && animationCanvas) {
+        let animationData = null;
+
+        if (animationSteps) {
+            try {
+                animationData = typeof animationSteps === 'string'
+                    ? JSON.parse(animationSteps)
+                    : animationSteps;
+            } catch (e) {
+                console.log('Could not parse animation steps:', e);
+            }
+        }
+
+        if (animationData && animationData.steps && animationData.steps.length > 0) {
+            animationContainer.classList.remove('hidden');
+
+            if (typeof window.TableTennisExerciseBuilder !== 'undefined') {
+                if (window.modalExerciseBuilder) {
+                    window.modalExerciseBuilder.stopAnimation();
+                }
+
+                window.modalExerciseBuilder = new window.TableTennisExerciseBuilder('modal-animation-canvas');
+
+                animationData.steps.forEach(step => {
+                    window.modalExerciseBuilder.addStep(
+                        step.player,
+                        step.strokeType,
+                        step.side,
+                        step.fromPosition,
+                        step.toPosition,
+                        step.isShort,
+                        step.variants,
+                        step.repetitions,
+                        step.playerDecides
+                    );
+                });
+
+                window.modalExerciseBuilder.loopAnimation = true;
+                window.modalExerciseBuilder.play();
+
+                const playPauseBtn = document.getElementById('modal-animation-play-pause');
+                if (playPauseBtn) {
+                    playPauseBtn.onclick = () => {
+                        if (window.modalExerciseBuilder.isPlaying) {
+                            window.modalExerciseBuilder.pause();
+                            playPauseBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Play';
+                        } else {
+                            window.modalExerciseBuilder.play();
+                            playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                        }
+                    };
+                    playPauseBtn.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                }
+            }
+        } else {
+            animationContainer.classList.add('hidden');
+            if (window.modalExerciseBuilder) {
+                window.modalExerciseBuilder.stopAnimation();
+            }
+        }
+    }
 
     // Beschreibungsinhalt rendern
     let descriptionData;
@@ -824,9 +882,11 @@ function openExerciseModal(dataset) {
         modalExercisePoints.textContent = `🎯 Bis zu ${points} P.`;
 
         if (milestonesContainer) {
+            // Support both 'count' and 'completions' for backward compatibility
             const milestonesHtml = tieredPointsData.milestones
-                .sort((a, b) => a.count - b.count)
+                .sort((a, b) => (a.count || a.completions) - (b.count || b.completions))
                 .map((milestone, index) => {
+                    const milestoneCount = milestone.count || milestone.completions;
                     const isFirst = index === 0;
                     const displayPoints = isFirst
                         ? milestone.points
@@ -834,7 +894,7 @@ function openExerciseModal(dataset) {
                     return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl">🎯</span>
-                            <span class="text-base font-semibold text-gray-800">${milestone.count}× abgeschlossen</span>
+                            <span class="text-base font-semibold text-gray-800">${milestoneCount}× abgeschlossen</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold text-indigo-600">${displayPoints} P.</div>
@@ -906,6 +966,213 @@ function openEditExerciseModal(dataset) {
 
     exerciseModal.classList.add('hidden');
     editExerciseModal.classList.remove('hidden');
+}
+
+/**
+ * Startet den Bearbeitungsmodus für eine Übung
+ * Lädt alle Daten und füllt das Erstellungsformular aus
+ */
+async function startEditExercise(exerciseId) {
+    try {
+        // Übung aus der Datenbank laden
+        const { data: exercise, error } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('id', exerciseId)
+            .single();
+
+        if (error) throw error;
+        if (!exercise) throw new Error('Übung nicht gefunden');
+
+        // Bearbeitungsmodus aktivieren
+        editingExerciseId = exerciseId;
+        editingExerciseImageUrl = exercise.image_url;
+
+        // Titel
+        document.getElementById('exercise-title').value = exercise.title || '';
+
+        // Tags
+        document.getElementById('exercise-tags').value = (exercise.tags || []).join(', ');
+
+        // Übungstyp (Spieler-Aktivität)
+        const playerType = exercise.player_type || 'a_active_b_passive';
+        const playerTypeRadio = document.querySelector(`input[name="exercise-player-type"][value="${playerType}"]`);
+        if (playerTypeRadio) playerTypeRadio.checked = true;
+
+        // Tiered Points / Meilensteine
+        const tieredPoints = exercise.tiered_points;
+        const tieredPointsToggle = document.getElementById('exercise-tiered-points-toggle');
+        const pointsContainer = document.getElementById('exercise-points-container-admin');
+        const milestonesContainer = document.getElementById('exercise-milestones-container');
+
+        if (tieredPoints?.enabled) {
+            tieredPointsToggle.checked = true;
+            pointsContainer?.classList.add('hidden');
+            milestonesContainer?.classList.remove('hidden');
+
+            // Einheit setzen
+            const unitSelect = document.getElementById('exercise-milestone-unit');
+            const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+            const unit = exercise.unit || tieredPoints.unit || 'Wiederholungen';
+            const timeDirection = exercise.time_direction || tieredPoints.time_direction;
+
+            if (unitSelect) {
+                if (unit === 'Zeit' && timeDirection) {
+                    unitSelect.value = `Zeit_${timeDirection}`;
+                } else if (['Wiederholungen', 'Ballberührungen', 'Sterne', 'Treffer'].includes(unit)) {
+                    unitSelect.value = unit;
+                } else {
+                    unitSelect.value = 'custom';
+                    if (unitCustom) unitCustom.value = unit;
+                }
+            }
+
+            // Meilensteine einfügen
+            const milestonesList = document.getElementById('exercise-milestones-list');
+            if (milestonesList) {
+                milestonesList.innerHTML = '';
+                (tieredPoints.milestones || []).forEach(m => {
+                    addMilestoneToList(m.count, m.points);
+                });
+            }
+        } else {
+            tieredPointsToggle.checked = false;
+            pointsContainer?.classList.remove('hidden');
+            milestonesContainer?.classList.add('hidden');
+            document.getElementById('exercise-points').value = exercise.points || '';
+        }
+
+        // Beschreibung
+        if (exercise.description_content) {
+            try {
+                const descriptionData = JSON.parse(exercise.description_content);
+                descriptionEditor.setContent(descriptionData);
+            } catch (e) {
+                descriptionEditor.setContent({ type: 'text', text: exercise.description_content });
+            }
+        }
+
+        // Animationen laden falls vorhanden
+        if (exercise.animation_steps?.animations) {
+            exerciseAnimations = exercise.animation_steps.animations;
+            renderAnimationsList();
+            updateHandednessDropdown();
+        }
+
+        // Submit-Button Text ändern
+        const submitBtn = document.getElementById('create-exercise-submit');
+        if (submitBtn) {
+            submitBtn.textContent = 'Übung aktualisieren';
+        }
+
+        // Abbrechen-Button anzeigen
+        showCancelEditButton();
+
+        // Zum Formular scrollen
+        const formSection = document.getElementById('create-exercise-form');
+        if (formSection) {
+            formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        showAdminNotification('Übung zur Bearbeitung geladen', 'info');
+    } catch (error) {
+        console.error('Fehler beim Laden der Übung:', error);
+        showAdminNotification('Fehler beim Laden der Übung', 'error');
+    }
+}
+
+/**
+ * Zeigt den Abbrechen-Button für den Bearbeitungsmodus
+ */
+function showCancelEditButton() {
+    const submitBtn = document.getElementById('create-exercise-submit');
+    if (!submitBtn) return;
+
+    // Prüfen ob Button schon existiert
+    let cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancel-edit-exercise-btn';
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-colors mt-2';
+        cancelBtn.textContent = 'Bearbeitung abbrechen';
+        cancelBtn.addEventListener('click', resetExerciseFormToCreate);
+        submitBtn.parentNode.insertBefore(cancelBtn, submitBtn.nextSibling);
+    }
+    cancelBtn.classList.remove('hidden');
+}
+
+/**
+ * Setzt das Formular zurück in den Erstellungsmodus
+ */
+function resetExerciseFormToCreate() {
+    editingExerciseId = null;
+    editingExerciseImageUrl = null;
+
+    // Formular zurücksetzen
+    createExerciseForm.reset();
+
+    // Felder manuell zurücksetzen
+    document.getElementById('exercise-title').value = '';
+    document.getElementById('exercise-tags').value = '';
+    document.getElementById('exercise-points').value = '';
+
+    // Übungstyp auf Standard setzen
+    const defaultPlayerType = document.querySelector('input[name="exercise-player-type"][value="a_active_b_passive"]');
+    if (defaultPlayerType) defaultPlayerType.checked = true;
+
+    // Meilensteine zurücksetzen
+    document.getElementById('exercise-tiered-points-toggle').checked = false;
+    document.getElementById('exercise-points-container-admin')?.classList.remove('hidden');
+    document.getElementById('exercise-milestones-container')?.classList.add('hidden');
+    document.getElementById('exercise-milestones-list').innerHTML = '';
+
+    // Einheit zurücksetzen
+    const unitSelect = document.getElementById('exercise-milestone-unit');
+    const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+    if (unitSelect) unitSelect.value = 'Wiederholungen';
+    if (unitCustom) unitCustom.value = '';
+
+    // Beschreibung zurücksetzen
+    descriptionEditor.clear();
+
+    // Animationen zurücksetzen
+    resetExerciseAnimations();
+
+    // Submit-Button Text zurücksetzen
+    const submitBtn = document.getElementById('create-exercise-submit');
+    if (submitBtn) {
+        submitBtn.textContent = 'Übung erstellen';
+    }
+
+    // Abbrechen-Button verstecken
+    const cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+
+    showAdminNotification('Bearbeitung abgebrochen', 'info');
+}
+
+/**
+ * Hilfsfunktion zum Hinzufügen eines Meilensteins zur Liste
+ */
+function addMilestoneToList(count, points) {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return;
+
+    const item = document.createElement('div');
+    item.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg milestone-item';
+    item.innerHTML = `
+        <input type="number" class="milestone-count w-20 px-2 py-1 border border-gray-300 rounded text-sm" value="${count}" min="1" placeholder="Anzahl">
+        <span class="text-gray-500">=</span>
+        <input type="number" class="milestone-points w-20 px-2 py-1 border border-gray-300 rounded text-sm" value="${points}" min="1" placeholder="XP">
+        <span class="text-gray-500">XP</span>
+        <button type="button" class="remove-milestone-btn text-red-500 hover:text-red-700 ml-auto">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+
+    item.querySelector('.remove-milestone-btn').addEventListener('click', () => item.remove());
+    list.appendChild(item);
 }
 
 async function handleUpdateExercise(e) {
@@ -1796,13 +2063,37 @@ async function handleCreateExercise(e) {
     const descriptionContent = descriptionEditor.getContent();
     const file = document.getElementById('exercise-image').files[0];
     const tagsInput = document.getElementById('exercise-tags').value;
-    const tags = tagsInput
+    let tags = tagsInput
         .split(',')
         .map(tag => tag.trim())
         .filter(tag => tag);
 
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
+
+    // Übungstyp (Spieler-Aktivität) ermitteln
+    const playerTypeRadio = document.querySelector('input[name="exercise-player-type"]:checked');
+    const playerType = playerTypeRadio?.value || 'both_active';
+
+    // Einheit für Meilensteine ermitteln
+    let milestoneUnit = 'Wiederholungen';
+    let timeDirection = null; // 'faster' oder 'longer' für Zeit-basierte Einheiten
+    if (tieredPoints) {
+        const customUnit = document.getElementById('exercise-milestone-unit-custom')?.value?.trim();
+        const selectUnit = document.getElementById('exercise-milestone-unit')?.value;
+
+        if (customUnit) {
+            milestoneUnit = customUnit;
+        } else if (selectUnit) {
+            // Zeit-Einheiten haben Format "Zeit_faster" oder "Zeit_longer"
+            if (selectUnit.startsWith('Zeit_')) {
+                milestoneUnit = 'Zeit';
+                timeDirection = selectUnit.replace('Zeit_', ''); // 'faster' oder 'longer'
+            } else {
+                milestoneUnit = selectUnit;
+            }
+        }
+    }
 
     let points = 0;
     if (tieredPoints) {
@@ -1864,59 +2155,101 @@ async function handleCreateExercise(e) {
         const exerciseSport = document.getElementById('exercise-sport')?.value || null;
 
         const exerciseData = {
+            name: title,
             title,
             description_content: JSON.stringify(descriptionContent),
             points,
             tags,
-            image_url: imageUrl,
             tiered_points: tieredPoints ? {
                 enabled: true,
                 milestones: milestones,
+                unit: milestoneUnit,
+                time_direction: timeDirection, // 'faster', 'longer' oder null
             } : {
                 enabled: false,
                 milestones: [],
             },
+            // Einheit als Top-Level Feld für einfacheren Zugriff
+            unit: tieredPoints ? milestoneUnit : null,
+            // Zeit-Richtung als Top-Level Feld
+            time_direction: timeDirection,
+            // Übungstyp: 'both_active' oder 'a_active_b_passive'
+            player_type: playerType,
             // Admin kann spezifischen Verein oder null für global setzen
             club_id: exerciseClub || null,
             // Admin kann spezifische Sportart oder null für alle setzen
             sport_id: exerciseSport || null,
         };
 
-        // Partner-System-Einstellungen hinzufügen falls aktiviert
-        const partnerSettings = getExercisePartnerSettings();
-        if (partnerSettings) {
-            exerciseData.partner_system = {
-                enabled: true,
-                partner_percentage: partnerSettings.partnerPercentage,
-            };
-        } else {
-            exerciseData.partner_system = {
-                enabled: false,
-                partner_percentage: 50,
+        // Bild-URL: neues Bild oder bestehendes behalten (bei Bearbeitung)
+        if (imageUrl) {
+            exerciseData.image_url = imageUrl;
+        } else if (editingExerciseId && editingExerciseImageUrl) {
+            exerciseData.image_url = editingExerciseImageUrl;
+        }
+
+        // Animationen hinzufügen falls vorhanden (alles in animation_steps speichern)
+        if (exerciseAnimations.length > 0) {
+            // Speichere alle Animationen mit Händigkeit und Beschreibung
+            exerciseData.animation_steps = {
+                animations: exerciseAnimations,
+                // Für Abwärtskompatibilität: Erste Animation Steps direkt verfügbar
+                steps: exerciseAnimations[0].steps,
+                handedness: exerciseAnimations.map(a => a.handedness)
             };
         }
 
-        const { data: insertedExercise, error } = await supabase
-            .from('exercises')
-            .insert(exerciseData)
-            .select()
-            .single();
+        let resultExercise;
+        let isUpdate = !!editingExerciseId;
 
-        if (error) throw error;
+        if (isUpdate) {
+            // UPDATE: Bestehende Übung aktualisieren
+            const { data: updatedExercise, error } = await supabase
+                .from('exercises')
+                .update(exerciseData)
+                .eq('id', editingExerciseId)
+                .select()
+                .single();
 
-        // Audit-Ereignis protokollieren
-        await logAuditEvent(
-            'exercise_created',
-            insertedExercise?.id,
-            'exercise',
-            null,
-            currentSportFilter !== 'all' ? currentSportFilter : null,
-            { title, points }
-        );
+            if (error) throw error;
+            resultExercise = updatedExercise;
 
-        feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+            // Audit-Ereignis protokollieren
+            await logAuditEvent(
+                'exercise_updated',
+                editingExerciseId,
+                'exercise',
+                null,
+                currentSportFilter !== 'all' ? currentSportFilter : null,
+                { title, points }
+            );
+
+            feedbackEl.textContent = 'Übung erfolgreich aktualisiert!';
+        } else {
+            // INSERT: Neue Übung erstellen
+            const { data: insertedExercise, error } = await supabase
+                .from('exercises')
+                .insert(exerciseData)
+                .select()
+                .single();
+
+            if (error) throw error;
+            resultExercise = insertedExercise;
+
+            // Audit-Ereignis protokollieren
+            await logAuditEvent(
+                'exercise_created',
+                insertedExercise?.id,
+                'exercise',
+                null,
+                currentSportFilter !== 'all' ? currentSportFilter : null,
+                { title, points }
+            );
+
+            feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+        }
+
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
-        createExerciseForm.reset();
 
         // Formularfelder zurücksetzen
         document.getElementById('exercise-points').value = '';
@@ -1925,6 +2258,16 @@ async function handleCreateExercise(e) {
         document.getElementById('exercise-points-container-admin').classList.remove('hidden');
         document.getElementById('exercise-milestones-container').classList.add('hidden');
 
+        // Meilenstein-Einheit zurücksetzen
+        const unitSelect = document.getElementById('exercise-milestone-unit');
+        const unitCustom = document.getElementById('exercise-milestone-unit-custom');
+        if (unitSelect) unitSelect.value = 'Wiederholungen';
+        if (unitCustom) unitCustom.value = '';
+
+        // Übungstyp zurücksetzen (auf Standard)
+        const defaultPlayerType = document.querySelector('input[name="exercise-player-type"][value="a_active_b_passive"]');
+        if (defaultPlayerType) defaultPlayerType.checked = true;
+
         const partnerToggle = document.getElementById('exercise-partner-system-toggle');
         const partnerContainer = document.getElementById('exercise-partner-container');
         const partnerPercentageInput = document.getElementById('exercise-partner-percentage');
@@ -1932,10 +2275,23 @@ async function handleCreateExercise(e) {
         if (partnerContainer) partnerContainer.classList.add('hidden');
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
+        // Animationen zurücksetzen
+        resetExerciseAnimations();
+
+        // Beschreibung zurücksetzen
         descriptionEditor.clear();
+
+        // Submit-Button Text zurücksetzen
+        const submitBtnReset = document.getElementById('create-exercise-submit');
+        if (submitBtnReset) submitBtnReset.textContent = 'Übung erstellen';
+
+        // Abbrechen-Button verstecken
+        const cancelBtn = document.getElementById('cancel-edit-exercise-btn');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+
     } catch (error) {
-        console.error('Fehler beim Erstellen der Übung:', error);
-        feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
+        console.error('Fehler beim Speichern der Übung:', error);
+        feedbackEl.textContent = 'Fehler: Übung konnte nicht gespeichert werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
@@ -1995,63 +2351,169 @@ async function loadAllExercises() {
     }
 }
 
+// Admin Übungskatalog - Alle Übungen für Suche/Filter
+let allAdminExercises = [];
+let allAdminExerciseItems = [];
+let currentAdminTagFilter = 'all';
+
 function renderExercises(exercises) {
+    allAdminExercises = exercises;
+
     exercisesListAdminEl.innerHTML = exercises.length === 0
-        ? '<p class="text-gray-500 col-span-full">Keine Übungen gefunden.</p>'
+        ? '<p class="p-4 text-gray-500 text-center">Keine Übungen gefunden.</p>'
         : '';
 
-    exercises.forEach(exercise => {
-        const card = document.createElement('div');
-        card.className =
-            'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-        card.dataset.id = exercise.id;
-        card.dataset.title = exercise.title;
+    allAdminExerciseItems = [];
 
-        // Sowohl altes als auch neues Format unterstützen
+    // Tags sammeln für Filter
+    const allTags = new Set();
+    exercises.forEach(ex => {
+        (ex.tags || []).forEach(tag => allTags.add(tag));
+    });
+    renderAdminTagFilter(Array.from(allTags).sort());
+
+    // Übungen filtern nach aktuellem Tag-Filter
+    const filteredExercises = currentAdminTagFilter === 'all'
+        ? exercises
+        : exercises.filter(ex => (ex.tags || []).includes(currentAdminTagFilter));
+
+    if (filteredExercises.length === 0 && exercises.length > 0) {
+        exercisesListAdminEl.innerHTML = '<p class="p-4 text-gray-500 text-center">Keine Übungen für diesen Filter gefunden.</p>';
+        return;
+    }
+
+    filteredExercises.forEach(exercise => {
+        const exerciseTags = exercise.tags || [];
+        const maxPoints = calculateAdminMaxPoints(exercise);
+        const safeTitle = escapeHtml(exercise.title || '');
+
+        const item = document.createElement('div');
+        item.className = 'exercise-item flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors bg-white';
+        item.dataset.id = exercise.id;
+        item.dataset.tags = JSON.stringify(exerciseTags);
+
+        // Dataset für Modal beibehalten
+        item.dataset.title = exercise.title;
         if (exercise.description_content) {
-            card.dataset.descriptionContent = exercise.description_content;
+            item.dataset.descriptionContent = exercise.description_content;
         } else {
-            card.dataset.descriptionContent = JSON.stringify({
+            item.dataset.descriptionContent = JSON.stringify({
                 type: 'text',
                 text: exercise.description || '',
             });
         }
-
         if (exercise.image_url) {
-            card.dataset.imageUrl = exercise.image_url;
+            item.dataset.imageUrl = exercise.image_url;
         }
-        card.dataset.points = exercise.points;
-        card.dataset.tags = JSON.stringify(exercise.tags || []);
-
+        item.dataset.points = exercise.points;
         if (exercise.tiered_points) {
-            card.dataset.tieredPoints = JSON.stringify(exercise.tiered_points);
+            item.dataset.tieredPoints = JSON.stringify(exercise.tiered_points);
+        }
+        if (exercise.animation_steps) {
+            item.dataset.animationSteps = typeof exercise.animation_steps === 'string'
+                ? exercise.animation_steps
+                : JSON.stringify(exercise.animation_steps);
         }
 
-        const tagsHtml = (exercise.tags || [])
-            .map(
-                tag =>
-                    `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-            )
-            .join('');
+        item.innerHTML = `
+            <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onclick="window.location.href='/exercise-detail.html?id=${exercise.id}'">
+                <span class="text-gray-900 font-medium truncate">${safeTitle}</span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-sm text-gray-500 border border-gray-300 rounded-full px-3 py-1">${maxPoints} XP</span>
+                <button onclick="event.stopPropagation(); window.startEditExercise('${exercise.id}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Bearbeiten">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="event.stopPropagation(); handleDeleteExercise('${exercise.id}', '${exercise.image_url || ''}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Löschen">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
 
-        const imageHtml = exercise.image_url
-            ? `<img src="${exercise.image_url}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-            : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
-               <div class="text-center">
-                   <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                   </svg>
-                   <p class="text-xs text-gray-400">Kein Bild</p>
-               </div>
-           </div>`;
-
-        card.innerHTML = `${imageHtml}
-                      <div class="p-4 flex flex-col flex-grow pointer-events-none">
-                          <h3 class="font-bold text-md mb-2 flex-grow">${exercise.title}</h3>
-                          <div class="pt-2">${tagsHtml}</div>
-                      </div>`;
-        exercisesListAdminEl.appendChild(card);
+        exercisesListAdminEl.appendChild(item);
+        allAdminExerciseItems.push({ item, title: exercise.title || '', tags: exerciseTags });
     });
+}
+
+function calculateAdminMaxPoints(exercise) {
+    const tieredPoints = exercise.tiered_points || exercise.tieredPoints;
+    if (tieredPoints?.enabled && tieredPoints?.milestones?.length > 0) {
+        return tieredPoints.milestones.reduce((max, m) => Math.max(max, m.points || 0), 0);
+    }
+    return exercise.points || 0;
+}
+
+function renderAdminTagFilter(tags) {
+    const container = document.getElementById('tags-filter-container-admin');
+    if (!container) return;
+
+    container.innerHTML = `
+        <button class="tag-filter-btn ${currentAdminTagFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-3 py-1 rounded-full text-sm font-medium transition-colors" data-tag="all">
+            Alle
+        </button>
+        ${tags.map(tag => `
+            <button class="tag-filter-btn ${currentAdminTagFilter === tag ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-3 py-1 rounded-full text-sm font-medium transition-colors" data-tag="${escapeHtml(tag)}">
+                ${escapeHtml(tag)}
+            </button>
+        `).join('')}
+    `;
+
+    // Tag-Filter Event-Listener
+    container.querySelectorAll('.tag-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentAdminTagFilter = btn.dataset.tag;
+            renderExercises(allAdminExercises);
+        });
+    });
+}
+
+function filterAdminExercisesBySearch(searchTerm) {
+    const items = document.querySelectorAll('#exercises-list-admin .exercise-item');
+    const term = searchTerm.toLowerCase().trim();
+
+    items.forEach(item => {
+        const title = (item.querySelector('.text-gray-900')?.textContent || '').toLowerCase();
+        const tags = JSON.parse(item.dataset.tags || '[]').join(' ').toLowerCase();
+
+        if (term === '' || title.includes(term) || tags.includes(term)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function initAdminExerciseSearch() {
+    const searchInput = document.getElementById('exercise-search-input-admin');
+    const toggleBtn = document.getElementById('toggle-tags-filter-admin');
+    const filterSection = document.getElementById('tags-filter-section-admin');
+    const tagSearchInput = document.getElementById('tag-search-admin');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            filterAdminExercisesBySearch(e.target.value);
+        });
+    }
+
+    if (toggleBtn && filterSection) {
+        toggleBtn.addEventListener('click', () => {
+            filterSection.classList.toggle('hidden');
+        });
+    }
+
+    if (tagSearchInput) {
+        tagSearchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            const buttons = document.querySelectorAll('#tags-filter-container-admin .tag-filter-btn');
+            buttons.forEach(btn => {
+                const tag = btn.dataset.tag.toLowerCase();
+                if (term === '' || tag.includes(term) || tag === 'all') {
+                    btn.style.display = '';
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 async function handleDeleteExercise(exerciseId, imageUrl) {
@@ -2105,318 +2567,6 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
         }
     }
 }
-
-// ============================================
-// SEASON MANAGEMENT
-// ============================================
-
-async function loadSeasons() {
-    const seasonsListEl = document.getElementById('seasons-list');
-    if (!seasonsListEl) return;
-
-    try {
-        // Alle Saisonen gruppiert nach Sportart laden
-        const { data: seasons, error } = await supabase
-            .from('seasons')
-            .select('*, sports(id, name, display_name)')
-            .order('start_date', { ascending: false });
-
-        if (error) throw error;
-
-        if (!seasons || seasons.length === 0) {
-            seasonsListEl.innerHTML = `
-                <div class="bg-gray-50 rounded-lg p-4 text-center">
-                    <p class="text-gray-500">Keine Saisons vorhanden. Erstelle die erste Saison unten.</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Saisonen nach Sportart gruppieren
-        const seasonsBySport = {};
-        seasons.forEach(season => {
-            const sportId = season.sport_id;
-            if (!seasonsBySport[sportId]) {
-                seasonsBySport[sportId] = {
-                    sport: season.sports,
-                    seasons: []
-                };
-            }
-            seasonsBySport[sportId].seasons.push(season);
-        });
-
-        // Saisonen nach Sportart rendern
-        seasonsListEl.innerHTML = '';
-
-        for (const sportId in seasonsBySport) {
-            const { sport, seasons: sportSeasons } = seasonsBySport[sportId];
-            const activeSeason = sportSeasons.find(s => s.is_active);
-
-            const sportDiv = document.createElement('div');
-            sportDiv.className = 'border border-gray-200 rounded-lg overflow-hidden';
-
-            // Verbleibende Zeit für aktive Saison berechnen
-            let remainingInfo = '';
-            let progressBar = '';
-            if (activeSeason) {
-                const now = new Date();
-                const startDate = new Date(activeSeason.start_date);
-                const endDate = new Date(activeSeason.end_date);
-                const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-                const remainingDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-                const elapsedDays = totalDays - remainingDays;
-                const progressPercent = Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
-
-                if (remainingDays > 0) {
-                    const months = Math.floor(remainingDays / 30);
-                    const days = remainingDays % 30;
-                    if (months > 0) {
-                        remainingInfo = `<span class="text-emerald-600 font-semibold">${months} Monat${months > 1 ? 'e' : ''} ${days > 0 ? `und ${days} Tag${days > 1 ? 'e' : ''}` : ''}</span> verbleibend`;
-                    } else {
-                        remainingInfo = `<span class="text-${remainingDays <= 14 ? 'amber' : 'emerald'}-600 font-semibold">${remainingDays} Tag${remainingDays > 1 ? 'e' : ''}</span> verbleibend`;
-                    }
-                } else if (remainingDays === 0) {
-                    remainingInfo = '<span class="text-amber-600 font-semibold">Endet heute!</span>';
-                } else {
-                    remainingInfo = '<span class="text-red-600 font-semibold">Saison abgelaufen!</span>';
-                }
-
-                // Progress bar
-                progressBar = `
-                    <div class="mt-3">
-                        <div class="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>${formatDate(activeSeason.start_date)}</span>
-                            <span>${remainingInfo}</span>
-                            <span>${formatDate(activeSeason.end_date)}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="bg-gradient-to-r from-green-400 to-emerald-500 h-2.5 rounded-full transition-all" style="width: ${progressPercent}%"></div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            sportDiv.innerHTML = `
-                <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="text-2xl">${getSportIcon(sport.name)}</span>
-                            <h3 class="font-bold text-lg text-gray-900">${sport.display_name}</h3>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            ${activeSeason ? `
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                    <i class="fas fa-check-circle mr-1"></i>
-                                    ${activeSeason.name}
-                                </span>
-                                <button onclick="handleEndSeason('${activeSeason.id}', '${activeSeason.name}')"
-                                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors cursor-pointer"
-                                    title="Saison vorzeitig beenden">
-                                    <i class="fas fa-stop-circle mr-1"></i>
-                                    Beenden
-                                </button>
-                            ` : `
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                                    Keine aktive Saison
-                                </span>
-                            `}
-                        </div>
-                    </div>
-                    ${progressBar}
-                </div>
-                <div class="p-3 bg-white">
-                    <p class="text-xs text-gray-500 mb-2">Bisherige Saisons:</p>
-                    <div class="flex flex-wrap gap-2">
-                        ${sportSeasons.map(s => `
-                            <span class="inline-flex items-center px-2 py-1 rounded text-xs ${s.is_active ? 'bg-green-100 text-green-800 font-medium' : 'bg-gray-100 text-gray-600'}">
-                                ${s.name}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-
-            seasonsListEl.appendChild(sportDiv);
-        }
-
-    } catch (error) {
-        console.error('Fehler beim Laden der Saisons:', error);
-        seasonsListEl.innerHTML = '<p class="text-red-500">Fehler beim Laden der Saisons.</p>';
-    }
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-
-function setupSeasonForm() {
-    const form = document.getElementById('new-season-form');
-    if (!form) return;
-
-    // Standarddaten setzen (heute bis in einem Jahr)
-    const today = new Date();
-    const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
-
-    const startInput = document.getElementById('season-start');
-    const endInput = document.getElementById('season-end');
-
-    if (startInput) startInput.value = today.toISOString().split('T')[0];
-    if (endInput) endInput.value = nextYear.toISOString().split('T')[0];
-
-    // Standard-Saisonname setzen
-    const nameInput = document.getElementById('season-name');
-    if (nameInput) {
-        const currentYear = today.getFullYear();
-        const nextYearNum = currentYear + 1;
-        nameInput.value = `${currentYear}/${nextYearNum}`;
-    }
-
-    form.addEventListener('submit', handleStartNewSeason);
-}
-
-async function handleStartNewSeason(e) {
-    e.preventDefault();
-
-    const feedbackEl = document.getElementById('season-feedback');
-    const submitBtn = document.getElementById('start-season-btn');
-
-    const sportId = document.getElementById('season-sport')?.value;
-    const name = document.getElementById('season-name')?.value?.trim();
-    const startDate = document.getElementById('season-start')?.value;
-    const endDate = document.getElementById('season-end')?.value;
-
-    // Validation
-    if (!sportId || !name || !startDate || !endDate) {
-        feedbackEl.textContent = 'Bitte alle Felder ausfüllen.';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
-        return;
-    }
-
-    if (new Date(endDate) <= new Date(startDate)) {
-        feedbackEl.textContent = 'Das End-Datum muss nach dem Start-Datum liegen.';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
-        return;
-    }
-
-    // Sportart-Name für Bestätigung abrufen
-    const sport = allSports.find(s => s.id === sportId);
-    const sportName = sport?.display_name || 'Unbekannt';
-
-    // Aktion bestätigen
-    const confirmed = confirm(
-        `Neue Saison starten?\n\n` +
-        `Sportart: ${sportName}\n` +
-        `Saison: ${name}\n` +
-        `Zeitraum: ${formatDate(startDate)} - ${formatDate(endDate)}\n\n` +
-        `⚠️ ACHTUNG: Die Saison-Punkte aller Spieler deines Vereins für diese Sportart werden auf 0 gesetzt!`
-    );
-
-    if (!confirmed) return;
-
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird gestartet...';
-    feedbackEl.textContent = '';
-
-    try {
-        const user = await getCurrentUser();
-
-        // start_new_season-Funktion aufrufen
-        const { data, error } = await supabase.rpc('start_new_season', {
-            p_sport_id: sportId,
-            p_name: name,
-            p_start_date: startDate,
-            p_end_date: endDate,
-            p_created_by: user.id
-        });
-
-        if (error) throw error;
-
-        // Audit-Ereignis protokollieren
-        await logAuditEvent(
-            'season_started',
-            data,
-            'season',
-            null,
-            sportId,
-            { season_name: name, start_date: startDate, end_date: endDate }
-        );
-
-        feedbackEl.textContent = `Saison "${name}" erfolgreich gestartet! Punkte wurden zurückgesetzt.`;
-        feedbackEl.className = 'mt-3 text-sm font-medium text-green-600';
-
-        // Formular zurücksetzen
-        document.getElementById('season-sport').value = '';
-
-        // Saisonliste neu laden
-        await loadSeasons();
-
-        // Statistiken neu laden um aktualisierte Punkte zu zeigen
-        loadStatistics();
-
-    } catch (error) {
-        console.error('Fehler beim Starten der Saison:', error);
-        feedbackEl.textContent = `Fehler: ${error.message}`;
-        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Neue Saison starten';
-    }
-}
-
-// Saison vorzeitig beenden
-async function handleEndSeason(seasonId, seasonName) {
-    const confirmed = confirm(
-        `Saison "${seasonName}" vorzeitig beenden?\n\n` +
-        `Die Saison wird als inaktiv markiert.\n` +
-        `Die Punkte bleiben erhalten bis eine neue Saison gestartet wird.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-        // Saison-Details für Audit-Log abrufen
-        const { data: seasonData } = await supabase
-            .from('seasons')
-            .select('sport_id')
-            .eq('id', seasonId)
-            .single();
-
-        // Saison mit RPC-Funktion beenden (behandelt Constraints korrekt)
-        const { error } = await supabase.rpc('end_season', {
-            p_season_id: seasonId
-        });
-
-        if (error) throw error;
-
-        // Audit-Ereignis protokollieren
-        await logAuditEvent(
-            'season_ended',
-            seasonId,
-            'season',
-            null,
-            seasonData?.sport_id,
-            { season_name: seasonName, ended_early: true }
-        );
-
-        alert(`Saison "${seasonName}" wurde beendet.`);
-
-        // Saisonliste neu laden
-        await loadSeasons();
-
-    } catch (error) {
-        console.error('Fehler beim Beenden der Saison:', error);
-        alert(`Fehler: ${error.message}`);
-    }
-}
-
-// handleEndSeason global für onclick verfügbar machen
-window.handleEndSeason = handleEndSeason;
 
 // ============================================
 // AUDIT LOGGING
@@ -2730,6 +2880,292 @@ async function initializeAuditSection() {
     setupAuditListeners();
     await loadAuditLogs();
 }
+
+// ============================================
+// ANIMATION INTEGRATION FÜR ÜBUNGSERSTELLUNG
+// ============================================
+
+// Globale Liste der Animationen für die aktuelle Übung
+let exerciseAnimations = [];
+
+function initializeAnimationToggle() {
+    const addBtn = document.getElementById('add-animation-btn');
+    const handednessSelect = document.getElementById('new-animation-handedness');
+    const animationsListEl = document.getElementById('exercise-animations-list');
+    const animationsDataInput = document.getElementById('exercise-animations-data');
+
+    if (!addBtn || !handednessSelect || !animationsListEl) return;
+
+    // Animation hinzufügen Button
+    addBtn.addEventListener('click', () => {
+        // Funktion aus table-tennis-exercise-ui.js verwenden
+        if (typeof window.ttGetCurrentSteps !== 'function') {
+            showAdminNotification('Animator nicht verfügbar. Bitte Seite neu laden.', 'error');
+            return;
+        }
+
+        const animationData = window.ttGetCurrentSteps();
+        if (!animationData || !animationData.steps || animationData.steps.length === 0) {
+            showAdminNotification('Keine Schritte im Animator vorhanden. Erstelle zuerst Schritte im Übungs-Animator oben.', 'warning');
+            return;
+        }
+
+        // Händigkeit aus dem Animator übernehmen (dort wurde sie beim Erstellen ausgewählt)
+        const handedness = animationData.handedness || handednessSelect.value;
+
+        // Prüfen ob für diese Händigkeit schon eine Animation existiert
+        const existingIndex = exerciseAnimations.findIndex(a => a.handedness === handedness);
+        if (existingIndex !== -1) {
+            showAdminNotification(`Animation für ${handedness} existiert bereits. Bitte erst entfernen.`, 'warning');
+            return;
+        }
+
+        // Beschreibung automatisch generieren
+        const description = generateDescriptionFromSteps(animationData.steps);
+
+        // Animation zur Liste hinzufügen
+        exerciseAnimations.push({
+            handedness: handedness,
+            steps: animationData.steps,
+            description: description
+        });
+
+        // Hidden Input aktualisieren
+        animationsDataInput.value = JSON.stringify(exerciseAnimations);
+
+        // UI aktualisieren
+        renderAnimationsList();
+
+        // Dropdown Option als "verwendet" markieren
+        updateHandednessDropdown();
+
+        // Beschreibung im Editor anzeigen (bei erster Animation oder aktualisieren)
+        if (description && descriptionEditor) {
+            descriptionEditor.setContent(description);
+        }
+
+        showAdminNotification(`Animation für ${handedness} hinzugefügt!`, 'success');
+    });
+
+    // Initial rendern
+    renderAnimationsList();
+}
+
+// Animationen Liste rendern
+function renderAnimationsList() {
+    const animationsListEl = document.getElementById('exercise-animations-list');
+    if (!animationsListEl) return;
+
+    if (exerciseAnimations.length === 0) {
+        animationsListEl.innerHTML = `
+            <div class="text-sm text-gray-400 italic py-2">
+                Noch keine Animationen hinzugefügt
+            </div>
+        `;
+        return;
+    }
+
+    const handednessLabels = {
+        'R-R': 'Rechts vs Rechts',
+        'L-L': 'Links vs Links',
+        'R-L': 'Rechts vs Links',
+        'L-R': 'Links vs Rechts'
+    };
+
+    const strokeTypes = window.TT_STROKE_TYPES || {};
+
+    animationsListEl.innerHTML = exerciseAnimations.map((anim, index) => {
+        const stepsPreviewHtml = anim.steps.slice(0, 4).map(step => {
+            const strokeData = strokeTypes[step.strokeType] || { name: step.strokeType };
+            const playerClass = step.player === 'A' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700';
+            return `
+                <span class="inline-flex items-center gap-1 text-xs">
+                    <span class="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold ${playerClass}">${step.player}</span>
+                    ${step.side} ${strokeData.name}
+                </span>
+            `;
+        }).join(' → ');
+
+        const moreSteps = anim.steps.length > 4 ? `<span class="text-xs text-gray-400">+${anim.steps.length - 4} mehr</span>` : '';
+
+        return `
+            <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm" data-index="${index}">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-sm font-medium">
+                            ${anim.handedness}
+                        </span>
+                        <span class="text-sm text-gray-600">${handednessLabels[anim.handedness]}</span>
+                    </div>
+                    <button type="button" class="remove-animation-btn text-red-500 hover:text-red-700 text-sm" data-index="${index}">
+                        <i class="fas fa-trash mr-1"></i>Entfernen
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-1 text-gray-600">
+                    ${stepsPreviewHtml} ${moreSteps}
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <i class="fas fa-list-ol mr-1"></i>${anim.steps.length} Schritte
+                    ${anim.description ? '<i class="fas fa-check-circle text-green-500 ml-2"></i> Beschreibung generiert' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Remove-Button Listener hinzufügen
+    animationsListEl.querySelectorAll('.remove-animation-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.currentTarget.dataset.index);
+            removeAnimation(index);
+        });
+    });
+}
+
+// Animation entfernen
+function removeAnimation(index) {
+    if (index >= 0 && index < exerciseAnimations.length) {
+        const removed = exerciseAnimations.splice(index, 1)[0];
+
+        // Hidden Input aktualisieren
+        const animationsDataInput = document.getElementById('exercise-animations-data');
+        if (animationsDataInput) {
+            animationsDataInput.value = JSON.stringify(exerciseAnimations);
+        }
+
+        // UI aktualisieren
+        renderAnimationsList();
+        updateHandednessDropdown();
+
+        showAdminNotification(`Animation für ${removed.handedness} entfernt.`, 'info');
+    }
+}
+
+// Dropdown aktualisieren (bereits verwendete Optionen markieren)
+function updateHandednessDropdown() {
+    const handednessSelect = document.getElementById('new-animation-handedness');
+    if (!handednessSelect) return;
+
+    const usedHandedness = exerciseAnimations.map(a => a.handedness);
+
+    Array.from(handednessSelect.options).forEach(option => {
+        const isUsed = usedHandedness.includes(option.value);
+        option.disabled = isUsed;
+        option.textContent = option.value === 'R-R' ? 'R-R (Rechts gegen Rechts)' :
+                            option.value === 'L-L' ? 'L-L (Links gegen Links)' :
+                            option.value === 'R-L' ? 'R-L (Rechts gegen Links)' :
+                            'L-R (Links gegen Rechts)';
+        if (isUsed) {
+            option.textContent += ' ✓';
+        }
+    });
+
+    // Erste nicht-verwendete Option auswählen
+    const firstAvailable = Array.from(handednessSelect.options).find(o => !o.disabled);
+    if (firstAvailable) {
+        handednessSelect.value = firstAvailable.value;
+    }
+}
+
+// Animationen zurücksetzen (nach Formular-Submit)
+function resetExerciseAnimations() {
+    exerciseAnimations = [];
+    const animationsDataInput = document.getElementById('exercise-animations-data');
+    if (animationsDataInput) {
+        animationsDataInput.value = '[]';
+    }
+    renderAnimationsList();
+    updateHandednessDropdown();
+}
+
+// Alle Händigkeits-Tags aus Animationen sammeln
+function getAnimationHandednessTags() {
+    return exerciseAnimations.map(a => a.handedness);
+}
+
+// Beschreibung aus Animation-Steps generieren (als strukturiertes Tabellen-Objekt)
+function generateDescriptionFromSteps(steps) {
+    if (!steps || steps.length === 0) return null;
+
+    const strokeAbbr = {
+        'A': 'A',      // Aufschlag
+        'T': 'T',      // Topspin
+        'K': 'K',      // Konter
+        'B': 'B',      // Block
+        'F': 'F',      // Flip
+        'S': 'S',      // Smash
+        'SCH': 'SCH',  // Schupf
+        'U': 'U',      // Unterschnitt-Abwehr
+        'OS': 'OS',    // Oberschnitt
+        'US': 'US',    // Unterschnitt
+        'SS': 'SS'     // Seitenschnitt
+    };
+
+    // Gruppiere Schritte nach Spieler A und B
+    const playerASteps = [];
+    const playerBSteps = [];
+
+    steps.forEach(step => {
+        const stroke = strokeAbbr[step.strokeType] || step.strokeType;
+        const formatted = `${step.side}${stroke} aus ${step.fromPosition} in ${step.toPosition}${step.isShort ? ' (kurz)' : ''}`;
+
+        if (step.player === 'A') {
+            playerASteps.push(formatted);
+        } else {
+            playerBSteps.push(formatted);
+        }
+    });
+
+    // Erstelle Tabellen-Daten für den Editor
+    const maxRows = Math.max(playerASteps.length, playerBSteps.length);
+    const rows = [];
+
+    for (let i = 0; i < maxRows; i++) {
+        rows.push([
+            playerASteps[i] || '',
+            playerBSteps[i] || ''
+        ]);
+    }
+
+    return {
+        type: 'table',
+        tableData: {
+            headers: ['Spieler A', 'Spieler B'],
+            rows: rows
+        },
+        additionalText: ''
+    };
+}
+
+// Hilfsfunktion für Benachrichtigungen
+function showAdminNotification(message, type = 'info') {
+    // Versuche globale Funktion zu nutzen
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type);
+        return;
+    }
+
+    // Fallback: Einfache Toast-Nachricht
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg text-white z-50 transition-opacity duration-300 ${
+        type === 'success' ? 'bg-green-600' :
+        type === 'warning' ? 'bg-yellow-600' :
+        type === 'error' ? 'bg-red-600' :
+        'bg-blue-600'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Globale Exports für inline onclick-Handler
+window.openExerciseModal = openExerciseModal;
+window.handleDeleteExercise = handleDeleteExercise;
+window.startEditExercise = startEditExercise;
+window.resetExerciseFormToCreate = resetExerciseFormToCreate;
 
 // Aufräumen beim Seiten-Entladen
 window.addEventListener('beforeunload', () => {

@@ -30,15 +30,16 @@ async function fetchSeasonEndDate(supabase, sportId = null, clubId = null) {
             query = query.eq('sport_id', sportId);
         }
 
-        // Filter by club_id - nur Saisons des eigenen Vereins anzeigen
+        // Filter by club_id - eigene Vereins-Saisons ODER globale Saisons (club_id = null)
         if (clubId) {
-            query = query.eq('club_id', clubId);
+            query = query.or(`club_id.eq.${clubId},club_id.is.null`);
         }
 
         const { data: activeSeasons, error } = await query;
 
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            const activeSeason = activeSeasons[0];
+            // Prefer club-specific season over global (null club_id)
+            const activeSeason = activeSeasons.find(s => s.club_id === clubId) || activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
             cachedSeasonEnd = seasonEnd;
@@ -111,38 +112,45 @@ export async function updateSeasonCountdown(
 
     if (!supabase) {
         console.error('Supabase instance required for season countdown');
-        seasonCountdownEl.textContent = 'Lädt...';
-        return;
-    }
-
-    const endOfSeason = await fetchSeasonEndDate(supabase, sportId, clubId);
-
-    if (!endOfSeason) {
         seasonCountdownEl.textContent = 'Saisonpause';
-        seasonCountdownEl.title = 'Aktuell ist keine Saison aktiv für diese Sportart';
+        seasonCountdownEl.title = 'Keine Saison-Daten verfügbar';
         return;
     }
 
-    const now = new Date();
-    const diff = endOfSeason - now;
+    try {
+        const endOfSeason = await fetchSeasonEndDate(supabase, sportId, clubId);
 
-    if (diff <= 0) {
-        seasonCountdownEl.textContent = 'Saison beendet!';
-
-        if (reloadOnEnd) {
-            console.log('🔄 Season ended, reloading page in 30 seconds...');
-            setTimeout(() => window.location.reload(), 30000);
+        if (!endOfSeason) {
+            seasonCountdownEl.textContent = 'Saisonpause';
+            seasonCountdownEl.title = 'Aktuell ist keine Saison aktiv - Head-Coach kann neue Saison starten';
+            return;
         }
-        return;
+
+        const now = new Date();
+        const diff = endOfSeason - now;
+
+        if (diff <= 0) {
+            seasonCountdownEl.textContent = 'Saison beendet!';
+
+            if (reloadOnEnd) {
+                console.log('🔄 Season ended, reloading page in 30 seconds...');
+                setTimeout(() => window.location.reload(), 30000);
+            }
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        seasonCountdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
+        seasonCountdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
+    } catch (error) {
+        console.error('Error updating season countdown:', error);
+        seasonCountdownEl.textContent = 'Saisonpause';
+        seasonCountdownEl.title = 'Fehler beim Laden der Saison-Daten';
     }
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    seasonCountdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
-    seasonCountdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
 }
 
 /** Gibt das aktuelle Saison-Enddatum zurück */

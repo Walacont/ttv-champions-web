@@ -84,6 +84,7 @@ export function initPostsManager() {
 function openCreatePostModal() {
     createPostModal?.classList.remove('hidden');
     resetForms();
+    loadSubgroupsForVisibility();
 }
 
 function closeCreatePostModal() {
@@ -126,6 +127,82 @@ function resetForms() {
 
     // Standardmäßig zu Text-Post-Typ wechseln
     switchPostType('text');
+}
+
+/**
+ * Lädt Untergruppen und fügt sie zu den Sichtbarkeits-Dropdowns hinzu
+ * - Coaches sehen alle Untergruppen des Vereins
+ * - Spieler sehen nur Untergruppen, denen sie zugewiesen sind
+ */
+async function loadSubgroupsForVisibility() {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('club_id, role, subgroup_ids')
+            .eq('id', user.id)
+            .single();
+
+        if (!profile?.club_id) return;
+
+        const isCoach = profile.role === 'coach' || profile.role === 'head_coach';
+        const userSubgroupIds = profile.subgroup_ids || [];
+
+        // Untergruppen laden
+        let query = supabase
+            .from('subgroups')
+            .select('id, name, color')
+            .eq('club_id', profile.club_id)
+            .order('name');
+
+        const { data: subgroups, error } = await query;
+
+        if (error) {
+            console.error('Fehler beim Laden der Untergruppen:', error);
+            return;
+        }
+
+        // Filterung für Spieler: nur zugewiesene Untergruppen
+        let availableSubgroups = subgroups || [];
+        if (!isCoach) {
+            availableSubgroups = availableSubgroups.filter(sg => userSubgroupIds.includes(sg.id));
+        }
+
+        // Beide Dropdowns aktualisieren
+        [postVisibilitySelect, pollVisibilitySelect].forEach(select => {
+            if (!select) return;
+
+            // Bestehende Subgroup-Optionen entfernen
+            const existingSubgroupOptions = select.querySelectorAll('option[value^="subgroup:"]');
+            existingSubgroupOptions.forEach(opt => opt.remove());
+
+            // Optgroup für Untergruppen entfernen falls vorhanden
+            const existingOptgroup = select.querySelector('optgroup[label="Untergruppen"]');
+            existingOptgroup?.remove();
+
+            // Wenn Untergruppen vorhanden, hinzufügen
+            if (availableSubgroups.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = 'Untergruppen';
+
+                availableSubgroups.forEach(sg => {
+                    const option = document.createElement('option');
+                    option.value = `subgroup:${sg.id}`;
+                    option.textContent = sg.name;
+                    option.style.color = sg.color || '#6366f1';
+                    optgroup.appendChild(option);
+                });
+
+                select.appendChild(optgroup);
+            }
+        });
+
+        console.log(`[Posts Manager] ${availableSubgroups.length} Untergruppen für Sichtbarkeit geladen`);
+    } catch (err) {
+        console.error('Fehler beim Laden der Untergruppen:', err);
+    }
 }
 
 function switchPostType(type) {
@@ -354,6 +431,16 @@ async function handleTextPostSubmit(e) {
             showFeedback(postFormFeedback, 'loading', 'Erstelle Beitrag...');
         }
 
+        // Untergruppen-Sichtbarkeit verarbeiten
+        let actualVisibility = visibility;
+        let targetSubgroupIds = null;
+
+        if (visibility.startsWith('subgroup:')) {
+            const subgroupId = visibility.replace('subgroup:', '');
+            actualVisibility = 'subgroup';
+            targetSubgroupIds = [subgroupId];
+        }
+
         // Post erstellen
         const { data: post, error: postError } = await supabase
             .from('community_posts')
@@ -362,7 +449,8 @@ async function handleTextPostSubmit(e) {
                 club_id: profile?.club_id || null,
                 content: content,
                 image_urls: imageUrls,
-                visibility: visibility
+                visibility: actualVisibility,
+                target_subgroup_ids: targetSubgroupIds
             })
             .select()
             .single();
@@ -450,6 +538,16 @@ async function handlePollSubmit(e) {
         const endsAt = new Date();
         endsAt.setDate(endsAt.getDate() + durationDays);
 
+        // Untergruppen-Sichtbarkeit verarbeiten
+        let actualVisibility = visibility;
+        let targetSubgroupIds = null;
+
+        if (visibility.startsWith('subgroup:')) {
+            const subgroupId = visibility.replace('subgroup:', '');
+            actualVisibility = 'subgroup';
+            targetSubgroupIds = [subgroupId];
+        }
+
         // Umfrage erstellen
         const { data: poll, error: pollError } = await supabase
             .from('community_polls')
@@ -458,7 +556,8 @@ async function handlePollSubmit(e) {
                 club_id: profile?.club_id || null,
                 question: question,
                 options: options,
-                visibility: visibility,
+                visibility: actualVisibility,
+                target_subgroup_ids: targetSubgroupIds,
                 duration_days: durationDays,
                 ends_at: endsAt.toISOString(),
                 allow_multiple: allowMultiple,

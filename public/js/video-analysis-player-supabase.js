@@ -518,21 +518,109 @@ function setupExerciseVideoButton() {
 }
 
 /**
+ * Lädt Übungen für das Dropdown im Upload-Modal
+ */
+async function loadExercisesForDropdown() {
+    const select = document.getElementById('player-video-exercise-select');
+    if (!select) return;
+
+    // Fallback: Supabase direkt importieren wenn playerVideoContext nicht bereit
+    let db = playerVideoContext.db;
+    if (!db) {
+        try {
+            const { getSupabase } = await import('./supabase-init.js');
+            db = await getSupabase();
+        } catch (e) {
+            console.error('Supabase nicht verfügbar:', e);
+            return;
+        }
+    }
+
+    try {
+        const { data: exercises, error } = await db
+            .from('exercises')
+            .select('id, name, category')
+            .order('category', { ascending: true })
+            .order('name', { ascending: true });
+
+        if (error) {
+            console.error('Fehler beim Laden der Übungen:', error);
+            return;
+        }
+
+        // Dropdown befüllen
+        select.innerHTML = '<option value="">-- Keine Übung --</option>';
+
+        if (!exercises || exercises.length === 0) {
+            console.log('Keine Übungen gefunden');
+            return;
+        }
+
+        let currentCategory = '';
+        exercises.forEach(ex => {
+            if (ex.category && ex.category !== currentCategory) {
+                currentCategory = ex.category;
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = currentCategory;
+                select.appendChild(optgroup);
+            }
+            const option = document.createElement('option');
+            option.value = ex.id;
+            option.textContent = ex.name;
+            if (currentCategory) {
+                select.querySelector(`optgroup[label="${currentCategory}"]`)?.appendChild(option);
+            } else {
+                select.appendChild(option);
+            }
+        });
+
+        console.log(`${exercises.length} Übungen geladen`);
+    } catch (err) {
+        console.error('Fehler beim Laden der Übungen:', err);
+    }
+}
+
+/**
  * Öffnet das Upload-Modal für Spieler
  */
-function openPlayerVideoUploadModal(exerciseId) {
+async function openPlayerVideoUploadModal(exerciseId) {
     const modal = document.getElementById('player-video-upload-modal');
     if (!modal) return;
 
-    // Exercise-ID setzen
+    // Übungen für Dropdown laden
+    await loadExercisesForDropdown();
+
+    // Exercise-ID setzen (hidden input für Kompatibilität)
     const exerciseIdInput = document.getElementById('player-video-exercise-id');
     if (exerciseIdInput) {
         exerciseIdInput.value = exerciseId || '';
     }
 
+    // Dropdown vorauswählen
+    const exerciseSelect = document.getElementById('player-video-exercise-select');
+    if (exerciseSelect) {
+        exerciseSelect.value = exerciseId || '';
+
+        // Bei Änderung des Dropdowns Referenz-Videos laden
+        exerciseSelect.onchange = () => {
+            const selectedId = exerciseSelect.value;
+            if (exerciseIdInput) exerciseIdInput.value = selectedId;
+
+            if (selectedId) {
+                loadReferenceVideoForExercise(selectedId);
+            } else {
+                // Referenz-Videos ausblenden
+                document.getElementById('player-example-videos-section')?.classList.add('hidden');
+            }
+        };
+    }
+
     // Referenz-Video laden falls vorhanden
     if (exerciseId) {
         loadReferenceVideoForExercise(exerciseId);
+    } else {
+        // Referenz-Videos ausblenden wenn keine Übung
+        document.getElementById('player-example-videos-section')?.classList.add('hidden');
     }
 
     modal.classList.remove('hidden');
@@ -934,7 +1022,9 @@ async function handlePlayerVideoUpload(e) {
 
         // 4. Metadaten sammeln
         const title = document.getElementById('player-video-title')?.value || '';
-        const exerciseId = document.getElementById('player-video-exercise-id')?.value || null;
+        // Übung aus Dropdown oder hidden input (Fallback)
+        const exerciseId = document.getElementById('player-video-exercise-select')?.value ||
+                          document.getElementById('player-video-exercise-id')?.value || null;
 
         // Tags sammeln
         const selectedTags = [];
@@ -945,6 +1035,9 @@ async function handlePlayerVideoUpload(e) {
         // Check: Soll Coach Feedback erhalten?
         const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
         const shouldShareWithCoach = clubId && requestCoachFeedback;
+
+        // Check: KI-Training erlaubt? (DSGVO)
+        const allowAiTraining = document.getElementById('allow-ai-training')?.checked ?? false;
 
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
@@ -960,6 +1053,7 @@ async function handlePlayerVideoUpload(e) {
                 title: title || null,
                 tags: selectedTags,
                 is_reference: false,
+                allow_ai_training: allowAiTraining,
             })
             .select()
             .single();
@@ -1317,6 +1411,7 @@ function showDeleteConfirmation(video, parentModal) {
 
 /**
  * Zeigt den Lösch-Bestätigungsdialog (von Karte aus)
+ * Löscht das Video komplett für alle (auch Coach)
  */
 function showDeleteConfirmationFromCard(video) {
     const confirmModal = document.createElement('div');
@@ -1331,7 +1426,8 @@ function showDeleteConfirmationFromCard(video) {
                 </div>
                 <h3 class="text-lg font-bold text-gray-900 mb-2">Video löschen?</h3>
                 <p class="text-gray-600">
-                    Möchtest du "<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                    Möchtest du "<strong>${escapeHtml(video.title || 'Ohne Titel')}</strong>" wirklich löschen?
+                    Diese Aktion kann nicht rückgängig gemacht werden.
                 </p>
             </div>
             <div class="flex gap-3">
@@ -1379,18 +1475,13 @@ function showDeleteConfirmationFromCard(video) {
 }
 
 /**
- * Löscht ein Video (Storage + Datenbank)
+ * Löscht ein Video komplett (Storage + Datenbank)
+ * Funktioniert für eigene Videos UND zugewiesene Videos
  */
 async function deletePlayerVideo(video) {
     const { db, userId } = playerVideoContext;
 
     if (!db || !userId) return false;
-
-    // Sicherheitsprüfung: Nur eigene Videos löschen
-    if (video.uploaded_by !== userId) {
-        showToast('Du kannst nur eigene Videos löschen', 'error');
-        return false;
-    }
 
     try {
         // 1. Video-Datei aus Storage löschen
@@ -1410,11 +1501,11 @@ async function deletePlayerVideo(video) {
         }
 
         // 3. Datenbank-Eintrag löschen (Cascade löscht auch assignments und comments)
-        const { error } = await db
-            .from('video_analyses')
-            .delete()
-            .eq('id', video.id)
-            .eq('uploaded_by', userId);
+        // Nutzt RPC-Funktion um RLS zu umgehen (Spieler darf zugewiesene Videos löschen)
+        const { error } = await db.rpc('delete_player_video', {
+            p_video_id: video.id,
+            p_player_id: userId
+        });
 
         if (error) {
             console.error('Fehler beim Löschen:', error);

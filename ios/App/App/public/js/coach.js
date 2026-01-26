@@ -90,13 +90,9 @@ import {
     loadAllExercises,
     loadExercisesForDropdown,
     openExerciseModalFromDataset,
-    handleCreateExercise,
     closeExerciseModal,
-    setupExercisePointsCalculation,
-    setupExerciseMilestones,
     setExerciseContext,
 } from './exercises.js';
-import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
 import {
     handleGeneratePairings,
@@ -139,10 +135,7 @@ import {
     setupManualPartnerSystem,
 } from './points-management.js';
 import { loadLeaguesForSelector, checkAndResetClubSeason } from './season.js';
-import {
-    initializeExercisePartnerSystemCoach,
-    initializeChallengePartnerSystemCoach,
-} from './milestone-management.js';
+import { initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
 import {
@@ -195,7 +188,6 @@ let clubPlayers = [];
 let currentSubgroupFilter = 'all';
 let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
-let descriptionEditor = null;
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -557,13 +549,6 @@ async function initializeCoachPage(userData) {
     });
 
     // Form Submissions
-    // Initialize description editor for exercise creation BEFORE registering event handlers
-    descriptionEditor = setupDescriptionEditor({
-        textAreaId: 'exercise-description-form',
-        toggleContainerId: 'description-toggle-container-coach',
-        tableEditorContainerId: 'description-table-editor-coach',
-    });
-
     document
         .getElementById('add-offline-player-form')
         .addEventListener('submit', e => handleAddOfflinePlayer(e, db, userData));
@@ -582,9 +567,6 @@ async function initializeCoachPage(userData) {
                 renderCalendar(date, db, userData)
             )
         );
-    document
-        .getElementById('create-exercise-form')
-        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor, userData));
     document.getElementById('match-form').addEventListener('submit', async e => {
         const matchType = getCurrentMatchType();
         if (matchType === 'doubles') {
@@ -593,15 +575,6 @@ async function initializeCoachPage(userData) {
             await handleMatchSave(e, db, userData, clubPlayers);
         }
     });
-
-    // Setup exercise points auto-calculation (based on level + difficulty)
-    setupExercisePointsCalculation();
-
-    // Setup exercise milestones system
-    setupExerciseMilestones();
-
-    // Initialize partner system for exercises
-    initializeExercisePartnerSystemCoach();
 
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
