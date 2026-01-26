@@ -121,37 +121,37 @@ function setupGalleryModal() {
     if (document.getElementById('media-gallery-modal')) return;
 
     const modalHTML = `
-        <div id="media-gallery-modal" class="fixed inset-0 bg-black z-50 hidden flex flex-col">
-            <!-- Close button (always visible) -->
-            <button onclick="window.closeMediaGallery()" class="absolute top-4 right-4 z-50 text-white hover:text-gray-300 transition p-2">
+        <div id="media-gallery-modal" class="fixed inset-0 bg-black hidden flex flex-col" style="z-index: 99999;">
+            <!-- Close button (left side) -->
+            <button onclick="window.closeMediaGallery()" class="absolute top-4 left-4 text-white hover:text-gray-300 transition p-2" style="z-index: 100000;">
                 <i class="fas fa-times text-2xl"></i>
             </button>
 
-            <!-- Image counter (always visible when multiple images) -->
-            <div id="gallery-counter" class="absolute top-4 left-4 z-50 text-white font-semibold bg-black/50 px-3 py-1 rounded-full text-sm hidden"></div>
+            <!-- Image counter (right side when multiple images) -->
+            <div id="gallery-counter" class="absolute top-4 right-4 text-white font-semibold bg-black/50 px-3 py-1 rounded-full text-sm hidden" style="z-index: 100000;"></div>
 
             <!-- Main content area - swipeable -->
             <div id="gallery-swipe-area" class="flex-1 flex items-center justify-center overflow-hidden relative">
                 <!-- Navigation arrows (desktop) -->
-                <button onclick="window.previousMedia()" id="prev-media-btn" class="absolute left-2 z-40 text-white/70 hover:text-white transition p-3 hidden md:block">
+                <button onclick="window.previousMedia()" id="prev-media-btn" class="absolute left-2 text-white/70 hover:text-white transition p-3 hidden md:block" style="z-index: 100000;">
                     <i class="fas fa-chevron-left text-3xl"></i>
                 </button>
 
                 <div id="gallery-content" class="w-full h-full flex items-center justify-center"></div>
 
-                <button onclick="window.nextMedia()" id="next-media-btn" class="absolute right-2 z-40 text-white/70 hover:text-white transition p-3 hidden md:block">
+                <button onclick="window.nextMedia()" id="next-media-btn" class="absolute right-2 text-white/70 hover:text-white transition p-3 hidden md:block" style="z-index: 100000;">
                     <i class="fas fa-chevron-right text-3xl"></i>
                 </button>
             </div>
 
             <!-- Bottom overlay with activity info -->
-            <div id="gallery-overlay" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300">
-                <div class="p-4 pb-6 max-w-2xl mx-auto">
+            <div id="gallery-overlay" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 pb-safe" style="z-index: 100000;">
+                <div class="p-4 pb-8 max-w-2xl mx-auto">
                     <!-- Activity description -->
                     <div id="gallery-description" class="text-white mb-3 text-sm leading-relaxed"></div>
 
                     <!-- Like and Comment buttons -->
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-6">
                         <button id="gallery-like-btn" class="flex items-center gap-2 text-white hover:text-blue-400 transition">
                             <i class="far fa-thumbs-up text-xl"></i>
                             <span id="gallery-like-count" class="text-sm"></span>
