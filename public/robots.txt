@@ -12,7 +12,6 @@ Disallow: /dashboard.html
 Disallow: /coach.html
 Disallow: /admin.html
 Disallow: /settings.html
-Disallow: /onboarding.html
 
 # Blockiere JavaScript und CSS nicht (für SEO)
 Allow: /js/

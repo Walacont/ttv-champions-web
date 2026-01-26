@@ -131,12 +131,6 @@ onAuthStateChange(async (event, session) => {
                         .eq('id', session.user.id);
                 }
 
-                if (!profile.onboarding_complete) {
-                    console.log('[INDEX-SUPABASE] Redirecting to onboarding');
-                    window.location.href = '/onboarding.html';
-                    return;
-                }
-
                 let targetUrl;
                 if (profile.role === 'admin') targetUrl = '/admin.html';
                 else if (profile.role === 'labeler') targetUrl = '/label.html';

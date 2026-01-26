@@ -417,15 +417,8 @@ async function loadUserProfile() {
                 window.location.href = '/child-login.html';
                 return;
             }
-            // Basis-Profil erstellen oder zum Onboarding weiterleiten
-            window.location.href = '/onboarding.html';
-            return;
-        }
-
-        // Onboarding prüfen - skip for child accounts
-        if (!profile.onboarding_complete && !isChildMode && profile.account_type !== 'child') {
-            console.log('[DASHBOARD-SUPABASE] Onboarding not complete');
-            window.location.href = '/onboarding.html';
+            // No profile found - redirect to registration
+            window.location.href = '/register.html';
             return;
         }
 

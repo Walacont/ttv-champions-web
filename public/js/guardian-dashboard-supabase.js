@@ -35,6 +35,13 @@ const becomePlayerBtn = document.getElementById('become-player-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const menuUserName = document.getElementById('menu-user-name');
 
+// Sport Selection Modal Elements
+const sportSelectModal = document.getElementById('sport-select-modal');
+const playerSportSelect = document.getElementById('player-sport-select');
+const closeSportModalBtn = document.getElementById('close-sport-modal');
+const cancelSportSelectBtn = document.getElementById('cancel-sport-select');
+const confirmSportSelectBtn = document.getElementById('confirm-sport-select');
+
 // Initialize with user
 async function initializeWithUser(user) {
     if (initialized) return;
@@ -494,13 +501,57 @@ function closeMenu() {
     }, 200);
 }
 
-// Upgrade to player
-async function upgradeToPlayer() {
-    if (!confirm('Moechtest du auch als Spieler mitmachen? Du kannst dann selbst trainieren und an Wettkampfen teilnehmen.')) {
-        return;
-    }
-
+// Load available sports for the dropdown
+async function loadSportsForPlayer() {
     try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        if (playerSportSelect && sports) {
+            playerSportSelect.innerHTML = '<option value="">Sportart wählen...</option>';
+            sports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = sport.display_name || sport.name;
+                playerSportSelect.appendChild(option);
+            });
+
+            // Auto-select if only one sport
+            if (sports.length === 1) {
+                playerSportSelect.value = sports[0].id;
+                confirmSportSelectBtn.disabled = false;
+            }
+        }
+
+        return sports || [];
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading sports:', error);
+        return [];
+    }
+}
+
+// Show sport selection modal for becoming a player
+async function showSportSelectionModal() {
+    closeMenu();
+    await loadSportsForPlayer();
+    sportSelectModal?.classList.remove('hidden');
+}
+
+// Close sport selection modal
+function closeSportModal() {
+    sportSelectModal?.classList.add('hidden');
+    if (playerSportSelect) playerSportSelect.value = '';
+    if (confirmSportSelectBtn) confirmSportSelectBtn.disabled = true;
+}
+
+// Upgrade to player with selected sport
+async function upgradeToPlayer(sportId) {
+    try {
+        // First call the RPC to set is_player = true
         const { data, error } = await supabase.rpc('upgrade_guardian_to_player');
 
         if (error) throw error;
@@ -509,9 +560,32 @@ async function upgradeToPlayer() {
             throw new Error(data.error);
         }
 
-        // Success - reload page to reflect changes
+        // Then update the profile with the selected sport
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+                active_sport_id: sportId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', currentUser.id);
+
+        if (updateError) throw updateError;
+
+        // Create sport stats entry
+        const { error: statsError } = await supabase
+            .from('user_sport_stats')
+            .insert({
+                user_id: currentUser.id,
+                sport_id: sportId
+            });
+
+        if (statsError) {
+            console.warn('[GUARDIAN-DASHBOARD] Could not create sport stats:', statsError);
+        }
+
+        // Success - go directly to player dashboard
         alert('Du bist jetzt auch als Spieler registriert!');
-        window.location.reload();
+        window.location.href = '/dashboard.html';
 
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error upgrading to player:', err);
@@ -534,8 +608,37 @@ function setupEventListeners() {
     // Menu events
     openMenuBtn?.addEventListener('click', openMenu);
     menuBackdrop?.addEventListener('click', closeMenu);
-    becomePlayerBtn?.addEventListener('click', upgradeToPlayer);
+    becomePlayerBtn?.addEventListener('click', showSportSelectionModal);
     logoutBtn?.addEventListener('click', logout);
+
+    // Sport selection modal events
+    closeSportModalBtn?.addEventListener('click', closeSportModal);
+    cancelSportSelectBtn?.addEventListener('click', closeSportModal);
+    sportSelectModal?.addEventListener('click', (e) => {
+        if (e.target === sportSelectModal) {
+            closeSportModal();
+        }
+    });
+
+    playerSportSelect?.addEventListener('change', () => {
+        if (confirmSportSelectBtn) {
+            confirmSportSelectBtn.disabled = !playerSportSelect.value;
+        }
+    });
+
+    confirmSportSelectBtn?.addEventListener('click', async () => {
+        const selectedSportId = playerSportSelect?.value;
+        if (!selectedSportId) return;
+
+        confirmSportSelectBtn.disabled = true;
+        confirmSportSelectBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Speichern...';
+
+        await upgradeToPlayer(selectedSportId);
+
+        // Reset button state (in case of error)
+        confirmSportSelectBtn.disabled = false;
+        confirmSportSelectBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Bestätigen';
+    });
 
     // Close modal
     document.getElementById('close-code-modal')?.addEventListener('click', () => {
