@@ -198,43 +198,106 @@ function showBirthdateFields() {
     if (yearSelect) yearSelect.setAttribute('required', '');
 }
 
-// Helper function to show guardian profile fields (photo at top, gender after birthdate)
-function showGuardianProfileFields() {
-    const guardianPhotoSection = document.getElementById('guardian-photo-section');
-    const guardianGenderSection = document.getElementById('guardian-gender-section');
-    if (guardianPhotoSection) {
-        guardianPhotoSection.classList.remove('hidden');
+// Helper function to show profile fields (photo at top, gender after birthdate)
+function showProfileFields() {
+    const photoSection = document.getElementById('profile-photo-section');
+    const genderSection = document.getElementById('gender-section');
+    if (photoSection) {
+        photoSection.classList.remove('hidden');
     }
-    if (guardianGenderSection) {
-        guardianGenderSection.classList.remove('hidden');
-    }
-}
-
-// Helper function to hide guardian profile fields
-function hideGuardianProfileFields() {
-    const guardianPhotoSection = document.getElementById('guardian-photo-section');
-    const guardianGenderSection = document.getElementById('guardian-gender-section');
-    if (guardianPhotoSection) {
-        guardianPhotoSection.classList.add('hidden');
-    }
-    if (guardianGenderSection) {
-        guardianGenderSection.classList.add('hidden');
+    if (genderSection) {
+        genderSection.classList.remove('hidden');
     }
 }
 
-// Guardian photo preview
-const guardianPhotoUpload = document.getElementById('guardian-photo-upload');
-const guardianPhotoPreview = document.getElementById('guardian-photo-preview');
-let selectedGuardianPhoto = null;
+// Helper function to hide profile fields
+function hideProfileFields() {
+    const photoSection = document.getElementById('profile-photo-section');
+    const genderSection = document.getElementById('gender-section');
+    if (photoSection) {
+        photoSection.classList.add('hidden');
+    }
+    if (genderSection) {
+        genderSection.classList.add('hidden');
+    }
+}
 
-if (guardianPhotoUpload && guardianPhotoPreview) {
-    guardianPhotoUpload.addEventListener('change', (e) => {
+// Helper function to show/hide sport selection
+function showSportSection() {
+    const sportSection = document.getElementById('sport-section');
+    if (sportSection) {
+        sportSection.classList.remove('hidden');
+    }
+}
+
+function hideSportSection() {
+    const sportSection = document.getElementById('sport-section');
+    if (sportSection) {
+        sportSection.classList.add('hidden');
+    }
+}
+
+// Load sports into dropdown
+async function loadSports(preAssignedSportId = null) {
+    const sportSelect = document.getElementById('sport-select');
+    if (!sportSelect) return [];
+
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        if (preAssignedSportId) {
+            const assignedSport = sports?.find(s => s.id === preAssignedSportId);
+            if (assignedSport) {
+                sportSelect.innerHTML = '';
+                const option = document.createElement('option');
+                option.value = assignedSport.id;
+                option.textContent = assignedSport.display_name || assignedSport.name;
+                option.selected = true;
+                sportSelect.appendChild(option);
+                sportSelect.disabled = true;
+                console.log('[REGISTER] Sport pre-assigned:', assignedSport.display_name);
+                return sports;
+            }
+        }
+
+        sportSelect.innerHTML = '<option value="">Sportart wählen...</option>';
+        sports?.forEach(sport => {
+            const option = document.createElement('option');
+            option.value = sport.id;
+            option.textContent = sport.display_name || sport.name;
+            sportSelect.appendChild(option);
+        });
+
+        // Auto-select if only one sport exists
+        if (sports?.length === 1) {
+            sportSelect.value = sports[0].id;
+        }
+
+        return sports || [];
+    } catch (error) {
+        console.error('[REGISTER] Error loading sports:', error);
+        return [];
+    }
+}
+
+// Profile photo preview
+const profilePhotoUpload = document.getElementById('profile-photo-upload');
+const profilePhotoPreview = document.getElementById('profile-photo-preview');
+let selectedProfilePhoto = null;
+
+if (profilePhotoUpload && profilePhotoPreview) {
+    profilePhotoUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            selectedGuardianPhoto = file;
+            selectedProfilePhoto = file;
             const reader = new FileReader();
             reader.onload = (event) => {
-                guardianPhotoPreview.src = event.target.result;
+                profilePhotoPreview.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -337,8 +400,8 @@ async function initializeRegistration() {
 
                     // Show birthdate fields - guardian must be at least 18
                     showBirthdateFields();
-                    // Show guardian profile fields (photo, gender)
-                    showGuardianProfileFields();
+                    // Show profile fields (photo, gender)
+                    showProfileFields();
 
                     formSubtitle.textContent = `${playerData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
                     registrationFormContainer.classList.remove('hidden');
@@ -375,7 +438,7 @@ async function initializeRegistration() {
                         // Show birthdate fields - guardian must be at least 18
                         showBirthdateFields();
                         // Show guardian profile fields (photo, gender)
-                        showGuardianProfileFields();
+                        showProfileFields();
 
                         loader.classList.add('hidden');
                         formSubtitle.textContent = `${codeData.first_name} ist ${age} Jahre alt. Erstelle deinen Vormund-Account (mind. 18 Jahre).`;
@@ -392,6 +455,8 @@ async function initializeRegistration() {
         loader.classList.add('hidden');
         // Show birthdate fields for age verification
         showBirthdateFields();
+        // Show profile fields (photo, gender) - sport comes from invitation code
+        showProfileFields();
         registrationFormContainer.classList.remove('hidden');
 
     } catch (error) {
@@ -404,7 +469,7 @@ initializeRegistration();
 
 const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
 if (registerWithoutCodeBtn) {
-    registerWithoutCodeBtn.addEventListener('click', () => {
+    registerWithoutCodeBtn.addEventListener('click', async () => {
         registrationType = 'no-code';
 
         tokenRequiredMessageContainer?.classList.add('hidden');
@@ -422,6 +487,11 @@ if (registerWithoutCodeBtn) {
         // Show birthdate fields (required for age verification)
         showBirthdateFields();
 
+        // Show profile fields (photo, gender) and sport selection for no-code registration
+        showProfileFields();
+        showSportSection();
+        await loadSports();
+
         formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
     });
 }
@@ -429,7 +499,7 @@ if (registerWithoutCodeBtn) {
 // Guardian registration button
 const registerAsGuardianBtn = document.getElementById('register-as-guardian-btn');
 if (registerAsGuardianBtn) {
-    registerAsGuardianBtn.addEventListener('click', () => {
+    registerAsGuardianBtn.addEventListener('click', async () => {
         registrationType = 'guardian';
 
         tokenRequiredMessageContainer?.classList.add('hidden');
@@ -446,8 +516,8 @@ if (registerAsGuardianBtn) {
 
         // Show birthdate fields - guardian must be at least 18
         showBirthdateFields();
-        // Show guardian profile fields (photo, gender)
-        showGuardianProfileFields();
+        // Show profile fields (photo, gender)
+        showProfileFields();
 
         // Hide age block message if visible
         hideAgeBlockMessage();
@@ -466,7 +536,7 @@ if (switchToGuardianBtn) {
         // Show birthdate fields - guardian must be at least 18
         showBirthdateFields();
         // Show guardian profile fields (photo, gender)
-        showGuardianProfileFields();
+        showProfileFields();
 
         // Hide age block message
         hideAgeBlockMessage();
@@ -564,7 +634,7 @@ registrationForm?.addEventListener('submit', async e => {
             email,
             password,
             options: {
-                emailRedirectTo: `${window.location.origin}/onboarding.html`,
+                emailRedirectTo: `${window.location.origin}/dashboard.html`,
                 data: {
                     first_name: firstName,
                     last_name: lastName
@@ -703,9 +773,15 @@ registrationForm?.addEventListener('submit', async e => {
                     profileUpdates = {};
                     // But always set is_player for code registrations
                     profileUpdates.is_player = true;
+                    profileUpdates.onboarding_complete = true; // Skip onboarding
                     // And if user entered birthdate (because offline player had none), save it
                     if (birthdate) {
                         profileUpdates.birthdate = birthdate;
+                    }
+                    // Add gender from form if selected
+                    const migratedGender = document.getElementById('gender-select')?.value;
+                    if (migratedGender) {
+                        profileUpdates.gender = migratedGender;
                     }
                 } else {
                     console.warn('[REGISTER] Unexpected migration result:', migrationResult);
@@ -717,7 +793,11 @@ registrationForm?.addEventListener('submit', async e => {
                 } else if (invitationCodeData.birthdate) {
                     profileUpdates.birthdate = invitationCodeData.birthdate;
                 }
-                if (invitationCodeData.gender) {
+                // User-selected gender takes priority over invitation code gender
+                const formGender = document.getElementById('gender-select')?.value;
+                if (formGender) {
+                    profileUpdates.gender = formGender;
+                } else if (invitationCodeData.gender) {
                     profileUpdates.gender = invitationCodeData.gender;
                 }
                 // Neuer Spieler via Code (inkl. head_coach) - setze Standard-Werte
@@ -725,6 +805,17 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.elo_rating = 800;
                 profileUpdates.highest_elo = 800;
                 profileUpdates.grundlagen_completed = 5;
+                profileUpdates.onboarding_complete = true; // Skip onboarding
+                profileUpdates.xp = 50; // Grant XP for completing registration
+                // Default privacy settings
+                profileUpdates.privacy_settings = {
+                    profile_visibility: 'global',
+                    searchable: 'global',
+                    leaderboard_visibility: 'global',
+                    matches_visibility: 'global',
+                    showElo: true,
+                    showInLeaderboards: true
+                };
                 console.log('[REGISTER] Setting is_match_ready=true for new code registration (role:', invitationCodeData.role, ')');
             }
         }
@@ -742,12 +833,38 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.highest_elo = 800;
             profileUpdates.grundlagen_completed = 5;
             profileUpdates.account_type = 'standard';
+            profileUpdates.onboarding_complete = true; // Skip onboarding
 
             // Add birthdate if provided
             if (birthdate) {
                 profileUpdates.birthdate = birthdate;
                 // age_mode will be calculated by trigger
             }
+
+            // Add gender if selected
+            const selectedGender = document.getElementById('gender-select')?.value;
+            if (selectedGender) {
+                profileUpdates.gender = selectedGender;
+            }
+
+            // Add sport if selected
+            const selectedSportId = document.getElementById('sport-select')?.value;
+            if (selectedSportId) {
+                profileUpdates.active_sport_id = selectedSportId;
+            }
+
+            // Default privacy settings (globally visible)
+            profileUpdates.privacy_settings = {
+                profile_visibility: 'global',
+                searchable: 'global',
+                leaderboard_visibility: 'global',
+                matches_visibility: 'global',
+                showElo: true,
+                showInLeaderboards: true
+            };
+
+            // Grant 50 XP for completing registration
+            profileUpdates.xp = 50;
 
             console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
         }
@@ -773,10 +890,10 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.birthdate = birthdate;
             }
 
-            // Add guardian's gender
-            const guardianGender = document.getElementById('guardian-gender')?.value;
-            if (guardianGender) {
-                profileUpdates.gender = guardianGender;
+            // Add gender
+            const selectedGender = document.getElementById('gender-select')?.value;
+            if (selectedGender) {
+                profileUpdates.gender = selectedGender;
             }
 
             console.log('[REGISTER] Registering as guardian (no code)');
@@ -803,10 +920,10 @@ registrationForm?.addEventListener('submit', async e => {
                 profileUpdates.birthdate = birthdate;
             }
 
-            // Add guardian's gender
-            const guardianGender = document.getElementById('guardian-gender')?.value;
-            if (guardianGender) {
-                profileUpdates.gender = guardianGender;
+            // Add gender
+            const selectedGender = document.getElementById('gender-select')?.value;
+            if (selectedGender) {
+                profileUpdates.gender = selectedGender;
             }
 
             // Join the same club as the child
@@ -863,18 +980,7 @@ registrationForm?.addEventListener('submit', async e => {
                 .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
                 .eq('id', invitationCodeData.id);
 
-            // Speichern für Vorausfüllung im Onboarding - NUR für normale Code-Registrierung
-            // Bei guardian-link sind das die KIND-Daten, nicht die Vormund-Daten
-            if (registrationType === 'code') {
-                localStorage.setItem('pendingInvitationData', JSON.stringify({
-                    firstName: invitationCodeData.first_name || '',
-                    lastName: invitationCodeData.last_name || '',
-                    birthdate: invitationCodeData.birthdate || null,
-                    gender: invitationCodeData.gender || null,
-                    sportId: invitationCodeData.sport_id || null,
-                    clubId: invitationCodeData.club_id || null
-                }));
-            }
+            // No longer needed - onboarding is skipped, all data collected during registration
         }
 
         // 4. Guardian-Link erstellen (wenn Vormund sich für bestehendes Kind registriert)
@@ -956,16 +1062,16 @@ registrationForm?.addEventListener('submit', async e => {
             }
         }
 
-        // Upload guardian photo if selected
-        if ((registrationType === 'guardian' || registrationType === 'guardian-link') && selectedGuardianPhoto && user) {
+        // Upload profile photo if selected (for all registration types)
+        if (selectedProfilePhoto && user) {
             try {
-                console.log('[REGISTER] Uploading guardian profile photo...');
-                const fileExt = selectedGuardianPhoto.name.split('.').pop();
+                console.log('[REGISTER] Uploading profile photo...');
+                const fileExt = selectedProfilePhoto.name.split('.').pop();
                 const fileName = `${user.id}/profile.${fileExt}`;
 
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('profile-pictures')
-                    .upload(fileName, selectedGuardianPhoto, { upsert: true });
+                    .upload(fileName, selectedProfilePhoto, { upsert: true });
 
                 if (uploadError) {
                     console.error('[REGISTER] Photo upload error:', uploadError);
@@ -980,7 +1086,7 @@ registrationForm?.addEventListener('submit', async e => {
                             .from('profiles')
                             .update({ avatar_url: urlData.publicUrl })
                             .eq('id', user.id);
-                        console.log('[REGISTER] Guardian photo uploaded successfully');
+                        console.log('[REGISTER] Profile photo uploaded successfully');
                     }
                 }
             } catch (photoError) {
@@ -991,7 +1097,7 @@ registrationForm?.addEventListener('submit', async e => {
 
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
-        // Redirect based on registration type
+        // Redirect based on registration type and role
         if (registrationType === 'guardian') {
             // Guardians (no code) go to guardian onboarding to create child profile
             window.location.href = '/guardian-onboarding.html';
@@ -999,8 +1105,15 @@ registrationForm?.addEventListener('submit', async e => {
             // Guardian-link: all data collected, go directly to guardian dashboard (pure guardian)
             window.location.href = '/guardian-dashboard.html';
         } else {
-            // All other registrations go to onboarding
-            window.location.href = '/onboarding.html';
+            // Both no-code and code registrations: all data collected, go to appropriate dashboard
+            const role = invitationCodeData?.role || 'player';
+            if (role === 'admin') {
+                window.location.href = '/admin.html';
+            } else if (role === 'coach' || role === 'head_coach') {
+                window.location.href = '/coach.html';
+            } else {
+                window.location.href = '/dashboard.html';
+            }
         }
 
     } catch (error) {
@@ -1111,6 +1224,7 @@ roleSelectPlayer?.addEventListener('click', () => {
         registrationType = 'code';
         formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
         hideBirthdateFields();
+        showProfileFields();
         registrationFormContainer.classList.remove('hidden');
     } else {
         // Birthdate unknown - need to ask and validate
@@ -1118,6 +1232,7 @@ roleSelectPlayer?.addEventListener('click', () => {
         registrationType = 'code';
         formSubtitle.textContent = 'Bitte gib dein Geburtsdatum an, um fortzufahren.';
         showBirthdateFields();
+        showProfileFields();
         registrationFormContainer.classList.remove('hidden');
     }
 });
@@ -1212,7 +1327,7 @@ verifyBirthdateBtn?.addEventListener('click', () => {
     // Show birthdate fields - guardian must be at least 18
     showBirthdateFields();
     // Show guardian profile fields (photo, gender)
-    showGuardianProfileFields();
+    showProfileFields();
 
     formSubtitle.textContent = `Erstelle deinen Vormund-Account für ${invitationCodeData?.first_name || 'dein Kind'}. Du musst mindestens 18 Jahre alt sein.`;
     registrationFormContainer.classList.remove('hidden');
