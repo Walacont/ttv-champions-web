@@ -149,34 +149,52 @@ function setupFollowStatusSubscription(supabase) {
 async function loadProfile() {
     try {
         const supabase = getSupabase();
+        let profile;
 
-        // bio und location können fehlen falls Migration noch nicht durchgelaufen
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select(`
-                id,
-                first_name,
-                last_name,
-                avatar_url,
-                elo_rating,
-                highest_elo,
-                points,
-                xp,
-                grundlagen_completed,
-                club_id,
-                privacy_settings,
-                clubs (
+        // Child session: use RPC function to bypass RLS
+        if (isChildMode && childSession) {
+            console.log('[ProfileView] Using child session RPC for profile');
+            const { data, error } = await supabase.rpc('get_profile_for_child_session', {
+                p_child_id: childSession.childId,
+                p_profile_id: profileId
+            });
+
+            if (error || !data?.success) {
+                console.error('[ProfileView] Error loading profile via RPC:', error || data?.error);
+                showError('Profil nicht gefunden');
+                return;
+            }
+            profile = data.profile;
+        } else {
+            // Normal auth: direct query
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select(`
                     id,
-                    name
-                )
-            `)
-            .eq('id', profileId)
-            .single();
+                    first_name,
+                    last_name,
+                    avatar_url,
+                    elo_rating,
+                    highest_elo,
+                    points,
+                    xp,
+                    grundlagen_completed,
+                    club_id,
+                    privacy_settings,
+                    clubs (
+                        id,
+                        name
+                    )
+                `)
+                .eq('id', profileId)
+                .single();
 
-        if (error || !profile) {
-            console.error('[ProfileView] Error loading profile:', error);
-            showError('Profil nicht gefunden');
-            return;
+            if (error || !profileData) {
+                console.error('[ProfileView] Error loading profile:', error);
+                showError('Profil nicht gefunden');
+                return;
+            }
+            profile = profileData;
         }
 
         profileUser = profile;

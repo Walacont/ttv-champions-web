@@ -1717,6 +1717,39 @@ async function fetchLeaderboardData() {
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
         console.log('[Leaderboard] Using sport ID:', sportId, '(from context:', !!currentSportContext?.sportId, ', from profile:', !!currentUserData.active_sport_id, ')');
 
+        // Child session: use RPC function to bypass RLS
+        if (isChildMode && childSession) {
+            console.log('[Leaderboard] Using child session RPC');
+
+            // Fetch club leaderboard via RPC
+            if (effectiveClubId) {
+                const { data: skillData } = await supabase.rpc('get_leaderboard_for_child_session', {
+                    p_child_id: childSession.childId,
+                    p_club_id: effectiveClubId,
+                    p_type: 'skill',
+                    p_limit: 100
+                });
+
+                if (skillData?.success) {
+                    leaderboardCache.club = (skillData.leaderboard || []).map(p => ({
+                        ...p,
+                        role: 'player',
+                        privacy_settings: {}
+                    }));
+                } else {
+                    console.error('[Leaderboard] RPC error:', skillData?.error);
+                    leaderboardCache.club = [];
+                }
+            } else {
+                leaderboardCache.club = [];
+            }
+
+            // For children, global = club (simplified)
+            leaderboardCache.global = leaderboardCache.club;
+            return;
+        }
+
+        // Normal auth: direct queries
         // Vereinsdaten abrufen - Spieler in gleichem Sport UND Verein
         if (effectiveClubId) {
             let clubQuery = supabase
