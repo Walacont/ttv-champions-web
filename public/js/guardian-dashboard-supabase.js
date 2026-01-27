@@ -139,8 +139,10 @@ async function initializeWithUser(user) {
             .eq('id', user.id)
             .single();
 
-        if (!profile || (profile.account_type !== 'guardian' && !profile.is_guardian)) {
-            console.log('[GUARDIAN-DASHBOARD] User is not a guardian');
+        // If coming from settings, allow access even if not yet a guardian (they want to add a child)
+        // Otherwise, redirect non-guardians to dashboard
+        if (!fromSettings && !profile?.is_guardian && profile?.account_type !== 'guardian') {
+            console.log('[GUARDIAN-DASHBOARD] User is not a guardian, redirecting to dashboard');
             window.location.href = '/dashboard.html';
             return;
         }
