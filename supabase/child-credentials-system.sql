@@ -8,6 +8,13 @@
 -- ============================================
 
 -- ============================================
+-- PART 0: Enable pgcrypto extension for password hashing
+-- ============================================
+-- Required for crypt() and gen_salt() functions used for PIN hashing
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================
 -- PART 1: Add username and pin_hash to profiles
 -- ============================================
 
