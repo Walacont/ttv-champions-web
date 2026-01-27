@@ -952,5 +952,71 @@
       "statistics": "统计",
       "manage": "管理"
     }
+  },
+  "guardianFaq": {
+    "pageTitle": "家长与孩子常见问题 - SC Champions",
+    "title": "家长与孩子常见问题",
+    "subtitle": "SC Champions 家庭使用指南",
+    "backToDashboard": "← 返回",
+    "overview": {
+      "title": "SC Champions - 一览",
+      "description": "SC Champions 是一个面向体育俱乐部的游戏化平台。孩子们可以收集积分、提升等级，在训练中获得乐趣！",
+      "forKids": "适合儿童",
+      "forParents": "适合家长",
+      "gamification": "游戏化",
+      "safety": "儿童安全"
+    },
+    "sections": {
+      "forParents": "家长与监护人",
+      "forChildren": "儿童与青少年",
+      "forPlayers": "所有选手",
+      "privacySafety": "隐私与安全"
+    },
+    "questions": {
+      "whatIsGuardian": "什么是监护人账户？",
+      "howToAddChild": "如何添加我的孩子？",
+      "trainerCode": "什么是教练代码？",
+      "childCredentials": "用户名和PIN码如何使用？",
+      "inviteSecondGuardian": "我可以邀请第二位监护人吗？",
+      "whatCanISee": "作为监护人我能看到什么？",
+      "childTurns16": "孩子满16岁后会怎样？",
+      "howToLogin": "我如何登录？",
+      "forgotPin": "如果我忘记了PIN码怎么办？",
+      "whatCanChildDo": "我在应用中可以做什么？",
+      "privacyForKids": "谁可以看到我的资料？",
+      "howPointsWork": "积分系统如何运作？",
+      "howRanksWork": "等级如何运作？",
+      "howToEarnPoints": "如何获得积分？",
+      "whatIsLeaderboard": "什么是排行榜？",
+      "dataProtection": "我孩子的数据如何保护？",
+      "childModePrivacy": ""儿童模式"是什么意思？",
+      "deleteData": "我可以要求删除孩子的数据吗？"
+    },
+    "answers": {
+      "whatIsGuardian": "<p><strong>监护人账户</strong>是SC Champions上的特殊家长账户。作为监护人，您可以：</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>在应用中添加和管理您的孩子</li><li>为孩子创建登录凭证（用户名和PIN码）</li><li>追踪孩子的进度</li><li>邀请第二位监护人（如配偶）</li><li>控制孩子的隐私设置</li></ul><p class=\"mt-2\">您可以同时是监护人<strong>和</strong>选手——只需一个账户！</p>",
+      "howToAddChild": "<p>您有<strong>两种方式</strong>添加孩子：</p><p class=\"mt-3 font-semibold\">1. 使用教练代码（推荐）：</p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>孩子的教练会给您一个代码（例如 <code class=\"bg-gray-100 px-1 rounded\">TTV-ABC-123</code>）</li><li>在应用中输入此代码</li><li>您的孩子将自动与其现有资料关联</li></ul><p class=\"mt-3 font-semibold\">2. 手动添加：</p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>在监护人控制台点击"添加孩子"</li><li>输入孩子的信息（姓名、出生日期、运动项目）</li><li>将创建新的资料</li></ul><p class=\"mt-2 text-sm text-gray-600\"><strong>提示：</strong>使用教练代码，孩子的所有进度都会保留！</p>",
+      "trainerCode": "<p><strong>教练代码</strong>是由孩子的教练创建的一次性代码。使用此代码您可以：</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>将孩子现有的资料与您的监护人账户关联</li><li>保留所有积分、等级和成就</li><li>无需重新设置即可立即开始</li></ul><p class=\"mt-3\"><strong>如何获取代码：</strong></p><ol class=\"list-decimal list-inside mt-1 space-y-1\"><li>请孩子的教练创建代码</li><li>代码格式如下：<code class=\"bg-gray-100 px-2 py-1 rounded\">TTV-XXX-XXX</code></li><li>代码只能使用一次，有效期7天</li></ol>",
+      "childCredentials": "<p>为了让孩子能够独立登录，您可以创建<strong>用户名</strong>和<strong>PIN码</strong>：</p><p class=\"mt-3 font-semibold\">用户名：</p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>孩子容易记住的唯一名称</li><li>例如"max2015"或"lena_ttv"</li><li>3-20个字符，仅限字母、数字和下划线</li></ul><p class=\"mt-3 font-semibold\">PIN码：</p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>4到6位数字</li><li>儿童容易记忆</li><li>您可以随时更改</li></ul><p class=\"mt-3 bg-yellow-50 border border-yellow-200 rounded p-3 text-sm\"><strong>重要：</strong>请妥善保管登录凭证。如果忘记PIN码，您可以随时在监护人控制台设置新的。</p>",
+      "inviteSecondGuardian": "<p>可以！您可以邀请<strong>第二位监护人</strong>，例如您的配偶或祖父母：</p><ol class=\"list-decimal list-inside mt-2 space-y-2\"><li>进入监护人控制台</li><li>选择要邀请他人的孩子</li><li>点击"邀请第二监护人"</li><li>您将获得一个48小时有效的邀请代码</li><li>将此代码分享给您要邀请的人</li></ol><p class=\"mt-3\"><strong>第二位监护人可以：</strong></p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>查看孩子的进度</li><li>更改登录凭证</li><li>在紧急情况下管理孩子</li></ul>",
+      "whatCanISee": "<p>作为监护人，您可以<strong>全面了解</strong>孩子的活动：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>概览：</strong>当前等级、级别、经验值和Elo积分</li><li><strong>进度：</strong>已完成的练习和挑战</li><li><strong>出勤：</strong>孩子何时参加训练</li><li><strong>比赛：</strong>已进行的比赛和结果</li><li><strong>排行榜：</strong>在俱乐部和全球的排名</li><li><strong>活动动态：</strong>最新成就和事件</li></ul><p class=\"mt-2 text-sm\">您可以看到孩子在应用中的所有活动——但其他选手只能看到隐私设置允许的内容。</p>",
+      "childTurns16": "<p>满16岁后，您的孩子可以升级为<strong>独立账户</strong>：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>会发生什么：</strong>孩子获得自己的电子邮箱用于登录</li><li><strong>保留什么：</strong>所有积分、等级、成就和比赛记录</li><li><strong>改变什么：</strong>您将不再有监护人访问权限</li></ul><p class=\"mt-3 font-semibold\">升级流程：</p><ol class=\"list-decimal list-inside mt-1 space-y-1\"><li>监护人控制台会出现"升级账户"按钮</li><li>为孩子输入电子邮箱地址</li><li>孩子会收到带确认链接的邮件</li><li>确认后，可以用邮箱/密码登录</li></ol><p class=\"mt-3 bg-blue-50 border border-blue-200 rounded p-3 text-sm\"><strong>须知：</strong>升级是自愿的。即使满16岁，孩子也可以继续使用用户名/PIN码登录。</p>",
+      "howToLogin": "<p>父母给了你<strong>用户名</strong>和<strong>PIN码</strong>？以下是登录方法：</p><ol class=\"list-decimal list-inside mt-2 space-y-2\"><li>打开SC Champions应用或网站</li><li>点击<strong>"儿童登录"</strong></li><li>输入你的用户名（例如"max2015"）</li><li>输入你的PIN码（4-6位数字）</li><li>点击"登录"</li></ol><p class=\"mt-3 bg-green-50 border border-green-200 rounded p-3 text-sm\"><strong>提示：</strong>好好记住你的用户名和PIN码！如果忘记了，父母可以给你新的。</p>",
+      "forgotPin": "<p>没问题！你的父母可以给你一个<strong>新的PIN码</strong>：</p><ol class=\"list-decimal list-inside mt-2 space-y-2\"><li>请父母登录他们的监护人账户</li><li>在监护人控制台，他们可以重置你的PIN码</li><li>你会得到一个新的PIN码</li></ol><p class=\"mt-3\"><strong>重要：</strong>你不能自己更改PIN码。只有父母可以这样做，以保护你的账户安全。</p>",
+      "whatCanChildDo": "<p>在SC Champions中你可以做很多事情：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>收集积分：</strong>通过训练、练习和比赛</li><li><strong>提升等级：</strong>从新兵到冠军！</li><li><strong>做练习：</strong>学习新技术并获得经验值</li><li><strong>打比赛：</strong>与他人比赛并提高Elo</li><li><strong>查看排行榜：</strong>看看你在俱乐部的排名</li><li><strong>解锁成就：</strong>收集徽章和奖项</li></ul><p class=\"mt-3 bg-purple-50 border border-purple-200 rounded p-3 text-sm\"><strong>酷：</strong>训练越多，积分越多——等级也越高！</p>",
+      "privacyForKids": "<p>因为你还小，你的资料受到<strong>特别保护</strong>：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>仅限俱乐部：</strong>通常只有俱乐部的人能看到你的资料</li><li><strong>只显示名字：</strong>其他人只能看到你的名字，看不到姓</li><li><strong>没有陌生人：</strong>俱乐部外的人找不到你</li><li><strong>父母决定：</strong>你的父母可以设置谁能看到什么</li></ul><p class=\"mt-3\">如果有疑问，问问父母！</p>",
+      "howPointsWork": "<p>在SC Champions中有<strong>三种积分</strong>：</p><ul class=\"list-disc list-inside mt-2 space-y-3\"><li><strong>经验值（XP）：</strong><br/>永远不会失去的积分！训练、练习、赢得比赛都能获得经验值。</li><li><strong>Elo（技能评分）：</strong><br/>显示你打得多好。赢了会上升，输了会下降。</li><li><strong>赛季积分：</strong><br/>当前赛季的积分（6周）。之后重置。</li></ul><p class=\"mt-3 bg-amber-50 border border-amber-200 rounded p-3 text-sm\"><strong>提示：</strong>经验值和等级永远保留——所以要坚持训练！</p>",
+      "howRanksWork": "<p>收集的经验值和Elo越多，等级越高：</p><div class=\"mt-3 space-y-2\"><div class=\"flex items-center gap-3 p-2 bg-gray-100 rounded\"><span class=\"text-xl\">🔰</span><div><strong>新兵</strong> – 起点</div></div><div class=\"flex items-center gap-3 p-2 bg-amber-100 rounded\"><span class=\"text-xl\">🥉</span><div><strong>青铜</strong> – 50经验值，850 Elo，5个基础</div></div><div class=\"flex items-center gap-3 p-2 bg-gray-200 rounded\"><span class=\"text-xl\">🥈</span><div><strong>白银</strong> – 200经验值，900 Elo</div></div><div class=\"flex items-center gap-3 p-2 bg-yellow-100 rounded\"><span class=\"text-xl\">🥇</span><div><strong>黄金</strong> – 500经验值，1000 Elo</div></div><div class=\"flex items-center gap-3 p-2 bg-cyan-100 rounded\"><span class=\"text-xl\">💎</span><div><strong>白金</strong> – 1000经验值，1100 Elo</div></div><div class=\"flex items-center gap-3 p-2 bg-purple-100 rounded\"><span class=\"text-xl\">🏆</span><div><strong>冠军</strong> – 1800经验值，1300 Elo</div></div></div>",
+      "howToEarnPoints": "<p>你可以通过多种方式获得积分：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>参加训练：</strong>每次3-6分</li><li><strong>完成练习：</strong>根据难度2-10分</li><li><strong>完成挑战：</strong>特殊任务的奖励积分</li><li><strong>赢得比赛：</strong>经验值和Elo积分</li><li><strong>保持连续：</strong>经常来训练获得更多积分！</li></ul><p class=\"mt-3 bg-green-50 border border-green-200 rounded p-3 text-sm\"><strong>超级提示：</strong>坚持来训练！连续5次训练后，你会得到<strong>6分</strong>而不是3分！</p>",
+      "whatIsLeaderboard": "<p><strong>排行榜</strong>显示谁的积分最多：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>勤奋排行榜：</strong>谁的经验值最多？</li><li><strong>技能排行榜：</strong>谁的Elo最高？</li><li><strong>赛季排行榜：</strong>本赛季谁领先？</li><li><strong>双打排行榜：</strong>最佳双打队伍</li></ul><p class=\"mt-3\">你可以在<strong>俱乐部</strong>（仅你的俱乐部）和<strong>全球</strong>（所有选手）之间切换。</p><p class=\"mt-2 text-sm\">你能进入前10吗？🏆</p>",
+      "dataProtection": "<p>我们非常重视<strong>保护您的孩子</strong>：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>符合GDPR：</strong>所有数据按欧盟数据保护法处理</li><li><strong>加密存储：</strong>密码和PIN码安全存储</li><li><strong>无广告：</strong>我们不出售数据，不展示广告</li><li><strong>最少数据：</strong>我们只收集应用所需的数据</li><li><strong>可控制：</strong>您可以随时导出或删除所有数据</li></ul><p class=\"mt-3\">更多详情请查看我们的<a href=\"/docs/datenschutz.html\" class=\"text-indigo-600 hover:underline\">隐私政策</a>。</p>",
+      "childModePrivacy": "<p><strong>儿童模式</strong>自动激活增强的隐私设置：</p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>有限可见性：</strong>资料默认只对俱乐部成员可见</li><li><strong>不显示姓氏：</strong>排行榜中只显示名字</li><li><strong>受保护的搜索：</strong>陌生人无法找到孩子</li><li><strong>家长控制：</strong>监护人可以调整所有设置</li></ul><p class=\"mt-3\">儿童模式对所有16岁以下的选手自动生效。</p>",
+      "deleteData": "<p>是的，您有权<strong>删除</strong>孩子的数据：</p><ol class=\"list-decimal list-inside mt-2 space-y-2\"><li>进入监护人账户设置</li><li>选择"法律信息"</li><li>点击孩子的"删除账户"</li></ol><p class=\"mt-3\"><strong>将被删除的内容：</strong></p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>个人数据（姓名、出生日期）</li><li>登录凭证（用户名、PIN码）</li><li>与监护人账户的关联</li></ul><p class=\"mt-3\"><strong>保留的内容（匿名化）：</strong></p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>比赛结果（显示为"已删除用户"）</li><li>团队统计</li></ul><p class=\"mt-3 text-sm\">您也可以通过电子邮件联系我们：<a href=\"mailto:datenschutz@sc-champions.de\" class=\"text-indigo-600 hover:underline\">datenschutz@sc-champions.de</a></p>"
+    },
+    "help": {
+      "title": "还有问题？",
+      "description": "如果您有更多问题，请联系俱乐部的教练或给我们发电子邮件。",
+      "gameRules": "游戏规则常见问题",
+      "contactSupport": "联系支持"
+    }
   }
 }

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
+        <script src="/js/capacitor-init.js"></script>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <!-- Primary Meta Tags -->
+        <title data-i18n="guardianFaq.pageTitle">Eltern & Kinder FAQ - SC Champions</title>
+        <meta name="robots" content="noindex, nofollow" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            details > summary {
+                list-style: none;
+            }
+            details > summary::-webkit-details-marker {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 text-gray-800">
+        <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-3xl">
+            <header class="flex justify-between items-start mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900" data-i18n="guardianFaq.title">Eltern & Kinder FAQ</h1>
+                    <p class="text-gray-600" data-i18n="guardianFaq.subtitle">So funktioniert SC Champions für Familien</p>
+                </div>
+                <a
+                    href="/guardian-dashboard.html"
+                    id="back-link"
+                    class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap pt-1"
+                    data-i18n="guardianFaq.backToDashboard"
+                >
+                    &larr; Zurück
+                </a>
+            </header>
+
+            <!-- Quick Overview -->
+            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6 rounded-xl shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-3" data-i18n="guardianFaq.overview.title">SC Champions - Auf einen Blick</h2>
+                <p class="mb-4" data-i18n="guardianFaq.overview.description">
+                    SC Champions ist eine Gamification-Plattform für Sportvereine. Kinder sammeln Punkte, steigen in Rängen auf und haben Spaß beim Training!
+                </p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div class="bg-white/20 rounded-lg p-3">
+                        <i class="fas fa-child text-2xl mb-2"></i>
+                        <p class="text-sm font-medium" data-i18n="guardianFaq.overview.forKids">Für Kinder</p>
+                    </div>
+                    <div class="bg-white/20 rounded-lg p-3">
+                        <i class="fas fa-user-shield text-2xl mb-2"></i>
+                        <p class="text-sm font-medium" data-i18n="guardianFaq.overview.forParents">Für Eltern</p>
+                    </div>
+                    <div class="bg-white/20 rounded-lg p-3">
+                        <i class="fas fa-trophy text-2xl mb-2"></i>
+                        <p class="text-sm font-medium" data-i18n="guardianFaq.overview.gamification">Gamification</p>
+                    </div>
+                    <div class="bg-white/20 rounded-lg p-3">
+                        <i class="fas fa-shield-alt text-2xl mb-2"></i>
+                        <p class="text-sm font-medium" data-i18n="guardianFaq.overview.safety">Kindersicher</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-md space-y-8">
+
+                <!-- Section: For Parents -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2 flex items-center gap-2">
+                        <i class="fas fa-user-shield text-indigo-600"></i>
+                        <span data-i18n="guardianFaq.sections.forParents">Für Eltern & Erziehungsberechtigte</span>
+                    </h2>
+                    <div class="space-y-4">
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.whatIsGuardian">Was ist ein Vormund-Account?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.whatIsGuardian"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.howToAddChild">Wie füge ich mein Kind hinzu?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.howToAddChild"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.trainerCode">Was ist ein Trainer-Code?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.trainerCode"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.childCredentials">Wie funktionieren Benutzername und PIN?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.childCredentials"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.inviteSecondGuardian">Kann ich einen zweiten Vormund einladen?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.inviteSecondGuardian"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.whatCanISee">Was kann ich als Vormund sehen?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.whatCanISee"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.childTurns16">Was passiert, wenn mein Kind 16 wird?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.childTurns16"></div>
+                        </details>
+                    </div>
+                </div>
+
+                <!-- Section: For Children -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2 flex items-center gap-2">
+                        <i class="fas fa-child text-green-600"></i>
+                        <span data-i18n="guardianFaq.sections.forChildren">Für Kinder & Jugendliche</span>
+                    </h2>
+                    <div class="space-y-4">
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.howToLogin">Wie melde ich mich an?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.howToLogin"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.forgotPin">Was mache ich, wenn ich meinen PIN vergessen habe?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.forgotPin"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.whatCanChildDo">Was kann ich in der App machen?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.whatCanChildDo"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.privacyForKids">Wer kann mein Profil sehen?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.privacyForKids"></div>
+                        </details>
+                    </div>
+                </div>
+
+                <!-- Section: For Players -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2 flex items-center gap-2">
+                        <i class="fas fa-table-tennis-paddle-ball text-orange-600"></i>
+                        <span data-i18n="guardianFaq.sections.forPlayers">Für alle Spieler</span>
+                    </h2>
+                    <div class="space-y-4">
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.howPointsWork">Wie funktioniert das Punktesystem?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.howPointsWork"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.howRanksWork">Wie funktionieren die Ränge?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.howRanksWork"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.howToEarnPoints">Wie verdiene ich Punkte?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.howToEarnPoints"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.whatIsLeaderboard">Was ist die Rangliste?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.whatIsLeaderboard"></div>
+                        </details>
+                    </div>
+                </div>
+
+                <!-- Section: Privacy & Safety -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2 flex items-center gap-2">
+                        <i class="fas fa-shield-alt text-blue-600"></i>
+                        <span data-i18n="guardianFaq.sections.privacySafety">Datenschutz & Sicherheit</span>
+                    </h2>
+                    <div class="space-y-4">
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.dataProtection">Wie werden die Daten meines Kindes geschützt?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.dataProtection"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.childModePrivacy">Was bedeutet "Kindermodus"?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.childModePrivacy"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="guardianFaq.questions.deleteData">Kann ich die Daten meines Kindes löschen lassen?</span>
+                                <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="guardianFaq.answers.deleteData"></div>
+                        </details>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Help Box -->
+            <div class="mt-6 bg-indigo-50 border border-indigo-200 rounded-xl p-6">
+                <h3 class="font-semibold text-indigo-900 mb-2" data-i18n="guardianFaq.help.title">Noch Fragen?</h3>
+                <p class="text-indigo-800 text-sm mb-4" data-i18n="guardianFaq.help.description">
+                    Wenn du weitere Fragen hast, wende dich an den Trainer deines Vereins oder schreibe uns eine E-Mail.
+                </p>
+                <div class="flex flex-wrap gap-3">
+                    <a href="/faq.html" class="inline-flex items-center gap-2 bg-white border border-indigo-300 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors">
+                        <i class="fas fa-book"></i>
+                        <span data-i18n="guardianFaq.help.gameRules">Spielregeln FAQ</span>
+                    </a>
+                    <a href="mailto:support@sc-champions.de" class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+                        <i class="fas fa-envelope"></i>
+                        <span data-i18n="guardianFaq.help.contactSupport">Support kontaktieren</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
+        <script type="module" src="/js/notifications.js"></script>
+        <script type="module" src="/js/spa-enhancer.js"></script>
+    </body>
+</html>
