@@ -363,7 +363,8 @@
                         id="code-login-tab"
                         class="flex-1 py-3 px-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
                     >
-                        Mit Code anmelden
+                        <i class="fas fa-child mr-1"></i>
+                        Kinder-Login
                     </button>
                 </div>
 
@@ -422,39 +423,113 @@
                     </div>
                 </form>
 
+                <!-- Kinder-Login mit Username + PIN -->
                 <form id="code-form" class="mt-8 space-y-6 hidden">
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p class="text-sm text-blue-800 text-center">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Gib deinen Code ein (Einladungscode vom Verein oder Kinder-Code vom Vormund).
+                    <div class="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                        <p class="text-sm text-pink-800 text-center">
+                            <i class="fas fa-child mr-1"></i>
+                            Kinder-Login: Gib deinen Benutzernamen und PIN ein.
                         </p>
                     </div>
 
-                    <div>
-                        <label
-                            for="invitation-code"
-                            class="block text-sm font-medium text-gray-700 mb-2"
-                            >Code</label
-                        >
-                        <input
-                            id="invitation-code"
-                            type="text"
-                            maxlength="11"
-                            required
-                            class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
-                            placeholder="ABC123 oder TTV-XXX-YYY"
-                        />
-                        <p class="mt-2 text-xs text-gray-500 text-center">Kinder: 6 Zeichen · Einladung: TTV-XXX-YYY</p>
+                    <!-- Username + PIN Login (Default) -->
+                    <div id="child-pin-login">
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    for="child-username"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >Benutzername</label>
+                                <input
+                                    id="child-username"
+                                    type="text"
+                                    maxlength="30"
+                                    required
+                                    autocomplete="username"
+                                    class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-lg"
+                                    placeholder="z.B. max2015"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    for="child-pin"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >PIN</label>
+                                <input
+                                    id="child-pin"
+                                    type="password"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    maxlength="6"
+                                    required
+                                    autocomplete="current-password"
+                                    class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-center text-2xl font-bold tracking-widest"
+                                    placeholder="****"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <button
+                                type="submit"
+                                id="child-login-btn"
+                                class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                            >
+                                <i class="fas fa-sign-in-alt mr-2"></i>
+                                Anmelden
+                            </button>
+                        </div>
+
+                        <div class="mt-4 text-center">
+                            <button
+                                type="button"
+                                id="show-code-login-btn"
+                                class="text-sm text-gray-500 hover:text-gray-700"
+                            >
+                                <i class="fas fa-key mr-1"></i>
+                                Ich habe einen Einmal-Code
+                            </button>
+                        </div>
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            <i class="fas fa-arrow-right mr-2"></i>
-                            Weiter zur Registrierung
-                        </button>
+                    <!-- One-time Code Login (Hidden by default) -->
+                    <div id="child-code-login" class="hidden">
+                        <div>
+                            <label
+                                for="invitation-code"
+                                class="block text-sm font-medium text-gray-700 mb-2"
+                            >Einmal-Code</label>
+                            <input
+                                id="invitation-code"
+                                type="text"
+                                maxlength="11"
+                                class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
+                                placeholder="ABC123 oder TTV-XXX-YYY"
+                            />
+                            <p class="mt-2 text-xs text-gray-500 text-center">Einmal-Code vom Vormund oder Einladungscode vom Verein</p>
+                        </div>
+
+                        <div class="mt-6">
+                            <button
+                                type="button"
+                                id="code-login-btn"
+                                class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                <i class="fas fa-arrow-right mr-2"></i>
+                                Weiter
+                            </button>
+                        </div>
+
+                        <div class="mt-4 text-center">
+                            <button
+                                type="button"
+                                id="show-pin-login-btn"
+                                class="text-sm text-gray-500 hover:text-gray-700"
+                            >
+                                <i class="fas fa-arrow-left mr-1"></i>
+                                Zurück zum Kinder-Login
+                            </button>
+                        </div>
                     </div>
                 </form>
 

@@ -45,6 +45,22 @@ const upgradeSuccessText = document.getElementById('upgrade-success-text');
 const upgradeSubmitBtn = document.getElementById('upgrade-submit-btn');
 const closeUpgradeModal = document.getElementById('close-upgrade-modal');
 
+// Credentials modal elements (Username + PIN)
+const credentialsModal = document.getElementById('credentials-modal');
+const credentialsChildName = document.getElementById('credentials-child-name');
+const credentialsForm = document.getElementById('credentials-form');
+const credentialsUsername = document.getElementById('credentials-username');
+const credentialsPin = document.getElementById('credentials-pin');
+const credentialsPinConfirm = document.getElementById('credentials-pin-confirm');
+const credentialsError = document.getElementById('credentials-error');
+const credentialsErrorText = document.getElementById('credentials-error-text');
+const credentialsSuccess = document.getElementById('credentials-success');
+const credentialsSuccessText = document.getElementById('credentials-success-text');
+const credentialsSubmitBtn = document.getElementById('credentials-submit-btn');
+const closeCredentialsModal = document.getElementById('close-credentials-modal');
+const usernameCheckStatus = document.getElementById('username-check-status');
+const usernameHint = document.getElementById('username-hint');
+
 // Add child modal elements
 const addChildModal = document.getElementById('add-child-modal');
 const addChildBtn = document.getElementById('add-child-btn');
@@ -88,7 +104,9 @@ let sportsData = [];
 let currentUser = null;
 let childrenData = [];
 let upgradeChildId = null;
+let credentialsChildId = null; // For credentials modal
 let validatedCodeData = null; // Stores validated code information
+let usernameCheckTimeout = null; // For debouncing username checks
 
 // Initialize authentication
 async function initializeAuth() {
@@ -200,22 +218,56 @@ function renderChildren(children) {
                     </div>
                 ` : ''}
 
+                <!-- Credentials Status -->
+                <div class="mb-4 p-3 ${child.username && child.has_pin ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'} rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center text-sm ${child.username && child.has_pin ? 'text-green-700' : 'text-yellow-700'}">
+                            <i class="fas ${child.username && child.has_pin ? 'fa-check-circle' : 'fa-exclamation-triangle'} mr-2"></i>
+                            ${child.username && child.has_pin
+                                ? `<span>Benutzername: <strong>${child.username}</strong></span>`
+                                : '<span>Zugangsdaten nicht eingerichtet</span>'
+                            }
+                        </div>
+                        <button
+                            class="setup-credentials-btn text-xs font-medium ${child.username && child.has_pin ? 'text-green-600 hover:text-green-800' : 'text-yellow-600 hover:text-yellow-800'}"
+                            data-child-id="${childId}"
+                            data-child-name="${child.first_name} ${child.last_name}"
+                            data-child-username="${child.username || ''}"
+                        >
+                            <i class="fas fa-${child.username && child.has_pin ? 'edit' : 'plus'} mr-1"></i>
+                            ${child.username && child.has_pin ? 'Ändern' : 'Einrichten'}
+                        </button>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-2">
+                    <button
+                        class="setup-credentials-btn flex-1 bg-blue-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors"
+                        data-child-id="${childId}"
+                        data-child-name="${child.first_name} ${child.last_name}"
+                        data-child-username="${child.username || ''}"
+                    >
+                        <i class="fas fa-user-lock mr-1"></i>
+                        Zugangsdaten
+                    </button>
                     <button
                         class="generate-login-code-btn flex-1 bg-green-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors"
                         data-child-id="${childId}"
                         data-child-name="${child.first_name}"
                     >
                         <i class="fas fa-key mr-1"></i>
-                        Login-Code
+                        Einmal-Code
                     </button>
+                </div>
+
+                <div class="mt-2">
                     <button
-                        class="invite-guardian-btn flex-1 bg-purple-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors"
+                        class="invite-guardian-btn w-full bg-purple-100 text-purple-700 text-sm font-semibold py-2 px-3 rounded-lg hover:bg-purple-200 transition-colors"
                         data-child-id="${childId}"
                         data-child-name="${child.first_name} ${child.last_name}"
                     >
                         <i class="fas fa-user-plus mr-1"></i>
-                        Vormund einladen
+                        Weiteren Vormund einladen
                     </button>
                 </div>
 
@@ -273,6 +325,15 @@ function renderChildren(children) {
             const childId = e.currentTarget.dataset.childId;
             const childName = e.currentTarget.dataset.childName;
             showUpgradeModal(childId, childName);
+        });
+    });
+
+    document.querySelectorAll('.setup-credentials-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const childId = e.currentTarget.dataset.childId;
+            const childName = e.currentTarget.dataset.childName;
+            const existingUsername = e.currentTarget.dataset.childUsername;
+            showCredentialsModal(childId, childName, existingUsername);
         });
     });
 }
@@ -981,4 +1042,228 @@ async function submitManualChild() {
 function showManualChildError(message) {
     if (manualChildErrorText) manualChildErrorText.textContent = message;
     manualChildError?.classList.remove('hidden');
+}
+
+// =====================================================
+// Credentials Modal (Username + PIN)
+// =====================================================
+
+/**
+ * Show credentials modal
+ */
+async function showCredentialsModal(childId, childName, existingUsername = '') {
+    credentialsChildId = childId;
+    if (credentialsChildName) credentialsChildName.textContent = `für ${childName}`;
+
+    // Reset form
+    if (credentialsUsername) {
+        credentialsUsername.value = existingUsername || '';
+    }
+    if (credentialsPin) credentialsPin.value = '';
+    if (credentialsPinConfirm) credentialsPinConfirm.value = '';
+    credentialsError?.classList.add('hidden');
+    credentialsSuccess?.classList.add('hidden');
+    if (usernameCheckStatus) usernameCheckStatus.innerHTML = '';
+    if (usernameHint) {
+        usernameHint.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        usernameHint.classList.remove('text-red-500', 'text-green-500');
+        usernameHint.classList.add('text-gray-500');
+    }
+
+    if (credentialsSubmitBtn) {
+        credentialsSubmitBtn.disabled = false;
+        credentialsSubmitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Zugangsdaten speichern';
+    }
+
+    // If no existing username, get suggestions
+    if (!existingUsername) {
+        const child = childrenData.find(c => (c.id || c.child_id) === childId);
+        if (child?.first_name) {
+            const birthYear = child.birthdate ? new Date(child.birthdate).getFullYear() : null;
+            try {
+                const { data } = await supabase.rpc('suggest_username', {
+                    p_first_name: child.first_name,
+                    p_birth_year: birthYear
+                });
+                if (data?.suggestions?.length > 0) {
+                    if (credentialsUsername) {
+                        credentialsUsername.value = data.suggestions[0];
+                        credentialsUsername.placeholder = `z.B. ${data.suggestions.slice(0, 3).join(', ')}`;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not get username suggestions:', e);
+            }
+        }
+    }
+
+    credentialsModal?.classList.remove('hidden');
+    credentialsUsername?.focus();
+}
+
+// Close credentials modal
+closeCredentialsModal?.addEventListener('click', () => {
+    credentialsModal?.classList.add('hidden');
+    credentialsChildId = null;
+});
+
+credentialsModal?.addEventListener('click', (e) => {
+    if (e.target === credentialsModal) {
+        credentialsModal.classList.add('hidden');
+        credentialsChildId = null;
+    }
+});
+
+// Real-time username validation
+credentialsUsername?.addEventListener('input', (e) => {
+    // Normalize to lowercase
+    e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+
+    // Debounce the availability check
+    if (usernameCheckTimeout) clearTimeout(usernameCheckTimeout);
+
+    if (usernameCheckStatus) usernameCheckStatus.innerHTML = '';
+
+    const username = e.target.value;
+    if (username.length < 3) {
+        if (usernameHint) {
+            usernameHint.textContent = 'Mindestens 3 Zeichen erforderlich';
+            usernameHint.classList.remove('text-green-500', 'text-gray-500');
+            usernameHint.classList.add('text-red-500');
+        }
+        return;
+    }
+
+    if (usernameHint) {
+        usernameHint.textContent = 'Prüfe Verfügbarkeit...';
+        usernameHint.classList.remove('text-red-500', 'text-green-500');
+        usernameHint.classList.add('text-gray-500');
+    }
+    if (usernameCheckStatus) {
+        usernameCheckStatus.innerHTML = '<i class="fas fa-spinner fa-spin text-gray-400"></i>';
+    }
+
+    usernameCheckTimeout = setTimeout(async () => {
+        try {
+            const { data } = await supabase.rpc('check_username_available', {
+                p_username: username,
+                p_child_id: credentialsChildId
+            });
+
+            if (data?.available) {
+                if (usernameHint) {
+                    usernameHint.textContent = `"${data.normalized}" ist verfügbar`;
+                    usernameHint.classList.remove('text-red-500', 'text-gray-500');
+                    usernameHint.classList.add('text-green-500');
+                }
+                if (usernameCheckStatus) {
+                    usernameCheckStatus.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                }
+            } else {
+                if (usernameHint) {
+                    usernameHint.textContent = data?.reason || 'Benutzername nicht verfügbar';
+                    usernameHint.classList.remove('text-green-500', 'text-gray-500');
+                    usernameHint.classList.add('text-red-500');
+                }
+                if (usernameCheckStatus) {
+                    usernameCheckStatus.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+                }
+            }
+        } catch (error) {
+            console.error('Username check error:', error);
+        }
+    }, 500);
+});
+
+// Handle credentials form submission
+credentialsForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveCredentials();
+});
+
+/**
+ * Save child credentials
+ */
+async function saveCredentials() {
+    const username = credentialsUsername?.value?.trim().toLowerCase();
+    const pin = credentialsPin?.value?.trim();
+    const pinConfirm = credentialsPinConfirm?.value?.trim();
+
+    // Validation
+    if (!username || username.length < 3) {
+        showCredentialsError('Benutzername muss mindestens 3 Zeichen haben.');
+        return;
+    }
+
+    if (!pin || pin.length < 4 || pin.length > 6) {
+        showCredentialsError('PIN muss 4-6 Ziffern haben.');
+        return;
+    }
+
+    if (!/^[0-9]+$/.test(pin)) {
+        showCredentialsError('PIN darf nur Ziffern enthalten.');
+        return;
+    }
+
+    if (pin !== pinConfirm) {
+        showCredentialsError('Die PINs stimmen nicht überein.');
+        return;
+    }
+
+    if (!credentialsChildId) {
+        showCredentialsError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button and show loading
+    if (credentialsSubmitBtn) {
+        credentialsSubmitBtn.disabled = true;
+        credentialsSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('set_child_credentials', {
+            p_child_id: credentialsChildId,
+            p_username: username,
+            p_pin: pin
+        });
+
+        if (error) throw error;
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Speichern der Zugangsdaten');
+        }
+
+        // Show success
+        credentialsError?.classList.add('hidden');
+        if (credentialsSuccessText) {
+            credentialsSuccessText.textContent = `Zugangsdaten gespeichert! Benutzername: ${data.username}`;
+        }
+        credentialsSuccess?.classList.remove('hidden');
+
+        // Refresh children list after a short delay
+        setTimeout(async () => {
+            await loadChildren();
+            credentialsModal?.classList.add('hidden');
+            credentialsChildId = null;
+        }, 2000);
+
+    } catch (error) {
+        console.error('Credentials save error:', error);
+        showCredentialsError(error.message || 'Fehler beim Speichern. Bitte versuche es erneut.');
+
+        if (credentialsSubmitBtn) {
+            credentialsSubmitBtn.disabled = false;
+            credentialsSubmitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Zugangsdaten speichern';
+        }
+    }
+}
+
+/**
+ * Show credentials error
+ */
+function showCredentialsError(message) {
+    if (credentialsErrorText) credentialsErrorText.textContent = message;
+    credentialsError?.classList.remove('hidden');
+    credentialsSuccess?.classList.add('hidden');
 }
