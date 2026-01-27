@@ -250,7 +250,9 @@ codeForm?.addEventListener('submit', async e => {
 
             if (error) throw error;
 
-            if (!data || !data.success) {
+            // Support both response formats: {success, child_id, ...} and {valid, child: {...}}
+            const isValid = data?.success || data?.valid;
+            if (!data || !isValid) {
                 const errorMsg = data?.error || 'Ungültiger Code';
                 feedbackMessage.textContent = errorMsg;
                 feedbackMessage.classList.remove('text-gray-600');
@@ -258,13 +260,14 @@ codeForm?.addEventListener('submit', async e => {
                 return;
             }
 
-            // Create child session
+            // Extract child data from either format
+            const child = data.child || data;
             const childSession = {
-                childId: data.child_id,
-                firstName: data.first_name,
-                lastName: data.last_name,
-                ageMode: data.age_mode,
-                clubId: data.club_id,
+                childId: child.child_id || child.id,
+                firstName: child.first_name,
+                lastName: child.last_name,
+                ageMode: child.age_mode,
+                clubId: child.club_id,
                 guardianId: data.guardian_id,
                 loginAt: new Date().toISOString(),
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -272,7 +275,7 @@ codeForm?.addEventListener('submit', async e => {
 
             saveChildSession(childSession);
 
-            feedbackMessage.textContent = `Willkommen, ${data.first_name}! Weiterleitung...`;
+            feedbackMessage.textContent = `Willkommen, ${child.first_name}! Weiterleitung...`;
             feedbackMessage.classList.remove('text-gray-600');
             feedbackMessage.classList.add('text-green-600');
 

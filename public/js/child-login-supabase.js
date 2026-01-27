@@ -77,7 +77,9 @@ async function handleLogin(e) {
             throw error;
         }
 
-        if (!data || !data.success) {
+        // Support both response formats: {success, child_id, ...} and {valid, child: {...}}
+        const isValid = data?.success || data?.valid;
+        if (!data || !isValid) {
             const errorMsg = data?.error || 'Ungültiger Code';
             showError(errorMsg);
             shakeInput();
@@ -86,13 +88,14 @@ async function handleLogin(e) {
 
         console.log('[CHILD-LOGIN] Code validated:', data);
 
-        // Create child session
+        // Extract child data from either format
+        const child = data.child || data;
         const childSession = {
-            childId: data.child_id,
-            firstName: data.first_name,
-            lastName: data.last_name,
-            ageMode: data.age_mode,
-            clubId: data.club_id,
+            childId: child.child_id || child.id,
+            firstName: child.first_name,
+            lastName: child.last_name,
+            ageMode: child.age_mode,
+            clubId: child.club_id,
             guardianId: data.guardian_id,
             loginAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
@@ -102,7 +105,7 @@ async function handleLogin(e) {
         saveChildSession(childSession);
 
         // Show success
-        showSuccess(data.first_name);
+        showSuccess(child.first_name);
 
         // Redirect after delay
         setTimeout(() => {
