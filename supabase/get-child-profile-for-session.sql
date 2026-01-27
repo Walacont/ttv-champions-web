@@ -1,0 +1,122 @@
+-- ============================================
+-- Migration: Get child profile for session (bypasses RLS for child login)
+-- This function allows children logged in via code to fetch their profile
+-- ============================================
+
+CREATE OR REPLACE FUNCTION get_child_profile_for_session(
+    p_child_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_profile RECORD;
+    v_club RECORD;
+    v_has_valid_session BOOLEAN;
+BEGIN
+    -- Verify there's a valid (used) login code for this child from the last 24 hours
+    -- This ensures only children who logged in via code can access this
+    SELECT EXISTS (
+        SELECT 1 FROM child_login_codes
+        WHERE child_id = p_child_id
+        AND used_at IS NOT NULL
+        AND used_at > now() - interval '24 hours'
+    ) INTO v_has_valid_session;
+
+    IF NOT v_has_valid_session THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Keine gültige Sitzung gefunden'
+        );
+    END IF;
+
+    -- Get profile data
+    SELECT
+        p.id,
+        p.first_name,
+        p.last_name,
+        p.email,
+        p.avatar_url,
+        p.role,
+        p.club_id,
+        p.elo,
+        p.matches_won,
+        p.matches_lost,
+        p.total_points,
+        p.birthdate,
+        p.age_mode,
+        p.is_player,
+        p.is_guardian,
+        p.account_type,
+        p.created_at
+    INTO v_profile
+    FROM profiles p
+    WHERE p.id = p_child_id;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object(
+            'success', false,
+            'error', 'Profil nicht gefunden'
+        );
+    END IF;
+
+    -- Get club data if exists
+    IF v_profile.club_id IS NOT NULL THEN
+        SELECT id, name INTO v_club
+        FROM clubs
+        WHERE id = v_profile.club_id;
+    END IF;
+
+    RETURN json_build_object(
+        'success', true,
+        'profile', json_build_object(
+            'id', v_profile.id,
+            'first_name', v_profile.first_name,
+            'last_name', v_profile.last_name,
+            'email', v_profile.email,
+            'avatar_url', v_profile.avatar_url,
+            'role', v_profile.role,
+            'club_id', v_profile.club_id,
+            'elo', v_profile.elo,
+            'matches_won', v_profile.matches_won,
+            'matches_lost', v_profile.matches_lost,
+            'total_points', v_profile.total_points,
+            'birthdate', v_profile.birthdate,
+            'age_mode', v_profile.age_mode,
+            'is_player', v_profile.is_player,
+            'is_guardian', v_profile.is_guardian,
+            'account_type', v_profile.account_type,
+            'created_at', v_profile.created_at
+        ),
+        'club', CASE
+            WHEN v_club.id IS NOT NULL THEN json_build_object(
+                'id', v_club.id,
+                'name', v_club.name
+            )
+            ELSE NULL
+        END
+    );
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN json_build_object(
+        'success', false,
+        'error', SQLERRM
+    );
+END;
+$$;
+
+-- Grant execute to anonymous users (children aren't authenticated)
+GRANT EXECUTE ON FUNCTION get_child_profile_for_session TO anon;
+GRANT EXECUTE ON FUNCTION get_child_profile_for_session TO authenticated;
+
+-- ============================================
+-- Verification
+-- ============================================
+
+DO $$
+BEGIN
+    RAISE NOTICE 'Migration Complete: get_child_profile_for_session function created';
+    RAISE NOTICE 'This function allows children logged in via code to fetch their profile';
+END $$;

@@ -398,28 +398,48 @@ function cleanupSubscriptions() {
 // --- Load User Profile ---
 async function loadUserProfile() {
     try {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select(`
-                *,
-                club:clubs(id, name)
-            `)
-            .eq('id', currentUser.id)
-            .maybeSingle(); // maybeSingle verwenden um Fehler bei keinen Zeilen zu vermeiden
+        let profile, club;
 
-        if (error) throw error;
+        if (isChildMode) {
+            // Child mode: use RPC to get profile (bypasses RLS)
+            console.log('[DASHBOARD-SUPABASE] Loading child profile via RPC...');
+            const { data, error } = await supabase.rpc('get_child_profile_for_session', {
+                p_child_id: currentUser.id
+            });
 
-        if (!profile) {
-            console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
-            // For child mode, if profile not found, clear session and redirect
-            if (isChildMode) {
+            if (error) throw error;
+
+            if (!data?.success || !data?.profile) {
+                console.error('[DASHBOARD-SUPABASE] Child profile not found:', data?.error);
                 clearChildSession();
                 window.location.href = '/index.html';
                 return;
             }
-            // No profile found - redirect to registration
-            window.location.href = '/register.html';
-            return;
+
+            profile = data.profile;
+            club = data.club;
+            // Attach club to profile for compatibility
+            profile.club = club;
+        } else {
+            // Normal mode: direct query
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select(`
+                    *,
+                    club:clubs(id, name)
+                `)
+                .eq('id', currentUser.id)
+                .maybeSingle();
+
+            if (error) throw error;
+            profile = profileData;
+
+            if (!profile) {
+                console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
+                // No profile found - redirect to registration
+                window.location.href = '/register.html';
+                return;
+            }
         }
 
         // Rolle prüfen - Admins weiterleiten (but not children)
