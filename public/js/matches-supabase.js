@@ -1419,7 +1419,7 @@ export async function loadPendingPlayerConfirmations(userId) {
                 sports(id, display_name)
             `)
             .eq('status', 'pending_player')
-            .or(`player_b_id.eq.${userId}`)
+            .eq('player_b_id', userId)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -1903,6 +1903,18 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
                 if (!request) throw new Error('Doubles match request not found');
 
+                // Prüfen ob Anfrage bereits bearbeitet wurde (verhindert Duplikate)
+                if (request.status === 'approved') {
+                    console.warn('[Matches] Doubles request already approved, skipping');
+                    showToast('Match wurde bereits bestätigt!', 'info');
+                    return;
+                }
+                if (request.status === 'rejected') {
+                    console.warn('[Matches] Doubles request already rejected, skipping');
+                    showToast('Match wurde bereits abgelehnt!', 'info');
+                    return;
+                }
+
                 const { data: match, error: matchError } = await supabase
                     .from('doubles_matches')
                     .insert({
@@ -1925,10 +1937,16 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message || matchError.code}`);
                 }
 
-                await supabase
+                const { error: statusError } = await supabase
                     .from('doubles_match_requests')
                     .update({ status: 'approved' })
                     .eq('id', requestId);
+
+                if (statusError) {
+                    console.error('[Matches] Error updating doubles request status:', statusError);
+                    // Match wurde bereits erstellt - Status-Update kritisch
+                    throw new Error(`Match erstellt, aber Status-Update fehlgeschlagen: ${statusError.message}`);
+                }
 
                 console.log('[Matches] Doubles match confirmed and created');
                 showToast('Doppel-Match bestätigt!', 'success');
@@ -1940,6 +1958,18 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     .single();
 
                 if (!request) throw new Error('Match request not found');
+
+                // Prüfen ob Anfrage bereits bearbeitet wurde (verhindert Duplikate)
+                if (request.status === 'approved') {
+                    console.warn('[Matches] Request already approved, skipping');
+                    showToast('Match wurde bereits bestätigt!', 'info');
+                    return;
+                }
+                if (request.status === 'rejected') {
+                    console.warn('[Matches] Request already rejected, skipping');
+                    showToast('Match wurde bereits abgelehnt!', 'info');
+                    return;
+                }
 
                 const { data: match, error: matchError } = await supabase
                     .from('matches')
@@ -1967,10 +1997,16 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     throw new Error(`Fehler beim Erstellen des Matches: ${matchError.message || matchError.code}`);
                 }
 
-                await supabase
+                const { error: statusError } = await supabase
                     .from('match_requests')
                     .update({ status: 'approved' })
                     .eq('id', requestId);
+
+                if (statusError) {
+                    console.error('[Matches] Error updating request status:', statusError);
+                    // Match wurde bereits erstellt - Status-Update kritisch
+                    throw new Error(`Match erstellt, aber Status-Update fehlgeschlagen: ${statusError.message}`);
+                }
 
                 try {
                     const winnerId = request.winner_id;
