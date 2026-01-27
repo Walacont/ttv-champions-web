@@ -1777,11 +1777,11 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
                         start_time: e.start_time ? e.start_time.split('T')[1]?.substring(0, 5) : null,
                         end_time: e.end_time ? e.end_time.split('T')[1]?.substring(0, 5) : null,
                         location: e.location,
-                        event_category: e.event_type || 'training'
+                        event_category: 'training' // Default category for display
                     }));
 
-                    // Filter to only training events
-                    const relevantEvents = events.filter(e => e.event_category === 'training');
+                    // Show all club events for children (RPC already filters to club events)
+                    const relevantEvents = events;
 
                     // Transform participations
                     const participations = (data.participations || []).map(p => ({

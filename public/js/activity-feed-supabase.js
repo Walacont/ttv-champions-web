@@ -971,6 +971,69 @@ function getEmptyMessage() {
 }
 
 /**
+ * Fetch activities for child mode using RPC
+ * Direct Supabase queries don't work for child sessions (no auth.uid())
+ * Returns raw activities that need to be enriched with profileMap/followingIds
+ */
+async function fetchActivitiesForChildRaw() {
+    const sessionToken = getSessionToken();
+
+    if (!sessionToken) {
+        console.error('[ActivityFeed] No session token for child activities');
+        return { activities: [], memberIds: [] };
+    }
+
+    console.log('[ActivityFeed] Child mode: fetching activities via RPC, offset:', typeOffsets.singles);
+
+    try {
+        const { data, error } = await supabase.rpc('get_club_activities_for_child_session', {
+            p_session_token: sessionToken,
+            p_limit: ACTIVITIES_PER_PAGE * 3,
+            p_offset: typeOffsets.singles
+        });
+
+        if (error) {
+            console.error('[ActivityFeed] Child RPC error:', error);
+            return { activities: [], memberIds: [] };
+        }
+
+        if (!data?.success) {
+            console.error('[ActivityFeed] Child RPC failed:', data?.error);
+            return { activities: [], memberIds: [] };
+        }
+
+        console.log('[ActivityFeed] Child mode: got', (data.matches || []).length, 'matches,', (data.polls || []).length, 'polls');
+
+        // Transform matches to activity format
+        const activities = [];
+
+        // Add matches as singles activities
+        (data.matches || []).forEach(match => {
+            activities.push({
+                ...match,
+                activityType: 'singles'
+            });
+        });
+
+        // Note: Club polls (from 'polls' table) have a different structure than community_polls
+        // and are not displayed in the activity feed for now. Child users can view them
+        // on the club page instead.
+
+        // Sort by created_at descending
+        activities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Update offset for pagination
+        typeOffsets.singles += (data.matches || []).length;
+
+        return { activities, memberIds: data.member_ids || [] };
+
+    } catch (err) {
+        console.error('[ActivityFeed] Error fetching child activities:', err);
+        return { activities: [], memberIds: [] };
+    }
+}
+
+/**
  * Fetch activities with separate offsets per type
  * This prevents losing activities when different types have different densities
  */
@@ -991,7 +1054,13 @@ async function fetchActivities(userIds) {
     // Nur mehr abrufen wenn mehr Aktivitäten benötigt
     const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
-    if (needToFetch) {
+    // Child mode: use RPC to fetch activities (direct queries don't work without auth.uid())
+    if (isChildMode && needToFetch) {
+        const { activities: childActivities } = await fetchActivitiesForChildRaw();
+        allActivities = [...allActivities, ...childActivities];
+        console.log('[ActivityFeed] Child mode: loaded', childActivities.length, 'activities via RPC');
+        // Skip normal fetching, go directly to enrichment below
+    } else if (needToFetch) {
         // Einzel-Matches mit typ-spezifischem Offset laden
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
