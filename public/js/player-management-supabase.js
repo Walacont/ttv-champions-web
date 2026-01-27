@@ -97,6 +97,48 @@ function mapPlayerToSupabase(playerData) {
 }
 
 /**
+ * Calculates age from birthdate
+ */
+function calculateAgeFromBirthdate(day, month, year) {
+    if (!day || !month || !year) return null;
+
+    const birthDate = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+/**
+ * Updates the child player notice based on selected birthdate
+ */
+function updateChildPlayerNotice() {
+    const daySelect = document.getElementById('offline-birthdate-day');
+    const monthSelect = document.getElementById('offline-birthdate-month');
+    const yearSelect = document.getElementById('offline-birthdate-year');
+    const notice = document.getElementById('child-player-notice');
+
+    if (!daySelect || !monthSelect || !yearSelect || !notice) return;
+
+    const age = calculateAgeFromBirthdate(
+        daySelect.value,
+        monthSelect.value,
+        yearSelect.value
+    );
+
+    if (age !== null && age < 16) {
+        notice.classList.remove('hidden');
+    } else {
+        notice.classList.add('hidden');
+    }
+}
+
+/**
  * Initializes the birthdate dropdowns for offline player creation
  */
 export function initOfflinePlayerBirthdateSelects() {
@@ -135,6 +177,15 @@ export function initOfflinePlayerBirthdateSelects() {
         option.textContent = i;
         yearSelect.appendChild(option);
     }
+
+    // Add change listeners to show child notice
+    daySelect.addEventListener('change', updateChildPlayerNotice);
+    monthSelect.addEventListener('change', updateChildPlayerNotice);
+    yearSelect.addEventListener('change', updateChildPlayerNotice);
+
+    // Hide notice initially
+    const notice = document.getElementById('child-player-notice');
+    if (notice) notice.classList.add('hidden');
 }
 
 /**
@@ -192,6 +243,17 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
+        // Button wieder aktivieren
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Spieler erstellen';
+        }
+        return;
+    }
+
+    // Geburtsdatum ist Pflichtfeld
+    if (!birthdate) {
+        alert('Geburtsdatum ist ein Pflichtfeld. Bitte wähle Tag, Monat und Jahr aus.');
         // Button wieder aktivieren
         if (submitButton) {
             submitButton.disabled = false;
@@ -602,7 +664,25 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
             const { data, error } = await query;
 
             if (error) throw error;
-            renderPlayerList(data || []);
+
+            // Guardian links für alle Spieler laden um anzuzeigen wer einen Vormund hat
+            const playerIds = (data || []).map(p => p.id);
+            let guardianMap = {};
+
+            if (playerIds.length > 0) {
+                const { data: guardianLinks } = await supabase
+                    .from('guardian_links')
+                    .select('child_id')
+                    .in('child_id', playerIds);
+
+                if (guardianLinks) {
+                    guardianLinks.forEach(link => {
+                        guardianMap[link.child_id] = true;
+                    });
+                }
+            }
+
+            renderPlayerList(data || [], guardianMap);
         } catch (error) {
             console.error('Spielerliste Ladefehler:', error);
             modalPlayerList.innerHTML = `<p class="p-4 text-center text-red-500">Fehler: ${error.message}</p>`;
@@ -611,7 +691,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
         }
     }
 
-    function renderPlayerList(playersData) {
+    function renderPlayerList(playersData, guardianMap = {}) {
         modalPlayerList.innerHTML = '';
 
         if (playersData.length === 0) {
@@ -639,6 +719,12 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             ? '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>'
                             : '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
 
+                        // Vormund-Badge falls Spieler einen Vormund hat
+                        const hasGuardian = guardianMap[player.id];
+                        const guardianBadgeHtml = hasGuardian
+                            ? '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 ml-1" title="Hat Vormund"><i class="fas fa-user-shield"></i></span>'
+                            : '';
+
                         const rank = calculateRank(
                             player.eloRating,
                             player.xp,
@@ -652,7 +738,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             <p class="text-sm font-medium text-gray-900 truncate">${player.firstName} ${player.lastName}</p>
                             <p class="text-sm text-gray-500">${rank.emoji} ${rank.name}</p>
                         </div>
-                        <div class="ml-2 flex-shrink-0">${statusHtml}</div>
+                        <div class="ml-2 flex-shrink-0 flex items-center">${guardianBadgeHtml}${statusHtml}</div>
                     </div>
                 `;
 
@@ -941,6 +1027,59 @@ export async function showPlayerDetails(player, detailContent, supabase) {
     const { getRankProgress } = await import('./ranks.js');
     const grundlagenCount = player.grundlagenCompleted || 0;
     const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+
+    // Load guardian info if player has one
+    let guardianHtml = '';
+    if (supabase && player.id) {
+        try {
+            const { data: guardianLinks } = await supabase
+                .from('guardian_links')
+                .select(`
+                    guardian_id,
+                    is_primary,
+                    profiles!guardian_links_guardian_id_profiles_fkey (
+                        id,
+                        first_name,
+                        last_name,
+                        email
+                    )
+                `)
+                .eq('child_id', player.id);
+
+            if (guardianLinks && guardianLinks.length > 0) {
+                const guardians = guardianLinks
+                    .filter(link => link.profiles)
+                    .map(link => ({
+                        name: `${link.profiles.first_name || ''} ${link.profiles.last_name || ''}`.trim() || 'Unbekannt',
+                        email: link.profiles.email || 'Keine E-Mail',
+                        isPrimary: link.is_primary
+                    }));
+
+                if (guardians.length > 0) {
+                    guardianHtml = `
+                        <div class="mt-4 pt-4 border-t">
+                            <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                                <i class="fas fa-user-shield text-purple-500 mr-1"></i>
+                                Vormund${guardians.length > 1 ? 'e' : ''}
+                            </h5>
+                            <div class="space-y-2">
+                                ${guardians.map(g => `
+                                    <div class="bg-purple-50 p-3 rounded-lg">
+                                        <p class="font-medium text-gray-900">${g.name}${g.isPrimary ? ' <span class="text-xs text-purple-600">(Hauptvormund)</span>' : ''}</p>
+                                        <a href="mailto:${g.email}" class="text-sm text-blue-600 hover:underline">
+                                            <i class="fas fa-envelope mr-1"></i>${g.email}
+                                        </a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading guardian info:', error);
+        }
+    }
     const {
         currentRank,
         nextRank,
@@ -1069,8 +1208,10 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                         }
                     </div>
                 `
-                        : '<p class="text-sm text-green-600 font-semibold text-center">🏆 Höchster Rang erreicht!</p>'
+                        : '<p class="text-sm text-green-600 font-semibold text-center"><i class="fas fa-trophy mr-1"></i>Höchster Rang erreicht!</p>'
                 }
+
+                ${guardianHtml}
             </div>
         `;
 }

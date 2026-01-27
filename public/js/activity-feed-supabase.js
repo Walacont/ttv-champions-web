@@ -10,12 +10,15 @@ import { loadMatchMedia } from './match-media.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
 import { isTrainingSummary, renderTrainingSummaryCard, parseTrainingSummaryContent } from './training-summary-supabase.js';
+import { getChildSession, getSessionToken } from './child-login-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
 let currentUser = null;
 let currentUserData = null;
+let isChildMode = false;
+let childSessionData = null;
 let activityOffset = 0;
 let likesDataCache = {};
 let isLoadingMore = false;
@@ -166,6 +169,11 @@ export function initActivityFeedModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     activityOffset = 0;
+
+    // Check for child session
+    childSessionData = getChildSession();
+    isChildMode = !!childSessionData || (user && user.isChild);
+    console.log('[ActivityFeed] isChildMode:', isChildMode, 'childSessionData:', !!childSessionData);
 
     if (!document.getElementById('activity-feed-styles')) {
         const style = document.createElement('style');
@@ -381,12 +389,28 @@ async function showLikesModal(activityId, activityType) {
         }
 
         const userIds = likes.map(l => l.user_id);
-        const { data: profiles, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, display_name, avatar_url')
-            .in('id', userIds);
+        let profiles = [];
 
-        if (profileError) throw profileError;
+        if (isChildMode) {
+            // Child mode: use RPC
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_profile_ids: userIds
+                });
+                if (data?.success) {
+                    profiles = data.profiles || [];
+                }
+            }
+        } else {
+            const { data, error: profileError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, display_name, avatar_url')
+                .in('id', userIds);
+            if (profileError) throw profileError;
+            profiles = data || [];
+        }
 
         const profileMap = {};
         (profiles || []).forEach(p => {
@@ -828,6 +852,48 @@ export async function loadActivityFeed() {
  * Get user IDs based on current filter
  */
 async function getUserIdsForFilter() {
+    // Child mode: use RPC to get club member IDs (no following support for children)
+    if (isChildMode) {
+        console.log('[ActivityFeed] Child mode: getting club members via RPC');
+        const sessionToken = getSessionToken();
+
+        if (!sessionToken) {
+            console.error('[ActivityFeed] No session token for child');
+            return [currentUser.id];
+        }
+
+        try {
+            const { data, error } = await supabase.rpc('get_club_member_ids_for_child_session', {
+                p_session_token: sessionToken
+            });
+
+            if (error) {
+                console.error('[ActivityFeed] RPC error:', error);
+                return [currentUser.id];
+            }
+
+            if (!data?.success) {
+                console.error('[ActivityFeed] RPC failed:', data?.error);
+                return [currentUser.id];
+            }
+
+            // For children, always return club members (or just self if no club)
+            const memberIds = data.member_ids || [];
+            console.log('[ActivityFeed] Got', memberIds.length, 'club members for child');
+
+            // Ensure child's own ID is included
+            if (!memberIds.includes(currentUser.id)) {
+                memberIds.push(currentUser.id);
+            }
+
+            return memberIds;
+        } catch (err) {
+            console.error('[ActivityFeed] Error getting club members for child:', err);
+            return [currentUser.id];
+        }
+    }
+
+    // Normal mode below
     if (currentFilter === 'my-activities') {
         return [currentUser.id];
     }
@@ -905,6 +971,107 @@ function getEmptyMessage() {
 }
 
 /**
+ * Fetch activities for child mode using RPC
+ * Direct Supabase queries don't work for child sessions (no auth.uid())
+ * Returns raw activities that need to be enriched with profileMap/followingIds
+ */
+async function fetchActivitiesForChildRaw() {
+    const sessionToken = getSessionToken();
+
+    if (!sessionToken) {
+        console.error('[ActivityFeed] No session token for child activities');
+        return { activities: [], memberIds: [] };
+    }
+
+    console.log('[ActivityFeed] Child mode: fetching activities via RPC, offset:', typeOffsets.singles);
+
+    try {
+        const { data, error } = await supabase.rpc('get_club_activities_for_child_session', {
+            p_session_token: sessionToken,
+            p_limit: ACTIVITIES_PER_PAGE * 3,
+            p_offset: typeOffsets.singles
+        });
+
+        if (error) {
+            console.error('[ActivityFeed] Child RPC error:', error);
+            return { activities: [], memberIds: [] };
+        }
+
+        if (!data?.success) {
+            console.error('[ActivityFeed] Child RPC failed:', data?.error);
+            return { activities: [], memberIds: [] };
+        }
+
+        const singlesCount = (data.matches || []).length;
+        const doublesCount = (data.doubles_matches || []).length;
+        const eventsCount = (data.activity_events || []).length;
+        const postsCount = (data.community_posts || []).length;
+        const pollsCount = (data.community_polls || []).length;
+
+        console.log('[ActivityFeed] Child mode: got', singlesCount, 'singles,', doublesCount, 'doubles,', eventsCount, 'events,', postsCount, 'posts,', pollsCount, 'polls');
+
+        // Transform all activity types to unified format
+        const activities = [];
+
+        // 1. Add singles matches
+        (data.matches || []).forEach(match => {
+            activities.push({
+                ...match,
+                activityType: 'singles'
+            });
+        });
+
+        // 2. Add doubles matches
+        (data.doubles_matches || []).forEach(match => {
+            activities.push({
+                ...match,
+                activityType: 'doubles'
+            });
+        });
+
+        // 3. Add activity events (club_join, club_leave, rank_up, ranking changes)
+        (data.activity_events || []).forEach(event => {
+            activities.push({
+                ...event,
+                activityType: event.event_type // e.g., 'club_join', 'rank_up', 'club_ranking_change', etc.
+            });
+        });
+
+        // 4. Add community posts
+        (data.community_posts || []).forEach(post => {
+            activities.push({
+                ...post,
+                activityType: 'post'
+            });
+        });
+
+        // 5. Add community polls
+        (data.community_polls || []).forEach(poll => {
+            activities.push({
+                ...poll,
+                activityType: 'poll'
+            });
+        });
+
+        // Sort by created_at descending
+        activities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Update offset for pagination
+        typeOffsets.singles += singlesCount;
+        typeOffsets.doubles += doublesCount;
+        typeOffsets.events += eventsCount;
+        typeOffsets.posts += postsCount;
+        typeOffsets.polls += pollsCount;
+
+        return { activities, memberIds: data.member_ids || [] };
+
+    } catch (err) {
+        console.error('[ActivityFeed] Error fetching child activities:', err);
+        return { activities: [], memberIds: [] };
+    }
+}
+
+/**
  * Fetch activities with separate offsets per type
  * This prevents losing activities when different types have different densities
  */
@@ -925,7 +1092,13 @@ async function fetchActivities(userIds) {
     // Nur mehr abrufen wenn mehr Aktivitäten benötigt
     const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
-    if (needToFetch) {
+    // Child mode: use RPC to fetch activities (direct queries don't work without auth.uid())
+    if (isChildMode && needToFetch) {
+        const { activities: childActivities } = await fetchActivitiesForChildRaw();
+        allActivities = [...allActivities, ...childActivities];
+        console.log('[ActivityFeed] Child mode: loaded', childActivities.length, 'activities via RPC');
+        // Skip normal fetching, go directly to enrichment below
+    } else if (needToFetch) {
         // Einzel-Matches mit typ-spezifischem Offset laden
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
@@ -1067,13 +1240,27 @@ async function fetchActivities(userIds) {
         // Matches basierend auf Datenschutzeinstellungen filtern
         const viewerId = currentUser?.id;
         const viewerClubId = currentUserData?.club_id;
+        const viewerSubgroupIds = currentUserData?.subgroup_ids || [];
 
         allActivities = allActivities.filter(activity => {
             // Nur Einzel- und Doppel-Matches filtern
             if (activity.activityType === 'singles' || activity.activityType === 'doubles') {
                 return canViewMatch(activity, activity.activityType, privacyMap, viewerId, viewerClubId, viewerFollowingIds);
             }
-            // Andere Aktivitätstypen (Posts, Umfragen, Events) durchlassen
+
+            // Untergruppen-Sichtbarkeit für Posts und Umfragen prüfen
+            if (activity.activityType === 'post' || activity.activityType === 'poll') {
+                if (activity.visibility === 'subgroup' && activity.target_subgroup_ids?.length > 0) {
+                    // Prüfen ob Benutzer in einer der Ziel-Untergruppen ist
+                    const isInSubgroup = activity.target_subgroup_ids.some(sgId => viewerSubgroupIds.includes(sgId));
+                    // Auch Coach/Head-Coach sehen alle Untergruppen-Posts ihres Vereins
+                    const isCoach = currentUserData?.role === 'coach' || currentUserData?.role === 'head_coach';
+                    const sameClub = viewerClubId && activity.club_id === viewerClubId;
+                    return isInSubgroup || (isCoach && sameClub) || activity.user_id === viewerId;
+                }
+            }
+
+            // Andere Aktivitätstypen (öffentliche Posts, Events) durchlassen
             return true;
         });
 
@@ -1146,10 +1333,41 @@ async function fetchActivities(userIds) {
     });
 
     // Spielerprofile abrufen
-    const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
-        .in('id', [...playerIds].filter(Boolean));
+    let profiles = [];
+    const filteredPlayerIds = [...playerIds].filter(Boolean);
+
+    if (filteredPlayerIds.length > 0) {
+        if (isChildMode) {
+            // Child mode: use RPC to bypass RLS
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                try {
+                    const { data, error } = await supabase.rpc('get_profiles_for_child_session', {
+                        p_session_token: sessionToken,
+                        p_profile_ids: filteredPlayerIds
+                    });
+
+                    if (error) {
+                        console.error('[ActivityFeed] RPC error loading profiles:', error);
+                    } else if (data?.success) {
+                        profiles = data.profiles || [];
+                        console.log('[ActivityFeed] Child mode: loaded', profiles.length, 'profiles via RPC');
+                    } else {
+                        console.error('[ActivityFeed] RPC failed:', data?.error);
+                    }
+                } catch (err) {
+                    console.error('[ActivityFeed] Error loading profiles for child:', err);
+                }
+            }
+        } else {
+            // Normal mode: direct query
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
+                .in('id', filteredPlayerIds);
+            profiles = data || [];
+        }
+    }
 
     const profileMap = {};
     (profiles || []).forEach(p => {
@@ -1194,12 +1412,29 @@ async function fetchActivities(userIds) {
             // Wählerprofile laden
             let voterProfiles = {};
             if (voterIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name, avatar_url')
-                    .in('id', voterIds);
+                let voterProfilesData = [];
 
-                (profiles || []).forEach(p => {
+                if (isChildMode) {
+                    // Child mode: use RPC
+                    const sessionToken = getSessionToken();
+                    if (sessionToken) {
+                        const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                            p_session_token: sessionToken,
+                            p_profile_ids: voterIds
+                        });
+                        if (data?.success) {
+                            voterProfilesData = data.profiles || [];
+                        }
+                    }
+                } else {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, avatar_url')
+                        .in('id', voterIds);
+                    voterProfilesData = profiles || [];
+                }
+
+                voterProfilesData.forEach(p => {
                     voterProfiles[p.id] = p;
                 });
             }
@@ -1960,14 +2195,20 @@ async function checkIfParticipant(matchId, matchType) {
  * Render a singles match activity card - Strava style
  */
 function renderSinglesActivityCard(match, profileMap, followingIds) {
-    const playerA = profileMap[match.player_a_id] || {};
-    const playerB = profileMap[match.player_b_id] || {};
+    // Gelöschte Spieler erkennen (NULL-IDs)
+    const playerADeleted = match.player_a_id === null;
+    const playerBDeleted = match.player_b_id === null;
+    const playerA = playerADeleted ? {} : (profileMap[match.player_a_id] || {});
+    const playerB = playerBDeleted ? {} : (profileMap[match.player_b_id] || {});
 
-    const winnerProfile = match.winner_id === match.player_a_id ? playerA : playerB;
-    const loserProfile = match.winner_id === match.player_a_id ? playerB : playerA;
+    const isWinnerA = match.winner_id === match.player_a_id;
+    const winnerProfile = isWinnerA ? playerA : playerB;
+    const loserProfile = isWinnerA ? playerB : playerA;
+    const winnerDeleted = isWinnerA ? playerADeleted : playerBDeleted;
+    const loserDeleted = isWinnerA ? playerBDeleted : playerADeleted;
 
-    const winnerName = getDisplayName(winnerProfile);
-    const loserName = getDisplayName(loserProfile);
+    const winnerName = getDisplayName(winnerProfile, winnerDeleted);
+    const loserName = getDisplayName(loserProfile, loserDeleted);
 
     const winnerAvatar = winnerProfile.avatar_url || DEFAULT_AVATAR;
     const loserAvatar = loserProfile.avatar_url || DEFAULT_AVATAR;
@@ -2132,17 +2373,25 @@ function storeMatchForDetails(match, matchType, profileMap) {
  * Render a doubles match activity card - Strava style
  */
 function renderDoublesActivityCard(match, profileMap, followingIds) {
-    const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
-    const teamAPlayer2 = profileMap[match.team_a_player2_id] || {};
-    const teamBPlayer1 = profileMap[match.team_b_player1_id] || {};
-    const teamBPlayer2 = profileMap[match.team_b_player2_id] || {};
+    // Gelöschte Spieler erkennen (NULL-IDs)
+    const teamAP1Deleted = match.team_a_player1_id === null;
+    const teamAP2Deleted = match.team_a_player2_id === null;
+    const teamBP1Deleted = match.team_b_player1_id === null;
+    const teamBP2Deleted = match.team_b_player2_id === null;
+
+    const teamAPlayer1 = teamAP1Deleted ? {} : (profileMap[match.team_a_player1_id] || {});
+    const teamAPlayer2 = teamAP2Deleted ? {} : (profileMap[match.team_a_player2_id] || {});
+    const teamBPlayer1 = teamBP1Deleted ? {} : (profileMap[match.team_b_player1_id] || {});
+    const teamBPlayer2 = teamBP2Deleted ? {} : (profileMap[match.team_b_player2_id] || {});
 
     const isTeamAWinner = match.winning_team === 'A';
     const winnerTeam = isTeamAWinner ? [teamAPlayer1, teamAPlayer2] : [teamBPlayer1, teamBPlayer2];
     const loserTeam = isTeamAWinner ? [teamBPlayer1, teamBPlayer2] : [teamAPlayer1, teamAPlayer2];
+    const winnerDeleted = isTeamAWinner ? [teamAP1Deleted, teamAP2Deleted] : [teamBP1Deleted, teamBP2Deleted];
+    const loserDeleted = isTeamAWinner ? [teamBP1Deleted, teamBP2Deleted] : [teamAP1Deleted, teamAP2Deleted];
 
-    const winnerNames = winnerTeam.map(p => getDisplayName(p)).join(' & ');
-    const loserNames = loserTeam.map(p => getDisplayName(p)).join(' & ');
+    const winnerNames = winnerTeam.map((p, i) => getDisplayName(p, winnerDeleted[i])).join(' & ');
+    const loserNames = loserTeam.map((p, i) => getDisplayName(p, loserDeleted[i])).join(' & ');
 
     // Satzstand berechnen
     let winnerSets = 0;
@@ -2284,7 +2533,8 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 /**
  * Get display name for a player
  */
-function getDisplayName(profile) {
+function getDisplayName(profile, isDeleted = false) {
+    if (isDeleted) return 'Gelöschter Spieler';
     if (!profile) return 'Unbekannt';
     if (profile.display_name) return profile.display_name;
     if (profile.first_name && profile.last_name) {
@@ -3077,8 +3327,8 @@ function renderPostCard(activity, profileMap) {
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : activity.visibility === 'subgroup' ? 'users' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>
@@ -3194,8 +3444,8 @@ function renderPollCard(activity, profileMap) {
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : activity.visibility === 'subgroup' ? 'users' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>
@@ -3511,12 +3761,29 @@ async function refreshPollCard(pollId) {
             let voterProfiles = {};
 
             if (voterIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name, avatar_url')
-                    .in('id', voterIds);
+                let profilesData = [];
 
-                (profiles || []).forEach(p => {
+                if (isChildMode) {
+                    // Child mode: use RPC
+                    const sessionToken = getSessionToken();
+                    if (sessionToken) {
+                        const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                            p_session_token: sessionToken,
+                            p_profile_ids: voterIds
+                        });
+                        if (data?.success) {
+                            profilesData = data.profiles || [];
+                        }
+                    }
+                } else {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, avatar_url')
+                        .in('id', voterIds);
+                    profilesData = profiles || [];
+                }
+
+                profilesData.forEach(p => {
                     voterProfiles[p.id] = p;
                 });
             }

@@ -6,7 +6,7 @@
 
 | Feature                      | Status    | Details                                                                               |
 | ---------------------------- | --------- | ------------------------------------------------------------------------------------- |
-| **1. ELO-System**            | ✅ Fertig | Start bei 800, neue Gates (850, 900, 1000, 1100, 1300, 1600), Season Points = Elo×0.2 |
+| **1. ELO-System**            | ✅ Fertig | Start bei 800, keine Gates (Elo kann frei fallen), Season Points = Elo×0.2 |
 | **2. Rang-System**           | ✅ Fertig | 6 Ränge, schnellere Progression (Rekrut 0-49 XP, Bronze 50-199 XP, etc.)              |
 | **3. Strafsystem**           | ✅ Fertig | Leicht (-10 Pkt, -5 XP), Mittel (-20 Pkt, -10 XP), Schwer (-30 Pkt, -20 XP)           |
 | **4. Wettkampf-Sperre**      | ✅ Fertig | Rekruten müssen 5 Grundlagen absolvieren, UI + Firestore Rules                        |
@@ -39,7 +39,7 @@
 
 1. **Modernes ELO-System**
     - Start bei 800 statt 0
-    - Sicherheits-Gates verhindern Absturz
+    - Keine Gates - Elo kann frei fallen (nur nicht unter 0)
     - Season Points = Elo-Gewinn × 0.2
 
 2. **Motivierendes Rang-System**

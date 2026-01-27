@@ -1,6 +1,7 @@
 // Dashboard (Supabase-Version) - Multi-Sport-Unterstützung
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { getChildSession, clearChildSession, logoutChildSession, getSessionToken } from './child-login-supabase.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
@@ -58,6 +59,11 @@ let reconnectTimeout = null;
 let currentSubgroupFilter = 'global';
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
+
+// Child/Kids Mode State
+let isChildMode = false;
+let childSession = null;
+let currentAgeMode = null; // 'kids', 'teen', 'full'
 
 let testClubIdsCache = null;
 let followingIdsCache = null;
@@ -189,16 +195,36 @@ const RANKS = [
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DASHBOARD-SUPABASE] DOM loaded, checking session...');
 
-    const { data: { session } } = await supabase.auth.getSession();
+    // First check for child session (login via code)
+    childSession = getChildSession();
 
-    if (!session || !session.user) {
-        console.log('[DASHBOARD-SUPABASE] No session, redirecting to login');
-        window.location.replace('/index.html');
-        return;
+    if (childSession) {
+        console.log('[DASHBOARD-SUPABASE] Child session found:', childSession.firstName);
+        isChildMode = true;
+        currentAgeMode = childSession.ageMode || 'kids';
+
+        // Create a pseudo-user object for child
+        currentUser = {
+            id: childSession.childId,
+            email: null,
+            isChild: true
+        };
+
+        // Apply kids mode restrictions immediately
+        applyKidsModeUI();
+    } else {
+        // Normal auth check
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session || !session.user) {
+            console.log('[DASHBOARD-SUPABASE] No session, redirecting to login');
+            window.location.replace('/index.html');
+            return;
+        }
+
+        currentUser = session.user;
+        console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
     }
-
-    currentUser = session.user;
-    console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
 
     // Benutzerprofil laden
     await loadUserProfile();
@@ -240,6 +266,120 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
+// --- Kids Mode UI ---
+function applyKidsModeUI() {
+    console.log('[DASHBOARD-SUPABASE] Applying kids mode UI, ageMode:', currentAgeMode);
+
+    // Elements to hide for kids mode (< 14)
+    const kidsHiddenElements = [
+        '#open-community-btn',           // Community search button
+        '#desktop-notifications-btn',     // Notifications (parents get them)
+        'a[href="/settings.html"]',       // Settings link
+    ];
+
+    // Elements to hide for all minors (< 16)
+    const minorHiddenElements = [
+        '#activity-filter-dropdown',      // Activity feed filters (no global feed)
+    ];
+
+    if (currentAgeMode === 'kids') {
+        // Hide kids-restricted elements
+        kidsHiddenElements.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.style.display = 'none';
+                el.setAttribute('data-kids-hidden', 'true');
+            }
+        });
+
+        // Update header title with friendly greeting
+        const headerTitle = document.getElementById('header-title');
+        if (headerTitle && childSession) {
+            headerTitle.textContent = `Hallo ${childSession.firstName}! 🎮`;
+        }
+
+        // Hide match submission form (coach enters matches for kids)
+        const matchRequestForm = document.getElementById('match-request-form');
+        if (matchRequestForm) {
+            const formParent = matchRequestForm.closest('.bg-white');
+            if (formParent) {
+                formParent.innerHTML = `
+                    <div class="p-6 text-center">
+                        <div class="text-4xl mb-3">🏓</div>
+                        <h3 class="font-bold text-gray-800 mb-2">Deine Wettkämpfe</h3>
+                        <p class="text-gray-600 text-sm">
+                            Dein Trainer trägt deine Ergebnisse ein.
+                            Du kannst hier sehen, wie du gespielt hast!
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        // Simplify activity feed - show only personal achievements
+        const activityFilterBtn = document.getElementById('activity-filter-btn');
+        if (activityFilterBtn) {
+            activityFilterBtn.style.display = 'none';
+        }
+    }
+
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+        // Hide minor-restricted elements
+        minorHiddenElements.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) {
+                el.style.display = 'none';
+                el.setAttribute('data-minor-hidden', 'true');
+            }
+        });
+    }
+
+    // Add visual indicator that this is kids mode
+    if (currentAgeMode === 'kids') {
+        const topNav = document.getElementById('top-nav');
+        if (topNav) {
+            topNav.style.background = 'linear-gradient(to right, #7c3aed, #6366f1)';
+            // Make text white for contrast
+            topNav.querySelectorAll('button, a').forEach(el => {
+                el.style.color = 'white';
+            });
+            const headerTitle = document.getElementById('header-title');
+            if (headerTitle) headerTitle.style.color = 'white';
+        }
+    }
+
+    // Show logout button for ALL minors (kids and teens)
+    // Makes logout more discoverable than going through settings
+    console.log('[DASHBOARD-SUPABASE] Checking logout button for minors, ageMode:', currentAgeMode, 'isChildMode:', isChildMode);
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+        const childLogoutBtn = document.getElementById('child-logout-btn');
+        console.log('[DASHBOARD-SUPABASE] Logout button element:', childLogoutBtn);
+        if (childLogoutBtn) {
+            childLogoutBtn.classList.remove('hidden');
+            console.log('[DASHBOARD-SUPABASE] Logout button shown');
+
+            if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
+                childLogoutBtn.setAttribute('data-listener-attached', 'true');
+                childLogoutBtn.addEventListener('click', async () => {
+                    if (confirm('Möchtest du dich wirklich abmelden?')) {
+                        if (isChildMode) {
+                            // Child session - invalidate server token and clear local session
+                            await logoutChildSession();
+                            window.location.href = '/index.html';
+                        } else {
+                            // Normal auth session - sign out from Supabase
+                            await supabase.auth.signOut();
+                            window.location.href = '/index.html';
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    console.log('[DASHBOARD-SUPABASE] Kids mode UI applied');
+}
+
 // --- Cleanup ---
 function cleanupSubscriptions() {
     // Benachrichtigungs-Subscriptions aufräumen (falls verfügbar)
@@ -258,44 +398,90 @@ function cleanupSubscriptions() {
 // --- Load User Profile ---
 async function loadUserProfile() {
     try {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select(`
-                *,
-                club:clubs(id, name)
-            `)
-            .eq('id', currentUser.id)
-            .maybeSingle(); // maybeSingle verwenden um Fehler bei keinen Zeilen zu vermeiden
+        let profile, club;
 
-        if (error) throw error;
+        if (isChildMode) {
+            // Child mode: use RPC with session token for security
+            console.log('[DASHBOARD-SUPABASE] Loading child profile via secure RPC...');
+            const sessionToken = getSessionToken();
 
-        if (!profile) {
-            console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
-            // Basis-Profil erstellen oder zum Onboarding weiterleiten
-            window.location.href = '/onboarding.html';
-            return;
+            if (!sessionToken) {
+                console.error('[DASHBOARD-SUPABASE] No session token found');
+                clearChildSession();
+                window.location.href = '/index.html';
+                return;
+            }
+
+            const { data, error } = await supabase.rpc('get_child_profile_for_session', {
+                p_session_token: sessionToken
+            });
+
+            if (error) throw error;
+
+            if (!data?.success || !data?.profile) {
+                console.error('[DASHBOARD-SUPABASE] Child profile not found:', data?.error);
+                clearChildSession();
+                window.location.href = '/index.html';
+                return;
+            }
+
+            profile = data.profile;
+            club = data.club;
+            // Attach club to profile for compatibility
+            profile.club = club;
+        } else {
+            // Normal mode: direct query
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select(`
+                    *,
+                    club:clubs(id, name)
+                `)
+                .eq('id', currentUser.id)
+                .maybeSingle();
+
+            if (error) throw error;
+            profile = profileData;
+
+            if (!profile) {
+                console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
+                // No profile found - redirect to registration
+                window.location.href = '/register.html';
+                return;
+            }
         }
 
-        // Onboarding prüfen
-        if (!profile.onboarding_complete) {
-            console.log('[DASHBOARD-SUPABASE] Onboarding not complete');
-            window.location.href = '/onboarding.html';
-            return;
-        }
-
-        // Rolle prüfen - Admins weiterleiten
-        if (profile.role === 'admin') {
+        // Rolle prüfen - Admins weiterleiten (but not children)
+        if (profile.role === 'admin' && !isChildMode) {
             window.location.href = '/admin.html';
+            return;
+        }
+
+        // Pure guardians (is_guardian but NOT is_player) go to guardian dashboard
+        if ((profile.is_guardian || profile.account_type === 'guardian') && !profile.is_player && !isChildMode) {
+            console.log('[DASHBOARD-SUPABASE] Pure guardian detected, redirecting to guardian dashboard');
+            window.location.href = '/guardian-dashboard.html';
             return;
         }
 
         currentUserData = profile;
         currentClubData = profile.club;
 
+        // Update age mode from profile if not already set
+        if (!currentAgeMode && profile.age_mode) {
+            currentAgeMode = profile.age_mode;
+            // Apply kids mode if needed
+            if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+                applyKidsModeUI();
+            }
+        }
+
         console.log('[DASHBOARD-SUPABASE] Profile loaded:', {
             name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email,
             role: profile.role,
-            club: currentClubData?.name
+            club: currentClubData?.name,
+            ageMode: currentAgeMode,
+            isChildMode: isChildMode
         });
 
         // Dashboard initialisieren
@@ -332,6 +518,8 @@ async function initializeDashboard() {
     setupLogout();
     setupProfileLink();
     setupCoachIndicator();
+    setupGuardianIndicator();
+    setupRoleSwitcher();
     setupSearchButton();
     setupModalHandlers();
 
@@ -667,6 +855,114 @@ function setupCoachIndicator() {
     if (isCoach) {
         indicator.classList.remove('hidden');
     }
+}
+
+// --- Setup Guardian Indicator ---
+async function setupGuardianIndicator() {
+    const indicator = document.getElementById('guardian-indicator');
+    if (!indicator || !currentUserData) return;
+
+    // Nur prüfen wenn Benutzer ein Vormund ist
+    if (!(currentUserData.account_type === 'guardian' || currentUserData.is_guardian)) {
+        return;
+    }
+
+    try {
+        // Kinder laden und prüfen ob mindestens eines unter 18 ist
+        const { data, error } = await supabase.rpc('get_my_children');
+
+        if (error) {
+            console.error('Error loading children for guardian indicator:', error);
+            return;
+        }
+
+        if (!data?.success || !data.children || data.children.length === 0) {
+            // Keine Kinder verknüpft - Indikator nicht anzeigen
+            return;
+        }
+
+        // Prüfen ob mindestens ein Kind unter 18 ist
+        const hasChildUnder18 = data.children.some(child => {
+            if (!child.birthdate) return true; // Wenn kein Geburtsdatum, vorsichtshalber anzeigen
+            const birth = new Date(child.birthdate);
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age < 18;
+        });
+
+        // Indikator nur anzeigen wenn mindestens ein Kind unter 18 ist
+        if (hasChildUnder18) {
+            indicator.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error in setupGuardianIndicator:', error);
+    }
+}
+
+// --- Setup Role Switcher Dropdown ---
+function setupRoleSwitcher() {
+    const roleSwitcherBtn = document.getElementById('role-switcher-btn');
+    const roleDropdown = document.getElementById('role-dropdown');
+    const headerTitleStatic = document.getElementById('header-title-static');
+    const headerTitle = document.getElementById('header-title');
+    const rolePlayer = document.getElementById('role-player');
+    const roleGuardian = document.getElementById('role-guardian');
+    const roleCoach = document.getElementById('role-coach');
+
+    if (!roleSwitcherBtn || !roleDropdown || !currentUserData) return;
+
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    // Show guardian option only if user is guardian AND also a player (has dual role)
+    const isGuardianPlayer = (currentUserData.is_guardian || currentUserData.account_type === 'guardian') && currentUserData.is_player;
+
+    // Show dropdown only if user has multiple roles
+    if (!isCoach && !isGuardianPlayer) return;
+
+    // Show dropdown button, hide static title
+    roleSwitcherBtn.classList.remove('hidden');
+    headerTitleStatic?.classList.add('hidden');
+
+    // Show relevant role options
+    if (isGuardianPlayer) {
+        roleGuardian?.classList.remove('hidden');
+    }
+    if (isCoach) {
+        roleCoach?.classList.remove('hidden');
+    }
+
+    // Toggle dropdown on button click
+    roleSwitcherBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        roleDropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!roleDropdown.contains(e.target) && e.target !== roleSwitcherBtn) {
+            roleDropdown.classList.add('hidden');
+        }
+    });
+
+    // Role selection handlers
+    rolePlayer?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        // Already on player dashboard
+        window.location.href = '/dashboard.html';
+    });
+
+    roleGuardian?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        window.location.href = '/guardian-dashboard.html';
+    });
+
+    roleCoach?.addEventListener('click', () => {
+        roleDropdown.classList.add('hidden');
+        window.location.href = '/coach.html';
+    });
 }
 
 // --- Setup Logout ---
@@ -1430,6 +1726,61 @@ async function fetchLeaderboardData() {
         const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
         console.log('[Leaderboard] Using sport ID:', sportId, '(from context:', !!currentSportContext?.sportId, ', from profile:', !!currentUserData.active_sport_id, ')');
 
+        // Child session: use RPC function to bypass RLS
+        if (isChildMode && childSession) {
+            console.log('[Leaderboard] Using child session RPC with token');
+            const sessionToken = getSessionToken();
+
+            // Fetch club leaderboard via RPC
+            if (effectiveClubId && sessionToken) {
+                const { data: skillData } = await supabase.rpc('get_leaderboard_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_club_id: effectiveClubId,
+                    p_type: 'skill',
+                    p_limit: 100
+                });
+
+                if (skillData?.success) {
+                    leaderboardCache.club = (skillData.leaderboard || []).map(p => ({
+                        ...p,
+                        role: 'player',
+                        privacy_settings: {}
+                    }));
+                } else {
+                    console.error('[Leaderboard] RPC error:', skillData?.error);
+                    leaderboardCache.club = [];
+                }
+            } else {
+                leaderboardCache.club = [];
+            }
+
+            // Fetch global leaderboard via RPC (null club_id = global)
+            if (sessionToken) {
+                const { data: globalData } = await supabase.rpc('get_leaderboard_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_club_id: null,
+                    p_type: 'skill',
+                    p_limit: 100
+                });
+
+                if (globalData?.success) {
+                    leaderboardCache.global = (globalData.leaderboard || []).map(p => ({
+                        ...p,
+                        role: 'player',
+                        privacy_settings: {}
+                    }));
+                } else {
+                    console.error('[Leaderboard] Global RPC error:', globalData?.error);
+                    // Fallback to club if global fails
+                    leaderboardCache.global = leaderboardCache.club;
+                }
+            } else {
+                leaderboardCache.global = leaderboardCache.club;
+            }
+            return;
+        }
+
+        // Normal auth: direct queries
         // Vereinsdaten abrufen - Spieler in gleichem Sport UND Verein
         if (effectiveClubId) {
             let clubQuery = supabase

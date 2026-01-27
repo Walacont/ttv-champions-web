@@ -212,79 +212,56 @@ async function generateCodeForPlayer(playerData, playerId = null) {
 }
 
 /**
- * Invalidate old unused codes for the same player
+ * Delete old unused codes for the same player
  * @param {string} [playerId] - ID of the player (if existing offline player)
  * @param {Object} playerData - Spielerdaten mit firstName, lastName
  */
 async function invalidateOldCodesForPlayer(playerId, playerData) {
     try {
-        let query;
+        let deleteQuery;
 
         if (playerId) {
-            // Codes nach playerId suchen (für existierende Offline-Spieler)
-            query = supabaseClient
+            // Delete codes by playerId (for existing offline players)
+            deleteQuery = supabaseClient
                 .from('invitation_codes')
-                .select('id, superseded, is_active')
+                .delete()
                 .eq('player_id', playerId)
-                .eq('is_active', true);
+                .eq('is_active', true)
+                .is('used_at', null);
         } else {
-            // Codes nach Vorname + Nachname + clubId suchen (für neue Spieler)
-            query = supabaseClient
+            // Delete codes by firstName + lastName + clubId (for new players)
+            deleteQuery = supabaseClient
                 .from('invitation_codes')
-                .select('id, superseded, is_active')
+                .delete()
                 .eq('first_name', playerData.firstName)
                 .eq('last_name', playerData.lastName)
                 .eq('club_id', currentClubId)
-                .eq('is_active', true);
+                .eq('is_active', true)
+                .is('used_at', null);
         }
 
-        const { data, error } = await query;
+        const { error, count } = await deleteQuery;
 
         if (error) throw error;
 
-        if (data && data.length > 0) {
+        if (count && count > 0) {
             console.log(
-                `Gefunden: ${data.length} aktive Code(s) für ${playerData.firstName} ${playerData.lastName}`
+                `Gelöscht: ${count} alte Code(s) für ${playerData.firstName} ${playerData.lastName}`
             );
-
-            // Bereits ersetzte Codes herausfiltern
-            const codesToInvalidate = data.filter(code => !code.superseded);
-
-            if (codesToInvalidate.length === 0) {
-                console.log(`Alle gefundenen Codes sind bereits als superseded markiert`);
-                return;
-            }
-
-            console.log(`Invalidiere ${codesToInvalidate.length} alte Code(s)...`);
-
-            const codeIds = codesToInvalidate.map(c => c.id);
-
-            const { error: updateError } = await supabaseClient
-                .from('invitation_codes')
-                .update({
-                    is_active: false,
-                    superseded: true,
-                    superseded_at: new Date().toISOString()
-                })
-                .in('id', codeIds);
-
-            if (updateError) throw updateError;
-
-            console.log(`${codesToInvalidate.length} alte Code(s) erfolgreich invalidiert`);
         } else {
             console.log(
                 `Keine aktiven Codes gefunden für ${playerData.firstName} ${playerData.lastName}`
             );
         }
     } catch (error) {
-        console.error('Fehler beim Invalidieren alter Codes:', error);
+        console.error('Fehler beim Löschen alter Codes:', error);
         console.error('Query-Details:', {
             playerId,
             firstName: playerData.firstName,
             lastName: playerData.lastName,
         });
 
-        // Nicht werfen - neuen Code trotzdem erstellen falls Invalidierung fehlschlägt
+        // Nicht werfen - neuen Code trotzdem erstellen falls Löschung fehlschlägt
     }
 }
 

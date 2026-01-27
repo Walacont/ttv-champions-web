@@ -6,11 +6,16 @@ import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
 import { getRankProgress, RANKS } from './ranks.js';
 import { escapeHtml } from './utils/security.js';
+import { getChildSession, getSessionToken } from './child-login-supabase.js';
+import { getAgeAppropriateRank, KID_FRIENDLY_RANKS } from './age-utils.js';
 
 let currentUser = null;
 let profileUser = null;
 let profileId = null;
 let isOwnProfile = false;
+let isChildMode = false;
+let childSession = null;
+let currentAgeMode = null;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
@@ -21,6 +26,21 @@ async function initProfileView() {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         profileId = urlParams.get('id');
+
+        // Check for child session first
+        childSession = getChildSession();
+        if (childSession) {
+            isChildMode = true;
+            currentAgeMode = childSession.ageMode || 'kids';
+            currentUser = {
+                id: childSession.childId,
+                isChild: true
+            };
+            // If no profile ID specified, show own (child's) profile
+            if (!profileId) {
+                profileId = childSession.childId;
+            }
+        }
 
         if (!profileId) {
             showError('Kein Profil angegeben');
@@ -34,10 +54,20 @@ async function initProfileView() {
             return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        currentUser = session?.user || null;
+        // For non-child users, get normal session
+        if (!isChildMode) {
+            const { data: { session } } = await supabase.auth.getSession();
+            currentUser = session?.user || null;
+        }
 
         isOwnProfile = currentUser && currentUser.id === profileId;
+
+        // Kids mode: can only view own profile
+        if (isChildMode && currentAgeMode === 'kids' && !isOwnProfile) {
+            console.log('[ProfileView] Kids mode: blocking access to other profiles');
+            showError('Du kannst nur dein eigenes Profil sehen');
+            return;
+        }
 
         await loadProfile();
 
@@ -119,34 +149,60 @@ function setupFollowStatusSubscription(supabase) {
 async function loadProfile() {
     try {
         const supabase = getSupabase();
+        let profile;
 
-        // bio und location können fehlen falls Migration noch nicht durchgelaufen
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select(`
-                id,
-                first_name,
-                last_name,
-                avatar_url,
-                elo_rating,
-                highest_elo,
-                points,
-                xp,
-                grundlagen_completed,
-                club_id,
-                privacy_settings,
-                clubs (
+        // Child session: use RPC function with secure token
+        if (isChildMode && childSession) {
+            console.log('[ProfileView] Using child session RPC with token');
+            const sessionToken = getSessionToken();
+
+            if (!sessionToken) {
+                console.error('[ProfileView] No session token found');
+                showError('Session abgelaufen');
+                return;
+            }
+
+            const { data, error } = await supabase.rpc('get_profile_for_child_session', {
+                p_session_token: sessionToken,
+                p_profile_id: profileId
+            });
+
+            if (error || !data?.success) {
+                console.error('[ProfileView] Error loading profile via RPC:', error || data?.error);
+                showError('Profil nicht gefunden');
+                return;
+            }
+            profile = data.profile;
+        } else {
+            // Normal auth: direct query
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select(`
                     id,
-                    name
-                )
-            `)
-            .eq('id', profileId)
-            .single();
+                    first_name,
+                    last_name,
+                    avatar_url,
+                    elo_rating,
+                    highest_elo,
+                    points,
+                    xp,
+                    grundlagen_completed,
+                    club_id,
+                    privacy_settings,
+                    clubs (
+                        id,
+                        name
+                    )
+                `)
+                .eq('id', profileId)
+                .single();
 
-        if (error || !profile) {
-            console.error('[ProfileView] Error loading profile:', error);
-            showError('Profil nicht gefunden');
-            return;
+            if (error || !profileData) {
+                console.error('[ProfileView] Error loading profile:', error);
+                showError('Profil nicht gefunden');
+                return;
+            }
+            profile = profileData;
         }
 
         profileUser = profile;
@@ -177,9 +233,75 @@ async function loadProfile() {
         await loadFollowerStats();
         renderFollowButton();
 
+        // Apply kids mode UI adjustments
+        if (isChildMode) {
+            applyKidsModeProfileUI();
+        }
+
     } catch (error) {
         console.error('[ProfileView] Error loading profile:', error);
         showError('Fehler beim Laden des Profils');
+    }
+}
+
+/**
+ * Apply kids mode UI adjustments to profile page
+ * Hides social features and simplifies the interface
+ */
+function applyKidsModeProfileUI() {
+    console.log('[ProfileView] Applying kids mode UI');
+
+    if (currentAgeMode === 'kids') {
+        // Hide follow button and follower stats
+        const followButtonContainer = document.getElementById('follow-button-container');
+        if (followButtonContainer) {
+            followButtonContainer.style.display = 'none';
+        }
+
+        // Hide follower/following counts
+        const followingLink = document.getElementById('following-link');
+        const followersLink = document.getElementById('followers-link');
+        if (followingLink) followingLink.style.display = 'none';
+        if (followersLink) followersLink.style.display = 'none';
+
+        // Hide mutual friends section
+        const mutualFriendsSection = document.getElementById('mutual-friends-section');
+        if (mutualFriendsSection) {
+            mutualFriendsSection.style.display = 'none';
+        }
+
+        // Hide menu button (no settings for kids)
+        const menuBtn = document.getElementById('profile-menu-btn');
+        if (menuBtn) {
+            menuBtn.style.display = 'none';
+        }
+
+        // Update header with kid-friendly style
+        const topNav = document.querySelector('.bg-white.border-b');
+        if (topNav) {
+            topNav.style.background = 'linear-gradient(to right, #7c3aed, #6366f1)';
+            topNav.querySelectorAll('button, a, h1, span').forEach(el => {
+                if (!el.closest('.bg-white')) {
+                    el.style.color = 'white';
+                }
+            });
+        }
+
+        // Add kid-friendly greeting if own profile
+        if (isOwnProfile && childSession) {
+            const profileName = document.getElementById('profile-name');
+            if (profileName) {
+                profileName.innerHTML = `${escapeHtml(childSession.firstName)} <span class="text-2xl">🎮</span>`;
+            }
+        }
+    }
+
+    // For both kids and teens: hide edit profile button
+    if (currentAgeMode === 'kids' || currentAgeMode === 'teen') {
+        const editProfileBtnContainer = document.getElementById('edit-profile-btn-container');
+        if (editProfileBtnContainer) {
+            editProfileBtnContainer.style.display = 'none';
+        }
     }
 }
 
@@ -282,6 +404,15 @@ async function renderProfileStats(profile) {
 
     document.getElementById('stat-points').textContent = profile.points || 0;
 
+    // Child mode: use profile data if available, skip direct queries
+    if (isChildMode) {
+        // Use wins/losses from profile if available (set by RPC)
+        const totalMatches = (profile.wins || 0) + (profile.losses || 0);
+        document.getElementById('stat-matches').textContent = totalMatches;
+        document.getElementById('stat-wins').textContent = profile.wins || 0;
+        return;
+    }
+
     const supabase = getSupabase();
     const { data: matches, error } = await supabase
         .from('matches')
@@ -309,6 +440,28 @@ async function renderClubSection(profile) {
     document.getElementById('club-name').textContent = profile.clubs.name;
 
     const supabase = getSupabase();
+
+    // For child mode, use RPC to get member count
+    if (isChildMode) {
+        const sessionToken = getSessionToken();
+        if (sessionToken) {
+            try {
+                const { data, error } = await supabase.rpc('get_club_member_count_for_child_session', {
+                    p_session_token: sessionToken
+                });
+
+                if (!error && data?.success) {
+                    document.getElementById('club-members').textContent = `${data.member_count || 0} Mitglieder`;
+                    return;
+                }
+            } catch (err) {
+                console.error('[ProfileView] Error getting member count for child:', err);
+            }
+        }
+        document.getElementById('club-members').textContent = 'Verein';
+        return;
+    }
+
     const { count } = await supabase
         .from('profiles')
         .select('id', { count: 'exact', head: true })
@@ -338,6 +491,16 @@ function formatRelativeDate(date) {
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
     const ACTIVITY_LIMIT = 10;
+
+    // Child mode: skip activity loading (RLS prevents direct queries)
+    if (isChildMode) {
+        console.log('[ProfileView] Child mode: skipping recent activity section');
+        const activityContainer = document.getElementById('activity-list');
+        if (activityContainer) {
+            activityContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Aktivitäten verfügbar</p>';
+        }
+        return;
+    }
 
     try {
         const [singlesRes, doublesRes, postsRes] = await Promise.all([
@@ -785,6 +948,13 @@ function getProfileDisplayName(profile) {
  * Verwendet RPC-Funktion um RLS zu umgehen - Follower-Zahlen sollten für alle sichtbar sein
  */
 async function loadFollowerStats() {
+    // Child mode: hide follower stats (no social features)
+    if (isChildMode) {
+        document.getElementById('followers-count').textContent = '-';
+        document.getElementById('following-count').textContent = '-';
+        return;
+    }
+
     const supabase = getSupabase();
 
     try {
@@ -1557,19 +1727,85 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
     const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-    // Profil mit subgroup_ids laden
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('club_id, subgroup_ids')
-        .eq('id', profileId)
-        .single();
+    // Use profileUser if available (especially for child mode), otherwise query
+    let clubId, playerSubgroups;
+    if (profileUser && profileUser.id === profileId) {
+        clubId = profileUser.club_id;
+        playerSubgroups = profileUser.subgroup_ids || [];
+    } else if (!isChildMode) {
+        // Only query directly if not in child mode
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('club_id, subgroup_ids')
+            .eq('id', profileId)
+            .single();
+        clubId = profile?.club_id;
+        playerSubgroups = profile?.subgroup_ids || [];
+    } else {
+        // Child mode viewing another profile - can't query, skip calendar
+        console.log('[ProfileView] Child mode: skipping calendar for other profile');
+        return;
+    }
 
-    const clubId = profile?.club_id;
-    const playerSubgroups = profile?.subgroup_ids || [];
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
     if (!clubId) {
         console.warn('[ProfileView] No clubId found for profile, cannot load events');
+        return;
+    }
+
+    // Child mode: use RPC to load events
+    if (isChildMode) {
+        console.log('[ProfileView] Child mode: loading calendar via RPC');
+        const sessionToken = getSessionToken();
+
+        if (sessionToken) {
+            try {
+                const { data, error } = await supabase.rpc('get_calendar_events_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_start_date: startDateStr,
+                    p_end_date: endDateStr
+                });
+
+                if (!error && data?.success) {
+                    // Transform events to match expected format
+                    // RPC returns: start_date, start_time as separate fields
+                    const events = (data.events || []).map(e => ({
+                        id: e.id,
+                        title: e.title,
+                        description: e.description,
+                        start_date: e.start_date,
+                        start_time: e.start_time,
+                        end_time: e.end_time,
+                        location: e.location,
+                        event_category: e.event_category || 'training'
+                    }));
+
+                    // Show all club events for children (RPC already filters to club events)
+                    const relevantEvents = events;
+
+                    // Transform participations
+                    const participationMap = {};
+                    (data.participations || []).forEach(p => {
+                        participationMap[p.event_id] = p.status;
+                    });
+
+                    console.log('[ProfileView] Child mode: loaded', relevantEvents.length, 'events via RPC');
+
+                    // Render calendar for child mode
+                    renderChildCalendar(container, year, month, relevantEvents, participationMap);
+                    return;
+                } else {
+                    console.warn('[ProfileView] Child RPC error:', error || data?.error);
+                }
+            } catch (err) {
+                console.error('[ProfileView] Error loading calendar for child:', err);
+            }
+        }
+
+        // Fallback: show empty calendar for child mode
+        console.log('[ProfileView] Child mode: showing calendar without event details (fallback)');
+        renderChildCalendar(container, year, month, [], {});
         return;
     }
 
@@ -1950,6 +2186,128 @@ window.navigateProfileCalendar = function(direction) {
 
     // Kalender neu laden
     loadProfileAttendance(newYear, newMonth);
+};
+
+/**
+ * Render a simple calendar for child mode
+ * Shows events as dots on calendar days
+ */
+function renderChildCalendar(container, year, month, events, participationMap) {
+    const now = new Date();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // Monday = 0
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+
+    // Group events by date
+    const eventsByDate = {};
+    events.forEach(event => {
+        const dateKey = event.start_date;
+        if (dateKey) {
+            if (!eventsByDate[dateKey]) {
+                eventsByDate[dateKey] = [];
+            }
+            eventsByDate[dateKey].push(event);
+        }
+    });
+
+    const monthName = new Date(year, month, 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+
+    let html = `
+        <div class="flex items-center justify-between mb-3">
+            <button onclick="navigateProfileCalendar(-1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="flex items-center gap-2">
+                <h4 class="font-semibold text-gray-700">${monthName}</h4>
+                ${!isCurrentMonth ? `<button onclick="navigateProfileCalendar(0)" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Heute</button>` : ''}
+            </div>
+            <button onclick="navigateProfileCalendar(1)" class="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-xs">
+            <div class="text-gray-400 font-medium py-1">Mo</div>
+            <div class="text-gray-400 font-medium py-1">Di</div>
+            <div class="text-gray-400 font-medium py-1">Mi</div>
+            <div class="text-gray-400 font-medium py-1">Do</div>
+            <div class="text-gray-400 font-medium py-1">Fr</div>
+            <div class="text-gray-400 font-medium py-1">Sa</div>
+            <div class="text-gray-400 font-medium py-1">So</div>
+    `;
+
+    // Empty cells before first day
+    for (let i = 0; i < startDayOfWeek; i++) {
+        html += '<div></div>';
+    }
+
+    // Days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+        const dayEvents = eventsByDate[dateStr] || [];
+        const hasEvents = dayEvents.length > 0;
+
+        let dayClasses = 'aspect-square flex flex-col items-center justify-center rounded-lg text-sm relative';
+
+        if (isToday) {
+            dayClasses += ' bg-indigo-500 text-white font-bold';
+        } else if (hasEvents) {
+            dayClasses += ' bg-indigo-50 hover:bg-indigo-100 cursor-pointer';
+        } else {
+            dayClasses += ' text-gray-600 hover:bg-gray-50';
+        }
+
+        html += `<div class="${dayClasses}" ${hasEvents ? `onclick="showChildDayEvents('${dateStr}')" title="${dayEvents.length} Termin(e)"` : ''}>
+            <span>${day}</span>
+            ${hasEvents ? '<span class="absolute bottom-1 w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>' : ''}
+        </div>`;
+    }
+
+    html += '</div>';
+
+    // Store events for modal
+    window.childCalendarEvents = eventsByDate;
+
+    container.innerHTML = html;
+}
+
+// Show events for a specific day in child mode
+window.showChildDayEvents = function(dateStr) {
+    const events = window.childCalendarEvents?.[dateStr] || [];
+    if (events.length === 0) return;
+
+    const date = new Date(dateStr);
+    const dateFormatted = date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    let content = events.map(e => `
+        <div class="p-3 bg-gray-50 rounded-lg">
+            <div class="font-medium text-gray-800">${e.title || 'Training'}</div>
+            ${e.start_time ? `<div class="text-sm text-gray-500">${e.start_time}${e.end_time ? ' - ' + e.end_time : ''} Uhr</div>` : ''}
+            ${e.location ? `<div class="text-sm text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i>${e.location}</div>` : ''}
+        </div>
+    `).join('');
+
+    // Simple modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `
+        <div class="bg-white rounded-xl max-w-sm w-full p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-gray-800">${dateFormatted}</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-2">${content}</div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 };
 
 /** Liefert alle Termine eines Events innerhalb eines Datumsbereichs (für wiederkehrende Events) */

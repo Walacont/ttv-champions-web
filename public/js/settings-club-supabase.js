@@ -4,6 +4,12 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
 const supabase = getSupabase();
 
+// Check for child_id parameter (guardian editing child's club settings)
+const urlParams = new URLSearchParams(window.location.search);
+const childId = urlParams.get('child_id');
+let isChildMode = false;
+let targetProfileId = null; // The profile ID being managed (user's own or child's)
+
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 const currentClubStatus = document.getElementById('current-club-status');
@@ -21,6 +27,65 @@ let currentUserData = null;
 let clubRequestsSubscription = null;
 let leaveRequestsSubscription = null;
 
+// Join type modal elements
+const joinTypeModal = document.getElementById('join-type-modal');
+const joinTypeClubName = document.getElementById('join-type-club-name');
+const joinAsMemberBtn = document.getElementById('join-as-member-btn');
+const joinAsGuardianBtn = document.getElementById('join-as-guardian-btn');
+const joinTypeCancelBtn = document.getElementById('join-type-cancel-btn');
+
+// Guardian child modal elements
+const guardianChildModal = document.getElementById('guardian-child-modal');
+const guardianChildForm = document.getElementById('guardian-child-form');
+const guardianChildError = document.getElementById('guardian-child-error');
+const guardianChildErrorText = document.getElementById('guardian-child-error-text');
+const guardianChildBackBtn = document.getElementById('guardian-child-back-btn');
+const guardianChildSubmit = document.getElementById('guardian-child-submit');
+
+// Current club being joined
+let pendingJoinClubId = null;
+let pendingJoinClubName = null;
+
+// Verify guardian has permission to manage this child's club settings
+async function verifyGuardianAccess() {
+    if (!childId) return true;
+
+    const { data: guardianLink, error } = await supabase
+        .from('guardian_links')
+        .select('id, permissions')
+        .eq('guardian_id', currentUser.id)
+        .eq('child_id', childId)
+        .single();
+
+    if (error || !guardianLink) {
+        console.error('Guardian access denied:', error);
+        alert('Kein Zugriff auf die Vereinsverwaltung dieses Kindes.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    return true;
+}
+
+// Setup child mode UI
+function setupChildModeUI(childProfile) {
+    isChildMode = true;
+    targetProfileId = childId;
+
+    // Update page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        titleElement.textContent = `Vereinsverwaltung für ${childProfile.first_name}`;
+    }
+    document.title = `Vereinsverwaltung für ${childProfile.first_name} - SC Champions`;
+
+    // Update back link to include child_id
+    const backLink = document.querySelector('a[href="/settings.html"]');
+    if (backLink) {
+        backLink.href = `/settings.html?child_id=${childId}`;
+    }
+}
+
 // Authentifizierungsstatus beim Laden prüfen
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -28,26 +93,64 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        // Benutzerprofil von Supabase abrufen
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // If managing child's club settings, verify access first
+        if (childId) {
+            const hasAccess = await verifyGuardianAccess();
+            if (!hasAccess) return;
 
-        if (!error && profile) {
+            // Load child's profile
+            const { data: childProfile, error: childError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', childId)
+                .single();
+
+            if (childError || !childProfile) {
+                console.error('Child profile not found:', childError);
+                window.location.href = '/guardian-dashboard.html';
+                return;
+            }
+
+            // Setup child mode UI
+            setupChildModeUI(childProfile);
+
             currentUserData = {
-                id: currentUser.id,
-                email: profile.email || currentUser.email,
-                firstName: profile.first_name || '',
-                lastName: profile.last_name || '',
-                role: profile.role || 'player',
-                clubId: profile.club_id || null,
-                activeSportId: profile.active_sport_id || null,
+                id: childId,
+                email: childProfile.email || '',
+                firstName: childProfile.first_name || '',
+                lastName: childProfile.last_name || '',
+                role: childProfile.role || 'player',
+                clubId: childProfile.club_id || null,
+                activeSportId: childProfile.active_sport_id || null,
             };
 
             // Vereinsverwaltung initialisieren
             initializeClubManagement();
+        } else {
+            // Normal mode - managing own club
+            targetProfileId = currentUser.id;
+
+            // Benutzerprofil von Supabase abrufen
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (!error && profile) {
+                currentUserData = {
+                    id: currentUser.id,
+                    email: profile.email || currentUser.email,
+                    firstName: profile.first_name || '',
+                    lastName: profile.last_name || '',
+                    role: profile.role || 'player',
+                    clubId: profile.club_id || null,
+                    activeSportId: profile.active_sport_id || null,
+                };
+
+                // Vereinsverwaltung initialisieren
+                initializeClubManagement();
+            }
         }
 
         pageLoader.style.display = 'none';
@@ -143,13 +246,14 @@ function listenToClubRequests() {
         clubRequestsSubscription.unsubscribe();
     }
 
+    const profileId = targetProfileId || currentUser.id;
     clubRequestsSubscription = supabase
         .channel('club-requests-changes')
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
             table: 'club_requests',
-            filter: `player_id=eq.${currentUser.id}`
+            filter: `player_id=eq.${profileId}`
         }, async (payload) => {
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('join', payload.new);
@@ -167,13 +271,14 @@ function listenToLeaveRequests() {
         leaveRequestsSubscription.unsubscribe();
     }
 
+    const profileId = targetProfileId || currentUser.id;
     leaveRequestsSubscription = supabase
         .channel('leave-requests-changes')
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
             table: 'leave_club_requests',
-            filter: `player_id=eq.${currentUser.id}`
+            filter: `player_id=eq.${profileId}`
         }, async (payload) => {
             if (payload.new?.status === 'rejected') {
                 await showRejectionNotification('leave', payload.new);
@@ -189,11 +294,13 @@ function listenToLeaveRequests() {
 async function updateClubManagementUI() {
     if (!currentUser || !currentUserData) return;
 
+    const profileId = targetProfileId || currentUser.id;
+
     // Benutzerdaten aktualisieren
     const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', currentUser.id)
+        .eq('id', profileId)
         .single();
 
     if (profile) {
@@ -204,7 +311,7 @@ async function updateClubManagementUI() {
     const { data: joinRequests } = await supabase
         .from('club_requests')
         .select('*')
-        .eq('player_id', currentUser.id)
+        .eq('player_id', profileId)
         .eq('status', 'pending');
 
     const hasPendingJoinRequest = joinRequests && joinRequests.length > 0;
@@ -213,7 +320,7 @@ async function updateClubManagementUI() {
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
         .select('*')
-        .eq('player_id', currentUser.id)
+        .eq('player_id', profileId)
         .eq('status', 'pending');
 
     const hasPendingLeaveRequest = leaveRequests && leaveRequests.length > 0;
@@ -513,40 +620,18 @@ async function notifyClubCoaches(clubId, type, playerName) {
 }
 
 /**
- * Request to join a club
+ * Request to join a club - shows modal to choose join type (only if not in child mode)
  */
 async function requestToJoinClub(clubId, clubName) {
-    if (!confirm(`Möchtest du wirklich eine Beitrittsanfrage an "${clubName}" senden?`)) {
+    // If we're managing a child's club settings, directly send the member join request
+    // (no need to ask "Member or Guardian?" - it's clear we're joining for the child)
+    if (isChildMode) {
+        await submitMemberJoinRequest(clubId, clubName);
         return;
     }
 
-    try {
-        clubManagementFeedback.textContent = 'Sende Anfrage...';
-        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
-
-        const { error } = await supabase.from('club_requests').insert({
-            player_id: currentUser.id,
-            club_id: clubId,
-            status: 'pending'
-        });
-
-        if (error) throw error;
-
-        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
-        await notifyClubCoaches(clubId, 'join', playerName);
-
-        clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
-        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
-
-        clubSearchInput.value = '';
-        clubSearchResults.innerHTML = '';
-
-        await updateClubManagementUI();
-    } catch (error) {
-        console.error('Error requesting to join club:', error);
-        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
-        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
-    }
+    // Show join type modal for regular users to choose between member or guardian join
+    showJoinTypeModal(clubId, clubName);
 }
 
 /**
@@ -591,8 +676,9 @@ leaveClubBtn?.addEventListener('click', async () => {
         leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende Anfrage...';
         clubManagementFeedback.textContent = '';
 
+        const profileId = targetProfileId || currentUser.id;
         const { error } = await supabase.from('leave_club_requests').insert({
-            player_id: currentUser.id,
+            player_id: profileId,
             club_id: currentUserData.clubId,
             status: 'pending'
         });
@@ -701,5 +787,284 @@ async function withdrawLeaveRequest(requestId) {
         console.error('Error withdrawing leave request:', error);
         clubManagementFeedback.textContent = `Fehler: ${error.message}`;
         clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+// =====================================================
+// Guardian Join Flow - Modal Functions
+// =====================================================
+
+/**
+ * Initialize child birthdate dropdowns
+ */
+function initChildBirthdateDropdowns() {
+    const daySelect = document.getElementById('child-birthdate-day');
+    const monthSelect = document.getElementById('child-birthdate-month');
+    const yearSelect = document.getElementById('child-birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    // Clear existing options (keep placeholder)
+    while (daySelect.options.length > 1) daySelect.remove(1);
+    while (monthSelect.options.length > 1) monthSelect.remove(1);
+    while (yearSelect.options.length > 1) yearSelect.remove(1);
+
+    // Days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Months (1-12)
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = monthNames[i - 1];
+        monthSelect.appendChild(option);
+    }
+
+    // Years (current year down to 1920, but mostly for children so start recent)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= currentYear - 25; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
+}
+
+// Initialize on page load
+initChildBirthdateDropdowns();
+
+/**
+ * Show join type selection modal
+ */
+function showJoinTypeModal(clubId, clubName) {
+    pendingJoinClubId = clubId;
+    pendingJoinClubName = clubName;
+
+    if (joinTypeClubName) {
+        joinTypeClubName.textContent = clubName;
+    }
+
+    joinTypeModal?.classList.remove('hidden');
+}
+
+/**
+ * Hide join type modal
+ */
+function hideJoinTypeModal() {
+    joinTypeModal?.classList.add('hidden');
+    pendingJoinClubId = null;
+    pendingJoinClubName = null;
+}
+
+/**
+ * Show guardian child info modal
+ */
+function showGuardianChildModal() {
+    // Reset form
+    document.getElementById('child-first-name').value = '';
+    document.getElementById('child-last-name').value = '';
+    document.getElementById('child-birthdate-day').value = '';
+    document.getElementById('child-birthdate-month').value = '';
+    document.getElementById('child-birthdate-year').value = '';
+    guardianChildError?.classList.add('hidden');
+
+    guardianChildModal?.classList.remove('hidden');
+}
+
+/**
+ * Hide guardian child modal
+ */
+function hideGuardianChildModal() {
+    guardianChildModal?.classList.add('hidden');
+}
+
+/**
+ * Show error in guardian child modal
+ */
+function showGuardianChildError(message) {
+    if (guardianChildErrorText) guardianChildErrorText.textContent = message;
+    guardianChildError?.classList.remove('hidden');
+}
+
+// Join type modal: Cancel button
+joinTypeCancelBtn?.addEventListener('click', () => {
+    hideJoinTypeModal();
+});
+
+// Join type modal: Join as member
+joinAsMemberBtn?.addEventListener('click', async () => {
+    hideJoinTypeModal();
+
+    if (pendingJoinClubId && pendingJoinClubName) {
+        await submitMemberJoinRequest(pendingJoinClubId, pendingJoinClubName);
+    }
+});
+
+// Join type modal: Join as guardian
+joinAsGuardianBtn?.addEventListener('click', () => {
+    hideJoinTypeModal();
+    showGuardianChildModal();
+});
+
+// Guardian child modal: Back button
+guardianChildBackBtn?.addEventListener('click', () => {
+    hideGuardianChildModal();
+    showJoinTypeModal(pendingJoinClubId, pendingJoinClubName);
+});
+
+// Guardian child modal: Form submit
+guardianChildForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const firstName = document.getElementById('child-first-name')?.value?.trim();
+    const lastName = document.getElementById('child-last-name')?.value?.trim();
+    const day = document.getElementById('child-birthdate-day')?.value;
+    const month = document.getElementById('child-birthdate-month')?.value;
+    const year = document.getElementById('child-birthdate-year')?.value;
+
+    // Validate
+    if (!firstName || !lastName) {
+        showGuardianChildError('Bitte gib den Namen des Kindes ein.');
+        return;
+    }
+
+    if (!day || !month || !year) {
+        showGuardianChildError('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    // Parse birthdate
+    const birthdate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    // Calculate age
+    const birthDateObj = new Date(birthdate);
+    const today = new Date();
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const monthDiff = today.getMonth() - birthDateObj.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+        age--;
+    }
+
+    if (age >= 16) {
+        showGuardianChildError('Als Vormund können Sie nur Kinder unter 16 Jahren anmelden.');
+        return;
+    }
+
+    if (age < 0) {
+        showGuardianChildError('Ungültiges Geburtsdatum.');
+        return;
+    }
+
+    // Disable button while submitting
+    guardianChildSubmit.disabled = true;
+    guardianChildSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende...';
+
+    try {
+        await submitGuardianJoinRequest(pendingJoinClubId, pendingJoinClubName, {
+            firstName,
+            lastName,
+            birthdate
+        });
+
+        hideGuardianChildModal();
+    } catch (error) {
+        showGuardianChildError(error.message || 'Fehler beim Senden der Anfrage.');
+    } finally {
+        guardianChildSubmit.disabled = false;
+        guardianChildSubmit.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Beitrittsanfrage senden';
+    }
+});
+
+/**
+ * Submit member join request (regular join)
+ */
+async function submitMemberJoinRequest(clubId, clubName) {
+    try {
+        clubManagementFeedback.textContent = 'Sende Anfrage...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        const profileId = targetProfileId || currentUser.id;
+        const { error } = await supabase.from('club_requests').insert({
+            player_id: profileId,
+            club_id: clubId,
+            status: 'pending',
+            request_type: 'member'
+        });
+
+        if (error) throw error;
+
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        await notifyClubCoaches(clubId, 'join', playerName);
+
+        clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        clubSearchInput.value = '';
+        clubSearchResults.innerHTML = '';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error requesting to join club:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+/**
+ * Submit guardian join request (joining for a child)
+ */
+async function submitGuardianJoinRequest(clubId, clubName, childData) {
+    try {
+        clubManagementFeedback.textContent = 'Sende Anfrage...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        const { error } = await supabase.from('club_requests').insert({
+            player_id: currentUser.id,
+            club_id: clubId,
+            status: 'pending',
+            request_type: 'guardian',
+            child_first_name: childData.firstName,
+            child_last_name: childData.lastName,
+            child_birthdate: childData.birthdate
+        });
+
+        if (error) throw error;
+
+        // Update user's is_guardian flag if not already set
+        await supabase
+            .from('profiles')
+            .update({ is_guardian: true })
+            .eq('id', currentUser.id);
+
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        const notifyMessage = `${playerName} (Vormund für ${childData.firstName} ${childData.lastName})`;
+        await notifyClubCoaches(clubId, 'guardian_join', notifyMessage);
+
+        clubManagementFeedback.innerHTML = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p class="text-sm text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <strong>Beitrittsanfrage gesendet!</strong>
+                </p>
+                <p class="text-xs text-green-700 mt-1">
+                    Anfrage für <strong>${childData.firstName} ${childData.lastName}</strong> an "${clubName}" gesendet.
+                </p>
+            </div>
+        `;
+
+        clubSearchInput.value = '';
+        clubSearchResults.innerHTML = '';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error requesting guardian join:', error);
+        throw error;
     }
 }

@@ -5,11 +5,63 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
 const supabase = getSupabase();
 
+// Check for child_id parameter (guardian managing child's legal settings)
+const urlParams = new URLSearchParams(window.location.search);
+const childId = urlParams.get('child_id');
+let isChildMode = false;
+let targetProfileId = null; // The profile ID being managed (user's own or child's)
+
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 
 let currentUser = null;
 let currentUserData = null;
+
+// Verify guardian has permission to manage this child's legal settings
+async function verifyGuardianAccess() {
+    if (!childId) return true;
+
+    const { data: guardianLink, error } = await supabase
+        .from('guardian_links')
+        .select('id, permissions')
+        .eq('guardian_id', currentUser.id)
+        .eq('child_id', childId)
+        .single();
+
+    if (error || !guardianLink) {
+        console.error('Guardian access denied:', error);
+        alert('Kein Zugriff auf die Rechtsinformationen dieses Kindes.');
+        window.location.href = '/guardian-dashboard.html';
+        return false;
+    }
+
+    return true;
+}
+
+// Setup child mode UI
+function setupChildModeUI(childProfile) {
+    isChildMode = true;
+    targetProfileId = childId;
+
+    // Update page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        titleElement.textContent = `Rechtsinformationen für ${childProfile.first_name}`;
+    }
+    document.title = `Rechtsinformationen für ${childProfile.first_name} - SC Champions`;
+
+    // Update back link to include child_id
+    const backLink = document.querySelector('a[href="/settings.html"]');
+    if (backLink) {
+        backLink.href = `/settings.html?child_id=${childId}`;
+    }
+
+    // Update warning text for child account deletion
+    const deleteWarning = document.querySelector('#delete-section p');
+    if (deleteWarning) {
+        deleteWarning.textContent = `Hier kannst du das Profil von ${childProfile.first_name} unwiderruflich löschen.`;
+    }
+}
 
 async function initializeAuth() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -17,21 +69,55 @@ async function initializeAuth() {
     if (session && session.user) {
         currentUser = session.user;
 
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+        // If managing child's legal settings, verify access first
+        if (childId) {
+            const hasAccess = await verifyGuardianAccess();
+            if (!hasAccess) return;
 
-        if (!error && profile) {
+            // Load child's profile
+            const { data: childProfile, error: childError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', childId)
+                .single();
+
+            if (childError || !childProfile) {
+                console.error('Child profile not found:', childError);
+                window.location.href = '/guardian-dashboard.html';
+                return;
+            }
+
+            // Setup child mode UI
+            setupChildModeUI(childProfile);
+
             currentUserData = {
-                id: currentUser.id,
-                first_name: profile.first_name || '',
-                last_name: profile.last_name || '',
-                email: profile.email || currentUser.email,
-                role: profile.role || 'player',
-                club_id: profile.club_id || null,
+                id: childId,
+                first_name: childProfile.first_name || '',
+                last_name: childProfile.last_name || '',
+                email: childProfile.email || '',
+                role: childProfile.role || 'player',
+                club_id: childProfile.club_id || null,
             };
+        } else {
+            // Normal mode - managing own legal settings
+            targetProfileId = currentUser.id;
+
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (!error && profile) {
+                currentUserData = {
+                    id: currentUser.id,
+                    first_name: profile.first_name || '',
+                    last_name: profile.last_name || '',
+                    email: profile.email || currentUser.email,
+                    role: profile.role || 'player',
+                    club_id: profile.club_id || null,
+                };
+            }
         }
 
         pageLoader.style.display = 'none';
@@ -69,10 +155,12 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
         feedbackEl.textContent = '';
 
+        const profileId = targetProfileId || currentUser.id;
+
         const { data: userData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', currentUser.id)
+            .eq('id', profileId)
             .single();
 
         if (profileError) throw profileError;
@@ -80,7 +168,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         const { data: matches, error: matchesError } = await supabase
             .from('matches')
             .select('*')
-            .contains('player_ids', [currentUser.id]);
+            .contains('player_ids', [profileId]);
 
         if (matchesError) console.error('Error fetching matches:', matchesError);
 
@@ -90,7 +178,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 .from('doubles_matches')
                 .select('*')
                 .eq('club_id', userData.club_id)
-                .contains('player_ids', [currentUser.id]);
+                .contains('player_ids', [profileId]);
 
             if (!doublesError) doublesMatches = doublesData || [];
         }
@@ -100,7 +188,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             const { data: attendanceData, error: attendanceError } = await supabase
                 .from('attendance')
                 .select('*')
-                .contains('present_player_ids', [currentUser.id]);
+                .contains('present_player_ids', [profileId]);
 
             if (!attendanceError) attendance = attendanceData || [];
         } else if ((userData?.role === 'coach' || userData?.role === 'head_coach') && userData?.club_id) {
@@ -115,8 +203,8 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         const exportData = {
             exportDate: new Date().toISOString(),
             profile: {
-                userId: currentUser.id,
-                email: currentUser.email,
+                userId: profileId,
+                email: userData?.email || (isChildMode ? '' : currentUser.email),
                 firstName: userData?.first_name,
                 lastName: userData?.last_name,
                 birthdate: userData?.birthdate,
@@ -140,12 +228,16 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             attendance: attendance,
         };
 
+        const fileName = isChildMode
+            ? `sc-champions-datenexport-${userData?.first_name || 'kind'}-${new Date().toISOString().split('T')[0]}.json`
+            : `sc-champions-datenexport-${new Date().toISOString().split('T')[0]}.json`;
+
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `sc-champions-datenexport-${new Date().toISOString().split('T')[0]}.json`;
+        link.download = fileName;
         link.click();
         URL.revokeObjectURL(url);
 
@@ -162,34 +254,49 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
     }
 });
 
-/** Löscht den Account mit Anonymisierung */
+/** Löscht den Account komplett aus der Datenbank (Hard Delete) */
 document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
     if (!currentUser) {
         alert('Fehler: Nicht angemeldet');
         return;
     }
 
-    const confirmed = confirm(
-        '⚠️ WARNUNG: Account-Löschung\n\n' +
-        'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
-        'Was passiert:\n' +
-        '• Dein Account wird deaktiviert\n' +
-        '• Persönliche Daten werden gelöscht\n' +
-        '• Dein Name wird durch "Gelöschter Nutzer" ersetzt\n' +
-        '• Match-Historie bleibt anonymisiert erhalten\n' +
-        '• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n' +
-        'Empfehlung: Lade zuerst deine Daten herunter.\n\n' +
-        'Fortfahren?'
-    );
+    const profileId = targetProfileId || currentUser.id;
+    const isChild = isChildMode;
+    const childName = isChild ? `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() : '';
+
+    const confirmMessage = isChild
+        ? `⚠️ WARNUNG: Vollständige Profil-Löschung\n\n` +
+          `Bist du sicher, dass du das Profil von ${childName} KOMPLETT löschen möchtest?\n\n` +
+          `Was passiert:\n` +
+          `• ALLE Daten werden vollständig gelöscht\n` +
+          `• Alle Spiele und Match-Historie werden entfernt\n` +
+          `• Alle Statistiken werden gelöscht\n` +
+          `• Alle Aktivitäten und Beiträge werden entfernt\n` +
+          `• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
+          `Empfehlung: Lade zuerst die Daten herunter.\n\n` +
+          `Fortfahren?`
+        : `⚠️ WARNUNG: Vollständige Account-Löschung\n\n` +
+          `Bist du sicher, dass du deinen Account KOMPLETT löschen möchtest?\n\n` +
+          `Was passiert:\n` +
+          `• ALLE deine Daten werden vollständig gelöscht\n` +
+          `• Alle Spiele und Match-Historie werden entfernt\n` +
+          `• Alle Statistiken werden gelöscht\n` +
+          `• Alle Aktivitäten und Beiträge werden entfernt\n` +
+          `• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n` +
+          `Empfehlung: Lade zuerst deine Daten herunter.\n\n` +
+          `Fortfahren?`;
+
+    const confirmed = confirm(confirmMessage);
 
     if (!confirmed) return;
 
     const doubleConfirm = prompt(
-        'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
+        'Bitte tippe "LÖSCHEN" ein, um die vollständige Löschung zu bestätigen:'
     );
 
     if (doubleConfirm !== 'LÖSCHEN') {
-        alert('Account-Löschung abgebrochen.');
+        alert('Löschung abgebrochen.');
         return;
     }
 
@@ -197,24 +304,39 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
     try {
         deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche alle Daten...';
 
-        const { data, error } = await supabase.rpc('anonymize_account', {
-            p_user_id: currentUser.id
+        // Use hard_delete_account for complete deletion
+        const { data, error } = await supabase.rpc('hard_delete_account', {
+            p_user_id: profileId
         });
 
         if (error) throw error;
 
-        alert(
-            'Dein Account wurde erfolgreich anonymisiert.\n\n' +
-            'Du wirst jetzt abgemeldet.'
-        );
+        // Check if the function returned an error
+        if (data && data.success === false) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
 
-        await supabase.auth.signOut();
-        window.location.href = '/index.html';
+        if (isChild) {
+            // For child accounts, redirect back to guardian dashboard
+            alert(
+                `Das Profil von ${childName} wurde vollständig gelöscht.\n\n` +
+                'Du wirst zum Vormund-Dashboard weitergeleitet.'
+            );
+            window.location.href = '/guardian-dashboard.html';
+        } else {
+            // For own account, sign out
+            alert(
+                'Dein Account und alle Daten wurden vollständig gelöscht.\n\n' +
+                'Du wirst jetzt abgemeldet.'
+            );
+            await supabase.auth.signOut();
+            window.location.href = '/index.html';
+        }
     } catch (error) {
         console.error('Error deleting account:', error);
-        alert(`Fehler beim Löschen des Accounts: ${error.message}`);
+        alert(`Fehler beim Löschen: ${error.message}`);
         deleteBtn.disabled = false;
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Account unwiderruflich löschen';
     }

@@ -19,7 +19,7 @@ Dieses Projekt verwendet **GitHub Actions** für automatisierte Tests und Deploy
 
 1. **Backend Tests (Jest)** - 44 Tests
     - Elo-Berechnung (`calculateElo`)
-    - Gate-Protection (`getHighestEloGate`, `applyEloGate`)
+    - Elo-Schutz (`applyEloGate` - verhindert nur negative Werte, keine Gates)
     - Season Points, Handicap-Matches
     - Integration-Tests
 

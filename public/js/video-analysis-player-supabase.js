@@ -518,21 +518,109 @@ function setupExerciseVideoButton() {
 }
 
 /**
+ * Lädt Übungen für das Dropdown im Upload-Modal
+ */
+async function loadExercisesForDropdown() {
+    const select = document.getElementById('player-video-exercise-select');
+    if (!select) return;
+
+    // Fallback: Supabase direkt importieren wenn playerVideoContext nicht bereit
+    let db = playerVideoContext.db;
+    if (!db) {
+        try {
+            const { getSupabase } = await import('./supabase-init.js');
+            db = await getSupabase();
+        } catch (e) {
+            console.error('Supabase nicht verfügbar:', e);
+            return;
+        }
+    }
+
+    try {
+        const { data: exercises, error } = await db
+            .from('exercises')
+            .select('id, name, category')
+            .order('category', { ascending: true })
+            .order('name', { ascending: true });
+
+        if (error) {
+            console.error('Fehler beim Laden der Übungen:', error);
+            return;
+        }
+
+        // Dropdown befüllen
+        select.innerHTML = '<option value="">-- Keine Übung --</option>';
+
+        if (!exercises || exercises.length === 0) {
+            console.log('Keine Übungen gefunden');
+            return;
+        }
+
+        let currentCategory = '';
+        exercises.forEach(ex => {
+            if (ex.category && ex.category !== currentCategory) {
+                currentCategory = ex.category;
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = currentCategory;
+                select.appendChild(optgroup);
+            }
+            const option = document.createElement('option');
+            option.value = ex.id;
+            option.textContent = ex.name;
+            if (currentCategory) {
+                select.querySelector(`optgroup[label="${currentCategory}"]`)?.appendChild(option);
+            } else {
+                select.appendChild(option);
+            }
+        });
+
+        console.log(`${exercises.length} Übungen geladen`);
+    } catch (err) {
+        console.error('Fehler beim Laden der Übungen:', err);
+    }
+}
+
+/**
  * Öffnet das Upload-Modal für Spieler
  */
-function openPlayerVideoUploadModal(exerciseId) {
+async function openPlayerVideoUploadModal(exerciseId) {
     const modal = document.getElementById('player-video-upload-modal');
     if (!modal) return;
 
-    // Exercise-ID setzen
+    // Übungen für Dropdown laden
+    await loadExercisesForDropdown();
+
+    // Exercise-ID setzen (hidden input für Kompatibilität)
     const exerciseIdInput = document.getElementById('player-video-exercise-id');
     if (exerciseIdInput) {
         exerciseIdInput.value = exerciseId || '';
     }
 
+    // Dropdown vorauswählen
+    const exerciseSelect = document.getElementById('player-video-exercise-select');
+    if (exerciseSelect) {
+        exerciseSelect.value = exerciseId || '';
+
+        // Bei Änderung des Dropdowns Referenz-Videos laden
+        exerciseSelect.onchange = () => {
+            const selectedId = exerciseSelect.value;
+            if (exerciseIdInput) exerciseIdInput.value = selectedId;
+
+            if (selectedId) {
+                loadReferenceVideoForExercise(selectedId);
+            } else {
+                // Referenz-Videos ausblenden
+                document.getElementById('player-example-videos-section')?.classList.add('hidden');
+            }
+        };
+    }
+
     // Referenz-Video laden falls vorhanden
     if (exerciseId) {
         loadReferenceVideoForExercise(exerciseId);
+    } else {
+        // Referenz-Videos ausblenden wenn keine Übung
+        document.getElementById('player-example-videos-section')?.classList.add('hidden');
     }
 
     modal.classList.remove('hidden');
@@ -934,7 +1022,9 @@ async function handlePlayerVideoUpload(e) {
 
         // 4. Metadaten sammeln
         const title = document.getElementById('player-video-title')?.value || '';
-        const exerciseId = document.getElementById('player-video-exercise-id')?.value || null;
+        // Übung aus Dropdown oder hidden input (Fallback)
+        const exerciseId = document.getElementById('player-video-exercise-select')?.value ||
+                          document.getElementById('player-video-exercise-id')?.value || null;
 
         // Tags sammeln
         const selectedTags = [];

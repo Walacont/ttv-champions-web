@@ -137,14 +137,6 @@ router
     .on('/register', async () => {
         window.location.href = '/register.html';
     })
-    .on('/onboarding', async () => {
-        try {
-            await requireAuth('/');
-            window.location.href = '/onboarding.html';
-        } catch (error) {
-            console.log('Authentifizierung erforderlich');
-        }
-    })
     .on('/dashboard', async () => {
         try {
             await requireAuth('/');

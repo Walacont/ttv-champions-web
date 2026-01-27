@@ -1,0 +1,720 @@
+/**
+ * Guardian Onboarding - Add child profile
+ * Two flows:
+ * 1. With trainer code: Link to existing offline player
+ * 2. Without code: Create new child profile manually
+ */
+
+import { getSupabase } from './supabase-init.js';
+import { calculateAge, parseBirthdate } from './age-utils.js';
+
+console.log('[GUARDIAN-ONBOARDING] Script starting...');
+
+const supabase = getSupabase();
+
+// State
+let currentStep = 'code-question';
+let validatedChild = null; // Child data from trainer code
+let createdChildId = null;
+let childName = '';
+let sportsData = [];
+
+// DOM Elements
+const pageLoader = document.getElementById('page-loader');
+const mainContent = document.getElementById('main-content');
+
+// Initialize
+async function initialize() {
+    try {
+        // Check if user is logged in
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error || !user) {
+            console.log('[GUARDIAN-ONBOARDING] Not logged in, redirecting...');
+            window.location.href = '/register.html';
+            return;
+        }
+
+        // Check if user is a guardian
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('account_type, is_guardian')
+            .eq('id', user.id)
+            .single();
+
+        if (profile && !profile.is_guardian && profile.account_type !== 'guardian' && profile.account_type !== 'standard') {
+            console.log('[GUARDIAN-ONBOARDING] User is not a guardian');
+            window.location.href = '/dashboard.html';
+            return;
+        }
+
+        // Initialize UI
+        initBirthdateDropdowns();
+        await loadSports();
+        setupEventListeners();
+
+        // Show main content
+        pageLoader.classList.add('hidden');
+        mainContent.classList.remove('hidden');
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Init error:', err);
+        pageLoader.innerHTML = `
+            <div class="text-center text-red-600 p-6">
+                <p>Fehler beim Laden. Bitte versuche es erneut.</p>
+                <a href="/guardian-dashboard.html" class="text-indigo-600 underline mt-2 block">Zurück</a>
+            </div>
+        `;
+    }
+}
+
+// Load sports for dropdown
+async function loadSports() {
+    const sportSelect = document.getElementById('child-sport');
+    if (!sportSelect) return;
+
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        sportsData = sports || [];
+
+        // Populate dropdown
+        sports.forEach(sport => {
+            const option = document.createElement('option');
+            option.value = sport.id;
+            option.textContent = sport.display_name || sport.name;
+            sportSelect.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error('[GUARDIAN-ONBOARDING] Error loading sports:', error);
+    }
+}
+
+// Initialize birthdate dropdowns
+function initBirthdateDropdowns() {
+    const daySelect = document.getElementById('child-birthdate-day');
+    const monthSelect = document.getElementById('child-birthdate-month');
+    const yearSelect = document.getElementById('child-birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    // Days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Months (1-12)
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = monthNames[i - 1];
+        monthSelect.appendChild(option);
+    }
+
+    // Years (current year down to current year - 20)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= currentYear - 20; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
+
+    // Add change listeners
+    [daySelect, monthSelect, yearSelect].forEach(select => {
+        select.addEventListener('change', updateAgeDisplay);
+    });
+}
+
+// Update age display
+function updateAgeDisplay() {
+    const day = document.getElementById('child-birthdate-day')?.value;
+    const month = document.getElementById('child-birthdate-month')?.value;
+    const year = document.getElementById('child-birthdate-year')?.value;
+
+    const ageDisplay = document.getElementById('child-age-display');
+    const ageValue = document.getElementById('child-age-value');
+    const ageError = document.getElementById('age-error');
+    const ageErrorText = document.getElementById('age-error-text');
+
+    if (!day || !month || !year) {
+        ageDisplay?.classList.add('hidden');
+        ageError?.classList.add('hidden');
+        return;
+    }
+
+    const birthdate = parseBirthdate(day, month, year);
+    if (!birthdate) {
+        ageDisplay?.classList.add('hidden');
+        return;
+    }
+
+    const age = calculateAge(birthdate);
+
+    if (ageDisplay && ageValue) {
+        ageValue.textContent = age;
+        ageDisplay.classList.remove('hidden');
+    }
+
+    // Validate age (must be under 16)
+    if (age >= 16) {
+        ageError?.classList.remove('hidden');
+        if (ageErrorText) {
+            ageErrorText.textContent = 'Kinder ab 16 Jahren können sich selbst registrieren.';
+        }
+    } else {
+        ageError?.classList.add('hidden');
+    }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Step 1: Code question buttons
+    document.getElementById('btn-has-code')?.addEventListener('click', () => {
+        goToStep('enter-code');
+    });
+
+    document.getElementById('btn-no-code')?.addEventListener('click', () => {
+        goToStep('child-data');
+    });
+
+    // Step: Enter code
+    document.getElementById('btn-code-back')?.addEventListener('click', () => {
+        goToStep('code-question');
+        resetCodeInput();
+    });
+
+    document.getElementById('btn-link-child')?.addEventListener('click', handleLinkChild);
+
+    // Trainer code input - validate on input
+    const trainerCodeInput = document.getElementById('trainer-code');
+    trainerCodeInput?.addEventListener('input', (e) => {
+        // Format code: allow letters, numbers, and dashes
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+
+        // Auto-format: add dashes after TTV and after 3 more chars
+        const rawValue = value.replace(/-/g, '');
+        if (rawValue.length > 3 && rawValue.length <= 6) {
+            value = rawValue.slice(0, 3) + '-' + rawValue.slice(3);
+        } else if (rawValue.length > 6) {
+            value = rawValue.slice(0, 3) + '-' + rawValue.slice(3, 6) + '-' + rawValue.slice(6, 9);
+        }
+
+        e.target.value = value;
+
+        // Validate when we have full code (TTV-XXX-YYY = 11 chars with dashes)
+        if (value.length === 11 && value.match(/^[A-Z]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/)) {
+            validateTrainerCode(value);
+        } else {
+            resetCodeValidation();
+        }
+    });
+
+    // Step: Child data form
+    document.getElementById('btn-data-back')?.addEventListener('click', () => {
+        goToStep('code-question');
+    });
+
+    document.getElementById('child-data-form')?.addEventListener('submit', handleCreateChild);
+
+    // Step: Success - Credentials form
+    document.getElementById('credentials-form')?.addEventListener('submit', handleSaveCredentials);
+    document.getElementById('skip-credentials-btn')?.addEventListener('click', skipCredentials);
+    document.getElementById('add-another-child')?.addEventListener('click', resetForm);
+
+    // Username input - normalize to lowercase
+    document.getElementById('child-username')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        checkUsernameAvailability(e.target.value);
+    });
+
+    // PIN input - only digits
+    document.getElementById('child-pin')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
+    document.getElementById('child-pin-confirm')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
+}
+
+// Validate trainer code (invitation_codes table)
+async function validateTrainerCode(code) {
+    const messageEl = document.getElementById('trainer-code-message');
+    const previewEl = document.getElementById('child-preview');
+    const linkBtn = document.getElementById('btn-link-child');
+
+    showMessage(messageEl, 'Überprüfe Code...', 'text-gray-500');
+
+    try {
+        // Use the validate_guardian_invitation_code RPC function
+        const { data, error } = await supabase.rpc('validate_guardian_invitation_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.valid) {
+            showMessage(messageEl, data.error || 'Ungültiger Code', 'text-red-600');
+            previewEl?.classList.add('hidden');
+            linkBtn.disabled = true;
+            validatedChild = null;
+            return;
+        }
+
+        // Code is valid - show child preview
+        validatedChild = data.child;
+        showMessage(messageEl, 'Code gültig!', 'text-green-600');
+
+        // Update preview
+        const avatarEl = document.getElementById('preview-avatar');
+        const nameEl = document.getElementById('preview-name');
+        const infoEl = document.getElementById('preview-info');
+
+        if (avatarEl) {
+            avatarEl.textContent = (validatedChild.first_name || '?')[0].toUpperCase();
+        }
+        if (nameEl) {
+            nameEl.textContent = `${validatedChild.first_name || ''} ${validatedChild.last_name || ''}`.trim();
+        }
+        if (infoEl) {
+            const age = validatedChild.birthdate ? calculateAge(validatedChild.birthdate) : '?';
+            infoEl.textContent = `${age} Jahre`;
+        }
+
+        previewEl?.classList.remove('hidden');
+        linkBtn.disabled = false;
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Code validation error:', err);
+        showMessage(messageEl, 'Fehler bei der Überprüfung', 'text-red-600');
+        previewEl?.classList.add('hidden');
+        linkBtn.disabled = true;
+        validatedChild = null;
+    }
+}
+
+function resetCodeValidation() {
+    const messageEl = document.getElementById('trainer-code-message');
+    const previewEl = document.getElementById('child-preview');
+    const linkBtn = document.getElementById('btn-link-child');
+
+    messageEl?.classList.add('hidden');
+    previewEl?.classList.add('hidden');
+    linkBtn.disabled = true;
+    validatedChild = null;
+}
+
+function resetCodeInput() {
+    const codeInput = document.getElementById('trainer-code');
+    if (codeInput) codeInput.value = '';
+    resetCodeValidation();
+}
+
+// Handle linking child via trainer code
+async function handleLinkChild() {
+    if (!validatedChild) return;
+
+    const linkBtn = document.getElementById('btn-link-child');
+    linkBtn.disabled = true;
+    linkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Verknüpfe...';
+
+    try {
+        const code = document.getElementById('trainer-code')?.value?.trim();
+
+        // Use the RPC to link guardian to child using the invitation code
+        const { data, error } = await supabase.rpc('link_guardian_via_invitation_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.success) {
+            throw new Error(data.error || 'Fehler beim Verknüpfen');
+        }
+
+        // Success!
+        createdChildId = data.child_id;
+        childName = `${validatedChild.first_name || ''} ${validatedChild.last_name || ''}`.trim();
+
+        // Update success screen
+        document.getElementById('created-child-name').textContent = childName;
+
+        goToStep('success');
+
+        // Suggest a username for the child
+        await suggestUsername();
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Link error:', err);
+        alert('Fehler beim Verknüpfen: ' + err.message);
+    } finally {
+        linkBtn.disabled = false;
+        linkBtn.innerHTML = 'Kind verknüpfen <i class="fas fa-link ml-1"></i>';
+    }
+}
+
+// Handle creating child manually
+async function handleCreateChild(e) {
+    e.preventDefault();
+
+    const firstName = document.getElementById('child-first-name')?.value?.trim();
+    const lastName = document.getElementById('child-last-name')?.value?.trim();
+    const day = document.getElementById('child-birthdate-day')?.value;
+    const month = document.getElementById('child-birthdate-month')?.value;
+    const year = document.getElementById('child-birthdate-year')?.value;
+    const gender = document.getElementById('child-gender')?.value || null;
+    const sportId = document.getElementById('child-sport')?.value || null;
+
+    // Validate
+    if (!firstName || !lastName) {
+        alert('Bitte gib Vor- und Nachname ein.');
+        return;
+    }
+
+    if (!day || !month || !year) {
+        alert('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    if (!sportId) {
+        alert('Bitte wähle eine Sportart aus.');
+        return;
+    }
+
+    const birthdate = parseBirthdate(day, month, year);
+    const age = calculateAge(birthdate);
+
+    if (age >= 16) {
+        alert('Kinder ab 16 Jahren können sich selbst registrieren.');
+        return;
+    }
+
+    const createBtn = document.getElementById('btn-create-child');
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Erstelle...';
+
+    try {
+        // Call create_child_profile RPC
+        const { data, error } = await supabase.rpc('create_child_profile', {
+            p_first_name: firstName,
+            p_last_name: lastName,
+            p_birthdate: birthdate,
+            p_gender: gender,
+            p_club_id: null,
+            p_sport_id: sportId,
+            p_subgroup_ids: []
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data.success) {
+            throw new Error(data.error || 'Fehler beim Erstellen');
+        }
+
+        // Success!
+        createdChildId = data.child_id;
+        childName = `${firstName} ${lastName}`;
+
+        // Update success screen
+        document.getElementById('created-child-name').textContent = childName;
+
+        goToStep('success');
+
+        // Suggest a username for the child
+        await suggestUsername();
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Create error:', err);
+        alert('Fehler beim Erstellen: ' + err.message);
+    } finally {
+        createBtn.disabled = false;
+        createBtn.innerHTML = 'Kind erstellen <i class="fas fa-check ml-1"></i>';
+    }
+}
+
+// Check username availability
+let usernameCheckTimeout = null;
+async function checkUsernameAvailability(username) {
+    const hintEl = document.getElementById('username-hint');
+    if (!hintEl) return;
+
+    // Clear previous timeout
+    if (usernameCheckTimeout) {
+        clearTimeout(usernameCheckTimeout);
+    }
+
+    if (!username || username.length < 3) {
+        hintEl.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        hintEl.classList.remove('text-red-500', 'text-green-500');
+        hintEl.classList.add('text-gray-500');
+        return;
+    }
+
+    // Debounce check
+    usernameCheckTimeout = setTimeout(async () => {
+        try {
+            const { data, error } = await supabase.rpc('check_username_available', {
+                p_username: username,
+                p_child_id: createdChildId
+            });
+
+            if (error) throw error;
+
+            if (data.available) {
+                hintEl.textContent = 'Benutzername ist verfügbar';
+                hintEl.classList.remove('text-gray-500', 'text-red-500');
+                hintEl.classList.add('text-green-500');
+            } else {
+                hintEl.textContent = data.reason || 'Benutzername nicht verfügbar';
+                hintEl.classList.remove('text-gray-500', 'text-green-500');
+                hintEl.classList.add('text-red-500');
+            }
+        } catch (err) {
+            console.error('[GUARDIAN-ONBOARDING] Username check error:', err);
+        }
+    }, 300);
+}
+
+// Save credentials for child
+async function handleSaveCredentials(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('child-username')?.value?.trim().toLowerCase();
+    const pin = document.getElementById('child-pin')?.value?.trim();
+    const pinConfirm = document.getElementById('child-pin-confirm')?.value?.trim();
+
+    const errorEl = document.getElementById('credentials-error');
+    const errorTextEl = document.getElementById('credentials-error-text');
+    const successEl = document.getElementById('credentials-success');
+    const saveBtn = document.getElementById('save-credentials-btn');
+
+    // Hide previous messages
+    errorEl?.classList.add('hidden');
+    successEl?.classList.add('hidden');
+
+    // Validation
+    if (!username || username.length < 3) {
+        showCredentialsError('Benutzername muss mindestens 3 Zeichen haben.');
+        return;
+    }
+
+    if (!pin || pin.length < 4 || pin.length > 6) {
+        showCredentialsError('PIN muss 4-6 Ziffern haben.');
+        return;
+    }
+
+    if (!/^[0-9]+$/.test(pin)) {
+        showCredentialsError('PIN darf nur Ziffern enthalten.');
+        return;
+    }
+
+    if (pin !== pinConfirm) {
+        showCredentialsError('PINs stimmen nicht überein.');
+        return;
+    }
+
+    if (!createdChildId) {
+        showCredentialsError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Speichere...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('set_child_credentials', {
+            p_child_id: createdChildId,
+            p_username: username,
+            p_pin: pin
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Fehler beim Speichern');
+
+        // Show success
+        successEl?.classList.remove('hidden');
+        document.getElementById('credentials-success-text').textContent =
+            `Zugangsdaten gespeichert! Benutzername: ${data.username}`;
+
+        // Hide form elements after success
+        document.getElementById('credentials-form').querySelectorAll('input, button').forEach(el => {
+            if (el.id !== 'save-credentials-btn') {
+                el.disabled = true;
+            }
+        });
+
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Gespeichert';
+            saveBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            saveBtn.classList.add('bg-green-600');
+        }
+
+        document.getElementById('skip-credentials-btn')?.classList.add('hidden');
+
+    } catch (err) {
+        console.error('[GUARDIAN-ONBOARDING] Credentials save error:', err);
+        showCredentialsError(err.message || 'Fehler beim Speichern.');
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i>Zugangsdaten speichern';
+        }
+    }
+}
+
+function showCredentialsError(message) {
+    const errorEl = document.getElementById('credentials-error');
+    const errorTextEl = document.getElementById('credentials-error-text');
+    if (errorTextEl) errorTextEl.textContent = message;
+    errorEl?.classList.remove('hidden');
+}
+
+// Skip credentials setup (can be done later in guardian-dashboard)
+function skipCredentials() {
+    // Just hide the credentials section and show a note
+    const credentialsSection = document.getElementById('credentials-form')?.closest('.bg-indigo-50');
+    if (credentialsSection) {
+        credentialsSection.innerHTML = `
+            <div class="text-center">
+                <p class="text-xs text-gray-600 mb-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Du kannst die Zugangsdaten später im Eltern-Dashboard einrichten.
+                </p>
+            </div>
+        `;
+    }
+}
+
+// Suggest username based on child name
+async function suggestUsername() {
+    if (!createdChildId) return;
+
+    const usernameInput = document.getElementById('child-username');
+    if (!usernameInput) return;
+
+    try {
+        // Extract birth year from stored data if available
+        const firstName = childName.split(' ')[0];
+        const { data } = await supabase.rpc('suggest_username', {
+            p_first_name: firstName,
+            p_birth_year: null
+        });
+
+        if (data?.suggestions?.length > 0) {
+            usernameInput.value = data.suggestions[0];
+            usernameInput.placeholder = `z.B. ${data.suggestions.slice(0, 3).join(', ')}`;
+            checkUsernameAvailability(data.suggestions[0]);
+        }
+    } catch (err) {
+        console.log('[GUARDIAN-ONBOARDING] Could not get username suggestions:', err);
+    }
+}
+
+// Navigate between steps
+function goToStep(step) {
+    currentStep = step;
+
+    // Hide all steps
+    document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+
+    // Show current step
+    document.getElementById(`step-${step}`)?.classList.remove('hidden');
+}
+
+// Reset form to add another child
+function resetForm() {
+    validatedChild = null;
+    createdChildId = null;
+    childName = '';
+
+    // Reset code input
+    resetCodeInput();
+
+    // Reset form fields
+    const firstName = document.getElementById('child-first-name');
+    const lastName = document.getElementById('child-last-name');
+    const day = document.getElementById('child-birthdate-day');
+    const month = document.getElementById('child-birthdate-month');
+    const year = document.getElementById('child-birthdate-year');
+    const gender = document.getElementById('child-gender');
+
+    if (firstName) firstName.value = '';
+    if (lastName) lastName.value = '';
+    if (day) day.value = '';
+    if (month) month.value = '';
+    if (year) year.value = '';
+    if (gender) gender.value = '';
+
+    document.getElementById('child-age-display')?.classList.add('hidden');
+    document.getElementById('age-error')?.classList.add('hidden');
+
+    // Reset credentials form
+    const usernameInput = document.getElementById('child-username');
+    const pinInput = document.getElementById('child-pin');
+    const pinConfirmInput = document.getElementById('child-pin-confirm');
+    const saveBtn = document.getElementById('save-credentials-btn');
+    const skipBtn = document.getElementById('skip-credentials-btn');
+    const usernameHint = document.getElementById('username-hint');
+
+    if (usernameInput) usernameInput.value = '';
+    if (pinInput) pinInput.value = '';
+    if (pinConfirmInput) pinConfirmInput.value = '';
+
+    document.getElementById('credentials-error')?.classList.add('hidden');
+    document.getElementById('credentials-success')?.classList.add('hidden');
+
+    // Re-enable form elements
+    document.getElementById('credentials-form')?.querySelectorAll('input').forEach(el => {
+        el.disabled = false;
+    });
+
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i>Zugangsdaten speichern';
+        saveBtn.classList.remove('bg-green-600');
+        saveBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+    }
+
+    if (skipBtn) {
+        skipBtn.classList.remove('hidden');
+    }
+
+    if (usernameHint) {
+        usernameHint.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        usernameHint.classList.remove('text-red-500', 'text-green-500');
+        usernameHint.classList.add('text-gray-500');
+    }
+
+    goToStep('code-question');
+}
+
+// Helper: Show message
+function showMessage(el, message, colorClass) {
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-gray-500');
+    el.classList.add(colorClass);
+}
+
+// Initialize on page load
+initialize();

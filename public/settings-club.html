@@ -149,6 +149,146 @@
             </div>
         </div>
 
+        <!-- Modal: Join Type Selection -->
+        <div id="join-type-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-full mb-3">
+                        <i class="fas fa-users text-2xl text-indigo-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Wie möchtest du beitreten?</h2>
+                    <p id="join-type-club-name" class="text-gray-600 text-sm mt-1">Verein XY</p>
+                </div>
+
+                <div class="space-y-3">
+                    <!-- Option: Join as member -->
+                    <button
+                        id="join-as-member-btn"
+                        class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-left"
+                    >
+                        <div class="flex items-center">
+                            <i class="fas fa-user text-xl mr-3"></i>
+                            <div>
+                                <div class="font-semibold">Als Mitglied beitreten</div>
+                                <div class="text-sm text-indigo-200 font-normal">Ich möchte selbst Mitglied werden</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <!-- Option: Join as guardian -->
+                    <button
+                        id="join-as-guardian-btn"
+                        class="w-full bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors text-left"
+                    >
+                        <div class="flex items-center">
+                            <i class="fas fa-user-shield text-xl mr-3"></i>
+                            <div>
+                                <div class="font-semibold">Als Vormund beitreten</div>
+                                <div class="text-sm text-purple-200 font-normal">Ich melde mein Kind an</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="mt-6 text-center">
+                    <button id="join-type-cancel-btn" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Abbrechen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Child Information for Guardian Join -->
+        <div id="guardian-child-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-purple-100 rounded-full mb-3">
+                        <i class="fas fa-child text-2xl text-purple-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Kind anmelden</h2>
+                    <p class="text-gray-600 text-sm mt-1">Gib die Daten deines Kindes ein</p>
+                </div>
+
+                <form id="guardian-child-form" class="space-y-4">
+                    <div>
+                        <label for="child-first-name" class="block text-sm font-medium text-gray-700 mb-1">
+                            Vorname des Kindes <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="child-first-name"
+                            required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="child-last-name" class="block text-sm font-medium text-gray-700 mb-1">
+                            Nachname des Kindes <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="child-last-name"
+                            required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Geburtsdatum des Kindes <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <select
+                                id="child-birthdate-day"
+                                required
+                                class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                                <option value="">Tag</option>
+                            </select>
+                            <select
+                                id="child-birthdate-month"
+                                required
+                                class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                                <option value="">Monat</option>
+                            </select>
+                            <select
+                                id="child-birthdate-year"
+                                required
+                                class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                                <option value="">Jahr</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="guardian-child-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="guardian-child-error-text"></span>
+                        </p>
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="guardian-child-submit"
+                        class="w-full bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Beitrittsanfrage senden
+                    </button>
+                </form>
+
+                <div class="mt-4 text-center">
+                    <button id="guardian-child-back-btn" class="text-gray-500 hover:text-gray-700 text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        Zurück
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
         <script type="module">

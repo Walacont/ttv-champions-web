@@ -11,7 +11,6 @@ const STATIC_ASSETS = [
     '/admin.html',
     '/settings.html',
     '/register.html',
-    '/onboarding.html',
     '/faq.html',
     '/404.html',
     '/css/spa-enhancements.css',

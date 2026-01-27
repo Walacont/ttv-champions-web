@@ -46,6 +46,63 @@ const POSITIONS = {
     FREI: 'Frei'
 };
 
+// Thumbnail-Generierung aus Video (erste Sekunde)
+async function generateVideoThumbnail(videoFile, seekTime = 1) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.muted = true;
+        video.playsInline = true;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        let hasResolved = false;
+
+        const captureThumbnail = () => {
+            if (hasResolved) return;
+            hasResolved = true;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(video.src);
+                if (blob) {
+                    resolve(blob);
+                } else {
+                    reject(new Error('Thumbnail konnte nicht erstellt werden'));
+                }
+            }, 'image/jpeg', 0.8);
+        };
+
+        video.onloadedmetadata = () => {
+            video.currentTime = Math.min(seekTime, video.duration * 0.1);
+        };
+
+        video.onseeked = captureThumbnail;
+
+        video.onerror = () => {
+            if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Video konnte nicht geladen werden'));
+            }
+        };
+
+        // Timeout nach 10 Sekunden
+        setTimeout(() => {
+            if (!hasResolved) {
+                hasResolved = true;
+                URL.revokeObjectURL(video.src);
+                reject(new Error('Thumbnail Timeout'));
+            }
+        }, 10000);
+
+        video.src = URL.createObjectURL(videoFile);
+    });
+}
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -154,12 +211,46 @@ function setupEventListeners() {
     // Video upload button
     document.getElementById('upload-video-btn').addEventListener('click', () => {
         document.getElementById('video-exercise-id').value = exerciseId;
+
+        // Coach-Feedback Option basierend auf Club-Mitgliedschaft anzeigen
+        const coachFeedbackOption = document.getElementById('coach-feedback-option');
+        const uploadInfoCoach = document.getElementById('upload-info-coach');
+        const uploadInfoPrivate = document.getElementById('upload-info-private');
+        const requestCoachCheckbox = document.getElementById('request-coach-feedback');
+
+        if (currentUserData?.club_id) {
+            // Spieler ist im Club - Coach-Option anzeigen
+            coachFeedbackOption?.classList.remove('hidden');
+            requestCoachCheckbox.checked = true;
+            uploadInfoCoach?.classList.remove('hidden');
+            uploadInfoPrivate?.classList.add('hidden');
+        } else {
+            // Spieler ohne Club - nur private Mediathek
+            coachFeedbackOption?.classList.add('hidden');
+            uploadInfoCoach?.classList.add('hidden');
+            uploadInfoPrivate?.classList.remove('hidden');
+        }
+
         document.getElementById('video-upload-modal').classList.remove('hidden');
     });
 
     // Close video upload modal
     document.getElementById('close-video-upload').addEventListener('click', () => {
         document.getElementById('video-upload-modal').classList.add('hidden');
+    });
+
+    // Coach Feedback Checkbox Toggle
+    document.getElementById('request-coach-feedback')?.addEventListener('change', (e) => {
+        const uploadInfoCoach = document.getElementById('upload-info-coach');
+        const uploadInfoPrivate = document.getElementById('upload-info-private');
+
+        if (e.target.checked) {
+            uploadInfoCoach?.classList.remove('hidden');
+            uploadInfoPrivate?.classList.add('hidden');
+        } else {
+            uploadInfoCoach?.classList.add('hidden');
+            uploadInfoPrivate?.classList.remove('hidden');
+        }
     });
 
     // Video file input
@@ -216,6 +307,9 @@ async function loadExercise() {
 
         // Load example videos
         await loadExampleVideos();
+
+        // Load player's own videos for this exercise
+        await loadMyVideos();
 
         // Hide loading, show content
         document.getElementById('exercise-loading').classList.add('hidden');
@@ -639,6 +733,110 @@ async function loadExampleVideos() {
 
     } catch (error) {
         console.error('Error loading example videos:', error);
+    }
+}
+
+/**
+ * Lädt Videos des aktuellen Spielers zu dieser Übung
+ * (eigene uploads + vom Coach zugewiesene Videos)
+ */
+async function loadMyVideos() {
+    if (!currentUser || !exerciseId) return;
+
+    try {
+        // 1. Eigene Videos für diese Übung laden
+        const { data: ownVideos, error: ownError } = await supabase
+            .from('video_analyses')
+            .select('id, title, video_url, thumbnail_url, created_at, status:video_assignments(status)')
+            .eq('uploaded_by', currentUser.id)
+            .eq('exercise_id', exerciseId)
+            .order('created_at', { ascending: false });
+
+        if (ownError) {
+            console.error('Fehler beim Laden eigener Videos:', ownError);
+        }
+
+        // 2. Vom Coach zugewiesene Videos laden (die nicht von mir sind)
+        let assignedVideos = [];
+        if (currentUserData?.club_id) {
+            const { data: assignments, error: assignError } = await supabase
+                .from('video_assignments')
+                .select(`
+                    id,
+                    status,
+                    video:video_analyses(id, title, video_url, thumbnail_url, created_at, exercise_id, uploaded_by)
+                `)
+                .eq('player_id', currentUser.id)
+                .eq('club_id', currentUserData.club_id);
+
+            if (assignError) {
+                console.error('Fehler beim Laden zugewiesener Videos:', assignError);
+            } else if (assignments) {
+                // Nur Videos für diese Übung filtern (die nicht von mir sind)
+                assignedVideos = assignments
+                    .filter(a => a.video && a.video.exercise_id === exerciseId && a.video.uploaded_by !== currentUser.id)
+                    .map(a => ({
+                        ...a.video,
+                        assignment_status: a.status,
+                        is_assigned: true
+                    }));
+            }
+        }
+
+        // Alle Videos kombinieren
+        const allVideos = [
+            ...(ownVideos || []).map(v => ({ ...v, is_own: true })),
+            ...assignedVideos
+        ];
+
+        // Duplikate entfernen (nach video id)
+        const uniqueVideos = allVideos.filter((v, i, self) =>
+            i === self.findIndex(t => t.id === v.id)
+        );
+
+        const section = document.getElementById('my-videos-section');
+        const list = document.getElementById('my-videos-list');
+
+        if (!uniqueVideos || uniqueVideos.length === 0) {
+            section?.classList.add('hidden');
+            return;
+        }
+
+        section?.classList.remove('hidden');
+        list.innerHTML = uniqueVideos.map(video => {
+            const statusBadge = video.is_assigned
+                ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Vom Coach</span>`
+                : video.is_own
+                    ? `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Mein Video</span>`
+                    : '';
+
+            const feedbackBadge = video.assignment_status === 'completed'
+                ? `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"><i class="fas fa-check mr-1"></i>Feedback erhalten</span>`
+                : video.assignment_status === 'pending'
+                    ? `<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full"><i class="fas fa-clock mr-1"></i>Wartet auf Feedback</span>`
+                    : '';
+
+            return `
+                <a href="${escapeHtml(video.video_url)}" target="_blank" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+                    <div class="w-20 h-14 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                        ${video.thumbnail_url
+                            ? `<img src="${escapeHtml(video.thumbnail_url)}" alt="" class="w-full h-full object-cover">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-play"></i></div>`}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-gray-700 font-medium truncate block">${escapeHtml(video.title || 'Video')}</span>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            ${statusBadge}
+                            ${feedbackBadge}
+                        </div>
+                    </div>
+                    <i class="fas fa-external-link-alt text-gray-400 flex-shrink-0"></i>
+                </a>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading my videos:', error);
     }
 }
 
@@ -1106,13 +1304,43 @@ async function handleVideoUpload(e) {
     progressContainer.classList.remove('hidden');
 
     try {
-        // Generate unique filename
         const timestamp = Date.now();
         const fileExt = file.name.split('.').pop();
         const filePath = `${currentUser.id}/${exerciseId}/${timestamp}.${fileExt}`;
 
-        // Upload to Supabase Storage
-        progressText.textContent = 'Wird hochgeladen...';
+        // 1. Thumbnail generieren (0-10%)
+        progressText.textContent = 'Thumbnail wird erstellt...';
+        progressBar.style.width = '5%';
+        let thumbnailUrl = null;
+
+        try {
+            const thumbnailBlob = await generateVideoThumbnail(file);
+            const thumbFileName = `${currentUser.id}/${exerciseId}/${timestamp}_thumb.jpg`;
+
+            progressText.textContent = 'Thumbnail wird hochgeladen...';
+            progressBar.style.width = '10%';
+
+            const { error: thumbError } = await supabase.storage
+                .from('training-videos')
+                .upload(thumbFileName, thumbnailBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: false,
+                });
+
+            if (!thumbError) {
+                const { data: thumbUrlData } = supabase.storage
+                    .from('training-videos')
+                    .getPublicUrl(thumbFileName);
+                thumbnailUrl = thumbUrlData.publicUrl;
+            }
+        } catch (thumbErr) {
+            console.warn('Thumbnail-Generierung fehlgeschlagen:', thumbErr);
+        }
+
+        // 2. Video hochladen (10-70%)
+        progressText.textContent = 'Video wird hochgeladen...';
+        progressBar.style.width = '15%';
+
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('training-videos')
             .upload(filePath, file, {
@@ -1130,22 +1358,48 @@ async function handleVideoUpload(e) {
             .from('training-videos')
             .getPublicUrl(filePath);
 
-        // Create database entry
+        // 3. Datenbank-Eintrag erstellen (70-90%)
         const title = document.getElementById('video-title').value.trim() || file.name;
         const notes = document.getElementById('video-notes').value.trim();
 
-        const { error: dbError } = await supabase
-            .from('training_videos')
+        const requestCoachFeedback = document.getElementById('request-coach-feedback')?.checked ?? false;
+        const allowAiTraining = document.getElementById('allow-ai-training')?.checked ?? false;
+        const isInClub = !!currentUserData?.club_id;
+
+        progressBar.style.width = '80%';
+        progressText.textContent = 'Speichere in Datenbank...';
+
+        const { data: insertedVideo, error: dbError } = await supabase
+            .from('video_analyses')
             .insert({
-                user_id: currentUser.id,
+                uploaded_by: currentUser.id,
                 exercise_id: exerciseId,
                 title: title,
-                notes: notes,
                 video_url: publicUrl,
-                status: 'pending'
-            });
+                thumbnail_url: thumbnailUrl,
+                allow_ai_training: allowAiTraining,
+                club_id: isInClub ? currentUserData.club_id : null
+            })
+            .select()
+            .single();
 
         if (dbError) throw dbError;
+
+        // Wenn Coach-Feedback angefragt, Video-Assignment erstellen
+        if (isInClub && requestCoachFeedback && insertedVideo?.id) {
+            const { error: assignError } = await supabase
+                .from('video_assignments')
+                .insert({
+                    video_id: insertedVideo.id,
+                    player_id: currentUser.id,
+                    club_id: currentUserData.club_id,
+                    status: 'pending'
+                });
+
+            if (assignError) {
+                console.error('Fehler bei Coach-Zuweisung:', assignError);
+            }
+        }
 
         progressBar.style.width = '100%';
         progressText.textContent = 'Erfolgreich hochgeladen!';
@@ -1159,7 +1413,18 @@ async function handleVideoUpload(e) {
             progressBar.style.width = '0%';
             submitBtn.disabled = false;
 
-            alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
+            // Nachricht basierend auf Optionen erstellen
+            const coachRequested = isInClub && requestCoachFeedback;
+
+            if (coachRequested && allowAiTraining) {
+                alert('Video wurde hochgeladen und an deinen Coach gesendet! Zusätzlich wird es für die KI-Verbesserung genutzt.');
+            } else if (coachRequested) {
+                alert('Video wurde erfolgreich hochgeladen! Dein Coach wird es bald ansehen.');
+            } else if (allowAiTraining) {
+                alert('Video wurde hochgeladen und wird für die KI-Verbesserung genutzt.');
+            } else {
+                alert('Video wurde in deiner persönlichen Mediathek gespeichert.');
+            }
         }, 1000);
 
     } catch (error) {
