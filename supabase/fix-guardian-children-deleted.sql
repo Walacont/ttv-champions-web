@@ -113,7 +113,7 @@ DO $$
 BEGIN
     RAISE NOTICE 'Guardian Children Delete Fix Complete!';
     RAISE NOTICE 'Changes:';
-    RAISE NOTICE '  1. get_guardian_children() now filters out anonymized profiles (email LIKE deleted_%)';
+    RAISE NOTICE '  1. get_guardian_children() now filters out anonymized profiles (email LIKE deleted_%%)';
     RAISE NOTICE '  2. Cleaned up orphaned guardian_links for already-deleted profiles';
     RAISE NOTICE '  3. Added trigger to auto-cleanup guardian_links when profile is anonymized';
 END $$;
