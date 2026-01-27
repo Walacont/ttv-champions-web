@@ -1,6 +1,6 @@
 -- ============================================
 -- Migration: Get child profile for session (bypasses RLS for child login)
--- This function allows children logged in via code to fetch their profile
+-- This function allows children logged in via code OR PIN to fetch their profile
 -- ============================================
 
 CREATE OR REPLACE FUNCTION get_child_profile_for_session(
@@ -15,9 +15,9 @@ DECLARE
     v_profile RECORD;
     v_club RECORD;
     v_has_valid_session BOOLEAN;
+    v_has_pin_credentials BOOLEAN;
 BEGIN
-    -- Verify there's a valid (used) login code for this child from the last 24 hours
-    -- This ensures only children who logged in via code can access this
+    -- Check for valid session via login code (old method)
     SELECT EXISTS (
         SELECT 1 FROM child_login_codes
         WHERE child_id = p_child_id
@@ -25,7 +25,27 @@ BEGIN
         AND used_at > now() - interval '24 hours'
     ) INTO v_has_valid_session;
 
-    IF NOT v_has_valid_session THEN
+    -- Check for PIN-based credentials (new method)
+    -- If the child has a PIN set and is either:
+    -- 1. account_type = 'child', OR
+    -- 2. is_offline = true, OR
+    -- 3. Has a guardian link
+    SELECT EXISTS (
+        SELECT 1 FROM profiles p
+        WHERE p.id = p_child_id
+        AND p.pin_hash IS NOT NULL
+        AND (
+            p.account_type = 'child'
+            OR p.is_offline = TRUE
+            OR EXISTS (
+                SELECT 1 FROM guardian_links gl
+                WHERE gl.child_id = p.id
+            )
+        )
+    ) INTO v_has_pin_credentials;
+
+    -- Allow access if either method is valid
+    IF NOT v_has_valid_session AND NOT v_has_pin_credentials THEN
         RETURN json_build_object(
             'success', false,
             'error', 'Keine gültige Sitzung gefunden'
@@ -118,5 +138,5 @@ GRANT EXECUTE ON FUNCTION get_child_profile_for_session TO authenticated;
 DO $$
 BEGIN
     RAISE NOTICE 'Migration Complete: get_child_profile_for_session function created';
-    RAISE NOTICE 'This function allows children logged in via code to fetch their profile';
+    RAISE NOTICE 'This function allows children logged in via code OR PIN to fetch their profile';
 END $$;
