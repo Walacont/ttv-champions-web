@@ -251,6 +251,7 @@ codeForm?.addEventListener('submit', async e => {
             if (error) throw error;
 
             // Support both response formats: {success, child_id, ...} and {valid, child: {...}}
+            console.log('[INDEX-SUPABASE] RPC response:', JSON.stringify(data));
             const isValid = data?.success || data?.valid;
             if (!data || !isValid) {
                 const errorMsg = data?.error || 'Ungültiger Code';
@@ -262,6 +263,7 @@ codeForm?.addEventListener('submit', async e => {
 
             // Extract child data from either format
             const child = data.child || data;
+            console.log('[INDEX-SUPABASE] Extracted child data:', JSON.stringify(child));
             const childSession = {
                 childId: child.child_id || child.id,
                 firstName: child.first_name,
@@ -272,8 +274,10 @@ codeForm?.addEventListener('submit', async e => {
                 loginAt: new Date().toISOString(),
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
             };
+            console.log('[INDEX-SUPABASE] Child session to save:', JSON.stringify(childSession));
 
             saveChildSession(childSession);
+            console.log('[INDEX-SUPABASE] Session saved! Verify:', localStorage.getItem('child_session'));
 
             feedbackMessage.textContent = `Willkommen, ${child.first_name}! Weiterleitung...`;
             feedbackMessage.classList.remove('text-gray-600');
