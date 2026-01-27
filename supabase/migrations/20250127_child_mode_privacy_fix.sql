@@ -3,13 +3,14 @@
 -- ============================================
 -- Diese Migration stellt sicher, dass die Privacy-Einstellungen
 -- auch im Child Mode respektiert werden:
--- - Spieler mit searchable='none' werden aus Ranglisten ausgeblendet
+-- - Spieler mit leaderboard_visibility='none' werden aus Ranglisten ausgeblendet
 -- - Matches von Spielern mit matches_visibility='none' werden nicht gezeigt
 -- ============================================
 
 -- ============================================
 -- PART 1: Fix get_leaderboard_for_child_session
--- Exclude players with searchable='none' from leaderboards
+-- Exclude players with leaderboard_visibility='none' from leaderboards
+-- Note: Uses leaderboard_visibility (NOT searchable!) for leaderboard filtering
 -- ============================================
 
 CREATE OR REPLACE FUNCTION get_leaderboard_for_child_session(
@@ -50,17 +51,17 @@ BEGIN
             LEFT JOIN clubs c ON c.id = p.club_id
             WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
             AND p.is_player = true
-            -- Privacy filter: exclude 'none', allow same club or 'global'
+            -- Privacy filter: use leaderboard_visibility (NOT searchable!)
             AND (
                 -- Own profile always visible
                 p.id = v_child_id
                 OR
-                -- Same club members visible (unless they set 'none')
+                -- Same club members visible (unless leaderboard_visibility='none')
                 (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none')
+                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
                 OR
                 -- Global visibility
-                (COALESCE(p.privacy_settings->>'searchable', 'global') = 'global')
+                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
             )
             ORDER BY p.elo_rating DESC NULLS LAST
             LIMIT p_limit
@@ -73,14 +74,14 @@ BEGIN
             LEFT JOIN clubs c ON c.id = p.club_id
             WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
             AND p.is_player = true
-            -- Privacy filter
+            -- Privacy filter: use leaderboard_visibility
             AND (
                 p.id = v_child_id
                 OR
                 (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none')
+                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
                 OR
-                (COALESCE(p.privacy_settings->>'searchable', 'global') = 'global')
+                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
             )
             ORDER BY p.xp DESC NULLS LAST
             LIMIT p_limit
@@ -93,14 +94,14 @@ BEGIN
             LEFT JOIN clubs c ON c.id = p.club_id
             WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
             AND p.is_player = true
-            -- Privacy filter
+            -- Privacy filter: use leaderboard_visibility
             AND (
                 p.id = v_child_id
                 OR
                 (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none')
+                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
                 OR
-                (COALESCE(p.privacy_settings->>'searchable', 'global') = 'global')
+                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
             )
             ORDER BY p.points DESC NULLS LAST
             LIMIT p_limit
@@ -465,14 +466,14 @@ BEGIN
     RAISE NOTICE 'Child Mode Privacy Fix Applied!';
     RAISE NOTICE '===========================================';
     RAISE NOTICE 'Fixed functions:';
-    RAISE NOTICE '  - get_leaderboard_for_child_session: excludes searchable=none';
+    RAISE NOTICE '  - get_leaderboard_for_child_session: uses leaderboard_visibility';
     RAISE NOTICE '  - get_club_activities_for_child_session: respects matches_visibility';
     RAISE NOTICE '  - get_profiles_for_child_session: respects searchable setting';
     RAISE NOTICE '';
     RAISE NOTICE 'Privacy rules applied:';
-    RAISE NOTICE '  - searchable=none: hidden from leaderboard and activity feed';
-    RAISE NOTICE '  - searchable=club_only: visible only to same club members';
-    RAISE NOTICE '  - searchable=global: visible to everyone';
+    RAISE NOTICE '  - leaderboard_visibility=none: hidden from leaderboard';
+    RAISE NOTICE '  - leaderboard_visibility=club_only: visible only to same club';
+    RAISE NOTICE '  - leaderboard_visibility=global: visible to everyone';
     RAISE NOTICE '  - matches_visibility=none: matches not shown';
     RAISE NOTICE '  - matches_visibility=club_only: matches visible to same club';
     RAISE NOTICE '===========================================';
