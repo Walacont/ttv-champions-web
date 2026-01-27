@@ -1002,12 +1002,18 @@ async function fetchActivitiesForChildRaw() {
             return { activities: [], memberIds: [] };
         }
 
-        console.log('[ActivityFeed] Child mode: got', (data.matches || []).length, 'matches,', (data.polls || []).length, 'polls');
+        const singlesCount = (data.matches || []).length;
+        const doublesCount = (data.doubles_matches || []).length;
+        const eventsCount = (data.activity_events || []).length;
+        const postsCount = (data.community_posts || []).length;
+        const pollsCount = (data.community_polls || []).length;
 
-        // Transform matches to activity format
+        console.log('[ActivityFeed] Child mode: got', singlesCount, 'singles,', doublesCount, 'doubles,', eventsCount, 'events,', postsCount, 'posts,', pollsCount, 'polls');
+
+        // Transform all activity types to unified format
         const activities = [];
 
-        // Add matches as singles activities
+        // 1. Add singles matches
         (data.matches || []).forEach(match => {
             activities.push({
                 ...match,
@@ -1015,15 +1021,47 @@ async function fetchActivitiesForChildRaw() {
             });
         });
 
-        // Note: Club polls (from 'polls' table) have a different structure than community_polls
-        // and are not displayed in the activity feed for now. Child users can view them
-        // on the club page instead.
+        // 2. Add doubles matches
+        (data.doubles_matches || []).forEach(match => {
+            activities.push({
+                ...match,
+                activityType: 'doubles'
+            });
+        });
+
+        // 3. Add activity events (club_join, club_leave, rank_up, ranking changes)
+        (data.activity_events || []).forEach(event => {
+            activities.push({
+                ...event,
+                activityType: event.event_type // e.g., 'club_join', 'rank_up', 'club_ranking_change', etc.
+            });
+        });
+
+        // 4. Add community posts
+        (data.community_posts || []).forEach(post => {
+            activities.push({
+                ...post,
+                activityType: 'post'
+            });
+        });
+
+        // 5. Add community polls
+        (data.community_polls || []).forEach(poll => {
+            activities.push({
+                ...poll,
+                activityType: 'poll'
+            });
+        });
 
         // Sort by created_at descending
         activities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         // Update offset for pagination
-        typeOffsets.singles += (data.matches || []).length;
+        typeOffsets.singles += singlesCount;
+        typeOffsets.doubles += doublesCount;
+        typeOffsets.events += eventsCount;
+        typeOffsets.posts += postsCount;
+        typeOffsets.polls += pollsCount;
 
         return { activities, memberIds: data.member_ids || [] };
 
