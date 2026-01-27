@@ -140,7 +140,8 @@ async function initialize() {
 // Load children from guardian_links
 async function loadChildren() {
     try {
-        const { data, error } = await supabase.rpc('get_guardian_children');
+        // Use get_my_children which includes username and has_pin fields
+        const { data, error } = await supabase.rpc('get_my_children');
 
         if (error) {
             throw error;
