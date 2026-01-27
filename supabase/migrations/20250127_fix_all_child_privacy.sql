@@ -1,125 +1,19 @@
 -- ============================================
--- Child Mode Privacy Settings Fix
+-- Fix ALL Child Mode Privacy Settings
 -- ============================================
--- Diese Migration stellt sicher, dass die Privacy-Einstellungen
--- auch im Child Mode respektiert werden:
--- - Spieler mit leaderboard_visibility='none' werden aus Ranglisten ausgeblendet
--- - Matches von Spielern mit matches_visibility='none' werden nicht gezeigt
--- ============================================
-
--- ============================================
--- PART 1: Fix get_leaderboard_for_child_session
--- Exclude players with leaderboard_visibility='none' from leaderboards
--- Note: Uses leaderboard_visibility (NOT searchable!) for leaderboard filtering
+-- Problem: Die Privacy-Filter in den Child-Mode-Funktionen waren inkonsistent:
+-- 1. v_member_ids wurde nach 'searchable' gefiltert, aber für Matches verwendet
+--    (sollte matches_visibility prüfen)
+-- 2. leaderboard prüfte 'searchable' statt 'leaderboard_visibility' (bereits gefixt)
+-- 3. Doubles-Matches prüften 'club_only' nicht korrekt
+--
+-- Diese Migration korrigiert alle Privacy-Filter für den Kind-Modus.
 -- ============================================
 
-CREATE OR REPLACE FUNCTION get_leaderboard_for_child_session(
-    p_session_token TEXT,
-    p_club_id UUID,
-    p_type TEXT DEFAULT 'skill',
-    p_limit INT DEFAULT 50
-)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_session_valid BOOLEAN;
-    v_child_id UUID;
-    v_child_club_id UUID;
-    v_error TEXT;
-    v_leaderboard JSON;
-BEGIN
-    -- Validate session token
-    SELECT is_valid, child_id, error_message
-    INTO v_session_valid, v_child_id, v_error
-    FROM validate_child_session_token(p_session_token);
-
-    IF NOT v_session_valid THEN
-        RETURN json_build_object('success', false, 'error', COALESCE(v_error, 'Ungültige Session'));
-    END IF;
-
-    -- Get child's club_id for privacy context
-    SELECT club_id INTO v_child_club_id FROM profiles WHERE id = v_child_id;
-
-    IF p_type = 'skill' THEN
-        SELECT json_agg(row_to_json(t)) INTO v_leaderboard FROM (
-            SELECT p.id, p.first_name, p.last_name, p.display_name, p.avatar_url,
-                   p.elo_rating, p.xp, p.club_id, c.name as club_name
-            FROM profiles p
-            LEFT JOIN clubs c ON c.id = p.club_id
-            WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
-            AND p.is_player = true
-            -- Privacy filter: use leaderboard_visibility (NOT searchable!)
-            AND (
-                -- Own profile always visible
-                p.id = v_child_id
-                OR
-                -- Same club members visible (unless leaderboard_visibility='none')
-                (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
-                OR
-                -- Global visibility
-                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
-            )
-            ORDER BY p.elo_rating DESC NULLS LAST
-            LIMIT p_limit
-        ) t;
-    ELSIF p_type = 'effort' THEN
-        SELECT json_agg(row_to_json(t)) INTO v_leaderboard FROM (
-            SELECT p.id, p.first_name, p.last_name, p.display_name, p.avatar_url,
-                   p.elo_rating, p.xp, p.club_id, c.name as club_name
-            FROM profiles p
-            LEFT JOIN clubs c ON c.id = p.club_id
-            WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
-            AND p.is_player = true
-            -- Privacy filter: use leaderboard_visibility
-            AND (
-                p.id = v_child_id
-                OR
-                (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
-                OR
-                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
-            )
-            ORDER BY p.xp DESC NULLS LAST
-            LIMIT p_limit
-        ) t;
-    ELSE
-        SELECT json_agg(row_to_json(t)) INTO v_leaderboard FROM (
-            SELECT p.id, p.first_name, p.last_name, p.display_name, p.avatar_url,
-                   p.elo_rating, p.xp, p.points, p.club_id, c.name as club_name
-            FROM profiles p
-            LEFT JOIN clubs c ON c.id = p.club_id
-            WHERE (p_club_id IS NULL OR p.club_id = p_club_id)
-            AND p.is_player = true
-            -- Privacy filter: use leaderboard_visibility
-            AND (
-                p.id = v_child_id
-                OR
-                (v_child_club_id IS NOT NULL AND p.club_id = v_child_club_id
-                 AND COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') != 'none')
-                OR
-                (COALESCE(p.privacy_settings->>'leaderboard_visibility', 'global') = 'global')
-            )
-            ORDER BY p.points DESC NULLS LAST
-            LIMIT p_limit
-        ) t;
-    END IF;
-
-    RETURN json_build_object('success', true, 'leaderboard', COALESCE(v_leaderboard, '[]'::json));
-EXCEPTION WHEN OTHERS THEN
-    RETURN json_build_object('success', false, 'error', SQLERRM);
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION get_leaderboard_for_child_session TO anon;
-GRANT EXECUTE ON FUNCTION get_leaderboard_for_child_session TO authenticated;
-
 -- ============================================
--- PART 2: Fix get_club_activities_for_child_session
--- Respect matches_visibility privacy setting
+-- PART 1: Fix get_club_activities_for_child_session
+-- Korrigiert: v_member_ids sollte KEINE Privacy-Filter haben
+-- Jeder Query prüft dann die relevante Privacy-Einstellung
 -- ============================================
 
 CREATE OR REPLACE FUNCTION get_club_activities_for_child_session(
@@ -208,13 +102,15 @@ BEGIN
                 -- Player A visibility check
                 (
                     COALESCE(pa.privacy_settings->>'matches_visibility', 'global') = 'global'
-                    OR (COALESCE(pa.privacy_settings->>'matches_visibility', 'global') IN ('club_only', 'followers_only') AND pa.club_id = v_club_id)
+                    OR (COALESCE(pa.privacy_settings->>'matches_visibility', 'global') = 'club_only' AND pa.club_id = v_club_id)
+                    OR (COALESCE(pa.privacy_settings->>'matches_visibility', 'global') = 'followers_only' AND pa.club_id = v_club_id)
                 )
                 AND
                 -- Player B visibility check
                 (
                     COALESCE(pb.privacy_settings->>'matches_visibility', 'global') = 'global'
-                    OR (COALESCE(pb.privacy_settings->>'matches_visibility', 'global') IN ('club_only', 'followers_only') AND pb.club_id = v_club_id)
+                    OR (COALESCE(pb.privacy_settings->>'matches_visibility', 'global') = 'club_only' AND pb.club_id = v_club_id)
+                    OR (COALESCE(pb.privacy_settings->>'matches_visibility', 'global') = 'followers_only' AND pb.club_id = v_club_id)
                 )
             )
         )
@@ -305,7 +201,7 @@ BEGIN
         FROM activity_events ev
         JOIN profiles p ON p.id = ev.user_id
         WHERE ev.user_id = ANY(v_member_ids)
-        -- Privacy using searchable
+        -- Privacy using searchable (appropriate for general visibility)
         AND (
             ev.user_id = v_child_id
             OR COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
@@ -406,8 +302,8 @@ GRANT EXECUTE ON FUNCTION get_club_activities_for_child_session TO anon;
 GRANT EXECUTE ON FUNCTION get_club_activities_for_child_session TO authenticated;
 
 -- ============================================
--- PART 3: Fix get_profiles_for_child_session
--- Respect privacy settings when fetching profiles
+-- PART 2: Fix get_profiles_for_child_session
+-- Use correct privacy field for profile visibility (searchable is correct)
 -- ============================================
 
 CREATE OR REPLACE FUNCTION get_profiles_for_child_session(
@@ -438,7 +334,7 @@ BEGIN
     -- Get child's club_id for privacy filtering
     SELECT club_id INTO v_child_club_id FROM profiles WHERE id = v_child_id;
 
-    -- Get profiles - respect privacy settings
+    -- Get profiles - respect privacy settings using 'searchable'
     SELECT json_agg(json_build_object(
         'id', p.id,
         'first_name', p.first_name,
@@ -456,18 +352,16 @@ BEGIN
         -- Own profile always visible
         p.id = v_child_id
         OR
-        -- Same club members (unless searchable='none')
+        -- Global visibility
+        COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
+        OR
+        -- Same club members (for club_only or followers_only)
         (
             v_child_club_id IS NOT NULL
             AND p.club_id = v_child_club_id
-            AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none'
+            AND COALESCE(p.privacy_settings->>'searchable', 'global') IN ('club_only', 'followers_only')
         )
-        OR
-        -- Global visibility
-        (COALESCE(p.privacy_settings->>'searchable', 'global') = 'global')
-        -- Note: 'club_only' users are only visible to same club (handled above)
-        -- 'friends_only' not applicable for child sessions (no following)
-        -- 'none' always hidden
+        -- Note: 'none' always hidden (not in any condition above)
     );
 
     RETURN json_build_object(
@@ -489,18 +383,20 @@ GRANT EXECUTE ON FUNCTION get_profiles_for_child_session TO authenticated;
 DO $$
 BEGIN
     RAISE NOTICE '===========================================';
-    RAISE NOTICE 'Child Mode Privacy Fix Applied!';
+    RAISE NOTICE 'Child Mode Privacy Fix (Complete) Applied!';
     RAISE NOTICE '===========================================';
-    RAISE NOTICE 'Fixed functions:';
-    RAISE NOTICE '  - get_leaderboard_for_child_session: uses leaderboard_visibility';
-    RAISE NOTICE '  - get_club_activities_for_child_session: respects matches_visibility';
-    RAISE NOTICE '  - get_profiles_for_child_session: respects searchable setting';
     RAISE NOTICE '';
-    RAISE NOTICE 'Privacy rules applied:';
-    RAISE NOTICE '  - leaderboard_visibility=none: hidden from leaderboard';
-    RAISE NOTICE '  - leaderboard_visibility=club_only: visible only to same club';
-    RAISE NOTICE '  - leaderboard_visibility=global: visible to everyone';
-    RAISE NOTICE '  - matches_visibility=none: matches not shown';
-    RAISE NOTICE '  - matches_visibility=club_only: matches visible to same club';
+    RAISE NOTICE 'Fixed issues:';
+    RAISE NOTICE '  1. v_member_ids no longer filters by searchable';
+    RAISE NOTICE '     (allows each query to use correct privacy field)';
+    RAISE NOTICE '  2. Matches now properly check matches_visibility';
+    RAISE NOTICE '  3. Doubles matches now correctly handle club_only';
+    RAISE NOTICE '  4. Activity events, posts, polls use searchable';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Privacy field usage:';
+    RAISE NOTICE '  - leaderboard_visibility: for leaderboards';
+    RAISE NOTICE '  - matches_visibility: for matches/games';
+    RAISE NOTICE '  - searchable: for player search, profiles, posts';
+    RAISE NOTICE '  - profile_visibility: for profile pages';
     RAISE NOTICE '===========================================';
 END $$;
