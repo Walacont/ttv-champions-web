@@ -365,7 +365,7 @@ function applyKidsModeUI() {
                         if (isChildMode) {
                             // Child session (logged in via code) - clear local session
                             clearChildSession();
-                            window.location.href = '/child-login.html';
+                            window.location.href = '/index.html';
                         } else {
                             // Normal auth session - sign out from Supabase
                             await supabase.auth.signOut();
@@ -414,7 +414,7 @@ async function loadUserProfile() {
             // For child mode, if profile not found, clear session and redirect
             if (isChildMode) {
                 clearChildSession();
-                window.location.href = '/child-login.html';
+                window.location.href = '/index.html';
                 return;
             }
             // No profile found - redirect to registration
