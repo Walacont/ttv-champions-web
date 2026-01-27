@@ -404,6 +404,15 @@ async function renderProfileStats(profile) {
 
     document.getElementById('stat-points').textContent = profile.points || 0;
 
+    // Child mode: use profile data if available, skip direct queries
+    if (isChildMode) {
+        // Use wins/losses from profile if available (set by RPC)
+        const totalMatches = (profile.wins || 0) + (profile.losses || 0);
+        document.getElementById('stat-matches').textContent = totalMatches;
+        document.getElementById('stat-wins').textContent = profile.wins || 0;
+        return;
+    }
+
     const supabase = getSupabase();
     const { data: matches, error } = await supabase
         .from('matches')
@@ -429,6 +438,12 @@ async function renderClubSection(profile) {
     clubSection.classList.remove('hidden');
 
     document.getElementById('club-name').textContent = profile.clubs.name;
+
+    // For child mode, we can't query profiles table directly, so skip member count
+    if (isChildMode) {
+        document.getElementById('club-members').textContent = 'Verein';
+        return;
+    }
 
     const supabase = getSupabase();
     const { count } = await supabase
@@ -460,6 +475,16 @@ function formatRelativeDate(date) {
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
     const ACTIVITY_LIMIT = 10;
+
+    // Child mode: skip activity loading (RLS prevents direct queries)
+    if (isChildMode) {
+        console.log('[ProfileView] Child mode: skipping recent activity section');
+        const activityContainer = document.getElementById('activity-list');
+        if (activityContainer) {
+            activityContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Aktivitäten verfügbar</p>';
+        }
+        return;
+    }
 
     try {
         const [singlesRes, doublesRes, postsRes] = await Promise.all([
@@ -907,6 +932,13 @@ function getProfileDisplayName(profile) {
  * Verwendet RPC-Funktion um RLS zu umgehen - Follower-Zahlen sollten für alle sichtbar sein
  */
 async function loadFollowerStats() {
+    // Child mode: hide follower stats (no social features)
+    if (isChildMode) {
+        document.getElementById('followers-count').textContent = '-';
+        document.getElementById('following-count').textContent = '-';
+        return;
+    }
+
     const supabase = getSupabase();
 
     try {
@@ -1679,19 +1711,41 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
     const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-    // Profil mit subgroup_ids laden
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('club_id, subgroup_ids')
-        .eq('id', profileId)
-        .single();
+    // Use profileUser if available (especially for child mode), otherwise query
+    let clubId, playerSubgroups;
+    if (profileUser && profileUser.id === profileId) {
+        clubId = profileUser.club_id;
+        playerSubgroups = profileUser.subgroup_ids || [];
+    } else if (!isChildMode) {
+        // Only query directly if not in child mode
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('club_id, subgroup_ids')
+            .eq('id', profileId)
+            .single();
+        clubId = profile?.club_id;
+        playerSubgroups = profile?.subgroup_ids || [];
+    } else {
+        // Child mode viewing another profile - can't query, skip calendar
+        console.log('[ProfileView] Child mode: skipping calendar for other profile');
+        return;
+    }
 
-    const clubId = profile?.club_id;
-    const playerSubgroups = profile?.subgroup_ids || [];
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
     if (!clubId) {
         console.warn('[ProfileView] No clubId found for profile, cannot load events');
+        return;
+    }
+
+    // Child mode: skip event queries (RLS prevents direct access)
+    // Show calendar with just the month view, no events
+    if (isChildMode) {
+        console.log('[ProfileView] Child mode: showing calendar without event details');
+        // Render a basic calendar without events for children
+        const relevantEvents = [];
+        const participations = [];
+        renderCalendarGrid(container, year, month, relevantEvents, participations, startDateStr, endDateStr);
         return;
     }
 
