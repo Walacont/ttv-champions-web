@@ -228,10 +228,24 @@ function setupEventListeners() {
 
     document.getElementById('child-data-form')?.addEventListener('submit', handleCreateChild);
 
-    // Step: Success
-    document.getElementById('copy-login-code')?.addEventListener('click', copyLoginCode);
-    document.getElementById('generate-new-code')?.addEventListener('click', generateNewCode);
+    // Step: Success - Credentials form
+    document.getElementById('credentials-form')?.addEventListener('submit', handleSaveCredentials);
+    document.getElementById('skip-credentials-btn')?.addEventListener('click', skipCredentials);
     document.getElementById('add-another-child')?.addEventListener('click', resetForm);
+
+    // Username input - normalize to lowercase
+    document.getElementById('child-username')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        checkUsernameAvailability(e.target.value);
+    });
+
+    // PIN input - only digits
+    document.getElementById('child-pin')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
+    document.getElementById('child-pin-confirm')?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
 }
 
 // Validate trainer code (invitation_codes table)
@@ -337,13 +351,13 @@ async function handleLinkChild() {
         createdChildId = data.child_id;
         childName = `${validatedChild.first_name || ''} ${validatedChild.last_name || ''}`.trim();
 
-        // Generate login code for the child
-        await generateLoginCode();
-
         // Update success screen
         document.getElementById('created-child-name').textContent = childName;
 
         goToStep('success');
+
+        // Suggest a username for the child
+        await suggestUsername();
 
     } catch (err) {
         console.error('[GUARDIAN-ONBOARDING] Link error:', err);
@@ -418,13 +432,13 @@ async function handleCreateChild(e) {
         createdChildId = data.child_id;
         childName = `${firstName} ${lastName}`;
 
-        // Generate login code
-        await generateLoginCode();
-
         // Update success screen
         document.getElementById('created-child-name').textContent = childName;
 
         goToStep('success');
+
+        // Suggest a username for the child
+        await suggestUsername();
 
     } catch (err) {
         console.error('[GUARDIAN-ONBOARDING] Create error:', err);
@@ -435,68 +449,184 @@ async function handleCreateChild(e) {
     }
 }
 
-// Generate login code for child
-async function generateLoginCode() {
-    if (!createdChildId) return;
+// Check username availability
+let usernameCheckTimeout = null;
+async function checkUsernameAvailability(username) {
+    const hintEl = document.getElementById('username-hint');
+    if (!hintEl) return;
+
+    // Clear previous timeout
+    if (usernameCheckTimeout) {
+        clearTimeout(usernameCheckTimeout);
+    }
+
+    if (!username || username.length < 3) {
+        hintEl.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        hintEl.classList.remove('text-red-500', 'text-green-500');
+        hintEl.classList.add('text-gray-500');
+        return;
+    }
+
+    // Debounce check
+    usernameCheckTimeout = setTimeout(async () => {
+        try {
+            const { data, error } = await supabase.rpc('check_username_available', {
+                p_username: username,
+                p_child_id: createdChildId
+            });
+
+            if (error) throw error;
+
+            if (data.available) {
+                hintEl.textContent = 'Benutzername ist verfügbar';
+                hintEl.classList.remove('text-gray-500', 'text-red-500');
+                hintEl.classList.add('text-green-500');
+            } else {
+                hintEl.textContent = data.reason || 'Benutzername nicht verfügbar';
+                hintEl.classList.remove('text-gray-500', 'text-green-500');
+                hintEl.classList.add('text-red-500');
+            }
+        } catch (err) {
+            console.error('[GUARDIAN-ONBOARDING] Username check error:', err);
+        }
+    }, 300);
+}
+
+// Save credentials for child
+async function handleSaveCredentials(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('child-username')?.value?.trim().toLowerCase();
+    const pin = document.getElementById('child-pin')?.value?.trim();
+    const pinConfirm = document.getElementById('child-pin-confirm')?.value?.trim();
+
+    const errorEl = document.getElementById('credentials-error');
+    const errorTextEl = document.getElementById('credentials-error-text');
+    const successEl = document.getElementById('credentials-success');
+    const saveBtn = document.getElementById('save-credentials-btn');
+
+    // Hide previous messages
+    errorEl?.classList.add('hidden');
+    successEl?.classList.add('hidden');
+
+    // Validation
+    if (!username || username.length < 3) {
+        showCredentialsError('Benutzername muss mindestens 3 Zeichen haben.');
+        return;
+    }
+
+    if (!pin || pin.length < 4 || pin.length > 6) {
+        showCredentialsError('PIN muss 4-6 Ziffern haben.');
+        return;
+    }
+
+    if (!/^[0-9]+$/.test(pin)) {
+        showCredentialsError('PIN darf nur Ziffern enthalten.');
+        return;
+    }
+
+    if (pin !== pinConfirm) {
+        showCredentialsError('PINs stimmen nicht überein.');
+        return;
+    }
+
+    if (!createdChildId) {
+        showCredentialsError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Speichere...';
+    }
 
     try {
-        const { data, error } = await supabase.rpc('generate_child_login_code', {
+        const { data, error } = await supabase.rpc('set_child_credentials', {
             p_child_id: createdChildId,
-            p_validity_minutes: 1440 // 24 hours
+            p_username: username,
+            p_pin: pin
         });
 
         if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Fehler beim Speichern');
 
-        if (!data.success) throw new Error(data.error);
+        // Show success
+        successEl?.classList.remove('hidden');
+        document.getElementById('credentials-success-text').textContent =
+            `Zugangsdaten gespeichert! Benutzername: ${data.username}`;
 
-        const codeEl = document.getElementById('child-login-code');
-        if (codeEl) {
-            codeEl.textContent = data.code;
+        // Hide form elements after success
+        document.getElementById('credentials-form').querySelectorAll('input, button').forEach(el => {
+            if (el.id !== 'save-credentials-btn') {
+                el.disabled = true;
+            }
+        });
+
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Gespeichert';
+            saveBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            saveBtn.classList.add('bg-green-600');
         }
 
+        document.getElementById('skip-credentials-btn')?.classList.add('hidden');
+
     } catch (err) {
-        console.error('[GUARDIAN-ONBOARDING] Error generating code:', err);
-        const codeEl = document.getElementById('child-login-code');
-        if (codeEl) codeEl.textContent = 'Fehler';
+        console.error('[GUARDIAN-ONBOARDING] Credentials save error:', err);
+        showCredentialsError(err.message || 'Fehler beim Speichern.');
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i>Zugangsdaten speichern';
+        }
     }
 }
 
-async function generateNewCode() {
-    const btn = document.getElementById('generate-new-code');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    }
+function showCredentialsError(message) {
+    const errorEl = document.getElementById('credentials-error');
+    const errorTextEl = document.getElementById('credentials-error-text');
+    if (errorTextEl) errorTextEl.textContent = message;
+    errorEl?.classList.remove('hidden');
+}
 
-    await generateLoginCode();
-
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-redo mr-1"></i>Neuer Code';
+// Skip credentials setup (can be done later in guardian-dashboard)
+function skipCredentials() {
+    // Just hide the credentials section and show a note
+    const credentialsSection = document.getElementById('credentials-form')?.closest('.bg-indigo-50');
+    if (credentialsSection) {
+        credentialsSection.innerHTML = `
+            <div class="text-center">
+                <p class="text-xs text-gray-600 mb-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Du kannst die Zugangsdaten später im Eltern-Dashboard einrichten.
+                </p>
+            </div>
+        `;
     }
 }
 
-// Copy login code
-async function copyLoginCode() {
-    const code = document.getElementById('child-login-code')?.textContent;
-    if (!code || code === '------' || code === 'Fehler') return;
+// Suggest username based on child name
+async function suggestUsername() {
+    if (!createdChildId) return;
+
+    const usernameInput = document.getElementById('child-username');
+    if (!usernameInput) return;
 
     try {
-        await navigator.clipboard.writeText(code);
+        // Extract birth year from stored data if available
+        const firstName = childName.split(' ')[0];
+        const { data } = await supabase.rpc('suggest_username', {
+            p_first_name: firstName,
+            p_birth_year: null
+        });
 
-        const btn = document.getElementById('copy-login-code');
-        if (btn) {
-            const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check mr-1"></i>Kopiert!';
-            btn.classList.add('bg-green-600');
-
-            setTimeout(() => {
-                btn.innerHTML = originalHTML;
-                btn.classList.remove('bg-green-600');
-            }, 2000);
+        if (data?.suggestions?.length > 0) {
+            usernameInput.value = data.suggestions[0];
+            usernameInput.placeholder = `z.B. ${data.suggestions.slice(0, 3).join(', ')}`;
+            checkUsernameAvailability(data.suggestions[0]);
         }
     } catch (err) {
-        console.error('Copy failed:', err);
+        console.log('[GUARDIAN-ONBOARDING] Could not get username suggestions:', err);
     }
 }
 
@@ -537,6 +667,43 @@ function resetForm() {
 
     document.getElementById('child-age-display')?.classList.add('hidden');
     document.getElementById('age-error')?.classList.add('hidden');
+
+    // Reset credentials form
+    const usernameInput = document.getElementById('child-username');
+    const pinInput = document.getElementById('child-pin');
+    const pinConfirmInput = document.getElementById('child-pin-confirm');
+    const saveBtn = document.getElementById('save-credentials-btn');
+    const skipBtn = document.getElementById('skip-credentials-btn');
+    const usernameHint = document.getElementById('username-hint');
+
+    if (usernameInput) usernameInput.value = '';
+    if (pinInput) pinInput.value = '';
+    if (pinConfirmInput) pinConfirmInput.value = '';
+
+    document.getElementById('credentials-error')?.classList.add('hidden');
+    document.getElementById('credentials-success')?.classList.add('hidden');
+
+    // Re-enable form elements
+    document.getElementById('credentials-form')?.querySelectorAll('input').forEach(el => {
+        el.disabled = false;
+    });
+
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i>Zugangsdaten speichern';
+        saveBtn.classList.remove('bg-green-600');
+        saveBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+    }
+
+    if (skipBtn) {
+        skipBtn.classList.remove('hidden');
+    }
+
+    if (usernameHint) {
+        usernameHint.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        usernameHint.classList.remove('text-red-500', 'text-green-500');
+        usernameHint.classList.add('text-gray-500');
+    }
 
     goToStep('code-question');
 }
