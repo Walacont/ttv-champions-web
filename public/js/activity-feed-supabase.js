@@ -10,12 +10,15 @@ import { loadMatchMedia } from './match-media.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
 import { isTrainingSummary, renderTrainingSummaryCard, parseTrainingSummaryContent } from './training-summary-supabase.js';
+import { getChildSession, getSessionToken } from './child-login-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
 let currentUser = null;
 let currentUserData = null;
+let isChildMode = false;
+let childSessionData = null;
 let activityOffset = 0;
 let likesDataCache = {};
 let isLoadingMore = false;
@@ -166,6 +169,11 @@ export function initActivityFeedModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     activityOffset = 0;
+
+    // Check for child session
+    childSessionData = getChildSession();
+    isChildMode = !!childSessionData || (user && user.isChild);
+    console.log('[ActivityFeed] isChildMode:', isChildMode, 'childSessionData:', !!childSessionData);
 
     if (!document.getElementById('activity-feed-styles')) {
         const style = document.createElement('style');
@@ -828,6 +836,48 @@ export async function loadActivityFeed() {
  * Get user IDs based on current filter
  */
 async function getUserIdsForFilter() {
+    // Child mode: use RPC to get club member IDs (no following support for children)
+    if (isChildMode) {
+        console.log('[ActivityFeed] Child mode: getting club members via RPC');
+        const sessionToken = getSessionToken();
+
+        if (!sessionToken) {
+            console.error('[ActivityFeed] No session token for child');
+            return [currentUser.id];
+        }
+
+        try {
+            const { data, error } = await supabase.rpc('get_club_member_ids_for_child_session', {
+                p_session_token: sessionToken
+            });
+
+            if (error) {
+                console.error('[ActivityFeed] RPC error:', error);
+                return [currentUser.id];
+            }
+
+            if (!data?.success) {
+                console.error('[ActivityFeed] RPC failed:', data?.error);
+                return [currentUser.id];
+            }
+
+            // For children, always return club members (or just self if no club)
+            const memberIds = data.member_ids || [];
+            console.log('[ActivityFeed] Got', memberIds.length, 'club members for child');
+
+            // Ensure child's own ID is included
+            if (!memberIds.includes(currentUser.id)) {
+                memberIds.push(currentUser.id);
+            }
+
+            return memberIds;
+        } catch (err) {
+            console.error('[ActivityFeed] Error getting club members for child:', err);
+            return [currentUser.id];
+        }
+    }
+
+    // Normal mode below
     if (currentFilter === 'my-activities') {
         return [currentUser.id];
     }

@@ -502,7 +502,61 @@ GRANT EXECUTE ON FUNCTION get_leaderboard_for_child_session TO anon;
 GRANT EXECUTE ON FUNCTION get_leaderboard_for_child_session TO authenticated;
 
 -- ============================================
--- PART 10: Cleanup old sessions (run periodically)
+-- PART 10: Get club member IDs for child session (activity feed)
+-- ============================================
+
+CREATE OR REPLACE FUNCTION get_club_member_ids_for_child_session(
+    p_session_token TEXT
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_session_valid BOOLEAN;
+    v_child_id UUID;
+    v_error TEXT;
+    v_club_id UUID;
+    v_member_ids JSON;
+BEGIN
+    -- Validate session token
+    SELECT is_valid, child_id, error_message
+    INTO v_session_valid, v_child_id, v_error
+    FROM validate_child_session_token(p_session_token);
+
+    IF NOT v_session_valid THEN
+        RETURN json_build_object('success', false, 'error', COALESCE(v_error, 'Ungültige Session'));
+    END IF;
+
+    -- Get child's club_id
+    SELECT club_id INTO v_club_id FROM profiles WHERE id = v_child_id;
+
+    IF v_club_id IS NULL THEN
+        RETURN json_build_object('success', true, 'member_ids', '[]'::json, 'club_id', null);
+    END IF;
+
+    -- Get all member IDs from the child's club
+    SELECT json_agg(id) INTO v_member_ids
+    FROM profiles
+    WHERE club_id = v_club_id AND is_player = true;
+
+    RETURN json_build_object(
+        'success', true,
+        'member_ids', COALESCE(v_member_ids, '[]'::json),
+        'club_id', v_club_id,
+        'child_id', v_child_id
+    );
+EXCEPTION WHEN OTHERS THEN
+    RETURN json_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_club_member_ids_for_child_session TO anon;
+GRANT EXECUTE ON FUNCTION get_club_member_ids_for_child_session TO authenticated;
+
+-- ============================================
+-- PART 11: Cleanup old sessions (run periodically)
 -- ============================================
 
 CREATE OR REPLACE FUNCTION cleanup_expired_child_sessions()

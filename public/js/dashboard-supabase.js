@@ -1754,8 +1754,29 @@ async function fetchLeaderboardData() {
                 leaderboardCache.club = [];
             }
 
-            // For children, global = club (simplified)
-            leaderboardCache.global = leaderboardCache.club;
+            // Fetch global leaderboard via RPC (null club_id = global)
+            if (sessionToken) {
+                const { data: globalData } = await supabase.rpc('get_leaderboard_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_club_id: null,
+                    p_type: 'skill',
+                    p_limit: 100
+                });
+
+                if (globalData?.success) {
+                    leaderboardCache.global = (globalData.leaderboard || []).map(p => ({
+                        ...p,
+                        role: 'player',
+                        privacy_settings: {}
+                    }));
+                } else {
+                    console.error('[Leaderboard] Global RPC error:', globalData?.error);
+                    // Fallback to club if global fails
+                    leaderboardCache.global = leaderboardCache.club;
+                }
+            } else {
+                leaderboardCache.global = leaderboardCache.club;
+            }
             return;
         }
 

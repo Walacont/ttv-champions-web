@@ -356,10 +356,10 @@ function renderChildren() {
                         </a>
                         <button
                             onclick="showCredentialsModal('${child.id}', '${escapeHtml(child.first_name)}', '${child.username || ''}')"
-                            class="text-blue-600 hover:text-blue-800 p-2"
-                            title="Zugangsdaten einrichten"
+                            class="${child.username && child.has_pin ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'} p-2"
+                            title="${child.username && child.has_pin ? 'Zugangsdaten ändern' : 'Zugangsdaten einrichten'}"
                         >
-                            <i class="fas fa-user-lock"></i>
+                            <i class="fas ${child.username && child.has_pin ? 'fa-check-circle' : 'fa-user-lock'}"></i>
                         </button>
                     </div>
                 </div>

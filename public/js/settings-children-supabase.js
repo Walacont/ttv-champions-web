@@ -228,6 +228,7 @@ function renderChildren(children) {
                     </div>
                 </div>
 
+                ${!(child.username && child.has_pin) ? `
                 <div class="flex flex-wrap gap-2">
                     <button
                         class="setup-credentials-btn flex-1 bg-blue-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors"
@@ -239,6 +240,7 @@ function renderChildren(children) {
                         Zugangsdaten einrichten
                     </button>
                 </div>
+                ` : ''}
 
                 <div class="mt-2">
                     <button

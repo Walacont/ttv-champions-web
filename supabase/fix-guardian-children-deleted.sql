@@ -43,6 +43,8 @@ BEGIN
             'club_id', p.club_id,
             'xp', p.xp,
             'elo_rating', p.elo_rating,
+            'username', p.username,
+            'has_pin', (p.pin_hash IS NOT NULL),
             'relationship', gl.relationship,
             'is_primary', gl.is_primary,
             'permissions', gl.permissions
