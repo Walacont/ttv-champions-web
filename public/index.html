@@ -355,16 +355,23 @@
                 <div class="flex border-b border-gray-200">
                     <button
                         id="email-login-tab"
-                        class="flex-1 py-3 px-4 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50"
                     >
-                        Email-Login
+                        Email
+                    </button>
+                    <button
+                        id="child-login-tab"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
+                    >
+                        <i class="fas fa-child mr-1"></i>
+                        Kinder
                     </button>
                     <button
                         id="code-login-tab"
-                        class="flex-1 py-3 px-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
                     >
-                        <i class="fas fa-child mr-1"></i>
-                        Kinder-Login
+                        <i class="fas fa-key mr-1"></i>
+                        Code
                     </button>
                 </div>
 
@@ -424,7 +431,7 @@
                 </form>
 
                 <!-- Kinder-Login mit Username + PIN -->
-                <form id="code-form" class="mt-8 space-y-6 hidden">
+                <form id="child-form" class="mt-8 space-y-6 hidden">
                     <div class="bg-pink-50 border border-pink-200 rounded-lg p-4">
                         <p class="text-sm text-pink-800 text-center">
                             <i class="fas fa-child mr-1"></i>
@@ -483,40 +490,40 @@
                         <div class="mt-4 text-center">
                             <button
                                 type="button"
-                                id="show-code-login-btn"
+                                id="show-child-code-btn"
                                 class="text-sm text-gray-500 hover:text-gray-700"
                             >
                                 <i class="fas fa-key mr-1"></i>
-                                Ich habe einen Einmal-Code
+                                Ich habe einen Einmal-Code vom Vormund
                             </button>
                         </div>
                     </div>
 
-                    <!-- One-time Code Login (Hidden by default) -->
+                    <!-- One-time Code Login for Children (Hidden by default) -->
                     <div id="child-code-login" class="hidden">
                         <div>
                             <label
-                                for="invitation-code"
+                                for="child-onetime-code"
                                 class="block text-sm font-medium text-gray-700 mb-2"
-                            >Einmal-Code</label>
+                            >Einmal-Code vom Vormund</label>
                             <input
-                                id="invitation-code"
+                                id="child-onetime-code"
                                 type="text"
-                                maxlength="11"
-                                class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
-                                placeholder="ABC123 oder TTV-XXX-YYY"
+                                maxlength="6"
+                                class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-center text-xl font-bold tracking-wider uppercase"
+                                placeholder="ABC123"
                             />
-                            <p class="mt-2 text-xs text-gray-500 text-center">Einmal-Code vom Vormund oder Einladungscode vom Verein</p>
+                            <p class="mt-2 text-xs text-gray-500 text-center">6-stelliger Code vom Elternteil/Vormund</p>
                         </div>
 
                         <div class="mt-6">
                             <button
                                 type="button"
-                                id="code-login-btn"
-                                class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                id="child-code-login-btn"
+                                class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
                             >
                                 <i class="fas fa-arrow-right mr-2"></i>
-                                Weiter
+                                Anmelden
                             </button>
                         </div>
 
@@ -530,6 +537,42 @@
                                 Zurück zum Kinder-Login
                             </button>
                         </div>
+                    </div>
+                </form>
+
+                <!-- Code-Login für Trainer und Offline-Spieler (16+) -->
+                <form id="code-form" class="mt-8 space-y-6 hidden">
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <p class="text-sm text-indigo-800 text-center">
+                            <i class="fas fa-key mr-1"></i>
+                            Anmeldung mit Einladungscode (vom Verein/Admin)
+                        </p>
+                    </div>
+
+                    <div>
+                        <label
+                            for="invitation-code"
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >Einladungscode</label>
+                        <input
+                            id="invitation-code"
+                            type="text"
+                            maxlength="11"
+                            class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
+                            placeholder="TTV-XXX-YYY"
+                        />
+                        <p class="mt-2 text-xs text-gray-500 text-center">Einladungscode vom Verein oder Admin (Format: TTV-XXX-YYY)</p>
+                    </div>
+
+                    <div>
+                        <button
+                            type="button"
+                            id="code-login-btn"
+                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            <i class="fas fa-arrow-right mr-2"></i>
+                            Weiter zur Registrierung
+                        </button>
                     </div>
                 </form>
 
