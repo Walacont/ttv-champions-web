@@ -23,7 +23,19 @@ const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 const childrenList = document.getElementById('children-list');
 const noChildrenMessage = document.getElementById('no-children-message');
-const loginCodeModal = document.getElementById('login-code-modal');
+const credentialsModal = document.getElementById('credentials-modal');
+const credentialsForm = document.getElementById('credentials-form');
+const credentialsUsername = document.getElementById('credentials-username');
+const credentialsPin = document.getElementById('credentials-pin');
+const credentialsPinConfirm = document.getElementById('credentials-pin-confirm');
+const credentialsError = document.getElementById('credentials-error');
+const credentialsErrorText = document.getElementById('credentials-error-text');
+const credentialsSuccess = document.getElementById('credentials-success');
+const credentialsSuccessText = document.getElementById('credentials-success-text');
+const credentialsSubmitBtn = document.getElementById('credentials-submit-btn');
+const usernameCheckStatus = document.getElementById('username-check-status');
+const usernameHint = document.getElementById('username-hint');
+let usernameCheckTimeout = null;
 
 // Menu Elements
 const guardianMenu = document.getElementById('guardian-menu');
@@ -343,11 +355,11 @@ function renderChildren() {
                             <i class="fas fa-cog"></i>
                         </a>
                         <button
-                            onclick="generateLoginCode('${child.id}', '${escapeHtml(child.first_name)}')"
-                            class="text-indigo-600 hover:text-indigo-800 p-2"
-                            title="Login-Code generieren"
+                            onclick="showCredentialsModal('${child.id}', '${escapeHtml(child.first_name)}', '${child.username || ''}')"
+                            class="text-blue-600 hover:text-blue-800 p-2"
+                            title="Zugangsdaten einrichten"
                         >
-                            <i class="fas fa-key"></i>
+                            <i class="fas fa-user-lock"></i>
                         </button>
                     </div>
                 </div>
@@ -450,39 +462,140 @@ window.clearAllNotifications = async function(childId) {
     }
 };
 
-// Generate login code for a child
-window.generateLoginCode = async function(childId, childName) {
+// Show credentials modal for a child
+window.showCredentialsModal = async function(childId, childName, existingUsername = '') {
     currentChildId = childId;
 
-    // Show modal
+    // Update modal title
     document.getElementById('modal-child-name').textContent = childName;
-    document.getElementById('modal-login-code').textContent = '......';
-    loginCodeModal.classList.remove('hidden');
 
-    // Generate code
+    // Reset form
+    if (credentialsUsername) {
+        credentialsUsername.value = existingUsername || '';
+    }
+    if (credentialsPin) credentialsPin.value = '';
+    if (credentialsPinConfirm) credentialsPinConfirm.value = '';
+    credentialsError?.classList.add('hidden');
+    credentialsSuccess?.classList.add('hidden');
+    if (usernameCheckStatus) usernameCheckStatus.innerHTML = '';
+    if (usernameHint) {
+        usernameHint.textContent = '3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche';
+        usernameHint.classList.remove('text-red-500', 'text-green-500');
+        usernameHint.classList.add('text-gray-500');
+    }
+
+    if (credentialsSubmitBtn) {
+        credentialsSubmitBtn.disabled = false;
+        credentialsSubmitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Zugangsdaten speichern';
+    }
+
+    // If no existing username, get suggestions
+    if (!existingUsername) {
+        const child = children.find(c => c.id === childId);
+        if (child?.first_name) {
+            const birthYear = child.birthdate ? new Date(child.birthdate).getFullYear() : null;
+            try {
+                const { data } = await supabase.rpc('suggest_username', {
+                    p_first_name: child.first_name,
+                    p_birth_year: birthYear
+                });
+                if (data?.suggestions?.length > 0) {
+                    if (credentialsUsername) {
+                        credentialsUsername.value = data.suggestions[0];
+                        credentialsUsername.placeholder = `z.B. ${data.suggestions.slice(0, 3).join(', ')}`;
+                    }
+                }
+            } catch (e) {
+                console.log('[GUARDIAN-DASHBOARD] Could not get username suggestions:', e);
+            }
+        }
+    }
+
+    credentialsModal?.classList.remove('hidden');
+    credentialsUsername?.focus();
+};
+
+// Save child credentials
+async function saveCredentials() {
+    const username = credentialsUsername?.value?.trim().toLowerCase();
+    const pin = credentialsPin?.value?.trim();
+    const pinConfirm = credentialsPinConfirm?.value?.trim();
+
+    // Validation
+    if (!username || username.length < 3) {
+        showCredentialsError('Benutzername muss mindestens 3 Zeichen haben.');
+        return;
+    }
+
+    if (!pin || pin.length < 4 || pin.length > 6) {
+        showCredentialsError('PIN muss 4-6 Ziffern haben.');
+        return;
+    }
+
+    if (!/^[0-9]+$/.test(pin)) {
+        showCredentialsError('PIN darf nur Ziffern enthalten.');
+        return;
+    }
+
+    if (pin !== pinConfirm) {
+        showCredentialsError('Die PINs stimmen nicht überein.');
+        return;
+    }
+
+    if (!currentChildId) {
+        showCredentialsError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button and show loading
+    if (credentialsSubmitBtn) {
+        credentialsSubmitBtn.disabled = true;
+        credentialsSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+    }
+
     try {
-        const { data, error } = await supabase.rpc('generate_child_login_code', {
-            p_child_id: childId,
-            p_validity_minutes: 1440 // 24 hours
+        const { data, error } = await supabase.rpc('set_child_credentials', {
+            p_child_id: currentChildId,
+            p_username: username,
+            p_pin: pin
         });
 
-        if (error) {
-            throw error;
+        if (error) throw error;
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Speichern der Zugangsdaten');
         }
 
-        if (!data.success) {
-            throw new Error(data.error);
+        // Show success
+        credentialsError?.classList.add('hidden');
+        if (credentialsSuccessText) {
+            credentialsSuccessText.textContent = `Zugangsdaten gespeichert! Benutzername: ${data.username}`;
         }
+        credentialsSuccess?.classList.remove('hidden');
 
-        document.getElementById('modal-login-code').textContent = data.code;
-        console.log('[GUARDIAN-DASHBOARD] Login code generated:', data.code);
+        // Refresh children list after a short delay
+        setTimeout(async () => {
+            await loadChildren();
+            credentialsModal?.classList.add('hidden');
+            currentChildId = null;
+        }, 2000);
 
-    } catch (err) {
-        console.error('[GUARDIAN-DASHBOARD] Error generating code:', err);
-        document.getElementById('modal-login-code').textContent = 'Fehler';
-        alert('Fehler beim Generieren des Codes: ' + err.message);
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Credentials save error:', error);
+        showCredentialsError(error.message || 'Fehler beim Speichern. Bitte versuche es erneut.');
+
+        if (credentialsSubmitBtn) {
+            credentialsSubmitBtn.disabled = false;
+            credentialsSubmitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Zugangsdaten speichern';
+        }
     }
-};
+}
+
+function showCredentialsError(message) {
+    if (credentialsErrorText) credentialsErrorText.textContent = message;
+    credentialsError?.classList.remove('hidden');
+    credentialsSuccess?.classList.add('hidden');
+}
 
 // Open menu
 function openMenu() {
@@ -640,48 +753,85 @@ function setupEventListeners() {
         confirmSportSelectBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Bestätigen';
     });
 
-    // Close modal
-    document.getElementById('close-code-modal')?.addEventListener('click', () => {
-        loginCodeModal.classList.add('hidden');
+    // Close credentials modal
+    document.getElementById('close-credentials-modal')?.addEventListener('click', () => {
+        credentialsModal?.classList.add('hidden');
         currentChildId = null;
     });
 
-    // Close modal on backdrop click
-    loginCodeModal?.addEventListener('click', (e) => {
-        if (e.target === loginCodeModal) {
-            loginCodeModal.classList.add('hidden');
+    // Close credentials modal on backdrop click
+    credentialsModal?.addEventListener('click', (e) => {
+        if (e.target === credentialsModal) {
+            credentialsModal.classList.add('hidden');
             currentChildId = null;
         }
     });
 
-    // Copy code
-    document.getElementById('copy-modal-code')?.addEventListener('click', async () => {
-        const code = document.getElementById('modal-login-code').textContent;
-        if (!code || code === '......' || code === 'Fehler') return;
-
-        try {
-            await navigator.clipboard.writeText(code);
-
-            const btn = document.getElementById('copy-modal-code');
-            const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
-            btn.classList.add('bg-green-600');
-
-            setTimeout(() => {
-                btn.innerHTML = originalHTML;
-                btn.classList.remove('bg-green-600');
-            }, 2000);
-        } catch (err) {
-            console.error('Copy failed:', err);
-        }
+    // Handle credentials form submission
+    credentialsForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveCredentials();
     });
 
-    // Regenerate code
-    document.getElementById('regenerate-modal-code')?.addEventListener('click', async () => {
-        if (!currentChildId) return;
+    // Real-time username validation
+    credentialsUsername?.addEventListener('input', (e) => {
+        // Normalize to lowercase
+        e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '');
 
-        const childName = document.getElementById('modal-child-name').textContent;
-        await window.generateLoginCode(currentChildId, childName);
+        // Debounce the availability check
+        if (usernameCheckTimeout) clearTimeout(usernameCheckTimeout);
+
+        if (usernameCheckStatus) usernameCheckStatus.innerHTML = '';
+
+        const username = e.target.value;
+        if (username.length < 3) {
+            if (usernameHint) {
+                usernameHint.textContent = 'Mindestens 3 Zeichen erforderlich';
+                usernameHint.classList.remove('text-green-500', 'text-gray-500');
+                usernameHint.classList.add('text-red-500');
+            }
+            return;
+        }
+
+        if (usernameHint) {
+            usernameHint.textContent = 'Prüfe Verfügbarkeit...';
+            usernameHint.classList.remove('text-red-500', 'text-green-500');
+            usernameHint.classList.add('text-gray-500');
+        }
+        if (usernameCheckStatus) {
+            usernameCheckStatus.innerHTML = '<i class="fas fa-spinner fa-spin text-gray-400"></i>';
+        }
+
+        usernameCheckTimeout = setTimeout(async () => {
+            try {
+                const { data } = await supabase.rpc('check_username_available', {
+                    p_username: username,
+                    p_child_id: currentChildId
+                });
+
+                if (data?.available) {
+                    if (usernameHint) {
+                        usernameHint.textContent = `"${data.normalized}" ist verfügbar`;
+                        usernameHint.classList.remove('text-red-500', 'text-gray-500');
+                        usernameHint.classList.add('text-green-500');
+                    }
+                    if (usernameCheckStatus) {
+                        usernameCheckStatus.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                    }
+                } else {
+                    if (usernameHint) {
+                        usernameHint.textContent = data?.reason || 'Benutzername nicht verfügbar';
+                        usernameHint.classList.remove('text-green-500', 'text-gray-500');
+                        usernameHint.classList.add('text-red-500');
+                    }
+                    if (usernameCheckStatus) {
+                        usernameCheckStatus.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+                    }
+                }
+            } catch (error) {
+                console.error('[GUARDIAN-DASHBOARD] Username check error:', error);
+            }
+        }, 500);
     });
 }
 

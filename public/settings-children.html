@@ -134,57 +134,9 @@
                         <h4 class="font-semibold text-blue-800">So funktioniert die Anmeldung</h4>
                         <ul class="text-sm text-blue-700 mt-2 space-y-1">
                             <li><i class="fas fa-user-lock mr-2"></i><strong>Zugangsdaten:</strong> Richte Benutzername + PIN ein, damit sich dein Kind selbst anmelden kann.</li>
-                            <li><i class="fas fa-key mr-2"></i><strong>Einmal-Code:</strong> Für Notfälle oder erstmalige Anmeldung auf neuen Geräten.</li>
                             <li><i class="fas fa-graduation-cap mr-2"></i><strong>Ab 16 Jahren:</strong> Kinder können auf einen eigenen Account upgraden.</li>
                         </ul>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal: Generate Login Code -->
-        <div id="login-code-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
-            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
-                <div class="text-center mb-6">
-                    <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-3">
-                        <i class="fas fa-key text-2xl text-green-600"></i>
-                    </div>
-                    <h2 class="text-xl font-bold text-gray-900">Login-Code</h2>
-                    <p id="login-code-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
-                </div>
-
-                <div id="login-code-loading" class="text-center py-4">
-                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
-                </div>
-
-                <div id="login-code-display" class="hidden">
-                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
-                        <p id="login-code-value" class="text-3xl font-mono font-bold text-indigo-600 tracking-wider"></p>
-                    </div>
-                    <p class="text-sm text-gray-600 text-center mb-4">
-                        <i class="fas fa-clock mr-1"></i>
-                        Gültig für <span id="login-code-validity">24 Stunden</span>
-                    </p>
-                    <button
-                        id="copy-login-code"
-                        class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors mb-2"
-                    >
-                        <i class="fas fa-copy mr-2"></i>
-                        Code kopieren
-                    </button>
-                </div>
-
-                <div id="login-code-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                    <p class="text-sm text-red-700">
-                        <i class="fas fa-exclamation-circle mr-2"></i>
-                        <span id="login-code-error-text"></span>
-                    </p>
-                </div>
-
-                <div class="mt-4 text-center">
-                    <button id="close-login-code-modal" class="text-gray-500 hover:text-gray-700 text-sm">
-                        Schließen
-                    </button>
                 </div>
             </div>
         </div>

@@ -9,18 +9,6 @@ const mainContent = document.getElementById('main-content');
 const childrenList = document.getElementById('children-list');
 const noChildrenState = document.getElementById('no-children');
 
-// Login code modal elements
-const loginCodeModal = document.getElementById('login-code-modal');
-const loginCodeChildName = document.getElementById('login-code-child-name');
-const loginCodeLoading = document.getElementById('login-code-loading');
-const loginCodeDisplay = document.getElementById('login-code-display');
-const loginCodeValue = document.getElementById('login-code-value');
-const loginCodeValidity = document.getElementById('login-code-validity');
-const loginCodeError = document.getElementById('login-code-error');
-const loginCodeErrorText = document.getElementById('login-code-error-text');
-const copyLoginCodeBtn = document.getElementById('copy-login-code');
-const closeLoginCodeModal = document.getElementById('close-login-code-modal');
-
 // Invite guardian modal elements
 const inviteGuardianModal = document.getElementById('invite-guardian-modal');
 const inviteGuardianChildName = document.getElementById('invite-guardian-child-name');
@@ -248,15 +236,7 @@ function renderChildren(children) {
                         data-child-username="${child.username || ''}"
                     >
                         <i class="fas fa-user-lock mr-1"></i>
-                        Zugangsdaten
-                    </button>
-                    <button
-                        class="generate-login-code-btn flex-1 bg-green-600 text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors"
-                        data-child-id="${childId}"
-                        data-child-name="${child.first_name}"
-                    >
-                        <i class="fas fa-key mr-1"></i>
-                        Einmal-Code
+                        Zugangsdaten einrichten
                     </button>
                 </div>
 
@@ -304,14 +284,6 @@ function renderChildren(children) {
     }).join('');
 
     // Add event listeners
-    document.querySelectorAll('.generate-login-code-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const childId = e.currentTarget.dataset.childId;
-            const childName = e.currentTarget.dataset.childName;
-            showLoginCodeModal(childId, childName);
-        });
-    });
-
     document.querySelectorAll('.invite-guardian-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const childId = e.currentTarget.dataset.childId;
@@ -352,69 +324,6 @@ function calculateAge(birthdate) {
     }
     return age;
 }
-
-// =====================================================
-// Login Code Modal
-// =====================================================
-
-/**
- * Show login code modal and generate code
- */
-async function showLoginCodeModal(childId, childName) {
-    loginCodeChildName.textContent = `für ${childName}`;
-    loginCodeLoading?.classList.remove('hidden');
-    loginCodeDisplay?.classList.add('hidden');
-    loginCodeError?.classList.add('hidden');
-    loginCodeModal?.classList.remove('hidden');
-
-    try {
-        // Generate login code via RPC (validity 1440 minutes = 24 hours)
-        const { data, error } = await supabase.rpc('generate_child_login_code', {
-            p_child_id: childId,
-            p_validity_minutes: 1440
-        });
-
-        if (error) {
-            throw error;
-        }
-
-        if (!data?.success) {
-            throw new Error(data?.error || 'Fehler beim Generieren des Codes');
-        }
-
-        loginCodeValue.textContent = data.code;
-        loginCodeValidity.textContent = '24 Stunden';
-        loginCodeLoading?.classList.add('hidden');
-        loginCodeDisplay?.classList.remove('hidden');
-
-    } catch (error) {
-        console.error('Error generating login code:', error);
-        loginCodeLoading?.classList.add('hidden');
-        loginCodeErrorText.textContent = error.message || 'Fehler beim Generieren des Codes';
-        loginCodeError?.classList.remove('hidden');
-    }
-}
-
-// Close login code modal
-closeLoginCodeModal?.addEventListener('click', () => {
-    loginCodeModal?.classList.add('hidden');
-});
-
-// Copy login code
-copyLoginCodeBtn?.addEventListener('click', async () => {
-    const code = loginCodeValue?.textContent;
-    if (code) {
-        try {
-            await navigator.clipboard.writeText(code);
-            copyLoginCodeBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
-            setTimeout(() => {
-                copyLoginCodeBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Code kopieren';
-            }, 2000);
-        } catch (error) {
-            console.error('Copy failed:', error);
-        }
-    }
-});
 
 // =====================================================
 // Invite Guardian Modal
@@ -480,12 +389,6 @@ copyInviteCodeBtn?.addEventListener('click', async () => {
 });
 
 // Close modals on backdrop click
-loginCodeModal?.addEventListener('click', (e) => {
-    if (e.target === loginCodeModal) {
-        loginCodeModal.classList.add('hidden');
-    }
-});
-
 inviteGuardianModal?.addEventListener('click', (e) => {
     if (e.target === inviteGuardianModal) {
         inviteGuardianModal.classList.add('hidden');
