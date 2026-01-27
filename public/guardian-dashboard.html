@@ -69,14 +69,18 @@
             <!-- Simple Header with separate guardian menu -->
             <header style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
                 <div class="flex justify-between items-center h-12 px-4 max-w-4xl mx-auto">
-                    <!-- Left: Menu button -->
+                    <!-- Left: Menu button (hidden when from=settings) -->
                     <button id="open-menu-btn" class="text-gray-600 hover:text-indigo-600 transition-colors p-1">
                         <i class="fas fa-bars text-lg"></i>
                     </button>
-                    <h1 class="text-base font-semibold text-gray-900">Eltern-Dashboard</h1>
-                    <a href="/guardian-onboarding.html" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufuegen">
-                        <i class="fas fa-plus text-lg"></i>
+                    <!-- Left: Back button (shown when from=settings) -->
+                    <a id="back-to-settings-btn" href="/settings.html" class="hidden text-gray-600 hover:text-indigo-600 transition-colors p-1">
+                        <i class="fas fa-arrow-left text-lg"></i>
                     </a>
+                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Eltern-Dashboard</h1>
+                    <button id="add-child-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen">
+                        <i class="fas fa-plus text-lg"></i>
+                    </button>
                 </div>
             </header>
 
@@ -268,6 +272,373 @@
                         Zugangsdaten speichern
                     </button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal: Add Child -->
+        <div id="add-child-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-full mb-3">
+                        <i class="fas fa-child text-2xl text-indigo-600"></i>
+                    </div>
+                    <h2 id="add-child-modal-title" class="text-xl font-bold text-gray-900">Kind hinzufügen</h2>
+                    <p id="add-child-modal-subtitle" class="text-gray-600 text-sm mt-1">Wie möchtest du das Kind hinzufügen?</p>
+                </div>
+
+                <!-- Step 0: Choose method -->
+                <div id="add-child-step-choice">
+                    <div class="space-y-3">
+                        <!-- Option: With code -->
+                        <button
+                            type="button"
+                            id="btn-with-code"
+                            class="w-full border border-gray-200 rounded-lg p-4 hover:border-indigo-400 hover:bg-indigo-50 transition text-left flex items-center gap-3"
+                        >
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-ticket-alt text-indigo-600"></i>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-900 text-sm block">Ich habe einen Einladungscode</span>
+                                <span class="text-xs text-gray-500">Code eingeben</span>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+                        </button>
+
+                        <!-- Option: Manual -->
+                        <button
+                            type="button"
+                            id="btn-manual"
+                            class="w-full border border-gray-200 rounded-lg p-4 hover:border-indigo-400 hover:bg-indigo-50 transition text-left flex items-center gap-3"
+                        >
+                            <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-user-plus text-gray-600"></i>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-900 text-sm block">Kind manuell hinzufügen</span>
+                                <span class="text-xs text-gray-500">Daten selbst eingeben</span>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 1: Enter Code -->
+                <div id="add-child-step-code" class="hidden">
+                    <div class="mb-4">
+                        <label for="invitation-code-input" class="block text-sm font-medium text-gray-700 mb-1">
+                            Einladungscode
+                        </label>
+                        <input
+                            type="text"
+                            id="invitation-code-input"
+                            placeholder="z.B. TTV-ABC-123"
+                            class="w-full px-4 py-3 text-center text-lg font-mono uppercase border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            maxlength="11"
+                        />
+                    </div>
+
+                    <div id="add-child-code-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="add-child-code-error-text"></span>
+                        </p>
+                    </div>
+
+                    <button
+                        id="validate-code-btn"
+                        class="w-full bg-pink-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors"
+                    >
+                        <i class="fas fa-search mr-2"></i>
+                        Code prüfen
+                    </button>
+                </div>
+
+                <!-- Step 2: Confirm Child -->
+                <div id="add-child-step-confirm" class="hidden">
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                                <span id="child-preview-initial">?</span>
+                            </div>
+                            <div>
+                                <h3 id="child-preview-name" class="font-semibold text-gray-900 text-lg">Kind Name</h3>
+                                <p id="child-preview-age" class="text-sm text-gray-500">Alter unbekannt</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        Möchtest du dieses Kind mit deinem Account verknüpfen?
+                    </p>
+
+                    <div id="add-child-confirm-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="add-child-confirm-error-text"></span>
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button
+                            id="back-to-code-btn"
+                            class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Zurück
+                        </button>
+                        <button
+                            id="confirm-link-btn"
+                            class="flex-1 bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                            <i class="fas fa-check mr-2"></i>
+                            Verknüpfen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Success -->
+                <div id="add-child-step-success" class="hidden text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                        <i class="fas fa-check text-3xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Kind erfolgreich hinzugefügt!</h3>
+                    <p id="add-child-success-name" class="text-gray-600 mb-4">Name wurde hinzugefügt</p>
+                    <button
+                        id="add-child-done-btn"
+                        class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        Fertig
+                    </button>
+                </div>
+
+                <!-- Step: Manual Entry -->
+                <div id="add-child-step-manual" class="hidden">
+                    <form id="manual-child-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="manual-first-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Vorname <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="manual-first-name"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label for="manual-last-name" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Nachname <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="manual-last-name"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="manual-birthdate" class="block text-sm font-medium text-gray-700 mb-1">
+                                Geburtsdatum <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                id="manual-birthdate"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div>
+                            <label for="manual-gender" class="block text-sm font-medium text-gray-700 mb-1">
+                                Geschlecht
+                            </label>
+                            <select
+                                id="manual-gender"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                <option value="">Bitte wählen</option>
+                                <option value="male">Männlich</option>
+                                <option value="female">Weiblich</option>
+                                <option value="diverse">Divers</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="manual-sport" class="block text-sm font-medium text-gray-700 mb-1">
+                                Sportart <span class="text-red-500">*</span>
+                            </label>
+                            <select
+                                id="manual-sport"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                <option value="">Bitte wählen...</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-700">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Das Kind kann später über die Einstellungen einem Verein beitreten.
+                            </p>
+                        </div>
+
+                        <div id="manual-child-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+                            <p class="text-sm text-red-700">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span id="manual-child-error-text"></span>
+                            </p>
+                        </div>
+
+                        <div class="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                id="back-to-choice-btn"
+                                class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                            >
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Zurück
+                            </button>
+                            <button
+                                type="submit"
+                                id="submit-manual-child-btn"
+                                class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                <i class="fas fa-check mr-2"></i>
+                                Hinzufügen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="close-add-child-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Abbrechen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Invite Second Guardian -->
+        <div id="invite-guardian-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-purple-100 rounded-full mb-3">
+                        <i class="fas fa-user-plus text-2xl text-purple-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Vormund einladen</h2>
+                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                </div>
+
+                <div id="invite-guardian-loading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                </div>
+
+                <div id="invite-guardian-display" class="hidden">
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        Teile diesen Code mit dem anderen Vormund (z.B. Partner).
+                        Der Vormund muss sich registrieren und den Code eingeben.
+                    </p>
+                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
+                        <p id="invite-guardian-code" class="text-2xl font-mono font-bold text-purple-600 tracking-wider"></p>
+                    </div>
+                    <p class="text-sm text-gray-600 text-center mb-4">
+                        <i class="fas fa-clock mr-1"></i>
+                        Gültig für <span id="invite-guardian-validity">48 Stunden</span>
+                    </p>
+                    <button
+                        id="copy-invite-code"
+                        class="w-full bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors mb-2"
+                    >
+                        <i class="fas fa-copy mr-2"></i>
+                        Code kopieren
+                    </button>
+                </div>
+
+                <div id="invite-guardian-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p class="text-sm text-red-700">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span id="invite-guardian-error-text"></span>
+                    </p>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button id="close-invite-guardian-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Child Upgrade (for children 16+) -->
+        <div id="child-upgrade-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-3">
+                        <i class="fas fa-graduation-cap text-2xl text-green-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Account-Upgrade</h2>
+                    <p id="upgrade-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-blue-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Mit 16 Jahren kann dein Kind einen eigenen Account erstellen und sich selbst anmelden.
+                    </p>
+                </div>
+
+                <form id="child-upgrade-form" class="space-y-4">
+                    <div>
+                        <label for="upgrade-email" class="block text-sm font-medium text-gray-700 mb-1">
+                            E-Mail-Adresse des Kindes <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="email"
+                            id="upgrade-email"
+                            required
+                            placeholder="kind@example.com"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <div id="upgrade-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p class="text-sm text-red-700">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="upgrade-error-text"></span>
+                        </p>
+                    </div>
+
+                    <div id="upgrade-success" class="hidden bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p class="text-sm text-green-700">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span id="upgrade-success-text"></span>
+                        </p>
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="upgrade-submit-btn"
+                        class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <i class="fas fa-arrow-up mr-2"></i>
+                        Upgrade starten
+                    </button>
+                </form>
+
+                <p class="text-xs text-gray-500 text-center mt-4">
+                    Das Kind erhält eine E-Mail zur Bestätigung und kann dann ein Passwort setzen.
+                </p>
+
+                <div class="mt-4 text-center">
+                    <button id="close-upgrade-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                        Schließen
+                    </button>
+                </div>
             </div>
         </div>
 

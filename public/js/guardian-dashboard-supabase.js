@@ -17,6 +17,13 @@ let currentProfile = null;
 let children = [];
 let currentChildId = null; // For modal
 let initialized = false;
+let validatedCodeData = null; // For add child via code
+let sportsData = []; // Cache for sports
+let upgradeChildId = null; // For upgrade modal
+
+// Check if coming from settings
+const urlParams = new URLSearchParams(window.location.search);
+const fromSettings = urlParams.get('from') === 'settings';
 
 // DOM Elements
 const pageLoader = document.getElementById('page-loader');
@@ -42,10 +49,72 @@ const guardianMenu = document.getElementById('guardian-menu');
 const menuBackdrop = document.getElementById('menu-backdrop');
 const menuPanel = document.getElementById('menu-panel');
 const openMenuBtn = document.getElementById('open-menu-btn');
+const backToSettingsBtn = document.getElementById('back-to-settings-btn');
+const headerTitle = document.getElementById('header-title');
 const switchToPlayerBtn = document.getElementById('switch-to-player-btn');
 const becomePlayerBtn = document.getElementById('become-player-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const menuUserName = document.getElementById('menu-user-name');
+
+// Add Child Modal Elements
+const addChildModal = document.getElementById('add-child-modal');
+const addChildBtn = document.getElementById('add-child-btn');
+const addChildModalTitle = document.getElementById('add-child-modal-title');
+const addChildModalSubtitle = document.getElementById('add-child-modal-subtitle');
+const addChildStepChoice = document.getElementById('add-child-step-choice');
+const btnWithCode = document.getElementById('btn-with-code');
+const btnManual = document.getElementById('btn-manual');
+const invitationCodeInput = document.getElementById('invitation-code-input');
+const validateCodeBtn = document.getElementById('validate-code-btn');
+const addChildCodeError = document.getElementById('add-child-code-error');
+const addChildCodeErrorText = document.getElementById('add-child-code-error-text');
+const addChildStepCode = document.getElementById('add-child-step-code');
+const addChildStepConfirm = document.getElementById('add-child-step-confirm');
+const addChildStepSuccess = document.getElementById('add-child-step-success');
+const addChildStepManual = document.getElementById('add-child-step-manual');
+const childPreviewInitial = document.getElementById('child-preview-initial');
+const childPreviewName = document.getElementById('child-preview-name');
+const childPreviewAge = document.getElementById('child-preview-age');
+const backToCodeBtn = document.getElementById('back-to-code-btn');
+const backToChoiceBtn = document.getElementById('back-to-choice-btn');
+const confirmLinkBtn = document.getElementById('confirm-link-btn');
+const addChildConfirmError = document.getElementById('add-child-confirm-error');
+const addChildConfirmErrorText = document.getElementById('add-child-confirm-error-text');
+const addChildSuccessName = document.getElementById('add-child-success-name');
+const addChildDoneBtn = document.getElementById('add-child-done-btn');
+const closeAddChildModal = document.getElementById('close-add-child-modal');
+const manualChildForm = document.getElementById('manual-child-form');
+const manualFirstName = document.getElementById('manual-first-name');
+const manualLastName = document.getElementById('manual-last-name');
+const manualBirthdate = document.getElementById('manual-birthdate');
+const manualGender = document.getElementById('manual-gender');
+const manualSport = document.getElementById('manual-sport');
+const manualChildError = document.getElementById('manual-child-error');
+const manualChildErrorText = document.getElementById('manual-child-error-text');
+
+// Invite Guardian Modal Elements
+const inviteGuardianModal = document.getElementById('invite-guardian-modal');
+const inviteGuardianChildName = document.getElementById('invite-guardian-child-name');
+const inviteGuardianLoading = document.getElementById('invite-guardian-loading');
+const inviteGuardianDisplay = document.getElementById('invite-guardian-display');
+const inviteGuardianCode = document.getElementById('invite-guardian-code');
+const inviteGuardianValidity = document.getElementById('invite-guardian-validity');
+const inviteGuardianError = document.getElementById('invite-guardian-error');
+const inviteGuardianErrorText = document.getElementById('invite-guardian-error-text');
+const copyInviteCodeBtn = document.getElementById('copy-invite-code');
+const closeInviteGuardianModal = document.getElementById('close-invite-guardian-modal');
+
+// Child Upgrade Modal Elements
+const childUpgradeModal = document.getElementById('child-upgrade-modal');
+const upgradeChildNameEl = document.getElementById('upgrade-child-name');
+const childUpgradeForm = document.getElementById('child-upgrade-form');
+const upgradeEmail = document.getElementById('upgrade-email');
+const upgradeError = document.getElementById('upgrade-error');
+const upgradeErrorText = document.getElementById('upgrade-error-text');
+const upgradeSuccess = document.getElementById('upgrade-success');
+const upgradeSuccessText = document.getElementById('upgrade-success-text');
+const upgradeSubmitBtn = document.getElementById('upgrade-submit-btn');
+const closeUpgradeModal = document.getElementById('close-upgrade-modal');
 
 // Sport Selection Modal Elements
 const sportSelectModal = document.getElementById('sport-select-modal');
@@ -92,6 +161,13 @@ async function initializeWithUser(user) {
             // Pure guardian - show become player button
             switchToPlayerBtn?.classList.add('hidden');
             becomePlayerBtn?.classList.remove('hidden');
+        }
+
+        // Handle from=settings mode - show back button instead of menu
+        if (fromSettings) {
+            openMenuBtn?.classList.add('hidden');
+            backToSettingsBtn?.classList.remove('hidden');
+            if (headerTitle) headerTitle.textContent = 'Meine Kinder';
         }
 
         // Load children using RPC
@@ -412,6 +488,26 @@ function renderChildren() {
                         ${notificationsHtml}
                     </div>
                 </div>
+
+                <!-- Action Buttons -->
+                <div class="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+                    <button
+                        onclick="showInviteGuardianModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
+                        class="w-full bg-purple-100 text-purple-700 text-xs font-medium py-2 px-3 rounded-lg hover:bg-purple-200 transition-colors"
+                    >
+                        <i class="fas fa-user-plus mr-1"></i>
+                        Weiteren Vormund einladen
+                    </button>
+                    ${age >= 16 ? `
+                        <button
+                            onclick="showUpgradeModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
+                            class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-xs font-medium py-2 px-3 rounded-lg hover:from-green-600 hover:to-teal-600 transition-colors"
+                        >
+                            <i class="fas fa-graduation-cap mr-1"></i>
+                            Eigenen Account erstellen (16+)
+                        </button>
+                    ` : ''}
+                </div>
             </div>
         `;
     }).join('');
@@ -437,6 +533,16 @@ window.deleteNotification = async function(notificationId, childId) {
         console.error('[GUARDIAN-DASHBOARD] Error deleting notification:', err);
         alert('Fehler beim Löschen der Mitteilung');
     }
+};
+
+// Show invite guardian modal (exposed to window for onclick)
+window.showInviteGuardianModal = function(childId, childName) {
+    showInviteGuardianModal(childId, childName);
+};
+
+// Show upgrade modal (exposed to window for onclick)
+window.showUpgradeModal = function(childId, childName) {
+    showUpgradeModal(childId, childName);
 };
 
 // Clear all notifications for a child
@@ -598,6 +704,474 @@ function showCredentialsError(message) {
     credentialsSuccess?.classList.add('hidden');
 }
 
+// =====================================================
+// Add Child Modal Functions
+// =====================================================
+
+function showAddChildModal() {
+    // Reset to choice step
+    addChildStepChoice?.classList.remove('hidden');
+    addChildStepCode?.classList.add('hidden');
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepSuccess?.classList.add('hidden');
+    addChildStepManual?.classList.add('hidden');
+    addChildCodeError?.classList.add('hidden');
+    addChildConfirmError?.classList.add('hidden');
+    manualChildError?.classList.add('hidden');
+    if (invitationCodeInput) invitationCodeInput.value = '';
+    if (manualChildForm) manualChildForm.reset();
+    validatedCodeData = null;
+
+    // Reset title
+    if (addChildModalTitle) addChildModalTitle.textContent = 'Kind hinzufügen';
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Wie möchtest du das Kind hinzufügen?';
+
+    addChildModal?.classList.remove('hidden');
+}
+
+function showCodeStep() {
+    addChildStepChoice?.classList.add('hidden');
+    addChildStepCode?.classList.remove('hidden');
+    addChildCodeError?.classList.add('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Gib den Einladungscode vom Trainer ein';
+    invitationCodeInput?.focus();
+}
+
+async function showManualStep() {
+    addChildStepChoice?.classList.add('hidden');
+    addChildStepManual?.classList.remove('hidden');
+    manualChildError?.classList.add('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Gib die Daten deines Kindes ein';
+
+    // Load sports if not already loaded
+    if (sportsData.length === 0) {
+        await loadSportsForManualChild();
+    }
+
+    manualFirstName?.focus();
+}
+
+async function loadSportsForManualChild() {
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        sportsData = sports || [];
+
+        // Populate sport dropdown
+        if (manualSport && sports) {
+            manualSport.innerHTML = '<option value="">Bitte wählen...</option>';
+            sports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = sport.display_name || sport.name;
+                manualSport.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading sports:', error);
+    }
+}
+
+function backToChoice() {
+    addChildStepCode?.classList.add('hidden');
+    addChildStepManual?.classList.add('hidden');
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepChoice?.classList.remove('hidden');
+    if (addChildModalSubtitle) addChildModalSubtitle.textContent = 'Wie möchtest du das Kind hinzufügen?';
+}
+
+async function validateInvitationCode() {
+    const code = invitationCodeInput?.value?.trim().toUpperCase();
+
+    if (!code) {
+        showAddChildCodeError('Bitte gib einen Code ein.');
+        return;
+    }
+
+    // Basic format validation (TTV-XXX-YYY)
+    if (!/^TTV-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(code)) {
+        showAddChildCodeError('Ungültiges Code-Format. Erwartet: TTV-XXX-YYY');
+        return;
+    }
+
+    // Show loading state
+    if (validateCodeBtn) {
+        validateCodeBtn.disabled = true;
+        validateCodeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Prüfe...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('validate_guardian_invitation_code', {
+            p_code: code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.valid) {
+            showAddChildCodeError(data?.error || 'Ungültiger Code');
+            return;
+        }
+
+        // Store validated data
+        validatedCodeData = {
+            code: code,
+            child: data.child,
+            code_id: data.code_id,
+            needs_profile: data.needs_profile || false
+        };
+
+        // Show child preview
+        showChildPreview(data.child);
+
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error validating code:', error);
+        showAddChildCodeError(error.message || 'Fehler beim Prüfen des Codes');
+    } finally {
+        if (validateCodeBtn) {
+            validateCodeBtn.disabled = false;
+            validateCodeBtn.innerHTML = '<i class="fas fa-search mr-2"></i>Code prüfen';
+        }
+    }
+}
+
+function showChildPreview(child) {
+    if (childPreviewInitial) {
+        childPreviewInitial.textContent = (child.first_name?.[0] || '?').toUpperCase();
+    }
+    if (childPreviewName) {
+        childPreviewName.textContent = `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'Unbekannt';
+    }
+    if (childPreviewAge) {
+        if (child.birthdate) {
+            const age = calculateAge(child.birthdate);
+            childPreviewAge.textContent = `${age} Jahre`;
+        } else {
+            childPreviewAge.textContent = 'Alter unbekannt';
+        }
+    }
+
+    // Switch to confirm step
+    addChildStepCode?.classList.add('hidden');
+    addChildStepConfirm?.classList.remove('hidden');
+    addChildConfirmError?.classList.add('hidden');
+}
+
+async function confirmLinkChild() {
+    if (!validatedCodeData) {
+        showAddChildConfirmError('Kein gültiger Code. Bitte versuche es erneut.');
+        return;
+    }
+
+    // Show loading state
+    if (confirmLinkBtn) {
+        confirmLinkBtn.disabled = true;
+        confirmLinkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Verknüpfe...';
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('link_guardian_via_invitation_code', {
+            p_code: validatedCodeData.code
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            showAddChildConfirmError(data?.error || 'Fehler beim Verknüpfen');
+            return;
+        }
+
+        // Show success
+        showAddChildSuccess(validatedCodeData.child);
+
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error linking child:', error);
+        showAddChildConfirmError(error.message || 'Fehler beim Verknüpfen des Kindes');
+    } finally {
+        if (confirmLinkBtn) {
+            confirmLinkBtn.disabled = false;
+            confirmLinkBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Verknüpfen';
+        }
+    }
+}
+
+function showAddChildSuccess(child) {
+    const name = `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'Das Kind';
+    if (addChildSuccessName) {
+        addChildSuccessName.textContent = `${name} wurde mit deinem Account verknüpft.`;
+    }
+
+    addChildStepConfirm?.classList.add('hidden');
+    addChildStepSuccess?.classList.remove('hidden');
+
+    // Also update the profile to mark as guardian if not already
+    updateGuardianStatus();
+}
+
+async function updateGuardianStatus() {
+    try {
+        await supabase
+            .from('profiles')
+            .update({ is_guardian: true })
+            .eq('id', currentUser.id);
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error updating guardian status:', error);
+    }
+}
+
+function showAddChildCodeError(message) {
+    if (addChildCodeErrorText) addChildCodeErrorText.textContent = message;
+    addChildCodeError?.classList.remove('hidden');
+}
+
+function showAddChildConfirmError(message) {
+    if (addChildConfirmErrorText) addChildConfirmErrorText.textContent = message;
+    addChildConfirmError?.classList.remove('hidden');
+}
+
+function closeAddChildModalAndRefresh() {
+    addChildModal?.classList.add('hidden');
+    validatedCodeData = null;
+    loadChildren();
+}
+
+async function submitManualChild() {
+    const firstName = manualFirstName?.value?.trim();
+    const lastName = manualLastName?.value?.trim();
+    const birthdate = manualBirthdate?.value;
+    const gender = manualGender?.value || null;
+    const sportId = manualSport?.value || null;
+
+    // Validation
+    if (!firstName || !lastName) {
+        showManualChildError('Bitte gib Vor- und Nachname ein.');
+        return;
+    }
+
+    if (!birthdate) {
+        showManualChildError('Bitte gib das Geburtsdatum ein.');
+        return;
+    }
+
+    if (!sportId) {
+        showManualChildError('Bitte wähle eine Sportart aus.');
+        return;
+    }
+
+    // Check age - must be under 18
+    const age = calculateAge(birthdate);
+    if (age >= 18) {
+        showManualChildError('Das Kind muss unter 18 Jahre alt sein.');
+        return;
+    }
+
+    // Show loading
+    const submitBtn = document.getElementById('submit-manual-child-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird hinzugefügt...';
+    }
+
+    try {
+        // Create child profile using RPC
+        const { data, error } = await supabase.rpc('create_child_profile', {
+            p_first_name: firstName,
+            p_last_name: lastName,
+            p_birthdate: birthdate,
+            p_gender: gender,
+            p_sport_id: sportId
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Erstellen des Profils');
+        }
+
+        // Show success
+        if (addChildSuccessName) {
+            addChildSuccessName.textContent = `${firstName} ${lastName} wurde hinzugefügt.`;
+        }
+        addChildStepManual?.classList.add('hidden');
+        addChildStepSuccess?.classList.remove('hidden');
+
+        // Update guardian status
+        await updateGuardianStatus();
+
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error creating child profile:', error);
+        showManualChildError(error.message || 'Fehler beim Hinzufügen des Kindes');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Hinzufügen';
+        }
+    }
+}
+
+function showManualChildError(message) {
+    if (manualChildErrorText) manualChildErrorText.textContent = message;
+    manualChildError?.classList.remove('hidden');
+}
+
+// =====================================================
+// Invite Guardian Modal Functions
+// =====================================================
+
+async function showInviteGuardianModal(childId, childName) {
+    inviteGuardianChildName.textContent = `für ${childName}`;
+    inviteGuardianLoading?.classList.remove('hidden');
+    inviteGuardianDisplay?.classList.add('hidden');
+    inviteGuardianError?.classList.add('hidden');
+    inviteGuardianModal?.classList.remove('hidden');
+
+    try {
+        // Generate guardian invite code via RPC
+        const { data, error } = await supabase.rpc('generate_guardian_invite_code', {
+            p_child_id: childId,
+            p_validity_minutes: 2880 // 48 hours
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Generieren des Codes');
+        }
+
+        inviteGuardianCode.textContent = data.code;
+        inviteGuardianValidity.textContent = '48 Stunden';
+        inviteGuardianLoading?.classList.add('hidden');
+        inviteGuardianDisplay?.classList.remove('hidden');
+
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Error generating guardian invite code:', error);
+        inviteGuardianLoading?.classList.add('hidden');
+        inviteGuardianErrorText.textContent = error.message || 'Fehler beim Generieren des Codes';
+        inviteGuardianError?.classList.remove('hidden');
+    }
+}
+
+// =====================================================
+// Child Upgrade Modal Functions (for children 16+)
+// =====================================================
+
+function showUpgradeModal(childId, childName) {
+    upgradeChildId = childId;
+    if (upgradeChildNameEl) upgradeChildNameEl.textContent = `für ${childName}`;
+
+    // Reset form
+    if (upgradeEmail) upgradeEmail.value = '';
+    upgradeError?.classList.add('hidden');
+    upgradeSuccess?.classList.add('hidden');
+    if (upgradeSubmitBtn) {
+        upgradeSubmitBtn.disabled = false;
+        upgradeSubmitBtn.innerHTML = '<i class="fas fa-arrow-up mr-2"></i>Upgrade starten';
+    }
+
+    childUpgradeModal?.classList.remove('hidden');
+}
+
+async function handleUpgradeFormSubmit(e) {
+    e.preventDefault();
+
+    const email = upgradeEmail?.value?.trim();
+
+    if (!email) {
+        showUpgradeError('Bitte gib eine E-Mail-Adresse ein.');
+        return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showUpgradeError('Bitte gib eine gültige E-Mail-Adresse ein.');
+        return;
+    }
+
+    if (!upgradeChildId) {
+        showUpgradeError('Kein Kind ausgewählt.');
+        return;
+    }
+
+    // Disable button and show loading state
+    if (upgradeSubmitBtn) {
+        upgradeSubmitBtn.disabled = true;
+        upgradeSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird verarbeitet...';
+    }
+
+    try {
+        // Call the upgrade RPC function
+        const { data, error } = await supabase.rpc('upgrade_child_account', {
+            p_child_id: upgradeChildId,
+            p_email: email,
+            p_guardian_approval: true
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data?.success) {
+            throw new Error(data?.error || 'Fehler beim Upgrade');
+        }
+
+        // Show success message
+        upgradeError?.classList.add('hidden');
+        if (upgradeSuccessText) {
+            upgradeSuccessText.textContent = 'Das Profil wurde für das Upgrade vorbereitet. Eine Einladungs-E-Mail wird gesendet.';
+        }
+        upgradeSuccess?.classList.remove('hidden');
+
+        // Now we need to send a password reset / invite email
+        const { error: inviteError } = await supabase.auth.admin?.inviteUserByEmail?.(email) ||
+            await supabase.auth.signInWithOtp({
+                email: email,
+                options: {
+                    shouldCreateUser: true,
+                    emailRedirectTo: `${window.location.origin}/complete-upgrade.html?child_id=${upgradeChildId}`
+                }
+            });
+
+        if (inviteError) {
+            console.warn('[GUARDIAN-DASHBOARD] Could not send invite email:', inviteError);
+            if (upgradeSuccessText) {
+                upgradeSuccessText.textContent = 'Profil vorbereitet! Bitte lass das Kind sich mit dieser E-Mail registrieren.';
+            }
+        }
+
+        // Refresh children list after a short delay
+        setTimeout(async () => {
+            await loadChildren();
+        }, 2000);
+
+    } catch (error) {
+        console.error('[GUARDIAN-DASHBOARD] Upgrade error:', error);
+        showUpgradeError(error.message || 'Fehler beim Upgrade. Bitte versuche es erneut.');
+        if (upgradeSubmitBtn) {
+            upgradeSubmitBtn.disabled = false;
+            upgradeSubmitBtn.innerHTML = '<i class="fas fa-arrow-up mr-2"></i>Upgrade starten';
+        }
+    }
+}
+
+function showUpgradeError(message) {
+    if (upgradeErrorText) upgradeErrorText.textContent = message;
+    upgradeError?.classList.remove('hidden');
+    upgradeSuccess?.classList.add('hidden');
+}
+
 // Open menu
 function openMenu() {
     guardianMenu?.classList.remove('hidden');
@@ -719,11 +1293,81 @@ async function logout() {
 
 // Setup event listeners
 function setupEventListeners() {
-    // Menu events
-    openMenuBtn?.addEventListener('click', openMenu);
-    menuBackdrop?.addEventListener('click', closeMenu);
-    becomePlayerBtn?.addEventListener('click', showSportSelectionModal);
-    logoutBtn?.addEventListener('click', logout);
+    // Menu events (only if not from settings)
+    if (!fromSettings) {
+        openMenuBtn?.addEventListener('click', openMenu);
+        menuBackdrop?.addEventListener('click', closeMenu);
+        becomePlayerBtn?.addEventListener('click', showSportSelectionModal);
+        logoutBtn?.addEventListener('click', logout);
+    }
+
+    // Add Child Modal events
+    addChildBtn?.addEventListener('click', showAddChildModal);
+    closeAddChildModal?.addEventListener('click', () => addChildModal?.classList.add('hidden'));
+    addChildModal?.addEventListener('click', (e) => {
+        if (e.target === addChildModal) addChildModal.classList.add('hidden');
+    });
+    btnWithCode?.addEventListener('click', showCodeStep);
+    btnManual?.addEventListener('click', showManualStep);
+    validateCodeBtn?.addEventListener('click', validateInvitationCode);
+    invitationCodeInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            validateInvitationCode();
+        }
+    });
+    // Auto-format code input (add dashes)
+    invitationCodeInput?.addEventListener('input', (e) => {
+        let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (value.length > 3) value = value.slice(0, 3) + '-' + value.slice(3);
+        if (value.length > 7) value = value.slice(0, 7) + '-' + value.slice(7);
+        e.target.value = value.slice(0, 11);
+    });
+    backToCodeBtn?.addEventListener('click', () => {
+        addChildStepConfirm?.classList.add('hidden');
+        addChildStepCode?.classList.remove('hidden');
+        addChildCodeError?.classList.add('hidden');
+    });
+    backToChoiceBtn?.addEventListener('click', backToChoice);
+    confirmLinkBtn?.addEventListener('click', confirmLinkChild);
+    addChildDoneBtn?.addEventListener('click', closeAddChildModalAndRefresh);
+    manualChildForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitManualChild();
+    });
+
+    // Invite Guardian Modal events
+    closeInviteGuardianModal?.addEventListener('click', () => inviteGuardianModal?.classList.add('hidden'));
+    inviteGuardianModal?.addEventListener('click', (e) => {
+        if (e.target === inviteGuardianModal) inviteGuardianModal.classList.add('hidden');
+    });
+    copyInviteCodeBtn?.addEventListener('click', async () => {
+        const code = inviteGuardianCode?.textContent;
+        if (code) {
+            try {
+                await navigator.clipboard.writeText(code);
+                copyInviteCodeBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
+                setTimeout(() => {
+                    copyInviteCodeBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Code kopieren';
+                }, 2000);
+            } catch (error) {
+                console.error('[GUARDIAN-DASHBOARD] Copy failed:', error);
+            }
+        }
+    });
+
+    // Child Upgrade Modal events
+    closeUpgradeModal?.addEventListener('click', () => {
+        childUpgradeModal?.classList.add('hidden');
+        upgradeChildId = null;
+    });
+    childUpgradeModal?.addEventListener('click', (e) => {
+        if (e.target === childUpgradeModal) {
+            childUpgradeModal.classList.add('hidden');
+            upgradeChildId = null;
+        }
+    });
+    childUpgradeForm?.addEventListener('submit', handleUpgradeFormSubmit);
 
     // Sport selection modal events
     closeSportModalBtn?.addEventListener('click', closeSportModal);
