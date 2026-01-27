@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION set_child_credentials(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
     v_guardian_id UUID;
@@ -186,7 +186,7 @@ CREATE OR REPLACE FUNCTION validate_child_pin_login(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
     v_child RECORD;
