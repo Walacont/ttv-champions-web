@@ -35,14 +35,9 @@ const codeLoginBtn = document.getElementById('code-login-btn');
 
 // Child login elements
 const childPinLogin = document.getElementById('child-pin-login');
-const childCodeLogin = document.getElementById('child-code-login');
 const childUsernameInput = document.getElementById('child-username');
 const childPinInput = document.getElementById('child-pin');
 const childLoginBtn = document.getElementById('child-login-btn');
-const childOnetimeCodeInput = document.getElementById('child-onetime-code');
-const childCodeLoginBtn = document.getElementById('child-code-login-btn');
-const showChildCodeBtn = document.getElementById('show-child-code-btn');
-const showPinLoginBtn = document.getElementById('show-pin-login-btn');
 
 console.log('[INDEX-SUPABASE] DOM elements:', {
     loginForm: !!loginForm,
@@ -52,24 +47,16 @@ console.log('[INDEX-SUPABASE] DOM elements:', {
     emailLoginTab: !!emailLoginTab,
     childLoginTab: !!childLoginTab,
     codeLoginTab: !!codeLoginTab,
-    childPinLogin: !!childPinLogin,
-    childCodeLogin: !!childCodeLogin
+    childPinLogin: !!childPinLogin
 });
 
 // URL-Parameter prüfen für Direktlinks (z.B. aus WhatsApp)
 const urlParams = new URLSearchParams(window.location.search);
 const codeFromUrl = urlParams.get('code');
 if (codeFromUrl) {
-    // Determine if it's a child code (6 chars) or invitation code (XXX-XXX-XXX)
-    const isChildCode = codeFromUrl.length === 6 && !codeFromUrl.includes('-');
-    if (isChildCode) {
-        switchToChildTab();
-        showChildCodeLoginView();
-        if (childOnetimeCodeInput) childOnetimeCodeInput.value = codeFromUrl;
-    } else {
-        switchToCodeTab();
-        if (invitationCodeInput) invitationCodeInput.value = codeFromUrl;
-    }
+    // Invitation codes are in format XXX-XXX-XXX
+    switchToCodeTab();
+    if (invitationCodeInput) invitationCodeInput.value = codeFromUrl;
     const loginModal = document.getElementById('login-modal');
     if (loginModal) loginModal.classList.remove('hidden');
 }
@@ -117,9 +104,6 @@ function switchToChildTab() {
     childForm.classList.remove('hidden');
     formTitle.textContent = 'Kinder-Login';
     feedbackMessage.textContent = '';
-
-    // Reset to PIN login view (default for children)
-    showPinLoginView();
 }
 
 function switchToCodeTab() {
@@ -133,21 +117,6 @@ function switchToCodeTab() {
     feedbackMessage.textContent = '';
 }
 
-// Toggle between PIN login and Code login within the child login form
-function showPinLoginView() {
-    if (childPinLogin) childPinLogin.classList.remove('hidden');
-    if (childCodeLogin) childCodeLogin.classList.add('hidden');
-}
-
-function showChildCodeLoginView() {
-    if (childPinLogin) childPinLogin.classList.add('hidden');
-    if (childCodeLogin) childCodeLogin.classList.remove('hidden');
-}
-
-// Event listeners for toggling views within child login
-showChildCodeBtn?.addEventListener('click', showChildCodeLoginView);
-showPinLoginBtn?.addEventListener('click', showPinLoginView);
-
 // Auto-Formatierung des Einladungscodes (TTV-XXX-YYY)
 invitationCodeInput?.addEventListener('input', e => {
     let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -159,11 +128,6 @@ invitationCodeInput?.addEventListener('input', e => {
         value = value.slice(0, 7) + '-' + value.slice(7, 10);
     }
     e.target.value = value;
-});
-
-// Auto-Formatierung des Kinder-Einmal-Codes (6 Zeichen, keine Bindestriche)
-childOnetimeCodeInput?.addEventListener('input', e => {
-    e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
 });
 
 onAuthStateChange(async (event, session) => {
@@ -299,15 +263,7 @@ resetForm?.addEventListener('submit', async e => {
 // Handle child form submission (Username + PIN)
 childForm?.addEventListener('submit', async e => {
     e.preventDefault();
-
-    // Check which login view is active
-    const isPinLoginActive = childPinLogin && !childPinLogin.classList.contains('hidden');
-
-    if (isPinLoginActive) {
-        // Handle Username + PIN login
-        await handleChildPinLogin();
-    }
-    // Note: One-time code login is handled by the separate button click handler
+    await handleChildPinLogin();
 });
 
 // Username + PIN Login Handler
@@ -399,85 +355,6 @@ async function handleChildPinLogin() {
         }
     }
 }
-
-// Child One-time Code Login Handler
-childCodeLoginBtn?.addEventListener('click', async () => {
-    const rawCode = childOnetimeCodeInput?.value?.trim().toUpperCase();
-
-    feedbackMessage.textContent = '';
-    feedbackMessage.className = 'mt-2 text-center text-sm';
-
-    if (!rawCode || rawCode.length !== 6) {
-        feedbackMessage.textContent = 'Bitte gib einen 6-stelligen Code ein.';
-        feedbackMessage.classList.add('text-red-600');
-        return;
-    }
-
-    // Disable button
-    if (childCodeLoginBtn) {
-        childCodeLoginBtn.disabled = true;
-        childCodeLoginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Prüfe...';
-    }
-
-    try {
-        console.log('[INDEX-SUPABASE] Validating child login code...');
-        feedbackMessage.textContent = 'Prüfe Kinder-Code...';
-        feedbackMessage.classList.add('text-gray-600');
-
-        const { data, error } = await supabase.rpc('validate_child_login_code', {
-            p_code: rawCode
-        });
-
-        if (error) throw error;
-
-        // Support both response formats: {success, child_id, ...} and {valid, child: {...}}
-        const isValid = data?.success || data?.valid;
-        if (!data || !isValid) {
-            const errorMsg = data?.error || 'Ungültiger Code';
-            feedbackMessage.textContent = errorMsg;
-            feedbackMessage.classList.remove('text-gray-600');
-            feedbackMessage.classList.add('text-red-600');
-
-            if (childCodeLoginBtn) {
-                childCodeLoginBtn.disabled = false;
-                childCodeLoginBtn.innerHTML = '<i class="fas fa-arrow-right mr-2"></i>Anmelden';
-            }
-            return;
-        }
-
-        // Extract child data from either format
-        const child = data.child || data;
-        const childSession = {
-            childId: child.child_id || child.id,
-            firstName: child.first_name,
-            lastName: child.last_name,
-            ageMode: child.age_mode,
-            clubId: child.club_id,
-            guardianId: data.guardian_id,
-            loginAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        };
-        saveChildSession(childSession);
-
-        feedbackMessage.textContent = `Willkommen, ${child.first_name}! Weiterleitung...`;
-        feedbackMessage.classList.remove('text-gray-600');
-        feedbackMessage.classList.add('text-green-600');
-
-        setTimeout(() => {
-            window.location.href = '/dashboard.html';
-        }, 1500);
-
-    } catch (error) {
-        console.error('[INDEX-SUPABASE] Child code login error:', error);
-        feedbackMessage.textContent = 'Fehler beim Überprüfen des Codes.';
-        feedbackMessage.classList.add('text-red-600');
-
-        if (childCodeLoginBtn) {
-            childCodeLoginBtn.disabled = false;
-            childCodeLoginBtn.innerHTML = '<i class="fas fa-arrow-right mr-2"></i>Anmelden';
-        }
-    }
-});
 
 // Invitation Code Login Handler (for trainers and offline players 16+)
 codeLoginBtn?.addEventListener('click', async () => {

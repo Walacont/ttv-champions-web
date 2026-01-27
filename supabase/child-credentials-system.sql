@@ -197,6 +197,9 @@ BEGIN
     v_normalized_username := LOWER(TRIM(p_username));
 
     -- Find child by username
+    -- Allow login for profiles that:
+    -- 1. Have account_type = 'child', OR
+    -- 2. Are linked via guardian_links (offline players connected to a guardian)
     SELECT
         p.id,
         p.first_name,
@@ -208,7 +211,13 @@ BEGIN
     INTO v_child
     FROM profiles p
     WHERE p.username = v_normalized_username
-    AND p.account_type = 'child';
+    AND (
+        p.account_type = 'child'
+        OR EXISTS (
+            SELECT 1 FROM guardian_links gl
+            WHERE gl.child_id = p.id
+        )
+    );
 
     IF NOT FOUND THEN
         RETURN json_build_object(
