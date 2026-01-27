@@ -6,7 +6,7 @@ import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
 import { getRankProgress, RANKS } from './ranks.js';
 import { escapeHtml } from './utils/security.js';
-import { getChildSession } from './child-login-supabase.js';
+import { getChildSession, getSessionToken } from './child-login-supabase.js';
 import { getAgeAppropriateRank, KID_FRIENDLY_RANKS } from './age-utils.js';
 
 let currentUser = null;
@@ -151,11 +151,19 @@ async function loadProfile() {
         const supabase = getSupabase();
         let profile;
 
-        // Child session: use RPC function to bypass RLS
+        // Child session: use RPC function with secure token
         if (isChildMode && childSession) {
-            console.log('[ProfileView] Using child session RPC for profile');
+            console.log('[ProfileView] Using child session RPC with token');
+            const sessionToken = getSessionToken();
+
+            if (!sessionToken) {
+                console.error('[ProfileView] No session token found');
+                showError('Session abgelaufen');
+                return;
+            }
+
             const { data, error } = await supabase.rpc('get_profile_for_child_session', {
-                p_child_id: childSession.childId,
+                p_session_token: sessionToken,
                 p_profile_id: profileId
             });
 

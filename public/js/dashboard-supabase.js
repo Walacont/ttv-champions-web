@@ -1,7 +1,7 @@
 // Dashboard (Supabase-Version) - Multi-Sport-Unterstützung
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
-import { getChildSession, clearChildSession } from './child-login-supabase.js';
+import { getChildSession, clearChildSession, logoutChildSession, getSessionToken } from './child-login-supabase.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
@@ -363,8 +363,8 @@ function applyKidsModeUI() {
                 childLogoutBtn.addEventListener('click', async () => {
                     if (confirm('Möchtest du dich wirklich abmelden?')) {
                         if (isChildMode) {
-                            // Child session (logged in via code) - clear local session
-                            clearChildSession();
+                            // Child session - invalidate server token and clear local session
+                            await logoutChildSession();
                             window.location.href = '/index.html';
                         } else {
                             // Normal auth session - sign out from Supabase
@@ -401,10 +401,19 @@ async function loadUserProfile() {
         let profile, club;
 
         if (isChildMode) {
-            // Child mode: use RPC to get profile (bypasses RLS)
-            console.log('[DASHBOARD-SUPABASE] Loading child profile via RPC...');
+            // Child mode: use RPC with session token for security
+            console.log('[DASHBOARD-SUPABASE] Loading child profile via secure RPC...');
+            const sessionToken = getSessionToken();
+
+            if (!sessionToken) {
+                console.error('[DASHBOARD-SUPABASE] No session token found');
+                clearChildSession();
+                window.location.href = '/index.html';
+                return;
+            }
+
             const { data, error } = await supabase.rpc('get_child_profile_for_session', {
-                p_child_id: currentUser.id
+                p_session_token: sessionToken
             });
 
             if (error) throw error;
@@ -1719,12 +1728,13 @@ async function fetchLeaderboardData() {
 
         // Child session: use RPC function to bypass RLS
         if (isChildMode && childSession) {
-            console.log('[Leaderboard] Using child session RPC');
+            console.log('[Leaderboard] Using child session RPC with token');
+            const sessionToken = getSessionToken();
 
             // Fetch club leaderboard via RPC
-            if (effectiveClubId) {
+            if (effectiveClubId && sessionToken) {
                 const { data: skillData } = await supabase.rpc('get_leaderboard_for_child_session', {
-                    p_child_id: childSession.childId,
+                    p_session_token: sessionToken,
                     p_club_id: effectiveClubId,
                     p_type: 'skill',
                     p_limit: 100

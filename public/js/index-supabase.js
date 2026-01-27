@@ -321,8 +321,9 @@ async function handleChildPinLogin() {
             return;
         }
 
-        // Create child session
+        // Create child session with secure server token
         const childSession = {
+            sessionToken: data.session_token, // Server-side token for security
             childId: data.child_id,
             firstName: data.first_name,
             lastName: data.last_name,
@@ -330,9 +331,10 @@ async function handleChildPinLogin() {
             clubId: data.club_id,
             guardianId: data.guardian_id,
             loginAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+            expiresAt: data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
         saveChildSession(childSession);
+        console.log('[INDEX-SUPABASE] Child session saved with token');
 
         feedbackMessage.textContent = `Willkommen, ${data.first_name}! Weiterleitung...`;
         feedbackMessage.classList.remove('text-gray-600');

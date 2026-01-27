@@ -1,6 +1,6 @@
 /**
- * Child Login - Login with 6-digit code from parents
- * No authentication required - uses special child session
+ * Child Login - Secure session management for children
+ * Uses server-side session tokens for security
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -91,6 +91,7 @@ async function handleLogin(e) {
         // Extract child data from either format
         const child = data.child || data;
         const childSession = {
+            sessionToken: data.session_token, // Server-side token for security
             childId: child.child_id || child.id,
             firstName: child.first_name,
             lastName: child.last_name,
@@ -98,7 +99,7 @@ async function handleLogin(e) {
             clubId: child.club_id,
             guardianId: data.guardian_id,
             loginAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+            expiresAt: data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
 
         // Store session
@@ -162,12 +163,16 @@ function setLoading(loading) {
     }
 }
 
-// Child session management
+// ============================================
+// Child session management with secure tokens
+// ============================================
+
 function saveChildSession(session) {
     try {
         localStorage.setItem('child_session', JSON.stringify(session));
         // Also set a flag for quick checks
         sessionStorage.setItem('is_child_login', 'true');
+        console.log('[CHILD-LOGIN] Session saved with token');
     } catch (err) {
         console.error('[CHILD-LOGIN] Error saving session:', err);
     }
@@ -180,8 +185,16 @@ function getChildSession() {
 
         const session = JSON.parse(sessionStr);
 
-        // Check if expired
+        // Check if expired (client-side check, server will also validate)
         if (session.expiresAt && new Date(session.expiresAt) < new Date()) {
+            console.log('[CHILD-LOGIN] Session expired locally');
+            clearChildSession();
+            return null;
+        }
+
+        // Must have session token for secure sessions
+        if (!session.sessionToken && !session.childId) {
+            console.log('[CHILD-LOGIN] Invalid session format');
             clearChildSession();
             return null;
         }
@@ -198,8 +211,42 @@ function clearChildSession() {
     sessionStorage.removeItem('is_child_login');
 }
 
+/**
+ * Logout child session - invalidates server-side token
+ */
+async function logoutChildSession() {
+    try {
+        const session = getChildSession();
+        if (session?.sessionToken) {
+            const supabase = getSupabase();
+            await supabase.rpc('logout_child_session', {
+                p_session_token: session.sessionToken
+            });
+            console.log('[CHILD-LOGIN] Server session invalidated');
+        }
+    } catch (err) {
+        console.error('[CHILD-LOGIN] Error during logout:', err);
+    } finally {
+        clearChildSession();
+    }
+}
+
+/**
+ * Get the session token for RPC calls
+ */
+function getSessionToken() {
+    const session = getChildSession();
+    return session?.sessionToken || null;
+}
+
 // Export for use in other modules
-export { getChildSession, clearChildSession, saveChildSession };
+export {
+    getChildSession,
+    clearChildSession,
+    saveChildSession,
+    logoutChildSession,
+    getSessionToken
+};
 
 // Initialize only on child-login page (check if form exists)
 if (document.getElementById('child-login-form')) {
