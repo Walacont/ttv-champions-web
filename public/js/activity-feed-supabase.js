@@ -389,12 +389,28 @@ async function showLikesModal(activityId, activityType) {
         }
 
         const userIds = likes.map(l => l.user_id);
-        const { data: profiles, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, display_name, avatar_url')
-            .in('id', userIds);
+        let profiles = [];
 
-        if (profileError) throw profileError;
+        if (isChildMode) {
+            // Child mode: use RPC
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_profile_ids: userIds
+                });
+                if (data?.success) {
+                    profiles = data.profiles || [];
+                }
+            }
+        } else {
+            const { data, error: profileError } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, display_name, avatar_url')
+                .in('id', userIds);
+            if (profileError) throw profileError;
+            profiles = data || [];
+        }
 
         const profileMap = {};
         (profiles || []).forEach(p => {
@@ -1210,10 +1226,41 @@ async function fetchActivities(userIds) {
     });
 
     // Spielerprofile abrufen
-    const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
-        .in('id', [...playerIds].filter(Boolean));
+    let profiles = [];
+    const filteredPlayerIds = [...playerIds].filter(Boolean);
+
+    if (filteredPlayerIds.length > 0) {
+        if (isChildMode) {
+            // Child mode: use RPC to bypass RLS
+            const sessionToken = getSessionToken();
+            if (sessionToken) {
+                try {
+                    const { data, error } = await supabase.rpc('get_profiles_for_child_session', {
+                        p_session_token: sessionToken,
+                        p_profile_ids: filteredPlayerIds
+                    });
+
+                    if (error) {
+                        console.error('[ActivityFeed] RPC error loading profiles:', error);
+                    } else if (data?.success) {
+                        profiles = data.profiles || [];
+                        console.log('[ActivityFeed] Child mode: loaded', profiles.length, 'profiles via RPC');
+                    } else {
+                        console.error('[ActivityFeed] RPC failed:', data?.error);
+                    }
+                } catch (err) {
+                    console.error('[ActivityFeed] Error loading profiles for child:', err);
+                }
+            }
+        } else {
+            // Normal mode: direct query
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
+                .in('id', filteredPlayerIds);
+            profiles = data || [];
+        }
+    }
 
     const profileMap = {};
     (profiles || []).forEach(p => {
@@ -1258,12 +1305,29 @@ async function fetchActivities(userIds) {
             // Wählerprofile laden
             let voterProfiles = {};
             if (voterIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name, avatar_url')
-                    .in('id', voterIds);
+                let voterProfilesData = [];
 
-                (profiles || []).forEach(p => {
+                if (isChildMode) {
+                    // Child mode: use RPC
+                    const sessionToken = getSessionToken();
+                    if (sessionToken) {
+                        const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                            p_session_token: sessionToken,
+                            p_profile_ids: voterIds
+                        });
+                        if (data?.success) {
+                            voterProfilesData = data.profiles || [];
+                        }
+                    }
+                } else {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, avatar_url')
+                        .in('id', voterIds);
+                    voterProfilesData = profiles || [];
+                }
+
+                voterProfilesData.forEach(p => {
                     voterProfiles[p.id] = p;
                 });
             }
@@ -3590,12 +3654,29 @@ async function refreshPollCard(pollId) {
             let voterProfiles = {};
 
             if (voterIds.length > 0) {
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, first_name, last_name, avatar_url')
-                    .in('id', voterIds);
+                let profilesData = [];
 
-                (profiles || []).forEach(p => {
+                if (isChildMode) {
+                    // Child mode: use RPC
+                    const sessionToken = getSessionToken();
+                    if (sessionToken) {
+                        const { data } = await supabase.rpc('get_profiles_for_child_session', {
+                            p_session_token: sessionToken,
+                            p_profile_ids: voterIds
+                        });
+                        if (data?.success) {
+                            profilesData = data.profiles || [];
+                        }
+                    }
+                } else {
+                    const { data: profiles } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, avatar_url')
+                        .in('id', voterIds);
+                    profilesData = profiles || [];
+                }
+
+                profilesData.forEach(p => {
                     voterProfiles[p.id] = p;
                 });
             }

@@ -439,13 +439,29 @@ async function renderClubSection(profile) {
 
     document.getElementById('club-name').textContent = profile.clubs.name;
 
-    // For child mode, we can't query profiles table directly, so skip member count
+    const supabase = getSupabase();
+
+    // For child mode, use RPC to get member count
     if (isChildMode) {
+        const sessionToken = getSessionToken();
+        if (sessionToken) {
+            try {
+                const { data, error } = await supabase.rpc('get_club_member_count_for_child_session', {
+                    p_session_token: sessionToken
+                });
+
+                if (!error && data?.success) {
+                    document.getElementById('club-members').textContent = `${data.member_count || 0} Mitglieder`;
+                    return;
+                }
+            } catch (err) {
+                console.error('[ProfileView] Error getting member count for child:', err);
+            }
+        }
         document.getElementById('club-members').textContent = 'Verein';
         return;
     }
 
-    const supabase = getSupabase();
     const { count } = await supabase
         .from('profiles')
         .select('id', { count: 'exact', head: true })
@@ -1738,14 +1754,55 @@ async function loadProfileAttendance(displayYear = null, displayMonth = null) {
         return;
     }
 
-    // Child mode: skip event queries (RLS prevents direct access)
-    // Show calendar with just the month view, no events
+    // Child mode: use RPC to load events
     if (isChildMode) {
-        console.log('[ProfileView] Child mode: showing calendar without event details');
-        // Render a basic calendar without events for children
-        const relevantEvents = [];
-        const participations = [];
-        renderCalendarGrid(container, year, month, relevantEvents, participations, startDateStr, endDateStr);
+        console.log('[ProfileView] Child mode: loading calendar via RPC');
+        const sessionToken = getSessionToken();
+
+        if (sessionToken) {
+            try {
+                const { data, error } = await supabase.rpc('get_calendar_events_for_child_session', {
+                    p_session_token: sessionToken,
+                    p_start_date: startDateStr,
+                    p_end_date: endDateStr
+                });
+
+                if (!error && data?.success) {
+                    // Transform events to match expected format
+                    const events = (data.events || []).map(e => ({
+                        id: e.id,
+                        title: e.title,
+                        description: e.description,
+                        start_date: e.start_time ? e.start_time.split('T')[0] : null,
+                        start_time: e.start_time ? e.start_time.split('T')[1]?.substring(0, 5) : null,
+                        end_time: e.end_time ? e.end_time.split('T')[1]?.substring(0, 5) : null,
+                        location: e.location,
+                        event_category: e.event_type || 'training'
+                    }));
+
+                    // Filter to only training events
+                    const relevantEvents = events.filter(e => e.event_category === 'training');
+
+                    // Transform participations
+                    const participations = (data.participations || []).map(p => ({
+                        event_id: p.event_id,
+                        status: p.status
+                    }));
+
+                    console.log('[ProfileView] Child mode: loaded', relevantEvents.length, 'events via RPC');
+                    renderCalendarGrid(container, year, month, relevantEvents, participations, startDateStr, endDateStr);
+                    return;
+                } else {
+                    console.warn('[ProfileView] Child RPC error:', error || data?.error);
+                }
+            } catch (err) {
+                console.error('[ProfileView] Error loading calendar for child:', err);
+            }
+        }
+
+        // Fallback: show empty calendar
+        console.log('[ProfileView] Child mode: showing calendar without event details (fallback)');
+        renderCalendarGrid(container, year, month, [], [], startDateStr, endDateStr);
         return;
     }
 
