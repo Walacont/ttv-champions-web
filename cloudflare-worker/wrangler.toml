@@ -9,4 +9,4 @@ bucket_name = "sc-champions-media"
 
 [vars]
 ALLOWED_ORIGINS = "https://sc-champions.de,http://localhost:3000,capacitor://localhost,https://ttv-champions-prod.web.app,https://ttv-champions-prod.firebaseapp.com"
-SUPABASE_URL = "https://wmrbjuyqbmvtzrujuxs.supabase.co"
+SUPABASE_URL = "https://wmrbjuyqgbmvtzrujuxs.supabase.co"
