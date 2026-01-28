@@ -513,14 +513,17 @@ function renderChildren() {
                             const title = video.title || video.exercise_name || 'Video';
                             const thumbnailUrl = video.thumbnail_url || '';
                             return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
+                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}')">
                                     ${thumbnailUrl ? `
-                                        <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                                        <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
                                             <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
+                                            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                                <i class="fas fa-play text-white text-[8px]"></i>
+                                            </div>
                                         </div>
                                     ` : `
                                         <div class="w-12 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                            <i class="fas fa-film text-gray-400 text-xs"></i>
+                                            <i class="fas fa-play text-gray-400 text-xs"></i>
                                         </div>
                                     `}
                                     <div class="flex-1 min-w-0">
@@ -1528,6 +1531,71 @@ function setupEventListeners() {
         }, 500);
     });
 }
+
+// =====================================================
+// Video Player Modal
+// =====================================================
+
+window.openVideoPlayer = function(videoUrl, title) {
+    if (!videoUrl) {
+        alert('Kein Video verfügbar.');
+        return;
+    }
+
+    // Remove existing modal if any
+    const existing = document.getElementById('video-player-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'video-player-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black bg-opacity-80" onclick="closeVideoPlayer()"></div>
+        <div class="relative w-full max-w-2xl bg-black rounded-xl overflow-hidden shadow-2xl">
+            <div class="flex items-center justify-between px-4 py-2 bg-gray-900">
+                <h3 class="text-sm text-white font-medium truncate pr-4">${title}</h3>
+                <button onclick="closeVideoPlayer()" class="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <video
+                id="guardian-video-player"
+                class="w-full"
+                controls
+                autoplay
+                playsinline
+                src="${videoUrl}"
+            >
+                Dein Browser unterstützt kein Video-Playback.
+            </video>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Close on Escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') closeVideoPlayer();
+    };
+    document.addEventListener('keydown', escHandler);
+    modal._escHandler = escHandler;
+};
+
+window.closeVideoPlayer = function() {
+    const modal = document.getElementById('video-player-modal');
+    if (modal) {
+        // Stop video playback
+        const video = modal.querySelector('video');
+        if (video) {
+            video.pause();
+            video.src = '';
+        }
+        // Remove escape handler
+        if (modal._escHandler) {
+            document.removeEventListener('keydown', modal._escHandler);
+        }
+        modal.remove();
+    }
+};
 
 // Wait for DOM to be ready before initializing (same pattern as dashboard)
 if (document.readyState === 'loading') {
