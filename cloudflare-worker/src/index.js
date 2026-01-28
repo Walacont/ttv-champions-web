@@ -57,6 +57,30 @@ export default {
                 return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, corsHeaders);
             }
 
+            // Debug endpoint - Test Supabase connection
+            if (path === '/debug') {
+                try {
+                    const testResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/`, {
+                        headers: {
+                            'apikey': env.SUPABASE_ANON_KEY || 'NOT_SET'
+                        }
+                    });
+                    return jsonResponse({
+                        supabaseUrl: env.SUPABASE_URL,
+                        anonKeySet: !!env.SUPABASE_ANON_KEY,
+                        anonKeyLength: env.SUPABASE_ANON_KEY?.length || 0,
+                        testStatus: testResponse.status,
+                        testOk: testResponse.ok
+                    }, 200, corsHeaders);
+                } catch (e) {
+                    return jsonResponse({
+                        error: e.message,
+                        supabaseUrl: env.SUPABASE_URL,
+                        anonKeySet: !!env.SUPABASE_ANON_KEY
+                    }, 200, corsHeaders);
+                }
+            }
+
             return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
 
         } catch (error) {
