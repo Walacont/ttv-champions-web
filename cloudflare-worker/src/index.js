@@ -223,7 +223,7 @@ function getAllowedOrigin(request, env) {
     }
 
     // Firebase Preview URLs erlauben (ttv-champions-prod--*.web.app)
-    if (origin.match(/^https:\/\/ttv-champions-prod--[a-z0-9]+\.web\.app$/)) {
+    if (origin.match(/^https:\/\/ttv-champions-prod--[a-z0-9-]+\.web\.app$/)) {
         return origin;
     }
 
