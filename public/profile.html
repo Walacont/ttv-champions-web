@@ -106,12 +106,26 @@
                             <span class="text-sm font-medium" data-i18n="profile.back">Zurück</span>
                         </button>
                         <h1 class="text-lg font-semibold text-gray-800" data-i18n="profile.title">Profil</h1>
-                        <button
-                            id="profile-menu-btn"
-                            class="text-gray-600 hover:text-gray-800 transition"
-                        >
-                            <i class="fas fa-ellipsis-h text-lg"></i>
-                        </button>
+                        <div class="relative">
+                            <button
+                                id="profile-menu-btn"
+                                class="text-gray-600 hover:text-gray-800 transition p-2"
+                            >
+                                <i class="fas fa-ellipsis-h text-lg"></i>
+                            </button>
+                            <!-- Profile Action Menu Dropdown -->
+                            <div id="profile-action-menu" class="hidden absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border py-1 z-50">
+                                <button id="menu-report-user" class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700">
+                                    <i class="fas fa-flag w-4"></i>
+                                    <span data-i18n="action.report">Melden</span>
+                                </button>
+                                <hr class="my-1 border-gray-200">
+                                <button id="menu-block-user" class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-600">
+                                    <i class="fas fa-ban w-4"></i>
+                                    <span data-i18n="action.block_user">Nutzer blockieren</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

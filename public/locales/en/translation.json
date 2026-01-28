@@ -1018,5 +1018,54 @@
       "gameRules": "Game Rules FAQ",
       "contactSupport": "Contact Support"
     }
+  },
+  "block": {
+    "title": "Block",
+    "success": "User blocked",
+    "error": "Error blocking user",
+    "unblock_success": "User unblocked",
+    "confirm_title": "Block user?",
+    "confirm_message": "Do you really want to block {{name}}? You will no longer see posts from this person and they won't be able to follow you.",
+    "blocked_users": "Blocked users",
+    "no_blocked_users": "You haven't blocked any users",
+    "unblock": "Unblock"
+  },
+  "report": {
+    "title": "Report {{type}}",
+    "success": "Report submitted. Thank you!",
+    "error": "Error submitting report",
+    "description": "Why are you reporting this content?",
+    "additional_info": "Additional information (optional)",
+    "description_placeholder": "Describe the issue...",
+    "submit": "Report",
+    "select_type": "Please select a reason",
+    "already_reported": "You have already reported this content",
+    "types": {
+      "spam": "Spam",
+      "harassment": "Harassment",
+      "hate_speech": "Hate speech",
+      "violence": "Violence",
+      "inappropriate_content": "Inappropriate content",
+      "impersonation": "Impersonation",
+      "misinformation": "Misinformation",
+      "other": "Other"
+    }
+  },
+  "hide": {
+    "success": "Post hidden",
+    "error": "Error hiding post"
+  },
+  "action": {
+    "hide": "Hide",
+    "report": "Report",
+    "block_user": "Block user",
+    "more_options": "More options"
+  },
+  "content": {
+    "user": "User",
+    "post": "Post",
+    "poll": "Poll",
+    "comment": "Comment",
+    "match_media": "Match media"
   }
 }

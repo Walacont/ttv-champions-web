@@ -1018,5 +1018,54 @@
       "gameRules": "Spielregeln FAQ",
       "contactSupport": "Support kontaktieren"
     }
+  },
+  "block": {
+    "title": "Blockieren",
+    "success": "Nutzer blockiert",
+    "error": "Fehler beim Blockieren",
+    "unblock_success": "Blockierung aufgehoben",
+    "confirm_title": "Nutzer blockieren?",
+    "confirm_message": "Möchtest du {{name}} wirklich blockieren? Du wirst keine Beiträge mehr von dieser Person sehen und sie kann dir nicht mehr folgen.",
+    "blocked_users": "Blockierte Nutzer",
+    "no_blocked_users": "Du hast keine Nutzer blockiert",
+    "unblock": "Blockierung aufheben"
+  },
+  "report": {
+    "title": "{{type}} melden",
+    "success": "Meldung eingereicht. Vielen Dank!",
+    "error": "Fehler beim Melden",
+    "description": "Warum meldest du diesen Inhalt?",
+    "additional_info": "Zusätzliche Informationen (optional)",
+    "description_placeholder": "Beschreibe das Problem...",
+    "submit": "Melden",
+    "select_type": "Bitte wähle einen Grund aus",
+    "already_reported": "Du hast diesen Inhalt bereits gemeldet",
+    "types": {
+      "spam": "Spam",
+      "harassment": "Belästigung",
+      "hate_speech": "Hassrede",
+      "violence": "Gewalt",
+      "inappropriate_content": "Unangemessener Inhalt",
+      "impersonation": "Identitätsdiebstahl",
+      "misinformation": "Fehlinformation",
+      "other": "Sonstiges"
+    }
+  },
+  "hide": {
+    "success": "Beitrag ausgeblendet",
+    "error": "Fehler beim Ausblenden"
+  },
+  "action": {
+    "hide": "Ausblenden",
+    "report": "Melden",
+    "block_user": "Nutzer blockieren",
+    "more_options": "Mehr Optionen"
+  },
+  "content": {
+    "user": "Nutzer",
+    "post": "Beitrag",
+    "poll": "Umfrage",
+    "comment": "Kommentar",
+    "match_media": "Spielmedien"
   }
 }

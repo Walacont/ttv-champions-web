@@ -1,6 +1,7 @@
 // Datenschutz-Einstellungen - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { getBlockedUsers, unblockUser } from './block-report-manager.js';
 
 const supabase = getSupabase();
 
@@ -120,6 +121,12 @@ async function initializeAuth() {
 
             // Datenschutz-Einstellungen laden
             loadPrivacySettings(currentUserData);
+
+            // Hide blocked users section for child mode (parents don't manage child's blocks)
+            const blockedUsersSection = document.getElementById('blocked-users-list')?.closest('.bg-white');
+            if (blockedUsersSection) {
+                blockedUsersSection.style.display = 'none';
+            }
         } else {
             // Normal mode - editing own privacy settings
             targetProfileId = currentUser.id;
@@ -140,6 +147,9 @@ async function initializeAuth() {
 
                 // Datenschutz-Einstellungen laden
                 loadPrivacySettings(currentUserData);
+
+                // Load blocked users (only for own settings, not child's)
+                loadBlockedUsersList();
             }
         }
 
@@ -253,6 +263,101 @@ function updateNoClubWarning(clubId) {
         noClubWarning.classList.add('hidden');
     }
 }
+
+/**
+ * Load and display blocked users list
+ */
+async function loadBlockedUsersList() {
+    const container = document.getElementById('blocked-users-list');
+    if (!container) return;
+
+    try {
+        const blockedUsers = await getBlockedUsers();
+
+        if (!blockedUsers || blockedUsers.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-gray-500">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                    Du hast keine Nutzer blockiert.
+                </div>
+            `;
+            return;
+        }
+
+        const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
+
+        container.innerHTML = blockedUsers.map(user => `
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-blocked-user-id="${user.blocked_id}">
+                <div class="flex items-center gap-3">
+                    <img
+                        src="${user.blocked_avatar_url || DEFAULT_AVATAR}"
+                        alt="${user.blocked_first_name}"
+                        class="w-10 h-10 rounded-full object-cover"
+                        onerror="this.src='${DEFAULT_AVATAR}'"
+                    />
+                    <div>
+                        <p class="font-medium text-gray-900">${escapeHtml(user.blocked_first_name || '')} ${escapeHtml(user.blocked_last_name || '')}</p>
+                        <p class="text-xs text-gray-500">Blockiert am ${new Date(user.blocked_at).toLocaleDateString('de-DE')}</p>
+                    </div>
+                </div>
+                <button
+                    onclick="window.handleUnblockUser('${user.blocked_id}')"
+                    class="px-3 py-1.5 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+                >
+                    Aufheben
+                </button>
+            </div>
+        `).join('');
+
+    } catch (err) {
+        console.error('[Privacy Settings] Error loading blocked users:', err);
+        container.innerHTML = `
+            <div class="text-center py-4 text-red-500">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                Fehler beim Laden der blockierten Nutzer.
+            </div>
+        `;
+    }
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Global function to handle unblock
+window.handleUnblockUser = async function(userId) {
+    if (!confirm('Möchtest du die Blockierung dieses Nutzers wirklich aufheben?')) {
+        return;
+    }
+
+    const result = await unblockUser(userId);
+    if (result.success) {
+        // Remove the user from the list with animation
+        const userElement = document.querySelector(`[data-blocked-user-id="${userId}"]`);
+        if (userElement) {
+            userElement.style.opacity = '0';
+            userElement.style.transform = 'translateX(20px)';
+            userElement.style.transition = 'all 0.3s ease';
+            setTimeout(() => {
+                userElement.remove();
+                // Check if list is now empty
+                const container = document.getElementById('blocked-users-list');
+                if (container && container.children.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-gray-500">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            Du hast keine Nutzer blockiert.
+                        </div>
+                    `;
+                }
+            }, 300);
+        }
+    }
+};
 
 /**
  * Save privacy settings

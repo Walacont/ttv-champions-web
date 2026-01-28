@@ -8,6 +8,7 @@ import { getRankProgress, RANKS } from './ranks.js';
 import { escapeHtml } from './utils/security.js';
 import { getChildSession, getSessionToken } from './child-login-supabase.js';
 import { getAgeAppropriateRank, KID_FRIENDLY_RANKS } from './age-utils.js';
+import { blockUser, reportUser, isUserBlocked, showReportDialog, showBlockConfirmDialog, CONTENT_TYPES } from './block-report-manager.js';
 
 let currentUser = null;
 let profileUser = null;
@@ -75,6 +76,9 @@ async function initProfileView() {
         if (currentUser && !isOwnProfile) {
             setupFollowStatusSubscription(supabase);
         }
+
+        // Setup profile action menu (block/report)
+        setupProfileActionMenu();
 
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
@@ -144,6 +148,154 @@ function setupFollowStatusSubscription(supabase) {
         supabase.removeChannel(channel);
     });
 }
+
+/**
+ * Setup the profile action menu (block/report)
+ */
+function setupProfileActionMenu() {
+    const menuBtn = document.getElementById('profile-menu-btn');
+    const menuDropdown = document.getElementById('profile-action-menu');
+    const reportBtn = document.getElementById('menu-report-user');
+    const blockBtn = document.getElementById('menu-block-user');
+
+    if (!menuBtn || !menuDropdown) return;
+
+    // Hide menu for own profile
+    if (isOwnProfile) {
+        menuBtn.style.display = 'none';
+        return;
+    }
+
+    // Hide menu in child mode (kids shouldn't block/report)
+    if (isChildMode && currentAgeMode === 'kids') {
+        menuBtn.style.display = 'none';
+        return;
+    }
+
+    // Toggle dropdown
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        menuDropdown.classList.add('hidden');
+    });
+
+    // Report user handler
+    if (reportBtn) {
+        reportBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuDropdown.classList.add('hidden');
+
+            const userName = profileUser
+                ? `${profileUser.first_name || ''} ${profileUser.last_name || ''}`.trim()
+                : 'Nutzer';
+
+            showReportDialog(CONTENT_TYPES.USER, profileId, userName);
+        });
+    }
+
+    // Block user handler
+    if (blockBtn) {
+        blockBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            menuDropdown.classList.add('hidden');
+
+            const userName = profileUser
+                ? `${profileUser.first_name || ''} ${profileUser.last_name || ''}`.trim()
+                : 'Nutzer';
+
+            showBlockConfirmDialog(userName, async () => {
+                const result = await blockUser(profileId);
+                if (result.success) {
+                    // Redirect back to dashboard after blocking
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 1000);
+                }
+            });
+        });
+    }
+
+    // Check if user is already blocked and update UI
+    checkBlockStatus();
+}
+
+/**
+ * Check if profile user is blocked and update UI accordingly
+ */
+async function checkBlockStatus() {
+    if (!currentUser || isOwnProfile) return;
+
+    try {
+        const blockStatus = await isUserBlocked(profileId);
+
+        if (blockStatus.is_blocked) {
+            // User has blocked this profile - show message
+            const publicContent = document.getElementById('public-profile-content');
+            const privateNotice = document.getElementById('private-profile-notice');
+
+            if (publicContent) publicContent.classList.add('hidden');
+            if (privateNotice) {
+                privateNotice.classList.remove('hidden');
+                privateNotice.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-ban text-4xl text-gray-400 mb-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Nutzer blockiert</h3>
+                        <p class="text-gray-500 mt-1">Du hast diesen Nutzer blockiert.</p>
+                        <button
+                            onclick="window.unblockProfileUser()"
+                            class="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+                        >
+                            Blockierung aufheben
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Hide follow button
+            const followContainer = document.getElementById('follow-button-container');
+            if (followContainer) followContainer.innerHTML = '';
+        } else if (blockStatus.is_blocked_by) {
+            // This profile has blocked the current user
+            const publicContent = document.getElementById('public-profile-content');
+            const privateNotice = document.getElementById('private-profile-notice');
+
+            if (publicContent) publicContent.classList.add('hidden');
+            if (privateNotice) {
+                privateNotice.classList.remove('hidden');
+                privateNotice.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-lock text-4xl text-gray-400 mb-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Profil nicht verfügbar</h3>
+                        <p class="text-gray-500 mt-1">Dieses Profil ist für dich nicht verfügbar.</p>
+                    </div>
+                `;
+            }
+
+            // Hide follow button and menu
+            const followContainer = document.getElementById('follow-button-container');
+            if (followContainer) followContainer.innerHTML = '';
+
+            const menuBtn = document.getElementById('profile-menu-btn');
+            if (menuBtn) menuBtn.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('[ProfileView] Error checking block status:', err);
+    }
+}
+
+// Global function to unblock user from profile page
+window.unblockProfileUser = async function() {
+    const { unblockUser } = await import('./block-report-manager.js');
+    const result = await unblockUser(profileId);
+    if (result.success) {
+        // Reload profile to show content again
+        window.location.reload();
+    }
+};
 
 /** Lädt Profildaten */
 async function loadProfile() {
