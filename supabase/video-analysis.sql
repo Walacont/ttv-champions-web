@@ -419,6 +419,7 @@ RETURNS TABLE (
     uploaded_by UUID,
     uploader_name TEXT,
     uploader_avatar TEXT,
+    assigned_players TEXT[],
     assignment_count BIGINT,
     pending_count BIGINT,
     created_at TIMESTAMPTZ
@@ -444,6 +445,10 @@ BEGIN
         va.uploaded_by AS uploaded_by,
         COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
         p.avatar_url AS uploader_avatar,
+        (SELECT ARRAY_AGG(COALESCE(pl.display_name, pl.first_name || ' ' || LEFT(pl.last_name, 1) || '.'))
+         FROM video_assignments vass2
+         JOIN profiles pl ON pl.id = vass2.player_id
+         WHERE vass2.video_id = va.id)::TEXT[] AS assigned_players,
         (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id)::BIGINT AS assignment_count,
         (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id AND vass.status = 'pending')::BIGINT AS pending_count,
         va.created_at AS created_at
