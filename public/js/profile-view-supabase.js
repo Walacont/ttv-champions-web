@@ -537,7 +537,9 @@ function renderProfileHeader(profile) {
 
     const editBtnContainer = document.getElementById('edit-profile-btn-container');
     if (editBtnContainer) {
-        if (isOwnProfile) {
+        // Show edit button only for own profile AND not in child mode
+        // Children should not be able to access settings
+        if (isOwnProfile && !isChildMode) {
             editBtnContainer.innerHTML = `
                 <a href="/settings.html" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-full transition inline-flex items-center gap-2">
                     <i class="fas fa-edit"></i>Profil bearbeiten

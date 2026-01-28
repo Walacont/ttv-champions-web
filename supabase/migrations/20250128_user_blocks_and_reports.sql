@@ -809,5 +809,96 @@ EXECUTE FUNCTION update_updated_at();
 
 
 -- ============================================
+-- NOTIFY COACHES ON NEW REPORT
+-- ============================================
+
+-- Function to notify coaches when a new report is created
+CREATE OR REPLACE FUNCTION notify_coaches_on_report()
+RETURNS TRIGGER AS $$
+DECLARE
+    reporter_name TEXT;
+    reported_name TEXT;
+    report_type_label TEXT;
+    content_type_label TEXT;
+    coach_record RECORD;
+BEGIN
+    -- Get reporter name
+    SELECT COALESCE(first_name || ' ' || last_name, 'Unbekannt')
+    INTO reporter_name
+    FROM profiles WHERE id = NEW.reporter_id;
+
+    -- Get reported user name
+    SELECT COALESCE(first_name || ' ' || last_name, 'Unbekannt')
+    INTO reported_name
+    FROM profiles WHERE id = NEW.reported_user_id;
+
+    -- Map report type to German label
+    report_type_label := CASE NEW.report_type
+        WHEN 'spam' THEN 'Spam'
+        WHEN 'harassment' THEN 'Belästigung'
+        WHEN 'hate_speech' THEN 'Hassrede'
+        WHEN 'violence' THEN 'Gewalt'
+        WHEN 'inappropriate_content' THEN 'Unangemessener Inhalt'
+        WHEN 'impersonation' THEN 'Identitätsdiebstahl'
+        WHEN 'misinformation' THEN 'Fehlinformation'
+        ELSE 'Sonstiges'
+    END;
+
+    -- Map content type to German label
+    content_type_label := CASE NEW.content_type::TEXT
+        WHEN 'user' THEN 'Nutzer'
+        WHEN 'post' THEN 'Beitrag'
+        WHEN 'poll' THEN 'Umfrage'
+        WHEN 'comment' THEN 'Kommentar'
+        ELSE 'Inhalt'
+    END;
+
+    -- Create notification for all coaches in the reporter's club
+    FOR coach_record IN
+        SELECT p.id
+        FROM profiles p
+        WHERE p.role IN ('coach', 'admin', 'head_coach')
+        AND (
+            -- Same club as reporter
+            p.club_id = (SELECT club_id FROM profiles WHERE id = NEW.reporter_id)
+            -- Or same club as reported user
+            OR p.club_id = (SELECT club_id FROM profiles WHERE id = NEW.reported_user_id)
+        )
+    LOOP
+        INSERT INTO notifications (
+            user_id,
+            type,
+            title,
+            message,
+            data
+        ) VALUES (
+            coach_record.id,
+            'content_report',
+            'Neue Meldung eingegangen',
+            reporter_name || ' hat einen ' || content_type_label || ' gemeldet (' || report_type_label || ')',
+            json_build_object(
+                'report_id', NEW.id,
+                'reporter_id', NEW.reporter_id,
+                'reported_user_id', NEW.reported_user_id,
+                'content_type', NEW.content_type,
+                'report_type', NEW.report_type,
+                'url', '/admin-reports.html'
+            )
+        );
+    END LOOP;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to notify coaches on new report
+DROP TRIGGER IF EXISTS trigger_notify_coaches_on_report ON content_reports;
+CREATE TRIGGER trigger_notify_coaches_on_report
+AFTER INSERT ON content_reports
+FOR EACH ROW
+EXECUTE FUNCTION notify_coaches_on_report();
+
+
+-- ============================================
 -- Done! Block and Report system is ready.
 -- ============================================

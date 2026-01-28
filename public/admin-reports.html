@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
+        <script src="/js/capacitor-init.js"></script>
+        <title>Meldungen verwalten - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            #page-loader,
+            #auth-error-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #f3f4f6;
+                z-index: 9999;
+            }
+            #main-content,
+            #auth-error-container {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 text-gray-800">
+        <div id="page-loader">
+            <svg
+                class="animate-spin h-10 w-10 text-indigo-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
+        </div>
+
+        <div id="auth-error-container">
+            <div class="text-center p-8 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
+                <p class="text-gray-600 mb-6">Du hast keine Berechtigung, diese Seite zu sehen.</p>
+                <a href="/dashboard.html" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700">
+                    Zum Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
+            <div class="mb-8">
+                <a
+                    href="/admin.html"
+                    class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
+                >
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Zurück zum Admin-Dashboard
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">Meldungen verwalten</h1>
+                <p class="text-gray-600 mt-2">Überprüfe und bearbeite gemeldete Inhalte und Nutzer</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <div class="text-3xl font-bold text-red-600" id="pending-count">-</div>
+                    <div class="text-sm text-gray-500">Offen</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <div class="text-3xl font-bold text-yellow-600" id="reviewed-count">-</div>
+                    <div class="text-sm text-gray-500">In Bearbeitung</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <div class="text-3xl font-bold text-green-600" id="resolved-count">-</div>
+                    <div class="text-sm text-gray-500">Erledigt</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <div class="text-3xl font-bold text-gray-600" id="total-count">-</div>
+                    <div class="text-sm text-gray-500">Gesamt</div>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="bg-white p-4 rounded-xl shadow-md mb-6">
+                <div class="flex flex-wrap gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="filter-status" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="pending">Offen</option>
+                            <option value="reviewed">In Bearbeitung</option>
+                            <option value="resolved">Erledigt</option>
+                            <option value="dismissed">Abgelehnt</option>
+                            <option value="all">Alle</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                        <select id="filter-type" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">Alle Typen</option>
+                            <option value="spam">Spam</option>
+                            <option value="harassment">Belästigung</option>
+                            <option value="hate_speech">Hassrede</option>
+                            <option value="violence">Gewalt</option>
+                            <option value="inappropriate_content">Unangemessen</option>
+                            <option value="impersonation">Identitätsdiebstahl</option>
+                            <option value="other">Sonstiges</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Inhaltstyp</label>
+                        <select id="filter-content-type" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">Alle</option>
+                            <option value="user">Nutzer</option>
+                            <option value="post">Beiträge</option>
+                            <option value="poll">Umfragen</option>
+                            <option value="comment">Kommentare</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports List -->
+            <div class="space-y-4" id="reports-list">
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>Lade Meldungen...</p>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="no-reports" class="hidden text-center py-12 bg-white rounded-xl shadow-md">
+                <i class="fas fa-check-circle text-5xl text-green-500 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-700">Keine offenen Meldungen</h3>
+                <p class="text-gray-500 mt-2">Es gibt keine Meldungen, die bearbeitet werden müssen.</p>
+            </div>
+        </div>
+
+        <!-- Report Detail Modal -->
+        <div id="report-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">Meldung Details</h2>
+                        <button id="close-report-modal" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div id="modal-content">
+                        <!-- Content will be filled dynamically -->
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t space-y-3">
+                        <h3 class="font-semibold text-gray-900">Aktion wählen</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="action-dismiss" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition">
+                                <i class="fas fa-times mr-2"></i>Ablehnen
+                            </button>
+                            <button id="action-warn" class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg transition">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Warnung
+                            </button>
+                            <button id="action-delete-content" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition">
+                                <i class="fas fa-trash mr-2"></i>Inhalt löschen
+                            </button>
+                            <button id="action-block-user" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">
+                                <i class="fas fa-ban mr-2"></i>Nutzer sperren
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
+        <script type="module" src="/js/admin-reports-supabase.js"></script>
+    </body>
+</html>

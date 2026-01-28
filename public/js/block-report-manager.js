@@ -4,10 +4,52 @@
  * Required for App Store Compliance (Apple & Google)
  */
 
-import { supabase } from './supabase-init.js';
-import { getCurrentUserId } from './auth-utils-supabase.js';
-import { showToast } from './toast.js';
-import i18next from './i18n-init.js';
+import { getSupabase, getCurrentUser } from './supabase-init.js';
+import { t } from './i18n.js';
+
+// Get supabase instance
+const supabase = getSupabase();
+
+// Simple toast notification function
+function showToast(message, type = 'info') {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+
+    const toast = document.createElement('div');
+    toast.className = `toast-notification fixed bottom-20 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+        type === 'success' ? 'bg-green-500 text-white' :
+        type === 'error' ? 'bg-red-500 text-white' :
+        'bg-gray-800 text-white'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Fade in
+    setTimeout(() => toast.style.opacity = '1', 10);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Helper to get current user ID
+async function getCurrentUserId() {
+    const user = await getCurrentUser();
+    return user?.id || null;
+}
+
+// Helper for translations with fallback
+function translate(key, options = {}) {
+    try {
+        const translated = t(key, options);
+        return translated !== key ? translated : options.defaultValue || key;
+    } catch {
+        return options.defaultValue || key;
+    }
+}
 
 // Cache for blocked user IDs (refreshed periodically)
 let blockedUserIdsCache = null;
@@ -64,9 +106,9 @@ export async function blockUser(targetUserId) {
         if (data.success) {
             // Invalidate cache
             blockedUserIdsCache = null;
-            showToast(i18next.t('block.success', { defaultValue: 'Nutzer blockiert' }), 'success');
+            showToast(translate('block.success', { defaultValue: 'Nutzer blockiert' }), 'success');
         } else {
-            showToast(data.error || i18next.t('block.error', { defaultValue: 'Fehler beim Blockieren' }), 'error');
+            showToast(data.error || translate('block.error', { defaultValue: 'Fehler beim Blockieren' }), 'error');
         }
 
         return data;
@@ -101,7 +143,7 @@ export async function unblockUser(targetUserId) {
         if (data.success) {
             // Invalidate cache
             blockedUserIdsCache = null;
-            showToast(i18next.t('block.unblock_success', { defaultValue: 'Blockierung aufgehoben' }), 'success');
+            showToast(translate('block.unblock_success', { defaultValue: 'Blockierung aufgehoben' }), 'success');
         }
 
         return data;
@@ -249,9 +291,9 @@ export async function reportContent(contentType, contentId, reportType, descript
         }
 
         if (data.success) {
-            showToast(i18next.t('report.success', { defaultValue: 'Meldung eingereicht. Vielen Dank!' }), 'success');
+            showToast(translate('report.success', { defaultValue: 'Meldung eingereicht. Vielen Dank!' }), 'success');
         } else {
-            showToast(data.error || i18next.t('report.error', { defaultValue: 'Fehler beim Melden' }), 'error');
+            showToast(data.error || translate('report.error', { defaultValue: 'Fehler beim Melden' }), 'error');
         }
 
         return data;
@@ -340,7 +382,7 @@ export async function hideContent(contentType, contentId) {
         }
 
         if (data.success) {
-            showToast(i18next.t('hide.success', { defaultValue: 'Beitrag ausgeblendet' }), 'success');
+            showToast(translate('hide.success', { defaultValue: 'Beitrag ausgeblendet' }), 'success');
         }
 
         return data;
@@ -421,8 +463,8 @@ export async function getHiddenContentIds(contentType) {
  * @param {Function} onConfirm - Callback when confirmed
  */
 export function showBlockConfirmDialog(userName, onConfirm) {
-    const title = i18next.t('block.confirm_title', { defaultValue: 'Nutzer blockieren?' });
-    const message = i18next.t('block.confirm_message', {
+    const title = translate('block.confirm_title', { defaultValue: 'Nutzer blockieren?' });
+    const message = translate('block.confirm_message', {
         name: userName,
         defaultValue: `Möchtest du ${userName} wirklich blockieren? Du wirst keine Beiträge mehr von dieser Person sehen und sie kann dir nicht mehr folgen.`
     });
@@ -449,7 +491,7 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
     }
 
     const contentTypeLabel = getContentTypeLabel(contentType);
-    const title = i18next.t('report.title', {
+    const title = translate('report.title', {
         type: contentTypeLabel,
         defaultValue: `${contentTypeLabel} melden`
     });
@@ -468,7 +510,7 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
                     </div>
 
                     <p class="text-gray-600 dark:text-gray-400 mb-4">
-                        ${i18next.t('report.description', { defaultValue: 'Warum meldest du diesen Inhalt?' })}
+                        ${translate('report.description', { defaultValue: 'Warum meldest du diesen Inhalt?' })}
                     </p>
 
                     <form id="report-form" class="space-y-4">
@@ -476,30 +518,30 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
                             ${Object.entries(REPORT_TYPES).map(([key, val]) => `
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <input type="radio" name="report_type" value="${key}" class="mr-3 text-primary-600">
-                                    <span class="text-gray-900 dark:text-white">${i18next.t(val.key, { defaultValue: val.default })}</span>
+                                    <span class="text-gray-900 dark:text-white">${translate(val.key, { defaultValue: val.default })}</span>
                                 </label>
                             `).join('')}
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                ${i18next.t('report.additional_info', { defaultValue: 'Zusätzliche Informationen (optional)' })}
+                                ${translate('report.additional_info', { defaultValue: 'Zusätzliche Informationen (optional)' })}
                             </label>
                             <textarea
                                 id="report-description"
                                 rows="3"
                                 maxlength="1000"
                                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="${i18next.t('report.description_placeholder', { defaultValue: 'Beschreibe das Problem...' })}"
+                                placeholder="${translate('report.description_placeholder', { defaultValue: 'Beschreibe das Problem...' })}"
                             ></textarea>
                         </div>
 
                         <div class="flex gap-3 pt-4">
                             <button type="button" id="cancel-report" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                ${i18next.t('common.cancel', { defaultValue: 'Abbrechen' })}
+                                ${translate('common.cancel', { defaultValue: 'Abbrechen' })}
                             </button>
                             <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                ${i18next.t('report.submit', { defaultValue: 'Melden' })}
+                                ${translate('report.submit', { defaultValue: 'Melden' })}
                             </button>
                         </div>
                     </form>
@@ -529,7 +571,7 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
 
         const reportType = form.querySelector('input[name="report_type"]:checked');
         if (!reportType) {
-            showToast(i18next.t('report.select_type', { defaultValue: 'Bitte wähle einen Grund aus' }), 'error');
+            showToast(translate('report.select_type', { defaultValue: 'Bitte wähle einen Grund aus' }), 'error');
             return;
         }
 
@@ -537,7 +579,7 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
 
         const submitBtn = form.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
-        submitBtn.textContent = i18next.t('common.loading', { defaultValue: 'Wird gesendet...' });
+        submitBtn.textContent = translate('common.loading', { defaultValue: 'Wird gesendet...' });
 
         const result = await reportContent(contentType, contentId, reportType.value, description || null);
 
@@ -545,7 +587,7 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
             closeModal();
         } else {
             submitBtn.disabled = false;
-            submitBtn.textContent = i18next.t('report.submit', { defaultValue: 'Melden' });
+            submitBtn.textContent = translate('report.submit', { defaultValue: 'Melden' });
         }
     });
 }
@@ -557,11 +599,11 @@ export function showReportDialog(contentType, contentId, contentOwnerName = '') 
  */
 function getContentTypeLabel(contentType) {
     const labels = {
-        user: i18next.t('content.user', { defaultValue: 'Nutzer' }),
-        post: i18next.t('content.post', { defaultValue: 'Beitrag' }),
-        poll: i18next.t('content.poll', { defaultValue: 'Umfrage' }),
-        comment: i18next.t('content.comment', { defaultValue: 'Kommentar' }),
-        match_media: i18next.t('content.match_media', { defaultValue: 'Spielmedien' })
+        user: translate('content.user', { defaultValue: 'Nutzer' }),
+        post: translate('content.post', { defaultValue: 'Beitrag' }),
+        poll: translate('content.poll', { defaultValue: 'Umfrage' }),
+        comment: translate('content.comment', { defaultValue: 'Kommentar' }),
+        match_media: translate('content.match_media', { defaultValue: 'Spielmedien' })
     };
     return labels[contentType] || contentType;
 }
@@ -596,14 +638,14 @@ export function createContentActionMenu(options) {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
                     </svg>
-                    ${i18next.t('action.hide', { defaultValue: 'Ausblenden' })}
+                    ${translate('action.hide', { defaultValue: 'Ausblenden' })}
                 </button>
                 <button class="action-report w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
                         data-content-type="${contentType}" data-content-id="${contentId}" data-user-name="${userName}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                     </svg>
-                    ${i18next.t('action.report', { defaultValue: 'Melden' })}
+                    ${translate('action.report', { defaultValue: 'Melden' })}
                 </button>
                 <hr class="my-1 border-gray-200 dark:border-gray-700">
                 <button class="action-block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600 dark:text-red-400"
@@ -611,7 +653,7 @@ export function createContentActionMenu(options) {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                     </svg>
-                    ${i18next.t('action.block_user', { defaultValue: 'Nutzer blockieren' })}
+                    ${translate('action.block_user', { defaultValue: 'Nutzer blockieren' })}
                 </button>
             </div>
         </div>

@@ -299,16 +299,20 @@ uploadPhotoForm.addEventListener('submit', async e => {
 
 updateNameForm.addEventListener('submit', async e => {
     e.preventDefault();
-    const firstName = firstNameInput.value;
-    const lastName = lastNameInput.value;
+    const firstName = firstNameInput.value.trim();
+    const lastName = lastNameInput.value.trim();
     nameFeedback.textContent = '';
 
     try {
+        // Update first_name, last_name, AND display_name
+        const displayName = `${firstName} ${lastName}`.trim();
+
         const { error } = await supabase
             .from('profiles')
             .update({
                 first_name: firstName,
                 last_name: lastName,
+                display_name: displayName,
             })
             .eq('id', targetProfileId);
 
