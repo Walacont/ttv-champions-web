@@ -77,6 +77,11 @@ async function validateAuth(request, env) {
 
     const token = authHeader.substring(7);
 
+    // Prüfen ob SUPABASE_ANON_KEY gesetzt ist
+    if (!env.SUPABASE_ANON_KEY) {
+        throw new Error('Server configuration error: SUPABASE_ANON_KEY not set');
+    }
+
     // Supabase JWT validieren
     const response = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
         headers: {
@@ -86,7 +91,9 @@ async function validateAuth(request, env) {
     });
 
     if (!response.ok) {
-        throw new Error('Invalid authentication token');
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('Supabase auth error:', response.status, errorText);
+        throw new Error(`Invalid authentication token (${response.status})`);
     }
 
     const user = await response.json();
