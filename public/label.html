@@ -32,9 +32,9 @@
                 <div id="stats" class="text-sm text-indigo-200">
                     <span id="pending-count">0</span> Videos warten
                 </div>
-                <a href="coach.html" class="text-indigo-200 hover:text-white">
-                    <i class="fas fa-arrow-left mr-1"></i>Zurück
-                </a>
+                <button id="logout-btn" class="text-indigo-200 hover:text-white">
+                    <i class="fas fa-sign-out-alt mr-1"></i>Abmelden
+                </button>
             </div>
         </div>
     </header>
@@ -451,6 +451,12 @@
 
             // Setup event listeners
             setupEventListeners();
+
+            // Logout button
+            document.getElementById('logout-btn').addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/index.html';
+            });
         });
 
         async function loadStats() {
