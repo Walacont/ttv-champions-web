@@ -959,17 +959,24 @@ function populateUploadForm() {
         const playersOnly = clubPlayers.filter(p => p.role === 'player');
 
         playerList.innerHTML = `
+            <div class="mb-3">
+                <input type="text"
+                       id="player-search-input"
+                       placeholder="Spieler suchen..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
             <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                 <input type="checkbox" id="select-all-players" class="rounded text-indigo-600">
                 <span class="font-medium">Alle Spieler auswählen</span>
             </label>
             <hr class="my-2">
+            <div id="player-list-items">
             ${playersOnly.map(player => {
                 const playerName = player.firstName && player.lastName
                     ? `${player.firstName} ${player.lastName}`
                     : player.display_name || player.first_name || 'Spieler';
                 return `
-                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                <label class="player-item flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer" data-name="${escapeHtml(playerName.toLowerCase())}">
                     <input type="checkbox" name="assigned_players" value="${player.id}" class="player-checkbox rounded text-indigo-600">
                     <div class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
                         ${escapeHtml((player.firstName || player.first_name || '?').charAt(0).toUpperCase())}
@@ -977,7 +984,25 @@ function populateUploadForm() {
                     <span>${escapeHtml(playerName)}</span>
                 </label>
             `}).join('')}
+            </div>
         `;
+
+        // Spieler-Suche Logik
+        const searchInput = document.getElementById('player-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                const playerItems = playerList.querySelectorAll('.player-item');
+                playerItems.forEach(item => {
+                    const name = item.dataset.name || '';
+                    if (searchTerm === '' || name.includes(searchTerm)) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
 
         // Select All Logik
         const selectAll = document.getElementById('select-all-players');
