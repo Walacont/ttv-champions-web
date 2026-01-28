@@ -513,7 +513,7 @@ function renderChildren() {
                             const title = video.title || video.exercise_name || 'Video';
                             const thumbnailUrl = video.thumbnail_url || '';
                             return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}')">
+                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
                                     ${thumbnailUrl ? `
                                         <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
                                             <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
@@ -1533,10 +1533,10 @@ function setupEventListeners() {
 }
 
 // =====================================================
-// Video Player Modal
+// Video Player Modal with Comments & Drawings
 // =====================================================
 
-window.openVideoPlayer = function(videoUrl, title) {
+window.openVideoPlayer = async function(videoUrl, title, videoId) {
     if (!videoUrl) {
         alert('Kein Video verfügbar.');
         return;
@@ -1546,31 +1546,121 @@ window.openVideoPlayer = function(videoUrl, title) {
     const existing = document.getElementById('video-player-modal');
     if (existing) existing.remove();
 
+    // Show loading state
+    const loadingModal = document.createElement('div');
+    loadingModal.id = 'video-player-modal';
+    loadingModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80';
+    loadingModal.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-3xl"></i>';
+    document.body.appendChild(loadingModal);
+
+    // Load comments if we have a video ID
+    let comments = [];
+    if (videoId) {
+        try {
+            const { data } = await supabase.rpc('get_video_comments', {
+                p_video_id: videoId
+            });
+            comments = data || [];
+        } catch (err) {
+            console.error('[GUARDIAN-DASHBOARD] Error loading comments:', err);
+        }
+    }
+
+    // Generate comments HTML
+    const commentsHtml = comments.length > 0
+        ? comments.map(c => {
+            const isCoach = c.user_role === 'coach' || c.user_role === 'head_coach';
+            const timestampBtn = c.timestamp_seconds !== null
+                ? `<button class="guardian-timestamp-btn text-indigo-600 hover:text-indigo-800 text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded" data-time="${c.timestamp_seconds}">${formatVideoTimestamp(c.timestamp_seconds)}</button>`
+                : '';
+
+            // Check if comment has a drawing
+            const drawingUrl = c.drawing_url || extractDrawingUrlFromContent(c.content);
+            let contentHtml = '';
+            if (drawingUrl) {
+                contentHtml = `
+                    <div class="mt-2">
+                        <img src="${escapeHtml(drawingUrl)}"
+                             alt="Zeichnung vom Coach"
+                             class="max-w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                             style="max-height: 200px;"
+                             onclick="window.open('${escapeHtml(drawingUrl)}', '_blank')">
+                        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-pen text-orange-500 mr-1"></i>Zeichnung vom Coach</p>
+                    </div>
+                `;
+            } else {
+                contentHtml = `<p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>`;
+            }
+
+            return `
+                <div class="border-b border-gray-100 pb-3 mb-3 last:border-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="font-medium text-sm ${isCoach ? 'text-indigo-600' : 'text-gray-900'}">${escapeHtml(c.user_name)}</span>
+                        ${isCoach ? '<span class="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded">Coach</span>' : ''}
+                        ${timestampBtn}
+                    </div>
+                    ${contentHtml}
+                </div>
+            `;
+        }).join('')
+        : '<p class="text-gray-500 text-center py-4 text-sm">Noch keine Kommentare vom Coach</p>';
+
+    // Remove loading and create full modal
+    loadingModal.remove();
+
     const modal = document.createElement('div');
     modal.id = 'video-player-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+    modal.className = 'fixed inset-0 z-50 overflow-y-auto';
     modal.innerHTML = `
-        <div class="absolute inset-0 bg-black bg-opacity-80" onclick="closeVideoPlayer()"></div>
-        <div class="relative w-full max-w-2xl bg-black rounded-xl overflow-hidden shadow-2xl">
-            <div class="flex items-center justify-between px-4 py-2 bg-gray-900">
-                <h3 class="text-sm text-white font-medium truncate pr-4">${title}</h3>
-                <button onclick="closeVideoPlayer()" class="text-gray-400 hover:text-white transition-colors flex-shrink-0">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
+        <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div class="absolute inset-0 bg-black bg-opacity-80" onclick="closeVideoPlayer()"></div>
+            <div class="relative w-full max-w-4xl bg-white rounded-xl overflow-hidden shadow-2xl">
+                <div class="flex items-center justify-between px-4 py-3 bg-gray-900">
+                    <h3 class="text-sm text-white font-medium truncate pr-4">${escapeHtml(title)}</h3>
+                    <button onclick="closeVideoPlayer()" class="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 ${comments.length > 0 ? 'lg:grid-cols-2' : ''} gap-0">
+                    <div class="bg-black flex items-center justify-center">
+                        <video
+                            id="guardian-video-player"
+                            class="w-full max-h-[40vh] lg:max-h-[60vh]"
+                            controls
+                            autoplay
+                            playsinline
+                            src="${escapeHtml(videoUrl)}"
+                        >
+                            Dein Browser unterstützt kein Video-Playback.
+                        </video>
+                    </div>
+                    ${comments.length > 0 ? `
+                        <div class="p-4 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto bg-gray-50">
+                            <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                <i class="fas fa-comments text-indigo-500"></i>
+                                Coach-Feedback
+                                <span class="text-xs font-normal text-gray-500">(${comments.length})</span>
+                            </h4>
+                            <div class="space-y-2">${commentsHtml}</div>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
-            <video
-                id="guardian-video-player"
-                class="w-full"
-                controls
-                autoplay
-                playsinline
-                src="${videoUrl}"
-            >
-                Dein Browser unterstützt kein Video-Playback.
-            </video>
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Timestamp click handlers
+    modal.querySelectorAll('.guardian-timestamp-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const time = parseFloat(btn.dataset.time);
+            const videoEl = document.getElementById('guardian-video-player');
+            if (videoEl && !isNaN(time)) {
+                videoEl.currentTime = time;
+                videoEl.play();
+            }
+        });
+    });
 
     // Close on Escape key
     const escHandler = (e) => {
@@ -1596,6 +1686,20 @@ window.closeVideoPlayer = function() {
         modal.remove();
     }
 };
+
+// Helper: Format timestamp as MM:SS
+function formatVideoTimestamp(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Helper: Extract drawing URL from markdown content
+function extractDrawingUrlFromContent(content) {
+    if (!content) return null;
+    const match = content.match(/\[Zeichnung\]\((https?:\/\/[^\)]+)\)/);
+    return match ? match[1] : null;
+}
 
 // Wait for DOM to be ready before initializing (same pattern as dashboard)
 if (document.readyState === 'loading') {
