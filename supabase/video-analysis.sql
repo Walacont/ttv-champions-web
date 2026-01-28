@@ -360,7 +360,7 @@ CREATE POLICY "video_comments_delete" ON video_comments
 -- HELPER FUNCTIONS
 -- ============================================
 
--- Funktion: Videos für einen Spieler abrufen (zugewiesene + eigene)
+-- Funktion: Videos für einen Spieler abrufen (zugewiesene + eigene private)
 CREATE OR REPLACE FUNCTION get_player_videos(p_player_id UUID)
 RETURNS TABLE (
     id UUID,
@@ -400,8 +400,8 @@ BEGIN
     LEFT JOIN video_assignments vass ON vass.video_id = va.id AND vass.player_id = p_player_id
     LEFT JOIN exercises e ON e.id = va.exercise_id
     LEFT JOIN profiles p ON p.id = va.uploaded_by
-    WHERE va.uploaded_by = p_player_id
-       OR vass.player_id = p_player_id
+    WHERE vass.player_id = p_player_id  -- Videos assigned to me
+       OR (va.uploaded_by = p_player_id AND va.club_id IS NULL)  -- My private videos (no coach feedback)
     ORDER BY va.created_at DESC;
 END;
 $$;
@@ -419,6 +419,7 @@ RETURNS TABLE (
     uploaded_by UUID,
     uploader_name TEXT,
     uploader_avatar TEXT,
+    assigned_players TEXT[],
     assignment_count BIGINT,
     pending_count BIGINT,
     created_at TIMESTAMPTZ
@@ -444,6 +445,10 @@ BEGIN
         va.uploaded_by AS uploaded_by,
         COALESCE(p.display_name, p.first_name || ' ' || LEFT(p.last_name, 1) || '.')::TEXT AS uploader_name,
         p.avatar_url AS uploader_avatar,
+        (SELECT ARRAY_AGG(COALESCE(pl.display_name, pl.first_name || ' ' || LEFT(pl.last_name, 1) || '.'))
+         FROM video_assignments vass2
+         JOIN profiles pl ON pl.id = vass2.player_id
+         WHERE vass2.video_id = va.id)::TEXT[] AS assigned_players,
         (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id)::BIGINT AS assignment_count,
         (SELECT COUNT(*) FROM video_assignments vass WHERE vass.video_id = va.id AND vass.status = 'pending')::BIGINT AS pending_count,
         va.created_at AS created_at
