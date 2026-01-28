@@ -360,7 +360,7 @@ CREATE POLICY "video_comments_delete" ON video_comments
 -- HELPER FUNCTIONS
 -- ============================================
 
--- Funktion: Videos für einen Spieler abrufen (zugewiesene + eigene)
+-- Funktion: Videos für einen Spieler abrufen (zugewiesene + eigene private)
 CREATE OR REPLACE FUNCTION get_player_videos(p_player_id UUID)
 RETURNS TABLE (
     id UUID,
@@ -400,8 +400,8 @@ BEGIN
     LEFT JOIN video_assignments vass ON vass.video_id = va.id AND vass.player_id = p_player_id
     LEFT JOIN exercises e ON e.id = va.exercise_id
     LEFT JOIN profiles p ON p.id = va.uploaded_by
-    WHERE va.uploaded_by = p_player_id
-       OR vass.player_id = p_player_id
+    WHERE vass.player_id = p_player_id  -- Videos assigned to me
+       OR (va.uploaded_by = p_player_id AND va.club_id IS NULL)  -- My private videos (no coach feedback)
     ORDER BY va.created_at DESC;
 END;
 $$;
