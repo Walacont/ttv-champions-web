@@ -4,6 +4,7 @@
 // ============================================
 
 import { getSupabase } from './supabase-init.js';
+import { uploadToR2 } from './r2-storage.js';
 
 const supabase = getSupabase();
 
@@ -408,24 +409,20 @@ async function handleTextPostSubmit(e) {
             for (let i = 0; i < selectedImageFiles.length; i++) {
                 const file = selectedImageFiles[i];
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${user.id}/${Date.now()}_${i}.${fileExt}`;
+                const fileName = `${Date.now()}_${i}.${fileExt}`;
 
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('post-images')
-                    .upload(fileName, file);
-
-                if (uploadError) {
+                try {
+                    // Upload zu R2 (mit Fallback zu Supabase)
+                    const uploadResult = await uploadToR2('post-images', file, {
+                        subfolder: user.id,
+                        filename: fileName
+                    });
+                    imageUrls.push(uploadResult.url);
+                } catch (uploadError) {
                     console.error('Error uploading image:', uploadError);
                     showFeedback(postFormFeedback, 'error', `Fehler beim Hochladen von Bild ${i + 1}.`);
                     return;
                 }
-
-                // Öffentliche URL abrufen
-                const { data: { publicUrl } } = supabase.storage
-                    .from('post-images')
-                    .getPublicUrl(fileName);
-
-                imageUrls.push(publicUrl);
             }
 
             showFeedback(postFormFeedback, 'loading', 'Erstelle Beitrag...');

@@ -12,6 +12,7 @@ const ALLOWED_FOLDERS = [
     'post-images',
     'training-videos',
     'exercises',
+    'exercise-images',
     'match-media'
 ];
 

@@ -8,8 +8,8 @@ import { getSupabase } from './supabase-init.js';
 
 // Konfiguration - Worker URL nach Deployment anpassen!
 const R2_CONFIG = {
-    // Worker URL - muss nach dem Deployment angepasst werden
-    workerUrl: 'https://sc-champions-storage.YOUR_SUBDOMAIN.workers.dev',
+    // Worker URL
+    workerUrl: 'https://sc-champions-storage.sc-champions.workers.dev',
     // Fallback auf Supabase Storage wenn Worker nicht erreichbar
     fallbackToSupabase: true
 };

@@ -4,6 +4,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { createTrainingSummariesForAttendees, addPointsToTrainingSummary } from './training-summary-supabase.js';
+import { uploadToR2 } from './r2-storage.js';
 
 const supabase = getSupabase();
 
@@ -2422,18 +2423,16 @@ window.saveNewExerciseFull = async function() {
 
         let imageUrl = null;
         if (imageFile) {
-            const fileName = `exercises/${Date.now()}_${imageFile.name}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('exercise-images')
-                .upload(fileName, imageFile);
-
-            if (uploadError) {
+            try {
+                const fileName = `${Date.now()}_${imageFile.name}`;
+                // Upload zu R2 (mit Fallback zu Supabase)
+                const uploadResult = await uploadToR2('exercise-images', imageFile, {
+                    subfolder: 'exercises',
+                    filename: fileName
+                });
+                imageUrl = uploadResult.url;
+            } catch (uploadError) {
                 console.warn('[Events] Image upload failed:', uploadError);
-            } else {
-                const { data: urlData } = supabase.storage
-                    .from('exercise-images')
-                    .getPublicUrl(fileName);
-                imageUrl = urlData?.publicUrl;
             }
         }
 

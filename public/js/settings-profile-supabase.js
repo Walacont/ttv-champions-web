@@ -1,6 +1,7 @@
 // Einstellungs-Seite für Benutzerprofil - Supabase-Version
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { uploadToR2 } from './r2-storage.js';
 
 const supabase = getSupabase();
 
@@ -265,19 +266,15 @@ uploadPhotoForm.addEventListener('submit', async e => {
 
     try {
         const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${targetProfileId}/profile.${fileExt}`;
+        const fileName = `profile.${fileExt}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('profile-pictures')
-            .upload(fileName, selectedFile, { upsert: true });
+        // Upload zu R2 (mit Fallback zu Supabase)
+        const uploadResult = await uploadToR2('profile-pictures', selectedFile, {
+            subfolder: targetProfileId,
+            filename: fileName
+        });
 
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-            .from('profile-pictures')
-            .getPublicUrl(fileName);
-
-        const photoURL = urlData.publicUrl;
+        const photoURL = uploadResult.url;
 
         const { error: updateError } = await supabase
             .from('profiles')

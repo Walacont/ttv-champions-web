@@ -11,6 +11,7 @@ import {
     isCompressionSupported
 } from './video-compressor.js';
 import { VideoDrawingTool } from './video-drawing-tool.js';
+import { uploadToR2 } from './r2-storage.js';
 
 let videoAnalysisContext = {
     db: null,
@@ -1169,22 +1170,16 @@ async function handleVideoUpload(e) {
         try {
             updateProgress(2, 'Thumbnail wird erstellt...');
             const thumbnailBlob = await generateVideoThumbnail(file);
-            const thumbFileName = `${userId}/${timestamp}_thumb.jpg`;
+            const thumbFileName = `${timestamp}_thumb.jpg`;
 
             updateProgress(5, 'Thumbnail wird hochgeladen...');
-            const { error: thumbError } = await db.storage
-                .from('training-videos')
-                .upload(thumbFileName, thumbnailBlob, {
-                    contentType: 'image/jpeg',
-                    upsert: false,
-                });
-
-            if (!thumbError) {
-                const { data: thumbUrlData } = db.storage
-                    .from('training-videos')
-                    .getPublicUrl(thumbFileName);
-                thumbnailUrl = thumbUrlData.publicUrl;
-            }
+            // Upload zu R2 (mit Fallback zu Supabase)
+            const thumbFile = new File([thumbnailBlob], thumbFileName, { type: 'image/jpeg' });
+            const thumbResult = await uploadToR2('training-videos', thumbFile, {
+                subfolder: userId,
+                filename: thumbFileName
+            });
+            thumbnailUrl = thumbResult.url;
             updateProgress(10, 'Thumbnail fertig');
         } catch (thumbErr) {
             console.warn('Thumbnail-Generierung fehlgeschlagen:', thumbErr);
@@ -1194,9 +1189,9 @@ async function handleVideoUpload(e) {
         // 2. Video in Storage hochladen (10-90%)
         updateProgress(12, 'Video wird hochgeladen...');
         const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${timestamp}.${fileExt}`;
+        const fileName = `${timestamp}.${fileExt}`;
 
-        // Simuliere Progress während Upload (da Supabase kein natives Progress-Tracking hat)
+        // Simuliere Progress während Upload (da R2/Supabase kein natives Progress-Tracking hat)
         let uploadProgress = 12;
         const progressInterval = setInterval(() => {
             if (uploadProgress < 85) {
@@ -1205,24 +1200,16 @@ async function handleVideoUpload(e) {
             }
         }, 500);
 
-        const { data: uploadData, error: uploadError } = await db.storage
-            .from('training-videos')
-            .upload(fileName, file, {
-                contentType: file.type,
-                upsert: false,
-            });
+        // Upload zu R2 (mit Fallback zu Supabase)
+        const uploadResult = await uploadToR2('training-videos', file, {
+            subfolder: userId,
+            filename: fileName
+        });
 
         clearInterval(progressInterval);
-        if (uploadError) throw uploadError;
-
         updateProgress(90, 'Video hochgeladen!');
 
-        // 3. Public URL generieren
-        const { data: urlData } = db.storage
-            .from('training-videos')
-            .getPublicUrl(fileName);
-
-        const videoUrl = urlData.publicUrl;
+        const videoUrl = uploadResult.url;
 
         // 4. Metadaten sammeln
         const title = document.getElementById('video-title-input')?.value || '';
@@ -1433,26 +1420,17 @@ async function handleDrawingSave(dataUrl, metadata = {}) {
         const blob = await response.blob();
 
         // Dateiname generieren - Format: {userId}/drawings/{videoId}_{timestamp}.png
-        // (Policy erwartet userId als erstes Verzeichnis)
         const timestamp = Date.now();
-        const fileName = `${userId}/drawings/${currentVideoId}_${timestamp}.png`;
+        const fileName = `${currentVideoId}_${timestamp}.png`;
 
-        // Upload zu Supabase Storage
-        const { data: uploadData, error: uploadError } = await db.storage
-            .from('training-videos')
-            .upload(fileName, blob, {
-                contentType: 'image/png',
-                upsert: false,
-            });
+        // Upload zu R2 (mit Fallback zu Supabase)
+        const drawingFile = new File([blob], fileName, { type: 'image/png' });
+        const uploadResult = await uploadToR2('training-videos', drawingFile, {
+            subfolder: `${userId}/drawings`,
+            filename: fileName
+        });
 
-        if (uploadError) throw uploadError;
-
-        // Public URL generieren
-        const { data: urlData } = db.storage
-            .from('training-videos')
-            .getPublicUrl(fileName);
-
-        const imageUrl = urlData.publicUrl;
+        const imageUrl = uploadResult.url;
 
         // Kommentar mit Zeichnung erstellen
         const timestampSeconds = videoPlayer ? videoPlayer.currentTime : null;
