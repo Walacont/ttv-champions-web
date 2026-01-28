@@ -181,3 +181,5 @@ Network Trash Folder
 Temporary Items
 .apdisk
 scripts/firebase-service-account.json
+android/.gradle/
+android/build/

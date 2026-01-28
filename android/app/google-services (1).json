@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "343815754864",
-    "project_id": "sc-champions",
-    "storage_bucket": "sc-champions.firebasestorage.app"
+    "project_number": "569930663711",
+    "project_id": "ttv-champions-prod",
+    "storage_bucket": "ttv-champions-prod.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:343815754864:android:adecd0b03fc55d55a690b5",
+        "mobilesdk_app_id": "1:569930663711:android:8d6d466bd868756912922a",
         "android_client_info": {
-          "package_name": "de.scchampions.app"
+          "package_name": "de.scchampions.mobile"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBjJlqztQszH6mObZwaeI7euCPSSYkpmXQ"
+          "current_key": "AIzaSyC8of9HcUKLUjJdmC8KUANuG1NGyss7Jx0"
         }
       ],
       "services": {
