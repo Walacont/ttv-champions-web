@@ -376,6 +376,10 @@ export async function loadPendingVideos() {
  */
 function createVideoCard(video) {
     const tags = video.tags || [];
+    const assignedPlayers = video.assigned_players || [];
+    const assignedText = assignedPlayers.length > 0
+        ? assignedPlayers.map(p => escapeHtml(p)).join(', ')
+        : 'Nicht zugewiesen';
 
     return `
         <div class="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
@@ -389,12 +393,9 @@ function createVideoCard(video) {
                 </div>
             </div>
             <div class="p-4">
-                <div class="flex items-center gap-2 mb-2">
-                    ${renderAvatar(video.uploader_avatar, video.uploader_name, 'w-8 h-8')}
-                    <div>
-                        <p class="font-medium text-sm">${escapeHtml(video.uploader_name || 'Unbekannt')}</p>
-                        <p class="text-xs text-gray-500">${formatDate(video.created_at)}</p>
-                    </div>
+                <div class="mb-2">
+                    <p class="text-xs text-gray-500 mb-0.5">Zugewiesen an:</p>
+                    <p class="font-medium text-sm text-indigo-700">${assignedText}</p>
                 </div>
                 ${video.title ? `<p class="text-sm font-medium mb-2">${escapeHtml(video.title)}</p>` : ''}
                 ${video.exercise_name ? `
@@ -402,8 +403,9 @@ function createVideoCard(video) {
                         <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name)}
                     </p>
                 ` : ''}
+                <p class="text-xs text-gray-400">${formatDate(video.created_at)}</p>
                 ${tags.length > 0 ? `
-                    <div class="flex flex-wrap gap-1">
+                    <div class="flex flex-wrap gap-1 mt-2">
                         ${tags.slice(0, 3).map(tag => `
                             <span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded">
                                 ${escapeHtml(tag)}
@@ -429,7 +431,10 @@ export async function loadAllVideos(filter = 'all') {
         .select(`
             *,
             uploader:profiles!uploaded_by(id, first_name, last_name, display_name, avatar_url),
-            exercise:exercises(id, name)
+            exercise:exercises(id, name),
+            assignments:video_assignments(
+                player:profiles!player_id(id, first_name, last_name, display_name)
+            )
         `)
         .eq('club_id', clubId)
         .order('created_at', { ascending: false });
@@ -480,6 +485,17 @@ function createVideoCardFull(video) {
     const uploaderName = uploader?.display_name || `${uploader?.first_name || ''} ${uploader?.last_name?.charAt(0) || ''}.`.trim();
     const exerciseName = video.exercise?.name || '';
 
+    // Get assigned players from assignments
+    const assignedPlayers = (video.assignments || [])
+        .filter(a => a.player)
+        .map(a => {
+            const p = a.player;
+            return p.display_name || `${p.first_name || ''} ${p.last_name?.charAt(0) || ''}.`.trim();
+        });
+    const assignedText = assignedPlayers.length > 0
+        ? assignedPlayers.map(p => escapeHtml(p)).join(', ')
+        : null;
+
     return `
         <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow group relative"
              data-video-id="${video.id}">
@@ -495,6 +511,11 @@ function createVideoCardFull(video) {
             </div>
             <div class="p-3 sm:p-4 cursor-pointer video-card-click">
                 <p class="font-medium text-sm mb-1 truncate">${escapeHtml(video.title || 'Ohne Titel')}</p>
+                ${assignedText ? `
+                    <p class="text-xs text-indigo-700 truncate mb-1">
+                        <i class="fas fa-user mr-1"></i>${assignedText}
+                    </p>
+                ` : ''}
                 <p class="text-xs text-gray-500 truncate">${escapeHtml(uploaderName)} • ${formatDate(video.created_at)}</p>
                 ${exerciseName ? `<p class="text-xs text-indigo-600 mt-1 truncate"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}</p>` : ''}
             </div>
