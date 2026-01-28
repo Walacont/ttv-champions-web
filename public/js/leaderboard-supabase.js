@@ -50,8 +50,6 @@ let currentUserDataCache = null;
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClubView = false) {
     let currentUserHidden = false;
 
-    console.log('[Privacy Filter] Filtering', players.length, 'players');
-
     // Prüfe ob aktueller Benutzer ein Coach ist (aus Cache)
     const currentUserRole = currentUserDataCache?.role;
     const isCoachOrHeadCoach = currentUserRole === 'coach' || currentUserRole === 'head_coach';
@@ -65,11 +63,6 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId, isClu
         if (isCoachOrHeadCoach && isClubView && isSameClub) {
             return true;
         }
-
-        // Debug-Logging für Privacy-Einstellungen
-        console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
-            '| leaderboard_visibility:', privacySettings.leaderboard_visibility,
-            '| showInLeaderboards:', privacySettings.showInLeaderboards);
 
         // Verwende leaderboard_visibility, mit Fallback auf alte Felder für Kompatibilität
         let leaderboardVisibility = privacySettings.leaderboard_visibility;
@@ -144,7 +137,6 @@ async function loadTestClubIds() {
             .filter(c => c.is_test_club === true)
             .map(c => c.id);
 
-        console.log('[Leaderboard] Test club IDs loaded:', testClubIdsCache);
         return testClubIdsCache;
     } catch (error) {
         console.error('[Leaderboard] Exception loading test club IDs:', error);
@@ -180,7 +172,6 @@ async function filterTestClubPlayers(players, currentUserId) {
     const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
 
     if (testClubIds.length === 0) {
-        console.log('[Leaderboard] No test clubs found, showing all players');
         return players;
     }
     const isCoach = currentUser && (currentUser.role === 'coach' || currentUser.role === 'head_coach');
@@ -225,7 +216,6 @@ export function setLeaderboardGenderFilter(genderId) {
  */
 export function setLeaderboardSportFilter(sportId) {
     currentLeaderboardSportId = sportId;
-    console.log('[Leaderboard] Sport filter set:', sportId);
 }
 
 export function getLeaderboardSportFilter() {
@@ -261,7 +251,6 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
 
         if (currentLeaderboardSportId) {
             query = query.eq('active_sport_id', currentLeaderboardSportId);
-            console.log('[Leaderboard] Sport filter active:', currentLeaderboardSportId);
         }
 
         if (clubId) {
@@ -550,8 +539,6 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                 .order('elo_rating', { ascending: false });
 
             if (!statsError && sportStats && sportStats.length > 0) {
-                console.log('[Leaderboard] Using sport-specific stats, players:', sportStats.length);
-
                 allPlayers = sportStats.map(ss => {
                     const p = ss.profiles;
                     return {
@@ -572,7 +559,6 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                     };
                 });
             } else {
-                console.log('[Leaderboard] Falling back to profiles query');
                 allPlayers = await loadLeaderboardFallback(currentLeaderboardSportId);
             }
         } else {

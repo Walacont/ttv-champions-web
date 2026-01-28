@@ -2,6 +2,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { calculateAge, validateRegistrationAge, validateGuardianAge, parseBirthdate } from './age-utils.js';
+import { uploadToR2 } from './r2-storage.js';
 
 console.log('[REGISTER-SUPABASE] Script starting...');
 
@@ -1109,27 +1110,20 @@ registrationForm?.addEventListener('submit', async e => {
             try {
                 console.log('[REGISTER] Uploading profile photo...');
                 const fileExt = selectedProfilePhoto.name.split('.').pop();
-                const fileName = `${user.id}/profile.${fileExt}`;
+                const fileName = `profile.${fileExt}`;
 
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('profile-pictures')
-                    .upload(fileName, selectedProfilePhoto, { upsert: true });
+                // Upload zu R2 (mit Fallback zu Supabase)
+                const uploadResult = await uploadToR2('profile-pictures', selectedProfilePhoto, {
+                    subfolder: user.id,
+                    filename: fileName
+                });
 
-                if (uploadError) {
-                    console.error('[REGISTER] Photo upload error:', uploadError);
-                } else {
-                    // Get public URL and update profile
-                    const { data: urlData } = supabase.storage
-                        .from('profile-pictures')
-                        .getPublicUrl(fileName);
-
-                    if (urlData?.publicUrl) {
-                        await supabase
-                            .from('profiles')
-                            .update({ avatar_url: urlData.publicUrl })
-                            .eq('id', user.id);
-                        console.log('[REGISTER] Profile photo uploaded successfully');
-                    }
+                if (uploadResult?.url) {
+                    await supabase
+                        .from('profiles')
+                        .update({ avatar_url: uploadResult.url })
+                        .eq('id', user.id);
+                    console.log('[REGISTER] Profile photo uploaded successfully');
                 }
             } catch (photoError) {
                 console.error('[REGISTER] Photo upload failed:', photoError);

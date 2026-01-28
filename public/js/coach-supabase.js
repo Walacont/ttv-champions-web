@@ -30,6 +30,7 @@ import {
     renderLeaderboardHTML,
     setLeaderboardSubgroupFilter,
     setLeaderboardGenderFilter,
+    setLeaderboardSportFilter,
 } from './leaderboard-supabase.js';
 import {
     renderCalendar,
@@ -437,6 +438,8 @@ async function initializeCoachPage(userData) {
         setDoublesSetScoreInput(setScoreInput);
     }
 
+    // Sport-Filter setzen bevor Rangliste geladen wird (zeigt nur Spieler dieser Sportart)
+    setLeaderboardSportFilter(userData.activeSportId);
     loadLeaderboard(userData, supabase, []);
     loadGlobalLeaderboard(userData, supabase, []);
 

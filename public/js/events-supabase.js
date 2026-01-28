@@ -4,6 +4,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { createTrainingSummariesForAttendees, addPointsToTrainingSummary } from './training-summary-supabase.js';
+import { uploadToR2 } from './r2-storage.js';
 
 const supabase = getSupabase();
 
@@ -23,6 +24,9 @@ let currentUserData = null;
 // Übungen werden zur Punkteberechnung bei Anwesenheit verwendet
 let eventExercises = [];
 let allExercises = [];
+
+// Flag um Doppel-Submits zu verhindern
+let isSubmittingAttendance = false;
 
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
@@ -1337,8 +1341,15 @@ window.updateEventAttendanceCount = function() {
  * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
  */
 window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
+    // Verhindere Doppel-Submits
+    if (isSubmittingAttendance) {
+        console.log('[Events] Attendance save already in progress, ignoring duplicate call');
+        return;
+    }
+    isSubmittingAttendance = true;
+
     // Lade-Animation anzeigen
-    const saveBtn = event?.target?.closest('button') || document.querySelector('[onclick*="saveEventAttendance"]');
+    const saveBtn = document.getElementById('save-attendance-btn');
     const originalBtnText = saveBtn?.innerHTML;
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -1495,9 +1506,21 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             eventExercises = [];
         }
 
+        // Erfolg - Flag zurücksetzen
+        isSubmittingAttendance = false;
+
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
-        alert('Fehler beim Speichern: ' + error.message);
+
+        // Flag zurücksetzen damit erneuter Versuch möglich ist
+        isSubmittingAttendance = false;
+
+        // AbortError speziell behandeln (kann bei Netzwerkproblemen auftreten)
+        if (error.message?.includes('AbortError') || error.name === 'AbortError') {
+            alert('Die Anfrage wurde unterbrochen. Bitte versuche es erneut.');
+        } else {
+            alert('Fehler beim Speichern: ' + error.message);
+        }
 
         // Button wieder aktivieren bei Fehler
         if (saveBtn && originalBtnText) {
@@ -2400,18 +2423,16 @@ window.saveNewExerciseFull = async function() {
 
         let imageUrl = null;
         if (imageFile) {
-            const fileName = `exercises/${Date.now()}_${imageFile.name}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('exercise-images')
-                .upload(fileName, imageFile);
-
-            if (uploadError) {
+            try {
+                const fileName = `${Date.now()}_${imageFile.name}`;
+                // Upload zu R2 (mit Fallback zu Supabase)
+                const uploadResult = await uploadToR2('exercise-images', imageFile, {
+                    subfolder: 'exercises',
+                    filename: fileName
+                });
+                imageUrl = uploadResult.url;
+            } catch (uploadError) {
                 console.warn('[Events] Image upload failed:', uploadError);
-            } else {
-                const { data: urlData } = supabase.storage
-                    .from('exercise-images')
-                    .getPublicUrl(fileName);
-                imageUrl = urlData?.publicUrl;
             }
         }
 
