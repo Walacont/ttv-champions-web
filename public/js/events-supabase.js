@@ -24,6 +24,9 @@ let currentUserData = null;
 let eventExercises = [];
 let allExercises = [];
 
+// Flag um Doppel-Submits zu verhindern
+let isSubmittingAttendance = false;
+
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
 /**
@@ -1337,8 +1340,15 @@ window.updateEventAttendanceCount = function() {
  * @param {string} occurrenceDate - Datum des spezifischen Termins (für wiederkehrende Events)
  */
 window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
+    // Verhindere Doppel-Submits
+    if (isSubmittingAttendance) {
+        console.log('[Events] Attendance save already in progress, ignoring duplicate call');
+        return;
+    }
+    isSubmittingAttendance = true;
+
     // Lade-Animation anzeigen
-    const saveBtn = event?.target?.closest('button') || document.querySelector('[onclick*="saveEventAttendance"]');
+    const saveBtn = document.getElementById('save-attendance-btn');
     const originalBtnText = saveBtn?.innerHTML;
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -1495,9 +1505,21 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
             eventExercises = [];
         }
 
+        // Erfolg - Flag zurücksetzen
+        isSubmittingAttendance = false;
+
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
-        alert('Fehler beim Speichern: ' + error.message);
+
+        // Flag zurücksetzen damit erneuter Versuch möglich ist
+        isSubmittingAttendance = false;
+
+        // AbortError speziell behandeln (kann bei Netzwerkproblemen auftreten)
+        if (error.message?.includes('AbortError') || error.name === 'AbortError') {
+            alert('Die Anfrage wurde unterbrochen. Bitte versuche es erneut.');
+        } else {
+            alert('Fehler beim Speichern: ' + error.message);
+        }
 
         // Button wieder aktivieren bei Fehler
         if (saveBtn && originalBtnText) {
