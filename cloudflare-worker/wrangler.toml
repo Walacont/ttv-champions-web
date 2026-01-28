@@ -1,0 +1,12 @@
+name = "sc-champions-storage"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "sc-champions-media"
+
+[vars]
+ALLOWED_ORIGINS = "https://sc-champions.de,http://localhost:3000,capacitor://localhost"
+SUPABASE_URL = "https://wmrbjuyqbmvtzrujuxs.supabase.co"
