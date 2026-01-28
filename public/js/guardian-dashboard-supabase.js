@@ -1555,16 +1555,24 @@ window.openVideoPlayer = async function(videoUrl, title, videoId) {
 
     // Load comments if we have a video ID
     let comments = [];
+    console.log('[GUARDIAN-DASHBOARD] Opening video player, videoId:', videoId);
     if (videoId) {
         try {
-            const { data } = await supabase.rpc('get_video_comments', {
+            const { data, error } = await supabase.rpc('get_video_comments', {
                 p_video_id: videoId
             });
+            console.log('[GUARDIAN-DASHBOARD] Comments loaded:', data, 'Error:', error);
+            if (error) {
+                console.error('[GUARDIAN-DASHBOARD] RPC error:', error);
+            }
             comments = data || [];
         } catch (err) {
             console.error('[GUARDIAN-DASHBOARD] Error loading comments:', err);
         }
+    } else {
+        console.warn('[GUARDIAN-DASHBOARD] No videoId provided');
     }
+    console.log('[GUARDIAN-DASHBOARD] Final comments count:', comments.length);
 
     // Generate comments HTML
     const commentsHtml = comments.length > 0
