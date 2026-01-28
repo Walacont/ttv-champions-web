@@ -57,30 +57,6 @@ export default {
                 return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() }, 200, corsHeaders);
             }
 
-            // Debug endpoint - Test Supabase connection
-            if (path === '/debug') {
-                try {
-                    const testResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/`, {
-                        headers: {
-                            'apikey': env.SUPABASE_ANON_KEY || 'NOT_SET'
-                        }
-                    });
-                    return jsonResponse({
-                        supabaseUrl: env.SUPABASE_URL,
-                        anonKeySet: !!env.SUPABASE_ANON_KEY,
-                        anonKeyLength: env.SUPABASE_ANON_KEY?.length || 0,
-                        testStatus: testResponse.status,
-                        testOk: testResponse.ok
-                    }, 200, corsHeaders);
-                } catch (e) {
-                    return jsonResponse({
-                        error: e.message,
-                        supabaseUrl: env.SUPABASE_URL,
-                        anonKeySet: !!env.SUPABASE_ANON_KEY
-                    }, 200, corsHeaders);
-                }
-            }
-
             return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
 
         } catch (error) {
@@ -101,11 +77,6 @@ async function validateAuth(request, env) {
 
     const token = authHeader.substring(7);
 
-    // Prüfen ob SUPABASE_ANON_KEY gesetzt ist
-    if (!env.SUPABASE_ANON_KEY) {
-        throw new Error('Server configuration error: SUPABASE_ANON_KEY not set');
-    }
-
     // Supabase JWT validieren
     const response = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
         headers: {
@@ -115,9 +86,7 @@ async function validateAuth(request, env) {
     });
 
     if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        console.error('Supabase auth error:', response.status, errorText);
-        throw new Error(`Invalid authentication token (${response.status})`);
+        throw new Error('Invalid authentication token');
     }
 
     const user = await response.json();
