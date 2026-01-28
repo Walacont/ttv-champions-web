@@ -291,6 +291,12 @@ async function loadChildStats(child) {
 
         child.notifications = notifications || [];
 
+        // Load video analyses for child
+        const { data: videos } = await supabase
+            .rpc('get_player_videos', { p_player_id: child.id });
+
+        child.videos = (videos || []).slice(0, 10);
+
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
         child.totalMatches = 0;
@@ -298,6 +304,7 @@ async function loadChildStats(child) {
         child.recentMatches = [];
         child.pointsHistory = [];
         child.notifications = [];
+        child.videos = [];
     }
 }
 
@@ -488,6 +495,46 @@ function renderChildren() {
                     </div>
                     <div class="max-h-40 overflow-y-auto">
                         ${notificationsHtml}
+                    </div>
+                </div>
+
+                <!-- Video Analysen -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
+                        <i class="fas fa-video text-indigo-500"></i>
+                        Videoanalysen
+                        ${child.videos && child.videos.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.videos.length}</span>` : ''}
+                    </p>
+                    <div class="max-h-48 overflow-y-auto">
+                        ${child.videos && child.videos.length > 0 ? child.videos.map(video => {
+                            const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                            const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+                            const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Ausstehend';
+                            const title = video.title || video.exercise_name || 'Video';
+                            const thumbnailUrl = video.thumbnail_url || '';
+                            return `
+                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
+                                    ${thumbnailUrl ? `
+                                        <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                                            <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
+                                        </div>
+                                    ` : `
+                                        <div class="w-12 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-film text-gray-400 text-xs"></i>
+                                        </div>
+                                    `}
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-gray-700 truncate">${escapeHtml(title)}</p>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] text-gray-400">${date}</span>
+                                            ${video.uploader_name ? `<span class="text-[10px] text-gray-400">von ${escapeHtml(video.uploader_name)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
+                                    ${video.comment_count > 0 ? `<span class="text-[10px] text-gray-400 flex-shrink-0"><i class="fas fa-comment text-xs"></i> ${video.comment_count}</span>` : ''}
+                                </div>
+                            `;
+                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine Videoanalysen</p>'}
                     </div>
                 </div>
 
