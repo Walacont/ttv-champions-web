@@ -2075,8 +2075,8 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     </div>
                     ` : ''}
 
-                    ${!isPastOrToday ? `
-                    <!-- Future event - show participant list -->
+                    ${isCoach ? `
+                    <!-- Coach: Always show participant responses -->
                     <div class="border-t pt-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Antworten</h3>
                         ${accepted.length > 0 ? `
@@ -2108,7 +2108,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                                         <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm inline-block">
                                             ${name}
                                         </span>
-                                        ${inv.decline_comment && isCoach ? `
+                                        ${inv.decline_comment ? `
                                         <p class="text-xs text-gray-500 ml-3 mt-1 italic">"${inv.decline_comment}"</p>
                                         ` : ''}
                                     </div>`;
@@ -2128,9 +2128,12 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             </div>
                         </div>
                         ` : ''}
+                        ${accepted.length === 0 && declined.length === 0 && pending.length === 0 ? `
+                        <p class="text-sm text-gray-400 text-center py-2">Noch keine Einladungen</p>
+                        ` : ''}
 
-                        ${isCoach && pending.length > 0 ? `
-                        <!-- Reminder button for coaches -->
+                        ${!isPastOrToday && pending.length > 0 ? `
+                        <!-- Reminder button for coaches (only future events) -->
                         <div class="mt-4">
                             <button onclick="window.sendEventReminder('${eventId}', '${displayDate}')" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-sm font-medium transition-colors">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2141,9 +2144,41 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         </div>
                         ` : ''}
                     </div>
+                    ` : `
+                    ${!isPastOrToday ? `
+                    <!-- Player: show participant list for future events -->
+                    <div class="border-t pt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teilnehmer</h3>
+                        ${accepted.length > 0 ? `
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-green-700 mb-2">Zugesagt (${accepted.length})</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${accepted.map(inv => `
+                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                                        ${inv.profiles ? inv.profiles.first_name + ' ' + inv.profiles.last_name : 'Unbekannt'}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${pending.length > 0 ? `
+                        <div>
+                            <p class="text-sm font-medium text-gray-700 mb-2">Ausstehend (${pending.length})</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${pending.map(inv => `
+                                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                                        ${inv.profiles ? inv.profiles.first_name + ' ' + inv.profiles.last_name : 'Unbekannt'}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                    `}
 
-                    ${event.comments_enabled ? `
-                    <!-- Comments Section -->
+                    <!-- Comments Section (always visible for coaches, for others only when enabled) -->
+                    ${isCoach || event.comments_enabled !== false ? `
                     <div class="border-t pt-6 mt-4">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">
                             <svg class="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2151,7 +2186,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             </svg>
                             Kommentare
                         </h3>
-                        <div id="event-comments-list" class="space-y-3 mb-4" data-event-id="${eventId}" data-occurrence-date="${displayDate}">
+                        <div id="event-comments-list" class="space-y-3 mb-4 max-h-64 overflow-y-auto" data-event-id="${eventId}" data-occurrence-date="${displayDate}">
                             <p class="text-sm text-gray-400 text-center py-2">Laden...</p>
                         </div>
                         <div class="flex gap-2">
@@ -2162,7 +2197,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             </button>
                         </div>
                     </div>
-                    ` : ''}
                     ` : ''}
                 </div>
             </div>
@@ -2176,8 +2210,8 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             }
         });
 
-        // Load comments if enabled
-        if (event.comments_enabled && !isPastOrToday) {
+        // Load comments (always for coaches, otherwise when enabled)
+        if (isCoach || event.comments_enabled !== false) {
             loadEventComments(eventId, displayDate);
         }
 
