@@ -122,6 +122,35 @@
         }, 1000);
     }
 
+    /** Prüft ob Firebase/FCM korrekt konfiguriert ist */
+    function isFirebaseAvailable() {
+        try {
+            // Prüfen ob google-services.json vorhanden ist (Firebase App initialisiert)
+            return typeof com !== 'undefined' ||
+                   (window.Capacitor?.Plugins?.PushNotifications != null);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /** Sichere Registrierung - fängt native Crashes ab */
+    async function safeRegister(PushNotifications) {
+        try {
+            await PushNotifications.register();
+            console.log('[Push] Registration call completed');
+            return true;
+        } catch (regError) {
+            const errorMsg = regError?.message || JSON.stringify(regError) || 'Unknown error';
+            console.error('[Push] Registration failed:', errorMsg);
+            // Firebase nicht konfiguriert - google-services.json fehlt wahrscheinlich
+            if (errorMsg.includes('Firebase') || errorMsg.includes('Default') || errorMsg.includes('IllegalState')) {
+                console.error('[Push] Firebase ist nicht konfiguriert. google-services.json fehlt im Android-Projekt.');
+                window._pushNotificationsUnavailable = true;
+            }
+            return false;
+        }
+    }
+
     /** Initialisiert Push-Benachrichtigungen für native Apps */
     async function initializePushNotifications() {
         console.log('[Push] Initializing push notifications...');
@@ -143,6 +172,7 @@
                 console.log('[Push] Initial permission status:', JSON.stringify(permStatus));
             } catch (e) {
                 console.error('[Push] Error checking permissions:', e);
+                window._pushNotificationsUnavailable = true;
                 return;
             }
 
@@ -218,12 +248,7 @@
             // Sofort registrieren wenn Berechtigung bereits erteilt, um Token zu erhalten
             if (permStatus && permStatus.receive === 'granted') {
                 console.log('[Push] Permission already granted, registering to get token...');
-                try {
-                    await PushNotifications.register();
-                    console.log('[Push] Registration call completed');
-                } catch (regError) {
-                    console.error('[Push] Registration failed:', regError);
-                }
+                await safeRegister(PushNotifications);
             } else {
                 console.log('[Push] Permission not yet granted, status:', permStatus?.receive);
             }
@@ -241,6 +266,12 @@
         /** Fordert Push-Benachrichtigungs-Berechtigung an */
         async requestPushPermission() {
             console.log('[Push] requestPushPermission called, isCapacitor:', isCapacitor);
+
+            // Prüfen ob Push als nicht verfügbar markiert wurde (z.B. Firebase fehlt)
+            if (window._pushNotificationsUnavailable) {
+                console.warn('[Push] Push notifications unavailable (Firebase nicht konfiguriert)');
+                return false;
+            }
 
             if (!isCapacitor) {
                 console.log('[Push] Not running in Capacitor, using web notifications');
@@ -263,8 +294,8 @@
 
                 if (permStatus.receive === 'granted') {
                     console.log('[Push] Already granted, registering...');
-                    await PushNotifications.register();
-                    return true;
+                    const registered = await safeRegister(PushNotifications);
+                    return registered;
                 }
 
                 // Ab Android 13+ wird der System-Dialog angezeigt
@@ -274,8 +305,8 @@
 
                 if (result.receive === 'granted') {
                     console.log('[Push] Permission granted, registering...');
-                    await PushNotifications.register();
-                    return true;
+                    const registered = await safeRegister(PushNotifications);
+                    return registered;
                 }
 
                 console.log('[Push] Permission not granted:', result.receive);
