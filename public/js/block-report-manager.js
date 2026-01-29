@@ -5,6 +5,7 @@
  */
 
 import { getSupabase, getCurrentUser } from './supabase-init.js';
+import { supabaseConfig } from './supabase-config.js';
 import { t } from './i18n.js';
 
 // Get supabase instance
@@ -48,6 +49,37 @@ function translate(key, options = {}) {
         return translated !== key ? translated : options.defaultValue || key;
     } catch {
         return options.defaultValue || key;
+    }
+}
+
+/**
+ * Send email notification to admin about a new report
+ * Calls the Supabase Edge Function send-report-email
+ */
+async function sendReportEmailToAdmin(reportData) {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(
+            `${supabaseConfig.url}/functions/v1/send-report-email`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': supabaseConfig.anonKey,
+                },
+                body: JSON.stringify(reportData),
+            }
+        );
+
+        if (!response.ok) {
+            console.warn('Failed to send report email:', await response.text());
+        }
+    } catch (err) {
+        // Email is non-critical, don't block the report flow
+        console.warn('Error sending report email:', err);
     }
 }
 
@@ -292,6 +324,49 @@ export async function reportContent(contentType, contentId, reportType, descript
 
         if (data.success) {
             showToast(translate('report.success', { defaultValue: 'Meldung eingereicht. Vielen Dank!' }), 'success');
+
+            // Send email notification to admin (non-blocking)
+            try {
+                // Get reporter name
+                const { data: reporterProfile } = await supabase
+                    .from('profiles')
+                    .select('first_name, last_name')
+                    .eq('id', currentUserId)
+                    .single();
+
+                // Get reported user name (contentId is the user ID for user reports, otherwise look up the content owner)
+                let reportedUserId = contentId;
+                if (contentType !== 'user') {
+                    const tableName = contentType === 'post' ? 'community_posts' :
+                                      contentType === 'poll' ? 'community_polls' :
+                                      contentType === 'comment' ? 'post_comments' : null;
+                    if (tableName) {
+                        const { data: contentData } = await supabase
+                            .from(tableName)
+                            .select('user_id')
+                            .eq('id', contentId)
+                            .single();
+                        if (contentData) reportedUserId = contentData.user_id;
+                    }
+                }
+
+                const { data: reportedProfile } = await supabase
+                    .from('profiles')
+                    .select('first_name, last_name')
+                    .eq('id', reportedUserId)
+                    .single();
+
+                sendReportEmailToAdmin({
+                    report_id: data.report_id || 'unknown',
+                    reporter_name: reporterProfile ? `${reporterProfile.first_name || ''} ${reporterProfile.last_name || ''}`.trim() : 'Unbekannt',
+                    reported_user_name: reportedProfile ? `${reportedProfile.first_name || ''} ${reportedProfile.last_name || ''}`.trim() : 'Unbekannt',
+                    report_type: reportType,
+                    content_type: contentType,
+                    description: description || undefined,
+                });
+            } catch (emailErr) {
+                console.warn('Could not send report email:', emailErr);
+            }
         } else {
             showToast(data.error || translate('report.error', { defaultValue: 'Fehler beim Melden' }), 'error');
         }
