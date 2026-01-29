@@ -2106,7 +2106,7 @@ async function loadPointsHistory() {
     try {
         const { data: history, error } = await supabase
             .from('points_history')
-            .select('points, xp, elo_change, description, reason, timestamp, created_at')
+            .select('points, xp, elo_change, reason, timestamp, created_at')
             .eq('user_id', currentUser.id)
             .order('timestamp', { ascending: false })
             .limit(10);
@@ -2191,7 +2191,7 @@ async function loadChallenges() {
     try {
         const { data: challenges, error } = await supabase
             .from('challenges')
-            .select('id, name, description, xp_reward, expires_at, created_at')
+            .select('id, title, description, xp_reward, type, points, is_active, is_repeatable, unit, tiered_points, partner_system, created_at')
             .eq('club_id', currentUserData.club_id)
             .order('created_at', { ascending: false });
 
@@ -2231,7 +2231,7 @@ async function loadExercises() {
         // Abfrage mit optionalem Sport-Filter erstellen
         let query = supabase
             .from('exercises')
-            .select('id, name, description, image_url, sport_id, tags, unit, points_config')
+            .select('id, name, title, description, image_url, sport_id, tags, unit, tiered_points, points, category, difficulty, xp_reward')
             .order('name');
 
         // Nach aktiver Sportart des Benutzers filtern falls gesetzt
@@ -2400,7 +2400,7 @@ async function loadMatchRequests() {
         // Ausstehende EINZEL-Anfragen abrufen wo Benutzer beteiligt
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, created_at, score, approvals')
+            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
@@ -2412,7 +2412,7 @@ async function loadMatchRequests() {
         // Alle ausstehenden Doppel-Anfragen abrufen und in JS filtern
         const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
-            .select('id, team_a, team_b, status, created_at')
+            .select('id, team_a, team_b, status, created_at, sets, approvals')
             .in('status', ['pending_opponent', 'pending_coach'])
             .order('created_at', { ascending: false })
             .limit(50);
@@ -3524,7 +3524,7 @@ window.openExerciseModal = async (exerciseId) => {
         // Übungsdaten abrufen
         const { data: exercise, error } = await supabase
             .from('exercises')
-            .select('id, name, title, description, image_url, unit, sport_id, tags, points_config')
+            .select('id, name, title, description, image_url, unit, sport_id, tags, tiered_points, points, category, difficulty, xp_reward')
             .eq('id', exerciseId)
             .single();
 
@@ -3740,7 +3740,7 @@ window.openChallengeModal = async (challengeId) => {
         // Challenge-Daten abrufen
         const { data: challenge, error } = await supabase
             .from('challenges')
-            .select('id, name, description, xp_reward, expires_at, club_id')
+            .select('id, title, description, xp_reward, type, points, is_active, is_repeatable, unit, tiered_points, partner_system, club_id, created_at')
             .eq('id', challengeId)
             .single();
 
@@ -3869,7 +3869,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // Angenommen - Match-Anfrage-Details abrufen
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, approvals, score, created_at')
+            .select('id, player_a_id, player_b_id, status, approvals, sets, created_at')
             .eq('id', requestId)
             .single();
 
@@ -4157,7 +4157,7 @@ async function loadPendingRequests() {
         // Einzel-Anfragen laden
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, created_at, score, approvals')
+            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false });
@@ -4167,7 +4167,7 @@ async function loadPendingRequests() {
         // Doppel-Anfragen laden
         const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
-            .select('id, team_a, team_b, status, created_at')
+            .select('id, team_a, team_b, status, created_at, sets, approvals')
             .in('status', ['pending_opponent', 'pending_coach'])
             .order('created_at', { ascending: false });
 

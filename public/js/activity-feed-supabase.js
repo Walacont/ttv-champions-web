@@ -1105,14 +1105,14 @@ async function fetchActivities(userIds) {
             // Einzel-Matches
             supabase
                 .from('matches')
-                .select('id, player_a_id, player_b_id, winner_id, game_results, points_awarded, created_at, sport_id, club_id')
+                .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, season_points_awarded, created_at, sport_id, club_id, match_mode, handicap_used')
                 .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
                 .order('created_at', { ascending: false })
                 .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1),
             // Doppel-Matches
             supabase
                 .from('doubles_matches')
-                .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, winning_team, game_results, points_awarded, created_at, sport_id, club_id')
+                .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, winning_team, sets, team_a_sets_won, team_b_sets_won, season_points_awarded, created_at, sport_id, club_id, match_mode, handicap_used')
                 .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
                 .order('created_at', { ascending: false })
                 .range(typeOffsets.doubles, typeOffsets.doubles + ACTIVITIES_PER_PAGE - 1),
@@ -1126,7 +1126,7 @@ async function fetchActivities(userIds) {
             // Community-Posts (ohne Training-Zusammenfassungen)
             supabase
                 .from('community_posts')
-                .select('id, user_id, content, created_at, deleted_at, visibility, image_url, likes, comment_count')
+                .select('id, user_id, content, created_at, deleted_at, visibility, image_url, image_urls, likes_count, comments_count')
                 .is('deleted_at', null)
                 .in('user_id', userIds)
                 .not('content', 'ilike', 'TRAINING_SUMMARY|%')
@@ -1146,7 +1146,7 @@ async function fetchActivities(userIds) {
             // Community-Umfragen
             supabase
                 .from('community_polls')
-                .select('id, user_id, title, poll_options, created_at, deleted_at, visibility')
+                .select('id, user_id, question, options, created_at, deleted_at, visibility, is_anonymous, allow_multiple, ends_at, total_votes')
                 .is('deleted_at', null)
                 .in('user_id', userIds)
                 .order('created_at', { ascending: false })
@@ -3797,7 +3797,7 @@ async function refreshPollCard(pollId) {
         // Umfrage-Daten neu laden
         const { data: poll, error } = await supabase
             .from('community_polls')
-            .select('id, user_id, title, poll_options, created_at, deleted_at, visibility')
+            .select('id, user_id, question, options, created_at, deleted_at, visibility, is_anonymous, allow_multiple, ends_at, total_votes')
             .eq('id', pollId)
             .single();
 
