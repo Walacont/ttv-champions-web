@@ -488,7 +488,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
 export async function confirmDoublesMatchRequest(requestId, playerId, supabase) {
     const { data: request, error: fetchError } = await supabase
         .from('doubles_match_requests')
-        .select('*')
+        .select('id, team_a, team_b, sets, winning_team, match_mode, handicap_used, handicap, status, approvals, club_id, sport_id, initiated_by, is_cross_club, created_at')
         .eq('id', requestId)
         .single();
 
@@ -582,7 +582,7 @@ export async function approveDoublesMatchRequest(requestId, supabase, currentUse
 export async function rejectDoublesMatchRequest(requestId, reason, supabase, currentUserData) {
     const { data: request, error: fetchError } = await supabase
         .from('doubles_match_requests')
-        .select('*')
+        .select('id, status')
         .eq('id', requestId)
         .single();
 
@@ -640,13 +640,13 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             // Filterung erfolgt später nach Spieler-Vereinszugehörigkeit
             let query = supabase
                 .from('doubles_pairings')
-                .select('*')
+                .select('id, player1_id, player2_id, player1_name, player2_name, club_id, sport_id, matches_played, matches_won, matches_lost, win_rate, current_elo_rating, last_played')
                 .order('matches_won', { ascending: false });
 
             const { data: pairingsData, error: pairingsError } = await query;
             if (pairingsError) throw pairingsError;
 
-            const { data: clubsData } = await supabase.from('clubs').select('*');
+            const { data: clubsData } = await supabase.from('clubs').select('id, name, is_test_club');
             const clubsMap = new Map();
             (clubsData || []).forEach(club => clubsMap.set(club.id, club));
 
@@ -663,7 +663,7 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
             if (allPlayerIds.size > 0) {
                 const { data: profilesData } = await supabase
                     .from('profiles')
-                    .select('*')
+                    .select('id, first_name, last_name, display_name, avatar_url, club_id, active_sport_id, role')
                     .in('id', [...allPlayerIds]);
                 (profilesData || []).forEach(p => profilesMap.set(p.id, p));
             }

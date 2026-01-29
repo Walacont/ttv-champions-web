@@ -101,7 +101,7 @@ async function initializeAuth() {
             // Load child's profile
             const { data: childProfile, error: childError } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, email, first_name, last_name, role, club_id, active_sport_id')
                 .eq('id', childId)
                 .single();
 
@@ -133,7 +133,7 @@ async function initializeAuth() {
             // Benutzerprofil von Supabase abrufen
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, email, first_name, last_name, role, club_id, active_sport_id')
                 .eq('id', currentUser.id)
                 .single();
 
@@ -299,7 +299,7 @@ async function updateClubManagementUI() {
     // Benutzerdaten aktualisieren
     const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select('club_id')
         .eq('id', profileId)
         .single();
 
@@ -310,7 +310,7 @@ async function updateClubManagementUI() {
     // Auf ausstehende Beitrittsanfrage prüfen
     const { data: joinRequests } = await supabase
         .from('club_requests')
-        .select('*')
+        .select('id')
         .eq('player_id', profileId)
         .eq('status', 'pending');
 
@@ -319,7 +319,7 @@ async function updateClubManagementUI() {
     // Auf ausstehende Austrittsanfrage prüfen
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
-        .select('*')
+        .select('id')
         .eq('player_id', profileId)
         .eq('status', 'pending');
 
@@ -509,7 +509,7 @@ clubSearchBtn?.addEventListener('click', async () => {
             if (clubIdsWithSport.length > 0) {
                 const { data, error } = await supabase
                     .from('clubs')
-                    .select('*')
+                    .select('id, name')
                     .ilike('name', `%${searchTerm}%`)
                     .eq('is_test_club', false)
                     .in('id', clubIdsWithSport);
@@ -520,7 +520,7 @@ clubSearchBtn?.addEventListener('click', async () => {
         } else {
             const { data, error } = await supabase
                 .from('clubs')
-                .select('*')
+                .select('id, name')
                 .ilike('name', `%${searchTerm}%`)
                 .eq('is_test_club', false);
 

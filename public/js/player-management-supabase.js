@@ -654,7 +654,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
             // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
-                .select('*')
+                .select('id, first_name, last_name, display_name, email, role, club_id, active_sport_id, avatar_url, birthdate, gender, xp, points, elo_rating, highest_elo, wins, losses, grundlagen_completed, subgroup_ids, qttr_points, is_offline, is_match_ready, onboarding_complete, created_at')
                 .eq('club_id', clubId)
                 .order('last_name');
 
@@ -907,7 +907,7 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
             // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
-                .select('*')
+                .select('id, first_name, last_name, display_name, avatar_url, role, club_id, active_sport_id')
                 .eq('club_id', clubId)
                 .in('role', ['player', 'coach', 'head_coach']);
 

@@ -44,7 +44,7 @@ async function initializeAuth() {
 
         const { data: profile, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('id, email, first_name, last_name, display_name, role, club_id, xp, points, elo_rating, highest_elo, gender, birthdate, avatar_url, onboarding_complete, privacy_settings, active_sport_id')
             .eq('id', currentUser.id)
             .single();
 
@@ -852,7 +852,7 @@ async function updateClubManagementUI() {
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select('club_id')
         .eq('id', currentUser.id)
         .single();
 
@@ -862,7 +862,7 @@ async function updateClubManagementUI() {
 
     const { data: joinRequests } = await supabase
         .from('club_requests')
-        .select('*')
+        .select('id')
         .eq('player_id', currentUser.id)
         .eq('status', 'pending');
 
@@ -870,7 +870,7 @@ async function updateClubManagementUI() {
 
     const { data: leaveRequests } = await supabase
         .from('leave_club_requests')
-        .select('*')
+        .select('id')
         .eq('player_id', currentUser.id)
         .eq('status', 'pending');
 
@@ -1054,7 +1054,7 @@ clubSearchBtn?.addEventListener('click', async () => {
             if (clubIdsWithSport.length > 0) {
                 const { data, error } = await supabase
                     .from('clubs')
-                    .select('*')
+                    .select('id, name')
                     .ilike('name', `%${searchTerm}%`)
                     .eq('is_test_club', false)
                     .in('id', clubIdsWithSport);
@@ -1066,7 +1066,7 @@ clubSearchBtn?.addEventListener('click', async () => {
             // Kein Sportarten-Filter vorhanden
             const { data, error } = await supabase
                 .from('clubs')
-                .select('*')
+                .select('id, name')
                 .ilike('name', `%${searchTerm}%`)
                 .eq('is_test_club', false);
 
@@ -1080,7 +1080,7 @@ clubSearchBtn?.addEventListener('click', async () => {
         for (const club of clubs) {
             const { count } = await supabase
                 .from('profiles')
-                .select('*', { count: 'exact', head: true })
+                .select('id', { count: 'exact', head: true })
                 .eq('club_id', club.id)
                 .or('role.eq.player,role.eq.coach,is_offline.eq.true');
 

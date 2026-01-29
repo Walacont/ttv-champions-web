@@ -99,7 +99,7 @@ onAuthStateChange(async (event, session) => {
         try {
             const { data: userData, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, role, club_id, active_sport_id')
                 .eq('id', session.user.id)
                 .single();
 
@@ -261,7 +261,7 @@ async function loadSportsAndClubs() {
         // Alle Sportarten laden
         const { data: sports, error: sportsError } = await supabase
             .from('sports')
-            .select('*')
+            .select('id, name, display_name, icon, is_active, config')
             .eq('is_active', true)
             .order('display_name');
 
@@ -977,7 +977,7 @@ async function startEditExercise(exerciseId) {
         // Übung aus der Datenbank laden
         const { data: exercise, error } = await supabase
             .from('exercises')
-            .select('*')
+            .select('id, title, name, description, description_content, image_url, tags, category, difficulty, xp_reward, sport_id, club_id, unit, tiered_points, points, player_type, time_direction, procedure, animation_steps, visibility, level, created_by, created_by_name, created_at')
             .eq('id', exerciseId)
             .single();
 
@@ -1233,7 +1233,7 @@ async function loadStatistics() {
         );
 
         // Benutzer laden (Test-Vereine ausgeschlossen, gefiltert nach Sportart)
-        let usersQuery = supabase.from('profiles').select('*');
+        let usersQuery = supabase.from('profiles').select('id, club_id, active_sport_id, points, gender, role');
 
         // Sport-Filter direkt auf Profile anwenden (Single-Sport-Modell)
         if (currentSportFilter !== 'all') {
@@ -1247,7 +1247,7 @@ async function loadStatistics() {
         // Anwesenheiten laden (Test-Vereine ausgeschlossen)
         const { data: allAttendance } = await supabase
             .from('attendance')
-            .select('*');
+            .select('id, club_id, date, present_player_ids');
 
         const attendances = (allAttendance || []).filter(a => !a.club_id || !testClubIds.has(a.club_id));
 
@@ -1692,7 +1692,7 @@ async function loadClubsAndPlayers() {
         // Alle Benutzer laden (Rolle ist direkt in profiles)
         const { data: users, error: usersError } = await supabase
             .from('profiles')
-            .select('*');
+            .select('id, first_name, last_name, display_name, club_id, active_sport_id, role');
 
         if (usersError) throw usersError;
 
@@ -2305,9 +2305,10 @@ async function handleCreateExercise(e) {
 async function loadAllExercises() {
     try {
         // Abfrage mit optionalem Sport-Filter erstellen
+        const exerciseColumns = 'id, title, name, description, image_url, tags, category, difficulty, xp_reward, sport_id, club_id, unit, tiered_points, points, player_type, time_direction, visibility, level, created_by_name, created_at';
         let query = supabase
             .from('exercises')
-            .select('*')
+            .select(exerciseColumns)
             .order('created_at', { ascending: false });
 
         // Nach Sportart filtern falls ausgewählt
@@ -2332,7 +2333,7 @@ async function loadAllExercises() {
                 // Mit aktuellem Filter neu laden
                 let reloadQuery = supabase
                     .from('exercises')
-                    .select('*')
+                    .select(exerciseColumns)
                     .order('created_at', { ascending: false });
 
                 if (currentSportFilter !== 'all') {

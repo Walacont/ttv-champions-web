@@ -679,6 +679,25 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         return;
     }
 
+    // Cache für Paarungs-Elo (vermeidet wiederholte DB-Abfragen)
+    const pairingEloCache = new Map();
+    const PAIRING_CACHE_TTL = 30000; // 30 Sekunden
+
+    async function fetchPairingElo(pairingId) {
+        const cached = pairingEloCache.get(pairingId);
+        if (cached && Date.now() - cached.ts < PAIRING_CACHE_TTL) {
+            return cached.data;
+        }
+        if (!supabaseClient) return null;
+        const { data } = await supabaseClient
+            .from('doubles_pairings')
+            .select('current_elo_rating')
+            .eq('id', pairingId)
+            .single();
+        pairingEloCache.set(pairingId, { data, ts: Date.now() });
+        return data;
+    }
+
     /**
      * Berechnet und zeigt Handicap basierend auf aktuellen Auswahlen
      * Verwendet PAARUNGS-Elo aus doubles_pairings-Tabelle (nicht Spieler-Durchschnitt)
@@ -733,34 +752,23 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         let teamAIsNew = true;
         let teamBIsNew = true;
 
-        if (supabaseClient) {
-            try {
-                // Team A Paarung abrufen
-                const { data: teamAPairing } = await supabaseClient
-                    .from('doubles_pairings')
-                    .select('current_elo_rating')
-                    .eq('id', teamAPairingId)
-                    .single();
+        try {
+            // Team A & B Paarung parallel abrufen (mit Cache)
+            const [teamAPairing, teamBPairing] = await Promise.all([
+                fetchPairingElo(teamAPairingId),
+                fetchPairingElo(teamBPairingId)
+            ]);
 
-                if (teamAPairing) {
-                    teamAElo = teamAPairing.current_elo_rating || 800;
-                    teamAIsNew = false;
-                }
-
-                // Team B Paarung abrufen
-                const { data: teamBPairing } = await supabaseClient
-                    .from('doubles_pairings')
-                    .select('current_elo_rating')
-                    .eq('id', teamBPairingId)
-                    .single();
-
-                if (teamBPairing) {
-                    teamBElo = teamBPairing.current_elo_rating || 800;
-                    teamBIsNew = false;
-                }
-            } catch (err) {
-                console.warn('Could not fetch pairing Elo, using defaults:', err);
+            if (teamAPairing) {
+                teamAElo = teamAPairing.current_elo_rating || 800;
+                teamAIsNew = false;
             }
+            if (teamBPairing) {
+                teamBElo = teamBPairing.current_elo_rating || 800;
+                teamBIsNew = false;
+            }
+        } catch (err) {
+            console.warn('Could not fetch pairing Elo, using defaults:', err);
         }
 
         // Team-Elo-Werte mit "Neu"-Indikator für neue Paarungen anzeigen
@@ -854,5 +862,5 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             lastOpponent2Id = currentOpponent2Id;
             calculateAndDisplayHandicap();
         }
-    }, 500); // Alle 500ms prüfen
+    }, 2000); // Alle 2s prüfen (Fallback für MutationObserver)
 }

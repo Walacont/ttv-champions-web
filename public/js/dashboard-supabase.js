@@ -42,6 +42,13 @@ import { initPlayerVideoUpload, setCurrentExerciseId } from './video-analysis-pl
 
 suppressConsoleLogs();
 
+// Debounce-Utility für Realtime-Callbacks (verhindert kaskadierende Reloads)
+const _debounceTimers = {};
+function debounce(key, fn, delay = 1500) {
+    if (_debounceTimers[key]) clearTimeout(_debounceTimers[key]);
+    _debounceTimers[key] = setTimeout(fn, delay);
+}
+
 let notificationsModule = null;
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
@@ -1283,16 +1290,15 @@ async function loadRivalData() {
 
         updateRivalDisplay(players || [], rivalSkillEl, rivalEffortEl);
 
-        // Echtzeit-Subscription für Rivalen-Updates einrichten
+        // Echtzeit-Subscription für Rivalen-Updates (debounced, da Profile-Tabelle global ist)
         const channel = supabase
             .channel('rival-updates')
             .on('postgres_changes', {
-                event: '*',
+                event: 'UPDATE',
                 schema: 'public',
                 table: 'profiles'
             }, () => {
-                // Rivalen-Daten bei jeder Profiländerung neu laden
-                loadRivalData();
+                debounce('rival-updates', () => loadRivalData(), 3000);
             })
             .subscribe();
 
@@ -3144,8 +3150,10 @@ function setupRealtimeSubscriptions() {
             filter: `player_a_id=eq.${currentUser.id}`
         }, (payload) => {
             console.log('[Realtime] Match request update (player_a):', payload.eventType);
-            loadMatchRequests();
-            loadPendingRequests();
+            debounce('match-requests-reload', () => {
+                loadMatchRequests();
+                loadPendingRequests();
+            });
         })
         .subscribe((status) => {
             handleSubscriptionStatus('Match request (player_a)', status);
@@ -3163,16 +3171,16 @@ function setupRealtimeSubscriptions() {
             filter: `player_b_id=eq.${currentUser.id}`
         }, async (payload) => {
             console.log('[Realtime] Match request update (player_b):', payload.eventType);
-            loadMatchRequests();
-            loadPendingRequests();
-            // Benachrichtigung für neue eingehende Anfragen anzeigen
+            debounce('match-requests-reload', () => {
+                loadMatchRequests();
+                loadPendingRequests();
+            });
+            // Benachrichtigung für neue eingehende Anfragen (nicht debounced - UX-kritisch)
             if (payload.eventType === 'INSERT') {
                 showNewRequestNotification();
 
-                // Bottom-Sheet für pending_player Bestätigungen in Echtzeit anzeigen
                 if (payload.new && payload.new.status === 'pending_player') {
                     console.log('[Realtime] New pending_player confirmation - showing bottom sheet');
-                    // Alle ausstehenden Bestätigungen laden (Einzel + Doppel) und Bottom-Sheet anzeigen
                     const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
                     if (pendingConfirmations && pendingConfirmations.length > 0) {
                         showMatchConfirmationBottomSheet(pendingConfirmations);
@@ -3188,7 +3196,6 @@ function setupRealtimeSubscriptions() {
 
     // ALLE match_requests DELETE-Events abonnieren (ohne Filter)
     // Zeilenfilter funktionieren nicht für DELETE-Events in Supabase
-    // so we listen to all deletes and refresh the lists
     const matchRequestDeleteSub = supabase
         .channel('match_request_deletes')
         .on('postgres_changes', {
@@ -3197,9 +3204,10 @@ function setupRealtimeSubscriptions() {
             table: 'match_requests'
         }, (payload) => {
             console.log('[Realtime] Match request deleted:', payload.old);
-            // Listen aktualisieren - die gelöschte Anfrage könnte aktuellen Benutzer betroffen haben
-            loadMatchRequests();
-            loadPendingRequests();
+            debounce('match-requests-reload', () => {
+                loadMatchRequests();
+                loadPendingRequests();
+            });
         })
         .subscribe((status) => {
             handleSubscriptionStatus('Match request DELETE', status);
@@ -3208,7 +3216,6 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(matchRequestDeleteSub);
 
     // Doppel-Match-Anfragen abonnieren - alle Events für jede Anfrage
-    // Da wir sowieso clientseitig filtern, alle Änderungen abonnieren
     const doublesRequestSub = supabase
         .channel('doubles_match_requests_updates')
         .on('postgres_changes', {
@@ -3217,20 +3224,18 @@ function setupRealtimeSubscriptions() {
             table: 'doubles_match_requests'
         }, async (payload) => {
             console.log('[Realtime] Doubles match request update:', payload.eventType, payload);
-            // Match-Anfragen für alle Doppel-Anfrage-Änderungen neu laden
-            loadMatchRequests();
-            loadPendingRequests();
-            // Benachrichtigung für neue eingehende Anfragen anzeigen
+            debounce('match-requests-reload', () => {
+                loadMatchRequests();
+                loadPendingRequests();
+            });
+            // Benachrichtigung für neue eingehende Anfragen anzeigen (nicht debounced)
             if (payload.eventType === 'INSERT') {
-                // Prüfen ob aktueller Benutzer in team_b ist (Gegner)
                 const teamB = payload.new?.team_b || {};
                 if (teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id) {
                     showNewRequestNotification();
 
-                    // Bottom-Sheet für pending_opponent Bestätigungen in Echtzeit anzeigen
                     if (payload.new && payload.new.status === 'pending_opponent') {
                         console.log('[Realtime] New pending_opponent doubles confirmation - showing bottom sheet');
-                        // Alle ausstehenden Bestätigungen laden (Einzel + Doppel) und Bottom-Sheet anzeigen
                         const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
                         if (pendingConfirmations && pendingConfirmations.length > 0) {
                             showMatchConfirmationBottomSheet(pendingConfirmations);
@@ -3246,7 +3251,6 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(doublesRequestSub);
 
     // ALLE doubles_match_requests DELETE-Events abonnieren (ohne Filter)
-    // Zeilenfilter funktionieren nicht für DELETE-Events in Supabase
     const doublesRequestDeleteSub = supabase
         .channel('doubles_match_request_deletes')
         .on('postgres_changes', {
@@ -3255,9 +3259,10 @@ function setupRealtimeSubscriptions() {
             table: 'doubles_match_requests'
         }, (payload) => {
             console.log('[Realtime] Doubles match request deleted:', payload.old);
-            // Listen aktualisieren - die gelöschte Anfrage könnte aktuellen Benutzer betroffen haben
-            loadMatchRequests();
-            loadPendingRequests();
+            debounce('match-requests-reload', () => {
+                loadMatchRequests();
+                loadPendingRequests();
+            });
         })
         .subscribe((status) => {
             handleSubscriptionStatus('Doubles match request DELETE', status);
@@ -3279,16 +3284,16 @@ function setupRealtimeSubscriptions() {
                 payload.new.winner_id === currentUser.id ||
                 payload.new.loser_id === currentUser.id) {
                 console.log('[Realtime] New singles match created, updating history');
-                loadMatchHistory();
-                loadPointsHistory();
-                // Auch Match-Anfragen aktualisieren da Anfrage gelöscht sein könnte
-                loadMatchRequests();
-                loadPendingRequests();
-                // Match-Vorschläge aktualisieren (letzte Spieldaten geändert)
-                const suggestionsContent = document.getElementById('match-suggestions-content');
-                if (suggestionsContent && !suggestionsContent.classList.contains('hidden')) {
-                    loadMatchSuggestions();
-                }
+                debounce('match-history-reload', () => {
+                    loadMatchHistory();
+                    loadPointsHistory();
+                    loadMatchRequests();
+                    loadPendingRequests();
+                    const suggestionsContent = document.getElementById('match-suggestions-content');
+                    if (suggestionsContent && !suggestionsContent.classList.contains('hidden')) {
+                        loadMatchSuggestions();
+                    }
+                });
             }
         })
         .subscribe((status) => {
@@ -3311,11 +3316,12 @@ function setupRealtimeSubscriptions() {
                 payload.new.team_b_player1_id === currentUser.id ||
                 payload.new.team_b_player2_id === currentUser.id) {
                 console.log('[Realtime] New doubles match created, updating history');
-                loadMatchHistory();
-                loadPointsHistory();
-                // Auch Match-Anfragen aktualisieren da Anfrage gelöscht sein könnte
-                loadMatchRequests();
-                loadPendingRequests();
+                debounce('match-history-reload', () => {
+                    loadMatchHistory();
+                    loadPointsHistory();
+                    loadMatchRequests();
+                    loadPendingRequests();
+                });
             }
         })
         .subscribe((status) => {
@@ -3324,7 +3330,7 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(doublesMatchesSub);
 
-    // ALLE Profil-Elo-Änderungen für Ranglisten-Updates abonnieren
+    // ALLE Profil-Elo-Änderungen für Ranglisten-Updates abonnieren (debounced)
     const leaderboardSub = supabase
         .channel('leaderboard_updates')
         .on('postgres_changes', {
@@ -3335,9 +3341,10 @@ function setupRealtimeSubscriptions() {
             // Nur neu laden wenn Elo geändert (um unnötige Reloads zu vermeiden)
             if (payload.old?.elo_rating !== payload.new?.elo_rating) {
                 console.log('[Realtime] Elo rating changed, updating leaderboard');
-                loadLeaderboards();
-                // Auch eigene Ranganzeige aktualisieren falls sie sich geändert haben könnte
-                updateRankDisplay();
+                debounce('leaderboard-reload', () => {
+                    loadLeaderboards();
+                    updateRankDisplay();
+                }, 2000);
             }
         })
         .subscribe((status) => {
