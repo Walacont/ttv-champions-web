@@ -1170,7 +1170,7 @@ async function notifyGuardiansForEvent(event, memberIds) {
 
     // Find guardians for these children
     const { data: guardianLinks, error: guardianError } = await supabase
-        .from('guardian_children')
+        .from('guardian_links')
         .select('guardian_id, child_id')
         .in('child_id', childIds);
 

@@ -2635,7 +2635,8 @@ window.showDayEvents = function(dateStr) {
         }
 
         return `
-            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition" id="event-card-${event.id}-${event.occurrenceDate}">
+            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition cursor-pointer" id="event-card-${event.id}-${event.occurrenceDate}"
+                 onclick="window.openPlayerEventDetail('${event.id}', '${event.occurrenceDate}')">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
                         <h4 class="font-semibold text-gray-900">
@@ -2644,10 +2645,12 @@ window.showDayEvents = function(dateStr) {
                         ${timeDisplay ? `<p class="text-sm text-gray-500 mt-1"><i class="far fa-clock mr-1"></i>${timeDisplay}</p>` : ''}
                         ${event.location ? `<p class="text-sm text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(event.location)}</p>` : ''}
                     </div>
+                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
                 </div>
                 <div class="mt-2 flex items-center justify-between">
                     ${statusHtml}
-                    ${responseButtonsHtml}
                 </div>
             </div>
         `;
@@ -2719,6 +2722,411 @@ window.respondToEventFromCalendar = async function(invitationId, status, occurre
         showToast('Fehler beim Antworten: ' + error.message, 'error');
     }
 };
+
+/**
+ * Opens a full-screen event detail view from the player calendar
+ * Shows: title, description, date/time/location, accept/decline buttons, participant counts, comments
+ */
+window.openPlayerEventDetail = async function(eventId, occurrenceDate) {
+    try {
+        // Load full event data
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select('*, organizer:organizer_id(first_name, last_name)')
+            .eq('id', eventId)
+            .single();
+
+        if (eventError) throw eventError;
+
+        // Load invitation for current user
+        const { data: myInvitation } = await supabase
+            .from('event_invitations')
+            .select('id, status')
+            .eq('event_id', eventId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+        // Load all invitations for response counts
+        const { data: allInvitations } = await supabase
+            .from('event_invitations')
+            .select('status')
+            .eq('event_id', eventId);
+
+        const accepted = (allInvitations || []).filter(i => i.status === 'accepted').length;
+        const rejected = (allInvitations || []).filter(i => i.status === 'rejected' || i.status === 'declined').length;
+        const pending = (allInvitations || []).filter(i => i.status === 'pending').length;
+
+        const displayDate = occurrenceDate || event.start_date;
+        const dateObj = new Date(displayDate + 'T12:00:00');
+        const formattedDate = dateObj.toLocaleDateString('de-DE', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+
+        const organizerName = event.organizer
+            ? `${event.organizer.first_name} ${event.organizer.last_name}`
+            : '';
+
+        const invStatus = myInvitation?.status || 'none';
+        const invId = myInvitation?.id;
+
+        // Build response buttons
+        let responseHtml = '';
+        if (invId) {
+            if (invStatus === 'accepted') {
+                responseHtml = `
+                    <div class="flex gap-3">
+                        <div class="flex-1 bg-green-100 border-2 border-green-500 text-green-700 font-semibold py-3 rounded-xl text-center flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Teilnahme
+                        </div>
+                        <button onclick="event.stopPropagation(); window.calendarDeclineEvent('${invId}', '${eventId}', '${displayDate}')"
+                                class="flex-1 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Ablehnen
+                        </button>
+                    </div>`;
+            } else if (invStatus === 'rejected' || invStatus === 'declined') {
+                responseHtml = `
+                    <div class="flex gap-3">
+                        <button onclick="event.stopPropagation(); window.calendarAcceptEvent('${invId}', '${eventId}', '${displayDate}')"
+                                class="flex-1 bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-600 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Teilnahme
+                        </button>
+                        <div class="flex-1 bg-red-100 border-2 border-red-500 text-red-700 font-semibold py-3 rounded-xl text-center flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Abgelehnt
+                        </div>
+                    </div>`;
+            } else {
+                responseHtml = `
+                    <div class="flex gap-3">
+                        <button onclick="event.stopPropagation(); window.calendarAcceptEvent('${invId}', '${eventId}', '${displayDate}')"
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Teilnahme
+                        </button>
+                        <button onclick="event.stopPropagation(); window.calendarDeclineEvent('${invId}', '${eventId}', '${displayDate}')"
+                                class="flex-1 bg-gray-200 hover:bg-red-100 text-gray-700 hover:text-red-700 font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Ablehnen
+                        </button>
+                    </div>`;
+            }
+        }
+
+        // Remove existing
+        const existingDetail = document.getElementById('player-event-detail-modal');
+        if (existingDetail) existingDetail.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'player-event-detail-modal';
+        modal.className = 'fixed inset-0 bg-white z-[100002] flex flex-col overflow-hidden';
+
+        modal.innerHTML = `
+            <!-- Header -->
+            <div class="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+                <button onclick="document.getElementById('player-event-detail-modal').remove()" class="text-indigo-600 p-1">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <h2 class="text-base font-semibold text-gray-900 flex-1 text-center truncate px-2">${escapeHtml(event.title)}</h2>
+                <div class="w-6"></div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto">
+                <div class="p-5 space-y-5">
+                    <!-- Title -->
+                    <h1 class="text-2xl font-bold text-gray-900">${escapeHtml(event.title)}</h1>
+                    ${organizerName ? `<p class="text-gray-500">Veranstalter: ${escapeHtml(organizerName)}</p>` : ''}
+
+                    ${event.max_participants ? `
+                    <div class="flex items-center gap-2 text-gray-600">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>${accepted} von ${event.max_participants} Plätzen vergeben</span>
+                    </div>
+                    ` : ''}
+
+                    <!-- Date & Time -->
+                    <div class="space-y-3">
+                        ${event.meeting_time ? `
+                        <div class="flex items-center gap-3 text-gray-700">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span>Treffen: ${formattedDate.split(',')[0]}, ${new Date(displayDate + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} um ${event.meeting_time?.slice(0,5)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="flex items-center gap-3 text-gray-700">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>Beginnt um ${event.start_time?.slice(0,5) || '-'}${event.end_time ? ' und Ende um ' + event.end_time.slice(0,5) : ''}</span>
+                        </div>
+                    </div>
+
+                    ${event.location ? `
+                    <div class="flex items-start gap-3 text-gray-700">
+                        <svg class="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>${escapeHtml(event.location)}</span>
+                    </div>
+                    ` : ''}
+
+                    <!-- Description -->
+                    ${event.description ? `
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Beschreibung</h3>
+                        <p class="text-gray-700 whitespace-pre-line">${escapeHtml(event.description)}</p>
+                    </div>
+                    ` : ''}
+
+                    <!-- Response Buttons -->
+                    ${responseHtml ? `
+                    <div class="border-t pt-4">
+                        ${responseHtml}
+                    </div>
+                    ` : ''}
+
+                    <!-- Response Summary -->
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-bold text-gray-900 mb-3">Antworten</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-gray-900">${accepted} teilnehmend</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <svg class="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-gray-900">${pending} unbeantwortet</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="text-gray-900">${rejected} abgelehnt</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comments -->
+                    <div class="border-t pt-4">
+                        <h3 class="text-lg font-bold text-gray-900 mb-3">Kommentare</h3>
+                        <div id="cal-event-comments" class="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                            <p class="text-sm text-gray-400 text-center py-2">Laden...</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="cal-event-comment-input" placeholder="Kommentar schreiben..."
+                                class="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            <button id="cal-post-comment-btn" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Load comments
+        loadCalendarEventComments(eventId);
+
+        // Setup comment posting
+        const postBtn = document.getElementById('cal-post-comment-btn');
+        const commentInput = document.getElementById('cal-event-comment-input');
+        if (postBtn && commentInput) {
+            postBtn.addEventListener('click', async () => {
+                const content = commentInput.value.trim();
+                if (!content) return;
+                try {
+                    await supabase.from('event_comments').insert({
+                        event_id: eventId,
+                        user_id: currentUser.id,
+                        content,
+                        created_at: new Date().toISOString()
+                    });
+                    commentInput.value = '';
+                    loadCalendarEventComments(eventId);
+                } catch (err) {
+                    console.error('[Profile] Error posting comment:', err);
+                }
+            });
+            commentInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    postBtn.click();
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('[Profile] Error opening event detail:', error);
+        showToast('Fehler beim Laden der Veranstaltung', 'error');
+    }
+};
+
+/** Accept event from calendar detail view */
+window.calendarAcceptEvent = async function(invitationId, eventId, occurrenceDate) {
+    try {
+        await supabase.from('event_invitations').update({
+            status: 'accepted',
+            decline_comment: null,
+            response_at: new Date().toISOString()
+        }).eq('id', invitationId);
+
+        // Update calendar data
+        if (window.profileCalendarEvents?.[occurrenceDate]) {
+            window.profileCalendarEvents[occurrenceDate].forEach(ev => {
+                if (ev.invitationId === invitationId) ev.invitationStatus = 'accepted';
+            });
+        }
+
+        showToast('Zugesagt!', 'success');
+        // Re-open to refresh
+        document.getElementById('player-event-detail-modal')?.remove();
+        window.openPlayerEventDetail(eventId, occurrenceDate);
+    } catch (err) {
+        console.error('[Profile] Accept error:', err);
+        showToast('Fehler: ' + err.message, 'error');
+    }
+};
+
+/** Decline event from calendar detail view - opens decline modal */
+window.calendarDeclineEvent = async function(invitationId, eventId, occurrenceDate) {
+    // Show decline options modal
+    const declineModal = document.createElement('div');
+    declineModal.id = 'cal-decline-modal';
+    declineModal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+
+    declineModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Absage</h3>
+            <p class="text-gray-600 mb-5 text-sm">Wie möchtest du absagen?</p>
+            <div id="cal-decline-options" class="space-y-3">
+                <button id="cal-decline-with-comment" class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition text-left">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Mit Kommentar absagen</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Sichtbar für Veranstalter</p>
+                    </div>
+                </button>
+                <button id="cal-decline-without-comment" class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-red-400 hover:bg-red-50 transition text-left">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Ohne Grund absagen</span>
+                    </div>
+                </button>
+            </div>
+            <div id="cal-decline-comment-form" class="hidden">
+                <textarea id="cal-decline-reason" placeholder="z.B. Bin krank, habe einen anderen Termin..."
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none" rows="3"></textarea>
+                <div class="flex gap-3 mt-4">
+                    <button id="cal-confirm-decline" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg">Absagen</button>
+                    <button id="cal-back-decline" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-lg">Zurück</button>
+                </div>
+            </div>
+            <button id="cal-cancel-decline" class="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 py-2">Abbrechen</button>
+        </div>
+    `;
+
+    document.body.appendChild(declineModal);
+
+    const doDecline = async (comment) => {
+        try {
+            const updateData = { status: 'rejected', response_at: new Date().toISOString() };
+            if (comment) updateData.decline_comment = comment;
+            await supabase.from('event_invitations').update(updateData).eq('id', invitationId);
+
+            if (window.profileCalendarEvents?.[occurrenceDate]) {
+                window.profileCalendarEvents[occurrenceDate].forEach(ev => {
+                    if (ev.invitationId === invitationId) ev.invitationStatus = 'rejected';
+                });
+            }
+            showToast('Abgesagt', 'success');
+            declineModal.remove();
+            document.getElementById('player-event-detail-modal')?.remove();
+            window.openPlayerEventDetail(eventId, occurrenceDate);
+        } catch (err) {
+            console.error('[Profile] Decline error:', err);
+            showToast('Fehler: ' + err.message, 'error');
+        }
+    };
+
+    document.getElementById('cal-decline-with-comment').addEventListener('click', () => {
+        document.getElementById('cal-decline-options').classList.add('hidden');
+        document.getElementById('cal-decline-comment-form').classList.remove('hidden');
+        document.getElementById('cal-decline-reason').focus();
+    });
+    document.getElementById('cal-decline-without-comment').addEventListener('click', () => doDecline(null));
+    document.getElementById('cal-confirm-decline').addEventListener('click', () => {
+        doDecline(document.getElementById('cal-decline-reason').value.trim() || null);
+    });
+    document.getElementById('cal-back-decline').addEventListener('click', () => {
+        document.getElementById('cal-decline-options').classList.remove('hidden');
+        document.getElementById('cal-decline-comment-form').classList.add('hidden');
+    });
+    document.getElementById('cal-cancel-decline').addEventListener('click', () => declineModal.remove());
+    declineModal.addEventListener('click', (e) => { if (e.target === declineModal) declineModal.remove(); });
+};
+
+/** Load comments for calendar event detail */
+async function loadCalendarEventComments(eventId) {
+    const container = document.getElementById('cal-event-comments');
+    if (!container) return;
+    try {
+        const { data: comments, error } = await supabase
+            .from('event_comments')
+            .select('id, content, created_at, user_id, profiles:user_id(first_name, last_name)')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (!comments || comments.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-2">Noch keine Kommentare</p>';
+            return;
+        }
+        container.innerHTML = comments.map(c => {
+            const name = c.profiles ? `${c.profiles.first_name} ${c.profiles.last_name}` : 'Unbekannt';
+            const time = new Date(c.created_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const isOwn = c.user_id === currentUser?.id;
+            return `
+                <div class="flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}">
+                    <div class="${isOwn ? 'text-right' : ''}">
+                        <div class="inline-block ${isOwn ? 'bg-indigo-50' : 'bg-gray-100'} rounded-xl px-3 py-2 max-w-[85%]">
+                            <p class="text-xs font-semibold ${isOwn ? 'text-indigo-600' : 'text-gray-600'}">${escapeHtml(name)}</p>
+                            <p class="text-sm text-gray-900">${escapeHtml(c.content)}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${time}</p>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    } catch (err) {
+        console.error('[Profile] Error loading comments:', err);
+        container.innerHTML = '<p class="text-sm text-red-500 text-center">Fehler</p>';
+    }
+}
 
 /** Zeigt einfache Toast-Benachrichtigung */
 function showToast(message, type = 'info') {

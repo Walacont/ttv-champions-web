@@ -297,6 +297,21 @@ async function loadChildStats(child) {
 
         child.videos = (videos || []).slice(0, 10);
 
+        // Load upcoming event invitations for child
+        const today = new Date().toISOString().split('T')[0];
+        const { data: eventInvitations } = await supabase
+            .from('event_invitations')
+            .select('id, status, event_id, events(id, title, event_category, start_date, end_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
+            .eq('user_id', child.id)
+            .or('cancelled.eq.false,cancelled.is.null', { foreignTable: 'events' });
+
+        // Filter to upcoming events only (start_date >= today)
+        const upcomingEvents = (eventInvitations || [])
+            .filter(inv => inv.events && inv.events.start_date >= today && !inv.events.cancelled)
+            .sort((a, b) => a.events.start_date.localeCompare(b.events.start_date));
+
+        child.upcomingEvents = upcomingEvents.slice(0, 10);
+
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
         child.totalMatches = 0;
@@ -305,6 +320,7 @@ async function loadChildStats(child) {
         child.pointsHistory = [];
         child.notifications = [];
         child.videos = [];
+        child.upcomingEvents = [];
     }
 }
 
@@ -469,6 +485,44 @@ function renderChildren() {
                             <p class="font-bold text-green-600">${child.wins || 0}</p>
                             <p class="text-gray-500">Siege</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Events -->
+                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
+                        <i class="fas fa-calendar text-indigo-500"></i>
+                        Anstehende Veranstaltungen
+                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.length}</span>` : ''}
+                    </p>
+                    <div class="max-h-48 overflow-y-auto">
+                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? child.upcomingEvents.map(inv => {
+                            const ev = inv.events;
+                            const date = new Date(ev.start_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                            const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
+                            const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
+                            const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
+                            const statusColors = { accepted: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', pending: 'bg-yellow-100 text-yellow-700' };
+                            const statusLabels = { accepted: 'Zugesagt', rejected: 'Abgesagt', pending: 'Offen' };
+                            const statusClass = statusColors[inv.status] || statusColors.pending;
+                            const statusLabel = statusLabels[inv.status] || 'Offen';
+                            return `
+                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas ${categoryIcon} text-indigo-500 text-xs"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-gray-700 font-medium truncate">${escapeHtml(ev.title)}</p>
+                                        <div class="flex items-center gap-2 text-[10px] text-gray-400">
+                                            <span>${date}</span>
+                                            ${timeStr ? `<span>${timeStr} Uhr</span>` : ''}
+                                            ${ev.location ? `<span class="truncate">${escapeHtml(ev.location)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusLabel}</span>
+                                </div>
+                            `;
+                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine anstehenden Veranstaltungen</p>'}
                     </div>
                 </div>
 
