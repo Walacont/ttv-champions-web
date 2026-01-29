@@ -8,6 +8,8 @@ import {
     openSendInvitationModal,
 } from './player-invitation-management-supabase.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
+import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
+import { escapeHtml } from './utils/security.js';
 
 // Aktuellen Grundlagen-Listener verfolgen um Duplikate zu vermeiden
 let currentGrundlagenListener = null;
@@ -1030,6 +1032,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
 
     // Load guardian info if player has one
     let guardianHtml = '';
+    let hasGuardian = false;
     if (supabase && player.id) {
         try {
             const { data: guardianLinks } = await supabase
@@ -1056,6 +1059,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                     }));
 
                 if (guardians.length > 0) {
+                    hasGuardian = true;
                     guardianHtml = `
                         <div class="mt-4 pt-4 border-t">
                             <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
@@ -1078,6 +1082,35 @@ export async function showPlayerDetails(player, detailContent, supabase) {
             }
         } catch (error) {
             console.error('Error loading guardian info:', error);
+        }
+    }
+
+    // Show guardian code button for under-18 players
+    let guardianCodeHtml = '';
+    if (player.birthdate) {
+        const birthDate = new Date(player.birthdate);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        if (age < 18) {
+            guardianCodeHtml = `
+                <div class="mt-4 pt-4 border-t">
+                    <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                        <i class="fas fa-link text-indigo-500 mr-1"></i>
+                        Eltern verknüpfen
+                    </h5>
+                    ${!hasGuardian ? '<p class="text-xs text-gray-500 mb-2">Kein Vormund verknüpft. Erstelle einen Code, den die Eltern nutzen können.</p>' : '<p class="text-xs text-gray-500 mb-2">Weiteren Vormund einladen.</p>'}
+                    <button
+                        onclick="window.generateGuardianCodeForPlayer('${player.id}', '${escapeHtml(player.firstName)} ${escapeHtml(player.lastName)}')"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2.5 px-4 rounded-lg transition-colors"
+                    >
+                        <i class="fas fa-key mr-2"></i>Eltern-Code erstellen
+                    </button>
+                </div>
+            `;
         }
     }
     const {
@@ -1212,6 +1245,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 }
 
                 ${guardianHtml}
+                ${guardianCodeHtml}
             </div>
         `;
 }
@@ -1439,3 +1473,129 @@ export async function handleSavePlayerSubgroups(supabase) {
         saveButton.textContent = 'Änderungen speichern';
     }
 }
+
+/**
+ * Generate a guardian invitation code for an under-18 player.
+ * Creates a TTV-format code in the invitation_codes table with player_id set,
+ * so parents can use it via the standard guardian linking flow.
+ */
+window.generateGuardianCodeForPlayer = async function(playerId, playerName) {
+    if (!storedSupabase || !storedClubId) {
+        alert('Fehler: Supabase nicht initialisiert');
+        return;
+    }
+
+    // Remove existing modal
+    document.getElementById('guardian-code-modal')?.remove();
+
+    const code = generateInvitationCode();
+    const expiresAt = getExpirationDate();
+
+    try {
+        // Check if there's already an active code for this player
+        const { data: existingCodes } = await storedSupabase
+            .from('invitation_codes')
+            .select('id, code, expires_at')
+            .eq('player_id', playerId)
+            .eq('is_active', true)
+            .eq('used', false)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        let activeCode = null;
+
+        if (existingCodes && existingCodes.length > 0) {
+            // Reuse existing active code
+            activeCode = existingCodes[0].code;
+        } else {
+            // Supersede old unused codes for this player
+            await storedSupabase
+                .from('invitation_codes')
+                .update({ is_active: false, superseded: true, superseded_at: new Date().toISOString() })
+                .eq('player_id', playerId)
+                .eq('used', false);
+
+            // Insert new code
+            const { error: insertError } = await storedSupabase
+                .from('invitation_codes')
+                .insert({
+                    code: code,
+                    club_id: storedClubId,
+                    player_id: playerId,
+                    role: 'guardian',
+                    expires_at: expiresAt.toISOString(),
+                    is_active: true,
+                    created_by: storedUserData?.id || null
+                });
+
+            if (insertError) throw insertError;
+            activeCode = code;
+        }
+
+        // Show modal with code
+        const remainingDays = Math.ceil((new Date(existingCodes?.[0]?.expires_at || expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+        const whatsappMessage = `Hallo! Hier ist der Eltern-Code für ${playerName} bei SC Champions: ${activeCode}\n\nDamit kannst du dich als Vormund verknüpfen.\nGehe auf die SC Champions App → Eltern-Dashboard → Kind hinzufügen → Code eingeben.`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+
+        const modal = document.createElement('div');
+        modal.id = 'guardian-code-modal';
+        modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl" onclick="event.stopPropagation()">
+                <div class="text-center">
+                    <div class="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-key text-purple-600 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Eltern-Code</h3>
+                    <p class="text-sm text-gray-500 mb-4">für ${escapeHtml(playerName)}</p>
+
+                    <div class="bg-gray-50 rounded-xl p-4 mb-4">
+                        <p class="text-3xl font-mono font-bold text-indigo-600 tracking-wider">${activeCode}</p>
+                        <p class="text-xs text-gray-400 mt-2">Gültig für ${remainingDays} Tag${remainingDays !== 1 ? 'e' : ''}</p>
+                    </div>
+
+                    <p class="text-xs text-gray-500 mb-4">
+                        Die Eltern geben diesen Code im Eltern-Dashboard unter "Kind hinzufügen" ein, um sich als Vormund zu verknüpfen.
+                    </p>
+
+                    <div class="space-y-2">
+                        <button id="guardian-code-copy-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors">
+                            <i class="fas fa-copy mr-2"></i>Code kopieren
+                        </button>
+                        <a href="${whatsappUrl}" target="_blank" class="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg transition-colors text-center">
+                            <i class="fab fa-whatsapp mr-2"></i>Per WhatsApp teilen
+                        </a>
+                        <button onclick="document.getElementById('guardian-code-modal').remove()" class="w-full text-gray-500 hover:text-gray-700 text-sm py-2">
+                            Schließen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        document.body.appendChild(modal);
+
+        // Copy button handler
+        document.getElementById('guardian-code-copy-btn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(activeCode);
+                const btn = document.getElementById('guardian-code-copy-btn');
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-copy mr-2"></i>Code kopieren';
+                }, 2000);
+            } catch (err) {
+                console.error('Copy failed:', err);
+            }
+        });
+
+    } catch (error) {
+        console.error('[PlayerManagement] Error generating guardian code:', error);
+        alert('Fehler beim Erstellen des Codes: ' + error.message);
+    }
+};
