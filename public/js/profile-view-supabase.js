@@ -59,6 +59,21 @@ async function initProfileView() {
         if (!isChildMode) {
             const { data: { session } } = await supabase.auth.getSession();
             currentUser = session?.user || null;
+
+            // Check if logged-in user has age_mode set (child with normal Supabase account)
+            if (currentUser) {
+                const { data: userProfile } = await supabase
+                    .from('profiles')
+                    .select('age_mode')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (userProfile?.age_mode === 'kids' || userProfile?.age_mode === 'teen') {
+                    isChildMode = true;
+                    currentAgeMode = userProfile.age_mode;
+                    console.log('[ProfileView] Child mode detected via profile age_mode:', currentAgeMode);
+                }
+            }
         }
 
         isOwnProfile = currentUser && currentUser.id === profileId;
