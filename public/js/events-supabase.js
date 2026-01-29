@@ -284,6 +284,349 @@ function setupEventListeners() {
             leadTimeDiv?.classList.remove('hidden');
         }
     });
+
+    // === NEW: Event type change → show/hide points toggle ===
+    document.getElementById('event-type')?.addEventListener('change', handleEventTypeChange);
+
+    // === NEW: More Settings toggle (collapsible) ===
+    document.getElementById('event-more-settings-toggle')?.addEventListener('click', () => {
+        const content = document.getElementById('event-more-settings-content');
+        const chevron = document.getElementById('event-more-settings-chevron');
+        if (content && chevron) {
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+    });
+
+    // === NEW: Organizer row click → toggle dropdown ===
+    document.getElementById('event-organizer-row')?.addEventListener('click', toggleOrganizerDropdown);
+
+    // === NEW: Attachment row click → toggle section ===
+    document.getElementById('event-attachment-row')?.addEventListener('click', () => {
+        document.getElementById('event-attachment-section')?.classList.toggle('hidden');
+    });
+
+    // === NEW: Attachment buttons ===
+    document.getElementById('event-attach-photo-btn')?.addEventListener('click', () => {
+        document.getElementById('event-attachment-photo-input')?.click();
+    });
+    document.getElementById('event-attach-camera-btn')?.addEventListener('click', () => {
+        document.getElementById('event-attachment-camera-input')?.click();
+    });
+    document.getElementById('event-attach-pdf-btn')?.addEventListener('click', () => {
+        document.getElementById('event-attachment-pdf-input')?.click();
+    });
+    document.getElementById('event-attachment-photo-input')?.addEventListener('change', handleAttachmentUpload);
+    document.getElementById('event-attachment-camera-input')?.addEventListener('change', handleAttachmentUpload);
+    document.getElementById('event-attachment-pdf-input')?.addEventListener('change', handleAttachmentUpload);
+
+    // === NEW: Auto reminder button ===
+    document.getElementById('event-auto-reminder-btn')?.addEventListener('click', handleAutoReminderClick);
+
+    // === NEW: Default participation status change ===
+    document.getElementById('event-default-status')?.addEventListener('change', (e) => {
+        const hint = document.getElementById('event-default-status-hint');
+        if (hint) {
+            if (e.target.value === 'accepted') {
+                hint.textContent = 'Empfänger werden standardmäßig als teilnehmend gekennzeichnet. Sie müssen nur dann antworten, wenn sie nicht teilnehmen können.';
+            } else {
+                hint.textContent = 'Empfänger werden standardmäßig als unbeantwortet eingetragen. Sie müssen ihre Teilnahme bestätigen oder ablehnen.';
+            }
+        }
+        updateReminderAvailability();
+    });
+}
+
+// === NEW: Pending event attachments (files to upload on submit) ===
+let pendingAttachments = [];
+
+/**
+ * Handle event type change - show/hide points toggle
+ */
+function handleEventTypeChange(e) {
+    const type = e?.target?.value || document.getElementById('event-type')?.value;
+    const pointsToggle = document.getElementById('event-points-toggle');
+    const pointsInfo = document.getElementById('event-points-info');
+
+    if (pointsToggle && pointsInfo) {
+        if (type === 'training') {
+            pointsToggle.classList.add('hidden');
+            pointsInfo.classList.remove('hidden');
+            pointsInfo.innerHTML = `
+                <div class="flex items-center gap-2 text-sm text-green-600">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Training: Punkte werden automatisch vergeben</span>
+                </div>`;
+        } else if (type === 'competition') {
+            pointsToggle.classList.remove('hidden');
+            pointsInfo.classList.add('hidden');
+        } else {
+            pointsToggle.classList.add('hidden');
+            pointsInfo.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Toggle organizer dropdown and load coaches
+ */
+async function toggleOrganizerDropdown() {
+    const dropdown = document.getElementById('event-organizer-dropdown');
+    if (!dropdown) return;
+
+    dropdown.classList.toggle('hidden');
+
+    if (!dropdown.classList.contains('hidden')) {
+        await loadOrganizers();
+    }
+}
+
+/**
+ * Load coaches/head_coaches for organizer selection
+ */
+async function loadOrganizers() {
+    const listEl = document.getElementById('event-organizer-list');
+    if (!listEl || !currentUserData?.clubId) return;
+
+    listEl.innerHTML = '<div class="text-sm text-gray-400 text-center py-2">Laden...</div>';
+
+    const { data: coaches, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, role')
+        .eq('club_id', currentUserData.clubId)
+        .in('role', ['coach', 'head_coach'])
+        .order('first_name');
+
+    if (error || !coaches) {
+        listEl.innerHTML = '<div class="text-sm text-red-500 text-center py-2">Fehler beim Laden</div>';
+        return;
+    }
+
+    // Initialize selected organizers with current user
+    if (!currentEventData.selectedOrganizers) {
+        currentEventData.selectedOrganizers = [currentUserData.id];
+    }
+
+    listEl.innerHTML = coaches.map(coach => {
+        const isSelected = currentEventData.selectedOrganizers.includes(coach.id);
+        const isCreator = coach.id === currentUserData.id;
+        const name = `${coach.first_name || ''} ${coach.last_name || ''}`.trim() || 'Unbekannt';
+        const initials = `${(coach.first_name || '?')[0]}${(coach.last_name || '?')[0]}`.toUpperCase();
+        const roleLabel = coach.role === 'head_coach' ? 'Cheftrainer' : 'Trainer';
+
+        return `
+            <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition ${isCreator ? 'bg-indigo-50' : ''}">
+                ${coach.avatar_url
+                    ? `<img src="${coach.avatar_url}" class="w-8 h-8 rounded-full object-cover" onerror="this.outerHTML='<div class=\\'w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600\\'>${initials}</div>'">`
+                    : `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">${initials}</div>`
+                }
+                <div class="flex-1 min-w-0">
+                    <span class="text-sm font-medium text-gray-900">${name}</span>
+                    <span class="text-xs text-gray-500 ml-1">${roleLabel}</span>
+                    ${isCreator ? '<span class="text-xs text-indigo-600 ml-1">(Du)</span>' : ''}
+                </div>
+                <input type="checkbox" value="${coach.id}"
+                    class="event-organizer-checkbox w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                    ${isSelected ? 'checked' : ''}
+                    ${isCreator ? 'checked disabled' : ''}
+                    onchange="window._updateOrganizerSelection()">
+            </label>
+        `;
+    }).join('');
+
+    // Global function for checkbox changes
+    window._updateOrganizerSelection = function() {
+        const checkboxes = document.querySelectorAll('.event-organizer-checkbox:checked');
+        currentEventData.selectedOrganizers = Array.from(checkboxes).map(cb => cb.value);
+
+        // Always include creator
+        if (!currentEventData.selectedOrganizers.includes(currentUserData.id)) {
+            currentEventData.selectedOrganizers.push(currentUserData.id);
+        }
+
+        // Update display text
+        const display = document.getElementById('event-organizer-display');
+        if (display) {
+            const count = currentEventData.selectedOrganizers.length;
+            display.textContent = count === 1 ? 'Du' : `${count} Veranstalter`;
+        }
+    };
+}
+
+/**
+ * Handle attachment file selection
+ */
+function handleAttachmentUpload(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+        const type = file.type.startsWith('image/') ? 'image' : 'pdf';
+        pendingAttachments.push({ file, type, name: file.name });
+    });
+
+    renderAttachmentPreviews();
+    e.target.value = ''; // Reset input
+}
+
+/**
+ * Render attachment previews
+ */
+function renderAttachmentPreviews() {
+    const container = document.getElementById('event-attachment-preview');
+    const countEl = document.getElementById('event-attachment-count');
+    if (!container) return;
+
+    if (countEl) {
+        countEl.textContent = pendingAttachments.length > 0 ? `${pendingAttachments.length} Datei(en)` : '';
+    }
+
+    container.innerHTML = pendingAttachments.map((att, index) => `
+        <div class="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-200">
+            ${att.type === 'image'
+                ? `<i class="fas fa-image text-indigo-500"></i>`
+                : `<i class="fas fa-file-pdf text-red-500"></i>`
+            }
+            <span class="flex-1 text-sm text-gray-700 truncate">${att.name}</span>
+            <button type="button" onclick="window._removeAttachment(${index})" class="text-gray-400 hover:text-red-500 transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+
+    window._removeAttachment = function(index) {
+        pendingAttachments.splice(index, 1);
+        renderAttachmentPreviews();
+    };
+}
+
+/**
+ * Upload pending attachments to R2 storage
+ */
+async function uploadEventAttachments(eventId) {
+    if (pendingAttachments.length === 0) return [];
+
+    const uploaded = [];
+    for (const att of pendingAttachments) {
+        try {
+            const path = `events/${eventId}/${Date.now()}_${att.name}`;
+            const url = await uploadToR2(att.file, path);
+            if (url) {
+                uploaded.push({
+                    url,
+                    filename: att.name,
+                    type: att.type,
+                    uploaded_at: new Date().toISOString(),
+                    uploaded_by: currentUserData.id
+                });
+            }
+        } catch (err) {
+            console.warn('[Events] Failed to upload attachment:', att.name, err);
+        }
+    }
+    return uploaded;
+}
+
+/**
+ * Handle auto reminder button click
+ */
+function handleAutoReminderClick() {
+    const btn = document.getElementById('event-auto-reminder-btn');
+    if (!btn) return;
+
+    // Check if reminder can be enabled
+    if (!canEnableReminder()) {
+        // Show info popup
+        const info = document.getElementById('event-reminder-info');
+        if (info) {
+            info.classList.toggle('hidden');
+        }
+        return;
+    }
+
+    // Cycle through options: disabled → after_48h → before_48h → disabled
+    const currentValue = btn.dataset.value || 'disabled';
+    let newValue;
+    switch (currentValue) {
+        case 'disabled': newValue = 'after_48h'; break;
+        case 'after_48h': newValue = 'before_48h'; break;
+        case 'before_48h': newValue = 'disabled'; break;
+        default: newValue = 'disabled';
+    }
+
+    btn.dataset.value = newValue;
+    const labels = {
+        'disabled': 'Deaktiviert',
+        'after_48h': 'Nach 48 Stunden',
+        'before_48h': '48h vor Beginn'
+    };
+    btn.textContent = labels[newValue] || 'Deaktiviert';
+    btn.classList.toggle('text-indigo-600', newValue !== 'disabled');
+    btn.classList.toggle('text-gray-500', newValue === 'disabled');
+}
+
+/**
+ * Check if reminder can be enabled
+ */
+function canEnableReminder() {
+    const defaultStatus = document.getElementById('event-default-status')?.value;
+
+    // Cannot enable if everyone is auto-accepted
+    if (defaultStatus === 'accepted') return false;
+
+    // Check time window
+    const startDate = document.getElementById('event-start-date')?.value;
+    const startTime = document.getElementById('event-start-time')?.value;
+    const sendInvitation = document.getElementById('event-send-invitation')?.value;
+
+    if (startDate && startTime) {
+        const eventStart = new Date(`${startDate}T${startTime}`);
+        const now = new Date();
+        const hoursUntilEvent = (eventStart - now) / (1000 * 60 * 60);
+
+        // If less than 48h until event, reminder doesn't make sense
+        if (hoursUntilEvent < 48) return false;
+    }
+
+    return true;
+}
+
+/**
+ * Update reminder availability based on current form state
+ */
+function updateReminderAvailability() {
+    const btn = document.getElementById('event-auto-reminder-btn');
+    if (!btn) return;
+
+    if (!canEnableReminder()) {
+        btn.dataset.value = 'disabled';
+        btn.textContent = 'Deaktiviert';
+        btn.classList.remove('text-indigo-600');
+        btn.classList.add('text-gray-500');
+    }
+}
+
+/**
+ * Check for duplicate events at the same date/time
+ */
+async function checkDuplicateEvent(startDate, startTime, eventCategory) {
+    if (!currentUserData?.clubId || !startDate || !startTime) return false;
+
+    const { data: existing } = await supabase
+        .from('events')
+        .select('id, title, event_category')
+        .eq('club_id', currentUserData.clubId)
+        .eq('start_date', startDate)
+        .eq('start_time', startTime)
+        .is('cancelled', null)
+        .limit(1);
+
+    if (existing && existing.length > 0) {
+        return existing[0];
+    }
+    return null;
 }
 
 /**
@@ -585,6 +928,101 @@ function openEventFormModal() {
 }
 
 /**
+ * Get award_points value based on event category
+ * Training = always (true), Competition = checkbox, Meeting/Other = never (false)
+ */
+function getAwardPointsValue(eventCategory) {
+    switch (eventCategory) {
+        case 'training':
+            return true;
+        case 'competition': {
+            const checkbox = document.getElementById('event-award-points');
+            return checkbox ? checkbox.checked : false;
+        }
+        default:
+            return false;
+    }
+}
+
+/**
+ * Notify guardians when their children are invited to events
+ */
+async function notifyGuardiansForEvent(event, memberIds) {
+    if (!event || !memberIds || memberIds.length === 0) return;
+
+    // Find which invited members are children (age_mode = 'kids' or 'teen')
+    const { data: childMembers, error: childError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, age_mode')
+        .in('id', memberIds)
+        .in('age_mode', ['kids', 'teen']);
+
+    if (childError || !childMembers || childMembers.length === 0) return;
+
+    const childIds = childMembers.map(c => c.id);
+
+    // Find guardians for these children
+    const { data: guardianLinks, error: guardianError } = await supabase
+        .from('guardian_children')
+        .select('guardian_id, child_id')
+        .in('child_id', childIds);
+
+    if (guardianError || !guardianLinks || guardianLinks.length === 0) return;
+
+    // Format event date
+    const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+    });
+
+    // Create notifications for each guardian
+    const notifications = [];
+    const guardianResponses = [];
+
+    for (const link of guardianLinks) {
+        const child = childMembers.find(c => c.id === link.child_id);
+        const childName = child ? `${child.first_name} ${child.last_name}` : 'Dein Kind';
+
+        notifications.push({
+            user_id: link.guardian_id,
+            type: 'guardian_event_notification',
+            title: 'Einladung für ' + childName,
+            message: `${childName} wurde zu "${event.title}" am ${formattedDate} eingeladen`,
+            data: {
+                event_id: event.id,
+                child_id: link.child_id,
+                event_title: event.title,
+                event_date: event.start_date
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+        });
+
+        // Create guardian response record
+        guardianResponses.push({
+            event_id: event.id,
+            occurrence_date: event.start_date,
+            child_id: link.child_id,
+            guardian_id: link.guardian_id,
+            status: 'pending',
+            notified_at: new Date().toISOString()
+        });
+    }
+
+    if (notifications.length > 0) {
+        await supabase.from('notifications').insert(notifications);
+    }
+
+    if (guardianResponses.length > 0) {
+        await supabase.from('guardian_event_responses').upsert(guardianResponses, {
+            onConflict: 'event_id,occurrence_date,child_id,guardian_id',
+            ignoreDuplicates: true
+        });
+    }
+}
+
+/**
  * Erstellt die Veranstaltung und Einladungen
  */
 async function submitEvent() {
@@ -678,6 +1116,19 @@ async function submitEvent() {
         }
     }
 
+    // === NEW: Read new form fields ===
+    const awardPoints = getAwardPointsValue(eventCategory);
+    const autoReminder = document.getElementById('event-auto-reminder-btn')?.dataset?.value || 'disabled';
+    const defaultStatus = document.getElementById('event-default-status')?.value || 'pending';
+    const organizerIds = currentEventData.selectedOrganizers || [currentUserData.id];
+
+    // === NEW: Duplicate detection ===
+    const duplicate = await checkDuplicateEvent(startDate, startTime, eventCategory);
+    if (duplicate) {
+        const confirmContinue = confirm(`Es gibt bereits eine Veranstaltung am selben Datum und zur selben Uhrzeit:\n"${duplicate.title}"\n\nMöchtest du trotzdem fortfahren?`);
+        if (!confirmContinue) return;
+    }
+
     const eventData = {
         club_id: currentUserData.clubId,
         organizer_id: currentUserData.id,
@@ -700,6 +1151,11 @@ async function submitEvent() {
         comments_enabled: commentsEnabled,
         repeat_type: repeatType,
         repeat_end_date: repeatEnd,
+        // === NEW fields ===
+        award_points: awardPoints,
+        organizer_ids: organizerIds,
+        auto_reminder: autoReminder,
+        default_participation_status: defaultStatus,
         created_at: new Date().toISOString()
     };
 
@@ -719,22 +1175,52 @@ async function submitEvent() {
 
         if (eventError) throw eventError;
 
+        // === NEW: Upload attachments if any ===
+        if (pendingAttachments.length > 0) {
+            const attachments = await uploadEventAttachments(event.id);
+            if (attachments.length > 0) {
+                await supabase
+                    .from('events')
+                    .update({ attachments })
+                    .eq('id', event.id);
+            }
+        }
+
         // Einladungen IMMER erstellen (zum Tracken wer ausgewählt wurde)
-        // Eine Einladung pro User pro Event (DB-Constraint: event_id + user_id)
         const invitations = [];
 
         // Deduplizierung der ausgewählten Mitglieder
         const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
 
+        // === NEW: Determine invitation status based on default_participation_status ===
+        const invitationStatus = defaultStatus === 'accepted' ? 'accepted' : 'pending';
+
         uniqueMembers.forEach(userId => {
+            // Check if this user is an organizer
+            const isOrganizer = organizerIds.includes(userId);
             invitations.push({
                 event_id: event.id,
                 user_id: userId,
                 occurrence_date: startDate,
-                status: 'pending',
+                status: isOrganizer ? 'accepted' : invitationStatus,
+                role: isOrganizer ? 'organizer' : 'participant',
                 created_at: new Date().toISOString()
             });
         });
+
+        // === NEW: Also invite organizers who aren't in selectedMembers ===
+        for (const orgId of organizerIds) {
+            if (!uniqueMembers.includes(orgId)) {
+                invitations.push({
+                    event_id: event.id,
+                    user_id: orgId,
+                    occurrence_date: startDate,
+                    status: 'accepted',
+                    role: 'organizer',
+                    created_at: new Date().toISOString()
+                });
+            }
+        }
 
         if (invitations.length > 0) {
             const { error: invError } = await supabase
@@ -745,6 +1231,13 @@ async function submitEvent() {
                 });
 
             if (invError) throw invError;
+        }
+
+        // === NEW: Notify guardians for child participants ===
+        try {
+            await notifyGuardiansForEvent(event, uniqueMembers);
+        } catch (guardianError) {
+            console.warn('[Events] Could not notify guardians:', guardianError);
         }
 
         // Benachrichtigungen nur senden wenn "jetzt senden" gewählt wurde
@@ -791,10 +1284,41 @@ function resetEventData() {
         targetType: 'club',
         selectedSubgroups: [],
         selectedMembers: [],
+        selectedOrganizers: null,
         formData: {}
     };
 
+    // Clear pending attachments
+    pendingAttachments = [];
+
     document.getElementById('event-creation-form')?.reset();
+
+    // Reset attachment preview
+    const attachmentPreview = document.getElementById('event-attachment-preview');
+    if (attachmentPreview) attachmentPreview.innerHTML = '';
+    const attachmentCount = document.getElementById('event-attachment-count');
+    if (attachmentCount) attachmentCount.textContent = '';
+
+    // Reset auto reminder button
+    const reminderBtn = document.getElementById('event-auto-reminder-btn');
+    if (reminderBtn) {
+        reminderBtn.dataset.value = 'disabled';
+        reminderBtn.textContent = 'Deaktiviert';
+        reminderBtn.classList.remove('text-indigo-600');
+        reminderBtn.classList.add('text-gray-500');
+    }
+
+    // Reset points toggle visibility
+    const pointsToggle = document.getElementById('event-points-toggle');
+    const pointsInfo = document.getElementById('event-points-info');
+    if (pointsToggle) pointsToggle.classList.add('hidden');
+    if (pointsInfo) pointsInfo.classList.add('hidden');
+
+    // Reset organizer display
+    const organizerDisplay = document.getElementById('event-organizer-display');
+    if (organizerDisplay) organizerDisplay.textContent = 'Du';
+    const organizerDropdown = document.getElementById('event-organizer-dropdown');
+    if (organizerDropdown) organizerDropdown.classList.add('hidden');
 
     // Vorlaufzeit-Option verstecken (Standard ist einzelnes Event)
     updateSendInvitationOptions('single');
@@ -864,6 +1388,8 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                 user_id,
                 status,
                 response_at,
+                role,
+                decline_comment,
                 profiles:user_id (
                     id,
                     first_name,
@@ -902,15 +1428,24 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             // Einladungs-Status aus existierenden Einladungen übernehmen
             const invitationMap = new Map();
             (invitations || []).forEach(inv => {
-                invitationMap.set(inv.user_id, inv.status);
+                invitationMap.set(inv.user_id, {
+                    status: inv.status,
+                    role: inv.role || 'participant',
+                    decline_comment: inv.decline_comment || null
+                });
             });
 
-            attendeeList = players.map(m => ({
-                user_id: m.id,
-                status: invitationMap.get(m.id) || 'none',
-                role: 'player',
-                profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
-            }));
+            attendeeList = players.map(m => {
+                const invData = invitationMap.get(m.id);
+                return {
+                    user_id: m.id,
+                    status: invData?.status || 'none',
+                    role: 'player',
+                    eventRole: invData?.role || 'participant',
+                    decline_comment: invData?.decline_comment || null,
+                    profiles: { id: m.id, first_name: m.first_name, last_name: m.last_name }
+                };
+            });
 
             coachList = coaches.map(m => ({
                 user_id: m.id,
@@ -1267,33 +1802,46 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     ${!isPastOrToday ? `
                     <!-- Future event - show participant list -->
                     <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teilnehmer</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Antworten</h3>
                         ${accepted.length > 0 ? `
                         <div class="mb-4">
                             <p class="text-sm font-medium text-green-700 mb-2">Zugesagt (${accepted.length})</p>
-                            <div class="flex flex-wrap gap-2">
-                                ${accepted.map(inv => `
-                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
-                                    </span>
-                                `).join('')}
+                            <div class="space-y-1">
+                                ${accepted.map(inv => {
+                                    const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
+                                    const isOrganizer = inv.eventRole === 'organizer';
+                                    return `
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                                            ${name}
+                                        </span>
+                                        ${isOrganizer ? '<span class="text-xs text-indigo-600 font-medium">Veranstalter</span>' : ''}
+                                    </div>`;
+                                }).join('')}
                             </div>
                         </div>
                         ` : ''}
                         ${declined.length > 0 ? `
                         <div class="mb-4">
                             <p class="text-sm font-medium text-red-700 mb-2">Abgesagt (${declined.length})</p>
-                            <div class="flex flex-wrap gap-2">
-                                ${declined.map(inv => `
-                                    <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
-                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
-                                    </span>
-                                `).join('')}
+                            <div class="space-y-1">
+                                ${declined.map(inv => {
+                                    const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
+                                    return `
+                                    <div>
+                                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm inline-block">
+                                            ${name}
+                                        </span>
+                                        ${inv.decline_comment && isCoach ? `
+                                        <p class="text-xs text-gray-500 ml-3 mt-1 italic">"${inv.decline_comment}"</p>
+                                        ` : ''}
+                                    </div>`;
+                                }).join('')}
                             </div>
                         </div>
                         ` : ''}
                         ${pending.length > 0 ? `
-                        <div>
+                        <div class="mb-4">
                             <p class="text-sm font-medium text-gray-700 mb-2">Ausstehend (${pending.length})</p>
                             <div class="flex flex-wrap gap-2">
                                 ${pending.map(inv => `
@@ -1304,7 +1852,41 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                             </div>
                         </div>
                         ` : ''}
+
+                        ${isCoach && pending.length > 0 ? `
+                        <!-- Reminder button for coaches -->
+                        <div class="mt-4">
+                            <button onclick="window.sendEventReminder('${eventId}', '${displayDate}')" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-sm font-medium transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                </svg>
+                                Erinnerung an ${pending.length} Unbeantwortete senden
+                            </button>
+                        </div>
+                        ` : ''}
                     </div>
+
+                    ${event.comments_enabled ? `
+                    <!-- Comments Section -->
+                    <div class="border-t pt-6 mt-4">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <svg class="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                            Kommentare
+                        </h3>
+                        <div id="event-comments-list" class="space-y-3 mb-4" data-event-id="${eventId}" data-occurrence-date="${displayDate}">
+                            <p class="text-sm text-gray-400 text-center py-2">Laden...</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="event-comment-input" placeholder="Kommentar schreiben..."
+                                class="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            <button onclick="window.postEventComment('${eventId}', '${displayDate}')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">
+                                Senden
+                            </button>
+                        </div>
+                    </div>
+                    ` : ''}
                     ` : ''}
                 </div>
             </div>
@@ -1318,9 +1900,155 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             }
         });
 
+        // Load comments if enabled
+        if (event.comments_enabled && !isPastOrToday) {
+            loadEventComments(eventId, displayDate);
+        }
+
     } catch (error) {
         console.error('[Events] Error loading event details:', error);
         alert('Fehler beim Laden der Event-Details');
+    }
+};
+
+/**
+ * Send reminder to pending participants
+ */
+window.sendEventReminder = async function(eventId, occurrenceDate) {
+    try {
+        const { data: event } = await supabase
+            .from('events')
+            .select('title, start_date')
+            .eq('id', eventId)
+            .single();
+
+        if (!event) return;
+
+        // Get pending invitations
+        const { data: pendingInvitations } = await supabase
+            .from('event_invitations')
+            .select('user_id')
+            .eq('event_id', eventId)
+            .eq('status', 'pending');
+
+        if (!pendingInvitations || pendingInvitations.length === 0) {
+            alert('Keine ausstehenden Antworten vorhanden.');
+            return;
+        }
+
+        const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short'
+        });
+
+        const notifications = pendingInvitations.map(inv => ({
+            user_id: inv.user_id,
+            type: 'event_reminder',
+            title: 'Erinnerung: Antwort ausstehend',
+            message: `Bitte antworte auf die Einladung zu "${event.title}" am ${formattedDate}`,
+            data: { event_id: eventId },
+            is_read: false,
+            created_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase.from('notifications').insert(notifications);
+        if (error) throw error;
+
+        alert(`Erinnerung an ${pendingInvitations.length} Spieler gesendet!`);
+    } catch (error) {
+        console.error('[Events] Error sending reminders:', error);
+        alert('Fehler beim Senden der Erinnerungen: ' + error.message);
+    }
+};
+
+/**
+ * Load event comments
+ */
+async function loadEventComments(eventId, occurrenceDate) {
+    const container = document.getElementById('event-comments-list');
+    if (!container) return;
+
+    try {
+        const { data: comments, error } = await supabase
+            .from('event_comments')
+            .select(`
+                id,
+                content,
+                created_at,
+                user_id,
+                profiles:user_id (
+                    first_name,
+                    last_name
+                )
+            `)
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!comments || comments.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-2">Noch keine Kommentare</p>';
+            return;
+        }
+
+        container.innerHTML = comments.map(comment => {
+            const name = comment.profiles ? `${comment.profiles.first_name} ${comment.profiles.last_name}` : 'Unbekannt';
+            const time = new Date(comment.created_at).toLocaleString('de-DE', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            const isOwn = comment.user_id === currentUserData?.id;
+            return `
+                <div class="flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}">
+                    <div class="flex-1 ${isOwn ? 'text-right' : ''}">
+                        <div class="inline-block ${isOwn ? 'bg-indigo-50 text-indigo-900' : 'bg-gray-100 text-gray-900'} rounded-xl px-4 py-2 max-w-[85%]">
+                            <p class="text-xs font-semibold ${isOwn ? 'text-indigo-600' : 'text-gray-600'} mb-0.5">${name}</p>
+                            <p class="text-sm">${comment.content}</p>
+                            <p class="text-xs ${isOwn ? 'text-indigo-400' : 'text-gray-400'} mt-1">${time}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+
+    } catch (error) {
+        console.error('[Events] Error loading comments:', error);
+        container.innerHTML = '<p class="text-sm text-red-500 text-center py-2">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Post a comment to an event
+ */
+window.postEventComment = async function(eventId, occurrenceDate) {
+    const input = document.getElementById('event-comment-input');
+    if (!input) return;
+
+    const content = input.value.trim();
+    if (!content) return;
+
+    try {
+        const { error } = await supabase
+            .from('event_comments')
+            .insert({
+                event_id: eventId,
+                occurrence_date: occurrenceDate || null,
+                user_id: currentUserData.id,
+                content,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        input.value = '';
+        await loadEventComments(eventId, occurrenceDate);
+
+    } catch (error) {
+        console.error('[Events] Error posting comment:', error);
+        alert('Fehler beim Senden des Kommentars: ' + error.message);
     }
 };
 

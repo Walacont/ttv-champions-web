@@ -592,8 +592,12 @@ async function respondToEvent(invitationId, status, reason = null) {
             response_at: new Date().toISOString()
         };
 
-        // Hinweis: rejection_reason Spalte muss zur Tabelle hinzugefügt werden falls benötigt
-        // ALTER TABLE event_invitations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+        // Save decline comment if provided (visible to organizers who accepted)
+        if (status === 'rejected' && reason) {
+            updateData.decline_comment = reason;
+        } else if (status === 'accepted') {
+            updateData.decline_comment = null;
+        }
 
         const { error } = await supabase
             .from('event_invitations')
@@ -689,49 +693,99 @@ async function respondToEvent(invitationId, status, reason = null) {
 }
 
 /**
- * Show rejection modal with reason input
+ * Show rejection modal with two options: with comment or without
  * @param {string} invitationId - Einladungs-ID
  */
 async function showRejectModal(invitationId) {
-    // Modal erstellen
     const modal = document.createElement('div');
     modal.id = 'event-reject-modal';
     modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Absage bestätigen</h3>
-            <p class="text-gray-600 mb-4">Möchtest du einen Grund für deine Absage angeben? (optional)</p>
-            <textarea
-                id="reject-reason-input"
-                placeholder="z.B. Bin krank, habe einen anderen Termin..."
-                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                rows="3"
-            ></textarea>
-            <div class="flex gap-3 mt-4">
-                <button id="confirm-reject-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg transition-colors">
-                    Absagen
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Absage</h3>
+            <p class="text-gray-600 mb-5 text-sm">Wie möchtest du absagen?</p>
+
+            <div id="reject-options" class="space-y-3">
+                <button id="reject-with-comment-btn" class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition text-left">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Mit Kommentar absagen</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Sichtbar für Veranstalter die zugesagt haben</p>
+                    </div>
                 </button>
-                <button id="cancel-reject-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-lg transition-colors">
-                    Abbrechen
+
+                <button id="reject-without-comment-btn" class="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-red-400 hover:bg-red-50 transition text-left">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-gray-900">Ohne Grund absagen</span>
+                        <p class="text-xs text-gray-500 mt-0.5">Einfach absagen ohne Kommentar</p>
+                    </div>
                 </button>
             </div>
+
+            <div id="reject-comment-form" class="hidden">
+                <textarea
+                    id="reject-reason-input"
+                    placeholder="z.B. Bin krank, habe einen anderen Termin..."
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    rows="3"
+                ></textarea>
+                <div class="flex gap-3 mt-4">
+                    <button id="confirm-reject-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg transition-colors">
+                        Absagen
+                    </button>
+                    <button id="back-reject-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-lg transition-colors">
+                        Zurück
+                    </button>
+                </div>
+            </div>
+
+            <button id="cancel-reject-btn" class="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 py-2">
+                Abbrechen
+            </button>
         </div>
     `;
 
     document.body.appendChild(modal);
 
-    // Event-Listener
+    // Option: with comment
+    document.getElementById('reject-with-comment-btn').addEventListener('click', () => {
+        document.getElementById('reject-options').classList.add('hidden');
+        document.getElementById('reject-comment-form').classList.remove('hidden');
+        document.getElementById('reject-reason-input').focus();
+    });
+
+    // Option: without comment
+    document.getElementById('reject-without-comment-btn').addEventListener('click', async () => {
+        modal.remove();
+        await respondToEvent(invitationId, 'rejected', null);
+    });
+
+    // Confirm with comment
     document.getElementById('confirm-reject-btn').addEventListener('click', async () => {
         const reason = document.getElementById('reject-reason-input').value.trim();
         modal.remove();
         await respondToEvent(invitationId, 'rejected', reason || null);
     });
 
+    // Back button
+    document.getElementById('back-reject-btn').addEventListener('click', () => {
+        document.getElementById('reject-options').classList.remove('hidden');
+        document.getElementById('reject-comment-form').classList.add('hidden');
+    });
+
     document.getElementById('cancel-reject-btn').addEventListener('click', () => {
         modal.remove();
     });
 
-    // Bei Hintergrund-Klick schließen
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.remove();
@@ -909,6 +963,25 @@ async function showEventDetails(eventId) {
                             </div>
                         ` : ''}
                     </div>
+
+                    ${event.comments_enabled ? `
+                    <!-- Comments Section -->
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Kommentare</h3>
+                        <div id="player-event-comments-list" class="space-y-3 mb-4 max-h-48 overflow-y-auto">
+                            <p class="text-sm text-gray-400 text-center py-2">Laden...</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="player-event-comment-input" placeholder="Kommentar schreiben..."
+                                class="flex-1 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+                            <button id="player-post-comment-btn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -927,9 +1000,92 @@ async function showEventDetails(eventId) {
             }
         });
 
+        // Load and setup comments if enabled
+        if (event.comments_enabled) {
+            await loadPlayerEventComments(eventId);
+
+            const postBtn = document.getElementById('player-post-comment-btn');
+            const commentInput = document.getElementById('player-event-comment-input');
+            if (postBtn && commentInput) {
+                postBtn.addEventListener('click', async () => {
+                    const content = commentInput.value.trim();
+                    if (!content) return;
+                    try {
+                        await supabase.from('event_comments').insert({
+                            event_id: eventId,
+                            user_id: currentUserId,
+                            content,
+                            created_at: new Date().toISOString()
+                        });
+                        commentInput.value = '';
+                        await loadPlayerEventComments(eventId);
+                    } catch (err) {
+                        console.error('[PlayerEvents] Error posting comment:', err);
+                    }
+                });
+
+                commentInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        postBtn.click();
+                    }
+                });
+            }
+        }
+
     } catch (error) {
         console.error('[PlayerEvents] Error loading event details:', error);
         alert('Fehler beim Laden der Details: ' + error.message);
+    }
+}
+
+/**
+ * Load comments for a player event detail view
+ */
+async function loadPlayerEventComments(eventId) {
+    const container = document.getElementById('player-event-comments-list');
+    if (!container) return;
+
+    try {
+        const { data: comments, error } = await supabase
+            .from('event_comments')
+            .select(`
+                id, content, created_at, user_id,
+                profiles:user_id (first_name, last_name)
+            `)
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!comments || comments.length === 0) {
+            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-2">Noch keine Kommentare</p>';
+            return;
+        }
+
+        container.innerHTML = comments.map(comment => {
+            const name = comment.profiles ? `${comment.profiles.first_name} ${comment.profiles.last_name}` : 'Unbekannt';
+            const time = new Date(comment.created_at).toLocaleString('de-DE', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            const isOwn = comment.user_id === currentUserId;
+            return `
+                <div class="flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}">
+                    <div class="${isOwn ? 'text-right' : ''}">
+                        <div class="inline-block ${isOwn ? 'bg-indigo-50' : 'bg-gray-50'} rounded-xl px-3 py-2 max-w-[85%]">
+                            <p class="text-xs font-semibold ${isOwn ? 'text-indigo-600' : 'text-gray-600'}">${name}</p>
+                            <p class="text-sm text-gray-900">${escapeHtml(comment.content)}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${time}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+    } catch (error) {
+        console.error('[PlayerEvents] Error loading comments:', error);
+        container.innerHTML = '<p class="text-sm text-red-500 text-center py-2">Fehler beim Laden</p>';
     }
 }
 

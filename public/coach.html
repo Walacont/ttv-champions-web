@@ -5184,6 +5184,80 @@
                                     <option value="other">Sonstiges</option>
                                 </select>
                             </div>
+                            <!-- Points Toggle (shown for competition, hidden for training/meeting/other) -->
+                            <div id="event-points-toggle" class="hidden flex items-center justify-between border-t pt-4">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                                    </svg>
+                                    <span class="text-gray-700">Punkte vergeben</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="event-award-points" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+                                </label>
+                            </div>
+                            <!-- Points Info for Training -->
+                            <div id="event-points-info" class="border-t pt-4">
+                                <div class="flex items-center gap-2 text-sm text-green-600">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <span>Training: Punkte werden automatisch vergeben</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Organizer Selection -->
+                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                            <div class="flex items-center justify-between cursor-pointer" id="event-organizer-row">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                                    </svg>
+                                    <span class="text-gray-700">Veranstalter</span>
+                                </div>
+                                <span id="event-organizer-display" class="text-gray-500 text-sm">Du</span>
+                            </div>
+                            <!-- Organizer Dropdown (hidden by default) -->
+                            <div id="event-organizer-dropdown" class="hidden border-t pt-4">
+                                <p class="text-xs text-gray-500 mb-3">Wähle Veranstalter aus (Coaches/Trainer)</p>
+                                <div id="event-organizer-list" class="space-y-2 max-h-48 overflow-y-auto">
+                                    <!-- Filled dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Attachments -->
+                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                            <div class="flex items-center justify-between cursor-pointer" id="event-attachment-row">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                    </svg>
+                                    <span class="text-gray-700">Anhang hinzufügen</span>
+                                </div>
+                                <span id="event-attachment-count" class="text-gray-400 text-sm"></span>
+                            </div>
+                            <div id="event-attachment-section" class="hidden border-t pt-4 space-y-3">
+                                <div class="flex gap-2">
+                                    <button type="button" id="event-attach-photo-btn" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fas fa-image text-indigo-500"></i> Foto
+                                    </button>
+                                    <button type="button" id="event-attach-camera-btn" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fas fa-camera text-indigo-500"></i> Kamera
+                                    </button>
+                                    <button type="button" id="event-attach-pdf-btn" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fas fa-file-pdf text-red-500"></i> PDF
+                                    </button>
+                                </div>
+                                <input type="file" id="event-attachment-photo-input" accept="image/*" class="hidden" multiple />
+                                <input type="file" id="event-attachment-camera-input" accept="image/*" capture="environment" class="hidden" />
+                                <input type="file" id="event-attachment-pdf-input" accept=".pdf" class="hidden" multiple />
+                                <div id="event-attachment-preview" class="space-y-2">
+                                    <!-- Attachment previews rendered dynamically -->
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Date & Time -->
@@ -5254,53 +5328,96 @@
                             </div>
                         </div>
 
-                        <!-- More Settings -->
-                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
-                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mehr Einstellungen</h4>
+                        <!-- More Settings (collapsible) -->
+                        <div class="bg-gray-50 rounded-xl overflow-hidden">
+                            <button type="button" id="event-more-settings-toggle" class="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition">
+                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mehr Einstellungen</h4>
+                                <svg id="event-more-settings-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div id="event-more-settings-content" class="hidden px-4 pb-4 space-y-4">
 
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-700">Max. Teilnehmer</span>
-                                <input type="number" id="event-max-participants" min="1" placeholder="Keine" class="w-24 px-3 py-1 rounded-lg border border-gray-200 text-sm text-right"/>
-                            </div>
-                            <div class="flex items-center justify-between border-t pt-4">
-                                <span class="text-gray-700">Antwort-Deadline</span>
-                                <input type="datetime-local" id="event-response-deadline" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
-                            </div>
-                            <div class="flex items-center justify-between border-t pt-4">
-                                <span class="text-gray-700">Einladung verschicken</span>
-                                <select id="event-send-invitation" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
-                                    <option value="now">Sofort</option>
-                                    <option value="scheduled">Geplant (Datum)</option>
-                                    <option value="none">Keine Einladung</option>
-                                </select>
-                            </div>
-                            <div id="event-scheduled-send" class="hidden border-t pt-4">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-gray-700">Senden am</span>
-                                    <input type="datetime-local" id="event-send-at" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                    <span class="text-gray-700">Max. Teilnehmer</span>
+                                    <input type="number" id="event-max-participants" min="1" placeholder="Keine" class="w-24 px-3 py-1 rounded-lg border border-gray-200 text-sm text-right"/>
                                 </div>
-                            </div>
-                            <div id="event-lead-time-send" class="hidden border-t pt-4">
-                                <p class="text-xs text-gray-500 mb-3">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Ideal für wiederkehrende Events: Einladungen werden automatisch vor jedem Termin versendet.
-                                </p>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" id="event-lead-time-value" min="1" max="30" value="3"
-                                           class="w-20 px-3 py-1 rounded-lg border border-gray-200 text-sm text-center"/>
-                                    <select id="event-lead-time-unit" class="flex-1 px-3 py-1 rounded-lg border border-gray-200 text-sm">
-                                        <option value="hours">Stunden vorher</option>
-                                        <option value="days" selected>Tage vorher</option>
-                                        <option value="weeks">Wochen vorher</option>
+                                <div class="flex items-center justify-between border-t pt-4">
+                                    <span class="text-gray-700">Antwort-Deadline</span>
+                                    <input type="datetime-local" id="event-response-deadline" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                </div>
+                                <div class="flex items-center justify-between border-t pt-4">
+                                    <span class="text-gray-700">Einladung verschicken</span>
+                                    <select id="event-send-invitation" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                        <option value="now">Sofort</option>
+                                        <option value="scheduled">Geplant (Datum)</option>
+                                        <option value="none">Keine Einladung</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="flex items-center justify-between border-t pt-4">
-                                <span class="text-gray-700">Kommentare</span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="event-comments-enabled" checked class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
+                                <div id="event-scheduled-send" class="hidden border-t pt-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-700">Senden am</span>
+                                        <input type="datetime-local" id="event-send-at" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                    </div>
+                                </div>
+                                <div id="event-lead-time-send" class="hidden border-t pt-4">
+                                    <p class="text-xs text-gray-500 mb-3">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Ideal für wiederkehrende Events: Einladungen werden automatisch vor jedem Termin versendet.
+                                    </p>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" id="event-lead-time-value" min="1" max="30" value="3"
+                                               class="w-20 px-3 py-1 rounded-lg border border-gray-200 text-sm text-center"/>
+                                        <select id="event-lead-time-unit" class="flex-1 px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                            <option value="hours">Stunden vorher</option>
+                                            <option value="days" selected>Tage vorher</option>
+                                            <option value="weeks">Wochen vorher</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Automatic Reminder -->
+                                <div class="flex items-center justify-between border-t pt-4">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                        </svg>
+                                        <span class="text-gray-700">Automatische Erinnerung</span>
+                                    </div>
+                                    <button type="button" id="event-auto-reminder-btn" class="px-3 py-1 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-100 transition">
+                                        Deaktiviert
+                                    </button>
+                                </div>
+                                <div id="event-reminder-info" class="hidden text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Die automatische Erinnerung ist deaktiviert, wenn alle Personen standardmäßig als anwesend markiert sind oder wenn von der Versandzeit der Einladungen bis zur Startzeit weniger als 48 Stunden vergangen sind.
+                                </div>
+
+                                <!-- Default Participation Status -->
+                                <div class="flex items-center justify-between border-t pt-4">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <span class="text-gray-700">Standard-Teilnahmestatus</span>
+                                    </div>
+                                    <select id="event-default-status" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                        <option value="pending">Unbeantwortet</option>
+                                        <option value="accepted">Teilnehmend</option>
+                                    </select>
+                                </div>
+                                <div id="event-default-status-hint" class="text-xs text-gray-500 bg-gray-100 p-2 rounded-lg">
+                                    Empfänger werden standardmäßig als unbeantwortet eingetragen. Sie müssen ihre Teilnahme bestätigen oder ablehnen.
+                                </div>
+
+                                <!-- Comments Toggle -->
+                                <div class="flex items-center justify-between border-t pt-4">
+                                    <span class="text-gray-700">Kommentare</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="event-comments-enabled" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
