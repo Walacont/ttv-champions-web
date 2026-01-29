@@ -1105,14 +1105,14 @@ async function fetchActivities(userIds) {
             // Einzel-Matches
             supabase
                 .from('matches')
-                .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, season_points_awarded, created_at, sport_id, club_id, match_mode, handicap_used')
+                .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, elo_change_a, elo_change_b, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
                 .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
                 .order('created_at', { ascending: false })
                 .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1),
             // Doppel-Matches
             supabase
                 .from('doubles_matches')
-                .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, winning_team, sets, team_a_sets_won, team_b_sets_won, season_points_awarded, created_at, sport_id, club_id, match_mode, handicap_used')
+                .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, winning_team, sets, team_a_sets_won, team_b_sets_won, team_a_elo_change, team_b_elo_change, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
                 .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
                 .order('created_at', { ascending: false })
                 .range(typeOffsets.doubles, typeOffsets.doubles + ACTIVITIES_PER_PAGE - 1),
