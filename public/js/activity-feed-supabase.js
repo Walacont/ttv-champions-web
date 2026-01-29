@@ -11,6 +11,7 @@ import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
 import { isTrainingSummary, renderTrainingSummaryCard, parseTrainingSummaryContent } from './training-summary-supabase.js';
 import { getChildSession, getSessionToken } from './child-login-supabase.js';
+import { showReportDialog, CONTENT_TYPES } from './block-report-manager.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -3331,6 +3332,21 @@ function renderPostCard(activity, profileMap) {
                         <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
+
+                ${currentUser && activity.user_id !== currentUser.id ? `
+                <!-- Report Menu -->
+                <div class="relative flex-shrink-0">
+                    <button onclick="toggleFeedActionMenu('post-menu-${postId}')" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div id="post-menu-${postId}" class="hidden absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[160px]">
+                        <button onclick="reportFeedContent('post', '${postId}'); toggleFeedActionMenu('post-menu-${postId}')"
+                                class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <i class="fas fa-flag"></i> Beitrag melden
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
             </div>
 
             <!-- Post Content -->
@@ -3448,6 +3464,21 @@ function renderPollCard(activity, profileMap) {
                         <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : activity.visibility === 'subgroup' ? 'Untergruppe' : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
+
+                ${currentUser && activity.user_id !== currentUser.id ? `
+                <!-- Report Menu -->
+                <div class="relative flex-shrink-0">
+                    <button onclick="toggleFeedActionMenu('poll-menu-${activity.id}')" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div id="poll-menu-${activity.id}" class="hidden absolute right-0 top-8 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[160px]">
+                        <button onclick="reportFeedContent('poll', '${activity.id}'); toggleFeedActionMenu('poll-menu-${activity.id}')"
+                                class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                            <i class="fas fa-flag"></i> Umfrage melden
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
             </div>
 
             <!-- Poll Question -->
@@ -3525,6 +3556,41 @@ function renderPollCard(activity, profileMap) {
         </div>
     `;
 }
+
+// ============================================
+// FEED ACTION MENU FUNCTIONS (Report)
+// ============================================
+
+/**
+ * Toggle a feed action menu (three-dots dropdown)
+ */
+window.toggleFeedActionMenu = function(menuId) {
+    const menu = document.getElementById(menuId);
+    if (!menu) return;
+
+    // Close all other open menus first
+    document.querySelectorAll('[id^="post-menu-"], [id^="poll-menu-"]').forEach(m => {
+        if (m.id !== menuId) m.classList.add('hidden');
+    });
+
+    menu.classList.toggle('hidden');
+};
+
+/**
+ * Report content from the activity feed
+ */
+window.reportFeedContent = function(contentType, contentId) {
+    showReportDialog(contentType, contentId);
+};
+
+// Close feed action menus when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="post-menu-"]') && !e.target.closest('[id^="poll-menu-"]') && !e.target.closest('.fa-ellipsis-v') && !e.target.closest('button[onclick*="toggleFeedActionMenu"]')) {
+        document.querySelectorAll('[id^="post-menu-"], [id^="poll-menu-"]').forEach(m => {
+            m.classList.add('hidden');
+        });
+    }
+});
 
 // ============================================
 // CAROUSEL FUNCTIONS
