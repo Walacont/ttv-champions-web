@@ -297,6 +297,23 @@
         <!-- Scripts -->
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
+        <script>
+            // Early child mode check - hide edit profile button before modules load
+            (function() {
+                try {
+                    var childSession = localStorage.getItem('child_session');
+                    if (childSession) {
+                        var session = JSON.parse(childSession);
+                        if (session && (session.childId || session.sessionToken)) {
+                            // Add style to ensure edit button stays hidden in child mode
+                            var style = document.createElement('style');
+                            style.textContent = '#edit-profile-btn-container { display: none !important; }';
+                            document.head.appendChild(style);
+                        }
+                    }
+                } catch(e) {}
+            })();
+        </script>
         <script type="module">
             // Initialize i18n
             import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
