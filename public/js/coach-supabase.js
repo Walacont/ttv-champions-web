@@ -752,7 +752,7 @@ async function initializeCoachPage(userData) {
                     .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type')
                     .eq('club_id', userData.clubId)
                     .eq('start_date', dateString)
-                    .eq('cancelled', false)
+                    .or('cancelled.eq.false,cancelled.is.null')
                     .or('event_type.eq.single,event_type.is.null')
                     .order('start_time');
 
@@ -766,7 +766,7 @@ async function initializeCoachPage(userData) {
                     .from('events')
                     .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, start_date, excluded_dates')
                     .eq('club_id', userData.clubId)
-                    .eq('cancelled', false)
+                    .or('cancelled.eq.false,cancelled.is.null')
                     .eq('event_type', 'recurring')
                     .lte('start_date', dateString)
                     .or(`repeat_end_date.gte.${dateString},repeat_end_date.is.null`);

@@ -3855,7 +3855,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
             .eq('club_id', userData.clubId)
             .gte('start_date', today)
             .lte('start_date', endDate)
-            .eq('cancelled', false)
+            .or('cancelled.eq.false,cancelled.is.null')
             .order('start_date', { ascending: true })
             .limit(5);
 
@@ -3879,7 +3879,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
         const eventIds = events.map(e => e.id);
         const { data: allInvitations } = await supabase
             .from('event_invitations')
-            .select('event_id, status, user_id, profiles:user_id(first_name, last_name)')
+            .select('event_id, status, user_id, decline_comment, profiles:user_id(first_name, last_name)')
             .in('event_id', eventIds);
 
         const invitationsByEvent = {};
@@ -3952,24 +3952,75 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
                                     </div>
                                 </div>
 
-                                <!-- Accepted Names (collapsed by default, expandable) -->
-                                ${responses.accepted.length > 0 ? `
-                                <div class="mt-3 pt-3 border-t">
-                                    <button class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
-                                        <svg class="w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                        </svg>
-                                        Zusagen anzeigen
-                                    </button>
+                                <!-- Expandable Details -->
+                                <div class="mt-3 pt-3 border-t space-y-2">
+                                    ${responses.accepted.length > 0 ? `
+                                    <div>
+                                        <button class="text-xs text-green-600 hover:text-green-800 font-medium flex items-center gap-1" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                            <svg class="w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                            Zusagen anzeigen (${responses.accepted.length})
+                                        </button>
+                                        <div class="hidden mt-2 flex flex-wrap gap-1">
+                                            ${responses.accepted.map(inv => `
+                                                <span class="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                                    ${inv.profiles?.first_name || ''} ${inv.profiles?.last_name || ''}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                    ` : ''}
+
+                                    ${responses.rejected.length > 0 ? `
+                                    <div>
+                                        <button class="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                            <svg class="w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                            Absagen anzeigen (${responses.rejected.length})
+                                        </button>
+                                        <div class="hidden mt-2 space-y-1">
+                                            ${responses.rejected.map(inv => {
+                                                const name = `${inv.profiles?.first_name || ''} ${inv.profiles?.last_name || ''}`.trim();
+                                                return `
+                                                <div>
+                                                    <span class="px-2 py-0.5 bg-red-50 text-red-700 text-xs rounded-full inline-block">
+                                                        ${name}
+                                                    </span>
+                                                    ${inv.decline_comment ? `
+                                                    <p class="text-xs text-gray-500 ml-2 mt-0.5 italic">"${inv.decline_comment}"</p>
+                                                    ` : ''}
+                                                </div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                    ` : ''}
+
+                                    ${responses.pending.length > 0 ? `
+                                    <div class="flex items-center justify-between">
+                                        <button class="text-xs text-gray-500 hover:text-gray-700 font-medium flex items-center gap-1" onclick="event.stopPropagation(); this.parentElement.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                            <svg class="w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                            Ausstehend anzeigen (${responses.pending.length})
+                                        </button>
+                                        <button onclick="event.stopPropagation(); window.sendEventReminder('${event.id}', '${event.start_date}')" class="text-xs text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors">
+                                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                            </svg>
+                                            Erinnern
+                                        </button>
+                                    </div>
                                     <div class="hidden mt-2 flex flex-wrap gap-1">
-                                        ${responses.accepted.map(inv => `
-                                            <span class="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                        ${responses.pending.map(inv => `
+                                            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
                                                 ${inv.profiles?.first_name || ''} ${inv.profiles?.last_name || ''}
                                             </span>
                                         `).join('')}
                                     </div>
+                                    ` : ''}
                                 </div>
-                                ` : ''}
                             </div>
                         `;
                     }).join('')}
