@@ -33,7 +33,7 @@ export async function loadMatchHistory() {
     try {
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
-            .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, elo_change_a, elo_change_b, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
+            .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
             .limit(50);
