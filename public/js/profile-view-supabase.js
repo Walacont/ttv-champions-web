@@ -2728,6 +2728,7 @@ window.respondToEventFromCalendar = async function(invitationId, status, occurre
  * Shows: title, description, date/time/location, accept/decline buttons, participant counts, comments
  */
 window.openPlayerEventDetail = async function(eventId, occurrenceDate) {
+    const supabase = getSupabase();
     try {
         // Load full event data
         const { data: event, error: eventError } = await supabase
@@ -2980,6 +2981,7 @@ window.openPlayerEventDetail = async function(eventId, occurrenceDate) {
 
 /** Accept event from calendar detail view */
 window.calendarAcceptEvent = async function(invitationId, eventId, occurrenceDate) {
+    const supabase = getSupabase();
     try {
         await supabase.from('event_invitations').update({
             status: 'accepted',
@@ -3006,6 +3008,7 @@ window.calendarAcceptEvent = async function(invitationId, eventId, occurrenceDat
 
 /** Decline event from calendar detail view - opens decline modal */
 window.calendarDeclineEvent = async function(invitationId, eventId, occurrenceDate) {
+    const supabase = getSupabase();
     // Show decline options modal
     const declineModal = document.createElement('div');
     declineModal.id = 'cal-decline-modal';
@@ -3092,6 +3095,7 @@ window.calendarDeclineEvent = async function(invitationId, eventId, occurrenceDa
 
 /** Load comments for calendar event detail */
 async function loadCalendarEventComments(eventId) {
+    const supabase = getSupabase();
     const container = document.getElementById('cal-event-comments');
     if (!container) return;
     try {
