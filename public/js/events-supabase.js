@@ -267,6 +267,7 @@ function setupEventListeners() {
     document.getElementById('back-event-members-modal')?.addEventListener('click', goBackFromMembers);
     document.getElementById('event-members-next-btn')?.addEventListener('click', openEventFormModal);
     document.getElementById('event-select-all-members')?.addEventListener('click', toggleSelectAllMembers);
+    document.getElementById('event-select-all-guardians')?.addEventListener('click', toggleSelectAllGuardians);
 
     document.getElementById('back-event-form-modal')?.addEventListener('click', () => showModal('event-members-modal'));
     document.getElementById('event-form-submit-btn')?.addEventListener('click', submitEvent);
@@ -905,6 +906,212 @@ function toggleSelectAllMembers() {
     updateMemberCount();
 }
 
+// === Guardian/Vormunde Tab ===
+let clubGuardians = [];
+
+/**
+ * Switch between Mitglieder and Vormunde tabs
+ */
+window.switchRecipientTab = function(tab) {
+    const membersTab = document.getElementById('event-members-tab-members');
+    const guardiansTab = document.getElementById('event-members-tab-guardians');
+    const membersContent = document.getElementById('event-members-content');
+    const guardiansContent = document.getElementById('event-guardians-content');
+
+    if (tab === 'members') {
+        currentEventData.inviteMode = 'members';
+        membersTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        membersTab.classList.remove('text-gray-500', 'border-transparent');
+        guardiansTab.classList.remove('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        guardiansTab.classList.add('text-gray-500', 'border-transparent');
+        membersContent.classList.remove('hidden');
+        guardiansContent.classList.add('hidden');
+        updateMemberCount();
+    } else {
+        currentEventData.inviteMode = 'guardians';
+        guardiansTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        guardiansTab.classList.remove('text-gray-500', 'border-transparent');
+        membersTab.classList.remove('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        membersTab.classList.add('text-gray-500', 'border-transparent');
+        guardiansContent.classList.remove('hidden');
+        membersContent.classList.add('hidden');
+        loadGuardians();
+        updateGuardianCount();
+    }
+};
+
+/**
+ * Load guardians for the club
+ */
+async function loadGuardians() {
+    if (!currentUserData?.clubId) return;
+    if (clubGuardians.length > 0) {
+        renderGuardianList();
+        return;
+    }
+
+    const listEl = document.getElementById('event-guardians-list');
+    if (listEl) listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Laden...</p>';
+
+    try {
+        // Get all guardians who have children in this club
+        const { data: guardianLinks, error: linksError } = await supabase
+            .from('guardian_links')
+            .select(`
+                guardian_id,
+                child_id,
+                child:child_id (
+                    id,
+                    first_name,
+                    last_name,
+                    club_id,
+                    subgroup_ids
+                )
+            `);
+
+        if (linksError) throw linksError;
+
+        // Filter to only guardians whose children are in this club
+        const clubGuardianLinks = (guardianLinks || []).filter(
+            link => link.child?.club_id === currentUserData.clubId
+        );
+
+        // If subgroup filter is active, also filter by subgroup
+        let filteredLinks = clubGuardianLinks;
+        if (currentEventData.targetType === 'subgroups' && currentEventData.selectedSubgroups.length > 0) {
+            filteredLinks = clubGuardianLinks.filter(link => {
+                const childSubgroups = link.child?.subgroup_ids || [];
+                return currentEventData.selectedSubgroups.some(sg => childSubgroups.includes(sg));
+            });
+        }
+
+        // Group by guardian
+        const guardianMap = new Map();
+        filteredLinks.forEach(link => {
+            if (!guardianMap.has(link.guardian_id)) {
+                guardianMap.set(link.guardian_id, {
+                    guardian_id: link.guardian_id,
+                    children: []
+                });
+            }
+            if (link.child) {
+                const childName = `${link.child.first_name || ''} ${link.child.last_name || ''}`.trim();
+                guardianMap.get(link.guardian_id).children.push(childName);
+            }
+        });
+
+        // Load guardian profiles
+        const guardianIds = Array.from(guardianMap.keys());
+        if (guardianIds.length === 0) {
+            clubGuardians = [];
+            renderGuardianList();
+            return;
+        }
+
+        const { data: guardianProfiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', guardianIds)
+            .order('last_name');
+
+        if (profileError) throw profileError;
+
+        clubGuardians = (guardianProfiles || []).map(profile => {
+            const guardianData = guardianMap.get(profile.id);
+            return {
+                ...profile,
+                children: guardianData?.children || []
+            };
+        });
+
+        renderGuardianList();
+    } catch (error) {
+        console.error('[Events] Error loading guardians:', error);
+        if (listEl) listEl.innerHTML = '<p class="text-sm text-red-500 text-center py-4">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Render guardian list
+ */
+function renderGuardianList() {
+    const listEl = document.getElementById('event-guardians-list');
+    const totalEl = document.getElementById('event-guardians-total');
+    if (!listEl) return;
+
+    if (totalEl) {
+        totalEl.textContent = clubGuardians.length;
+    }
+
+    if (clubGuardians.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Keine Vormunde gefunden</p>';
+        return;
+    }
+
+    listEl.innerHTML = clubGuardians.map(guardian => {
+        const initials = `${guardian.first_name?.[0] || ''}${guardian.last_name?.[0] || ''}`.toUpperCase();
+        const avatarUrl = guardian.avatar_url || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+        const fullName = `${guardian.first_name || ''} ${guardian.last_name || ''}`.trim();
+        const childrenText = guardian.children.length > 0
+            ? `Vormund für ${guardian.children.join(', ')}`
+            : '';
+
+        return `
+            <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all">
+                <img src="${avatarUrl}" alt="${fullName}"
+                     class="w-10 h-10 rounded-full object-cover border border-gray-200"
+                     onerror="this.src='https://placehold.co/40x40/e2e8f0/64748b?text=${initials}'">
+                <div class="flex-1 min-w-0">
+                    <span class="font-medium text-gray-900 block">${fullName}</span>
+                    ${childrenText ? `<span class="text-xs text-gray-500 block truncate">${childrenText}</span>` : ''}
+                </div>
+                <input type="checkbox" value="${guardian.id}"
+                       class="guardian-checkbox h-5 w-5 text-indigo-600 rounded-full border-gray-300 focus:ring-indigo-500"
+                       onchange="window.updateGuardianCount && window.updateGuardianCount()">
+            </label>
+        `;
+    }).join('');
+
+    updateGuardianCount();
+}
+
+/**
+ * Update guardian selection count
+ */
+function updateGuardianCount() {
+    const checkboxes = document.querySelectorAll('.guardian-checkbox:checked');
+    currentEventData.selectedGuardians = Array.from(checkboxes).map(cb => cb.value);
+
+    const countEl = document.getElementById('event-members-count');
+    if (countEl) {
+        const count = currentEventData.selectedGuardians.length;
+        countEl.textContent = count === 0
+            ? 'Keine Empfänger ausgewählt'
+            : `${count} Vormund${count !== 1 ? 'e' : ''} ausgewählt`;
+    }
+
+    const selectAllBtn = document.getElementById('event-select-all-guardians');
+    if (selectAllBtn) {
+        const allChecked = checkboxes.length === clubGuardians.length && clubGuardians.length > 0;
+        selectAllBtn.textContent = allChecked ? 'Alle abwählen' : 'Alle auswählen';
+    }
+}
+window.updateGuardianCount = updateGuardianCount;
+
+/**
+ * Toggle select all guardians
+ */
+function toggleSelectAllGuardians() {
+    const checkboxes = document.querySelectorAll('.guardian-checkbox');
+    const allChecked = document.querySelectorAll('.guardian-checkbox:checked').length === checkboxes.length;
+
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+
+    updateGuardianCount();
+}
+
 function goBackFromMembers() {
     if (currentEventData.targetType === 'subgroups') {
         showModal('event-subgroup-modal');
@@ -1050,9 +1257,17 @@ async function submitEvent() {
         alert('Bitte gib Datum und Uhrzeit ein.');
         return;
     }
-    if (currentEventData.selectedMembers.length === 0) {
-        alert('Bitte wähle mindestens einen Empfänger aus.');
-        return;
+    const isGuardianMode = currentEventData.inviteMode === 'guardians';
+    if (isGuardianMode) {
+        if (!currentEventData.selectedGuardians || currentEventData.selectedGuardians.length === 0) {
+            alert('Bitte wähle mindestens einen Vormund aus.');
+            return;
+        }
+    } else {
+        if (currentEventData.selectedMembers.length === 0) {
+            alert('Bitte wähle mindestens einen Empfänger aus.');
+            return;
+        }
     }
 
     let repeatType = null;
@@ -1156,6 +1371,7 @@ async function submitEvent() {
         organizer_ids: organizerIds,
         auto_reminder: autoReminder,
         default_participation_status: defaultStatus,
+        invite_mode: isGuardianMode ? 'guardians' : 'members',
         created_at: new Date().toISOString()
     };
 
@@ -1188,74 +1404,113 @@ async function submitEvent() {
 
         // Einladungen IMMER erstellen (zum Tracken wer ausgewählt wurde)
         const invitations = [];
-
-        // Deduplizierung der ausgewählten Mitglieder
-        const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
-
-        // === NEW: Determine invitation status based on default_participation_status ===
         const invitationStatus = defaultStatus === 'accepted' ? 'accepted' : 'pending';
 
-        uniqueMembers.forEach(userId => {
-            // Check if this user is an organizer
-            const isOrganizer = organizerIds.includes(userId);
-            invitations.push({
-                event_id: event.id,
-                user_id: userId,
-                occurrence_date: startDate,
-                status: isOrganizer ? 'accepted' : invitationStatus,
-                role: isOrganizer ? 'organizer' : 'participant',
-                created_at: new Date().toISOString()
-            });
-        });
+        if (isGuardianMode) {
+            // Guardian mode: invite guardians directly
+            const uniqueGuardians = [...new Set(currentEventData.selectedGuardians)];
 
-        // === NEW: Also invite organizers who aren't in selectedMembers ===
-        for (const orgId of organizerIds) {
-            if (!uniqueMembers.includes(orgId)) {
+            uniqueGuardians.forEach(userId => {
                 invitations.push({
                     event_id: event.id,
-                    user_id: orgId,
-                    occurrence_date: startDate,
-                    status: 'accepted',
-                    role: 'organizer',
-                    created_at: new Date().toISOString()
-                });
-            }
-        }
-
-        if (invitations.length > 0) {
-            const { error: invError } = await supabase
-                .from('event_invitations')
-                .upsert(invitations, {
-                    onConflict: 'event_id,user_id',
-                    ignoreDuplicates: true
-                });
-
-            if (invError) throw invError;
-        }
-
-        // === NEW: Notify guardians for child participants ===
-        try {
-            await notifyGuardiansForEvent(event, uniqueMembers);
-        } catch (guardianError) {
-            console.warn('[Events] Could not notify guardians:', guardianError);
-        }
-
-        // Benachrichtigungen nur senden wenn "jetzt senden" gewählt wurde
-        if (sendInvitation === 'now') {
-            try {
-                const notifications = currentEventData.selectedMembers.map(userId => ({
                     user_id: userId,
-                    type: 'event_invitation',
-                    title: 'Neue Einladung',
-                    message: `Du wurdest zu "${title}" eingeladen`,
-                    data: { event_id: event.id },
-                    is_read: false,
+                    occurrence_date: startDate,
+                    status: invitationStatus,
+                    role: 'participant',
                     created_at: new Date().toISOString()
-                }));
+                });
+            });
 
-                await supabase.from('notifications').insert(notifications);
-            } catch (notifError) {
-                console.warn('[Events] Could not create notifications:', notifError);
+            if (invitations.length > 0) {
+                const { error: invError } = await supabase
+                    .from('event_invitations')
+                    .upsert(invitations, {
+                        onConflict: 'event_id,user_id',
+                        ignoreDuplicates: true
+                    });
+                if (invError) throw invError;
+            }
+
+            // Send notifications to guardians
+            if (sendInvitation === 'now') {
+                try {
+                    const notifications = uniqueGuardians.map(userId => ({
+                        user_id: userId,
+                        type: 'event_invitation',
+                        title: 'Neue Einladung',
+                        message: `Du wurdest zu "${title}" eingeladen`,
+                        data: { event_id: event.id },
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                } catch (notifError) {
+                    console.warn('[Events] Could not create guardian notifications:', notifError);
+                }
+            }
+        } else {
+            // Member mode: invite members, auto-notify guardians for children
+            const uniqueMembers = [...new Set(currentEventData.selectedMembers)];
+
+            uniqueMembers.forEach(userId => {
+                const isOrganizer = organizerIds.includes(userId);
+                invitations.push({
+                    event_id: event.id,
+                    user_id: userId,
+                    occurrence_date: startDate,
+                    status: isOrganizer ? 'accepted' : invitationStatus,
+                    role: isOrganizer ? 'organizer' : 'participant',
+                    created_at: new Date().toISOString()
+                });
+            });
+
+            // Also invite organizers who aren't in selectedMembers
+            for (const orgId of organizerIds) {
+                if (!uniqueMembers.includes(orgId)) {
+                    invitations.push({
+                        event_id: event.id,
+                        user_id: orgId,
+                        occurrence_date: startDate,
+                        status: 'accepted',
+                        role: 'organizer',
+                        created_at: new Date().toISOString()
+                    });
+                }
+            }
+
+            if (invitations.length > 0) {
+                const { error: invError } = await supabase
+                    .from('event_invitations')
+                    .upsert(invitations, {
+                        onConflict: 'event_id,user_id',
+                        ignoreDuplicates: true
+                    });
+                if (invError) throw invError;
+            }
+
+            // Notify guardians for child participants (automatic)
+            try {
+                await notifyGuardiansForEvent(event, uniqueMembers);
+            } catch (guardianError) {
+                console.warn('[Events] Could not notify guardians:', guardianError);
+            }
+
+            // Send notifications to members
+            if (sendInvitation === 'now') {
+                try {
+                    const notifications = uniqueMembers.map(userId => ({
+                        user_id: userId,
+                        type: 'event_invitation',
+                        title: 'Neue Einladung',
+                        message: `Du wurdest zu "${title}" eingeladen`,
+                        data: { event_id: event.id },
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                } catch (notifError) {
+                    console.warn('[Events] Could not create notifications:', notifError);
+                }
             }
         }
 
@@ -1284,9 +1539,14 @@ function resetEventData() {
         targetType: 'club',
         selectedSubgroups: [],
         selectedMembers: [],
+        selectedGuardians: [],
         selectedOrganizers: null,
+        inviteMode: 'members',
         formData: {}
     };
+
+    // Reset guardian state
+    clubGuardians = [];
 
     // Clear pending attachments
     pendingAttachments = [];
@@ -1319,6 +1579,22 @@ function resetEventData() {
     if (organizerDisplay) organizerDisplay.textContent = 'Du';
     const organizerDropdown = document.getElementById('event-organizer-dropdown');
     if (organizerDropdown) organizerDropdown.classList.add('hidden');
+
+    // Reset recipient tab to Mitglieder
+    const membersTab = document.getElementById('event-members-tab-members');
+    const guardiansTab = document.getElementById('event-members-tab-guardians');
+    const membersContent = document.getElementById('event-members-content');
+    const guardiansContent = document.getElementById('event-guardians-content');
+    if (membersTab) {
+        membersTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        membersTab.classList.remove('text-gray-500', 'border-transparent');
+    }
+    if (guardiansTab) {
+        guardiansTab.classList.remove('text-indigo-600', 'border-indigo-600', 'bg-gray-50');
+        guardiansTab.classList.add('text-gray-500', 'border-transparent');
+    }
+    if (membersContent) membersContent.classList.remove('hidden');
+    if (guardiansContent) guardiansContent.classList.add('hidden');
 
     // Vorlaufzeit-Option verstecken (Standard ist einzelnes Event)
     updateSendInvitationOptions('single');
