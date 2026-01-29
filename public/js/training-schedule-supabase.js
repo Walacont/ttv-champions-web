@@ -76,7 +76,7 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
 export async function getRecurringTemplates(clubId) {
     const { data, error } = await supabaseClient
         .from('recurring_training_templates')
-        .select('*')
+        .select('id, day_of_week, start_time, end_time, subgroup_id, club_id, active, start_date, end_date, created_at, created_by')
         .eq('club_id', clubId)
         .eq('active', true)
         .order('day_of_week', { ascending: true })
@@ -241,7 +241,7 @@ function mapSessionFromSupabase(session) {
 export async function getTrainingSessions(clubId, startDate, endDate) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
-        .select('*')
+        .select('id, date, start_time, end_time, subgroup_id, club_id, recurring_template_id, cancelled, planned_exercises, completed, completed_at, created_at, created_by')
         .eq('club_id', clubId)
         .gte('date', startDate)
         .lte('date', endDate)
@@ -258,7 +258,7 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
 export async function getSessionsForDate(clubId, date, forceServerFetch = false) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
-        .select('*')
+        .select('id, date, start_time, end_time, subgroup_id, club_id, recurring_template_id, cancelled, planned_exercises, completed, completed_at, created_at, created_by')
         .eq('club_id', clubId)
         .eq('date', date)
         .eq('cancelled', false)
@@ -273,7 +273,7 @@ export async function getSessionsForDate(clubId, date, forceServerFetch = false)
 export async function getSession(sessionId) {
     const { data, error } = await supabaseClient
         .from('training_sessions')
-        .select('*')
+        .select('id, date, start_time, end_time, subgroup_id, club_id, recurring_template_id, cancelled, planned_exercises, completed, completed_at, created_at, created_by')
         .eq('id', sessionId)
         .single();
 
@@ -314,7 +314,7 @@ export async function cancelTrainingSession(sessionId) {
 
     const { data: attendanceRecords, error: attendanceError } = await supabaseClient
         .from('attendance')
-        .select('*')
+        .select('id, present_player_ids, date, subgroup_id, session_id')
         .eq('session_id', sessionId);
 
     if (attendanceError) throw attendanceError;
@@ -352,7 +352,7 @@ export async function cancelTrainingSession(sessionId) {
             try {
                 const { data: historyEntries, error: historyError } = await supabaseClient
                     .from('points_history')
-                    .select('*')
+                    .select('id, points, xp, reason, player_id, date, subgroup_id, awarded_by')
                     .eq('player_id', playerId)
                     .eq('date', date)
                     .eq('subgroup_id', subgroupId)
@@ -442,7 +442,7 @@ export async function cancelTrainingSession(sessionId) {
 export async function deleteTrainingSession(sessionId) {
     const { data: attendanceRecords, error: attendanceError } = await supabaseClient
         .from('attendance')
-        .select('*')
+        .select('id, present_player_ids, date, subgroup_id, session_id')
         .eq('session_id', sessionId);
 
     if (attendanceError) throw attendanceError;
@@ -480,7 +480,7 @@ export async function deleteTrainingSession(sessionId) {
             try {
                 const { data: historyEntries, error: historyError } = await supabaseClient
                     .from('points_history')
-                    .select('*')
+                    .select('id, points, xp, reason, player_id, date, subgroup_id, awarded_by')
                     .eq('player_id', playerId)
                     .eq('date', date)
                     .eq('subgroup_id', subgroupId)

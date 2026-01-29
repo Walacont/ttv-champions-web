@@ -1100,85 +1100,86 @@ async function fetchActivities(userIds) {
         console.log('[ActivityFeed] Child mode: loaded', childActivities.length, 'activities via RPC');
         // Skip normal fetching, go directly to enrichment below
     } else if (needToFetch) {
-        // Einzel-Matches mit typ-spezifischem Offset laden
-        const { data: singlesMatches, error: singlesError } = await supabase
-            .from('matches')
-            .select('*')
-            .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
-            .order('created_at', { ascending: false })
-            .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1);
+        // Alle Queries parallel ausführen für schnellere Ladezeiten
+        const [singlesResult, doublesResult, eventsResult, postsResult, summariesResult, pollsResult] = await Promise.all([
+            // Einzel-Matches
+            supabase
+                .from('matches')
+                .select('id, player_a_id, player_b_id, winner_id, game_results, points_awarded, created_at, sport_id, club_id')
+                .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
+                .order('created_at', { ascending: false })
+                .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1),
+            // Doppel-Matches
+            supabase
+                .from('doubles_matches')
+                .select('id, team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id, winning_team, game_results, points_awarded, created_at, sport_id, club_id')
+                .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
+                .order('created_at', { ascending: false })
+                .range(typeOffsets.doubles, typeOffsets.doubles + ACTIVITIES_PER_PAGE - 1),
+            // Aktivitäts-Events
+            supabase
+                .from('activity_events')
+                .select('id, user_id, event_type, event_data, created_at')
+                .in('user_id', userIds)
+                .order('created_at', { ascending: false })
+                .range(typeOffsets.events, typeOffsets.events + ACTIVITIES_PER_PAGE - 1),
+            // Community-Posts (ohne Training-Zusammenfassungen)
+            supabase
+                .from('community_posts')
+                .select('id, user_id, content, created_at, deleted_at, visibility, image_url, likes, comment_count')
+                .is('deleted_at', null)
+                .in('user_id', userIds)
+                .not('content', 'ilike', 'TRAINING_SUMMARY|%')
+                .order('created_at', { ascending: false })
+                .range(typeOffsets.posts, typeOffsets.posts + ACTIVITIES_PER_PAGE - 1),
+            // Training-Zusammenfassungen
+            currentUser
+                ? supabase
+                    .from('community_posts')
+                    .select('id, user_id, content, created_at, deleted_at, visibility')
+                    .eq('user_id', currentUser.id)
+                    .ilike('content', 'TRAINING_SUMMARY|%')
+                    .is('deleted_at', null)
+                    .order('created_at', { ascending: false })
+                    .limit(10)
+                : Promise.resolve({ data: null, error: null }),
+            // Community-Umfragen
+            supabase
+                .from('community_polls')
+                .select('id, user_id, title, poll_options, created_at, deleted_at, visibility')
+                .is('deleted_at', null)
+                .in('user_id', userIds)
+                .order('created_at', { ascending: false })
+                .range(typeOffsets.polls, typeOffsets.polls + ACTIVITIES_PER_PAGE - 1)
+        ]);
+
+        const { data: singlesMatches, error: singlesError } = singlesResult;
+        const { data: doublesMatches, error: doublesError } = doublesResult;
+        const { data: activityEvents, error: eventsError } = eventsResult;
+        const { data: communityPosts, error: postsError } = postsResult;
+        const { data: summaries, error: summariesError } = summariesResult;
+        const { data: communityPolls, error: pollsError } = pollsResult;
 
         if (singlesError) throw singlesError;
         console.log('[ActivityFeed] Singles matches found:', singlesMatches?.length || 0);
-
-        // Doppel-Matches mit typ-spezifischem Offset laden
-        const { data: doublesMatches, error: doublesError } = await supabase
-            .from('doubles_matches')
-            .select('*')
-            .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
-            .order('created_at', { ascending: false })
-            .range(typeOffsets.doubles, typeOffsets.doubles + ACTIVITIES_PER_PAGE - 1);
-
         if (doublesError) console.warn('Error fetching doubles:', doublesError);
         console.log('[ActivityFeed] Doubles matches found:', doublesMatches?.length || 0);
-
-        // Aktivitäts-Events mit typ-spezifischem Offset laden
-        const { data: activityEvents, error: eventsError } = await supabase
-            .from('activity_events')
-            .select('*')
-            .in('user_id', userIds)
-            .order('created_at', { ascending: false })
-            .range(typeOffsets.events, typeOffsets.events + ACTIVITIES_PER_PAGE - 1);
-
         if (eventsError) console.warn('Error fetching activity events:', eventsError);
-
-        // Community-Posts mit typ-spezifischem Offset laden
-        const { data: communityPosts, error: postsError } = await supabase
-            .from('community_posts')
-            .select('*')
-            .is('deleted_at', null)
-            .in('user_id', userIds)
-            .not('content', 'ilike', 'TRAINING_SUMMARY|%') // Keine Training-Zusammenfassungen hier laden
-            .order('created_at', { ascending: false })
-            .range(typeOffsets.posts, typeOffsets.posts + ACTIVITIES_PER_PAGE - 1);
-
         if (postsError) console.warn('Error fetching community posts:', postsError);
+        if (summariesError) console.warn('Error fetching training summaries:', summariesError);
+        if (pollsError) console.warn('Error fetching community polls:', pollsError);
 
-        // Training-Zusammenfassungen (nur für den aktuellen Benutzer sichtbar)
-        // Erkannt durch TRAINING_SUMMARY| Prefix im Content
+        // Training-Zusammenfassungen verarbeiten
         let trainingSummaries = [];
-        if (currentUser) {
-            const { data: summaries, error: summariesError } = await supabase
-                .from('community_posts')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .ilike('content', 'TRAINING_SUMMARY|%')
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false })
-                .limit(10);
-
-            if (summariesError) console.warn('Error fetching training summaries:', summariesError);
-            // Event-Datum für korrekte Sortierung extrahieren
-            trainingSummaries = (summaries || []).map(s => {
+        if (summaries) {
+            trainingSummaries = summaries.map(s => {
                 const summaryData = parseTrainingSummaryContent(s.content);
-                // Verwende event_date + Mittag als Sortierdatum (damit Events nach Datum gruppiert werden)
                 const sortDate = summaryData?.event_date
                     ? new Date(summaryData.event_date + 'T12:00:00').toISOString()
                     : s.created_at;
                 return { ...s, activityType: 'training_summary', sort_date: sortDate };
             });
         }
-
-        // Community-Umfragen mit typ-spezifischem Offset laden
-        const { data: communityPolls, error: pollsError } = await supabase
-            .from('community_polls')
-            .select('*')
-            .is('deleted_at', null)
-            .in('user_id', userIds)
-            .order('created_at', { ascending: false })
-            .range(typeOffsets.polls, typeOffsets.polls + ACTIVITIES_PER_PAGE - 1);
-
-        if (pollsError) console.warn('Error fetching community polls:', pollsError);
 
         // Typ-Offsets basierend auf geladenen Daten aktualisieren
         typeOffsets.singles += (singlesMatches || []).length;
@@ -3796,7 +3797,7 @@ async function refreshPollCard(pollId) {
         // Umfrage-Daten neu laden
         const { data: poll, error } = await supabase
             .from('community_polls')
-            .select('*')
+            .select('id, user_id, title, poll_options, created_at, deleted_at, visibility')
             .eq('id', pollId)
             .single();
 

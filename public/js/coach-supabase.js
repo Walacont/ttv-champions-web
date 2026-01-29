@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const { data: supabaseProfile, error: profileError } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('id, club_id, active_sport_id, email, first_name, last_name, role, xp, points, elo_rating, highest_elo, gender, birthdate, avatar_url, onboarding_complete, is_offline, tutorial_completed, display_name, account_type')
                 .eq('id', user.uid)
                 .single();
 
@@ -584,7 +584,7 @@ async function initializeCoachPage(userData) {
 
         const { data: subgroupsData, error } = await supabase
             .from('subgroups')
-            .select('*')
+            .select('id, name, club_id, is_default')
             .eq('club_id', userData.clubId);
 
         const subgroups = error ? [] : subgroupsData.map(sg => ({
@@ -984,8 +984,9 @@ async function initializeCoachPage(userData) {
     // Sport-ID und Club-ID für spezifischen Countdown übergeben
     const activeSportId = userData.activeSportId || null;
     const activeClubId = userData.clubId || null;
+    // Initial load and display update every second (cached - no DB call per tick)
     updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId, activeClubId);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId, activeClubId), 1000);
+    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId, activeClubId), 30000);
     setInterval(updateAllCountdowns, 1000);
 }
 
@@ -1014,7 +1015,7 @@ function populateSubgroupFilter(clubId, db) {
         try {
             const { data: subgroupsData, error } = await supabase
                 .from('subgroups')
-                .select('*')
+                .select('id, name, club_id, is_default, created_at')
                 .eq('club_id', clubId)
                 .order('created_at', { ascending: true });
 
@@ -1222,7 +1223,7 @@ window.openSeasonModalCoach = async function() {
     // Aktive Saison für diesen Club/Sport laden
     let query = supabase
         .from('seasons')
-        .select('*')
+        .select('id, name, start_date, end_date, club_id, sport_id, is_active')
         .eq('is_active', true);
 
     // Nach Club filtern (falls club_id existiert)

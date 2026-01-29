@@ -1625,18 +1625,21 @@ async function openVideoComparison() {
         .eq('uploaded_by', userId)
         .order('created_at', { ascending: false });
 
-    if (error || !videos || videos.length < 2) {
+    // Filter to only videos with valid, playable URLs
+    const videosWithUrl = (videos || []).filter(v => v.video_url);
+
+    if (error || videosWithUrl.length < 2) {
         showToast('Du brauchst mindestens 2 Videos für einen Vergleich', 'info');
         return;
     }
 
-    comparisonState.videos = videos;
+    comparisonState.videos = videosWithUrl;
 
     // Dropdowns füllen
     const leftSelect = document.getElementById('comparison-video-left');
     const rightSelect = document.getElementById('comparison-video-right');
 
-    const optionsHtml = videos.map(v => {
+    const optionsHtml = videosWithUrl.map(v => {
         const date = new Date(v.created_at).toLocaleDateString('de-DE');
         const title = v.title || v.exercise?.name || 'Video';
         return `<option value="${v.id}">${escapeHtml(title)} (${date})</option>`;
@@ -1646,11 +1649,11 @@ async function openVideoComparison() {
     rightSelect.innerHTML = '<option value="">Video 2 auswählen...</option>' + optionsHtml;
 
     // Wenn genug Videos, automatisch die ersten zwei auswählen
-    if (videos.length >= 2) {
-        leftSelect.value = videos[0].id;
-        rightSelect.value = videos[1].id;
-        loadComparisonVideo('left', videos[0]);
-        loadComparisonVideo('right', videos[1]);
+    if (videosWithUrl.length >= 2) {
+        leftSelect.value = videosWithUrl[0].id;
+        rightSelect.value = videosWithUrl[1].id;
+        loadComparisonVideo('left', videosWithUrl[0]);
+        loadComparisonVideo('right', videosWithUrl[1]);
     }
 
     modal.classList.remove('hidden');
