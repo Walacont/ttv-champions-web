@@ -5,6 +5,7 @@
 import { getSupabase } from './supabase-init.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -900,11 +901,11 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
         if (playerAWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 text-green-800';
-            winnerPreview.innerHTML = `Gewinner: ${teamAName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${escapeHtml(teamAName)} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerBWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-blue-100 text-blue-800';
-            winnerPreview.innerHTML = `Gewinner: ${teamBName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${escapeHtml(teamBName)} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerAWins > 0 || playerBWins > 0) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-gray-100 text-gray-700';

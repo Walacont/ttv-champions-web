@@ -1,6 +1,7 @@
 /**
  * Coach Match History Module - Wettkampf-Historie für ausgewählten Spieler
  */
+import { escapeHtml } from './utils/security.js';
 
 let coachMatchHistorySubscriptions = [];
 
@@ -191,7 +192,7 @@ export async function loadCoachMatchHistory(playerId, supabase) {
                 );
 
                 if (allMatches.length === 0) {
-                    container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe für ${playerName} gefunden</p>`;
+                    container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe für ${escapeHtml(playerName)} gefunden</p>`;
                     return;
                 }
 

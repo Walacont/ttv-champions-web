@@ -397,6 +397,12 @@ function updateTutorialStatus(userData) {
         }
     }
 
+    // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
+    const clubPageCard = document.getElementById('club-page-card');
+    if (clubPageCard && (role === 'coach' || role === 'head_coach') && userData?.club_id) {
+        clubPageCard.classList.remove('hidden');
+    }
+
     const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
     const playerBadge = document.getElementById('tutorial-badge-player');
     const playerButton = document.getElementById('start-player-tutorial-btn');

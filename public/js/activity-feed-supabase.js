@@ -422,7 +422,7 @@ async function showLikesModal(activityId, activityType) {
             const profile = profileMap[like.user_id];
             if (!profile) return '';
 
-            const displayName = profile.display_name || `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.`;
+            const displayName = escapeHtml(profile.display_name || `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.`);
             const avatarUrl = profile.avatar_url || DEFAULT_AVATAR;
             const likedDate = new Date(like.created_at);
             const timeAgo = getTimeAgo(likedDate);
@@ -2538,11 +2538,11 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 function getDisplayName(profile, isDeleted = false) {
     if (isDeleted) return 'Gelöschter Spieler';
     if (!profile) return 'Unbekannt';
-    if (profile.display_name) return profile.display_name;
+    if (profile.display_name) return escapeHtml(profile.display_name);
     if (profile.first_name && profile.last_name) {
-        return `${profile.first_name} ${profile.last_name.charAt(0)}.`;
+        return `${escapeHtml(profile.first_name)} ${escapeHtml(profile.last_name.charAt(0))}.`;
     }
-    if (profile.first_name) return profile.first_name;
+    if (profile.first_name) return escapeHtml(profile.first_name);
     return 'Spieler';
 }
 

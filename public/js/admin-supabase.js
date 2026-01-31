@@ -338,7 +338,7 @@ function initializeSportSwitch() {
         const btn = document.createElement('button');
         btn.className = `sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors ${currentSportFilter === sport.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
         btn.dataset.sport = sport.id;
-        btn.innerHTML = `${getSportIcon(sport.name)} ${sport.display_name}`;
+        btn.innerHTML = `${getSportIcon(sport.name)} ${escapeHtml(sport.display_name)}`;
         container.appendChild(btn);
     });
 

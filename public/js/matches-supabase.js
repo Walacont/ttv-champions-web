@@ -1,6 +1,7 @@
 // Match-Modul (Supabase-Version)
 
 import { getSupabase } from './supabase-init.js';
+import { escapeHtml } from './utils/security.js';
 import {
     doc,
     getDoc,
@@ -293,8 +294,8 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
             if (handicap) {
                 const unitText = handicap.unit || 'Punkte';
                 handicapHTML = `<p class="text-xs text-blue-600 mt-1 font-semibold">
-                    <i class="fas fa-balance-scale-right"></i> ${handicap.player.firstName} startet mit
-                    <strong>${handicap.points}</strong> ${unitText} Vorsprung.
+                    <i class="fas fa-balance-scale-right"></i> ${escapeHtml(handicap.player.firstName)} startet mit
+                    <strong>${handicap.points}</strong> ${escapeHtml(unitText)} Vorsprung.
                 </p>`;
             }
 
@@ -303,9 +304,9 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
             listItem.innerHTML = `
                 <div class="flex justify-between items-center">
                     <div>
-                        <span class="font-semibold">${playerA.firstName} ${playerA.lastName}</span>
+                        <span class="font-semibold">${escapeHtml(playerA.firstName)} ${escapeHtml(playerA.lastName)}</span>
                         <span class="text-gray-400 mx-2">vs</span>
-                        <span class="font-semibold">${playerB.firstName} ${playerB.lastName}</span>
+                        <span class="font-semibold">${escapeHtml(playerB.firstName)} ${escapeHtml(playerB.lastName)}</span>
                     </div>
                     <div class="text-xs text-gray-400">
                         (${Math.round(playerA.eloRating || 0)} vs ${Math.round(playerB.eloRating || 0)})
