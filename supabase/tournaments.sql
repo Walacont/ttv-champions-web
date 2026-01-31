@@ -290,10 +290,12 @@ DROP POLICY IF EXISTS "Users can leave tournaments" ON tournament_participants;
 DROP POLICY IF EXISTS "Users can view tournament matches" ON tournament_matches;
 DROP POLICY IF EXISTS "System can create tournament matches" ON tournament_matches;
 DROP POLICY IF EXISTS "System can update tournament matches" ON tournament_matches;
+DROP POLICY IF EXISTS "Creators can delete tournament matches" ON tournament_matches;
 
 DROP POLICY IF EXISTS "Users can view tournament standings" ON tournament_standings;
 DROP POLICY IF EXISTS "System can create tournament standings" ON tournament_standings;
 DROP POLICY IF EXISTS "System can update tournament standings" ON tournament_standings;
+DROP POLICY IF EXISTS "Creators can delete tournament standings" ON tournament_standings;
 
 DROP POLICY IF EXISTS "Users can view tournament rounds" ON tournament_rounds;
 DROP POLICY IF EXISTS "Coaches can manage tournament rounds" ON tournament_rounds;
