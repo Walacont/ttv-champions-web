@@ -1221,6 +1221,32 @@ async function fetchActivities(userIds) {
             ...trainingSummaries
         ];
 
+        // Enrich tournament match data for activity cards
+        const tournamentMatchIds = [...new Set(
+            allActivities
+                .filter(a => a.activityType === 'singles' && a.tournament_match_id)
+                .map(a => a.tournament_match_id)
+        )];
+        if (tournamentMatchIds.length > 0) {
+            try {
+                const { data: tmData } = await supabase
+                    .from('tournament_matches')
+                    .select('id, round_number, tournament:tournament_id(id, name)')
+                    .in('id', tournamentMatchIds);
+                if (tmData) {
+                    const tmMap = {};
+                    tmData.forEach(tm => { tmMap[tm.id] = tm; });
+                    allActivities.forEach(a => {
+                        if (a.tournament_match_id && tmMap[a.tournament_match_id]) {
+                            a._tournamentInfo = tmMap[a.tournament_match_id];
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('[ActivityFeed] Error enriching tournament data:', err);
+            }
+        }
+
         // === PRIVACY FILTERING FOR MATCHES ===
         // Alle eindeutigen Spieler-IDs aus Einzel- und Doppel-Matches für Datenschutzprüfung sammeln
         const matchPlayerIds = new Set();
@@ -2332,6 +2358,15 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                     ${match.handicap_used ? `<span class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">Handicap${match.handicap?.points ? ` +${match.handicap.points}` : ''}</span>` : ''}
                 </p>
             </div>
+
+            ${match._tournamentInfo ? `
+            <div class="px-4 pb-3">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <i class="fas fa-trophy text-indigo-600 text-xs"></i>
+                    <span class="text-xs font-medium text-indigo-700">${escapeHtml(match._tournamentInfo.tournament?.name || 'Turnier')} – Runde ${match._tournamentInfo.round_number}</span>
+                </div>
+            </div>
+            ` : ''}
 
             <!-- Stats Row - simplified, details in modal -->
             <div class="px-4 pb-3 flex items-center gap-6">
