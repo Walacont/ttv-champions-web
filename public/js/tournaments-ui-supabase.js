@@ -800,6 +800,15 @@ function openQuickMatchEntryModal(tournament) {
         if (entryMode === 'quick') {
             setsA = parseInt(modal.querySelector('#quick-sets-a').value) || 0;
             setsB = parseInt(modal.querySelector('#quick-sets-b').value) || 0;
+            if (setsA + setsB > maxSets) {
+                showToast(`Maximal ${maxSets} Sätze möglich bei ${getMatchModeName(matchMode)}`, 'error'); return;
+            }
+            if (Math.max(setsA, setsB) > setsToWin) {
+                showToast(`Maximal ${setsToWin} gewonnene Sätze bei ${getMatchModeName(matchMode)}`, 'error'); return;
+            }
+            if (setsA !== setsToWin && setsB !== setsToWin) {
+                showToast(`Ein Spieler muss ${setsToWin} Sätze gewinnen (${getMatchModeName(matchMode)})`, 'error'); return;
+            }
         } else {
             setsArray = getDetailedSets();
             if (setsArray.length === 0) { showToast('Bitte Satzpunkte eingeben', 'error'); return; }

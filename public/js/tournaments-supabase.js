@@ -338,16 +338,28 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
             .from('matches').select('*').eq('id', matchId).single();
         if (matchError) throw matchError;
 
-        // Fetch tournament match to compare player order
+        // Fetch tournament match with tournament info for player order + match_mode validation
         const { data: tournamentMatch, error: tmError } = await supabase
             .from('tournament_matches')
-            .select('tournament_id, player_a_id, player_b_id')
+            .select('tournament_id, player_a_id, player_b_id, tournament:tournament_id(match_mode)')
             .eq('id', tournamentMatchId).single();
         if (tmError) throw tmError;
 
+        // Validate match_mode: reject matches that don't fit the tournament format
+        const tournamentMode = tournamentMatch.tournament?.match_mode || 'best-of-5';
+        const maxSetsMap = { 'best-of-5': 5, 'best-of-3': 3, 'best-of-7': 7, 'single-set': 1 };
+        const setsToWinMap = { 'best-of-5': 3, 'best-of-3': 2, 'best-of-7': 4, 'single-set': 1 };
+        const maxSets = maxSetsMap[tournamentMode] || 5;
+        const setsToWin = setsToWinMap[tournamentMode] || 3;
+        const totalSetsPlayed = (match.player_a_sets_won || 0) + (match.player_b_sets_won || 0);
+        const maxWon = Math.max(match.player_a_sets_won || 0, match.player_b_sets_won || 0);
+
+        if (totalSetsPlayed > maxSets || maxWon > setsToWin) {
+            const modeNames = { 'best-of-5': 'Best of 5', 'best-of-3': 'Best of 3', 'best-of-7': 'Best of 7', 'single-set': '1 Satz' };
+            throw new Error(`Spielmodus passt nicht! Das Turnier ist ${modeNames[tournamentMode]}, aber das Ergebnis ist ${match.player_a_sets_won}:${match.player_b_sets_won}.`);
+        }
+
         // Check if player order matches between match and tournament_match
-        // If match.player_a is tournament_match.player_a → same order
-        // If match.player_a is tournament_match.player_b → swapped order
         const sameOrder = match.player_a_id === tournamentMatch.player_a_id;
         const tmPlayerASets = sameOrder ? match.player_a_sets_won : match.player_b_sets_won;
         const tmPlayerBSets = sameOrder ? match.player_b_sets_won : match.player_a_sets_won;
