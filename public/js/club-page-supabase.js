@@ -250,6 +250,7 @@ function renderViewSportSections(club) {
                                         <span class="font-medium text-gray-800 text-sm">${escapeHtml(t.day)}</span>
                                         <span class="text-gray-500 text-sm ml-auto">${escapeHtml(t.start || '')} – ${escapeHtml(t.end || '')}</span>
                                     </div>
+                                    ${t.label ? `<p class="text-xs text-gray-500 ml-8 -mt-1">${escapeHtml(t.label)}</p>` : ''}
                                 `).join('')}
                             </div>
                         ` : '<p class="text-sm text-gray-400">Keine Trainingszeiten hinterlegt</p>'}
@@ -330,18 +331,21 @@ function renderTrainingTimes() {
     }
 
     container.innerHTML = trainingTimes.map((t, index) => `
-        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg" data-index="${index}">
-            <div class="flex-1">
-                <select class="training-day w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
-                    ${DAYS.map(d => `<option value="${escapeHtml(d)}" ${t.day === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
-                </select>
+        <div class="bg-gray-50 p-3 rounded-lg space-y-2" data-index="${index}">
+            <div class="flex items-center gap-3">
+                <div class="flex-1">
+                    <select class="training-day w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                        ${DAYS.map(d => `<option value="${escapeHtml(d)}" ${t.day === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                    </select>
+                </div>
+                <input type="time" class="training-start px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.start || '18:00')}" />
+                <span class="text-gray-400">–</span>
+                <input type="time" class="training-end px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.end || '20:00')}" />
+                <button class="remove-training-btn text-red-400 hover:text-red-600 transition p-1" data-index="${index}">
+                    <i class="fas fa-trash-alt text-sm"></i>
+                </button>
             </div>
-            <input type="time" class="training-start px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.start || '18:00')}" />
-            <span class="text-gray-400">–</span>
-            <input type="time" class="training-end px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.end || '20:00')}" />
-            <button class="remove-training-btn text-red-400 hover:text-red-600 transition p-1" data-index="${index}">
-                <i class="fas fa-trash-alt text-sm"></i>
-            </button>
+            <input type="text" class="training-label w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.label || '')}" placeholder="z.B. Leistungstraining, Anfänger, Erwachsene..." />
         </div>
     `).join('');
 
@@ -357,10 +361,14 @@ function renderTrainingTimes() {
         const daySelect = row.querySelector('.training-day');
         const startInput = row.querySelector('.training-start');
         const endInput = row.querySelector('.training-end');
-        [daySelect, startInput, endInput].forEach(el => {
+        const labelInput = row.querySelector('.training-label');
+        [daySelect, startInput, endInput, labelInput].forEach(el => {
             el.addEventListener('change', () => {
-                trainingTimes[idx] = { day: daySelect.value, start: startInput.value, end: endInput.value };
+                trainingTimes[idx] = { day: daySelect.value, start: startInput.value, end: endInput.value, label: labelInput.value };
             });
+        });
+        labelInput.addEventListener('input', () => {
+            trainingTimes[idx] = { day: daySelect.value, start: startInput.value, end: endInput.value, label: labelInput.value };
         });
     });
 }
@@ -374,7 +382,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('add-training-time-btn').addEventListener('click', () => {
-        trainingTimes.push({ day: 'Montag', start: '18:00', end: '20:00' });
+        trainingTimes.push({ day: 'Montag', start: '18:00', end: '20:00', label: '' });
         renderTrainingTimes();
     });
 
@@ -508,7 +516,8 @@ function syncTrainingTimesFromDOM() {
     trainingTimes = Array.from(rows).map(row => ({
         day: row.querySelector('.training-day').value,
         start: row.querySelector('.training-start').value,
-        end: row.querySelector('.training-end').value
+        end: row.querySelector('.training-end').value,
+        label: row.querySelector('.training-label')?.value || ''
     }));
 }
 
