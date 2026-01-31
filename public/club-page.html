@@ -28,6 +28,7 @@
             #main-content { display: none; }
             .logo-upload-area { cursor: pointer; transition: all 0.2s; }
             .logo-upload-area:hover { border-color: #6366f1; background-color: #eef2ff; }
+            .hero-gradient { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
         </style>
     </head>
     <body class="bg-gray-100 text-gray-800">
@@ -52,145 +53,169 @@
             </div>
         </div>
 
-        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-2xl">
-            <div class="mb-6">
-                <a href="/settings.html" class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4">
+        <div id="main-content" class="container mx-auto max-w-2xl">
+
+            <!-- ══════ Hero Header mit Logo + Name ══════ -->
+            <div class="hero-gradient rounded-b-3xl px-6 pt-6 pb-8 shadow-lg relative">
+                <a id="back-link" href="/settings.html" class="text-white/80 hover:text-white font-semibold inline-flex items-center mb-6 text-sm">
                     <i class="fas fa-arrow-left mr-2"></i> Zurück
                 </a>
-                <h1 class="text-3xl font-bold text-gray-900 text-center">Vereinsseite</h1>
-            </div>
 
-            <div class="space-y-6">
+                <div class="flex flex-col items-center">
+                    <!-- Logo -->
+                    <div class="relative mb-4">
+                        <img id="club-logo-preview" src="/icons/icon-192x192-2.png" alt="Vereinslogo"
+                             class="w-28 h-28 rounded-2xl object-cover border-4 border-white/30 shadow-xl bg-white" />
+                        <button id="remove-logo-btn" class="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition hidden z-10">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
 
-                <!-- ══════ Vereinslogo ══════ -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">
-                        <i class="fas fa-image text-indigo-600 mr-2"></i>Vereinslogo
-                    </h2>
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="relative">
-                            <img id="club-logo-preview" src="/icons/icon-192x192-2.png" alt="Vereinslogo"
-                                 class="w-32 h-32 rounded-xl object-cover border-2 border-gray-200 shadow-sm" />
-                            <button id="remove-logo-btn" class="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition hidden">
-                                <i class="fas fa-times text-xs"></i>
-                            </button>
-                        </div>
-                        <label id="logo-upload-area" class="logo-upload-area flex items-center gap-3 px-6 py-3 border-2 border-dashed border-gray-300 rounded-xl">
-                            <i class="fas fa-cloud-upload-alt text-indigo-600 text-lg"></i>
-                            <span class="text-sm text-gray-600">Logo hochladen (max. 2 MB)</span>
-                            <input type="file" id="logo-upload-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="hidden" />
-                        </label>
-                        <div id="logo-upload-progress" class="w-full hidden">
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div id="logo-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-                            </div>
-                            <p class="text-xs text-gray-500 text-center mt-1">Wird hochgeladen...</p>
+                    <!-- Upload (nur Edit) -->
+                    <label id="logo-upload-area" class="logo-upload-area flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg text-white/90 text-sm hover:bg-white/30 transition cursor-pointer mb-3">
+                        <i class="fas fa-camera"></i>
+                        <span>Logo ändern</span>
+                        <input type="file" id="logo-upload-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="hidden" />
+                    </label>
+                    <div id="logo-upload-progress" class="w-48 hidden">
+                        <div class="w-full bg-white/20 rounded-full h-1.5">
+                            <div id="logo-progress-bar" class="bg-white h-1.5 rounded-full transition-all" style="width: 0%"></div>
                         </div>
                     </div>
-                </div>
 
-                <!-- ══════ Vereinsname ══════ -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">
-                        <i class="fas fa-heading text-indigo-600 mr-2"></i>Vereinsname
-                    </h2>
+                    <!-- Vereinsname -->
+                    <h1 id="club-name-display" class="text-2xl font-bold text-white text-center"></h1>
+                    <!-- Edit: Name-Input (versteckt im View-Modus) -->
                     <input type="text" id="club-name-input"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                           placeholder="Name des Vereins" />
+                           class="hidden w-full max-w-sm px-4 py-2 mt-2 border-0 rounded-lg text-center text-lg font-semibold bg-white/20 text-white placeholder-white/50 focus:ring-2 focus:ring-white/50 focus:bg-white/30"
+                           placeholder="Vereinsname" />
                 </div>
+            </div>
+
+            <div class="px-4 sm:px-6 md:px-8 space-y-5 -mt-4">
 
                 <!-- ══════ View-Modus: Alle Sparten (read-only) ══════ -->
-                <div id="sport-sections-view" class="space-y-6">
+                <div id="sport-sections-view" class="space-y-5">
                     <!-- Wird dynamisch befüllt -->
                 </div>
 
                 <!-- ══════ Edit-Modus: Eigene Sparte bearbeiten ══════ -->
-                <div id="edit-sport-section" class="space-y-6 hidden">
+                <div id="edit-sport-section" class="space-y-5 hidden">
                     <!-- Beschreibung -->
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-1">
-                            <i class="fas fa-align-left text-indigo-600 mr-2"></i>Beschreibung
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h2 class="text-lg font-semibold mb-1 flex items-center gap-2">
+                            <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-align-left text-indigo-600 text-sm"></i>
+                            </div>
+                            Beschreibung
                         </h2>
-                        <p id="sport-section-hint" class="text-xs text-gray-400 mb-4"></p>
+                        <p id="sport-section-hint" class="text-xs text-gray-400 mb-3 ml-10"></p>
                         <textarea id="club-description-input"
-                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition resize-none"
+                                  class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition resize-none text-sm"
                                   rows="4" maxlength="500"
                                   placeholder="Beschreibe die Sparte..."></textarea>
                         <p class="text-xs text-gray-400 text-right mt-1"><span id="desc-char-count">0</span>/500</p>
                     </div>
 
                     <!-- Trainingszeiten -->
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-1">
-                            <i class="fas fa-clock text-indigo-600 mr-2"></i>Trainingszeiten
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h2 class="text-lg font-semibold mb-1 flex items-center gap-2">
+                            <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-amber-600 text-sm"></i>
+                            </div>
+                            Trainingszeiten
                         </h2>
-                        <p id="training-section-hint" class="text-xs text-gray-400 mb-4"></p>
+                        <p id="training-section-hint" class="text-xs text-gray-400 mb-3 ml-10"></p>
                         <div id="training-times-container" class="space-y-3"></div>
                         <button id="add-training-time-btn"
-                                class="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition flex items-center justify-center gap-2">
+                                class="mt-4 w-full py-2.5 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 hover:border-indigo-400 hover:text-indigo-600 transition flex items-center justify-center gap-2 text-sm">
                             <i class="fas fa-plus"></i> Trainingszeit hinzufügen
                         </button>
                     </div>
                 </div>
 
-                <!-- ══════ Kontakt ══════ -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">
-                        <i class="fas fa-envelope text-indigo-600 mr-2"></i>Kontakt
+                <!-- ══════ Kontakt & Adresse ══════ -->
+                <!-- View-Modus: schöne Darstellung -->
+                <div id="contact-view" class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hidden">
+                    <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-address-card text-emerald-600 text-sm"></i>
+                        </div>
+                        Kontakt & Standort
                     </h2>
-                    <div class="space-y-3">
-                        <input type="email" id="club-email-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="E-Mail-Adresse" />
-                        <input type="tel" id="club-phone-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Telefonnummer (optional)" />
-                        <input type="url" id="club-website-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Website (optional)" />
+                    <div id="contact-view-content" class="space-y-3">
+                        <!-- Dynamisch befüllt -->
                     </div>
                 </div>
 
-                <!-- ══════ Adresse ══════ -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">
-                        <i class="fas fa-map-marker-alt text-indigo-600 mr-2"></i>Adresse
+                <!-- Edit-Modus: Formularfelder -->
+                <div id="contact-edit" class="space-y-5 hidden">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-envelope text-emerald-600 text-sm"></i>
+                            </div>
+                            Kontakt
+                        </h2>
+                        <div class="space-y-3">
+                            <input type="email" id="club-email-input" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="E-Mail-Adresse" />
+                            <input type="tel" id="club-phone-input" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="Telefonnummer (optional)" />
+                            <input type="url" id="club-website-input" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="Website (optional)" />
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-map-marker-alt text-rose-600 text-sm"></i>
+                            </div>
+                            Adresse
+                        </h2>
+                        <div class="space-y-3">
+                            <input type="text" id="club-address-input" class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="Straße und Hausnummer" />
+                            <div class="flex gap-3">
+                                <input type="text" id="club-zip-input" class="w-1/3 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="PLZ" />
+                                <input type="text" id="club-city-input" class="w-2/3 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm" placeholder="Stadt" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══════ Statistik ══════ -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-bar text-blue-600 text-sm"></i>
+                        </div>
+                        Statistik
                     </h2>
-                    <div class="space-y-3">
-                        <input type="text" id="club-address-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Straße und Hausnummer" />
-                        <div class="flex gap-3">
-                            <input type="text" id="club-zip-input" class="w-1/3 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="PLZ" />
-                            <input type="text" id="club-city-input" class="w-2/3 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Stadt" />
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-indigo-50 rounded-xl p-4 text-center">
+                            <p id="stat-members" class="text-2xl font-bold text-indigo-600">0</p>
+                            <p class="text-xs text-indigo-400 font-medium mt-1">Mitglieder</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl p-4 text-center">
+                            <p id="stat-coaches" class="text-2xl font-bold text-green-600">0</p>
+                            <p class="text-xs text-green-400 font-medium mt-1">Trainer</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-xl p-4 text-center">
+                            <p id="stat-matches" class="text-2xl font-bold text-orange-600">0</p>
+                            <p class="text-xs text-orange-400 font-medium mt-1">Wettkämpfe</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- ══════ Edit-Controls (nur für Coaches) ══════ -->
-                <div id="edit-controls">
+                <div id="edit-controls" class="pb-8">
                     <button id="save-club-btn"
-                            class="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                            class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2 shadow-md">
                         <i class="fas fa-save"></i> Speichern
                     </button>
                     <div id="save-status" class="hidden text-center py-2 rounded-lg text-sm font-medium mt-3"></div>
                 </div>
             </div>
 
-            <!-- ══════ Statistik ══════ -->
-            <div class="mt-6 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4">
-                    <i class="fas fa-chart-bar text-indigo-600 mr-2"></i>Statistik
-                </h2>
-                <div class="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <p id="stat-members" class="text-2xl font-bold text-indigo-600">0</p>
-                        <p class="text-xs text-gray-500">Mitglieder</p>
-                    </div>
-                    <div>
-                        <p id="stat-coaches" class="text-2xl font-bold text-green-600">0</p>
-                        <p class="text-xs text-gray-500">Trainer</p>
-                    </div>
-                    <div>
-                        <p id="stat-matches" class="text-2xl font-bold text-orange-600">0</p>
-                        <p class="text-xs text-gray-500">Wettkämpfe</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="h-8"></div>
+            <div class="h-6"></div>
         </div>
 
         <script type="module" src="/js/club-page-supabase.js"></script>

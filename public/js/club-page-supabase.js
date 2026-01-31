@@ -79,6 +79,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const settings = club.settings || {};
         sportData = settings.sport_data || {};
 
+        // Back-Link anpassen: View-Modus → Dashboard, Edit → Settings
+        const backLink = document.getElementById('back-link');
+        if (backLink && !isEditMode) {
+            backLink.href = '/dashboard.html';
+        }
+
         if (isEditMode) {
             // Sportart des Coaches ermitteln aus profile_club_sports
             const { data: pcs } = await supabase
@@ -134,26 +140,20 @@ function setupViewMode(club) {
     document.getElementById('edit-controls').classList.add('hidden');
     document.getElementById('logo-upload-area').classList.add('hidden');
     document.getElementById('remove-logo-btn').classList.add('hidden');
+    document.getElementById('club-name-input').classList.add('hidden');
+    document.getElementById('contact-edit').classList.add('hidden');
 
-    // Felder auf read-only setzen
-    document.getElementById('club-name-input').readOnly = true;
-    document.getElementById('club-name-input').classList.add('bg-gray-50');
-    document.getElementById('club-name-input').value = club.name || '';
+    // Vereinsname als Text anzeigen
+    document.getElementById('club-name-display').textContent = club.name || '';
 
     // Logo
     if (club.logo_url) {
         document.getElementById('club-logo-preview').src = club.logo_url;
     }
 
+    // Kontakt & Adresse als View
     const settings = club.settings || {};
-
-    // Kontakt & Adresse (read-only)
-    setReadOnly('club-email-input', settings.email);
-    setReadOnly('club-phone-input', settings.phone);
-    setReadOnly('club-website-input', settings.website);
-    setReadOnly('club-address-input', settings.address);
-    setReadOnly('club-zip-input', settings.zip);
-    setReadOnly('club-city-input', settings.city);
+    renderContactView(settings);
 
     // Alle Sparten anzeigen
     renderViewSportSections(club);
@@ -162,13 +162,59 @@ function setupViewMode(club) {
     loadClubStats(club.id, null);
 }
 
-function setReadOnly(id, value) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.value = value || '';
-    el.readOnly = true;
-    el.classList.add('bg-gray-50');
-    if (!value) el.closest('.space-y-3')?.querySelector(`#${id}`)?.classList.add('hidden');
+function renderContactView(settings) {
+    const items = [];
+
+    if (settings.email) {
+        items.push(`
+            <a href="mailto:${escapeHtml(settings.email)}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-envelope text-emerald-600 text-xs"></i>
+                </div>
+                <span class="text-sm text-gray-700">${escapeHtml(settings.email)}</span>
+            </a>
+        `);
+    }
+    if (settings.phone) {
+        items.push(`
+            <a href="tel:${escapeHtml(settings.phone)}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-phone text-blue-600 text-xs"></i>
+                </div>
+                <span class="text-sm text-gray-700">${escapeHtml(settings.phone)}</span>
+            </a>
+        `);
+    }
+    if (settings.website) {
+        items.push(`
+            <a href="${escapeHtml(settings.website)}" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-globe text-purple-600 text-xs"></i>
+                </div>
+                <span class="text-sm text-gray-700 truncate">${escapeHtml(settings.website)}</span>
+            </a>
+        `);
+    }
+
+    const addressParts = [settings.address, [settings.zip, settings.city].filter(Boolean).join(' ')].filter(Boolean);
+    if (addressParts.length > 0) {
+        items.push(`
+            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-map-marker-alt text-rose-600 text-xs"></i>
+                </div>
+                <span class="text-sm text-gray-700">${escapeHtml(addressParts.join(', '))}</span>
+            </div>
+        `);
+    }
+
+    const contactView = document.getElementById('contact-view');
+    const contactContent = document.getElementById('contact-view-content');
+
+    if (items.length > 0) {
+        contactView.classList.remove('hidden');
+        contactContent.innerHTML = items.join('');
+    }
 }
 
 function renderViewSportSections(club) {
@@ -178,7 +224,7 @@ function renderViewSportSections(club) {
 
     const sportIds = Object.keys(sd);
     if (sportIds.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Sparteninformationen hinterlegt.</p>';
+        container.innerHTML = '<div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center"><p class="text-gray-400 text-sm py-2">Noch keine Sparteninformationen hinterlegt.</p></div>';
         return;
     }
 
@@ -197,19 +243,24 @@ function renderViewSportSections(club) {
                 const times = data.training_times || [];
 
                 return `
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-3">
-                            <i class="fas fa-trophy text-indigo-600 mr-2"></i>${escapeHtml(name)}
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                            <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-trophy text-indigo-600 text-sm"></i>
+                            </div>
+                            ${escapeHtml(name)}
                         </h2>
-                        ${desc ? `<p class="text-gray-700 mb-4">${escapeHtml(desc)}</p>` : ''}
+                        ${desc ? `<p class="text-sm text-gray-600 mb-4 leading-relaxed">${escapeHtml(desc)}</p>` : ''}
                         ${times.length > 0 ? `
-                            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Trainingszeiten</h3>
+                            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Trainingszeiten</h3>
                             <div class="space-y-2">
                                 ${times.map(t => `
-                                    <div class="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
-                                        <i class="fas fa-calendar-day text-indigo-400 text-sm"></i>
-                                        <span class="font-medium text-gray-800">${escapeHtml(t.day)}</span>
-                                        <span class="text-gray-500">${escapeHtml(t.start || '')} - ${escapeHtml(t.end || '')}</span>
+                                    <div class="flex items-center gap-3 bg-gray-50 px-3 py-2.5 rounded-lg">
+                                        <div class="w-6 h-6 bg-amber-100 rounded flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-calendar-day text-amber-600 text-xs"></i>
+                                        </div>
+                                        <span class="font-medium text-gray-800 text-sm">${escapeHtml(t.day)}</span>
+                                        <span class="text-gray-400 text-sm ml-auto">${escapeHtml(t.start || '')} – ${escapeHtml(t.end || '')}</span>
                                     </div>
                                 `).join('')}
                             </div>
@@ -232,6 +283,12 @@ function setupEditMode() {
     // View-Container verstecken, Edit-Sections zeigen
     document.getElementById('sport-sections-view').classList.add('hidden');
     document.getElementById('edit-sport-section').classList.remove('hidden');
+    document.getElementById('contact-edit').classList.remove('hidden');
+    document.getElementById('contact-view').classList.add('hidden');
+
+    // Name: Input zeigen, Display verstecken
+    document.getElementById('club-name-display').classList.add('hidden');
+    document.getElementById('club-name-input').classList.remove('hidden');
 
     // Club-Level Felder befüllen
     populateClubFields(currentClub);
@@ -286,15 +343,15 @@ function renderTrainingTimes() {
     container.innerHTML = trainingTimes.map((t, index) => `
         <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg" data-index="${index}">
             <div class="flex-1">
-                <select class="training-day w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                <select class="training-day w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                     ${DAYS.map(d => `<option value="${escapeHtml(d)}" ${t.day === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
                 </select>
             </div>
-            <input type="time" class="training-start px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.start || '18:00')}" />
-            <span class="text-gray-400">-</span>
-            <input type="time" class="training-end px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.end || '20:00')}" />
+            <input type="time" class="training-start px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.start || '18:00')}" />
+            <span class="text-gray-400">–</span>
+            <input type="time" class="training-end px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" value="${escapeHtml(t.end || '20:00')}" />
             <button class="remove-training-btn text-red-400 hover:text-red-600 transition p-1" data-index="${index}">
-                <i class="fas fa-trash-alt"></i>
+                <i class="fas fa-trash-alt text-sm"></i>
             </button>
         </div>
     `).join('');
