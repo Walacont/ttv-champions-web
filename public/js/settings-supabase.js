@@ -92,7 +92,7 @@ async function initializeAuth() {
 
             // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
             const clubPageCard = document.getElementById('club-page-card');
-            if (clubPageCard && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach') && currentUserData.club_id) {
+            if (clubPageCard && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach') && currentUserData.clubId) {
                 clubPageCard.classList.remove('hidden');
             }
         }
