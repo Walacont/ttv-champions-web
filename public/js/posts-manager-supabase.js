@@ -126,6 +126,12 @@ function resetForms() {
         </div>
     `;
 
+    // "Als Verein posten" Checkboxen zurücksetzen
+    const postAsClubCb = document.getElementById('post-as-club');
+    const pollAsClubCb = document.getElementById('poll-as-club');
+    if (postAsClubCb) postAsClubCb.checked = false;
+    if (pollAsClubCb) pollAsClubCb.checked = false;
+
     // Standardmäßig zu Text-Post-Typ wechseln
     switchPostType('text');
 }
@@ -150,6 +156,12 @@ async function loadSubgroupsForVisibility() {
 
         const isCoach = profile.role === 'coach' || profile.role === 'head_coach';
         const userSubgroupIds = profile.subgroup_ids || [];
+
+        // "Als Verein posten" für Coaches anzeigen
+        if (isCoach) {
+            document.getElementById('post-as-club-section')?.classList.remove('hidden');
+            document.getElementById('poll-as-club-section')?.classList.remove('hidden');
+        }
 
         // Untergruppen laden
         let query = supabase
@@ -438,6 +450,9 @@ async function handleTextPostSubmit(e) {
             targetSubgroupIds = [subgroupId];
         }
 
+        // "Als Verein posten" Flag
+        const postedAsClub = document.getElementById('post-as-club')?.checked || false;
+
         // Post erstellen
         const { data: post, error: postError } = await supabase
             .from('community_posts')
@@ -447,7 +462,8 @@ async function handleTextPostSubmit(e) {
                 content: content,
                 image_urls: imageUrls,
                 visibility: actualVisibility,
-                target_subgroup_ids: targetSubgroupIds
+                target_subgroup_ids: targetSubgroupIds,
+                posted_as_club: postedAsClub
             })
             .select()
             .single();
@@ -545,6 +561,9 @@ async function handlePollSubmit(e) {
             targetSubgroupIds = [subgroupId];
         }
 
+        // "Als Verein posten" Flag
+        const postedAsClub = document.getElementById('poll-as-club')?.checked || false;
+
         // Umfrage erstellen
         const { data: poll, error: pollError } = await supabase
             .from('community_polls')
@@ -558,7 +577,8 @@ async function handlePollSubmit(e) {
                 duration_days: durationDays,
                 ends_at: endsAt.toISOString(),
                 allow_multiple: allowMultiple,
-                is_anonymous: isAnonymous
+                is_anonymous: isAnonymous,
+                posted_as_club: postedAsClub
             })
             .select()
             .single();

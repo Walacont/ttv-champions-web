@@ -158,8 +158,9 @@ function setupViewMode(club) {
     // Alle Sparten anzeigen
     renderViewSportSections(club);
 
-    // Statistik
+    // Statistik & Beiträge
     loadClubStats(club.id, null);
+    loadClubPosts(club.id);
 }
 
 function renderContactView(settings) {
@@ -287,6 +288,7 @@ function setupEditMode() {
 
     setupEventListeners();
     loadClubStats(currentClub.id, userSportId);
+    loadClubPosts(currentClub.id);
 }
 
 function populateClubFields(club) {
@@ -528,6 +530,70 @@ async function loadClubStats(clubId, sportId) {
         document.getElementById('stat-matches').textContent = matchesRes.count || 0;
     } catch (err) {
         console.error('[ClubPage] Stats error:', err);
+    }
+}
+
+// ─── Vereins-Beiträge ────────────────────────────────────────
+
+async function loadClubPosts(clubId) {
+    const section = document.getElementById('club-posts-section');
+    const container = document.getElementById('club-posts-container');
+    const emptyMsg = document.getElementById('club-posts-empty');
+    if (!section || !container) return;
+
+    try {
+        // Öffentliche Vereins-Beiträge laden (posted_as_club = true)
+        const { data: posts } = await supabase
+            .from('community_posts')
+            .select('id, user_id, content, created_at, image_url, image_urls, likes_count, comments_count')
+            .eq('club_id', clubId)
+            .eq('posted_as_club', true)
+            .eq('visibility', 'public')
+            .is('deleted_at', null)
+            .not('content', 'ilike', 'TRAINING_SUMMARY|%')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        section.classList.remove('hidden');
+
+        if (!posts || posts.length === 0) {
+            container.classList.add('hidden');
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        emptyMsg.classList.add('hidden');
+
+        container.innerHTML = posts.map(post => {
+            const date = new Date(post.created_at);
+            const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const imageUrls = post.image_urls || (post.image_url ? [post.image_url] : []);
+            const likesCount = post.likes_count || 0;
+            const commentsCount = post.comments_count || 0;
+
+            return `
+                <div class="border border-gray-100 rounded-lg p-4">
+                    <p class="text-sm text-gray-800 whitespace-pre-wrap break-words mb-2">${escapeHtml(post.content)}</p>
+                    ${imageUrls.length > 0 ? `
+                        <div class="flex gap-2 mb-2 overflow-x-auto">
+                            ${imageUrls.slice(0, 3).map(url => `
+                                <img src="${escapeHtml(url)}" alt="" class="h-32 rounded-lg object-cover flex-shrink-0" />
+                            `).join('')}
+                            ${imageUrls.length > 3 ? `<span class="text-xs text-gray-400 self-center">+${imageUrls.length - 3}</span>` : ''}
+                        </div>
+                    ` : ''}
+                    <div class="flex items-center gap-4 text-xs text-gray-400">
+                        <span>${dateStr}, ${timeStr}</span>
+                        ${likesCount > 0 ? `<span><i class="fas fa-heart text-red-400 mr-1"></i>${likesCount}</span>` : ''}
+                        ${commentsCount > 0 ? `<span><i class="fas fa-comment mr-1"></i>${commentsCount}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('[ClubPage] Posts load error:', err);
     }
 }
 

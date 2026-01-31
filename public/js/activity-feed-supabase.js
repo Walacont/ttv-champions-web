@@ -1126,7 +1126,7 @@ async function fetchActivities(userIds) {
             // Community-Posts (ohne Training-Zusammenfassungen)
             supabase
                 .from('community_posts')
-                .select('id, user_id, content, created_at, deleted_at, visibility, image_url, image_urls, likes_count, comments_count')
+                .select('id, user_id, content, created_at, deleted_at, visibility, image_url, image_urls, likes_count, comments_count, posted_as_club, club_id')
                 .is('deleted_at', null)
                 .in('user_id', userIds)
                 .not('content', 'ilike', 'TRAINING_SUMMARY|%')
@@ -1146,7 +1146,7 @@ async function fetchActivities(userIds) {
             // Community-Umfragen
             supabase
                 .from('community_polls')
-                .select('id, user_id, question, options, created_at, deleted_at, visibility, is_anonymous, allow_multiple, ends_at, total_votes')
+                .select('id, user_id, question, options, created_at, deleted_at, visibility, is_anonymous, allow_multiple, ends_at, total_votes, posted_as_club, club_id')
                 .is('deleted_at', null)
                 .in('user_id', userIds)
                 .order('created_at', { ascending: false })
@@ -1375,6 +1375,21 @@ async function fetchActivities(userIds) {
     (profiles || []).forEach(p => {
         profileMap[p.id] = p;
     });
+
+    // Club-Daten für "Als Verein" gepostete Beiträge laden
+    const clubPostActivities = activities.filter(a => a.posted_as_club && a.club_id);
+    const clubIds = [...new Set(clubPostActivities.map(a => a.club_id))];
+    const clubMap = {};
+    if (clubIds.length > 0) {
+        const { data: clubs } = await supabase
+            .from('clubs')
+            .select('id, name, logo_url')
+            .in('id', clubIds);
+        (clubs || []).forEach(c => { clubMap[c.id] = c; });
+    }
+
+    // clubMap an alle Aktivitäten anhängen
+    activities.forEach(a => { a._clubMap = clubMap; });
 
     // Benutzer-Abstimmungen für Umfragen laden
     const pollActivities = activities.filter(a => a.activityType === 'poll');
@@ -3281,8 +3296,13 @@ function formatSeasonContent(content) {
  */
 function renderPostCard(activity, profileMap) {
     const profile = profileMap[activity.user_id];
-    const displayName = getDisplayName(profile);
-    const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
+    const clubMap = activity._clubMap || {};
+    const isClubPost = activity.posted_as_club && activity.club_id && clubMap[activity.club_id];
+    const club = isClubPost ? clubMap[activity.club_id] : null;
+
+    const displayName = isClubPost ? escapeHtml(club.name) : getDisplayName(profile);
+    const avatarUrl = isClubPost ? (club.logo_url || DEFAULT_AVATAR) : (profile?.avatar_url || DEFAULT_AVATAR);
+    const profileLink = isClubPost ? `/club-page.html?id=${activity.club_id}` : `/profile.html?id=${activity.user_id}`;
 
     const eventDate = new Date(activity.created_at);
     const dateStr = formatRelativeDate(eventDate);
@@ -3314,17 +3334,18 @@ function renderPostCard(activity, profileMap) {
             <div class="p-4">
             <!-- Post Header -->
             <div class="flex items-start gap-3 mb-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                <a href="${profileLink}" class="flex-shrink-0">
                     <img src="${avatarUrl}" alt="${displayName}"
-                         class="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                         class="w-12 h-12 rounded-full object-cover border-2 ${isClubPost ? 'border-indigo-300' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
 
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                        <a href="${profileLink}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
+                        ${isClubPost ? '<span class="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Verein</span>' : ''}
                         <span class="text-gray-400">•</span>
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>
@@ -3416,8 +3437,13 @@ function renderPostCard(activity, profileMap) {
  */
 function renderPollCard(activity, profileMap) {
     const profile = profileMap[activity.user_id];
-    const displayName = getDisplayName(profile);
-    const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
+    const clubMap = activity._clubMap || {};
+    const isClubPoll = activity.posted_as_club && activity.club_id && clubMap[activity.club_id];
+    const club = isClubPoll ? clubMap[activity.club_id] : null;
+
+    const displayName = isClubPoll ? escapeHtml(club.name) : getDisplayName(profile);
+    const avatarUrl = isClubPoll ? (club.logo_url || DEFAULT_AVATAR) : (profile?.avatar_url || DEFAULT_AVATAR);
+    const profileLink = isClubPoll ? `/club-page.html?id=${activity.club_id}` : `/profile.html?id=${activity.user_id}`;
 
     const eventDate = new Date(activity.created_at);
     const dateStr = formatRelativeDate(eventDate);
@@ -3445,18 +3471,19 @@ function renderPollCard(activity, profileMap) {
         <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-purple-100">
             <!-- Poll Header -->
             <div class="flex items-start gap-3 mb-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                <a href="${profileLink}" class="flex-shrink-0">
                     <img src="${avatarUrl}" alt="${displayName}"
-                         class="w-12 h-12 rounded-full object-cover border-2 border-purple-300"
+                         class="w-12 h-12 rounded-full object-cover border-2 ${isClubPoll ? 'border-indigo-300' : 'border-purple-300'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
 
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <i class="fas fa-poll text-purple-600"></i>
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                        <a href="${profileLink}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
+                        ${isClubPoll ? '<span class="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-medium">Verein</span>' : ''}
                         <span class="text-gray-400">•</span>
                         <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
                     </div>

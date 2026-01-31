@@ -1787,6 +1787,21 @@
                         </select>
                     </div>
 
+                    <!-- Post as Club (nur für Coaches) -->
+                    <div id="post-as-club-section" class="bg-indigo-50 rounded-lg p-4 hidden">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="post-as-club"
+                                class="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800"><i class="fas fa-building mr-1 text-indigo-600"></i>Als Verein posten</span>
+                                <p class="text-xs text-gray-500">Beitrag wird im Namen des Vereins veröffentlicht</p>
+                            </div>
+                        </label>
+                    </div>
+
                     <!-- Submit Button -->
                     <div class="flex gap-3 pt-4">
                         <button
@@ -1915,6 +1930,21 @@
                             <option value="followers">Meine Follower</option>
                             <option value="public" selected>Öffentlich (alle)</option>
                         </select>
+                    </div>
+
+                    <!-- Poll as Club (nur für Coaches) -->
+                    <div id="poll-as-club-section" class="bg-indigo-50 rounded-lg p-4 hidden">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="poll-as-club"
+                                class="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800"><i class="fas fa-building mr-1 text-indigo-600"></i>Als Verein posten</span>
+                                <p class="text-xs text-gray-500">Umfrage wird im Namen des Vereins veröffentlicht</p>
+                            </div>
+                        </label>
                     </div>
 
                     <!-- Submit Button -->
