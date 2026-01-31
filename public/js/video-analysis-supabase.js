@@ -403,7 +403,7 @@ function createVideoCard(video) {
                         <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name)}
                     </p>
                 ` : ''}
-                <p class="text-xs text-gray-400">${formatDate(video.created_at)}</p>
+                <p class="text-xs text-gray-400">${formatVideoDate(video.video_date, video.created_at)}</p>
                 ${tags.length > 0 ? `
                     <div class="flex flex-wrap gap-1 mt-2">
                         ${tags.slice(0, 3).map(tag => `
@@ -516,7 +516,7 @@ function createVideoCardFull(video) {
                         <i class="fas fa-user mr-1"></i>${assignedText}
                     </p>
                 ` : ''}
-                <p class="text-xs text-gray-500 truncate">${escapeHtml(uploaderName)} • ${formatDate(video.created_at)}</p>
+                <p class="text-xs text-gray-500 truncate">${escapeHtml(uploaderName)} • ${formatVideoDate(video.video_date, video.created_at)}</p>
                 ${exerciseName ? `<p class="text-xs text-indigo-600 mt-1 truncate"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(exerciseName)}</p>` : ''}
             </div>
         </div>
@@ -933,6 +933,9 @@ function setupUploadModal() {
     if (openBtn) {
         openBtn.addEventListener('click', () => {
             populateUploadForm();
+            // Video-Datum auf heute setzen
+            const dateInput = document.getElementById('video-date-input');
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
             modal.classList.remove('hidden');
         });
     }
@@ -1276,6 +1279,10 @@ async function handleVideoUpload(e) {
         // KI-Training Consent
         const allowAiTraining = document.getElementById('coach-allow-ai-training')?.checked ?? false;
 
+        // Video-Datum (default: heute)
+        const videoDateInput = document.getElementById('video-date-input')?.value;
+        const videoDate = videoDateInput || new Date().toISOString().split('T')[0];
+
         // 5. Datenbank-Eintrag erstellen (90-95%)
         updateProgress(92, 'Video wird gespeichert...');
         const { data: videoAnalysis, error: insertError } = await db
@@ -1289,6 +1296,7 @@ async function handleVideoUpload(e) {
                 title: title || null,
                 tags: selectedTags,
                 allow_ai_training: allowAiTraining,
+                video_date: videoDate,
             })
             .select()
             .single();
@@ -1792,6 +1800,13 @@ function closeSplitScreenModal() {
 }
 
 // Hilfsfunktionen
+function formatVideoDate(videoDate, createdAt) {
+    const dateStr = videoDate || createdAt;
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function formatDate(dateStr) {
     const date = new Date(dateStr);
     const now = new Date();
