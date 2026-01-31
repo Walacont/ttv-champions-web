@@ -2592,7 +2592,7 @@ window.showDayEvents = function(dateStr) {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>Zugesagt</span>';
             if (hasInvitation) {
                 responseButtonsHtml = `
-                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.occurrenceDate}')"
+                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.displayDate}')"
                             class="text-xs text-red-600 hover:text-red-800 font-medium">
                         Doch absagen
                     </button>
@@ -2602,7 +2602,7 @@ window.showDayEvents = function(dateStr) {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700"><i class="fas fa-times mr-1"></i>Abgesagt</span>';
             if (hasInvitation) {
                 responseButtonsHtml = `
-                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.occurrenceDate}')"
+                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.displayDate}')"
                             class="text-xs text-green-600 hover:text-green-800 font-medium">
                         Doch zusagen
                     </button>
@@ -2613,11 +2613,11 @@ window.showDayEvents = function(dateStr) {
             if (hasInvitation) {
                 responseButtonsHtml = `
                     <div class="flex gap-2">
-                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.occurrenceDate}')"
+                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.displayDate}')"
                                 class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors">
                             Zusagen
                         </button>
-                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.occurrenceDate}')"
+                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.displayDate}')"
                                 class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
                             Absagen
                         </button>
@@ -2644,8 +2644,8 @@ window.showDayEvents = function(dateStr) {
         }
 
         return `
-            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition cursor-pointer" id="event-card-${event.id}-${event.occurrenceDate}"
-                 onclick="window.openPlayerEventDetail('${event.id}', '${event.occurrenceDate}')">
+            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition cursor-pointer" id="event-card-${event.id}-${event.displayDate}"
+                 onclick="window.openPlayerEventDetail('${event.id}', '${event.displayDate}')">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
                         <h4 class="font-semibold text-gray-900">
