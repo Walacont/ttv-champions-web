@@ -39,7 +39,36 @@ export async function initTournamentsUI(userId, clubId, sportId) {
     window.refreshTournamentDetails = refreshTournamentDetailsView;
 }
 
+function setupMatchesSubTabs() {
+    const subTabs = document.querySelectorAll('.matches-sub-tab');
+    const wettkampfContent = document.getElementById('matches-subtab-wettkampf');
+    const turniereContent = document.getElementById('matches-subtab-turniere');
+
+    subTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.subtab;
+
+            subTabs.forEach(t => {
+                t.classList.remove('border-indigo-600', 'text-indigo-600');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            tab.classList.remove('border-transparent', 'text-gray-500');
+            tab.classList.add('border-indigo-600', 'text-indigo-600');
+
+            if (target === 'wettkampf') {
+                wettkampfContent?.classList.remove('hidden');
+                turniereContent?.classList.add('hidden');
+            } else if (target === 'turniere') {
+                wettkampfContent?.classList.add('hidden');
+                turniereContent?.classList.remove('hidden');
+                loadTournaments();
+            }
+        });
+    });
+}
+
 function setupEventListeners() {
+    setupMatchesSubTabs();
     document.getElementById('create-tournament-btn')?.addEventListener('click', openCreateTournamentModal);
     document.getElementById('join-tournament-code-btn')?.addEventListener('click', openJoinCodeModal);
 
