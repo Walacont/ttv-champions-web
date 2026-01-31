@@ -525,18 +525,16 @@ function syncTrainingTimesFromDOM() {
 
 async function loadClubStats(clubId, sportId) {
     try {
-        let matchQuery = supabase.from('matches').select('id', { count: 'exact', head: true }).eq('club_id', clubId);
-        if (sportId) matchQuery = matchQuery.eq('sport_id', sportId);
+        const { data, error } = await supabase.rpc('get_club_stats', {
+            p_club_id: clubId,
+            p_sport_id: sportId || null
+        });
 
-        const [membersRes, coachesRes, matchesRes] = await Promise.all([
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId),
-            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId).in('role', ['coach', 'head_coach']),
-            matchQuery
-        ]);
+        if (error) throw error;
 
-        document.getElementById('stat-members').textContent = membersRes.count || 0;
-        document.getElementById('stat-coaches').textContent = coachesRes.count || 0;
-        document.getElementById('stat-matches').textContent = matchesRes.count || 0;
+        document.getElementById('stat-members').textContent = data.members || 0;
+        document.getElementById('stat-coaches').textContent = data.coaches || 0;
+        document.getElementById('stat-matches').textContent = data.matches || 0;
     } catch (err) {
         console.error('[ClubPage] Stats error:', err);
     }
