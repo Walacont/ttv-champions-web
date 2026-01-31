@@ -258,7 +258,7 @@ async function handleLogoRemove() {
         }
 
         currentClub.logo_url = null;
-        document.getElementById('club-logo-preview').src = '/icons/icon-192x192.png';
+        document.getElementById('club-logo-preview').src = '/icons/icon-192x192-2.png';
         document.getElementById('remove-logo-btn').classList.add('hidden');
         showStatus('Logo entfernt.', 'success');
 
