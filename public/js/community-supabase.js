@@ -486,18 +486,22 @@ function renderClubSearchResults(clubs) {
             `;
         } else {
             actionButton = `
-                <a href="/club.html?id=${club.id}" class="text-indigo-600 hover:text-indigo-700 font-semibold text-sm">
+                <a href="/club-page.html?id=${club.id}" class="text-indigo-600 hover:text-indigo-700 font-semibold text-sm">
                     Ansehen <i class="fas fa-chevron-right ml-1"></i>
                 </a>
             `;
         }
 
         return `
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-indigo-300 transition">
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-indigo-300 transition cursor-pointer"
+                 onclick="window.location.href='/club-page.html?id=${club.id}'">
                 <div class="flex items-center gap-3 flex-1">
-                    <div class="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-building text-indigo-600"></i>
-                    </div>
+                    ${club.logo_url
+                        ? `<img src="${escapeHtml(club.logo_url)}" alt="${escapeHtml(club.name)}" class="h-12 w-12 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                          + `<div class="h-12 w-12 bg-indigo-100 rounded-full items-center justify-center flex-shrink-0" style="display:none"><i class="fas fa-building text-indigo-600"></i></div>`
+                        : `<div class="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0"><i class="fas fa-building text-indigo-600"></i></div>`
+                    }
                     <div class="flex-1 min-w-0">
                         <h4 class="font-semibold text-gray-800 truncate">${escapeHtml(club.name)}</h4>
                         <p class="text-sm text-gray-500">${club.memberCount} Mitglieder</p>

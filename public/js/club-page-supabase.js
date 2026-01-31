@@ -1,7 +1,11 @@
 /**
- * Club Page Module - Vereinsseite für Coaches/Head-Coaches
- * Pro Sportart: Beschreibung, Trainingszeiten
- * Club-Level: Name, Logo, Kontakt, Adresse
+ * Club Page Module
+ * - Edit-Modus: Coach/Head-Coach bearbeitet die Seite seiner Sparte
+ * - View-Modus: Jeder kann Vereinsinfos ansehen (read-only)
+ *
+ * URL-Parameter:
+ *   /club-page.html          → eigener Verein (Edit wenn Coach)
+ *   /club-page.html?id=xxx   → Verein ansehen (View, Edit wenn eigener + Coach)
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -12,10 +16,11 @@ const supabase = getSupabase();
 
 let currentUser = null;
 let currentClub = null;
-let clubSports = [];        // [{sport_id, sport_name, display_name}]
-let activeSportId = null;    // aktuell gewählte Sportart
-let sportData = {};          // { [sport_id]: { description, training_times } }
-let trainingTimes = [];      // aktuelle Trainingszeiten der gewählten Sportart
+let userSportId = null;       // Sportart des Coaches (aus profile_club_sports)
+let userSportName = '';
+let sportData = {};           // { [sport_id]: { description, training_times } }
+let trainingTimes = [];
+let isEditMode = false;
 
 const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -24,137 +29,221 @@ const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samsta
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            window.location.href = '/index.html';
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewClubId = urlParams.get('id');
+
+        // Profil laden wenn eingeloggt
+        let profile = null;
+        if (user) {
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, role, club_id, active_sport_id')
+                .eq('id', user.id)
+                .single();
+            profile = data;
+        }
+
+        // Welchen Club anzeigen?
+        let clubId = viewClubId || profile?.club_id;
+
+        if (!clubId) {
+            if (!user) {
+                window.location.href = '/index.html';
+            } else {
+                showAccessDenied('Kein Verein gefunden.');
+            }
             return;
         }
 
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, role, club_id, active_sport_id')
-            .eq('id', user.id)
+        // Club-Daten laden
+        const { data: club } = await supabase
+            .from('clubs')
+            .select('id, name, description, logo_url, settings, created_at')
+            .eq('id', clubId)
             .single();
 
-        if (!profile || !profile.club_id) {
-            showAccessDenied();
+        if (!club) {
+            showAccessDenied('Verein nicht gefunden.');
             return;
         }
 
-        if (profile.role !== 'coach' && profile.role !== 'head_coach' && profile.role !== 'admin') {
-            showAccessDenied();
-            return;
-        }
+        currentClub = club;
+        currentUser = user ? { ...user, ...profile } : null;
 
-        currentUser = { ...user, ...profile };
+        // Edit-Modus bestimmen: Coach/Head-Coach im eigenen Verein
+        const isOwnClub = profile?.club_id === club.id;
+        const isCoachRole = profile?.role === 'coach' || profile?.role === 'head_coach';
+        isEditMode = isOwnClub && isCoachRole;
 
-        // Club-Daten + Sportarten parallel laden
-        const [clubRes, sportsRes] = await Promise.all([
-            supabase.from('clubs')
-                .select('id, name, description, logo_url, settings, created_at')
-                .eq('id', profile.club_id)
-                .single(),
-            supabase.from('club_sports')
-                .select('sport_id, sports(id, name, display_name, icon)')
-                .eq('club_id', profile.club_id)
-                .eq('is_active', true)
-        ]);
-
-        if (!clubRes.data) {
-            showAccessDenied();
-            return;
-        }
-
-        currentClub = clubRes.data;
-
-        // Sportarten aufbereiten
-        clubSports = (sportsRes.data || []).map(cs => ({
-            sport_id: cs.sport_id,
-            name: cs.sports?.name || '',
-            display_name: cs.sports?.display_name || 'Unbekannt',
-            icon: cs.sports?.icon || 'fa-trophy'
-        }));
-
-        // Sport-spezifische Daten aus settings laden
-        const settings = currentClub.settings || {};
+        // Sport-Daten aus settings laden
+        const settings = club.settings || {};
         sportData = settings.sport_data || {};
 
-        // Aktive Sportart bestimmen (User-Präferenz oder erste)
-        activeSportId = profile.active_sport_id;
-        if (!activeSportId || !clubSports.find(s => s.sport_id === activeSportId)) {
-            activeSportId = clubSports[0]?.sport_id || null;
-        }
+        if (isEditMode) {
+            // Sportart des Coaches ermitteln aus profile_club_sports
+            const { data: pcs } = await supabase
+                .from('profile_club_sports')
+                .select('sport_id, role, sports(id, display_name)')
+                .eq('user_id', user.id)
+                .eq('club_id', club.id)
+                .in('role', ['coach', 'head_coach'])
+                .limit(1);
 
-        renderSportTabs();
-        populateClubFields(currentClub);
-        loadSportFields(activeSportId);
-        setupEventListeners();
-        await loadClubStats(currentClub.id, activeSportId);
+            if (pcs && pcs.length > 0) {
+                userSportId = pcs[0].sport_id;
+                userSportName = pcs[0].sports?.display_name || '';
+            } else {
+                // Fallback: active_sport_id
+                userSportId = profile.active_sport_id;
+                if (userSportId) {
+                    const { data: sportRow } = await supabase
+                        .from('sports')
+                        .select('display_name')
+                        .eq('id', userSportId)
+                        .single();
+                    userSportName = sportRow?.display_name || '';
+                }
+            }
+
+            setupEditMode();
+        } else {
+            setupViewMode(club);
+        }
 
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
 
     } catch (err) {
         console.error('[ClubPage] Init error:', err);
-        showAccessDenied();
+        showAccessDenied('Fehler beim Laden.');
     }
 });
 
-function showAccessDenied() {
+function showAccessDenied(message) {
     document.getElementById('page-loader').style.display = 'none';
-    document.getElementById('access-denied').classList.remove('hidden');
+    const el = document.getElementById('access-denied');
+    el.classList.remove('hidden');
+    const msgEl = el.querySelector('p');
+    if (msgEl && message) msgEl.textContent = message;
 }
 
-// ─── Sport-Tabs ──────────────────────────────────────────────
+// ─── View-Modus (read-only) ─────────────────────────────────
 
-function renderSportTabs() {
-    const container = document.getElementById('sport-tabs');
-    if (clubSports.length <= 1) {
-        container.style.display = 'none';
-        // Hints trotzdem setzen
-        updateSportHints();
+function setupViewMode(club) {
+    // Edit-Elemente verstecken
+    document.getElementById('edit-controls').classList.add('hidden');
+    document.getElementById('logo-upload-area').classList.add('hidden');
+    document.getElementById('remove-logo-btn').classList.add('hidden');
+
+    // Felder auf read-only setzen
+    document.getElementById('club-name-input').readOnly = true;
+    document.getElementById('club-name-input').classList.add('bg-gray-50');
+    document.getElementById('club-name-input').value = club.name || '';
+
+    // Logo
+    if (club.logo_url) {
+        document.getElementById('club-logo-preview').src = club.logo_url;
+    }
+
+    const settings = club.settings || {};
+
+    // Kontakt & Adresse (read-only)
+    setReadOnly('club-email-input', settings.email);
+    setReadOnly('club-phone-input', settings.phone);
+    setReadOnly('club-website-input', settings.website);
+    setReadOnly('club-address-input', settings.address);
+    setReadOnly('club-zip-input', settings.zip);
+    setReadOnly('club-city-input', settings.city);
+
+    // Alle Sparten anzeigen
+    renderViewSportSections(club);
+
+    // Statistik
+    loadClubStats(club.id, null);
+}
+
+function setReadOnly(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value || '';
+    el.readOnly = true;
+    el.classList.add('bg-gray-50');
+    if (!value) el.closest('.space-y-3')?.querySelector(`#${id}`)?.classList.add('hidden');
+}
+
+function renderViewSportSections(club) {
+    const container = document.getElementById('sport-sections-view');
+    const settings = club.settings || {};
+    const sd = settings.sport_data || {};
+
+    const sportIds = Object.keys(sd);
+    if (sportIds.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Sparteninformationen hinterlegt.</p>';
         return;
     }
 
-    container.innerHTML = clubSports.map(s => `
-        <button class="sport-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap ${s.sport_id === activeSportId ? 'active' : ''}"
-                data-sport-id="${s.sport_id}">
-            <i class="fas ${escapeHtml(s.icon)}"></i>
-            ${escapeHtml(s.display_name)}
-        </button>
-    `).join('');
+    // Sportnamen laden
+    supabase.from('sports')
+        .select('id, display_name')
+        .in('id', sportIds)
+        .then(({ data: sports }) => {
+            const sportMap = {};
+            (sports || []).forEach(s => sportMap[s.id] = s.display_name);
 
-    container.querySelectorAll('.sport-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Aktuelle Sport-Daten speichern bevor gewechselt wird
-            saveSportFieldsToMemory(activeSportId);
+            container.innerHTML = sportIds.map(sid => {
+                const data = sd[sid];
+                const name = sportMap[sid] || 'Sparte';
+                const desc = data.description || '';
+                const times = data.training_times || [];
 
-            activeSportId = tab.dataset.sportId;
-
-            // Tabs aktualisieren
-            container.querySelectorAll('.sport-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            // Felder für neue Sportart laden
-            loadSportFields(activeSportId);
-            loadClubStats(currentClub.id, activeSportId);
+                return `
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-3">
+                            <i class="fas fa-trophy text-indigo-600 mr-2"></i>${escapeHtml(name)}
+                        </h2>
+                        ${desc ? `<p class="text-gray-700 mb-4">${escapeHtml(desc)}</p>` : ''}
+                        ${times.length > 0 ? `
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Trainingszeiten</h3>
+                            <div class="space-y-2">
+                                ${times.map(t => `
+                                    <div class="flex items-center gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                                        <i class="fas fa-calendar-day text-indigo-400 text-sm"></i>
+                                        <span class="font-medium text-gray-800">${escapeHtml(t.day)}</span>
+                                        <span class="text-gray-500">${escapeHtml(t.start || '')} - ${escapeHtml(t.end || '')}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p class="text-sm text-gray-400">Keine Trainingszeiten hinterlegt</p>'}
+                    </div>
+                `;
+            }).join('');
         });
-    });
-
-    updateSportHints();
 }
 
-function updateSportHints() {
-    const sport = clubSports.find(s => s.sport_id === activeSportId);
-    const sportName = sport?.display_name || '';
+// ─── Edit-Modus (Coach) ─────────────────────────────────────
 
+function setupEditMode() {
+    // Sparten-Hinweis setzen
     const sportHint = document.getElementById('sport-section-hint');
     const trainingHint = document.getElementById('training-section-hint');
+    if (sportHint && userSportName) sportHint.textContent = `Gilt für: ${userSportName}`;
+    if (trainingHint && userSportName) trainingHint.textContent = `Gilt für: ${userSportName}`;
 
-    if (sportHint) sportHint.textContent = sportName ? `Gilt für: ${sportName}` : '';
-    if (trainingHint) trainingHint.textContent = sportName ? `Gilt für: ${sportName}` : '';
+    // View-Container verstecken, Edit-Sections zeigen
+    document.getElementById('sport-sections-view').classList.add('hidden');
+    document.getElementById('edit-sport-section').classList.remove('hidden');
+
+    // Club-Level Felder befüllen
+    populateClubFields(currentClub);
+
+    // Sport-Felder laden
+    if (userSportId) {
+        loadSportFields(userSportId);
+    }
+
+    setupEventListeners();
+    loadClubStats(currentClub.id, userSportId);
 }
-
-// ─── Club-Level Felder (gemeinsam) ───────────────────────────
 
 function populateClubFields(club) {
     document.getElementById('club-name-input').value = club.name || '';
@@ -173,34 +262,16 @@ function populateClubFields(club) {
     document.getElementById('club-city-input').value = settings.city || '';
 }
 
-// ─── Sport-spezifische Felder ────────────────────────────────
-
 function loadSportFields(sportId) {
     if (!sportId) return;
-
     const data = sportData[sportId] || {};
 
-    // Beschreibung
     const descInput = document.getElementById('club-description-input');
     descInput.value = data.description || '';
     document.getElementById('desc-char-count').textContent = (data.description || '').length;
 
-    // Trainingszeiten
     trainingTimes = data.training_times ? [...data.training_times] : [];
     renderTrainingTimes();
-
-    updateSportHints();
-}
-
-function saveSportFieldsToMemory(sportId) {
-    if (!sportId) return;
-
-    syncTrainingTimesFromDOM();
-
-    sportData[sportId] = {
-        description: document.getElementById('club-description-input').value.trim(),
-        training_times: trainingTimes
-    };
 }
 
 // ─── Trainingszeiten ─────────────────────────────────────────
@@ -230,8 +301,7 @@ function renderTrainingTimes() {
 
     container.querySelectorAll('.remove-training-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.index);
-            trainingTimes.splice(idx, 1);
+            trainingTimes.splice(parseInt(btn.dataset.index), 1);
             renderTrainingTimes();
         });
     });
@@ -241,14 +311,9 @@ function renderTrainingTimes() {
         const daySelect = row.querySelector('.training-day');
         const startInput = row.querySelector('.training-start');
         const endInput = row.querySelector('.training-end');
-
         [daySelect, startInput, endInput].forEach(el => {
             el.addEventListener('change', () => {
-                trainingTimes[idx] = {
-                    day: daySelect.value,
-                    start: startInput.value,
-                    end: endInput.value
-                };
+                trainingTimes[idx] = { day: daySelect.value, start: startInput.value, end: endInput.value };
             });
         });
     });
@@ -297,7 +362,6 @@ async function handleLogoUpload(e) {
     try {
         const ext = file.name.split('.').pop();
         const filename = `club-logo-${currentClub.id}.${ext}`;
-
         progressBar.style.width = '60%';
 
         const result = await uploadToR2('profile-pictures', file, {
@@ -306,9 +370,7 @@ async function handleLogoUpload(e) {
         });
 
         progressBar.style.width = '100%';
-
-        const preview = document.getElementById('club-logo-preview');
-        preview.src = result.url;
+        document.getElementById('club-logo-preview').src = result.url;
         document.getElementById('remove-logo-btn').classList.remove('hidden');
         currentClub.logo_url = result.url;
 
@@ -318,7 +380,6 @@ async function handleLogoUpload(e) {
         }, 500);
 
         showStatus('Logo hochgeladen!', 'success');
-
     } catch (err) {
         console.error('[ClubPage] Logo upload error:', err);
         progressContainer.classList.add('hidden');
@@ -330,18 +391,14 @@ async function handleLogoUpload(e) {
 
 async function handleLogoRemove() {
     if (!currentClub.logo_url) return;
-
     try {
         const urlParts = currentClub.logo_url.split('/file/');
-        if (urlParts.length > 1) {
-            await deleteFromR2(urlParts[1]).catch(() => {});
-        }
+        if (urlParts.length > 1) await deleteFromR2(urlParts[1]).catch(() => {});
 
         currentClub.logo_url = null;
         document.getElementById('club-logo-preview').src = '/icons/icon-192x192-2.png';
         document.getElementById('remove-logo-btn').classList.add('hidden');
         showStatus('Logo entfernt.', 'success');
-
     } catch (err) {
         console.error('[ClubPage] Logo remove error:', err);
     }
@@ -356,14 +413,19 @@ async function handleSave() {
 
     try {
         const name = document.getElementById('club-name-input').value.trim();
-
         if (!name) {
             showStatus('Vereinsname darf nicht leer sein.', 'error');
             return;
         }
 
-        // Aktuelle Sportart-Daten aus DOM lesen
-        saveSportFieldsToMemory(activeSportId);
+        // Sport-Daten speichern
+        syncTrainingTimesFromDOM();
+        if (userSportId) {
+            sportData[userSportId] = {
+                description: document.getElementById('club-description-input').value.trim(),
+                training_times: trainingTimes
+            };
+        }
 
         const settings = {
             ...(currentClub.settings || {}),
@@ -378,20 +440,14 @@ async function handleSave() {
 
         const { error } = await supabase
             .from('clubs')
-            .update({
-                name: name,
-                logo_url: currentClub.logo_url,
-                settings: settings
-            })
+            .update({ name, logo_url: currentClub.logo_url, settings })
             .eq('id', currentClub.id);
 
         if (error) throw error;
 
         currentClub.name = name;
         currentClub.settings = settings;
-
         showStatus('Vereinsseite gespeichert!', 'success');
-
     } catch (err) {
         console.error('[ClubPage] Save error:', err);
         showStatus('Fehler beim Speichern: ' + (err.message || 'Unbekannter Fehler'), 'error');
@@ -410,54 +466,36 @@ function syncTrainingTimesFromDOM() {
     }));
 }
 
-// ─── Statistik laden ─────────────────────────────────────────
+// ─── Statistik ───────────────────────────────────────────────
 
 async function loadClubStats(clubId, sportId) {
     try {
-        const sport = clubSports.find(s => s.sport_id === sportId);
-        const titleEl = document.getElementById('stat-title');
-        if (titleEl) {
-            titleEl.textContent = sport ? `${sport.display_name} – Statistik` : 'Statistik';
-        }
+        let matchQuery = supabase.from('matches').select('id', { count: 'exact', head: true }).eq('club_id', clubId);
+        if (sportId) matchQuery = matchQuery.eq('sport_id', sportId);
 
-        // Queries basierend auf Sportart filtern
-        const queries = [
+        const [membersRes, coachesRes, matchesRes] = await Promise.all([
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId),
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId).in('role', ['coach', 'head_coach']),
-        ];
-
-        // Matches nach Sportart filtern wenn vorhanden
-        let matchQuery = supabase.from('matches').select('id', { count: 'exact', head: true }).eq('club_id', clubId);
-        if (sportId) {
-            matchQuery = matchQuery.eq('sport_id', sportId);
-        }
-        queries.push(matchQuery);
-
-        const [membersRes, coachesRes, matchesRes] = await Promise.all(queries);
+            matchQuery
+        ]);
 
         document.getElementById('stat-members').textContent = membersRes.count || 0;
         document.getElementById('stat-coaches').textContent = coachesRes.count || 0;
         document.getElementById('stat-matches').textContent = matchesRes.count || 0;
-
     } catch (err) {
         console.error('[ClubPage] Stats error:', err);
     }
 }
 
-// ─── Status-Nachricht ────────────────────────────────────────
+// ─── Status ──────────────────────────────────────────────────
 
 function showStatus(message, type = 'success') {
     const statusEl = document.getElementById('save-status');
+    if (!statusEl) return;
     statusEl.classList.remove('hidden');
     statusEl.textContent = message;
-
-    if (type === 'success') {
-        statusEl.className = 'text-center py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800';
-    } else {
-        statusEl.className = 'text-center py-2 rounded-lg text-sm font-medium bg-red-100 text-red-800';
-    }
-
-    setTimeout(() => {
-        statusEl.classList.add('hidden');
-    }, 4000);
+    statusEl.className = type === 'success'
+        ? 'text-center py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800'
+        : 'text-center py-2 rounded-lg text-sm font-medium bg-red-100 text-red-800';
+    setTimeout(() => statusEl.classList.add('hidden'), 4000);
 }
