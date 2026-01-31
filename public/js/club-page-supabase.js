@@ -215,8 +215,8 @@ async function handleLogoUpload(e) {
 
         progressBar.style.width = '60%';
 
-        const result = await uploadToR2('club-logos', file, {
-            subfolder: currentClub.id,
+        const result = await uploadToR2('profile-pictures', file, {
+            subfolder: `club-${currentClub.id}`,
             filename: filename
         });
 
