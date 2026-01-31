@@ -281,15 +281,8 @@ function renderTournamentDetails(tournament, participating) {
 
             ${tournament.tournament_matches?.length > 0 ? `
                 <div>
-                    <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-chess-board mr-2"></i>Spielpaarungen</h4>
-                    ${renderPairingTable(tournament.tournament_participants || [], tournament.tournament_matches || [])}
-                </div>
-            ` : ''}
-
-            ${tournament.status === 'in_progress' || tournament.status === 'completed' ? `
-                <div>
-                    <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-table mr-2"></i>Tabelle</h4>
-                    ${renderStandings(tournament.tournament_standings || [])}
+                    <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-table mr-2"></i>Kreuztabelle</h4>
+                    ${renderCrossTable(tournament.tournament_participants || [], tournament.tournament_matches || [], tournament.tournament_standings || [])}
                 </div>
             ` : ''}
 
@@ -358,57 +351,73 @@ function renderParticipants(participants) {
     </div>`;
 }
 
-function renderPairingTable(participants, matches) {
-    if (!participants.length || !matches.length) return '<p class="text-gray-400 text-sm">Keine Paarungen</p>';
+function renderCrossTableCell(rowIdx, colIdx, results, rowPlayer, colPlayer) {
+    if (rowIdx === colIdx) {
+        return '<td class="px-2 py-2 text-center border border-gray-300 bg-gray-800"></td>';
+    }
+    const result = results[rowPlayer.player_id]?.[colPlayer.player_id];
+    if (result) {
+        const won = result.setsA > result.setsB;
+        const cls = won ? 'text-green-700 font-bold' : 'text-red-600';
+        return `<td class="px-2 py-2 text-center border border-gray-300 font-mono ${cls}">${result.setsA}:${result.setsB}</td>`;
+    }
+    return '<td class="px-2 py-2 text-center border border-gray-300 text-gray-300">-</td>';
+}
 
-    const maxRound = Math.max(...matches.map(m => m.round_number || 1));
-    const rounds = Array.from({ length: maxRound }, (_, i) => i + 1);
-    const pairings = {};
-    const byeRounds = {};
+function renderCrossTable(participants, matches, standings) {
+    if (!participants.length) return '<p class="text-gray-400 text-sm">Keine Teilnehmer</p>';
 
-    participants.forEach(p => { pairings[p.player_id] = {}; byeRounds[p.player_id] = null; });
+    // Sort by seed
+    const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
+    const n = sorted.length;
 
+    // Build results matrix: results[playerA_id][playerB_id] = { setsA, setsB }
+    const results = {};
+    sorted.forEach(p => { results[p.player_id] = {}; });
+
+    // Only count real matches (not bye matches)
     matches.forEach(m => {
-        const round = m.round_number || 1;
-        const aName = getPlayerName(m.player_a);
-        const bName = m.player_b ? getPlayerName(m.player_b) : null;
-
-        if (!m.player_b_id) {
-            if (pairings[m.player_a_id]) { pairings[m.player_a_id][round] = 'Freilos'; byeRounds[m.player_a_id] = round; }
-        } else {
-            if (pairings[m.player_a_id]) pairings[m.player_a_id][round] = bName;
-            if (pairings[m.player_b_id]) pairings[m.player_b_id][round] = aName;
-        }
+        if (!m.player_a_id || !m.player_b_id) return;
+        if (m.status !== 'completed') return;
+        results[m.player_a_id][m.player_b_id] = { setsA: m.player_a_sets_won || 0, setsB: m.player_b_sets_won || 0 };
+        results[m.player_b_id][m.player_a_id] = { setsA: m.player_b_sets_won || 0, setsB: m.player_a_sets_won || 0 };
     });
 
-    const sorted = [...participants].sort((a, b) => {
-        const ba = byeRounds[a.player_id], bb = byeRounds[b.player_id];
-        if (ba !== null && bb !== null) return ba - bb;
-        if (ba !== null) return -1;
-        if (bb !== null) return 1;
-        return (a.seed || 999) - (b.seed || 999);
-    });
+    // Build standings lookup
+    const standingsMap = {};
+    (standings || []).forEach(s => { standingsMap[s.player_id] = s; });
 
     return `<div class="overflow-x-auto">
         <table class="w-full text-xs border-collapse">
             <thead class="bg-gray-100">
                 <tr>
-                    <th class="px-2 py-2 text-left border border-gray-300 sticky left-0 bg-gray-100 z-10">Spieler</th>
-                    ${rounds.map(r => `<th class="px-2 py-2 text-center border border-gray-300 whitespace-nowrap">Runde ${r}</th>`).join('')}
+                    <th class="px-1 py-2 text-center border border-gray-300 w-8"></th>
+                    <th class="px-2 py-2 text-left border border-gray-300 sticky left-0 bg-gray-100 z-10">Name</th>
+                    ${sorted.map((_, i) => `<th class="px-2 py-2 text-center border border-gray-300 min-w-[40px]">${i + 1}</th>`).join('')}
+                    <th class="px-2 py-2 text-center border border-gray-300 font-bold">Sp</th>
+                    <th class="px-2 py-2 text-center border border-gray-300 font-bold">Satz</th>
+                    <th class="px-2 py-2 text-center border border-gray-300 font-bold">Pl.</th>
                 </tr>
             </thead>
             <tbody>
-                ${sorted.map(p => {
-                    const name = getPlayerName(p);
-                    return `<tr class="bg-white hover:bg-gray-50">
-                        <td class="px-2 py-2 border border-gray-300 sticky left-0 bg-white font-medium whitespace-nowrap">
-                            <span class="text-gray-500 mr-1">#${p.seed || '-'}</span>${escapeHtml(name)}
-                        </td>
-                        ${rounds.map(r => {
-                            const opp = pairings[p.player_id]?.[r] || '-';
-                            const isBye = opp === 'Freilos';
-                            return `<td class="px-2 py-2 text-center border border-gray-300 ${isBye ? 'bg-gray-50 text-gray-400 italic' : ''}">${isBye ? opp : escapeHtml(opp)}</td>`;
-                        }).join('')}
+                ${sorted.map((rowPlayer, rowIdx) => {
+                    const name = getPlayerName(rowPlayer);
+                    const st = standingsMap[rowPlayer.player_id];
+                    const wins = st?.matches_won || 0;
+                    const losses = st?.matches_lost || 0;
+                    const setsW = st?.sets_won || 0;
+                    const setsL = st?.sets_lost || 0;
+                    const rank = st?.rank || '-';
+                    const matchRecord = (wins + losses > 0) ? `${wins}:${losses}` : '-';
+                    const setsRecord = (setsW + setsL > 0) ? `${setsW}:${setsL}` : '-';
+
+                    return `<tr class="${rank === 1 ? 'bg-yellow-50' : 'bg-white'} hover:bg-gray-50">
+                        <td class="px-1 py-2 text-center border border-gray-300 font-bold text-gray-500">${rowIdx + 1}</td>
+                        <td class="px-2 py-2 border border-gray-300 sticky left-0 ${rank === 1 ? 'bg-yellow-50' : 'bg-white'} font-medium whitespace-nowrap">${escapeHtml(name)}</td>
+                        ${sorted.map((colPlayer, colIdx) => renderCrossTableCell(rowIdx, colIdx, results, rowPlayer, colPlayer)).join('')}
+                        <td class="px-2 py-2 text-center border border-gray-300 font-medium">${matchRecord}</td>
+                        <td class="px-2 py-2 text-center border border-gray-300">${setsRecord}</td>
+                        <td class="px-2 py-2 text-center border border-gray-300 font-bold">${rank}</td>
                     </tr>`;
                 }).join('')}
             </tbody>

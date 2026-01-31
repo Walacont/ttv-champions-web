@@ -370,6 +370,15 @@ USING (
     )
 );
 
+CREATE POLICY "Creators can delete tournament matches" ON tournament_matches FOR DELETE
+USING (
+    tournament_id IN (
+        SELECT id FROM tournaments
+        WHERE created_by = auth.uid()
+        OR club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach'))
+    )
+);
+
 -- STANDINGS
 CREATE POLICY "Users can view tournament standings" ON tournament_standings FOR SELECT
 USING (
@@ -384,6 +393,15 @@ WITH CHECK (tournament_id IN (SELECT id FROM tournaments));
 
 CREATE POLICY "System can update tournament standings" ON tournament_standings FOR UPDATE
 USING (tournament_id IN (SELECT id FROM tournaments));
+
+CREATE POLICY "Creators can delete tournament standings" ON tournament_standings FOR DELETE
+USING (
+    tournament_id IN (
+        SELECT id FROM tournaments
+        WHERE created_by = auth.uid()
+        OR club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach'))
+    )
+);
 
 -- ROUNDS
 CREATE POLICY "Users can view tournament rounds" ON tournament_rounds FOR SELECT
