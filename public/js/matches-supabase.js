@@ -1417,7 +1417,8 @@ export async function loadPendingPlayerConfirmations(userId) {
                 *,
                 player_a:player_a_id(id, first_name, last_name, display_name, elo_rating),
                 player_b:player_b_id(id, first_name, last_name, display_name, elo_rating),
-                sports(id, display_name)
+                sports(id, display_name),
+                tournament_match:tournament_match_id(id, round_number, tournament:tournament_id(id, name))
             `)
             .eq('status', 'pending_player')
             .eq('player_b_id', userId)
@@ -1607,6 +1608,16 @@ export function showMatchConfirmationBottomSheet(requests) {
                         ${requests.length > 1 ? `
                             <div class="text-sm text-gray-500 text-center mb-4">
                                 ${index + 1} von ${requests.length} Einträgen
+                            </div>
+                        ` : ''}
+
+                        ${request.tournament_match ? `
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+                                <i class="fas fa-trophy text-indigo-600"></i>
+                                <div>
+                                    <div class="text-sm font-semibold text-indigo-800">Turnierspiel</div>
+                                    <div class="text-xs text-indigo-600">${request.tournament_match.tournament?.name || 'Turnier'} – Runde ${request.tournament_match.round_number}</div>
+                                </div>
                             </div>
                         ` : ''}
 
