@@ -2539,7 +2539,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
 
     // Match-Ergebnis
-    const setsDisplay = formatSetsDisplay(req.sets);
+    const setsDisplay = formatSetsDisplay(req.sets, req);
     const playerAProfile = profileMap[req.player_a_id];
     const playerBProfile = profileMap[req.player_b_id];
     const playerAName = playerAProfile ? `${playerAProfile.first_name || ''} ${playerAProfile.last_name || ''}`.trim() : 'Spieler A';
@@ -4283,7 +4283,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
 
     // Match-Ergebnis
-    const setsDisplay = formatSetsDisplay(req.sets);
+    const setsDisplay = formatSetsDisplay(req.sets, req);
     const playerAProfile = profileMap[req.player_a_id];
     const playerBProfile = profileMap[req.player_b_id];
     const playerAName = playerAProfile?.display_name ||

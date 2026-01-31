@@ -896,15 +896,20 @@ function renderProfileSinglesCard(match, profileMap) {
         if (scoreA > scoreB) playerASetWins++;
         else if (scoreB > scoreA) playerBSetWins++;
     });
+    // Fallback to player_a_sets_won / player_b_sets_won when sets array is empty
+    if (playerASetWins === 0 && playerBSetWins === 0) {
+        playerASetWins = match.player_a_sets_won || 0;
+        playerBSetWins = match.player_b_sets_won || 0;
+    }
 
     const mySetWins = isPlayerA ? playerASetWins : playerBSetWins;
     const oppSetWins = isPlayerA ? playerBSetWins : playerASetWins;
 
-    const setScoresDisplay = sets.map(set => {
+    const setScoresDisplay = sets.length > 0 ? sets.map(set => {
         const scoreA = set.playerA ?? set.teamA ?? 0;
         const scoreB = set.playerB ?? set.teamB ?? 0;
         return isPlayerA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
-    }).join(', ');
+    }).join(', ') : '';
 
     const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
     const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
@@ -1000,6 +1005,10 @@ function renderProfileDoublesCard(match, profileMap) {
         if (scoreA > scoreB) teamASetWins++;
         else if (scoreB > scoreA) teamBSetWins++;
     });
+    if (teamASetWins === 0 && teamBSetWins === 0) {
+        teamASetWins = match.player_a_sets_won || 0;
+        teamBSetWins = match.player_b_sets_won || 0;
+    }
 
     const mySetWins = isInTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isInTeamA ? teamBSetWins : teamASetWins;

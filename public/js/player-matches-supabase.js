@@ -1079,7 +1079,7 @@ export async function loadPendingRequests(currentUser) {
             const isPlayerA = req.player_a_id === currentUser.id;
             const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
             const otherPlayer = profileMap[otherPlayerId];
-            const setsDisplay = formatSetsDisplay(req.sets);
+            const setsDisplay = formatSetsDisplay(req.sets, req);
             const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
             const needsResponse = !isPlayerA && req.status === 'pending_player';
 
@@ -1149,7 +1149,7 @@ export async function loadMatchHistory(currentUser) {
             const playerA = profileMap[match.player_a_id];
             const playerB = profileMap[match.player_b_id];
             const isWinner = match.winner_id === currentUser.id;
-            const setsDisplay = formatSetsDisplay(match.sets);
+            const setsDisplay = formatSetsDisplay(match.sets, match);
             const eloChange = isWinner
                 ? (match.winner_elo_change || 0)
                 : (match.loser_elo_change || 0);
@@ -1178,8 +1178,13 @@ export async function loadMatchHistory(currentUser) {
     }
 }
 
-export function formatSetsDisplay(sets) {
-    if (!sets || sets.length === 0) return 'Keine Sätze';
+export function formatSetsDisplay(sets, match) {
+    if (!sets || sets.length === 0) {
+        const aWins = match?.player_a_sets_won || 0;
+        const bWins = match?.player_b_sets_won || 0;
+        if (aWins === 0 && bWins === 0) return 'Keine Sätze';
+        return `${aWins}:${bWins}`;
+    }
     return sets.map((set) => `${set.playerA || set.teamA || 0}:${set.playerB || set.teamB || 0}`).join(', ');
 }
 

@@ -22,6 +22,8 @@ function mapSinglesMatchFromSupabase(match) {
         winnerId: match.winner_id,
         loserId: match.loser_id,
         sets: match.sets,
+        playerASetsWon: match.player_a_sets_won,
+        playerBSetsWon: match.player_b_sets_won,
         processed: match.processed,
         handicapUsed: match.handicap_used,
         pointsExchanged: match.points_exchanged,
@@ -606,7 +608,7 @@ function renderMatchHistory(container, matches, userData) {
           <div class="flex items-center gap-4 text-sm">
             <div class="flex items-center gap-2">
               <span class="text-gray-600">Sätze:</span>
-              <span class="font-mono font-medium text-gray-800">${formatSetRatio(match.sets, isPlayerA)}</span>
+              <span class="font-mono font-medium text-gray-800">${formatSetRatio(match.sets, isPlayerA, match)}</span>
             </div>
           </div>
         </div>
@@ -629,8 +631,16 @@ function renderMatchHistory(container, matches, userData) {
  * @param {boolean} isPlayerA - Whether current user is playerA (for singles) or teamA (for doubles)
  * @returns {string} Formatted set ratio string
  */
-function formatSetRatio(sets, isPlayerA) {
-    if (!sets || sets.length === 0) return 'N/A';
+function formatSetRatio(sets, isPlayerA, match) {
+    if (!sets || sets.length === 0) {
+        // Fallback to player_a_sets_won / player_b_sets_won
+        const aWins = match?.playerASetsWon ?? match?.player_a_sets_won ?? 0;
+        const bWins = match?.playerBSetsWon ?? match?.player_b_sets_won ?? 0;
+        if (aWins === 0 && bWins === 0) return 'N/A';
+        const myWins = isPlayerA ? aWins : bWins;
+        const oppWins = isPlayerA ? bWins : aWins;
+        return `${myWins}:${oppWins}`;
+    }
 
     let myWins = 0;
     let oppWins = 0;
@@ -659,7 +669,7 @@ function formatSetRatio(sets, isPlayerA) {
  * @returns {string} Formatted sets string
  */
 function formatSets(sets, isPlayerA) {
-    if (!sets || sets.length === 0) return 'N/A';
+    if (!sets || sets.length === 0) return '';
 
     return sets
         .map(set => {

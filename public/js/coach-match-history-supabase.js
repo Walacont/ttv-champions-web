@@ -54,6 +54,8 @@ function mapSinglesMatchFromSupabase(match) {
         winnerId: match.winner_id,
         loserId: match.loser_id,
         sets: match.sets,
+        playerASetsWon: match.player_a_sets_won,
+        playerBSetsWon: match.player_b_sets_won,
         processed: match.processed,
         handicapUsed: match.handicap_used,
         pointsExchanged: match.points_exchanged,
@@ -415,7 +417,7 @@ function renderCoachMatchHistory(container, matches, playerName) {
         const formattedTime = formatMatchTime(matchTime);
         const formattedDate = formatMatchDate(matchTime);
 
-        const setsDisplay = formatCoachSets(match.sets, match.isPlayerA, isDoubles);
+        const setsDisplay = formatCoachSets(match.sets, match.isPlayerA, isDoubles, match);
 
         const eloChangeDisplay =
             match.eloChange !== null
@@ -493,8 +495,16 @@ function renderCoachMatchHistory(container, matches, playerName) {
 }
 
 /** Formatiert Sätze aus Spieler-Perspektive (Coach-Ansicht) */
-function formatCoachSets(sets, isPlayerA, isDoubles) {
-    if (!sets || sets.length === 0) return 'N/A';
+function formatCoachSets(sets, isPlayerA, isDoubles, match) {
+    if (!sets || sets.length === 0) {
+        // Fallback to playerASetsWon / playerBSetsWon
+        const aWins = match?.playerASetsWon ?? match?.player_a_sets_won ?? 0;
+        const bWins = match?.playerBSetsWon ?? match?.player_b_sets_won ?? 0;
+        if (aWins === 0 && bWins === 0) return 'N/A';
+        const myWins = isPlayerA ? aWins : bWins;
+        const oppWins = isPlayerA ? bWins : aWins;
+        return `${myWins}:${oppWins}`;
+    }
 
     return sets
         .map(set => {

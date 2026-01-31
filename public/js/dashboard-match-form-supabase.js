@@ -834,17 +834,18 @@ async function submitMatchRequest(callbacks = {}) {
         const opponentName = selectedOpponent.displayName || selectedOpponent.display_name ||
             `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() || 'du';
 
-        const setsString = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+        const setsString = sets.length > 0 ? sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') : '';
 
         // Gewinner aus Sicht des Gegners bestimmen (validation.winnerId ist 'A' oder 'B')
         const opponentWon = validation.winnerId === 'B';
         const setScore = `${validation.playerAWins}:${validation.playerBWins}`;
 
         let notificationBody;
+        const scoreDetail = setsString ? ` (${setsString})` : '';
         if (opponentWon) {
-            notificationBody = `${playerName} trägt ein: Du hast ${setScore} gewonnen (${setsString})`;
+            notificationBody = `${playerName} trägt ein: Du hast ${setScore} gewonnen${scoreDetail}`;
         } else {
-            notificationBody = `${playerName} trägt ein: ${playerName} hat ${setScore} gewonnen (${setsString})`;
+            notificationBody = `${playerName} trägt ein: ${playerName} hat ${setScore} gewonnen${scoreDetail}`;
         }
 
         if (handicapUsed) {
@@ -933,6 +934,10 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         default: minSets = 3; maxSets = 5; setsToWin = 3;
     }
 
+    let entryMode = 'detail'; // 'quick' or 'detail'
+    let quickSetsA = 0;
+    let quickSetsB = 0;
+
     const sets = existingSets.length > 0 ? [...existingSets] : [];
     while (sets.length < minSets) {
         sets.push({ playerA: '', playerB: '' });
@@ -956,8 +961,75 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         return null;
     }
 
-    function renderSets() {
+    function renderModeToggle() {
+        const toggleDiv = document.createElement('div');
+        toggleDiv.className = 'flex gap-2 mb-3';
+        toggleDiv.innerHTML = `
+            <button type="button" class="entry-mode-btn flex-1 py-1.5 px-3 text-xs font-medium rounded-lg border transition
+                ${entryMode === 'quick' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}"
+                data-mode="quick">Schnell (Sätze)</button>
+            <button type="button" class="entry-mode-btn flex-1 py-1.5 px-3 text-xs font-medium rounded-lg border transition
+                ${entryMode === 'detail' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}"
+                data-mode="detail">Detail (Punkte)</button>
+        `;
+        toggleDiv.querySelectorAll('.entry-mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                entryMode = btn.dataset.mode;
+                renderAll();
+            });
+        });
+        return toggleDiv;
+    }
+
+    function renderQuickMode() {
+        const quickDiv = document.createElement('div');
+        quickDiv.className = 'flex items-center justify-center gap-4 py-2';
+        quickDiv.innerHTML = `
+            <div class="text-center">
+                <label class="text-xs text-gray-500 block mb-1">Du</label>
+                <input type="number" id="quick-match-sets-a" min="0" max="${setsToWin}"
+                    class="w-16 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0" value="${quickSetsA || ''}">
+            </div>
+            <span class="text-2xl font-bold text-gray-400 mt-4">:</span>
+            <div class="text-center">
+                <label class="text-xs text-gray-500 block mb-1">Gegner</label>
+                <input type="number" id="quick-match-sets-b" min="0" max="${setsToWin}"
+                    class="w-16 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0" value="${quickSetsB || ''}">
+            </div>
+        `;
+        quickDiv.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                quickSetsA = parseInt(quickDiv.querySelector('#quick-match-sets-a').value) || 0;
+                quickSetsB = parseInt(quickDiv.querySelector('#quick-match-sets-b').value) || 0;
+                updateWinnerPreview();
+            });
+        });
+        return quickDiv;
+    }
+
+    function renderAll() {
         container.innerHTML = '';
+        container.appendChild(renderModeToggle());
+
+        if (entryMode === 'quick') {
+            container.appendChild(renderQuickMode());
+        } else {
+            renderDetailSets();
+        }
+
+        let winnerPreview = container.querySelector('.winner-preview');
+        if (!winnerPreview) {
+            winnerPreview = document.createElement('div');
+            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold hidden';
+            container.appendChild(winnerPreview);
+        }
+        updateWinnerPreview();
+    }
+
+    function renderDetailSets() {
         sets.forEach((set, index) => {
             const setDiv = document.createElement('div');
             setDiv.className = 'flex items-center gap-3 mb-3';
@@ -974,18 +1046,13 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             container.appendChild(setDiv);
         });
 
-        let winnerPreview = container.querySelector('.winner-preview');
-        if (!winnerPreview) {
-            winnerPreview = document.createElement('div');
-            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold hidden';
-            container.appendChild(winnerPreview);
-        }
-
-        container.querySelectorAll('input').forEach(input => {
+        container.querySelectorAll('input[data-set]').forEach(input => {
             input.addEventListener('input', handleSetInput);
         });
+    }
 
-        updateWinnerPreview();
+    function renderSets() {
+        renderAll();
     }
 
     function updateWinnerPreview() {
@@ -993,12 +1060,17 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         if (!winnerPreview) return;
 
         let playerAWins = 0, playerBWins = 0;
-        sets.forEach(set => {
-            const a = parseInt(set.playerA) || 0;
-            const b = parseInt(set.playerB) || 0;
-            if (a > b && a >= 11 && (a >= 11 && b < 10 || Math.abs(a - b) >= 2)) playerAWins++;
-            if (b > a && b >= 11 && (b >= 11 && a < 10 || Math.abs(a - b) >= 2)) playerBWins++;
-        });
+        if (entryMode === 'quick') {
+            playerAWins = quickSetsA;
+            playerBWins = quickSetsB;
+        } else {
+            sets.forEach(set => {
+                const a = parseInt(set.playerA) || 0;
+                const b = parseInt(set.playerB) || 0;
+                if (a > b && a >= 11 && (a >= 11 && b < 10 || Math.abs(a - b) >= 2)) playerAWins++;
+                if (b > a && b >= 11 && (b >= 11 && a < 10 || Math.abs(a - b) >= 2)) playerBWins++;
+            });
+        }
 
         const doublesToggle = document.getElementById('player-doubles-toggle');
         const doublesContainer = document.getElementById('doubles-players-container');
@@ -1069,6 +1141,9 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     }
 
     function getSets() {
+        if (entryMode === 'quick') {
+            return []; // Quick mode has no individual set scores
+        }
         return sets.filter(set => set.playerA !== '' && set.playerB !== '').map(set => ({
             playerA: parseInt(set.playerA),
             playerB: parseInt(set.playerB)
@@ -1076,6 +1151,27 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     }
 
     function validate() {
+        if (entryMode === 'quick') {
+            // Quick mode validation
+            if (quickSetsA === 0 && quickSetsB === 0) {
+                return { valid: false, error: 'Bitte Satzanzahl eingeben.' };
+            }
+            if (quickSetsA < setsToWin && quickSetsB < setsToWin) {
+                return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
+            }
+            if (quickSetsA > setsToWin || quickSetsB > setsToWin) {
+                return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
+            }
+            const totalSets = quickSetsA + quickSetsB;
+            if (totalSets > maxSets) {
+                return { valid: false, error: `Zu viele Sätze: Maximal ${maxSets} Sätze bei diesem Modus.` };
+            }
+            if (quickSetsA === setsToWin && quickSetsB === setsToWin) {
+                return { valid: false, error: 'Beide Spieler können nicht gleichzeitig gewinnen.' };
+            }
+            return { valid: true, winnerId: quickSetsA >= setsToWin ? 'A' : 'B', playerAWins: quickSetsA, playerBWins: quickSetsB };
+        }
+
         const filledSets = getSets();
         if (filledSets.length < minSets) {
             return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
@@ -1108,12 +1204,24 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     }
 
     function reset() {
+        entryMode = 'detail';
+        quickSetsA = 0;
+        quickSetsB = 0;
         sets.length = 0;
         for (let i = 0; i < minSets; i++) sets.push({ playerA: '', playerB: '' });
         renderSets();
     }
 
     function getMatchWinner() {
+        if (entryMode === 'quick') {
+            if (quickSetsA >= setsToWin) {
+                return { winner: 'A', setsA: quickSetsA, setsB: quickSetsB };
+            } else if (quickSetsB >= setsToWin) {
+                return { winner: 'B', setsA: quickSetsA, setsB: quickSetsB };
+            }
+            return null;
+        }
+
         const filledSets = getSets();
         let playerAWins = 0, playerBWins = 0;
         filledSets.forEach(set => {

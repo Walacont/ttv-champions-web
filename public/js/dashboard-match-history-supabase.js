@@ -180,15 +180,20 @@ function renderSinglesMatchCard(match, profileMap) {
         if (scoreA > scoreB) playerASetWins++;
         else if (scoreB > scoreA) playerBSetWins++;
     });
+    // Fallback to player_a_sets_won / player_b_sets_won when sets array is empty
+    if (playerASetWins === 0 && playerBSetWins === 0) {
+        playerASetWins = match.player_a_sets_won || 0;
+        playerBSetWins = match.player_b_sets_won || 0;
+    }
 
     const mySetWins = isCurrentUserA ? playerASetWins : playerBSetWins;
     const oppSetWins = isCurrentUserA ? playerBSetWins : playerASetWins;
 
-    const setScoresDisplay = sets.map(set => {
+    const setScoresDisplay = sets.length > 0 ? sets.map(set => {
         const scoreA = set.playerA ?? set.teamA ?? 0;
         const scoreB = set.playerB ?? set.teamB ?? 0;
         return isCurrentUserA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
-    }).join(', ');
+    }).join(', ') : '';
 
     const eloChange = isWinner ? (match.winner_elo_change || match.elo_change || 0) : (match.loser_elo_change || match.elo_change || 0);
 
@@ -294,6 +299,10 @@ function renderDoublesMatchCard(match, profileMap) {
         if (scoreA > scoreB) teamASetWins++;
         else if (scoreB > scoreA) teamBSetWins++;
     });
+    if (teamASetWins === 0 && teamBSetWins === 0) {
+        teamASetWins = match.player_a_sets_won || 0;
+        teamBSetWins = match.player_b_sets_won || 0;
+    }
 
     const mySetWins = isTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isTeamA ? teamBSetWins : teamASetWins;
@@ -439,19 +448,31 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     // Satzergebnisse aus Perspektive des linken Spielers
     const sets = match.sets || [];
     const leftIsPlayerA = isParticipant ? isCurrentUserA : (match.winner_id === match.player_a_id);
-    let setsHtml = sets.map((set, i) => {
-        const scoreA = set.playerA ?? set.teamA ?? 0;
-        const scoreB = set.playerB ?? set.teamB ?? 0;
-        const leftScore = leftIsPlayerA ? scoreA : scoreB;
-        const rightScore = leftIsPlayerA ? scoreB : scoreA;
-        const leftWonSet = leftScore > rightScore;
-        return `
-            <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
-                <span class="text-gray-600">Satz ${i + 1}</span>
-                <span class="font-semibold ${leftWonSet ? 'text-green-600' : 'text-red-600'}">${leftScore} : ${rightScore}</span>
-            </div>
-        `;
-    }).join('');
+    let setsHtml = '';
+    if (sets.length > 0) {
+        setsHtml = sets.map((set, i) => {
+            const scoreA = set.playerA ?? set.teamA ?? 0;
+            const scoreB = set.playerB ?? set.teamB ?? 0;
+            const leftScore = leftIsPlayerA ? scoreA : scoreB;
+            const rightScore = leftIsPlayerA ? scoreB : scoreA;
+            const leftWonSet = leftScore > rightScore;
+            return `
+                <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
+                    <span class="text-gray-600">Satz ${i + 1}</span>
+                    <span class="font-semibold ${leftWonSet ? 'text-green-600' : 'text-red-600'}">${leftScore} : ${rightScore}</span>
+                </div>
+            `;
+        }).join('');
+    } else {
+        // Quick entry mode - show only set ratio
+        const aWins = match.player_a_sets_won || 0;
+        const bWins = match.player_b_sets_won || 0;
+        if (aWins > 0 || bWins > 0) {
+            const leftWins = leftIsPlayerA ? aWins : bWins;
+            const rightWins = leftIsPlayerA ? bWins : aWins;
+            setsHtml = `<div class="text-center py-3 text-gray-500 text-sm">Schnelleingabe: ${leftWins}:${rightWins} Sätze</div>`;
+        }
+    }
 
     const modeLabels = {
         'single-set': '1 Satz',
@@ -619,19 +640,22 @@ function showDoublesMatchDetails(match, profileMap) {
     }
 
     const sets = match.sets || [];
-    let setsHtml = sets.map((set, i) => {
-        const scoreA = set.teamA ?? 0;
-        const scoreB = set.teamB ?? 0;
-        const myScore = isInTeamA ? scoreA : scoreB;
-        const oppScore = isInTeamA ? scoreB : scoreA;
-        const wonSet = myScore > oppScore;
-        return `
-            <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
-                <span class="text-gray-600">Satz ${i + 1}</span>
-                <span class="font-semibold ${wonSet ? 'text-green-600' : 'text-red-600'}">${myScore} : ${oppScore}</span>
-            </div>
-        `;
-    }).join('');
+    let setsHtml = '';
+    if (sets.length > 0) {
+        setsHtml = sets.map((set, i) => {
+            const scoreA = set.teamA ?? 0;
+            const scoreB = set.teamB ?? 0;
+            const myScore = isInTeamA ? scoreA : scoreB;
+            const oppScore = isInTeamA ? scoreB : scoreA;
+            const wonSet = myScore > oppScore;
+            return `
+                <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
+                    <span class="text-gray-600">Satz ${i + 1}</span>
+                    <span class="font-semibold ${wonSet ? 'text-green-600' : 'text-red-600'}">${myScore} : ${oppScore}</span>
+                </div>
+            `;
+        }).join('');
+    }
 
     const modeLabels = {
         'single-set': '1 Satz',
@@ -757,8 +781,14 @@ function showDoublesMatchDetails(match, profileMap) {
 }
 
 /** Formatiert Satz-Anzeige */
-export function formatSetsDisplay(sets) {
-    if (!sets || sets.length === 0) return 'Keine Sätze';
+export function formatSetsDisplay(sets, match) {
+    if (!sets || sets.length === 0) {
+        // Fallback to player_a_sets_won / player_b_sets_won
+        const aWins = match?.player_a_sets_won || 0;
+        const bWins = match?.player_b_sets_won || 0;
+        if (aWins === 0 && bWins === 0) return 'Keine Sätze';
+        return `${aWins}:${bWins}`;
+    }
 
     let playerASetWins = 0;
     let playerBSetWins = 0;

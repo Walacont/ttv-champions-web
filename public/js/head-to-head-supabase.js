@@ -164,6 +164,8 @@ function mapMatchFromSupabase(match) {
         winnerId: match.winner_id,
         loserId: match.loser_id,
         sets: match.sets,
+        playerASetsWon: match.player_a_sets_won,
+        playerBSetsWon: match.player_b_sets_won,
         handicapUsed: match.handicap_used,
         timestamp: match.played_at || match.timestamp || match.created_at,
         createdAt: match.created_at
@@ -191,7 +193,7 @@ function calculateStats(matches, currentUserId) {
         const handicapUsed = match.handicapUsed || match.handicap_used || false;
         const isPlayerA = match.playerAId === currentUserId || match.player_a_id === currentUserId;
 
-        if (match.sets && Array.isArray(match.sets)) {
+        if (match.sets && Array.isArray(match.sets) && match.sets.length > 0) {
             match.sets.forEach(set => {
                 // Unterstützt sowohl camelCase (App) als auch snake_case (Supabase)
                 const playerAScore = parseInt(set.playerA ?? set.player_a) || 0;
@@ -205,6 +207,12 @@ function calculateStats(matches, currentUserId) {
                     setsLost++;
                 }
             });
+        } else {
+            // Fallback to playerASetsWon / playerBSetsWon for quick entry matches
+            const aWins = match.playerASetsWon ?? match.player_a_sets_won ?? 0;
+            const bWins = match.playerBSetsWon ?? match.player_b_sets_won ?? 0;
+            setsWon += isPlayerA ? aWins : bWins;
+            setsLost += isPlayerA ? bWins : aWins;
         }
 
         if (isWinner) {
@@ -408,7 +416,7 @@ function renderMatchHistory(matches, currentUserId) {
         const formattedDate = formatMatchDate(matchDate);
 
         const isPlayerA = match.playerAId === currentUserId;
-        const setsDisplay = formatSets(match.sets, isPlayerA);
+        const setsDisplay = formatSets(match.sets, isPlayerA, match);
 
         return `
             <div class="flex items-center justify-between p-3 ${isWinner ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'} rounded-lg">
@@ -435,8 +443,16 @@ function renderMatchHistory(matches, currentUserId) {
  * @param {boolean} isPlayerA - Ob aktueller User playerA ist
  * @returns {string} Formatierter Satz-String
  */
-function formatSets(sets, isPlayerA) {
-    if (!sets || sets.length === 0) return 'N/A';
+function formatSets(sets, isPlayerA, match) {
+    if (!sets || sets.length === 0) {
+        // Fallback to playerASetsWon / playerBSetsWon
+        const aWins = match?.playerASetsWon ?? match?.player_a_sets_won ?? 0;
+        const bWins = match?.playerBSetsWon ?? match?.player_b_sets_won ?? 0;
+        if (aWins === 0 && bWins === 0) return 'N/A';
+        const myWins = isPlayerA ? aWins : bWins;
+        const oppWins = isPlayerA ? bWins : aWins;
+        return `${myWins}:${oppWins}`;
+    }
 
     return sets
         .map(set => {

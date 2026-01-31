@@ -1647,7 +1647,7 @@ export function showMatchConfirmationBottomSheet(requests) {
             playerBElo = request.player_b?.elo_rating || 800;
         }
 
-        let setsDetails = 'Keine Details';
+        let setsDetails = '';
         if (request.sets && request.sets.length > 0) {
             setsDetails = request.sets.map(s => {
                 if (s.playerA !== undefined && s.playerB !== undefined) {
@@ -1667,6 +1667,10 @@ export function showMatchConfirmationBottomSheet(requests) {
                 }
                 return JSON.stringify(s);
             }).join(', ');
+        }
+        // Fallback: show set ratio when individual scores not available
+        if (!setsDetails) {
+            setsDetails = `${setsA}:${setsB} (Schnelleingabe)`;
         }
 
         console.log('[Matches] Sets data:', request.sets, '→', setsDetails);
