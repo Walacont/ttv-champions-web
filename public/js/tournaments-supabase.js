@@ -401,10 +401,87 @@ async function checkAndCompleteTournament(tournamentId) {
             await supabase.from('tournaments')
                 .update({ status: 'completed', completed_at: new Date().toISOString() })
                 .eq('id', tournamentId);
+
+            // Create activity events for all participants
+            await createTournamentCompletedEvents(tournamentId);
+
             showToast('Turnier abgeschlossen! Alle Spiele wurden gespielt.', 'success');
         }
     } catch (error) {
         console.error('[Tournaments] Error checking tournament completion:', error);
+    }
+}
+
+async function createTournamentCompletedEvents(tournamentId) {
+    try {
+        // Load tournament info
+        const { data: tournament } = await supabase
+            .from('tournaments')
+            .select('id, name, club_id, format, match_mode')
+            .eq('id', tournamentId).single();
+        if (!tournament) return;
+
+        // Load standings sorted by rank
+        const { data: standings } = await supabase
+            .from('tournament_standings')
+            .select('player_id, rank, matches_played, matches_won, matches_lost, sets_won, sets_lost, tournament_points')
+            .eq('tournament_id', tournamentId)
+            .is('round_id', null)
+            .order('rank', { ascending: true });
+        if (!standings || standings.length === 0) return;
+
+        // Load participant profiles for names
+        const playerIds = standings.map(s => s.player_id);
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, display_name, avatar_url')
+            .in('id', playerIds);
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        // Build podium (top 3)
+        const podium = standings.slice(0, 3).map(s => {
+            const p = profileMap[s.player_id] || {};
+            return {
+                player_id: s.player_id,
+                rank: s.rank,
+                name: p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Spieler',
+                avatar_url: p.avatar_url || null,
+                matches_won: s.matches_won,
+                tournament_points: s.tournament_points
+            };
+        });
+
+        // Create one activity event per participant
+        const events = standings.map(s => ({
+            user_id: s.player_id,
+            club_id: tournament.club_id,
+            event_type: 'tournament_completed',
+            event_data: {
+                tournament_id: tournament.id,
+                tournament_name: tournament.name,
+                tournament_format: tournament.format,
+                match_mode: tournament.match_mode,
+                my_rank: s.rank,
+                my_matches_won: s.matches_won,
+                my_matches_lost: s.matches_lost,
+                my_sets_won: s.sets_won,
+                my_sets_lost: s.sets_lost,
+                my_tournament_points: s.tournament_points,
+                total_participants: standings.length,
+                podium: podium,
+                participant_ids: playerIds
+            }
+        }));
+
+        const { error } = await supabase.from('activity_events').insert(events);
+        if (error) {
+            console.error('[Tournaments] Error creating completion events:', error);
+        } else {
+            console.log('[Tournaments] Created', events.length, 'tournament completion events');
+        }
+    } catch (err) {
+        console.error('[Tournaments] Error creating tournament completed events:', err);
     }
 }
 

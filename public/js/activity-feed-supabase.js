@@ -1310,6 +1310,12 @@ async function fetchActivities(userIds) {
                 }
             }
 
+            // Tournament completed events: only visible to tournament participants
+            if (activity.activityType === 'tournament_completed') {
+                const participantIds = activity.event_data?.participant_ids || [];
+                return participantIds.includes(viewerId);
+            }
+
             // Andere Aktivitätstypen (öffentliche Posts, Events) durchlassen
             return true;
         });
@@ -1623,6 +1629,8 @@ function renderActivityCard(activity) {
         return renderPollCard(activity, activity.profileMap);
     } else if (activity.activityType === 'training_summary') {
         return renderTrainingSummaryCard(activity, activity.profileMap);
+    } else if (activity.activityType === 'tournament_completed') {
+        return renderTournamentCompletedCard(activity);
     }
     return ''; // Unbekannter Aktivitätstyp
 }
@@ -4069,6 +4077,102 @@ function updateCarousel(carousel, newIndex) {
 /**
  * Initialize swipe gestures for all carousels
  */
+function renderTournamentCompletedCard(activity) {
+    const d = activity.event_data || {};
+    const tournamentName = escapeHtml(d.tournament_name || 'Turnier');
+    const myRank = d.my_rank || '?';
+    const totalParticipants = d.total_participants || '?';
+    const podium = d.podium || [];
+    const myWins = d.my_matches_won || 0;
+    const myLosses = d.my_matches_lost || 0;
+    const myPoints = d.my_tournament_points || 0;
+    const mySetsWon = d.my_sets_won || 0;
+    const mySetsLost = d.my_sets_lost || 0;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const winner = podium[0] || {};
+    const second = podium[1] || null;
+    const third = podium[2] || null;
+
+    const winnerAvatar = winner.avatar_url || DEFAULT_AVATAR;
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition border-2 border-yellow-300">
+            <div class="bg-gradient-to-r from-yellow-50 to-amber-50 p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-trophy text-yellow-500"></i>
+                        <span class="font-bold text-gray-900">Turnier Abgeschlossen!</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                </div>
+                <p class="text-sm text-gray-600">${tournamentName}</p>
+            </div>
+
+            <div class="p-4">
+                <!-- Podium -->
+                <div class="bg-gradient-to-b from-yellow-50 to-white rounded-xl border border-yellow-200 p-4 mb-4">
+                    <!-- Winner -->
+                    <div class="text-center mb-4">
+                        <div class="text-3xl mb-1">🏆</div>
+                        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Gewinner</div>
+                        <div class="font-bold text-gray-900 text-lg">${escapeHtml(winner.name || 'Spieler')}</div>
+                        <div class="text-xs text-gray-500">${winner.matches_won || 0} Siege &bull; ${winner.tournament_points || 0} Punkte</div>
+                    </div>
+
+                    ${second || third ? `
+                    <div class="flex justify-center gap-4">
+                        ${second ? `
+                        <div class="bg-gray-50 rounded-lg p-3 text-center flex-1 max-w-[140px]">
+                            <div class="text-xl mb-1">🥈</div>
+                            <div class="text-xs text-gray-500 font-medium">2. Platz</div>
+                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(second.name || 'Spieler')}</div>
+                            <div class="text-xs text-gray-500">${second.tournament_points || 0} Pkt</div>
+                        </div>
+                        ` : ''}
+                        ${third ? `
+                        <div class="bg-gray-50 rounded-lg p-3 text-center flex-1 max-w-[140px]">
+                            <div class="text-xl mb-1">🥉</div>
+                            <div class="text-xs text-gray-500 font-medium">3. Platz</div>
+                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(third.name || 'Spieler')}</div>
+                            <div class="text-xs text-gray-500">${third.tournament_points || 0} Pkt</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+
+                <!-- My Result -->
+                <div class="bg-indigo-50 rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs text-indigo-600 font-medium">Dein Ergebnis</div>
+                        <div class="font-bold text-indigo-900">${myRank}. Platz <span class="font-normal text-sm text-indigo-600">von ${totalParticipants}</span></div>
+                    </div>
+                    <div class="text-right text-xs text-indigo-700">
+                        <div>${myWins}S / ${myLosses}N</div>
+                        <div>Sätze: ${mySetsWon}:${mySetsLost} &bull; ${myPoints} Pkt</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="px-4 py-3 border-t border-gray-100 flex items-center gap-6">
+                ${renderGenericLikeButton(activity.id, 'tournament_completed', activity, activity.likes_count || 0)}
+                <button
+                    onclick="openComments('${activity.id}', 'tournament_completed')"
+                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                >
+                    <i class="far fa-comment"></i>
+                    <span class="text-sm" data-comment-count="tournament_completed-${activity.id}">${activity.comments_count || 0}</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 function initCarouselSwipe() {
     document.addEventListener('DOMContentLoaded', () => {
         // Touch-Event-Listener für alle Karussell-Container hinzufügen
