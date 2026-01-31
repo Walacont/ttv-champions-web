@@ -573,7 +573,7 @@ async function loadCurrentClubStatus() {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('*, clubs(id, name)')
+            .select('*, clubs(id, name, logo_url)')
             .eq('id', currentUser.id)
             .single();
 
@@ -589,11 +589,14 @@ async function loadCurrentClubStatus() {
             .maybeSingle();
 
         if (currentUserData?.clubs) {
+            const clubLogoUrl = currentUserData.clubs.logo_url;
+            const clubLogoHtml = clubLogoUrl
+                ? `<img src="${escapeHtml(clubLogoUrl)}" alt="" class="h-14 w-14 rounded-full object-cover flex-shrink-0 border-2 border-green-200" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                  + `<div class="h-14 w-14 bg-green-100 rounded-full items-center justify-center flex-shrink-0" style="display:none"><i class="fas fa-building text-green-600 text-xl"></i></div>`
+                : `<div class="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0"><i class="fas fa-building text-green-600 text-xl"></i></div>`;
             statusContainer.innerHTML = `
                 <div class="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                    <div class="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-building text-green-600 text-xl"></i>
-                    </div>
+                    ${clubLogoHtml}
                     <div class="flex-1">
                         <h3 class="font-bold text-gray-800">${escapeHtml(currentUserData.clubs.name)}</h3>
                         <p class="text-sm text-green-600">
