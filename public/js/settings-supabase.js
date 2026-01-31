@@ -89,6 +89,12 @@ async function initializeAuth() {
             updateTutorialStatus(currentUserData);
             loadPrivacySettings(currentUserData);
             initializeClubManagement();
+
+            // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
+            const clubPageCard = document.getElementById('club-page-card');
+            if (clubPageCard && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach') && currentUserData.club_id) {
+                clubPageCard.classList.remove('hidden');
+            }
         }
 
         currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
@@ -395,12 +401,6 @@ function updateTutorialStatus(userData) {
         } else {
             coachButton.closest('.bg-gray-50').style.display = 'none';
         }
-    }
-
-    // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
-    const clubPageCard = document.getElementById('club-page-card');
-    if (clubPageCard && (role === 'coach' || role === 'head_coach') && userData?.club_id) {
-        clubPageCard.classList.remove('hidden');
     }
 
     const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
