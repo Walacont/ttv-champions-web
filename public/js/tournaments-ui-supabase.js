@@ -5,10 +5,14 @@ import {
     initTournaments, createTournament, joinTournament, leaveTournament,
     deleteTournament, startTournament, regeneratePairings,
     getTournaments, getTournamentDetails, isParticipating,
-    getTournamentFormatName, getTournamentStatusName, getCurrentUserId
+    getTournamentFormatName, getTournamentStatusName, getCurrentUserId,
+    recordTournamentMatchResult
 } from './tournaments-supabase.js';
 
 import { escapeHtml } from './utils/security.js';
+import { getSupabase } from './supabase-init.js';
+
+const supabase = getSupabase();
 
 function showToast(message, type = 'info') {
     const colors = { info: 'bg-indigo-600', success: 'bg-green-600', error: 'bg-red-600', warning: 'bg-yellow-600' };
@@ -691,14 +695,10 @@ function openQuickMatchEntryModal(tournament) {
         submitBtn.textContent = 'Speichere...';
 
         try {
-            const { getSupabase } = await import('./supabase-init.js');
-            const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
-            const db = getSupabase();
-
             const winnerId = setsA > setsB ? selectedMatch.player_a_id : selectedMatch.player_b_id;
             const loserId = setsA > setsB ? selectedMatch.player_b_id : selectedMatch.player_a_id;
 
-            const { data: match, error: matchError } = await db
+            const { data: match, error: matchError } = await supabase
                 .from('matches')
                 .insert({
                     player_a_id: selectedMatch.player_a_id, player_b_id: selectedMatch.player_b_id,
@@ -722,4 +722,92 @@ function openQuickMatchEntryModal(tournament) {
             submitBtn.textContent = 'Speichern';
         }
     });
+}
+
+/**
+ * Load and display active tournament banner on the start screen
+ */
+export async function loadActiveTournamentBanner() {
+    const banner = document.getElementById('active-tournament-banner');
+    if (!banner) return;
+
+    const userId = getCurrentUserId();
+    if (!userId) { banner.classList.add('hidden'); return; }
+
+    try {
+        // Get tournaments where user is participating and status is in_progress
+        const { data: participations, error: partErr } = await supabase
+            .from('tournament_participants')
+            .select('tournament_id')
+            .eq('player_id', userId);
+
+        if (partErr || !participations || participations.length === 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        const tournamentIds = participations.map(p => p.tournament_id);
+
+        const { data: activeTournaments, error: tErr } = await supabase
+            .from('tournaments')
+            .select('id, name')
+            .in('id', tournamentIds)
+            .eq('status', 'in_progress')
+            .limit(1);
+
+        if (tErr || !activeTournaments || activeTournaments.length === 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        const tournament = activeTournaments[0];
+
+        // Get pending matches for this user in this tournament
+        const { data: pendingMatches, error: mErr } = await supabase
+            .from('tournament_matches')
+            .select(`
+                id, round_number, player_a_id, player_b_id, status,
+                player_a:profiles!tournament_matches_player_a_id_fkey(first_name, last_name),
+                player_b:profiles!tournament_matches_player_b_id_fkey(first_name, last_name)
+            `)
+            .eq('tournament_id', tournament.id)
+            .in('status', ['pending', 'in_progress'])
+            .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`)
+            .order('round_number', { ascending: true });
+
+        if (mErr || !pendingMatches || pendingMatches.length === 0) {
+            // All matches done
+            banner.classList.add('hidden');
+            return;
+        }
+
+        const nextMatch = pendingMatches[0];
+        const isPlayerA = nextMatch.player_a_id === userId;
+        const opponent = isPlayerA ? nextMatch.player_b : nextMatch.player_a;
+        const opponentName = opponent
+            ? `${opponent.first_name || ''} ${opponent.last_name || ''}`.trim() || 'Unbekannt'
+            : 'Freilos';
+
+        // Count total rounds and completed rounds
+        const { data: allMatches } = await supabase
+            .from('tournament_matches')
+            .select('round_number, status')
+            .eq('tournament_id', tournament.id)
+            .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`);
+
+        const totalRounds = allMatches ? Math.max(...allMatches.map(m => m.round_number)) : 0;
+        const completedRounds = allMatches
+            ? new Set(allMatches.filter(m => m.status === 'completed').map(m => m.round_number)).size
+            : 0;
+
+        document.getElementById('tournament-banner-name').textContent = tournament.name;
+        document.getElementById('tournament-banner-round').textContent =
+            `Runde ${nextMatch.round_number} von ${totalRounds} · ${pendingMatches.length} Spiel${pendingMatches.length !== 1 ? 'e' : ''} offen`;
+        document.getElementById('tournament-banner-opponent').textContent = opponentName;
+
+        banner.classList.remove('hidden');
+    } catch (err) {
+        console.error('[Tournaments UI] Error loading tournament banner:', err);
+        banner.classList.add('hidden');
+    }
 }

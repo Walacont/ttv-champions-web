@@ -17,6 +17,7 @@ let currentUserData = null;
 let currentSportContext = null;
 let testClubIdsCache = null;
 let currentHandicapDetails = null; // Speichert aktuelle Handicap-Vorschläge für spätere Verwendung
+let pendingTournamentMatches = []; // Pending tournament matches between current user and selected opponent
 
 /**
  * Modul mit Benutzerdaten initialisieren
@@ -500,6 +501,7 @@ function selectOpponent(optionElement) {
     `;
 
     checkHandicap();
+    checkTournamentMatches();
 }
 
 /**
@@ -508,11 +510,13 @@ function selectOpponent(optionElement) {
 export function clearOpponentSelection() {
     selectedOpponent = null;
     currentHandicapDetails = null;
+    pendingTournamentMatches = [];
     document.getElementById('selected-opponent-id').value = '';
     document.getElementById('selected-opponent-elo').value = '';
     document.getElementById('opponent-search-input').value = '';
     document.getElementById('opponent-search-results').innerHTML = '';
     document.getElementById('match-handicap-info')?.classList.add('hidden');
+    document.getElementById('tournament-match-info')?.classList.add('hidden');
 }
 
 // Für onclick-Handler im globalen Scope verfügbar machen
@@ -652,6 +656,85 @@ async function checkHandicap() {
 }
 
 /**
+ * Prüfen ob es offene Turnierspiele zwischen den beiden Spielern gibt
+ */
+async function checkTournamentMatches() {
+    const tournamentInfo = document.getElementById('tournament-match-info');
+    const tournamentOptions = document.getElementById('tournament-match-options');
+    if (!tournamentInfo || !tournamentOptions || !selectedOpponent) {
+        if (tournamentInfo) tournamentInfo.classList.add('hidden');
+        pendingTournamentMatches = [];
+        return;
+    }
+
+    try {
+        // Find pending tournament matches between current user and selected opponent
+        const { data: matches, error } = await supabase
+            .from('tournament_matches')
+            .select(`
+                id, round_number, status, player_a_id, player_b_id,
+                tournament:tournaments(id, name, status)
+            `)
+            .in('status', ['pending', 'in_progress'])
+            .or(`and(player_a_id.eq.${currentUser.id},player_b_id.eq.${selectedOpponent.id}),and(player_a_id.eq.${selectedOpponent.id},player_b_id.eq.${currentUser.id})`);
+
+        if (error) throw error;
+
+        // Filter to only active tournaments
+        const activeMatches = (matches || []).filter(m =>
+            m.tournament?.status === 'in_progress'
+        );
+
+        pendingTournamentMatches = activeMatches;
+
+        if (activeMatches.length > 0) {
+            tournamentOptions.innerHTML = activeMatches.map((m, idx) => {
+                const tournamentName = escapeHtml(m.tournament?.name || 'Turnier');
+                return `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="tournament-match-${idx}"
+                            class="tournament-match-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            data-tournament-match-id="${m.id}"
+                            ${activeMatches.length === 1 ? 'checked' : ''}
+                        />
+                        <label for="tournament-match-${idx}" class="text-sm text-indigo-700">
+                            Für <strong>${tournamentName}</strong> (Runde ${m.round_number}) werten
+                        </label>
+                    </div>
+                `;
+            }).join('');
+
+            // Only allow one checkbox to be selected at a time
+            tournamentOptions.querySelectorAll('.tournament-match-checkbox').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        tournamentOptions.querySelectorAll('.tournament-match-checkbox').forEach(other => {
+                            if (other !== e.target) other.checked = false;
+                        });
+                    }
+                });
+            });
+
+            tournamentInfo.classList.remove('hidden');
+        } else {
+            tournamentInfo.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('[MatchForm] Error checking tournament matches:', err);
+        pendingTournamentMatches = [];
+        tournamentInfo.classList.add('hidden');
+    }
+}
+
+/**
+ * Gewählte Turnier-Match-ID abrufen (falls angekreuzt)
+ */
+function getSelectedTournamentMatchId() {
+    const checked = document.querySelector('.tournament-match-checkbox:checked');
+    return checked ? checked.dataset.tournamentMatchId : null;
+}
+
+/**
  * Match-Anfrage absenden
  */
 async function submitMatchRequest(callbacks = {}) {
@@ -685,6 +768,7 @@ async function submitMatchRequest(callbacks = {}) {
     const opponentClubId = selectedOpponent.clubId || selectedOpponent.club_id || null;
 
     const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
+    const tournamentMatchId = getSelectedTournamentMatchId();
 
     try {
         const handicapData = handicapUsed && currentHandicapDetails ? {
@@ -693,29 +777,35 @@ async function submitMatchRequest(callbacks = {}) {
             points: currentHandicapDetails.points
         } : null;
 
+        const insertData = {
+            player_a_id: currentUser.id,
+            player_b_id: selectedOpponent.id,
+            club_id: myClubId,
+            sport_id: sportId,
+            sets: sets,
+            match_mode: matchMode,
+            handicap_used: handicapUsed,
+            handicap: handicapData,
+            winner_id: winnerId,
+            loser_id: loserId,
+            status: 'pending_player',
+            is_cross_club: isCrossClub,
+            approvals: {
+                player_a: true,
+                player_b: false,
+                coach_a: null,
+                coach_b: null
+            },
+            created_at: new Date().toISOString()
+        };
+
+        if (tournamentMatchId) {
+            insertData.tournament_match_id = tournamentMatchId;
+        }
+
         const { data: insertedRequest, error } = await supabase
             .from('match_requests')
-            .insert({
-                player_a_id: currentUser.id,
-                player_b_id: selectedOpponent.id,
-                club_id: myClubId,
-                sport_id: sportId,
-                sets: sets,
-                match_mode: matchMode,
-                handicap_used: handicapUsed,
-                handicap: handicapData,
-                winner_id: winnerId,
-                loser_id: loserId,
-                status: 'pending_player',
-                is_cross_club: isCrossClub,
-                approvals: {
-                    player_a: true,
-                    player_b: false,
-                    coach_a: null,
-                    coach_b: null
-                },
-                created_at: new Date().toISOString()
-            })
+            .insert(insertData)
             .select('id')
             .single();
 
@@ -742,21 +832,37 @@ async function submitMatchRequest(callbacks = {}) {
             notificationBody += ' [Handicap]';
         }
 
+        // Add tournament info to notification
+        let notificationTitle = 'Neue Spielanfrage';
+        const notificationData = {
+            request_id: insertedRequest?.id,
+            requester_id: currentUser.id,
+            requester_name: playerName,
+            winner_id: winnerId,
+            loser_id: loserId,
+            sets: JSON.stringify(sets),
+            set_score: setScore,
+            handicap_used: handicapUsed ? 'true' : 'false'
+        };
+
+        if (tournamentMatchId) {
+            const selectedMatch = pendingTournamentMatches.find(m => m.id === tournamentMatchId);
+            if (selectedMatch) {
+                const tName = selectedMatch.tournament?.name || 'Turnier';
+                notificationBody += ` [Turnier: ${tName}, Runde ${selectedMatch.round_number}]`;
+                notificationTitle = 'Turnier-Spielanfrage';
+                notificationData.tournament_match_id = tournamentMatchId;
+                notificationData.tournament_name = tName;
+                notificationData.tournament_round = selectedMatch.round_number;
+            }
+        }
+
         await createNotification(
             selectedOpponent.id,
             'match_request',
-            'Neue Spielanfrage',
+            notificationTitle,
             notificationBody,
-            {
-                request_id: insertedRequest?.id,
-                requester_id: currentUser.id,
-                requester_name: playerName,
-                winner_id: winnerId,
-                loser_id: loserId,
-                sets: JSON.stringify(sets),
-                set_score: setScore,
-                handicap_used: handicapUsed ? 'true' : 'false'
-            }
+            notificationData
         );
 
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');

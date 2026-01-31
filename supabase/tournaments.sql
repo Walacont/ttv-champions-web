@@ -152,6 +152,10 @@ CREATE TABLE IF NOT EXISTS tournament_standings (
 ALTER TABLE match_requests
 ADD COLUMN IF NOT EXISTS tournament_match_id UUID REFERENCES tournament_matches(id) ON DELETE SET NULL;
 
+-- tournament_match_id on matches (for activity feed filtering)
+ALTER TABLE matches
+ADD COLUMN IF NOT EXISTS tournament_match_id UUID REFERENCES tournament_matches(id) ON DELETE SET NULL;
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -177,6 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_tournament_standings_tournament ON tournament_sta
 CREATE INDEX IF NOT EXISTS idx_tournament_standings_player ON tournament_standings(player_id);
 
 CREATE INDEX IF NOT EXISTS idx_match_requests_tournament_match ON match_requests(tournament_match_id);
+CREATE INDEX IF NOT EXISTS idx_matches_tournament_match ON matches(tournament_match_id) WHERE tournament_match_id IS NOT NULL;
 
 -- ============================================
 -- TRIGGERS

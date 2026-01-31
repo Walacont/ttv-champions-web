@@ -506,6 +506,27 @@
                         </div>
                     </div>
 
+                    <!-- Active Tournament Banner -->
+                    <div id="active-tournament-banner" class="hidden mb-4">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-trophy text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h3 id="tournament-banner-name" class="font-bold text-indigo-900 text-sm"></h3>
+                                        <p id="tournament-banner-round" class="text-xs text-indigo-700"></p>
+                                    </div>
+                                </div>
+                                <div id="tournament-banner-next" class="bg-white rounded-lg p-3 mt-2">
+                                    <p class="text-xs text-gray-500 mb-1">Nächster Gegner</p>
+                                    <p id="tournament-banner-opponent" class="font-semibold text-gray-900"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
                         <!-- Filter and Create Post Button -->
@@ -765,7 +786,7 @@
                         <!-- Match Request Form -->
                         <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
                             <h2 class="text-lg font-bold text-gray-800 mb-1">
-                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf melden</span>
+                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf eintragen</span>
                             </h2>
                             <p class="text-xs text-gray-600 mb-4" data-i18n="dashboard.matches.report.subtitle">Für bereits gespielte Matches</p>
                             <form id="match-request-form" class="space-y-6">
@@ -1001,6 +1022,19 @@
                                         >
                                             Handicap wurde verwendet
                                         </label>
+                                    </div>
+                                </div>
+
+                                <!-- Tournament Match Info -->
+                                <div
+                                    id="tournament-match-info"
+                                    class="hidden bg-indigo-50 border border-indigo-200 rounded-md p-4"
+                                >
+                                    <p class="text-sm text-indigo-800 font-medium mb-2">
+                                        <i class="fas fa-trophy"></i> Turnierspiel
+                                    </p>
+                                    <div id="tournament-match-options" class="space-y-2">
+                                        <!-- Tournament match checkboxes will be inserted dynamically -->
                                     </div>
                                 </div>
 

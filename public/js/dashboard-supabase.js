@@ -21,7 +21,7 @@ import { initPlayerEvents } from './player-events-supabase.js';
 import { initComments } from './activity-comments.js';
 
 import { initMatchMedia } from './match-media.js';
-import { initTournamentsUI } from './tournaments-ui-supabase.js';
+import { initTournamentsUI, loadActiveTournamentBanner } from './tournaments-ui-supabase.js';
 import { initI18n, translatePage } from './i18n.js';
 import { loadAllPendingConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
@@ -577,6 +577,7 @@ async function initializeDashboard() {
     const tournamentSportId = currentSportContext?.sportId || currentUserData.active_sport_id;
     if (tournamentClubId && tournamentSportId) {
         initTournamentsUI(currentUser.id, tournamentClubId, tournamentSportId);
+        loadActiveTournamentBanner();
     }
 
     // Video-Analyse für Spieler initialisieren (Upload-Funktion)

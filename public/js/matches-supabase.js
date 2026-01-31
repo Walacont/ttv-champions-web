@@ -1972,23 +1972,30 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     return;
                 }
 
+                const matchInsertData = {
+                    player_a_id: request.player_a_id,
+                    player_b_id: request.player_b_id,
+                    winner_id: request.winner_id,
+                    loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
+                    player_a_sets_won: request.player_a_sets_won,
+                    player_b_sets_won: request.player_b_sets_won,
+                    sets: request.sets || [],
+                    club_id: request.club_id,
+                    created_by: request.created_by,
+                    sport_id: request.sport_id,
+                    match_mode: request.match_mode || 'best-of-5',
+                    handicap_used: request.handicap_used || false,
+                    played_at: request.created_at || new Date().toISOString()
+                };
+
+                // Link tournament match if present
+                if (request.tournament_match_id) {
+                    matchInsertData.tournament_match_id = request.tournament_match_id;
+                }
+
                 const { data: match, error: matchError } = await supabase
                     .from('matches')
-                    .insert({
-                        player_a_id: request.player_a_id,
-                        player_b_id: request.player_b_id,
-                        winner_id: request.winner_id,
-                        loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
-                        player_a_sets_won: request.player_a_sets_won,
-                        player_b_sets_won: request.player_b_sets_won,
-                        sets: request.sets || [],
-                        club_id: request.club_id,
-                        created_by: request.created_by,
-                        sport_id: request.sport_id,
-                        match_mode: request.match_mode || 'best-of-5',
-                        handicap_used: request.handicap_used || false,
-                        played_at: request.created_at || new Date().toISOString()
-                    })
+                    .insert(matchInsertData)
                     .select()
                     .single();
 

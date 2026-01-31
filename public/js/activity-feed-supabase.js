@@ -281,6 +281,11 @@ function canViewMatch(match, matchType, privacyMap, viewerId, viewerClubId, view
         return true;
     }
 
+    // Tournament matches: only visible to tournament participants (loaded via tournamentParticipantIds)
+    if (match.tournament_match_id && window._tournamentParticipantIds) {
+        return window._tournamentParticipantIds.has(viewerId);
+    }
+
     // Prüfen ob ALLE Spieler Sichtbarkeit basierend auf ihren Datenschutzeinstellungen erlauben
     // Die strengste Einstellung gewinnt - wenn ein Spieler blockiert, ist das Match versteckt
     for (const playerId of playerIds) {
@@ -808,6 +813,23 @@ export async function loadActivityFeed() {
             return;
         }
 
+        // Load tournament participant IDs for filtering tournament matches
+        if (currentUser) {
+            try {
+                const { data: myTournaments } = await supabase
+                    .from('tournament_participants')
+                    .select('tournament_id')
+                    .eq('player_id', currentUser.id);
+                if (myTournaments && myTournaments.length > 0) {
+                    window._tournamentParticipantIds = new Set([currentUser.id]);
+                } else {
+                    window._tournamentParticipantIds = new Set();
+                }
+            } catch {
+                window._tournamentParticipantIds = new Set();
+            }
+        }
+
         // Cache für Paginierung
         followingIdsCache = userIds;
 
@@ -1105,7 +1127,7 @@ async function fetchActivities(userIds) {
             // Einzel-Matches
             supabase
                 .from('matches')
-                .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
+                .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used, tournament_match_id')
                 .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
                 .order('created_at', { ascending: false })
                 .range(typeOffsets.singles, typeOffsets.singles + ACTIVITIES_PER_PAGE * 2 - 1),
