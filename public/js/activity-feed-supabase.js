@@ -2282,17 +2282,24 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     let winnerSets = 0;
     let loserSets = 0;
     const sets = match.sets || [];
-    sets.forEach(set => {
-        const scoreA = set.playerA ?? set.teamA ?? 0;
-        const scoreB = set.playerB ?? set.teamB ?? 0;
-        if (match.winner_id === match.player_a_id) {
-            if (scoreA > scoreB) winnerSets++;
-            else if (scoreB > scoreA) loserSets++;
-        } else {
-            if (scoreB > scoreA) winnerSets++;
-            else if (scoreA > scoreB) loserSets++;
-        }
-    });
+    if (sets.length > 0) {
+        sets.forEach(set => {
+            const scoreA = set.playerA ?? set.teamA ?? 0;
+            const scoreB = set.playerB ?? set.teamB ?? 0;
+            if (match.winner_id === match.player_a_id) {
+                if (scoreA > scoreB) winnerSets++;
+                else if (scoreB > scoreA) loserSets++;
+            } else {
+                if (scoreB > scoreA) winnerSets++;
+                else if (scoreA > scoreB) loserSets++;
+            }
+        });
+    } else if (match.player_a_sets_won || match.player_b_sets_won) {
+        // Fallback: use stored set counts (e.g. quick entry mode without individual set scores)
+        const isWinnerPlayerA = match.winner_id === match.player_a_id;
+        winnerSets = isWinnerPlayerA ? (match.player_a_sets_won || 0) : (match.player_b_sets_won || 0);
+        loserSets = isWinnerPlayerA ? (match.player_b_sets_won || 0) : (match.player_a_sets_won || 0);
+    }
 
     const setScore = `${winnerSets}:${loserSets}`;
 
