@@ -76,7 +76,7 @@ function generateJoinCode() {
 export async function createTournament(tournamentData) {
     try {
         const {
-            name, description = '', format = 'round_robin', maxParticipants,
+            name, description = '', format = 'round_robin', matchMode = 'best-of-5', maxParticipants,
             isOpen = true, isClubOnly = false, withHandicap = false,
             isLive = false, matchDeadlineDays = 7, startDate = null, registrationDeadline = null
         } = tournamentData;
@@ -90,7 +90,7 @@ export async function createTournament(tournamentData) {
             .from('tournaments')
             .insert({
                 name, description, club_id: currentClubId, sport_id: currentSportId,
-                format, max_participants: maxParticipants, is_open: isOpen,
+                format, match_mode: matchMode, max_participants: maxParticipants, is_open: isOpen,
                 is_club_only: isClubOnly, join_code: joinCode, with_handicap: withHandicap,
                 is_live: isLive, match_deadline_days: matchDeadlineDays,
                 status: 'registration', start_date: startDate,

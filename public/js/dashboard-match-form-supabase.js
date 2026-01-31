@@ -673,7 +673,7 @@ async function checkTournamentMatches() {
             .from('tournament_matches')
             .select(`
                 id, round_number, status, player_a_id, player_b_id,
-                tournament:tournaments(id, name, status)
+                tournament:tournaments(id, name, status, match_mode)
             `)
             .in('status', ['pending', 'in_progress'])
             .or(`and(player_a_id.eq.${currentUser.id},player_b_id.eq.${selectedOpponent.id}),and(player_a_id.eq.${selectedOpponent.id},player_b_id.eq.${currentUser.id})`);
@@ -690,11 +690,13 @@ async function checkTournamentMatches() {
         if (activeMatches.length > 0) {
             tournamentOptions.innerHTML = activeMatches.map((m, idx) => {
                 const tournamentName = escapeHtml(m.tournament?.name || 'Turnier');
+                const tMatchMode = m.tournament?.match_mode || 'best-of-5';
                 return `
                     <div class="flex items-center gap-2">
                         <input type="checkbox" id="tournament-match-${idx}"
                             class="tournament-match-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                             data-tournament-match-id="${m.id}"
+                            data-match-mode="${tMatchMode}"
                             ${activeMatches.length === 1 ? 'checked' : ''}
                         />
                         <label for="tournament-match-${idx}" class="text-sm text-indigo-700">
@@ -734,6 +736,11 @@ function getSelectedTournamentMatchId() {
     return checked ? checked.dataset.tournamentMatchId : null;
 }
 
+function getSelectedTournamentMatchMode() {
+    const checked = document.querySelector('.tournament-match-checkbox:checked');
+    return checked ? checked.dataset.matchMode : null;
+}
+
 /**
  * Match-Anfrage absenden
  */
@@ -769,6 +776,16 @@ async function submitMatchRequest(callbacks = {}) {
 
     const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
     const tournamentMatchId = getSelectedTournamentMatchId();
+
+    // Validate match mode matches tournament's match mode
+    if (tournamentMatchId) {
+        const tournamentMatchMode = getSelectedTournamentMatchMode();
+        if (tournamentMatchMode && tournamentMatchMode !== matchMode) {
+            const modeNames = { 'best-of-5': 'Best of 5', 'best-of-3': 'Best of 3', 'best-of-7': 'Best of 7', 'single-set': '1 Satz' };
+            showFeedback(feedbackEl, `Spielmodus stimmt nicht überein! Das Turnier erfordert "${modeNames[tournamentMatchMode] || tournamentMatchMode}", aber du hast "${modeNames[matchMode] || matchMode}" ausgewählt.`, 'error');
+            return;
+        }
+    }
 
     try {
         const handicapData = handicapUsed && currentHandicapDetails ? {

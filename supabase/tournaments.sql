@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     join_code TEXT UNIQUE,
     with_handicap BOOLEAN DEFAULT false,
     is_live BOOLEAN DEFAULT false,
+    match_mode TEXT DEFAULT 'best-of-5',
     match_deadline_days INTEGER DEFAULT 7,
     status tournament_status DEFAULT 'draft',
     start_date TIMESTAMPTZ,

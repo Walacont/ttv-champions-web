@@ -26,6 +26,26 @@ function showToast(message, type = 'info') {
 let currentFilter = 'open';
 let selectedTournamentId = null;
 
+function getMatchModeName(mode) {
+    const names = {
+        'best-of-5': 'Best of 5',
+        'best-of-3': 'Best of 3',
+        'best-of-7': 'Best of 7',
+        'single-set': '1 Satz'
+    };
+    return names[mode] || mode || 'Best of 5';
+}
+
+function getMaxSets(mode) {
+    const map = { 'best-of-5': 5, 'best-of-3': 3, 'best-of-7': 7, 'single-set': 1 };
+    return map[mode] || 5;
+}
+
+function getSetsToWin(mode) {
+    const map = { 'best-of-5': 3, 'best-of-3': 2, 'best-of-7': 4, 'single-set': 1 };
+    return map[mode] || 3;
+}
+
 export async function initTournamentsUI(userId, clubId, sportId) {
     console.log('[Tournaments UI] Initializing...');
     initTournaments(userId, clubId, sportId);
@@ -267,6 +287,7 @@ function renderTournamentDetails(tournament, participating) {
                 ${tournament.description ? `<p class="text-sm text-gray-600 mb-4">${escapeHtml(tournament.description)}</p>` : ''}
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div><span class="text-gray-600">Modus:</span> <span class="font-medium ml-2">${formatName}</span></div>
+                    <div><span class="text-gray-600">Spielmodus:</span> <span class="font-medium ml-2">${getMatchModeName(tournament.match_mode)}</span></div>
                     <div><span class="text-gray-600">Status:</span> <span class="font-medium ml-2">${statusName}</span></div>
                     <div><span class="text-gray-600">Teilnehmer:</span> <span class="font-medium ml-2">${tournament.tournament_participants?.length || 0}/${tournament.max_participants}</span></div>
                     <div><span class="text-gray-600">Erstellt von:</span> <span class="font-medium ml-2">${escapeHtml(creatorName)}</span></div>
@@ -294,7 +315,7 @@ function renderTournamentDetails(tournament, participating) {
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
-                        ${tournament.status === 'in_progress' ? `
+                        ${tournament.status === 'in_progress' && tournament.created_by === getCurrentUserId() ? `
                             <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
                                 <i class="fas fa-bolt mr-1"></i>Eintragen
                             </button>
@@ -583,6 +604,7 @@ async function handleCreateTournament() {
     const name = document.getElementById('tournament-name')?.value;
     const description = document.getElementById('tournament-description')?.value;
     const format = document.getElementById('tournament-format')?.value;
+    const matchMode = document.getElementById('tournament-match-mode')?.value || 'best-of-5';
     const maxParticipants = parseInt(document.getElementById('tournament-max-participants')?.value || '8');
     const accessType = document.querySelector('input[name="tournament-access"]:checked')?.value;
     const visibilityType = document.querySelector('input[name="tournament-visibility"]:checked')?.value;
@@ -590,7 +612,7 @@ async function handleCreateTournament() {
 
     try {
         const tournament = await createTournament({
-            name, description, format, maxParticipants,
+            name, description, format, matchMode, maxParticipants,
             isOpen: accessType === 'open', isClubOnly: visibilityType === 'club', withHandicap
         });
         closeCreateTournamentModal();
@@ -617,6 +639,10 @@ function openQuickMatchEntryModal(tournament) {
     const pendingMatches = (tournament.tournament_matches || []).filter(m => m.status === 'pending' && m.player_b_id);
     if (!pendingMatches.length) { showToast('Keine offenen Matches', 'info'); return; }
 
+    const matchMode = tournament.match_mode || 'best-of-5';
+    const maxSets = getMaxSets(matchMode);
+    const setsToWin = getSetsToWin(matchMode);
+
     const modal = document.createElement('div');
     modal.id = 'quick-match-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
@@ -627,6 +653,7 @@ function openQuickMatchEntryModal(tournament) {
                     <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-bolt text-indigo-600 mr-2"></i>Match eintragen</h3>
                     <button id="close-quick-match" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
                 </div>
+                <div class="mb-3 text-xs text-gray-500">Spielmodus: <span class="font-medium">${getMatchModeName(matchMode)}</span></div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Match auswählen</label>
                     <select id="quick-match-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
@@ -638,21 +665,36 @@ function openQuickMatchEntryModal(tournament) {
                         }).join('')}
                     </select>
                 </div>
-                <div id="quick-match-form" class="hidden">
-                    <div class="mb-4">
+                <div id="quick-match-form" class="hidden space-y-4">
+                    <div class="flex gap-2 mb-2">
+                        <button type="button" class="quick-entry-mode flex-1 py-1.5 px-3 text-sm font-medium rounded-lg bg-indigo-600 text-white" data-mode="quick">Schnell (Sätze)</button>
+                        <button type="button" class="quick-entry-mode flex-1 py-1.5 px-3 text-sm font-medium rounded-lg bg-gray-200 text-gray-700" data-mode="detailed">Detail (Punkte)</button>
+                    </div>
+
+                    <div id="quick-mode-sets">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ergebnis (Sätze)</label>
                         <div class="grid grid-cols-3 gap-2 items-center">
                             <div>
-                                <input type="number" id="quick-sets-a" min="0" max="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center" placeholder="0">
-                                <div id="quick-player-a-name" class="text-xs text-gray-600 mt-1 text-center"></div>
+                                <input type="number" id="quick-sets-a" min="0" max="${maxSets}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold" placeholder="0">
+                                <div id="quick-player-a-name" class="text-xs text-gray-600 mt-1 text-center truncate"></div>
                             </div>
-                            <div class="text-center text-gray-400 font-bold">:</div>
+                            <div class="text-center text-gray-400 font-bold text-xl">:</div>
                             <div>
-                                <input type="number" id="quick-sets-b" min="0" max="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center" placeholder="0">
-                                <div id="quick-player-b-name" class="text-xs text-gray-600 mt-1 text-center"></div>
+                                <input type="number" id="quick-sets-b" min="0" max="${maxSets}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold" placeholder="0">
+                                <div id="quick-player-b-name" class="text-xs text-gray-600 mt-1 text-center truncate"></div>
                             </div>
                         </div>
                     </div>
+
+                    <div id="quick-mode-detailed" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <span id="detail-player-a-name" class="text-xs font-medium text-gray-700 truncate max-w-[40%]"></span>
+                            <span id="detail-player-b-name" class="text-xs font-medium text-gray-700 truncate max-w-[40%] text-right"></span>
+                        </div>
+                        <div id="detail-sets-container" class="space-y-2"></div>
+                        <div id="detail-result-preview" class="mt-2 text-center text-sm font-medium text-gray-600"></div>
+                    </div>
+
                     <div class="flex gap-2">
                         <button id="cancel-quick-match" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
                         <button id="submit-quick-match" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Speichern</button>
@@ -663,15 +705,82 @@ function openQuickMatchEntryModal(tournament) {
     `;
     document.body.appendChild(modal);
 
+    let entryMode = 'quick';
     const matchSelect = modal.querySelector('#quick-match-select');
     const matchForm = modal.querySelector('#quick-match-form');
     let selectedMatch = null;
 
+    // Mode toggle
+    modal.querySelectorAll('.quick-entry-mode').forEach(btn => {
+        btn.addEventListener('click', () => {
+            entryMode = btn.dataset.mode;
+            modal.querySelectorAll('.quick-entry-mode').forEach(b => {
+                b.classList.toggle('bg-indigo-600', b.dataset.mode === entryMode);
+                b.classList.toggle('text-white', b.dataset.mode === entryMode);
+                b.classList.toggle('bg-gray-200', b.dataset.mode !== entryMode);
+                b.classList.toggle('text-gray-700', b.dataset.mode !== entryMode);
+            });
+            modal.querySelector('#quick-mode-sets').classList.toggle('hidden', entryMode !== 'quick');
+            modal.querySelector('#quick-mode-detailed').classList.toggle('hidden', entryMode !== 'detailed');
+        });
+    });
+
+    function renderDetailedSets() {
+        const container = modal.querySelector('#detail-sets-container');
+        container.innerHTML = '';
+        for (let i = 0; i < maxSets; i++) {
+            container.innerHTML += `
+                <div class="grid grid-cols-3 gap-2 items-center">
+                    <input type="number" min="0" class="detail-score-a w-full px-2 py-1.5 border border-gray-300 rounded text-center text-sm" data-set="${i}" placeholder="0">
+                    <div class="text-center text-gray-400 text-xs">Satz ${i + 1}</div>
+                    <input type="number" min="0" class="detail-score-b w-full px-2 py-1.5 border border-gray-300 rounded text-center text-sm" data-set="${i}" placeholder="0">
+                </div>
+            `;
+        }
+        container.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateDetailedPreview);
+        });
+    }
+
+    function getDetailedSets() {
+        const sets = [];
+        for (let i = 0; i < maxSets; i++) {
+            const a = parseInt(modal.querySelector(`.detail-score-a[data-set="${i}"]`)?.value) || 0;
+            const b = parseInt(modal.querySelector(`.detail-score-b[data-set="${i}"]`)?.value) || 0;
+            if (a > 0 || b > 0) sets.push({ playerA: a, playerB: b });
+        }
+        return sets;
+    }
+
+    function updateDetailedPreview() {
+        const sets = getDetailedSets();
+        let sA = 0, sB = 0;
+        for (const s of sets) {
+            if (s.playerA > s.playerB) sA++;
+            else if (s.playerB > s.playerA) sB++;
+        }
+        const preview = modal.querySelector('#detail-result-preview');
+        if (sets.length > 0) {
+            const setsStr = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+            preview.textContent = `Sätze: ${sA}:${sB} (${setsStr})`;
+            preview.className = (sA >= setsToWin || sB >= setsToWin)
+                ? 'mt-2 text-center text-sm font-medium text-green-600'
+                : 'mt-2 text-center text-sm font-medium text-gray-600';
+        } else {
+            preview.textContent = '';
+        }
+    }
+
     matchSelect.addEventListener('change', () => {
         if (matchSelect.value) {
             selectedMatch = pendingMatches.find(m => m.id === matchSelect.value);
-            modal.querySelector('#quick-player-a-name').textContent = getPlayerName(selectedMatch.player_a);
-            modal.querySelector('#quick-player-b-name').textContent = getPlayerName(selectedMatch.player_b);
+            const nameA = getPlayerName(selectedMatch.player_a);
+            const nameB = getPlayerName(selectedMatch.player_b);
+            modal.querySelector('#quick-player-a-name').textContent = nameA;
+            modal.querySelector('#quick-player-b-name').textContent = nameB;
+            modal.querySelector('#detail-player-a-name').textContent = nameA;
+            modal.querySelector('#detail-player-b-name').textContent = nameB;
+            renderDetailedSets();
             matchForm.classList.remove('hidden');
         } else {
             matchForm.classList.add('hidden');
@@ -685,8 +794,26 @@ function openQuickMatchEntryModal(tournament) {
 
     modal.querySelector('#submit-quick-match').addEventListener('click', async () => {
         if (!selectedMatch) return;
-        const setsA = parseInt(modal.querySelector('#quick-sets-a').value) || 0;
-        const setsB = parseInt(modal.querySelector('#quick-sets-b').value) || 0;
+
+        let setsA, setsB, setsArray = [];
+
+        if (entryMode === 'quick') {
+            setsA = parseInt(modal.querySelector('#quick-sets-a').value) || 0;
+            setsB = parseInt(modal.querySelector('#quick-sets-b').value) || 0;
+        } else {
+            setsArray = getDetailedSets();
+            if (setsArray.length === 0) { showToast('Bitte Satzpunkte eingeben', 'error'); return; }
+            setsA = 0; setsB = 0;
+            for (const s of setsArray) {
+                if (s.playerA > s.playerB) setsA++;
+                else if (s.playerB > s.playerA) setsB++;
+            }
+            if (setsA < setsToWin && setsB < setsToWin) {
+                showToast(`Mindestens ${setsToWin} Sätze müssen gewonnen werden (${getMatchModeName(matchMode)})`, 'error');
+                return;
+            }
+        }
+
         if (setsA === 0 && setsB === 0) { showToast('Bitte Ergebnis eingeben', 'error'); return; }
         if (setsA === setsB) { showToast('Unentschieden nicht möglich', 'error'); return; }
 
@@ -704,9 +831,10 @@ function openQuickMatchEntryModal(tournament) {
                     player_a_id: selectedMatch.player_a_id, player_b_id: selectedMatch.player_b_id,
                     winner_id: winnerId, loser_id: loserId,
                     player_a_sets_won: setsA, player_b_sets_won: setsB,
-                    sets: [], club_id: tournament.club_id, created_by: getCurrentUserId(),
+                    sets: setsArray, club_id: tournament.club_id, created_by: getCurrentUserId(),
                     sport_id: tournament.sport_id, played_at: new Date().toISOString(),
-                    match_mode: 'best-of-5', handicap_used: false
+                    match_mode: matchMode, handicap_used: false,
+                    tournament_match_id: selectedMatch.id
                 })
                 .select().single();
             if (matchError) throw matchError;
