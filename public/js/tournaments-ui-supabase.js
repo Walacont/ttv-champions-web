@@ -172,7 +172,9 @@ async function loadTournaments() {
 function renderTournamentCard(tournament) {
     const count = tournament.tournament_participants?.[0]?.count ?? tournament.participant_count ?? 0;
     const max = tournament.max_participants;
-    const pct = (count / max) * 100;
+    const isRegistration = tournament.status === 'registration';
+    const displayCount = isRegistration ? `${count}/${max}` : `${count} Teilnehmer`;
+    const pct = isRegistration ? (count / max) * 100 : 100;
     const badge = getStatusBadge(tournament.status);
     const fmt = getTournamentFormatName(tournament.format);
 
@@ -187,13 +189,15 @@ function renderTournamentCard(tournament) {
             </div>
             <div class="flex items-center justify-between text-xs mt-3">
                 <div class="flex items-center gap-3">
-                    <span class="text-gray-700"><i class="fas fa-users mr-1"></i>${count}/${max}</span>
+                    <span class="text-gray-700"><i class="fas fa-users mr-1"></i>${displayCount}</span>
                     ${!tournament.is_open ? '<i class="fas fa-lock text-gray-500" title="Nur mit Code"></i>' : ''}
                     ${tournament.with_handicap ? '<i class="fas fa-balance-scale text-blue-500" title="Mit Handicap"></i>' : ''}
                 </div>
+                ${isRegistration ? `
                 <div class="w-24 bg-gray-200 rounded-full h-2">
                     <div class="bg-indigo-600 h-2 rounded-full" style="width: ${pct}%"></div>
                 </div>
+                ` : ''}
             </div>
         </div>
     `;
