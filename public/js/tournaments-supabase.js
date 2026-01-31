@@ -338,24 +338,33 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
             .from('matches').select('*').eq('id', matchId).single();
         if (matchError) throw matchError;
 
+        // Fetch tournament match to compare player order
+        const { data: tournamentMatch, error: tmError } = await supabase
+            .from('tournament_matches')
+            .select('tournament_id, player_a_id, player_b_id')
+            .eq('id', tournamentMatchId).single();
+        if (tmError) throw tmError;
+
+        // Check if player order matches between match and tournament_match
+        // If match.player_a is tournament_match.player_a → same order
+        // If match.player_a is tournament_match.player_b → swapped order
+        const sameOrder = match.player_a_id === tournamentMatch.player_a_id;
+        const tmPlayerASets = sameOrder ? match.player_a_sets_won : match.player_b_sets_won;
+        const tmPlayerBSets = sameOrder ? match.player_b_sets_won : match.player_a_sets_won;
+
         const { error: updateError } = await supabase
             .from('tournament_matches')
             .update({
                 match_id: matchId, status: 'completed', winner_id: match.winner_id,
-                player_a_sets_won: match.player_a_sets_won, player_b_sets_won: match.player_b_sets_won,
+                player_a_sets_won: tmPlayerASets, player_b_sets_won: tmPlayerBSets,
                 completed_at: new Date().toISOString()
             })
             .eq('id', tournamentMatchId);
         if (updateError) throw updateError;
 
-        const { data: tournamentMatch } = await supabase
-            .from('tournament_matches')
-            .select('tournament_id, player_a_id, player_b_id')
-            .eq('id', tournamentMatchId).single();
-
         await updateStandings(
             tournamentMatch.tournament_id, tournamentMatch.player_a_id, tournamentMatch.player_b_id,
-            match.winner_id, match.player_a_sets_won, match.player_b_sets_won
+            match.winner_id, tmPlayerASets, tmPlayerBSets
         );
 
         await checkAndCompleteTournament(tournamentMatch.tournament_id);
