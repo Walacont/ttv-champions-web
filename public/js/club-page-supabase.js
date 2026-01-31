@@ -168,9 +168,7 @@ function renderContactView(settings) {
     if (settings.email) {
         items.push(`
             <a href="mailto:${escapeHtml(settings.email)}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-envelope text-emerald-600 text-xs"></i>
-                </div>
+                <i class="fas fa-envelope text-indigo-400"></i>
                 <span class="text-sm text-gray-700">${escapeHtml(settings.email)}</span>
             </a>
         `);
@@ -178,9 +176,7 @@ function renderContactView(settings) {
     if (settings.phone) {
         items.push(`
             <a href="tel:${escapeHtml(settings.phone)}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-phone text-blue-600 text-xs"></i>
-                </div>
+                <i class="fas fa-phone text-indigo-400"></i>
                 <span class="text-sm text-gray-700">${escapeHtml(settings.phone)}</span>
             </a>
         `);
@@ -188,9 +184,7 @@ function renderContactView(settings) {
     if (settings.website) {
         items.push(`
             <a href="${escapeHtml(settings.website)}" target="_blank" rel="noopener" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-globe text-purple-600 text-xs"></i>
-                </div>
+                <i class="fas fa-globe text-indigo-400"></i>
                 <span class="text-sm text-gray-700 truncate">${escapeHtml(settings.website)}</span>
             </a>
         `);
@@ -200,9 +194,7 @@ function renderContactView(settings) {
     if (addressParts.length > 0) {
         items.push(`
             <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-map-marker-alt text-rose-600 text-xs"></i>
-                </div>
+                <i class="fas fa-map-marker-alt text-indigo-400"></i>
                 <span class="text-sm text-gray-700">${escapeHtml(addressParts.join(', '))}</span>
             </div>
         `);
@@ -224,7 +216,7 @@ function renderViewSportSections(club) {
 
     const sportIds = Object.keys(sd);
     if (sportIds.length === 0) {
-        container.innerHTML = '<div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center"><p class="text-gray-400 text-sm py-2">Noch keine Sparteninformationen hinterlegt.</p></div>';
+        container.innerHTML = '<div class="bg-white rounded-xl shadow-md p-6 text-center"><p class="text-gray-400 text-sm py-2">Noch keine Sparteninformationen hinterlegt.</p></div>';
         return;
     }
 
@@ -243,24 +235,19 @@ function renderViewSportSections(club) {
                 const times = data.training_times || [];
 
                 return `
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                        <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-                            <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-trophy text-indigo-600 text-sm"></i>
-                            </div>
-                            ${escapeHtml(name)}
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h2 class="text-lg font-bold text-gray-800 mb-3">
+                            <i class="fas fa-trophy text-indigo-600 mr-2"></i>${escapeHtml(name)}
                         </h2>
                         ${desc ? `<p class="text-sm text-gray-600 mb-4 leading-relaxed">${escapeHtml(desc)}</p>` : ''}
                         ${times.length > 0 ? `
-                            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Trainingszeiten</h3>
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">Trainingszeiten</h3>
                             <div class="space-y-2">
                                 ${times.map(t => `
                                     <div class="flex items-center gap-3 bg-gray-50 px-3 py-2.5 rounded-lg">
-                                        <div class="w-6 h-6 bg-amber-100 rounded flex items-center justify-center flex-shrink-0">
-                                            <i class="fas fa-calendar-day text-amber-600 text-xs"></i>
-                                        </div>
+                                        <i class="fas fa-calendar-day text-indigo-400 text-sm"></i>
                                         <span class="font-medium text-gray-800 text-sm">${escapeHtml(t.day)}</span>
-                                        <span class="text-gray-400 text-sm ml-auto">${escapeHtml(t.start || '')} – ${escapeHtml(t.end || '')}</span>
+                                        <span class="text-gray-500 text-sm ml-auto">${escapeHtml(t.start || '')} – ${escapeHtml(t.end || '')}</span>
                                     </div>
                                 `).join('')}
                             </div>
