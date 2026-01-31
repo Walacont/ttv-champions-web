@@ -186,9 +186,18 @@ export async function startTournament(tournamentId) {
             .eq('id', tournamentId).single();
         if (tournamentError) throw tournamentError;
         if (tournament.created_by !== currentUserId) throw new Error('Nur der Turnier-Ersteller kann das Turnier starten');
+        if (tournament.status !== 'registration') throw new Error('Turnier kann nur aus dem Anmeldestatus gestartet werden');
 
         const participantCount = tournament.tournament_participants?.length || 0;
         if (participantCount < 2) throw new Error('Mindestens 2 Teilnehmer erforderlich');
+
+        // Set status FIRST to prevent double-start
+        const { error: updateError } = await supabase
+            .from('tournaments')
+            .update({ status: 'in_progress', started_at: new Date().toISOString() })
+            .eq('id', tournamentId)
+            .eq('status', 'registration'); // Only update if still in registration
+        if (updateError) throw updateError;
 
         await assignSeeds(tournamentId);
 
@@ -197,12 +206,6 @@ export async function startTournament(tournamentId) {
         } else {
             throw new Error(`Format ${tournament.format} wird noch nicht unterstützt`);
         }
-
-        const { error: updateError } = await supabase
-            .from('tournaments')
-            .update({ status: 'in_progress', started_at: new Date().toISOString() })
-            .eq('id', tournamentId);
-        if (updateError) throw updateError;
 
         showToast('Turnier gestartet! Matches wurden generiert.', 'success');
         return true;
@@ -223,8 +226,17 @@ export async function regeneratePairings(tournamentId) {
         if (tournament.created_by !== currentUserId) throw new Error('Nur der Turnier-Ersteller kann die Paarungen neu generieren');
         if (tournament.status !== 'in_progress') throw new Error('Turnier muss gestartet sein');
 
-        await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
-        await supabase.from('tournament_standings').delete().eq('tournament_id', tournamentId);
+        const { error: delMatchErr } = await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+        if (delMatchErr) throw new Error('Spiele konnten nicht gelöscht werden: ' + delMatchErr.message);
+
+        const { error: delStandErr } = await supabase.from('tournament_standings').delete().eq('tournament_id', tournamentId);
+        if (delStandErr) throw new Error('Tabelle konnte nicht gelöscht werden: ' + delStandErr.message);
+
+        // Verify deletion actually worked (RLS might silently block DELETE)
+        const { data: remaining } = await supabase.from('tournament_matches').select('id').eq('tournament_id', tournamentId).limit(1);
+        if (remaining && remaining.length > 0) {
+            throw new Error('Alte Spiele konnten nicht gelöscht werden. Bitte DELETE-Policies in der Datenbank prüfen.');
+        }
 
         await assignSeeds(tournamentId);
         if (tournament.format === 'round_robin') {
@@ -252,6 +264,9 @@ async function assignSeeds(tournamentId) {
 }
 
 async function generateRoundRobinMatches(tournamentId) {
+    // Safety: remove any existing matches before generating (prevents duplicates)
+    await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+
     const { data: participants, error } = await supabase
         .from('tournament_participants').select('player_id, seed')
         .eq('tournament_id', tournamentId).order('seed', { ascending: true });
