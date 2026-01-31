@@ -572,11 +572,11 @@ async function initializeDashboard() {
     // Match-Medien-Modul initialisieren
     initMatchMedia(currentUserData);
 
-    // Turniere initialisieren
+    // Turniere initialisieren (immer, damit Sub-Tab-Wechsel funktioniert)
     const tournamentClubId = currentSportContext?.clubId || currentUserData.club_id;
     const tournamentSportId = currentSportContext?.sportId || currentUserData.active_sport_id;
+    initTournamentsUI(currentUser.id, tournamentClubId, tournamentSportId);
     if (tournamentClubId && tournamentSportId) {
-        initTournamentsUI(currentUser.id, tournamentClubId, tournamentSportId);
         loadActiveTournamentBanner();
     }
 

@@ -82,6 +82,7 @@ export async function createTournament(tournamentData) {
         } = tournamentData;
 
         if (!name || !maxParticipants) throw new Error('Name und Teilnehmerzahl sind erforderlich');
+        if (!currentClubId || !currentSportId) throw new Error('Kein Verein oder Sportart ausgewählt');
         if (format === 'round_robin' && maxParticipants > 10) throw new Error('Jeder gegen Jeden ist nur bis 10 Spieler möglich');
 
         const joinCode = !isOpen ? generateJoinCode() : null;
@@ -464,6 +465,10 @@ async function calculateRanks(tournamentId) {
 
 export async function getTournaments(status = null) {
     try {
+        if (!currentSportId) {
+            console.warn('[Tournaments] No sport_id set, cannot load tournaments');
+            return [];
+        }
         let query = supabase
             .from('tournaments')
             .select(`
@@ -471,6 +476,7 @@ export async function getTournaments(status = null) {
                 created_by_profile:profiles!tournaments_created_by_fkey(id, display_name, first_name, last_name),
                 tournament_participants(count)
             `)
+            .eq('club_id', currentClubId)
             .eq('sport_id', currentSportId)
             .order('created_at', { ascending: false });
 
