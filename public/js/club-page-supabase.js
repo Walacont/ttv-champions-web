@@ -1,6 +1,7 @@
 /**
  * Club Page Module - Vereinsseite für Coaches/Head-Coaches
- * Ermöglicht das Bearbeiten von Vereinsinfo, Logo, Trainingszeiten etc.
+ * Pro Sportart: Beschreibung, Trainingszeiten
+ * Club-Level: Name, Logo, Kontakt, Adresse
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -11,7 +12,10 @@ const supabase = getSupabase();
 
 let currentUser = null;
 let currentClub = null;
-let trainingTimes = [];
+let clubSports = [];        // [{sport_id, sport_name, display_name}]
+let activeSportId = null;    // aktuell gewählte Sportart
+let sportData = {};          // { [sport_id]: { description, training_times } }
+let trainingTimes = [];      // aktuelle Trainingszeiten der gewählten Sportart
 
 const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -27,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('id, role, club_id')
+            .select('id, role, club_id, active_sport_id')
             .eq('id', user.id)
             .single();
 
@@ -36,7 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Nur Coaches und Head-Coaches dürfen zugreifen
         if (profile.role !== 'coach' && profile.role !== 'head_coach' && profile.role !== 'admin') {
             showAccessDenied();
             return;
@@ -44,22 +47,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         currentUser = { ...user, ...profile };
 
-        // Club-Daten laden
-        const { data: club } = await supabase
-            .from('clubs')
-            .select('id, name, description, logo_url, settings, created_at')
-            .eq('id', profile.club_id)
-            .single();
+        // Club-Daten + Sportarten parallel laden
+        const [clubRes, sportsRes] = await Promise.all([
+            supabase.from('clubs')
+                .select('id, name, description, logo_url, settings, created_at')
+                .eq('id', profile.club_id)
+                .single(),
+            supabase.from('club_sports')
+                .select('sport_id, sports(id, name, display_name, icon)')
+                .eq('club_id', profile.club_id)
+                .eq('is_active', true)
+        ]);
 
-        if (!club) {
+        if (!clubRes.data) {
             showAccessDenied();
             return;
         }
 
-        currentClub = club;
-        populateForm(club);
-        await loadClubStats(club.id);
+        currentClub = clubRes.data;
+
+        // Sportarten aufbereiten
+        clubSports = (sportsRes.data || []).map(cs => ({
+            sport_id: cs.sport_id,
+            name: cs.sports?.name || '',
+            display_name: cs.sports?.display_name || 'Unbekannt',
+            icon: cs.sports?.icon || 'fa-trophy'
+        }));
+
+        // Sport-spezifische Daten aus settings laden
+        const settings = currentClub.settings || {};
+        sportData = settings.sport_data || {};
+
+        // Aktive Sportart bestimmen (User-Präferenz oder erste)
+        activeSportId = profile.active_sport_id;
+        if (!activeSportId || !clubSports.find(s => s.sport_id === activeSportId)) {
+            activeSportId = clubSports[0]?.sport_id || null;
+        }
+
+        renderSportTabs();
+        populateClubFields(currentClub);
+        loadSportFields(activeSportId);
         setupEventListeners();
+        await loadClubStats(currentClub.id, activeSportId);
 
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
@@ -75,36 +104,103 @@ function showAccessDenied() {
     document.getElementById('access-denied').classList.remove('hidden');
 }
 
-// ─── Form befüllen ───────────────────────────────────────────
+// ─── Sport-Tabs ──────────────────────────────────────────────
 
-function populateForm(club) {
-    const nameInput = document.getElementById('club-name-input');
-    const descInput = document.getElementById('club-description-input');
-    const charCount = document.getElementById('desc-char-count');
+function renderSportTabs() {
+    const container = document.getElementById('sport-tabs');
+    if (clubSports.length <= 1) {
+        container.style.display = 'none';
+        // Hints trotzdem setzen
+        updateSportHints();
+        return;
+    }
 
-    nameInput.value = club.name || '';
-    descInput.value = club.description || '';
-    charCount.textContent = (club.description || '').length;
+    container.innerHTML = clubSports.map(s => `
+        <button class="sport-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap ${s.sport_id === activeSportId ? 'active' : ''}"
+                data-sport-id="${s.sport_id}">
+            <i class="fas ${escapeHtml(s.icon)}"></i>
+            ${escapeHtml(s.display_name)}
+        </button>
+    `).join('');
 
-    // Logo
+    container.querySelectorAll('.sport-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Aktuelle Sport-Daten speichern bevor gewechselt wird
+            saveSportFieldsToMemory(activeSportId);
+
+            activeSportId = tab.dataset.sportId;
+
+            // Tabs aktualisieren
+            container.querySelectorAll('.sport-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Felder für neue Sportart laden
+            loadSportFields(activeSportId);
+            loadClubStats(currentClub.id, activeSportId);
+        });
+    });
+
+    updateSportHints();
+}
+
+function updateSportHints() {
+    const sport = clubSports.find(s => s.sport_id === activeSportId);
+    const sportName = sport?.display_name || '';
+
+    const sportHint = document.getElementById('sport-section-hint');
+    const trainingHint = document.getElementById('training-section-hint');
+
+    if (sportHint) sportHint.textContent = sportName ? `Gilt für: ${sportName}` : '';
+    if (trainingHint) trainingHint.textContent = sportName ? `Gilt für: ${sportName}` : '';
+}
+
+// ─── Club-Level Felder (gemeinsam) ───────────────────────────
+
+function populateClubFields(club) {
+    document.getElementById('club-name-input').value = club.name || '';
+
     if (club.logo_url) {
         document.getElementById('club-logo-preview').src = club.logo_url;
         document.getElementById('remove-logo-btn').classList.remove('hidden');
     }
 
-    // Settings aus JSONB
     const settings = club.settings || {};
-
     document.getElementById('club-email-input').value = settings.email || '';
     document.getElementById('club-phone-input').value = settings.phone || '';
     document.getElementById('club-website-input').value = settings.website || '';
     document.getElementById('club-address-input').value = settings.address || '';
     document.getElementById('club-zip-input').value = settings.zip || '';
     document.getElementById('club-city-input').value = settings.city || '';
+}
+
+// ─── Sport-spezifische Felder ────────────────────────────────
+
+function loadSportFields(sportId) {
+    if (!sportId) return;
+
+    const data = sportData[sportId] || {};
+
+    // Beschreibung
+    const descInput = document.getElementById('club-description-input');
+    descInput.value = data.description || '';
+    document.getElementById('desc-char-count').textContent = (data.description || '').length;
 
     // Trainingszeiten
-    trainingTimes = settings.training_times || [];
+    trainingTimes = data.training_times ? [...data.training_times] : [];
     renderTrainingTimes();
+
+    updateSportHints();
+}
+
+function saveSportFieldsToMemory(sportId) {
+    if (!sportId) return;
+
+    syncTrainingTimesFromDOM();
+
+    sportData[sportId] = {
+        description: document.getElementById('club-description-input').value.trim(),
+        training_times: trainingTimes
+    };
 }
 
 // ─── Trainingszeiten ─────────────────────────────────────────
@@ -132,7 +228,6 @@ function renderTrainingTimes() {
         </div>
     `).join('');
 
-    // Remove-Listener
     container.querySelectorAll('.remove-training-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const idx = parseInt(btn.dataset.index);
@@ -141,7 +236,6 @@ function renderTrainingTimes() {
         });
     });
 
-    // Change-Listener für automatisches Speichern in Array
     container.querySelectorAll('[data-index]').forEach(row => {
         const idx = parseInt(row.dataset.index);
         const daySelect = row.querySelector('.training-day');
@@ -163,25 +257,18 @@ function renderTrainingTimes() {
 // ─── Event Listeners ─────────────────────────────────────────
 
 function setupEventListeners() {
-    // Zeichenzähler
     const descInput = document.getElementById('club-description-input');
     descInput.addEventListener('input', () => {
         document.getElementById('desc-char-count').textContent = descInput.value.length;
     });
 
-    // Trainingszeit hinzufügen
     document.getElementById('add-training-time-btn').addEventListener('click', () => {
         trainingTimes.push({ day: 'Montag', start: '18:00', end: '20:00' });
         renderTrainingTimes();
     });
 
-    // Logo Upload
     document.getElementById('logo-upload-input').addEventListener('change', handleLogoUpload);
-
-    // Logo entfernen
     document.getElementById('remove-logo-btn').addEventListener('click', handleLogoRemove);
-
-    // Speichern
     document.getElementById('save-club-btn').addEventListener('click', handleSave);
 }
 
@@ -191,13 +278,11 @@ async function handleLogoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Max 2MB
     if (file.size > 2 * 1024 * 1024) {
         showStatus('Logo darf maximal 2 MB groß sein.', 'error');
         return;
     }
 
-    // Typ prüfen
     const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
         showStatus('Nur PNG, JPEG, SVG und WebP sind erlaubt.', 'error');
@@ -222,12 +307,9 @@ async function handleLogoUpload(e) {
 
         progressBar.style.width = '100%';
 
-        // Preview aktualisieren
         const preview = document.getElementById('club-logo-preview');
         preview.src = result.url;
         document.getElementById('remove-logo-btn').classList.remove('hidden');
-
-        // URL im Club speichern
         currentClub.logo_url = result.url;
 
         setTimeout(() => {
@@ -243,7 +325,6 @@ async function handleLogoUpload(e) {
         showStatus('Fehler beim Hochladen des Logos.', 'error');
     }
 
-    // Input zurücksetzen
     e.target.value = '';
 }
 
@@ -251,7 +332,6 @@ async function handleLogoRemove() {
     if (!currentClub.logo_url) return;
 
     try {
-        // Versuche altes Logo aus R2 zu löschen
         const urlParts = currentClub.logo_url.split('/file/');
         if (urlParts.length > 1) {
             await deleteFromR2(urlParts[1]).catch(() => {});
@@ -276,15 +356,14 @@ async function handleSave() {
 
     try {
         const name = document.getElementById('club-name-input').value.trim();
-        const description = document.getElementById('club-description-input').value.trim();
 
         if (!name) {
             showStatus('Vereinsname darf nicht leer sein.', 'error');
             return;
         }
 
-        // Trainingszeiten aus DOM lesen (falls gerade editiert)
-        syncTrainingTimesFromDOM();
+        // Aktuelle Sportart-Daten aus DOM lesen
+        saveSportFieldsToMemory(activeSportId);
 
         const settings = {
             ...(currentClub.settings || {}),
@@ -294,14 +373,13 @@ async function handleSave() {
             address: document.getElementById('club-address-input').value.trim(),
             zip: document.getElementById('club-zip-input').value.trim(),
             city: document.getElementById('club-city-input').value.trim(),
-            training_times: trainingTimes
+            sport_data: sportData
         };
 
         const { error } = await supabase
             .from('clubs')
             .update({
                 name: name,
-                description: description,
                 logo_url: currentClub.logo_url,
                 settings: settings
             })
@@ -310,7 +388,6 @@ async function handleSave() {
         if (error) throw error;
 
         currentClub.name = name;
-        currentClub.description = description;
         currentClub.settings = settings;
 
         showStatus('Vereinsseite gespeichert!', 'success');
@@ -335,13 +412,28 @@ function syncTrainingTimesFromDOM() {
 
 // ─── Statistik laden ─────────────────────────────────────────
 
-async function loadClubStats(clubId) {
+async function loadClubStats(clubId, sportId) {
     try {
-        const [membersRes, coachesRes, matchesRes] = await Promise.all([
+        const sport = clubSports.find(s => s.sport_id === sportId);
+        const titleEl = document.getElementById('stat-title');
+        if (titleEl) {
+            titleEl.textContent = sport ? `${sport.display_name} – Statistik` : 'Statistik';
+        }
+
+        // Queries basierend auf Sportart filtern
+        const queries = [
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId),
             supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('club_id', clubId).in('role', ['coach', 'head_coach']),
-            supabase.from('matches').select('id', { count: 'exact', head: true }).eq('club_id', clubId)
-        ]);
+        ];
+
+        // Matches nach Sportart filtern wenn vorhanden
+        let matchQuery = supabase.from('matches').select('id', { count: 'exact', head: true }).eq('club_id', clubId);
+        if (sportId) {
+            matchQuery = matchQuery.eq('sport_id', sportId);
+        }
+        queries.push(matchQuery);
+
+        const [membersRes, coachesRes, matchesRes] = await Promise.all(queries);
 
         document.getElementById('stat-members').textContent = membersRes.count || 0;
         document.getElementById('stat-coaches').textContent = coachesRes.count || 0;
