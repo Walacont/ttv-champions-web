@@ -612,6 +612,25 @@
                 // Check if user is a guardian and show "Meine Kinder" card
                 await checkGuardianStatus();
 
+                // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
+                try {
+                    const supabase = getSupabase();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('role, club_id')
+                            .eq('id', user.id)
+                            .single();
+                        const clubPageCard = document.getElementById('club-page-card');
+                        if (clubPageCard && profile && (profile.role === 'coach' || profile.role === 'head_coach') && profile.club_id) {
+                            clubPageCard.classList.remove('hidden');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Club page card check failed:', e);
+                }
+
                 // Setup child mode UI if viewing child's settings
                 setupChildModeUI();
 
