@@ -4,7 +4,7 @@ RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $fn$
 DECLARE
     member_count INT;
     coach_count INT;
@@ -34,4 +34,4 @@ BEGIN
         'matches', match_count
     );
 END;
-$$;
+$fn$;
