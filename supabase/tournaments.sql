@@ -149,9 +149,11 @@ CREATE TABLE IF NOT EXISTS tournament_standings (
     UNIQUE(tournament_id, round_id, player_id)
 );
 
--- tournament_match_id on match_requests
+-- tournament_match_id and set scores on match_requests
 ALTER TABLE match_requests
 ADD COLUMN IF NOT EXISTS tournament_match_id UUID REFERENCES tournament_matches(id) ON DELETE SET NULL;
+ALTER TABLE match_requests ADD COLUMN IF NOT EXISTS player_a_sets_won INTEGER DEFAULT 0;
+ALTER TABLE match_requests ADD COLUMN IF NOT EXISTS player_b_sets_won INTEGER DEFAULT 0;
 
 -- tournament_match_id on matches (for activity feed filtering)
 ALTER TABLE matches

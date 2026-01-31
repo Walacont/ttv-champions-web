@@ -61,6 +61,7 @@ let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 let currentHandicapData = null;
 let currentSportName = 'table_tennis';
+let coachPendingTournamentMatches = [];
 
 /**
  * @param {string} sportName - Sportart (table_tennis, tennis, badminton, padel)
@@ -652,6 +653,81 @@ export function updateMatchUI(clubPlayers) {
         handicapContainer?.classList.add('hidden');
         handicapToggleContainer?.classList.add('hidden');
     }
+
+    // Check for tournament matches between selected players
+    checkCoachTournamentMatches(playerAId, playerBId);
+}
+
+async function checkCoachTournamentMatches(playerAId, playerBId) {
+    const tournamentInfo = document.getElementById('coach-tournament-match-info');
+    const tournamentOptions = document.getElementById('coach-tournament-match-options');
+    if (!tournamentInfo || !tournamentOptions) return;
+
+    if (!playerAId || !playerBId || playerAId === playerBId) {
+        tournamentInfo.classList.add('hidden');
+        coachPendingTournamentMatches = [];
+        return;
+    }
+
+    try {
+        const { data: matches, error } = await supabase
+            .from('tournament_matches')
+            .select(`
+                id, round_number, status, player_a_id, player_b_id,
+                tournament:tournament_id(id, name, status, match_mode)
+            `)
+            .in('status', ['pending', 'in_progress'])
+            .or(`and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_id.eq.${playerAId})`);
+
+        if (error) throw error;
+
+        const activeMatches = (matches || []).filter(m =>
+            m.tournament?.status === 'in_progress'
+        );
+
+        coachPendingTournamentMatches = activeMatches;
+
+        if (activeMatches.length > 0) {
+            tournamentOptions.innerHTML = activeMatches.map((m, idx) => {
+                const tournamentName = escapeHtml(m.tournament?.name || 'Turnier');
+                return `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="coach-tournament-match-${idx}"
+                            class="coach-tournament-match-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            data-tournament-match-id="${m.id}"
+                            ${activeMatches.length === 1 ? 'checked' : ''}
+                        />
+                        <label for="coach-tournament-match-${idx}" class="text-sm text-indigo-700">
+                            Für <strong>${tournamentName}</strong> (Runde ${m.round_number}) werten
+                        </label>
+                    </div>
+                `;
+            }).join('');
+
+            tournamentOptions.querySelectorAll('.coach-tournament-match-checkbox').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        tournamentOptions.querySelectorAll('.coach-tournament-match-checkbox').forEach(other => {
+                            if (other !== e.target) other.checked = false;
+                        });
+                    }
+                });
+            });
+
+            tournamentInfo.classList.remove('hidden');
+        } else {
+            tournamentInfo.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('[Matches] Error checking coach tournament matches:', err);
+        coachPendingTournamentMatches = [];
+        tournamentInfo.classList.add('hidden');
+    }
+}
+
+function getCoachSelectedTournamentMatchId() {
+    const checked = document.querySelector('.coach-tournament-match-checkbox:checked');
+    return checked ? checked.dataset.tournamentMatchId : null;
 }
 
 export function initializeHandicapToggle() {
@@ -775,6 +851,8 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
+        const coachTournamentMatchId = getCoachSelectedTournamentMatchId();
+
         const matchData = {
             player_a_id: playerAId,
             player_b_id: playerBId,
@@ -790,6 +868,10 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
             handicap_used: handicapUsed,
             played_at: new Date().toISOString()
         };
+
+        if (coachTournamentMatchId) {
+            matchData.tournament_match_id = coachTournamentMatchId;
+        }
 
         console.log('[Matches] Saving match with data:', matchData);
         console.log('[Matches] Player A:', playerA);
@@ -810,6 +892,17 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 code: matchError.code
             });
             throw matchError;
+        }
+
+        // Turnier-Match verknüpfen, falls vorhanden
+        if (coachTournamentMatchId && match) {
+            try {
+                const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
+                await recordTournamentMatchResult(coachTournamentMatchId, match.id);
+                console.log('[Matches] Tournament match result recorded for:', coachTournamentMatchId);
+            } catch (tournamentErr) {
+                console.error('[Matches] Error recording tournament match result:', tournamentErr);
+            }
         }
 
         if (feedbackEl) {
@@ -890,6 +983,10 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         if (coachSetScoreInput && typeof coachSetScoreInput.reset === 'function') {
             coachSetScoreInput.reset();
         }
+        // Reset tournament match state
+        coachPendingTournamentMatches = [];
+        const tournamentInfo = document.getElementById('coach-tournament-match-info');
+        if (tournamentInfo) tournamentInfo.classList.add('hidden');
 
     } catch (error) {
         console.error('Error saving match:', error);

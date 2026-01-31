@@ -800,6 +800,8 @@ async function submitMatchRequest(callbacks = {}) {
             club_id: myClubId,
             sport_id: sportId,
             sets: sets,
+            player_a_sets_won: validation.playerAWins,
+            player_b_sets_won: validation.playerBWins,
             match_mode: matchMode,
             handicap_used: handicapUsed,
             handicap: handicapData,
