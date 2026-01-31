@@ -1639,17 +1639,25 @@ async function openVideoComparison() {
 
     if (!modal || !db || !userId) return;
 
-    // Videos laden
-    const { data: videos, error } = await db
-        .from('video_analyses')
-        .select('id, title, video_url, thumbnail_url, created_at, exercise:exercises(name)')
-        .eq('uploaded_by', userId)
-        .order('created_at', { ascending: false });
+    // Videos aus dem Cache nutzen (bereits über get_player_videos RPC geladen)
+    // Enthält nur eigene + zugewiesene Videos
+    let cachedVideos = Array.from(playerVideoContext.loadedVideos.values());
+
+    // Falls Cache leer, RPC erneut aufrufen
+    if (cachedVideos.length === 0) {
+        const { data, error: rpcError } = await db
+            .rpc('get_player_videos', { p_player_id: userId });
+        if (rpcError) {
+            showToast('Fehler beim Laden der Videos', 'error');
+            return;
+        }
+        cachedVideos = data || [];
+    }
 
     // Filter to only videos with valid, playable URLs
-    const videosWithUrl = (videos || []).filter(v => v.video_url);
+    const videosWithUrl = cachedVideos.filter(v => v.video_url);
 
-    if (error || videosWithUrl.length < 2) {
+    if (videosWithUrl.length < 2) {
         showToast('Du brauchst mindestens 2 Videos für einen Vergleich', 'info');
         return;
     }
@@ -1662,7 +1670,7 @@ async function openVideoComparison() {
 
     const optionsHtml = videosWithUrl.map(v => {
         const date = new Date(v.created_at).toLocaleDateString('de-DE');
-        const title = v.title || v.exercise?.name || 'Video';
+        const title = v.title || v.exercise_name || v.exercise?.name || 'Video';
         return `<option value="${v.id}">${escapeHtml(title)} (${date})</option>`;
     }).join('');
 
