@@ -356,7 +356,7 @@ function renderTrainingTimes() {
         });
     });
 
-    container.querySelectorAll('[data-index]').forEach(row => {
+    container.querySelectorAll(':scope > [data-index]').forEach(row => {
         const idx = parseInt(row.dataset.index);
         const daySelect = row.querySelector('.training-day');
         const startInput = row.querySelector('.training-start');
@@ -512,7 +512,7 @@ async function handleSave() {
 }
 
 function syncTrainingTimesFromDOM() {
-    const rows = document.querySelectorAll('#training-times-container [data-index]');
+    const rows = document.querySelectorAll('#training-times-container > [data-index]');
     trainingTimes = Array.from(rows).map(row => ({
         day: row.querySelector('.training-day').value,
         start: row.querySelector('.training-start').value,
