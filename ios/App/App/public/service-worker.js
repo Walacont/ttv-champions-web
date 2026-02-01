@@ -1,9 +1,8 @@
-// TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v2';
-const STATIC_CACHE = 'ttv-static-v2';
-const DYNAMIC_CACHE = 'ttv-dynamic-v2';
+// SC Champions Service Worker
+const CACHE_NAME = 'sc-champions-v11';
+const STATIC_CACHE = 'sc-static-v11';
+const DYNAMIC_CACHE = 'sc-dynamic-v11';
 
-// Static assets to cache on install
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -12,33 +11,24 @@ const STATIC_ASSETS = [
     '/admin.html',
     '/settings.html',
     '/register.html',
-    '/onboarding.html',
     '/faq.html',
     '/404.html',
     '/css/spa-enhancements.css',
+    '/css/mobile-fixes.css',
     '/css/tutorial.css',
-    '/js/app.js',
-    '/js/router.js',
     '/js/spa-enhancer.js',
-    '/js/firebase-init.js',
-    '/js/firebase-config.js',
+    '/js/supabase-init.js',
     '/js/ui-utils.js',
-    '/js/state-manager.js',
-    '/js/dashboard.js',
-    '/js/matches.js',
-    '/js/player-matches.js',
+    '/js/dashboard-supabase.js',
+    '/js/coach-supabase.js',
+    '/js/admin-supabase.js',
     '/js/exercises.js',
-    '/js/attendance.js',
-    '/js/challenges.js',
     '/js/leaderboard.js',
-    '/js/profile.js',
-    '/js/settings.js',
-    '/js/coach.js',
-    '/js/admin.js',
+    '/js/onesignal-init.js',
+    '/js/push-notifications-manager.js',
     '/manifest.json'
 ];
 
-// URLs that should always go to network (Firebase, Supabase, APIs)
 const NETWORK_ONLY = [
     'firestore.googleapis.com',
     'firebase.googleapis.com',
@@ -48,13 +38,16 @@ const NETWORK_ONLY = [
     'googleapis.com/storage',
     'google-analytics.com',
     'googletagmanager.com',
-    // Supabase URLs - MUST bypass cache for real-time data!
+    // Supabase muss Cache umgehen wegen Echtzeit-Daten
     'supabase.co',
     'supabase.com',
-    'supabase.in'
+    'supabase.in',
+    // Versionsprüfung immer aktuell halten
+    'version.json',
+    'update-checker.js',
+    'onesignal.com'
 ];
 
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing Service Worker...');
     event.waitUntil(
@@ -71,7 +64,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('[SW] Activating Service Worker...');
     event.waitUntil(
@@ -97,18 +89,15 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Helper: Check if URL should bypass cache
 function shouldBypassCache(url) {
     return NETWORK_ONLY.some((domain) => url.includes(domain));
 }
 
-// Helper: Check if request is for HTML page
 function isHtmlRequest(request) {
     const acceptHeader = request.headers.get('Accept') || '';
     return acceptHeader.includes('text/html');
 }
 
-// Helper: Check if request is for static asset
 function isStaticAsset(url) {
     return (
         url.endsWith('.css') ||
@@ -123,59 +112,51 @@ function isStaticAsset(url) {
     );
 }
 
-// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // Skip non-GET requests
     if (event.request.method !== 'GET') {
         return;
     }
 
-    // Network only for Firebase and external APIs
     if (shouldBypassCache(url)) {
         return;
     }
 
-    // Skip chrome-extension and other non-http(s) requests
+    // Chrome-Erweiterungen und andere nicht-HTTP(S) Anfragen überspringen
     if (!url.startsWith('http')) {
         return;
     }
 
     event.respondWith(
         (async () => {
-            // Try cache first for static assets
             if (isStaticAsset(url)) {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
-                    // Update cache in background (stale-while-revalidate)
+                    // Cache im Hintergrund aktualisieren (stale-while-revalidate)
                     event.waitUntil(updateCache(event.request));
                     return cachedResponse;
                 }
             }
 
-            // Network first for HTML pages (to get fresh content)
+            // HTML-Seiten: Network-First für aktuelle Inhalte
             if (isHtmlRequest(event.request)) {
                 try {
                     const networkResponse = await fetch(event.request);
-                    // Cache successful responses
                     if (networkResponse.ok) {
                         const cache = await caches.open(DYNAMIC_CACHE);
                         cache.put(event.request, networkResponse.clone());
                     }
                     return networkResponse;
                 } catch (error) {
-                    // Offline - serve from cache
                     const cachedResponse = await caches.match(event.request);
                     if (cachedResponse) {
                         return cachedResponse;
                     }
-                    // Return offline page
                     return caches.match('/dashboard.html');
                 }
             }
 
-            // For other requests: cache first, network fallback
             try {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
@@ -190,7 +171,6 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             } catch (error) {
                 console.error('[SW] Fetch failed:', error);
-                // Return a basic offline response for non-HTML requests
                 return new Response('Offline', {
                     status: 503,
                     statusText: 'Service Unavailable'
@@ -200,7 +180,6 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Helper: Update cache in background
 async function updateCache(request) {
     try {
         const response = await fetch(request);
@@ -209,11 +188,10 @@ async function updateCache(request) {
             await cache.put(request, response);
         }
     } catch (error) {
-        // Ignore network errors during background update
+        // Netzwerkfehler beim Hintergrund-Update ignorieren
     }
 }
 
-// Listen for messages from the main app
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
@@ -228,7 +206,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Background sync for offline match submissions (future feature)
+// Background Sync für Offline-Match-Eingaben (zukünftiges Feature)
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-matches') {
         event.waitUntil(syncMatches());
@@ -236,11 +214,11 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncMatches() {
-    // Future: Sync offline-submitted matches when back online
+    // Später: Offline gespeicherte Matches synchronisieren sobald wieder online
     console.log('[SW] Syncing matches...');
 }
 
-// Push notifications (future feature)
+// Push-Benachrichtigungen (zukünftiges Feature)
 self.addEventListener('push', (event) => {
     if (!event.data) return;
 
@@ -259,7 +237,6 @@ self.addEventListener('push', (event) => {
     event.waitUntil(self.registration.showNotification(data.title || 'TTV Champions', options));
 });
 
-// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
@@ -267,14 +244,12 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            // Check if there's already a window open
             for (const client of clientList) {
-                if (client.url.includes('ttv-champions') && 'focus' in client) {
+                if ((client.url.includes('sc-champions') || client.url.includes('ttv-champions')) && 'focus' in client) {
                     client.navigate(urlToOpen);
                     return client.focus();
                 }
             }
-            // Open new window
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
             }

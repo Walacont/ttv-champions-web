@@ -1,4 +1,4 @@
-# TTV Champions - Robots.txt
+# SC Champions - Robots.txt
 User-agent: *
 
 # Erlaube öffentliche Seiten
@@ -18,4 +18,4 @@ Allow: /js/
 Allow: /css/
 
 # Sitemap
-Sitemap: https://ttv-champions.de/sitemap.xml
+Sitemap: https://sc-champions.de/sitemap.xml

@@ -1,4 +1,4 @@
-# TTV Champions - Robots.txt
+# SC Champions - Robots.txt
 User-agent: *
 
 # Erlaube öffentliche Seiten
@@ -12,11 +12,10 @@ Disallow: /dashboard.html
 Disallow: /coach.html
 Disallow: /admin.html
 Disallow: /settings.html
-Disallow: /onboarding.html
 
 # Blockiere JavaScript und CSS nicht (für SEO)
 Allow: /js/
 Allow: /css/
 
 # Sitemap
-Sitemap: https://ttv-champions.de/sitemap.xml
+Sitemap: https://sc-champions.de/sitemap.xml

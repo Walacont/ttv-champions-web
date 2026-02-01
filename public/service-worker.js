@@ -1,7 +1,7 @@
-// TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v10';
-const STATIC_CACHE = 'ttv-static-v10';
-const DYNAMIC_CACHE = 'ttv-dynamic-v10';
+// SC Champions Service Worker
+const CACHE_NAME = 'sc-champions-v11';
+const STATIC_CACHE = 'sc-static-v11';
+const DYNAMIC_CACHE = 'sc-dynamic-v11';
 
 const STATIC_ASSETS = [
     '/',
@@ -245,7 +245,7 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if (client.url.includes('ttv-champions') && 'focus' in client) {
+                if ((client.url.includes('sc-champions') || client.url.includes('ttv-champions')) && 'focus' in client) {
                     client.navigate(urlToOpen);
                     return client.focus();
                 }

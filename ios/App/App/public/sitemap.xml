@@ -3,24 +3,24 @@
 
   <!-- Hauptseite -->
   <url>
-    <loc>https://ttv-champions.de/</loc>
-    <lastmod>2025-11-10</lastmod>
+    <loc>https://sc-champions.de/</loc>
+    <lastmod>2026-02-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <!-- FAQ / Regeln -->
   <url>
-    <loc>https://ttv-champions.de/faq.html</loc>
-    <lastmod>2025-11-10</lastmod>
+    <loc>https://sc-champions.de/faq.html</loc>
+    <lastmod>2026-02-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <!-- Registrierung -->
   <url>
-    <loc>https://ttv-champions.de/register.html</loc>
-    <lastmod>2025-11-10</lastmod>
+    <loc>https://sc-champions.de/register.html</loc>
+    <lastmod>2026-02-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
