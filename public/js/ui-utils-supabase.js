@@ -1,4 +1,5 @@
 /** UI-Hilfsfunktionen (Supabase-Version) - Tabs und Countdown-Timer */
+import { t } from './i18n.js';
 
 let cachedSeasonEnd = null;
 let cachedSeasonName = null;
@@ -249,11 +250,11 @@ export function formatRelativeTime(timestamp) {
         const diffHours = Math.floor(diffMin / 60);
         const diffDays = Math.floor(diffHours / 24);
 
-        if (diffSec < 60) return 'gerade eben';
-        if (diffMin < 60) return `vor ${diffMin} Min.`;
-        if (diffHours < 24) return `vor ${diffHours} Std.`;
-        if (diffDays === 1) return 'gestern';
-        if (diffDays < 7) return `vor ${diffDays} Tagen`;
+        if (diffSec < 60) return t('time.justNow');
+        if (diffMin < 60) return t('time.minutesAgo', { count: diffMin });
+        if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
+        if (diffDays === 1) return t('time.yesterday');
+        if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
 
         return formatDate(timestamp);
     } catch (e) {

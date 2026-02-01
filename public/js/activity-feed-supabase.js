@@ -145,7 +145,7 @@ window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) 
 
         if (dbError) {
             console.error('Error deleting media from database:', dbError);
-            alert('Fehler beim Löschen');
+            alert(t('common.errorDeleting'));
             return;
         }
 
@@ -161,7 +161,7 @@ window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) 
 
     } catch (error) {
         console.error('Error deleting media:', error);
-        alert('Fehler beim Löschen');
+        alert(t('common.errorDeleting'));
     }
 };
 
@@ -451,7 +451,7 @@ async function showLikesModal(activityId, activityType) {
         likesList.innerHTML = `
             <div class="text-center text-gray-400 py-8">
                 <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
-                <p class="text-sm">Fehler beim Laden</p>
+                <p class="text-sm">${t('common.errorLoading')}</p>
             </div>
         `;
     }
@@ -471,12 +471,12 @@ function getTimeAgo(date) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
-    if (seconds < 60) return 'gerade eben';
-    if (seconds < 3600) return `vor ${Math.floor(seconds / 60)} Min.`;
-    if (seconds < 86400) return `vor ${Math.floor(seconds / 3600)} Std.`;
-    if (seconds < 604800) return `vor ${Math.floor(seconds / 86400)} Tag(en)`;
+    if (seconds < 60) return t('time.justNow');
+    if (seconds < 3600) return t('time.minutesAgo', { count: Math.floor(seconds / 60) });
+    if (seconds < 86400) return t('time.hoursAgo', { count: Math.floor(seconds / 3600) });
+    if (seconds < 604800) return t('time.daysAgo', { count: Math.floor(seconds / 86400) });
 
-    return date.toLocaleDateString('de-DE');
+    return date.toLocaleDateString();
 }
 
 /** Prüft ob Aktivität dem aktuellen Nutzer gehört */
@@ -865,7 +865,7 @@ export async function loadActivityFeed() {
         container.innerHTML = `
             <div class="bg-white rounded-xl shadow-sm p-6 text-center text-red-500">
                 <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
-                <p class="text-sm">Fehler beim Laden der Aktivitäten</p>
+                <p class="text-sm">${t('common.errorLoadingActivities')}</p>
             </div>
         `;
     }
@@ -2586,10 +2586,10 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                         <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
                         <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
-                    <span class="text-green-600 font-medium">Gewinner</span>
+                    <span class="text-green-600 font-medium">${t('common.winner')}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-red-600 font-medium">Verlierer</span>
+                    <span class="text-red-600 font-medium">${t('common.loser')}</span>
                     <div class="flex -space-x-1">
                         <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
                         <img src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
@@ -2623,14 +2623,14 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
  * Get display name for a player
  */
 function getDisplayName(profile, isDeleted = false) {
-    if (isDeleted) return 'Gelöschter Spieler';
-    if (!profile) return 'Unbekannt';
+    if (isDeleted) return t('common.deletedPlayer');
+    if (!profile) return t('common.unknown');
     if (profile.display_name) return escapeHtml(profile.display_name);
     if (profile.first_name && profile.last_name) {
         return `${escapeHtml(profile.first_name)} ${escapeHtml(profile.last_name.charAt(0))}.`;
     }
     if (profile.first_name) return escapeHtml(profile.first_name);
-    return 'Spieler';
+    return t('common.player');
 }
 
 /**
@@ -3585,9 +3585,9 @@ function renderPollCard(activity, profileMap) {
             <div class="mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">${activity.question}</h3>
                 <div class="flex flex-wrap items-center gap-3 mt-1">
-                    ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
-                    ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
-                    ${!isAnonymous ? '<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>Stimmen sichtbar</p>' : '<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>Anonym</p>'}
+                    ${userVotedOptionIds.length > 0 ? `<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>${t('common.alreadyVotedPoll')}</p>` : ''}
+                    ${allowMultiple ? `<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>${t('common.multiSelectHint')}</p>` : ''}
+                    ${!isAnonymous ? `<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>${t('common.votesVisible')}</p>` : `<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>${t('common.anonymous')}</p>`}
                 </div>
             </div>
 
@@ -3884,7 +3884,7 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
 
     } catch (error) {
         console.error('[ActivityFeed] Error voting on poll:', error);
-        alert('Fehler beim Abstimmen: ' + error.message);
+        alert(t('common.errorVoting') + ': ' + error.message);
     }
 };
 
@@ -4035,9 +4035,9 @@ async function refreshPollCard(pollId) {
                 const statusDiv = questionDiv.querySelector('.flex.flex-wrap');
                 if (statusDiv) {
                     statusDiv.innerHTML = `
-                        ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
-                        ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
-                        ${!isAnonymous ? '<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>Stimmen sichtbar</p>' : '<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>Anonym</p>'}
+                        ${userVotedOptionIds.length > 0 ? `<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>${t('common.alreadyVotedPoll')}</p>` : ''}
+                        ${allowMultiple ? `<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>${t('common.multiSelectHint')}</p>` : ''}
+                        ${!isAnonymous ? `<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>${t('common.votesVisible')}</p>` : `<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>${t('common.anonymous')}</p>`}
                     `;
                 }
             }
@@ -4118,9 +4118,9 @@ function renderTournamentCompletedCard(activity) {
                     <!-- Winner -->
                     <div class="text-center mb-4">
                         <div class="text-3xl mb-1">🏆</div>
-                        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Gewinner</div>
-                        <div class="font-bold text-gray-900 text-lg">${escapeHtml(winner.name || 'Spieler')}</div>
-                        <div class="text-xs text-gray-500">${winner.matches_won || 0} Siege &bull; ${winner.tournament_points || 0} Punkte</div>
+                        <div class="text-xs text-gray-500 font-semibold uppercase tracking-wide">${t('common.winner')}</div>
+                        <div class="font-bold text-gray-900 text-lg">${escapeHtml(winner.name || t('common.player'))}</div>
+                        <div class="text-xs text-gray-500">${winner.matches_won || 0} ${t('common.victories')} &bull; ${winner.tournament_points || 0} ${t('common.points')}</div>
                     </div>
 
                     ${second || third ? `
@@ -4128,17 +4128,17 @@ function renderTournamentCompletedCard(activity) {
                         ${second ? `
                         <div class="bg-gray-50 rounded-lg p-3 text-center flex-1 max-w-[140px]">
                             <div class="text-xl mb-1">🥈</div>
-                            <div class="text-xs text-gray-500 font-medium">2. Platz</div>
-                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(second.name || 'Spieler')}</div>
-                            <div class="text-xs text-gray-500">${second.tournament_points || 0} Pkt</div>
+                            <div class="text-xs text-gray-500 font-medium">2. ${t('common.place')}</div>
+                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(second.name || t('common.player'))}</div>
+                            <div class="text-xs text-gray-500">${second.tournament_points || 0} ${t('common.pts')}</div>
                         </div>
                         ` : ''}
                         ${third ? `
                         <div class="bg-gray-50 rounded-lg p-3 text-center flex-1 max-w-[140px]">
                             <div class="text-xl mb-1">🥉</div>
-                            <div class="text-xs text-gray-500 font-medium">3. Platz</div>
-                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(third.name || 'Spieler')}</div>
-                            <div class="text-xs text-gray-500">${third.tournament_points || 0} Pkt</div>
+                            <div class="text-xs text-gray-500 font-medium">3. ${t('common.place')}</div>
+                            <div class="font-semibold text-gray-800 text-sm">${escapeHtml(third.name || t('common.player'))}</div>
+                            <div class="text-xs text-gray-500">${third.tournament_points || 0} ${t('common.pts')}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -4148,12 +4148,12 @@ function renderTournamentCompletedCard(activity) {
                 <!-- My Result -->
                 <div class="bg-indigo-50 rounded-lg p-3 flex items-center justify-between">
                     <div>
-                        <div class="text-xs text-indigo-600 font-medium">Dein Ergebnis</div>
-                        <div class="font-bold text-indigo-900">${myRank}. Platz <span class="font-normal text-sm text-indigo-600">von ${totalParticipants}</span></div>
+                        <div class="text-xs text-indigo-600 font-medium">${t('common.yourResult')}</div>
+                        <div class="font-bold text-indigo-900">${myRank}. ${t('common.place')} <span class="font-normal text-sm text-indigo-600">${t('common.of')} ${totalParticipants}</span></div>
                     </div>
                     <div class="text-right text-xs text-indigo-700">
                         <div>${myWins}S / ${myLosses}N</div>
-                        <div>Sätze: ${mySetsWon}:${mySetsLost} &bull; ${myPoints} Pkt</div>
+                        <div>${t('common.setsLabel')}: ${mySetsWon}:${mySetsLost} &bull; ${myPoints} ${t('common.pts')}</div>
                     </div>
                 </div>
             </div>

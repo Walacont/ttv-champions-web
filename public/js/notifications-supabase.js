@@ -515,7 +515,7 @@ async function showNotificationModal(userId) {
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[70vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900">Benachrichtigungen</h3>
+                <h3 class="text-lg font-semibold text-gray-900">${t('notifications.title')}</h3>
                 <button id="close-notification-modal" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times text-xl"></i>
                 </button>
@@ -539,7 +539,7 @@ async function showNotificationModal(userId) {
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
                                         ${!n.is_read && !isActionableRequest(n.type) ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
-                                        ${n.is_read ? `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>` : ''}
+                                        ${n.is_read ? `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="${t('common.delete')}"><i class="fas fa-trash-alt text-sm"></i></button>` : ''}
                                     </div>
                                 </div>
                             </li>
@@ -548,17 +548,17 @@ async function showNotificationModal(userId) {
                 ` : `
                     <div class="p-8 text-center text-gray-500">
                         <i class="far fa-bell-slash text-4xl mb-3"></i>
-                        <p>Keine Benachrichtigungen</p>
+                        <p>${t('notifications.noNotifications')}</p>
                     </div>
                 `}
             </div>
             ${notifications && notifications.length > 0 ? `
                 <div class="p-3 border-t flex gap-2">
                     <button id="mark-all-read" class="flex-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium py-2">
-                        Alle gelesen
+                        ${t('notifications.markAllRead')}
                     </button>
                     <button id="delete-all-read" class="flex-1 text-sm text-red-500 hover:text-red-700 font-medium py-2">
-                        Gelesene löschen
+                        ${t('notifications.deleteRead')}
                     </button>
                 </div>
             ` : ''}
@@ -824,7 +824,7 @@ async function showNotificationModal(userId) {
             modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
                 <div class="p-8 text-center text-gray-500">
                     <i class="far fa-bell-slash text-4xl mb-3"></i>
-                    <p>Keine Benachrichtigungen</p>
+                    <p>${t('notifications.noNotifications')}</p>
                 </div>
             `;
             modal.querySelector('.p-3.border-t')?.remove();
@@ -1024,7 +1024,7 @@ function checkEmptyNotifications(modal) {
         modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
             <div class="p-8 text-center text-gray-500">
                 <i class="far fa-bell-slash text-4xl mb-3"></i>
-                <p>Keine Benachrichtigungen</p>
+                <p>${t('notifications.noNotifications')}</p>
             </div>
         `;
         modal.querySelector('.p-3.border-t')?.remove();
@@ -1235,11 +1235,11 @@ function renderFollowRequestActions(notification) {
             <div class="follow-request-actions flex gap-2 mt-2">
                 <button class="accept-follow-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
                         data-requester-id="${requesterId}" data-notification-id="${notification.id}">
-                    <i class="fas fa-check mr-1"></i>Annehmen
+                    <i class="fas fa-check mr-1"></i>${t('notifications.accept')}
                 </button>
                 <button class="decline-follow-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
                         data-requester-id="${requesterId}" data-notification-id="${notification.id}">
-                    <i class="fas fa-times mr-1"></i>Ablehnen
+                    <i class="fas fa-times mr-1"></i>${t('notifications.decline')}
                 </button>
             </div>
         `;
@@ -1250,7 +1250,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="match-request-hint mt-2">
                     <span class="text-xs text-indigo-600 font-medium">
-                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Wettkampf-Tab zu gelangen
+                        <i class="fas fa-arrow-right mr-1"></i>${t('notifications.tapToMatch')}
                     </span>
                 </div>
             `;
@@ -1258,7 +1258,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="match-request-status mt-2">
                     <span class="text-xs text-gray-500">
-                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                        <i class="fas fa-check-circle mr-1"></i>${t('notifications.alreadyProcessed')}
                     </span>
                 </div>
             `;
@@ -1271,7 +1271,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="club-request-hint mt-2">
                     <span class="text-xs text-blue-600 font-medium">
-                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zur ${isJoinRequest ? 'Beitritts' : 'Austritts'}anfragen-Verwaltung zu gelangen
+                        <i class="fas fa-arrow-right mr-1"></i>${isJoinRequest ? t('notifications.tapToJoinRequests') : t('notifications.tapToLeaveRequests')}
                     </span>
                 </div>
             `;
@@ -1279,7 +1279,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="club-request-status mt-2">
                     <span class="text-xs text-gray-500">
-                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                        <i class="fas fa-check-circle mr-1"></i>${t('notifications.alreadyProcessed')}
                     </span>
                 </div>
             `;
@@ -1293,11 +1293,11 @@ function renderFollowRequestActions(notification) {
                 <div class="doubles-request-actions flex gap-2 mt-2">
                     <button class="accept-doubles-btn bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
                             data-request-id="${requestId}" data-notification-id="${notification.id}">
-                        <i class="fas fa-check mr-1"></i>Bestätigen
+                        <i class="fas fa-check mr-1"></i>${t('notifications.confirm')}
                     </button>
                     <button class="decline-doubles-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
                             data-request-id="${requestId}" data-notification-id="${notification.id}">
-                        <i class="fas fa-times mr-1"></i>Ablehnen
+                        <i class="fas fa-times mr-1"></i>${t('notifications.decline')}
                     </button>
                 </div>
             `;
@@ -1305,7 +1305,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="doubles-request-hint mt-2">
                     <span class="text-xs text-purple-600 font-medium">
-                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Doppel-Tab zu gelangen
+                        <i class="fas fa-arrow-right mr-1"></i>${t('notifications.tapToDoubles')}
                     </span>
                 </div>
             `;
@@ -1313,7 +1313,7 @@ function renderFollowRequestActions(notification) {
             return `
                 <div class="doubles-request-status mt-2">
                     <span class="text-xs text-gray-500">
-                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                        <i class="fas fa-check-circle mr-1"></i>${t('notifications.alreadyProcessed')}
                     </span>
                 </div>
             `;
@@ -1350,7 +1350,7 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
             .eq('id', userId)
             .single();
 
-        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || t('notifications.someone');
 
         const { error } = await db.rpc('accept_friend_request', {
             current_user_id: userId,
@@ -1637,11 +1637,11 @@ function formatTimeAgo(dateString) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Gerade eben';
-    if (diffMins < 60) return `vor ${diffMins} Min.`;
-    if (diffHours < 24) return `vor ${diffHours} Std.`;
-    if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
-    return date.toLocaleDateString('de-DE');
+    if (diffMins < 1) return t('time.justNow');
+    if (diffMins < 60) return t('time.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+    return date.toLocaleDateString();
 }
 
 /**

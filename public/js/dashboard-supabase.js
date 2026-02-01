@@ -22,7 +22,7 @@ import { initComments } from './activity-comments.js';
 
 import { initMatchMedia } from './match-media.js';
 import { initTournamentsUI, loadActiveTournamentBanner } from './tournaments-ui-supabase.js';
-import { initI18n, translatePage } from './i18n.js';
+import { initI18n, translatePage, t } from './i18n.js';
 import { loadAllPendingConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
 import {
@@ -303,7 +303,7 @@ function applyKidsModeUI() {
         // Update header title with friendly greeting
         const headerTitle = document.getElementById('header-title');
         if (headerTitle && childSession) {
-            headerTitle.textContent = `Hallo ${childSession.firstName}! 🎮`;
+            headerTitle.textContent = t('dashboard.childGreeting', { name: childSession.firstName });
         }
 
         // Hide match submission form (coach enters matches for kids)
@@ -314,10 +314,9 @@ function applyKidsModeUI() {
                 formParent.innerHTML = `
                     <div class="p-6 text-center">
                         <div class="text-4xl mb-3">🏓</div>
-                        <h3 class="font-bold text-gray-800 mb-2">Deine Wettkämpfe</h3>
+                        <h3 class="font-bold text-gray-800 mb-2">${t('dashboard.childMatchesTitle')}</h3>
                         <p class="text-gray-600 text-sm">
-                            Dein Trainer trägt deine Ergebnisse ein.
-                            Du kannst hier sehen, wie du gespielt hast!
+                            ${t('dashboard.childMatchesDesc')}
                         </p>
                     </div>
                 `;
@@ -369,7 +368,7 @@ function applyKidsModeUI() {
             if (!childLogoutBtn.hasAttribute('data-listener-attached')) {
                 childLogoutBtn.setAttribute('data-listener-attached', 'true');
                 childLogoutBtn.addEventListener('click', async () => {
-                    if (confirm('Möchtest du dich wirklich abmelden?')) {
+                    if (confirm(t('dashboard.confirmLogout'))) {
                         if (isChildMode) {
                             // Child session - invalidate server token and clear local session
                             await logoutChildSession();
@@ -666,7 +665,7 @@ function setupHeader() {
     const clubName = document.getElementById('header-club-name');
     if (clubName) {
         const effectiveClubName = currentSportContext?.clubName || currentClubData?.name;
-        clubName.textContent = effectiveClubName || 'Kein Verein';
+        clubName.textContent = effectiveClubName || t('dashboard.noClubLabel');
     }
 }
 
@@ -2545,9 +2544,9 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     const playerAName = playerAProfile ? `${playerAProfile.first_name || ''} ${playerAProfile.last_name || ''}`.trim() : 'Spieler A';
     const playerBName = playerBProfile ? `${playerBProfile.first_name || ''} ${playerBProfile.last_name || ''}`.trim() : 'Spieler B';
     const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
-    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+    const handicapText = req.handicap_used ? ` ${t('dashboard.withHandicap')}` : '';
 
-    const statusText = req.status === 'pending_player' ? 'Warte auf Bestätigung' : 'Warte auf Coach';
+    const statusText = req.status === 'pending_player' ? t('dashboard.waitingForConfirmation') : t('dashboard.waitingForCoach');
 
     return `
         <div id="match-request-${req.id}" class="p-3 bg-white rounded-lg border mb-2 transition-all duration-300">
@@ -2557,15 +2556,15 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
                          class="w-10 h-10 rounded-full object-cover"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
-                        <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
+                        <p class="font-medium">${isPlayerA ? t('dashboard.requestTo') : t('dashboard.requestFrom')} ${otherPlayerName}</p>
                         ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
                     </div>
                 </div>
                 <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">${statusText}</span>
             </div>
             <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
-                <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
-                <p class="text-green-700">Gewinner: ${winnerName}${handicapText}</p>
+                <p class="text-gray-700">${t('dashboard.resultLabel')}: ${setsDisplay}</p>
+                <p class="text-green-700">${t('common.winner')}: ${winnerName}${handicapText}</p>
             </div>
             ${!isPlayerA && req.status === 'pending_player' ? `
                 <div class="flex gap-2" id="match-request-buttons-${req.id}">
@@ -2622,7 +2621,7 @@ function renderDoublesRequestCard(req, profileMap) {
         return `${scoreA}:${scoreB}`;
     }).join(', ') || '-';
 
-    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+    const handicapText = req.handicap_used ? ` ${t('dashboard.withHandicap')}` : '';
     const statusText = req.status === 'pending_opponent' ? 'Warte auf Gegner' : 'Warte auf Coach';
 
     // Anfrage-Richtungstext
@@ -2653,8 +2652,8 @@ function renderDoublesRequestCard(req, profileMap) {
                     <span class="text-gray-500 mx-1">vs</span>
                     <span class="text-indigo-600">${teamBName1} & ${teamBName2}</span>
                 </p>
-                <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
-                <p class="text-green-700">Gewinner: ${winnerTeamName}${handicapText}</p>
+                <p class="text-gray-700">${t('dashboard.resultLabel')}: ${setsDisplay}</p>
+                <p class="text-green-700">${t('common.winner')}: ${winnerTeamName}${handicapText}</p>
             </div>
             ${!isTeamA && req.status === 'pending_opponent' ? `
                 <div class="flex gap-2" id="doubles-request-buttons-${req.id}">
@@ -2690,8 +2689,7 @@ async function loadCalendar() {
     const month = now.getMonth();
 
     // Monatsanzeige aktualisieren
-    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    const monthNames = t('dashboard.months', { returnObjects: true }) || ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
     if (monthYearEl) monthYearEl.textContent = `${monthNames[month]} ${year}`;
 
     // Ersten und letzten Tag des Monats abrufen
@@ -2866,8 +2864,8 @@ function updateSeasonCountdownDisplay() {
 
     // Keine aktive Saison - Pausenmeldung anzeigen
     if (!seasonEndDate) {
-        countdownEl.textContent = 'Saisonpause';
-        countdownEl.title = 'Aktuell ist keine Saison aktiv für diese Sportart';
+        countdownEl.textContent = t('dashboard.seasonPause');
+        countdownEl.title = t('dashboard.seasonPauseHint');
         return;
     }
 
@@ -2875,7 +2873,7 @@ function updateSeasonCountdownDisplay() {
     const diff = seasonEndDate - now;
 
     if (diff <= 0) {
-        countdownEl.textContent = 'Saison beendet!';
+        countdownEl.textContent = t('dashboard.seasonEnded');
         return;
     }
 
@@ -2885,7 +2883,7 @@ function updateSeasonCountdownDisplay() {
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
     countdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
-    countdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
+    countdownEl.title = cachedSeasonName ? t('dashboard.seasonName', { name: cachedSeasonName }) : '';
 }
 
 // Legacy-Funktion für Kompatibilität
@@ -3896,7 +3894,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             console.warn('[Match] Request already approved, skipping');
             processingRequests.delete(requestId);
             loadMatchRequests();
-            alert('Match wurde bereits bestätigt!');
+            alert(t('dashboard.matchAlreadyConfirmed'));
             return;
         }
 
@@ -3935,11 +3933,11 @@ window.respondToMatchRequest = async (requestId, accept) => {
         }, 800);
 
         // Feedback anzeigen
-        alert('Match bestätigt!');
+        alert(t('dashboard.matchConfirmed'));
 
     } catch (error) {
         console.error('Error responding to match request:', error);
-        alert('Fehler beim Verarbeiten der Anfrage');
+        alert(t('dashboard.errorProcessingRequest'));
     } finally {
         processingRequests.delete(requestId);
     }
@@ -3986,7 +3984,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
                 loadPendingRequests();
             }, 800);
             if (request.status === 'approved') {
-                alert('Dieses Doppel-Match wurde bereits bestätigt!');
+                alert(t('dashboard.doublesAlreadyConfirmed'));
             }
             return;
         }
@@ -4037,18 +4035,18 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
             loadMatchRequests();
             loadPendingRequests();
         }, 800);
-        alert('Doppel-Match bestätigt!');
+        alert(t('dashboard.doublesMatchConfirmed'));
 
     } catch (error) {
         console.error('Error responding to doubles match request:', error);
-        alert('Fehler beim Verarbeiten der Doppel-Anfrage');
+        alert(t('dashboard.errorProcessingDoublesRequest'));
     } finally {
         processingRequests.delete(`doubles-${requestId}`);
     }
 };
 
 window.deleteDoublesMatchRequest = async (requestId) => {
-    if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
+    if (!confirm(t('dashboard.confirmWithdrawDoubles'))) return;
 
     try {
         // Zuerst Anfrage abrufen um Team B Spieler für Benachrichtigungslöschung zu finden
@@ -4091,7 +4089,7 @@ window.deleteDoublesMatchRequest = async (requestId) => {
         loadPendingRequests();
     } catch (error) {
         console.error('Error deleting doubles match request:', error);
-        alert('Fehler beim Löschen der Doppel-Anfrage');
+        alert(t('dashboard.errorDeletingDoublesRequest'));
     }
 };
 
@@ -4291,7 +4289,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const playerBName = playerBProfile?.display_name ||
         `${playerBProfile?.first_name || ''} ${playerBProfile?.last_name || ''}`.trim() || 'Spieler B';
     const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
-    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+    const handicapText = req.handicap_used ? ` ${t('dashboard.withHandicap')}` : '';
 
     const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
     const needsResponse = !isPlayerA && req.status === 'pending_player';
@@ -4302,15 +4300,15 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
                 <div class="flex items-center gap-3">
                     <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
-                        <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
+                        <p class="font-medium">${isPlayerA ? t('dashboard.requestTo') : t('dashboard.requestFrom')} ${otherPlayerName}</p>
                         ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
                     </div>
                 </div>
                 <span class="text-xs ${req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full">${statusText}</span>
             </div>
             <div class="bg-gray-50 rounded-lg p-3 mb-3">
-                <p class="text-sm font-medium text-gray-700 mb-1">Ergebnis: ${setsDisplay}</p>
-                <p class="text-sm text-green-700">Gewinner: ${winnerName}${handicapText}</p>
+                <p class="text-sm font-medium text-gray-700 mb-1">${t('dashboard.resultLabel')}: ${setsDisplay}</p>
+                <p class="text-sm text-green-700">${t('common.winner')}: ${winnerName}${handicapText}</p>
             </div>
             ${needsResponse ? `
                 <div class="flex gap-2">
@@ -4362,7 +4360,7 @@ function renderPendingDoublesCard(req, profileMap) {
         return `${scoreA}:${scoreB}`;
     }).join(', ') || '-';
 
-    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+    const handicapText = req.handicap_used ? ` ${t('dashboard.withHandicap')}` : '';
     const statusText = req.status === 'pending_opponent' ? 'Wartet auf Gegner' : 'Wartet auf Coach';
 
     // Richtungstext
@@ -4395,8 +4393,8 @@ function renderPendingDoublesCard(req, profileMap) {
                     <span class="text-gray-500 mx-1">vs</span>
                     <span class="text-indigo-600 font-medium">${teamBName1} & ${teamBName2}</span>
                 </p>
-                <p class="text-sm font-medium text-gray-700">Ergebnis: ${setsDisplay}</p>
-                <p class="text-sm text-green-700">Gewinner: ${winnerTeamName}${handicapText}</p>
+                <p class="text-sm font-medium text-gray-700">${t('dashboard.resultLabel')}: ${setsDisplay}</p>
+                <p class="text-sm text-green-700">${t('common.winner')}: ${winnerTeamName}${handicapText}</p>
             </div>
             ${needsResponse ? `
                 <div class="flex gap-2">
