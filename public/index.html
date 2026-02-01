@@ -103,7 +103,35 @@
                     <i class="fas fa-trophy mr-2"></i>
                     SC Champions
                 </div>
-                <div>
+                <div class="flex items-center gap-3">
+                    <!-- Language Switcher -->
+                    <div class="relative" id="lang-switcher">
+                        <button
+                            id="lang-toggle"
+                            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                            aria-label="Sprache wählen"
+                        >
+                            <span id="lang-flag" class="text-lg leading-none">🇩🇪</span>
+                            <svg class="w-3.5 h-3.5 text-gray-500 transition-transform" id="lang-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div
+                            id="lang-dropdown"
+                            class="hidden absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 overflow-hidden"
+                        >
+                            <button data-lang="de" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                                <span class="text-lg leading-none">🇩🇪</span> Deutsch
+                            </button>
+                            <button data-lang="en" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                                <span class="text-lg leading-none">🇬🇧</span> English
+                            </button>
+                            <button data-lang="zh" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                                <span class="text-lg leading-none">🇨🇳</span> 中文
+                            </button>
+                        </div>
+                    </div>
+
                     <button
                         id="open-login-modal"
                         class="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors"
@@ -596,14 +624,63 @@
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Firebase: <script type="module" src="/js/index.js"></script> -->
         <script type="module">
-            // Initialize i18n before other scripts
-            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            import { initI18n, translatePage, setupAutoTranslate, changeLanguage, getCurrentLanguage } from '/js/i18n.js';
+
+            const FLAGS = { de: '🇩🇪', en: '🇬🇧', zh: '🇨🇳' };
+
+            function updateLangSwitcher(lang) {
+                const flag = document.getElementById('lang-flag');
+                if (flag) flag.textContent = FLAGS[lang] || FLAGS.de;
+
+                document.querySelectorAll('.lang-option').forEach(opt => {
+                    const isActive = opt.getAttribute('data-lang') === lang;
+                    opt.classList.toggle('bg-indigo-50', isActive);
+                    opt.classList.toggle('text-indigo-700', isActive);
+                    opt.classList.toggle('text-gray-700', !isActive);
+                });
+            }
+
+            function initLangSwitcher() {
+                const toggle = document.getElementById('lang-toggle');
+                const dropdown = document.getElementById('lang-dropdown');
+                const chevron = document.getElementById('lang-chevron');
+                if (!toggle || !dropdown) return;
+
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = !dropdown.classList.contains('hidden');
+                    dropdown.classList.toggle('hidden');
+                    chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+                });
+
+                document.addEventListener('click', () => {
+                    dropdown.classList.add('hidden');
+                    chevron.style.transform = '';
+                });
+
+                dropdown.addEventListener('click', (e) => e.stopPropagation());
+
+                document.querySelectorAll('.lang-option').forEach(opt => {
+                    opt.addEventListener('click', async () => {
+                        const lang = opt.getAttribute('data-lang');
+                        await changeLanguage(lang);
+                        translatePage();
+                        document.documentElement.lang = lang;
+                        updateLangSwitcher(lang);
+                        dropdown.classList.add('hidden');
+                        chevron.style.transform = '';
+                    });
+                });
+            }
 
             async function initializeI18n() {
                 await initI18n();
                 setupAutoTranslate();
                 translatePage();
-                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+                const lang = getCurrentLanguage();
+                document.documentElement.lang = lang;
+                updateLangSwitcher(lang);
+                initLangSwitcher();
             }
 
             initializeI18n();
