@@ -20,7 +20,7 @@
         </script>
 
 
-        <title>Übung - SC Champions</title>
+        <title data-i18n="exercise.pageTitle">Übung - SC Champions</title>
 
         <!-- Favicon -->
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -121,7 +121,7 @@
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                 </svg>
-                <p class="mt-4 text-sm font-medium text-gray-600">Lade Daten...</p>
+                <p class="mt-4 text-sm font-medium text-gray-600" data-i18n="common.loadingData">Lade Daten...</p>
             </div>
         </div>
 
@@ -134,10 +134,11 @@
                         id="back-button"
                         class="p-2 rounded-full hover:bg-gray-100 transition-colors"
                         aria-label="Zurück"
+                        data-i18n-aria-label="common.back"
                     >
                         <i class="fas fa-arrow-left text-gray-600 text-lg"></i>
                     </button>
-                    <h1 id="page-title" class="text-lg font-semibold text-gray-900 truncate">Übung</h1>
+                    <h1 id="page-title" class="text-lg font-semibold text-gray-900 truncate" data-i18n="exercise.exercise">Übung</h1>
                 </div>
             </header>
 
@@ -146,18 +147,18 @@
                 <!-- Loading State -->
                 <div id="exercise-loading" class="text-center py-12">
                     <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                    <p class="text-gray-500">Übung wird geladen...</p>
+                    <p class="text-gray-500" data-i18n="exercise.loading">Übung wird geladen...</p>
                 </div>
 
                 <!-- Error State -->
                 <div id="exercise-error" class="hidden text-center py-12">
                     <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
-                    <p class="text-gray-600">Übung konnte nicht geladen werden.</p>
+                    <p class="text-gray-600" data-i18n="exercise.loadError">Übung konnte nicht geladen werden.</p>
                     <button
                         onclick="history.back()"
                         class="mt-4 text-indigo-600 hover:text-indigo-800 font-medium"
                     >
-                        Zurück zur Übersicht
+                        <span data-i18n="common.backToOverview">Zurück zur Übersicht</span>
                     </button>
                 </div>
 
@@ -187,31 +188,31 @@
                     <!-- Animation - Schritt für Schritt -->
                     <div id="exercise-animation-container" class="hidden bg-white rounded-xl shadow-sm p-6">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-gray-900">Schlagabfolge</h3>
-                            <span id="animation-step-counter" class="text-sm text-gray-500">Schritt 1 / 1</span>
+                            <h3 class="text-lg font-semibold text-gray-900" data-i18n="exercise.strokeSequence">Schlagabfolge</h3>
+                            <span id="animation-step-counter" class="text-sm text-gray-500" data-i18n="exercise.stepCounter">Schritt 1 / 1</span>
                         </div>
 
                         <!-- Händigkeits-Auswahl -->
                         <div id="animation-handedness-selector" class="hidden mb-4">
-                            <label for="animation-handedness-select" class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="animation-handedness-select" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="exercise.view">
                                 Ansicht
                             </label>
                             <select id="animation-handedness-select"
                                 class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                                <option value="R-R">Rechts vs Rechts (R-R)</option>
-                                <option value="L-L">Links vs Links (L-L)</option>
-                                <option value="R-L">Rechts vs Links (R-L)</option>
-                                <option value="L-R">Links vs Rechts (L-R)</option>
+                                <option value="R-R" data-i18n="exercise.rightVsRight">Rechts vs Rechts (R-R)</option>
+                                <option value="L-L" data-i18n="exercise.leftVsLeft">Links vs Links (L-L)</option>
+                                <option value="R-L" data-i18n="exercise.rightVsLeft">Rechts vs Links (R-L)</option>
+                                <option value="L-R" data-i18n="exercise.leftVsRight">Links vs Rechts (L-R)</option>
                             </select>
                         </div>
 
                         <!-- Schritt-Info -->
                         <div id="animation-step-info" class="mb-4 p-3 bg-gray-50 rounded-lg">
                             <div class="flex items-center gap-2">
-                                <span id="animation-step-player" class="text-sm font-medium px-2 py-1 rounded bg-indigo-100 text-indigo-700">Spieler A</span>
-                                <span id="animation-step-stroke" class="text-sm font-medium px-2 py-1 rounded bg-purple-100 text-purple-700">Topspin</span>
-                                <span class="text-gray-400">nach</span>
-                                <span id="animation-step-position" class="text-sm font-medium px-2 py-1 rounded bg-gray-200 text-gray-700">Vorhand</span>
+                                <span id="animation-step-player" class="text-sm font-medium px-2 py-1 rounded bg-indigo-100 text-indigo-700" data-i18n="exercise.playerA">Spieler A</span>
+                                <span id="animation-step-stroke" class="text-sm font-medium px-2 py-1 rounded bg-purple-100 text-purple-700" data-i18n="exercise.topspin">Topspin</span>
+                                <span class="text-gray-400" data-i18n="exercise.to">nach</span>
+                                <span id="animation-step-position" class="text-sm font-medium px-2 py-1 rounded bg-gray-200 text-gray-700" data-i18n="exercise.forehand">Vorhand</span>
                             </div>
                         </div>
 
@@ -227,7 +228,7 @@
                                 class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <i class="fas fa-chevron-left"></i>
-                                <span class="hidden sm:inline">Vorheriger</span>
+                                <span class="hidden sm:inline" data-i18n="exercise.previous">Vorheriger</span>
                             </button>
 
                             <button
@@ -235,14 +236,14 @@
                                 class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                             >
                                 <i class="fas fa-play" id="animation-play-icon"></i>
-                                <span id="animation-play-text">Abspielen</span>
+                                <span id="animation-play-text" data-i18n="exercise.play">Abspielen</span>
                             </button>
 
                             <button
                                 id="animation-next-btn"
                                 class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <span class="hidden sm:inline">Nächster</span>
+                                <span class="hidden sm:inline" data-i18n="exercise.next">Nächster</span>
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
@@ -250,13 +251,13 @@
 
                     <!-- Description -->
                     <div id="exercise-description-section" class="bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Beschreibung</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3" data-i18n="exercise.description">Beschreibung</h3>
                         <div id="exercise-description" class="text-gray-600" style="white-space: pre-wrap;"></div>
                     </div>
 
                     <!-- Procedure/Steps -->
                     <div id="exercise-procedure-section" class="hidden bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Ablauf</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3" data-i18n="exercise.procedure">Ablauf</h3>
                         <div id="exercise-procedure" class="space-y-3"></div>
                     </div>
 
@@ -267,23 +268,23 @@
                             class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 font-medium w-full"
                         >
                             <i class="fas fa-chevron-right transition-transform" id="abbreviations-icon"></i>
-                            <span>Abkürzungen anzeigen</span>
+                            <span data-i18n="exercise.showAbbreviations">Abkürzungen anzeigen</span>
                         </button>
                         <div id="abbreviations-content" class="hidden mt-4 bg-gray-50 rounded-lg p-4">
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                                <div><span class="font-semibold">VH</span> = Vorhand</div>
-                                <div><span class="font-semibold">RH</span> = Rückhand</div>
-                                <div><span class="font-semibold">T</span> = Topspin</div>
-                                <div><span class="font-semibold">K</span> = Konter</div>
-                                <div><span class="font-semibold">B</span> = Block</div>
-                                <div><span class="font-semibold">S</span> = Smash</div>
-                                <div><span class="font-semibold">F</span> = Flip</div>
-                                <div><span class="font-semibold">SCH</span> = Schupf</div>
-                                <div><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
-                                <div><span class="font-semibold">A</span> = Aufschlag</div>
-                                <div><span class="font-semibold">OS</span> = Oberschnitt</div>
-                                <div><span class="font-semibold">US</span> = Unterschnitt</div>
-                                <div><span class="font-semibold">SS</span> = Seitenschnitt</div>
+                                <div data-i18n="exercise.abbrVH"><span class="font-semibold">VH</span> = Vorhand</div>
+                                <div data-i18n="exercise.abbrRH"><span class="font-semibold">RH</span> = Rückhand</div>
+                                <div data-i18n="exercise.abbrT"><span class="font-semibold">T</span> = Topspin</div>
+                                <div data-i18n="exercise.abbrK"><span class="font-semibold">K</span> = Konter</div>
+                                <div data-i18n="exercise.abbrB"><span class="font-semibold">B</span> = Block</div>
+                                <div data-i18n="exercise.abbrS"><span class="font-semibold">S</span> = Smash</div>
+                                <div data-i18n="exercise.abbrF"><span class="font-semibold">F</span> = Flip</div>
+                                <div data-i18n="exercise.abbrSCH"><span class="font-semibold">SCH</span> = Schupf</div>
+                                <div data-i18n="exercise.abbrU"><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
+                                <div data-i18n="exercise.abbrA"><span class="font-semibold">A</span> = Aufschlag</div>
+                                <div data-i18n="exercise.abbrOS"><span class="font-semibold">OS</span> = Oberschnitt</div>
+                                <div data-i18n="exercise.abbrUS"><span class="font-semibold">US</span> = Unterschnitt</div>
+                                <div data-i18n="exercise.abbrSS"><span class="font-semibold">SS</span> = Seitenschnitt</div>
                             </div>
                         </div>
                     </div>
@@ -292,14 +293,14 @@
                     <div id="exercise-personal-record-section" class="hidden bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl shadow-sm p-6">
                         <h3 class="text-lg font-semibold text-indigo-800 mb-3 flex items-center gap-2">
                             <i class="fas fa-medal text-indigo-600"></i>
-                            Dein persönlicher Rekord
+                            <span data-i18n="exercise.personalRecord">Dein persönlicher Rekord</span>
                         </h3>
                         <div id="exercise-personal-record-content" class="space-y-2 text-sm"></div>
                     </div>
 
                     <!-- Milestones Section -->
                     <div id="exercise-milestones-section" class="hidden bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Meilensteine</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4" data-i18n="exercise.milestones">Meilensteine</h3>
                         <div id="exercise-milestones" class="space-y-3"></div>
                         <div id="exercise-progress-summary" class="mt-4 pt-4 border-t border-gray-200"></div>
                     </div>
@@ -308,7 +309,7 @@
                     <div id="example-videos-section" class="hidden bg-white rounded-xl shadow-sm p-6">
                         <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
                             <i class="fas fa-play-circle text-indigo-600"></i>
-                            Musterbeispiele
+                            <span data-i18n="exercise.exampleVideos">Musterbeispiele</span>
                         </h3>
                         <div id="example-videos-list" class="space-y-3"></div>
                     </div>
@@ -317,7 +318,7 @@
                     <div id="my-videos-section" class="hidden bg-white rounded-xl shadow-sm p-6">
                         <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
                             <i class="fas fa-film text-purple-600"></i>
-                            Meine Videos zu dieser Übung
+                            <span data-i18n="exercise.myVideos">Meine Videos zu dieser Übung</span>
                         </h3>
                         <div id="my-videos-list" class="space-y-3"></div>
                     </div>
@@ -326,7 +327,7 @@
                     <div id="exercise-record-section" class="hidden bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl shadow-sm p-6">
                         <h3 class="text-lg font-semibold text-yellow-800 flex items-center gap-2 mb-2">
                             <i class="fas fa-trophy text-yellow-600"></i>
-                            Globaler Rekord
+                            <span data-i18n="exercise.globalRecord">Globaler Rekord</span>
                         </h3>
                         <p id="exercise-record-info" class="text-yellow-700"></p>
                     </div>
@@ -338,7 +339,7 @@
                             class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
                             <i class="fas fa-video"></i>
-                            <span>Video zur Analyse hochladen</span>
+                            <span data-i18n="exercise.uploadVideoForAnalysis">Video zur Analyse hochladen</span>
                         </button>
                     </div>
                 </div>
@@ -350,7 +351,7 @@
             <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
                 <div class="bg-white rounded-xl shadow-xl w-full max-w-lg">
                     <div class="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
-                        <h3 class="text-base sm:text-lg font-bold truncate mr-2">Video zur Analyse hochladen</h3>
+                        <h3 class="text-base sm:text-lg font-bold truncate mr-2" data-i18n="exercise.uploadVideoForAnalysis">Video zur Analyse hochladen</h3>
                         <button id="close-video-upload" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
                             <i class="fas fa-times text-xl sm:text-2xl"></i>
                         </button>
@@ -360,13 +361,13 @@
 
                         <!-- Video File -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Video-Datei *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="exercise.videoFile">Video-Datei *</label>
                             <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors">
                                 <input type="file" id="video-file-input" accept="video/mp4,video/quicktime,video/webm" required class="hidden">
                                 <label for="video-file-input" class="cursor-pointer">
                                     <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                                    <p class="text-sm text-gray-600">Klicken zum Auswählen</p>
-                                    <p class="text-xs text-gray-400 mt-1">MP4, MOV, WebM (max. 100 MB)</p>
+                                    <p class="text-sm text-gray-600" data-i18n="exercise.clickToSelect">Klicken zum Auswählen</p>
+                                    <p class="text-xs text-gray-400 mt-1" data-i18n="exercise.videoFormats">MP4, MOV, WebM (max. 100 MB)</p>
                                 </label>
                             </div>
                             <p id="selected-file-name" class="text-sm text-purple-600 mt-2 hidden"></p>
@@ -374,15 +375,15 @@
 
                         <!-- Title -->
                         <div>
-                            <label for="video-title" class="block text-sm font-medium text-gray-700 mb-1">Titel (optional)</label>
-                            <input type="text" id="video-title" placeholder="z.B. Mein Aufschlag"
+                            <label for="video-title" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="exercise.titleOptional">Titel (optional)</label>
+                            <input type="text" id="video-title" placeholder="z.B. Mein Aufschlag" data-i18n-placeholder="exercise.titlePlaceholder"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                         </div>
 
                         <!-- Notes -->
                         <div>
-                            <label for="video-notes" class="block text-sm font-medium text-gray-700 mb-1">Notizen (optional)</label>
-                            <textarea id="video-notes" rows="3" placeholder="Worauf soll der Coach achten?"
+                            <label for="video-notes" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="exercise.notesOptional">Notizen (optional)</label>
+                            <textarea id="video-notes" rows="3" placeholder="Worauf soll der Coach achten?" data-i18n-placeholder="exercise.notesPlaceholder"
                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
                         </div>
 
@@ -392,8 +393,8 @@
                                 <input type="checkbox" id="request-coach-feedback" checked
                                        class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500">
                                 <div>
-                                    <span class="font-medium text-purple-900">Coach um Feedback bitten</span>
-                                    <p class="text-xs text-purple-700 mt-0.5">Dein Coach kann das Video analysieren und dir Tipps geben</p>
+                                    <span class="font-medium text-purple-900" data-i18n="exercise.requestCoachFeedback">Coach um Feedback bitten</span>
+                                    <p class="text-xs text-purple-700 mt-0.5" data-i18n="exercise.coachFeedbackDesc">Dein Coach kann das Video analysieren und dir Tipps geben</p>
                                 </div>
                             </label>
                         </div>
@@ -402,13 +403,13 @@
                         <div id="upload-info-coach" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <p class="text-sm text-blue-800">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                Nach dem Hochladen kann dein Coach das Video analysieren und dir Feedback mit Zeitstempeln geben.
+                                <span data-i18n="exercise.coachUploadInfo">Nach dem Hochladen kann dein Coach das Video analysieren und dir Feedback mit Zeitstempeln geben.</span>
                             </p>
                         </div>
                         <div id="upload-info-private" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-3">
                             <p class="text-sm text-gray-700">
                                 <i class="fas fa-lock mr-1"></i>
-                                Das Video wird nur in deiner persönlichen Mediathek gespeichert.
+                                <span data-i18n="exercise.privateUploadInfo">Das Video wird nur in deiner persönlichen Mediathek gespeichert.</span>
                             </p>
                         </div>
 
@@ -418,8 +419,8 @@
                                 <input type="checkbox" id="allow-ai-training"
                                        class="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
                                 <div>
-                                    <span class="font-medium text-gray-800 text-sm">KI-Verbesserung unterstützen</span>
-                                    <p class="text-xs text-gray-600 mt-0.5">
+                                    <span class="font-medium text-gray-800 text-sm" data-i18n="exercise.supportAiTraining">KI-Verbesserung unterstützen</span>
+                                    <p class="text-xs text-gray-600 mt-0.5" data-i18n="exercise.aiTrainingDesc">
                                         Mein Video darf anonymisiert zur Verbesserung der automatischen Schlag-Erkennung genutzt werden.
                                     </p>
                                 </div>
@@ -433,7 +434,7 @@
                             class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
                             <i class="fas fa-upload"></i>
-                            <span>Video hochladen</span>
+                            <span data-i18n="exercise.uploadVideo">Video hochladen</span>
                         </button>
 
                         <!-- Progress -->
@@ -441,7 +442,7 @@
                             <div class="w-full bg-gray-200 rounded-full h-2">
                                 <div id="upload-progress-bar" class="bg-purple-600 h-2 rounded-full transition-all" style="width: 0%"></div>
                             </div>
-                            <p id="upload-progress-text" class="text-sm text-gray-600 mt-2 text-center">Wird hochgeladen...</p>
+                            <p id="upload-progress-text" class="text-sm text-gray-600 mt-2 text-center" data-i18n="exercise.uploading">Wird hochgeladen...</p>
                         </div>
                     </form>
                 </div>
@@ -450,5 +451,12 @@
 
         <!-- Scripts -->
         <script type="module" src="/js/exercise-detail-supabase.js"></script>
+
+        <script type="module">
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            await initI18n();
+            translatePage();
+            setupAutoTranslate();
+        </script>
     </body>
 </html>
