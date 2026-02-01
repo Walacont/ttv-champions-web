@@ -1,8 +1,10 @@
-// PWA Service Worker Registration
+// PWA Service Worker Registrierung
 (function () {
     'use strict';
 
-    // Register service worker
+    // Globaler Flag für Service Worker Bereitschaft
+    window.serviceWorkerReady = false;
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
             try {
@@ -10,82 +12,55 @@
                     scope: '/'
                 });
 
-                console.log('[PWA] Service Worker registered:', registration.scope);
+                // Warten bis der Service Worker aktiv ist
+                if (registration.active) {
+                    window.serviceWorkerReady = true;
+                } else if (registration.installing || registration.waiting) {
+                    const sw = registration.installing || registration.waiting;
+                    sw.addEventListener('statechange', () => {
+                        if (sw.state === 'activated') {
+                            window.serviceWorkerReady = true;
+                        }
+                    });
+                }
 
-                // Check for updates periodically
-                setInterval(
-                    () => {
-                        registration.update();
-                    },
-                    60 * 60 * 1000
-                ); // Every hour
+                console.log('[PWA] Service Worker registriert:', registration.scope);
 
-                // Handle updates
+                // Stündliche Update-Prüfung
+                setInterval(() => {
+                    registration.update();
+                }, 60 * 60 * 1000);
+
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
-                    console.log('[PWA] New Service Worker found');
+                    console.log('[PWA] Neuer Service Worker gefunden');
 
                     newWorker.addEventListener('statechange', () => {
                         if (
                             newWorker.state === 'installed' &&
                             navigator.serviceWorker.controller
                         ) {
-                            // New content is available
-                            showUpdateNotification();
+                            console.log('[PWA] Neue Version verfügbar, wird beim nächsten Laden aktualisiert');
                         }
                     });
                 });
             } catch (error) {
-                console.error('[PWA] Service Worker registration failed:', error);
+                console.error('[PWA] Service Worker Registrierung fehlgeschlagen:', error);
             }
         });
 
-        // Handle controller change (when new SW takes over)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-            console.log('[PWA] New Service Worker activated');
+            console.log('[PWA] Neuer Service Worker aktiviert');
         });
     }
 
-    // Show update notification to user
-    function showUpdateNotification() {
-        // Check if we have a UI notification system
-        if (typeof window.showToast === 'function') {
-            window.showToast('Neue Version verfügbar! Seite neu laden für Updates.', 'info', 10000);
-        } else {
-            // Create a simple notification banner
-            const banner = document.createElement('div');
-            banner.id = 'pwa-update-banner';
-            banner.innerHTML = `
-                <div style="position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-                            background: #4f46e5; color: white; padding: 12px 20px; border-radius: 8px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; display: flex;
-                            align-items: center; gap: 12px; font-family: 'Inter', sans-serif;">
-                    <span>Neue Version verfügbar!</span>
-                    <button onclick="window.location.reload()"
-                            style="background: white; color: #4f46e5; border: none; padding: 6px 12px;
-                                   border-radius: 4px; cursor: pointer; font-weight: 500;">
-                        Aktualisieren
-                    </button>
-                    <button onclick="this.parentElement.parentElement.remove()"
-                            style="background: transparent; color: white; border: none; cursor: pointer;
-                                   padding: 4px; font-size: 18px;">
-                        &times;
-                    </button>
-                </div>
-            `;
-            document.body.appendChild(banner);
-        }
-    }
-
-    // Install prompt handling
+    // Installation-Prompt Handling
     let deferredPrompt = null;
 
     window.addEventListener('beforeinstallprompt', (e) => {
-        // Prevent Chrome 67 and earlier from automatically showing the prompt
         e.preventDefault();
         deferredPrompt = e;
 
-        // Show install button if exists
         const installButton = document.getElementById('pwa-install-button');
         if (installButton) {
             installButton.style.display = 'block';
@@ -94,25 +69,23 @@
             });
         }
 
-        console.log('[PWA] Install prompt ready');
+        console.log('[PWA] Install-Prompt bereit');
     });
 
-    // Function to trigger install prompt
     window.promptInstall = async function () {
         if (!deferredPrompt) {
-            console.log('[PWA] No install prompt available');
+            console.log('[PWA] Kein Install-Prompt verfügbar');
             return false;
         }
 
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        console.log('[PWA] Install prompt outcome:', outcome);
+        console.log('[PWA] Install-Prompt Ergebnis:', outcome);
 
         deferredPrompt = null;
         return outcome === 'accepted';
     };
 
-    // Check if app is installed
     window.isPWAInstalled = function () {
         return (
             window.matchMedia('(display-mode: standalone)').matches ||
@@ -120,12 +93,24 @@
         );
     };
 
-    // Track app installed event
+    // iOS Safari unterstützt kein display-mode: standalone Media Query,
+    // daher müssen wir die Klasse per JavaScript setzen
+    if (window.isPWAInstalled()) {
+        document.documentElement.classList.add('pwa-standalone');
+        if (document.body) {
+            document.body.classList.add('standalone-mode');
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('standalone-mode');
+            });
+        }
+        console.log('[PWA] Läuft im Standalone-Modus');
+    }
+
     window.addEventListener('appinstalled', () => {
-        console.log('[PWA] App installed');
+        console.log('[PWA] App installiert');
         deferredPrompt = null;
 
-        // Track installation in analytics if available
         if (typeof gtag === 'function') {
             gtag('event', 'pwa_installed', {
                 event_category: 'PWA',

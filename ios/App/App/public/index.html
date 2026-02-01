@@ -318,12 +318,20 @@
                         </details>
                     </div>
 
-                    <div class="text-center mt-12">
+                    <div class="text-center mt-12 space-y-4">
                         <a
                             href="/faq.html"
-                            class="text-indigo-600 font-semibold text-lg hover:text-indigo-800 transition-colors"
+                            class="block text-indigo-600 font-semibold text-lg hover:text-indigo-800 transition-colors"
                         >
                             Alle Regeln & FAQs ansehen <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                        <a
+                            href="/guardian-faq.html"
+                            class="inline-flex items-center gap-2 text-teal-600 font-semibold hover:text-teal-800 transition-colors"
+                        >
+                            <i class="fas fa-user-shield"></i>
+                            Eltern & Kinder FAQ
+                            <i class="fas fa-arrow-right ml-1"></i>
                         </a>
                     </div>
                 </div>
@@ -352,36 +360,26 @@
                     </h2>
                 </div>
 
-                <!-- Migration Notice -->
-                <div id="migration-notice" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium text-blue-800">Systemaktualisierung</h3>
-                            <p class="mt-1 text-sm text-blue-700">
-                                Wir haben unser System verbessert. Bitte setze dein Passwort einmalig zurück,
-                                um dich anzumelden. Klicke dazu auf "Passwort vergessen".
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="flex border-b border-gray-200">
                     <button
                         id="email-login-tab"
-                        class="flex-1 py-3 px-4 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50"
                     >
-                        Email-Login
+                        Email
+                    </button>
+                    <button
+                        id="child-login-tab"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
+                    >
+                        <i class="fas fa-child mr-1"></i>
+                        Kinder
                     </button>
                     <button
                         id="code-login-tab"
-                        class="flex-1 py-3 px-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
+                        class="flex-1 py-3 px-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300"
                     >
-                        Mit Code anmelden
+                        <i class="fas fa-key mr-1"></i>
+                        Code
                     </button>
                 </div>
 
@@ -440,11 +438,72 @@
                     </div>
                 </form>
 
+                <!-- Kinder-Login mit Username + PIN -->
+                <form id="child-form" class="mt-8 space-y-6 hidden">
+                    <div class="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                        <p class="text-sm text-pink-800 text-center">
+                            <i class="fas fa-child mr-1"></i>
+                            Kinder-Login: Gib deinen Benutzernamen und PIN ein.
+                        </p>
+                    </div>
+
+                    <!-- Username + PIN Login (Default) -->
+                    <div id="child-pin-login">
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    for="child-username"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >Benutzername</label>
+                                <input
+                                    id="child-username"
+                                    type="text"
+                                    maxlength="30"
+                                    required
+                                    autocomplete="username"
+                                    class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-lg"
+                                    placeholder="z.B. max2015"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    for="child-pin"
+                                    class="block text-sm font-medium text-gray-700 mb-2"
+                                >PIN</label>
+                                <input
+                                    id="child-pin"
+                                    type="password"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    maxlength="6"
+                                    required
+                                    autocomplete="current-password"
+                                    class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-center text-2xl font-bold tracking-widest"
+                                    placeholder="****"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <button
+                                type="submit"
+                                id="child-login-btn"
+                                class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                            >
+                                <i class="fas fa-sign-in-alt mr-2"></i>
+                                Anmelden
+                            </button>
+                        </div>
+
+                    </div>
+                </form>
+
+                <!-- Code-Login für Trainer und Offline-Spieler (16+) -->
                 <form id="code-form" class="mt-8 space-y-6 hidden">
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p class="text-sm text-blue-800 text-center">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Gib hier deinen Einladungscode vom Trainer ein, um dich zu registrieren.
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <p class="text-sm text-indigo-800 text-center">
+                            <i class="fas fa-key mr-1"></i>
+                            Anmeldung mit Einladungscode (vom Verein/Admin)
                         </p>
                     </div>
 
@@ -452,23 +511,21 @@
                         <label
                             for="invitation-code"
                             class="block text-sm font-medium text-gray-700 mb-2"
-                            >Einladungscode</label
-                        >
+                        >Einladungscode</label>
                         <input
                             id="invitation-code"
                             type="text"
                             maxlength="11"
-                            required
                             class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
                             placeholder="TTV-XXX-YYY"
-                            pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{3}-[A-Za-z0-9]{3}"
                         />
-                        <p class="mt-2 text-xs text-gray-500 text-center">Format: TTV-XXX-YYY</p>
+                        <p class="mt-2 text-xs text-gray-500 text-center">Einladungscode vom Verein oder Admin (Format: TTV-XXX-YYY)</p>
                     </div>
 
                     <div>
                         <button
-                            type="submit"
+                            type="button"
+                            id="code-login-btn"
                             class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                             <i class="fas fa-arrow-right mr-2"></i>

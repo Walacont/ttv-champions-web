@@ -15,7 +15,7 @@ export function initializeExerciseMilestones() {
     const container = document.getElementById('exercise-milestones-container');
     const addBtn = document.getElementById('add-exercise-milestone-btn');
 
-    // Points container (different IDs for admin vs coach)
+    // Punkte-Container (unterschiedliche IDs für Admin vs Coach)
     const pointsContainer =
         document.getElementById('exercise-points-container-admin') ||
         document.getElementById('exercise-standard-points-container');
@@ -25,12 +25,12 @@ export function initializeExerciseMilestones() {
 
     if (!toggle || !container || !addBtn) return;
 
-    // Toggle visibility
+    // Sichtbarkeit umschalten
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
 
-            // Hide points container (for both admin and coach)
+            // Punkte-Container ausblenden (für Admin und Trainer)
             if (pointsContainer) {
                 pointsContainer.classList.add('hidden');
             }
@@ -38,15 +38,15 @@ export function initializeExerciseMilestones() {
                 pointsInput.removeAttribute('required');
             }
 
-            // Add initial milestone if none exist
+            // Initialen Meilenstein hinzufügen falls keine existieren
             const list = document.getElementById('exercise-milestones-list');
             if (list && list.children.length === 0) {
-                addExerciseMilestone(1, 3); // Default: 1× = 3 points
+                addExerciseMilestone(1, 3); // Standard: 1× = 3 Punkte
             }
         } else {
             container.classList.add('hidden');
 
-            // Show points container (for both admin and coach)
+            // Punkte-Container anzeigen (für Admin und Trainer)
             if (pointsContainer) {
                 pointsContainer.classList.remove('hidden');
             }
@@ -58,7 +58,7 @@ export function initializeExerciseMilestones() {
         }
     });
 
-    // Add milestone button
+    // Meilenstein-hinzufügen-Button
     addBtn.addEventListener('click', () => {
         const list = document.getElementById('exercise-milestones-list');
         const count = list ? list.children.length + 1 : 1;
@@ -76,14 +76,14 @@ export function initializeChallengeMilestones() {
 
     if (!toggle || !container || !addBtn) return;
 
-    // Toggle visibility
+    // Sichtbarkeit umschalten
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
-            // Add initial milestone if none exist
+            // Initialen Meilenstein hinzufügen falls keine existieren
             const list = document.getElementById('challenge-milestones-list');
             if (list && list.children.length === 0) {
-                addChallengeMilestone(1, 3); // Default: 1× = 3 points
+                addChallengeMilestone(1, 3); // Standard: 1× = 3 Punkte
             }
         } else {
             container.classList.add('hidden');
@@ -91,7 +91,7 @@ export function initializeChallengeMilestones() {
         }
     });
 
-    // Add milestone button
+    // Meilenstein-hinzufügen-Button
     addBtn.addEventListener('click', () => {
         const list = document.getElementById('challenge-milestones-list');
         const count = list ? list.children.length + 1 : 1;
@@ -101,8 +101,8 @@ export function initializeChallengeMilestones() {
 
 /**
  * Add a milestone input field for exercises
- * @param {number} completions - Number of completions required
- * @param {number} points - Points awarded
+ * @param {number} completions - Anzahl erforderlicher Absolvierungen
+ * @param {number} points - Vergebene Punkte
  */
 function addExerciseMilestone(completions = 1, points = 0) {
     const list = document.getElementById('exercise-milestones-list');
@@ -136,14 +136,14 @@ function addExerciseMilestone(completions = 1, points = 0) {
     </button>
   `;
 
-    // Remove button
+    // Entfernen-Button
     const removeBtn = milestoneDiv.querySelector('.remove-milestone');
     removeBtn.addEventListener('click', () => {
         milestoneDiv.remove();
         updateExerciseMaxPoints();
     });
 
-    // Update max points when values change
+    // Max-Punkte aktualisieren wenn sich Werte ändern
     const inputs = milestoneDiv.querySelectorAll('input');
     inputs.forEach(input => {
         input.addEventListener('input', updateExerciseMaxPoints);
@@ -155,8 +155,8 @@ function addExerciseMilestone(completions = 1, points = 0) {
 
 /**
  * Add a milestone input field for challenges
- * @param {number} completions - Number of completions required
- * @param {number} points - Points awarded
+ * @param {number} completions - Anzahl erforderlicher Absolvierungen
+ * @param {number} points - Vergebene Punkte
  */
 function addChallengeMilestone(completions = 1, points = 0) {
     const list = document.getElementById('challenge-milestones-list');
@@ -190,14 +190,14 @@ function addChallengeMilestone(completions = 1, points = 0) {
     </button>
   `;
 
-    // Remove button
+    // Entfernen-Button
     const removeBtn = milestoneDiv.querySelector('.remove-milestone');
     removeBtn.addEventListener('click', () => {
         milestoneDiv.remove();
         updateChallengeMaxPoints();
     });
 
-    // Update max points when values change
+    // Max-Punkte aktualisieren wenn sich Werte ändern
     const inputs = milestoneDiv.querySelectorAll('input');
     inputs.forEach(input => {
         input.addEventListener('input', updateChallengeMaxPoints);
@@ -209,7 +209,7 @@ function addChallengeMilestone(completions = 1, points = 0) {
 
 /**
  * Clear all milestones from a list
- * @param {string} listId - ID of the milestone list
+ * @param {string} listId - ID der Meilenstein-Liste
  */
 function clearMilestones(listId) {
     const list = document.getElementById(listId);
@@ -248,7 +248,7 @@ function updateChallengeMaxPoints() {
 
 /**
  * Get exercise milestones from the form
- * @returns {Array} Array of {completions, points} objects, sorted by completions
+ * @returns {Array} Array of {count, points} objects, sorted by count
  */
 export function getExerciseMilestones() {
     const toggle = document.getElementById('exercise-tiered-points-toggle');
@@ -265,22 +265,22 @@ export function getExerciseMilestones() {
         const pointsInput = row.querySelector('.milestone-points');
 
         if (completionsInput && pointsInput) {
-            const completions = parseInt(completionsInput.value) || 0;
+            const count = parseInt(completionsInput.value) || 0;
             const points = parseInt(pointsInput.value) || 0;
 
-            if (completions > 0) {
-                milestones.push({ completions, points });
+            if (count > 0) {
+                milestones.push({ count, points });
             }
         }
     });
 
-    // Sort by completions ascending
-    return milestones.sort((a, b) => a.completions - b.completions);
+    // Nach Absolvierungen aufsteigend sortieren
+    return milestones.sort((a, b) => a.count - b.count);
 }
 
 /**
  * Get challenge milestones from the form
- * @returns {Array} Array of {completions, points} objects, sorted by completions
+ * @returns {Array} Array of {count, points} objects, sorted by count
  */
 export function getChallengeMilestones() {
     const toggle = document.getElementById('challenge-tiered-points-toggle');
@@ -297,17 +297,17 @@ export function getChallengeMilestones() {
         const pointsInput = row.querySelector('.milestone-points');
 
         if (completionsInput && pointsInput) {
-            const completions = parseInt(completionsInput.value) || 0;
+            const count = parseInt(completionsInput.value) || 0;
             const points = parseInt(pointsInput.value) || 0;
 
-            if (completions > 0) {
-                milestones.push({ completions, points });
+            if (count > 0) {
+                milestones.push({ count, points });
             }
         }
     });
 
-    // Sort by completions ascending
-    return milestones.sort((a, b) => a.completions - b.completions);
+    // Nach Absolvierungen aufsteigend sortieren
+    return milestones.sort((a, b) => a.count - b.count);
 }
 
 /**
@@ -341,7 +341,7 @@ export function initializeExercisePartnerSystem() {
 
     if (!toggle || !container) return;
 
-    // Toggle visibility
+    // Sichtbarkeit umschalten
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
@@ -360,7 +360,7 @@ export function initializeExercisePartnerSystemCoach() {
 
     if (!toggle || !container) return;
 
-    // Toggle visibility
+    // Sichtbarkeit umschalten
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
@@ -389,7 +389,7 @@ export function getExercisePartnerSettings() {
 
     return {
         enabled: true,
-        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
+        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Auf 0-100 begrenzen
     };
 }
 
@@ -417,7 +417,7 @@ export function initializeChallengePartnerSystemCoach() {
 
     if (!toggle || !container) return;
 
-    // Toggle visibility
+    // Sichtbarkeit umschalten
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             container.classList.remove('hidden');
@@ -442,7 +442,7 @@ export function getChallengePartnerSettings() {
 
     return {
         enabled: true,
-        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
+        partnerPercentage: Math.max(0, Math.min(100, percentage)), // Auf 0-100 begrenzen
     };
 }
 

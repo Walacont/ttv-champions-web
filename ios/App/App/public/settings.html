@@ -118,10 +118,11 @@
                     </div>
                 </a>
 
-                <!-- Benachrichtigungen -->
+                <!-- Benachrichtigungen (nur in PWA/native App sichtbar) -->
                 <a
+                    id="notifications-card"
                     href="/settings-notifications.html"
-                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
                 >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -169,6 +170,66 @@
                             <div>
                                 <h3 class="font-semibold text-gray-900" data-i18n="settings.club.title">Vereinsverwaltung</h3>
                                 <p class="text-sm text-gray-500" data-i18n="settings.club.subtitle">Verein beitreten oder verlassen</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Vereinsseite (nur für Coaches/Head-Coaches) -->
+                <a
+                    id="club-page-card"
+                    href="/club-page.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-building text-emerald-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Vereinsseite</h3>
+                                <p class="text-sm text-gray-500">Logo, Beschreibung & Trainingszeiten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Meine Kinder (für alle Benutzer, die Guardian sind oder werden wollen) -->
+                <a
+                    id="my-children-card"
+                    href="/guardian-dashboard.html?from=settings"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-child text-pink-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Meine Kinder</h3>
+                                <p id="my-children-subtitle" class="text-sm text-gray-500">Kinder verwalten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Kind hinzufügen (für alle Benutzer, die noch kein Guardian sind) -->
+                <a
+                    id="add-child-card"
+                    href="/guardian-dashboard.html?from=settings"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-plus-circle text-pink-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Kind hinzufügen</h3>
+                                <p class="text-sm text-gray-500">Mit oder ohne Einladungscode</p>
                             </div>
                         </div>
                         <i class="fas fa-chevron-right text-gray-400"></i>
@@ -231,6 +292,25 @@
                         <i class="fas fa-chevron-right text-gray-400"></i>
                     </div>
                 </a>
+
+                <!-- Cache Reset (for PWA issues) -->
+                <div
+                    id="cache-reset-card"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-sync-alt text-orange-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cache zurücksetzen</h3>
+                                <p class="text-sm text-gray-500">Bei Anzeigeproblemen oder veralteten Daten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </div>
 
                 <!-- Logout Button -->
                 <div class="pt-4">
@@ -296,9 +376,225 @@
         <script type="module">
             import { getSupabase } from '/js/supabase-init.js';
             import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            import { escapeHtml } from '/js/utils/security.js';
+
+            // Check for child_id parameter (guardian viewing child's settings)
+            const urlParams = new URLSearchParams(window.location.search);
+            const childId = urlParams.get('child_id');
+            let childProfile = null;
+
+            // Prüft ob Push-Benachrichtigungen unterstützt werden (PWA oder native App)
+            function isPushSupported() {
+                if (window.CapacitorUtils?.isNative()) return true;
+                if (window.matchMedia('(display-mode: standalone)').matches) return true;
+                if (window.navigator.standalone === true) return true;
+                return false;
+            }
+
+            // Verify guardian has access to this child
+            async function verifyGuardianAccess() {
+                if (!childId) return true; // Not in child mode
+
+                const supabase = getSupabase();
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return false;
+
+                // Check if current user is guardian of this child
+                const { data: guardianLink, error } = await supabase
+                    .from('guardian_links')
+                    .select('id, permissions')
+                    .eq('guardian_id', user.id)
+                    .eq('child_id', childId)
+                    .single();
+
+                if (error || !guardianLink) {
+                    console.error('Guardian access denied:', error);
+                    alert('Kein Zugriff auf die Einstellungen dieses Kindes.');
+                    window.location.href = '/guardian-dashboard.html';
+                    return false;
+                }
+
+                // Load child profile
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, avatar_url')
+                    .eq('id', childId)
+                    .single();
+
+                if (profileError || !profile) {
+                    console.error('Child profile not found:', profileError);
+                    window.location.href = '/guardian-dashboard.html';
+                    return false;
+                }
+
+                childProfile = profile;
+                return true;
+            }
+
+            // Setup child mode UI
+            function setupChildModeUI() {
+                if (!childId || !childProfile) return;
+
+                // Update page title and header
+                const titleElement = document.querySelector('h1');
+                if (titleElement) {
+                    titleElement.textContent = `Einstellungen für ${childProfile.first_name}`;
+                }
+                document.title = `Einstellungen für ${childProfile.first_name} - SC Champions`;
+
+                // Update back link to go to guardian dashboard
+                const backLink = document.querySelector('a[href="/dashboard.html"]');
+                if (backLink) {
+                    backLink.href = '/guardian-dashboard.html';
+                }
+
+                // Update links to pass child_id parameter
+                const profileLink = document.querySelector('a[href="/settings-profile.html"]');
+                if (profileLink) {
+                    profileLink.href = `/settings-profile.html?child_id=${childId}`;
+                    // Update subtitle to show limited options
+                    const subtitle = profileLink.querySelector('p.text-sm');
+                    if (subtitle) {
+                        subtitle.textContent = 'Name, Foto, Persönliche Daten';
+                    }
+                }
+
+                const privacyLink = document.querySelector('a[href="/settings-privacy.html"]');
+                if (privacyLink) {
+                    privacyLink.href = `/settings-privacy.html?child_id=${childId}`;
+                }
+
+                const clubLink = document.querySelector('a[href="/settings-club.html"]');
+                if (clubLink) {
+                    clubLink.href = `/settings-club.html?child_id=${childId}`;
+                }
+
+                const legalLink = document.querySelector('a[href="/settings-legal.html"]');
+                if (legalLink) {
+                    legalLink.href = `/settings-legal.html?child_id=${childId}`;
+                }
+
+                // Hide cards that guardians should NOT see for children:
+                // - Notifications (not applicable for child)
+                // - Meine Kinder (not applicable)
+                // - Support (guardian can use their own)
+                // - Language (should be their own setting)
+                // - Cache reset (technical, not for children)
+                // - Logout button (don't log out guardian)
+
+                const elementsToHide = [
+                    '#notifications-card',
+                    '#my-children-card',
+                    'a[href="/settings-support.html"]',
+                    '#language-card',
+                    '#cache-reset-card',
+                    '#logout-button'
+                ];
+
+                elementsToHide.forEach(selector => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        // For logout button, hide the parent div too
+                        if (selector === '#logout-button') {
+                            element.parentElement?.classList.add('hidden');
+                        } else {
+                            element.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+
+            // Calculate age from birthdate
+            function calculateAge(birthdate) {
+                if (!birthdate) return 0;
+                const birth = new Date(birthdate);
+                const today = new Date();
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age--;
+                }
+                return age;
+            }
+
+            // Check if user is a guardian and show appropriate card
+            async function checkGuardianStatus() {
+                // Don't show "Meine Kinder" when already viewing child's settings
+                if (childId) return;
+
+                const supabase = getSupabase();
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (!user) return;
+
+                try {
+                    // Get profile and check is_guardian flag
+                    const { data: profile, error } = await supabase
+                        .from('profiles')
+                        .select('is_guardian, account_type')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (error) {
+                        console.error('Error checking guardian status:', error);
+                        return;
+                    }
+
+                    const myChildrenCard = document.getElementById('my-children-card');
+                    const myChildrenSubtitle = document.getElementById('my-children-subtitle');
+                    const addChildCard = document.getElementById('add-child-card');
+
+                    // Check if user has children that are minors
+                    const isGuardian = profile?.is_guardian || profile?.account_type === 'guardian';
+
+                    if (isGuardian) {
+                        // Get children and check if any are under 18
+                        const { data: children, error: childrenError } = await supabase.rpc('get_my_children');
+
+                        if (!childrenError && children?.success && children.children && children.children.length > 0) {
+                            // Filter children under 18
+                            const childrenUnder18 = children.children.filter(child => {
+                                if (!child.birthdate) return true; // If no birthdate, show to be safe
+                                return calculateAge(child.birthdate) < 18;
+                            });
+
+                            // Only show "Meine Kinder" card if there are children under 18
+                            if (childrenUnder18.length > 0) {
+                                myChildrenCard?.classList.remove('hidden');
+                                addChildCard?.classList.add('hidden');
+
+                                if (childrenUnder18.length === 1) {
+                                    myChildrenSubtitle.textContent = '1 Kind verknüpft';
+                                } else {
+                                    myChildrenSubtitle.textContent = `${childrenUnder18.length} Kinder verknüpft`;
+                                }
+                            } else {
+                                // Guardian with children, but all are 18+ - show "Kind hinzufügen" to add more
+                                myChildrenCard?.classList.add('hidden');
+                                addChildCard?.classList.remove('hidden');
+                            }
+                        } else {
+                            // Guardian but no children - show "Kind hinzufügen"
+                            myChildrenCard?.classList.add('hidden');
+                            addChildCard?.classList.remove('hidden');
+                        }
+                    } else {
+                        // Not a guardian - show "Kind hinzufügen" option
+                        myChildrenCard?.classList.add('hidden');
+                        addChildCard?.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error in checkGuardianStatus:', error);
+                }
+            }
 
             // Initialize immediately or on DOMContentLoaded
             async function init() {
+                // If viewing child settings, verify access first
+                if (childId) {
+                    const hasAccess = await verifyGuardianAccess();
+                    if (!hasAccess) return;
+                }
                 // Initialize i18n first
                 await initI18n();
                 setupAutoTranslate();
@@ -306,6 +602,37 @@
 
                 // Update HTML lang attribute
                 document.documentElement.lang = getCurrentLanguage();
+
+                // Benachrichtigungen-Card nur in PWA/native anzeigen
+                const notificationsCard = document.getElementById('notifications-card');
+                if (notificationsCard && isPushSupported()) {
+                    notificationsCard.classList.remove('hidden');
+                }
+
+                // Check if user is a guardian and show "Meine Kinder" card
+                await checkGuardianStatus();
+
+                // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
+                try {
+                    const supabase = getSupabase();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('role, club_id')
+                            .eq('id', user.id)
+                            .single();
+                        const clubPageCard = document.getElementById('club-page-card');
+                        if (clubPageCard && profile && (profile.role === 'coach' || profile.role === 'head_coach') && profile.club_id) {
+                            clubPageCard.classList.remove('hidden');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Club page card check failed:', e);
+                }
+
+                // Setup child mode UI if viewing child's settings
+                setupChildModeUI();
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
@@ -369,6 +696,38 @@
                             languageModal.classList.add('hidden');
                         }, 2000);
                     });
+                });
+
+                // Cache reset functionality
+                document.getElementById('cache-reset-card').addEventListener('click', async () => {
+                    if (confirm('Cache und lokale Daten zurücksetzen? Die App wird danach neu geladen.')) {
+                        try {
+                            // Clear localStorage (but preserve auth)
+                            const authData = localStorage.getItem('sb-auth-token');
+                            localStorage.clear();
+                            if (authData) {
+                                localStorage.setItem('sb-auth-token', authData);
+                            }
+
+                            // Clear all caches
+                            if ('caches' in window) {
+                                const cacheNames = await caches.keys();
+                                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                            }
+
+                            // Unregister service workers
+                            if ('serviceWorker' in navigator) {
+                                const registrations = await navigator.serviceWorker.getRegistrations();
+                                await Promise.all(registrations.map(reg => reg.unregister()));
+                            }
+
+                            // Force reload
+                            window.location.reload(true);
+                        } catch (error) {
+                            console.error('Cache reset error:', error);
+                            alert('Fehler beim Zurücksetzen: ' + error.message);
+                        }
+                    }
                 });
 
                 // Logout functionality

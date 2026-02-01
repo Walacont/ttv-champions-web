@@ -118,6 +118,16 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <a
+                        href="/admin-reports.html"
+                        class="relative text-gray-500 hover:text-gray-800 transition-colors"
+                        title="Meldungen verwalten"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span id="reports-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </a>
+                    <a
                         href="/settings.html"
                         class="text-gray-500 hover:text-gray-800 transition-colors"
                         title="Einstellungen"
@@ -315,6 +325,249 @@
                     </div>
                 </section>
 
+                <!-- Table Tennis Exercise Builder - Compact Modern Design -->
+                <section id="tt-exercise-builder-section" class="bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-2xl shadow-lg border border-slate-200 mt-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+                            <span class="text-white text-lg">🏓</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Übungs-Animator</h2>
+                            <p class="text-xs text-slate-500">Animierte Tischtennis-Übungen erstellen</p>
+                        </div>
+                    </div>
+
+                    <!-- Händigkeits-Auswahl für Animator -->
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-indigo-700">Spieler A (unten):</label>
+                                <select id="tt-player-a-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="R">Rechtshänder</option>
+                                    <option value="L">Linkshänder</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm font-medium text-indigo-700">Spieler B (oben):</label>
+                                <select id="tt-player-b-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="R">Rechtshänder</option>
+                                    <option value="L">Linkshänder</option>
+                                </select>
+                            </div>
+                            <div class="text-xs text-indigo-600 ml-auto">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                VH/RH wird automatisch angepasst
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                        <!-- Canvas and Controls - Compact -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-slate-800 rounded-xl overflow-hidden mb-3 flex justify-center p-3">
+                                <canvas id="tt-exercise-canvas"></canvas>
+                            </div>
+
+                            <!-- Playback Controls - Compact -->
+                            <div class="flex justify-center gap-2 mb-3">
+                                <button id="tt-play-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm">
+                                    <i class="fas fa-play mr-1"></i>Play
+                                </button>
+                                <button id="tt-pause-btn" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm hidden">
+                                    <i class="fas fa-pause mr-1"></i>Pause
+                                </button>
+                                <button id="tt-reset-btn" class="bg-slate-400 hover:bg-slate-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-all shadow-sm">
+                                    <i class="fas fa-redo mr-1"></i>Reset
+                                </button>
+                            </div>
+
+                            <!-- Loop toggle - inline -->
+                            <div class="flex items-center justify-center gap-2 mb-3">
+                                <input type="checkbox" id="tt-loop-toggle" checked class="h-3.5 w-3.5 text-emerald-500 rounded">
+                                <label for="tt-loop-toggle" class="text-xs text-slate-600">Endlosschleife</label>
+                            </div>
+
+                            <!-- Abbreviation Legend - Collapsible Compact -->
+                            <div class="bg-white/60 rounded-lg p-2.5 border border-slate-200">
+                                <button id="tt-toggle-legend" class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium w-full">
+                                    <svg id="tt-legend-icon" class="w-3 h-3 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    Abkürzungen
+                                </button>
+                                <div id="tt-legend-content" class="hidden mt-2">
+                                    <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
+                                        <div><span class="font-semibold">VH</span> = Vorhand</div>
+                                        <div><span class="font-semibold">RH</span> = Rückhand</div>
+                                        <div><span class="font-semibold">T</span> = Topspin</div>
+                                        <div><span class="font-semibold">K</span> = Konter</div>
+                                        <div><span class="font-semibold">B</span> = Block</div>
+                                        <div><span class="font-semibold">S</span> = Smash</div>
+                                        <div><span class="font-semibold">F</span> = Flip</div>
+                                        <div><span class="font-semibold">SCH</span> = Schupf</div>
+                                        <div><span class="font-semibold">A</span> = Aufschlag</div>
+                                        <div><span class="font-semibold">M</span> = Mitte</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step Builder Form - Compact -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                                <h3 class="text-sm font-semibold text-slate-700 mb-2">Schritt hinzufügen</h3>
+
+                                <form id="tt-add-step-form" class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Spieler</label>
+                                            <select id="tt-player-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
+                                                <option value="A">A (unten)</option>
+                                                <option value="B">B (oben)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Seite</label>
+                                            <select id="tt-side-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
+                                                <option value="RH">RH</option>
+                                                <option value="VH">VH</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Schlag</label>
+                                            <select id="tt-stroke-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
+                                                <option value="A">Aufschlag</option>
+                                                <option value="T">Topspin</option>
+                                                <option value="B">Block</option>
+                                                <option value="K">Konter</option>
+                                                <option value="F">Flip</option>
+                                                <option value="S">Smash</option>
+                                                <option value="SCH">Schupf</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-end pb-1">
+                                            <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                                                <input type="checkbox" id="tt-short-checkbox" class="h-3.5 w-3.5 text-emerald-500 rounded">
+                                                Kurz
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Repetitions -->
+                                    <div class="border-t border-slate-200 pt-2 mt-2">
+                                        <div class="flex items-center gap-1.5 mb-2">
+                                            <input type="checkbox" id="tt-has-repetitions" class="h-3.5 w-3.5 text-blue-500 rounded">
+                                            <label for="tt-has-repetitions" class="text-[10px] font-medium text-slate-600">Wiederholungen</label>
+                                        </div>
+                                        <div id="tt-repetitions-container" class="hidden">
+                                            <div class="flex items-center gap-2">
+                                                <input type="number" id="tt-rep-min" min="1" max="99" value="3" class="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50">
+                                                <span class="text-[10px] text-slate-500">bis</span>
+                                                <input type="number" id="tt-rep-max" min="1" max="99" value="8" class="w-14 px-2 py-1 text-xs border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-slate-50">
+                                                <span class="text-[10px] text-slate-500">mal</span>
+                                            </div>
+                                            <p class="text-[9px] text-slate-400 italic mt-1">z.B. 3-8x Schupfen kurz</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Player Decides -->
+                                    <div class="flex items-center gap-1.5 mt-2">
+                                        <input type="checkbox" id="tt-player-decides" class="h-3.5 w-3.5 text-violet-500 rounded">
+                                        <label for="tt-player-decides" class="text-[10px] font-medium text-slate-600">Spieler entscheidet (wann/wohin)</label>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Von</label>
+                                            <select id="tt-from-position" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
+                                                <option value="RH">RH</option>
+                                                <option value="M">Mitte</option>
+                                                <option value="VH">VH</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Nach</label>
+                                            <select id="tt-to-position" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
+                                                <option value="RH">RH</option>
+                                                <option value="M">Mitte</option>
+                                                <option value="VH">VH</option>
+                                                <option value="FREI">Frei</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Conditional Branching (Variants) -->
+                                    <div class="border-t border-slate-200 pt-2 mt-2">
+                                        <div class="flex items-center gap-1.5 mb-2">
+                                            <input type="checkbox" id="tt-has-variants" class="h-3.5 w-3.5 text-emerald-500 rounded">
+                                            <label for="tt-has-variants" class="text-[10px] font-medium text-slate-600">Bedingte Verzweigung (oder)</label>
+                                        </div>
+                                        <div id="tt-variants-container" class="hidden space-y-2">
+                                            <p class="text-[9px] text-slate-400 italic">Alternative Reaktion hinzufügen (z.B. wenn RH → SCH, wenn VH → T)</p>
+                                            <div id="tt-variants-list" class="space-y-1.5">
+                                                <!-- Variants will be added here -->
+                                            </div>
+                                            <button type="button" id="tt-add-variant-btn" class="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium">
+                                                <i class="fas fa-plus mr-0.5"></i>Alternative hinzufügen
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
+                                        <i class="fas fa-plus mr-1"></i>Hinzufügen
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Preset Exercises - Compact -->
+                            <div class="mt-3 bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                                <h4 class="text-xs font-semibold text-slate-600 mb-2">Vorlagen</h4>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button id="tt-preset-falkenberg" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-blue-100">
+                                        Falkenberg
+                                    </button>
+                                    <button id="tt-preset-aufschlag-rh" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-emerald-100">
+                                        Aufschlag
+                                    </button>
+                                    <button id="tt-preset-topspin-counter" class="bg-violet-50 hover:bg-violet-100 text-violet-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-violet-100">
+                                        Topspin
+                                    </button>
+                                    <button id="tt-preset-schupf-var" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-amber-100">
+                                        Schupf variabel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Steps List & Save - Compact -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm mb-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="text-xs font-semibold text-slate-600">Schritte</h4>
+                                    <button id="tt-clear-steps" class="text-[10px] text-red-500 hover:text-red-700 font-medium">
+                                        <i class="fas fa-trash mr-0.5"></i>Löschen
+                                    </button>
+                                </div>
+                                <div id="tt-steps-list" class="space-y-1.5 max-h-48 overflow-y-auto">
+                                    <p class="text-slate-400 text-[10px] italic">Keine Schritte</p>
+                                </div>
+                            </div>
+
+                            <!-- Export GIF - Compact -->
+                            <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                                <h4 class="text-xs font-semibold text-slate-600 mb-2">Exportieren</h4>
+                                <input type="text" id="tt-exercise-name" placeholder="Dateiname" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 mb-2 bg-slate-50">
+                                <button id="tt-export-gif" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
+                                    <i class="fas fa-film mr-1"></i>Als GIF speichern
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="management-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1 space-y-8">
                         <div class="bg-white p-6 rounded-xl shadow-md">
@@ -483,6 +736,46 @@
                                     </p>
                                 </div>
 
+                                <!-- Übungstyp (Spieler-Aktivität) -->
+                                <div class="border-t pt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Übungstyp (Spieler-Aktivität)
+                                    </label>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="exercise-player-type"
+                                                value="solo"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            />
+                                            <span class="text-sm text-gray-700">Einzelübung / Allgemein</span>
+                                            <span class="text-xs text-gray-500">(Seilspringen, Laufen, etc. - keine Paarung)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="exercise-player-type"
+                                                value="both_active"
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            />
+                                            <span class="text-sm text-gray-700">Paarung: Beide aktiv</span>
+                                            <span class="text-xs text-gray-500">(beide bekommen 100% der Punkte)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="exercise-player-type"
+                                                value="a_active_b_passive"
+                                                checked
+                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            />
+                                            <span class="text-sm text-gray-700">Paarung: A aktiv & B passiv</span>
+                                            <span class="text-xs text-gray-500">(A: 100%, B: 50% der Punkte)</span>
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <!-- Tiered Points System -->
                                 <div class="border-t pt-4">
                                     <div class="flex items-center mb-3">
@@ -508,6 +801,38 @@
                                             Punkte sammeln, indem sie diese Übung mehrmals schaffen.
                                             Punkte sind kumulativ!
                                         </p>
+
+                                        <!-- Einheit für Meilensteine -->
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <label for="exercise-milestone-unit" class="text-sm font-medium text-indigo-700 whitespace-nowrap">
+                                                Einheit:
+                                            </label>
+                                            <select
+                                                id="exercise-milestone-unit"
+                                                class="flex-1 px-3 py-1.5 text-sm border border-indigo-300 rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            >
+                                                <optgroup label="Anzahl">
+                                                    <option value="Wiederholungen">Wiederholungen</option>
+                                                    <option value="Ballberührungen">Ballberührungen</option>
+                                                    <option value="Treffer">Treffer</option>
+                                                    <option value="Sterne">Sterne</option>
+                                                    <option value="Punkte">Punkte</option>
+                                                    <option value="Runden">Runden</option>
+                                                </optgroup>
+                                                <optgroup label="Zeit">
+                                                    <option value="Zeit_faster">Zeit (schneller ist besser)</option>
+                                                    <option value="Zeit_longer">Zeit (länger ist besser)</option>
+                                                </optgroup>
+                                            </select>
+                                            <span class="text-xs text-indigo-600">oder:</span>
+                                            <input
+                                                type="text"
+                                                id="exercise-milestone-unit-custom"
+                                                placeholder="Eigene Einheit"
+                                                class="w-32 px-2 py-1.5 text-sm border border-indigo-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            />
+                                        </div>
+
                                         <div id="exercise-milestones-list" class="space-y-2">
                                             <!-- Milestones will be added here dynamically -->
                                         </div>
@@ -594,6 +919,46 @@
                                         class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                     />
                                 </div>
+
+                                <!-- Animationen (Optional, mehrere pro Händigkeit) -->
+                                <div class="border-t border-gray-200 pt-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="text-sm font-medium text-gray-700">
+                                            🏓 Animationen (optional)
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mb-3">
+                                        Füge Animationen für verschiedene Händigkeits-Kombinationen hinzu. Erstelle zuerst die Animation im Animator oben.
+                                    </p>
+
+                                    <!-- Liste der hinzugefügten Animationen -->
+                                    <div id="exercise-animations-list" class="space-y-3 mb-4">
+                                        <!-- Dynamisch befüllt -->
+                                    </div>
+
+                                    <!-- Animation hinzufügen Panel -->
+                                    <div id="add-animation-panel" class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <select id="new-animation-handedness" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-emerald-500 focus:border-emerald-500">
+                                                <option value="R-R">R-R (Rechts gegen Rechts)</option>
+                                                <option value="L-L">L-L (Links gegen Links)</option>
+                                                <option value="R-L">R-L (Rechts gegen Links)</option>
+                                                <option value="L-R">L-R (Links gegen Rechts)</option>
+                                            </select>
+                                            <button type="button" id="add-animation-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                                <i class="fas fa-plus mr-1"></i>Animation hinzufügen
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-400">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Tipp: Erstelle zuerst die Animation im Animator, dann wähle die Händigkeit und klicke "Animation hinzufügen".
+                                        </p>
+                                    </div>
+
+                                    <!-- Hidden input für alle Animationen (JSON) -->
+                                    <input type="hidden" id="exercise-animations-data" value="[]" />
+                                </div>
+
                                 <button
                                     type="submit"
                                     id="create-exercise-submit"
@@ -621,65 +986,56 @@
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+
+                            <!-- Header mit Suche und Filter -->
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                                <button
+                                    id="toggle-tags-filter-admin"
+                                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
+                                >
+                                    <i class="fas fa-filter"></i>
+                                    <span>Filter</span>
+                                </button>
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="exercise-search-input-admin"
+                                            placeholder="Suche nach Übungen"
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tag Filter Section (Collapsible) -->
+                            <div
+                                id="tags-filter-section-admin"
+                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4"
+                            >
+                                <input
+                                    type="text"
+                                    id="tag-search-admin"
+                                    placeholder="Tag suchen..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                                <div
+                                    id="tags-filter-container-admin"
+                                    class="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
+                                >
+                                    <!-- Tag buttons will be dynamically inserted here -->
+                                </div>
+                            </div>
+
+                            <!-- Übungsliste -->
                             <div
                                 id="exercises-list-admin"
-                                class="grid grid-cols-1 sm:grid-cols-2 gap-6"
+                                class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto"
                             >
-                                <p>Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500">Übungen werden geladen...</p>
                             </div>
                         </div>
-                    </div>
-                </section>
-
-                <!-- Saison-Verwaltung -->
-                <section id="season-section" class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                        <i class="fas fa-calendar-alt mr-2 text-green-600"></i>Saison-Verwaltung
-                    </h2>
-                    <p class="text-sm text-gray-600 mb-6">Verwalte Saisons pro Sportart. Beim Saisonwechsel werden die Saison-Punkte zurückgesetzt (XP und ELO bleiben erhalten).</p>
-
-                    <!-- Aktuelle Saison pro Sportart -->
-                    <div id="seasons-list" class="space-y-4 mb-6">
-                        <p class="text-gray-500">Saisons werden geladen...</p>
-                    </div>
-
-                    <!-- Neue Saison starten -->
-                    <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold mb-4">Neue Saison starten</h3>
-                        <form id="new-season-form" class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="season-sport" class="block text-sm font-medium text-gray-700">Sportart</label>
-                                    <select id="season-sport" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 bg-white">
-                                        <option value="">-- Sportart wählen --</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="season-name" class="block text-sm font-medium text-gray-700">Saison-Name</label>
-                                    <input type="text" id="season-name" required placeholder="z.B. 2024/2025" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" />
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="season-start" class="block text-sm font-medium text-gray-700">Start-Datum</label>
-                                    <input type="date" id="season-start" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" />
-                                </div>
-                                <div>
-                                    <label for="season-end" class="block text-sm font-medium text-gray-700">End-Datum</label>
-                                    <input type="date" id="season-end" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" />
-                                </div>
-                            </div>
-                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                <p class="text-sm text-amber-800">
-                                    <i class="fas fa-exclamation-triangle mr-1"></i>
-                                    <strong>Achtung:</strong> Beim Starten einer neuen Saison werden die Saison-Punkte aller Spieler dieser Sportart auf 0 gesetzt!
-                                </p>
-                            </div>
-                            <button type="submit" id="start-season-btn" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                                <i class="fas fa-play mr-2"></i>Neue Saison starten
-                            </button>
-                        </form>
-                        <p id="season-feedback" class="mt-3 text-sm font-medium"></p>
                     </div>
                 </section>
 
@@ -792,6 +1148,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"
@@ -955,5 +1327,7 @@
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Firebase: <script type="module" src="/js/admin.js"></script> -->
         <script type="module" src="/js/admin-supabase.js"></script>
+        <script src="/js/table-tennis-exercise-builder.js"></script>
+        <script src="/js/table-tennis-exercise-ui.js"></script>
     </body>
 </html>

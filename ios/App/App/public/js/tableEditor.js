@@ -1,13 +1,10 @@
-/**
- * Table Editor Module
- * Handles creation and editing of tables in exercise descriptions
- */
+// Tabellen-Editor Modul
+// Erstellt und bearbeitet Tabellen in Übungsbeschreibungen
+
+import { escapeHtml } from './utils/security.js';
 
 /**
- * Creates a table editor interface
- * @param {string} containerId - ID of the container element
- * @param {Object} initialData - Initial table data (optional)
- * @returns {Object} Table editor instance with methods
+ * Erstellt eine Tabellen-Editor-Oberfläche
  */
 export function createTableEditor(containerId, initialData = null) {
     const container = document.getElementById(containerId);
@@ -56,7 +53,7 @@ export function createTableEditor(containerId, initialData = null) {
     const removeRowBtn = container.querySelector('.remove-row-btn');
 
     function renderTable() {
-        // Render headers
+        // Kopfzeilen rendern
         headerRow.innerHTML = '';
         tableData.headers.forEach((header, colIndex) => {
             const th = document.createElement('th');
@@ -74,7 +71,7 @@ export function createTableEditor(containerId, initialData = null) {
             headerRow.appendChild(th);
         });
 
-        // Render rows
+        // Zeilen rendern
         tableBody.innerHTML = '';
         tableData.rows.forEach((row, rowIndex) => {
             const tr = document.createElement('tr');
@@ -149,9 +146,7 @@ export function createTableEditor(containerId, initialData = null) {
 }
 
 /**
- * Renders a table from data for display (read-only)
- * @param {Object} tableData - Table data object with headers and rows
- * @returns {string} HTML string of the rendered table
+ * Rendert eine Tabelle aus Daten (nur Anzeige)
  */
 export function renderTableForDisplay(tableData) {
     if (!tableData || !tableData.headers || !tableData.rows) {
@@ -182,24 +177,7 @@ export function renderTableForDisplay(tableData) {
 }
 
 /**
- * Escapes HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * Sets up the description editor with text and table toggle
- * @param {Object} config - Configuration object
- * @param {string} config.textAreaId - ID of the textarea element
- * @param {string} config.toggleContainerId - ID of the toggle container
- * @param {string} config.tableEditorContainerId - ID of the table editor container
- * @param {Object} config.initialData - Initial data (optional)
- * @returns {Object} Editor instance with methods
+ * Richtet den Beschreibungs-Editor mit Text/Tabellen-Umschalter ein
  */
 export function setupDescriptionEditor(config) {
     const { textAreaId, toggleContainerId, tableEditorContainerId, initialData = null } = config;
@@ -218,7 +196,7 @@ export function setupDescriptionEditor(config) {
     let textContent = '';
     let tableContent = null;
 
-    // Load initial data if provided
+    // Initiale Daten laden falls vorhanden
     if (initialData) {
         if (initialData.type === 'table') {
             currentMode = 'table';
@@ -230,7 +208,7 @@ export function setupDescriptionEditor(config) {
         }
     }
 
-    // Create toggle UI
+    // Toggle-UI erstellen
     toggleContainer.innerHTML = `
         <div class="mb-3">
             <label class="block text-sm font-medium text-gray-700 mb-2">Beschreibungsformat</label>
@@ -267,7 +245,7 @@ export function setupDescriptionEditor(config) {
             textArea.style.display = 'none';
             tableEditorContainer.style.display = 'block';
 
-            // Create table editor container structure
+            // Tabellen-Editor Container-Struktur erstellen
             tableEditorContainer.innerHTML = `
                 <div class="space-y-3">
                     <div>
@@ -302,7 +280,7 @@ export function setupDescriptionEditor(config) {
         switchMode('table');
     });
 
-    // Initialize with current mode
+    // Mit aktuellem Modus initialisieren
     switchMode(currentMode);
 
     return {

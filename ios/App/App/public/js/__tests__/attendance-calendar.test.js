@@ -201,7 +201,7 @@ describe('Second Training Detection', () => {
 
         test('should return true when player attended another training today', () => {
             const attendanceRecords = [
-                { date: '2025-01-02', sessionId: 'session-1' }, // First training today
+                { date: '2025-01-02', sessionId: 'session-1' }, // Erstes Training heute
                 { date: '2025-01-03', sessionId: 'session-2' },
             ];
 
@@ -211,17 +211,17 @@ describe('Second Training Detection', () => {
 
         test('should not count current session as "other" training', () => {
             const attendanceRecords = [
-                { date: '2025-01-02', sessionId: 'session-1' }, // Current session
+                { date: '2025-01-02', sessionId: 'session-1' }, // Aktuelle Session
             ];
 
             const result = isSecondTrainingToday(attendanceRecords, '2025-01-02', 'session-1');
-            expect(result).toBe(false); // Same session, not a second training
+            expect(result).toBe(false); // Gleiche Session, kein zweites Training
         });
 
         test('should return true when this is 3rd training of the day', () => {
             const attendanceRecords = [
-                { date: '2025-01-02', sessionId: 'session-1' }, // First training
-                { date: '2025-01-02', sessionId: 'session-2' }, // Second training
+                { date: '2025-01-02', sessionId: 'session-1' }, // Erstes Training
+                { date: '2025-01-02', sessionId: 'session-2' }, // Zweites Training
             ];
 
             const result = isSecondTrainingToday(attendanceRecords, '2025-01-02', 'session-3');
@@ -240,7 +240,7 @@ describe('Second Training Detection', () => {
                 { date: '2025-01-03', sessionId: 'session-3' },
             ];
 
-            // Training on Jan 4, no other trainings on Jan 4
+            // Training am 4. Jan, keine anderen Trainings am 4. Jan
             const result = isSecondTrainingToday(attendanceRecords, '2025-01-04', 'session-4');
             expect(result).toBe(false);
         });
@@ -348,7 +348,7 @@ describe('Real-World Attendance Scenarios', () => {
     });
 
     test('Scenario 2: Player attends two trainings on same day (both streak 3)', () => {
-        // First training
+        // Erstes Training
         const attendanceRecords1 = [];
         const isSecond1 = isSecondTrainingToday(attendanceRecords1, '2025-01-15', 'session-1');
         const result1 = calculateAttendancePoints(3, isSecond1, '2025-01-15', 'Basistraining');
@@ -358,15 +358,15 @@ describe('Real-World Attendance Scenarios', () => {
         expect(result1.reason).toContain('⚡ 3x Streak');
         expect(result1.reason).not.toContain('(2. Training heute)');
 
-        // Second training (same day)
+        // Zweites Training (gleicher Tag)
         const attendanceRecords2 = [
-            { date: '2025-01-15', sessionId: 'session-1' }, // First training
+            { date: '2025-01-15', sessionId: 'session-1' }, // Erstes Training
         ];
         const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-15', 'session-2');
         const result2 = calculateAttendancePoints(3, isSecond2, '2025-01-15', 'Leistungstraining');
 
         expect(isSecond2).toBe(true);
-        expect(result2.points).toBe(3); // Half of 5 = 2.5 → 3
+        expect(result2.points).toBe(3); // Hälfte von 5 = 2.5 → 3
         expect(result2.reason).toContain('⚡ 3x Streak');
         expect(result2.reason).toContain('(2. Training heute)');
     });
@@ -388,7 +388,7 @@ describe('Real-World Attendance Scenarios', () => {
     });
 
     test('Scenario 4: Two trainings same day, one with streak 5', () => {
-        // First training (streak 5 → 6 points)
+        // Erstes Training (streak 5 → 6 points)
         const attendanceRecords1 = [];
         const isSecond1 = isSecondTrainingToday(attendanceRecords1, '2025-01-20', 'session-A');
         const result1 = calculateAttendancePoints(5, isSecond1, '2025-01-20', 'Basistraining');
@@ -396,35 +396,35 @@ describe('Real-World Attendance Scenarios', () => {
         expect(result1.points).toBe(6);
         expect(result1.reason).toContain('🔥 5x Streak!');
 
-        // Second training (streak 5 → 6 points → 3 half-points)
+        // Zweites Training (Streak 5 → 6 Punkte → 3 Halbpunkte)
         const attendanceRecords2 = [{ date: '2025-01-20', sessionId: 'session-A' }];
         const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-20', 'session-B');
         const result2 = calculateAttendancePoints(5, isSecond2, '2025-01-20', 'Leistungstraining');
 
-        expect(result2.points).toBe(3); // Half of 6
+        expect(result2.points).toBe(3); // Hälfte von 6
         expect(result2.reason).toContain('🔥 5x Streak!');
         expect(result2.reason).toContain('(2. Training heute)');
     });
 
     test('Scenario 5: Three trainings on same day', () => {
-        // First training
+        // Erstes Training
         const result1 = calculateAttendancePoints(1, false, '2025-01-25', 'Training 1');
         expect(result1.points).toBe(3);
 
-        // Second training
+        // Zweites Training
         const attendanceRecords2 = [{ date: '2025-01-25', sessionId: 'session-1' }];
         const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-25', 'session-2');
         const result2 = calculateAttendancePoints(1, isSecond2, '2025-01-25', 'Training 2');
-        expect(result2.points).toBe(2); // Half of 3 = 1.5 → 2
+        expect(result2.points).toBe(2); // Hälfte von 3 = 1.5 → 2
 
-        // Third training
+        // Drittes Training
         const attendanceRecords3 = [
             { date: '2025-01-25', sessionId: 'session-1' },
             { date: '2025-01-25', sessionId: 'session-2' },
         ];
         const isSecond3 = isSecondTrainingToday(attendanceRecords3, '2025-01-25', 'session-3');
         const result3 = calculateAttendancePoints(1, isSecond3, '2025-01-25', 'Training 3');
-        expect(result3.points).toBe(2); // Still half points (2nd+ training)
+        expect(result3.points).toBe(2); // Weiterhin halbe Punkte (2.+ Training)
     });
 
     test('Scenario 6: Trainings on consecutive days (streak building)', () => {
@@ -467,7 +467,7 @@ describe('Edge Cases & Boundary Conditions', () => {
 
     test('should handle streak 100+ (unrealistic but valid)', () => {
         const result = calculateAttendancePoints(100, false, '2025-01-15', 'Basistraining');
-        expect(result.points).toBe(6); // Still capped at 6
+        expect(result.points).toBe(6); // Weiterhin auf 6 begrenzt
         expect(result.reason).toContain('🔥 100x Streak!');
     });
 
@@ -484,15 +484,15 @@ describe('Edge Cases & Boundary Conditions', () => {
             { date: '2025-01-10', sessionId: 'session-1' },
             { date: '2025-01-11', sessionId: 'session-2' },
             { date: '2025-01-12', sessionId: 'session-3' },
-            { date: '2025-01-12', sessionId: 'session-4' }, // Second training on Jan 12
+            { date: '2025-01-12', sessionId: 'session-4' }, // Zweites Training on Jan 12
             { date: '2025-01-13', sessionId: 'session-5' },
         ];
 
-        // New training on Jan 12 should be detected as 3rd training
+        // Neues Training am 12. Jan sollte als 3. Training erkannt werden
         const isSecond = isSecondTrainingToday(attendanceRecords, '2025-01-12', 'session-6');
         expect(isSecond).toBe(true);
 
-        // New training on Jan 14 should NOT be second training
+        // Neues Training am 14. Jan sollte NICHT zweites Training sein
         const isSecondJan14 = isSecondTrainingToday(attendanceRecords, '2025-01-14', 'session-7');
         expect(isSecondJan14).toBe(false);
     });

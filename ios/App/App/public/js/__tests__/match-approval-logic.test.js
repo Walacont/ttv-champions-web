@@ -38,19 +38,19 @@ function determineSinglesMatchClubId(playerA, playerB) {
     const playerBClubId = playerB?.clubId;
 
     if (hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
-        // Both without club → null (auto-approve)
+        // Beide ohne Verein → null (automatisch genehmigen)
         return null;
     } else if (!hasNoClub(playerAClubId) && !hasNoClub(playerBClubId) && playerAClubId === playerBClubId) {
-        // Same club → use that club
+        // Gleicher Verein → diesen Verein verwenden
         return playerAClubId;
     } else if (!hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
-        // Only PlayerA has club → use PlayerA's club
+        // Nur PlayerA hat Verein → PlayerA's Verein verwenden
         return playerAClubId;
     } else if (hasNoClub(playerAClubId) && !hasNoClub(playerBClubId)) {
-        // Only PlayerB has club → use PlayerB's club
+        // Nur PlayerB hat Verein → PlayerB's Verein verwenden
         return playerBClubId;
     } else {
-        // Different clubs → null (cross-club, any coach can approve)
+        // Verschiedene Vereine → null (vereinsübergreifend, jeder Coach kann genehmigen)
         return null;
     }
 }
@@ -64,7 +64,7 @@ function determineSinglesMatchClubId(playerA, playerB) {
 function simulatePlayerBApproval(playerA, playerB) {
     const clubId = determineSinglesMatchClubId(playerA, playerB);
 
-    // Auto-approve if both players have no club
+    // Automatisch genehmigen wenn beide Spieler keinen Verein haben
     const isAutoApproved = hasNoClub(playerA.clubId) && hasNoClub(playerB.clubId);
     const status = isAutoApproved ? 'approved' : 'pending_coach';
 
@@ -90,7 +90,7 @@ function determineDoublesMatchClubId(player1, player2, player3, player4) {
     const club3 = player3?.clubId || null;
     const club4 = player4?.clubId || null;
 
-    // Only set clubId if all 4 players are from the same club
+    // clubId nur setzen wenn alle 4 Spieler im selben Verein sind
     if (club1 && club1 === club2 && club1 === club3 && club1 === club4) {
         return club1;
     }
@@ -108,7 +108,7 @@ function determineDoublesMatchClubId(player1, player2, player3, player4) {
 function simulateDoublesOpponentApproval(player1, player2, player3, player4) {
     const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
 
-    // Auto-approve if at least one team has no club
+    // Automatisch genehmigen wenn mindestens ein Team keinen Verein hat
     const teamANoClub = hasNoClub(player1.clubId) && hasNoClub(player2.clubId);
     const teamBNoClub = hasNoClub(player3.clubId) && hasNoClub(player4.clubId);
     const isAutoApproved = teamANoClub || teamBNoClub;
@@ -403,7 +403,7 @@ describe('Edge Cases', () => {
         const clubId = determineSinglesMatchClubId(playerA, playerB);
         const result = simulatePlayerBApproval(playerA, playerB);
 
-        // Empty strings are falsy, so should be treated as no club
+        // Leere Strings sind falsy, sollten als kein Verein behandelt werden
         expect(clubId).toBe(null);
         expect(result.isAutoApproved).toBe(true);
     });
@@ -443,7 +443,7 @@ describe('Complete Approval Workflow', () => {
         const playerA = { id: 'A', clubId: null };
         const playerB = { id: 'B', clubId: null };
 
-        // Initial status
+        // Anfangsstatus
         let matchRequest = {
             status: 'pending_player',
             playerAId: 'A',
@@ -491,7 +491,7 @@ describe('Complete Approval Workflow', () => {
             clubId: determineDoublesMatchClubId(player1, player2, player3, player4),
         };
 
-        // Opponent approves
+        // Gegner genehmigt
         const approval = simulateDoublesOpponentApproval(player1, player2, player3, player4);
         doublesRequest.status = approval.status;
 
@@ -510,7 +510,7 @@ describe('Complete Approval Workflow', () => {
             clubId: determineDoublesMatchClubId(player1, player2, player3, player4),
         };
 
-        // Opponent approves
+        // Gegner genehmigt
         const approval = simulateDoublesOpponentApproval(player1, player2, player3, player4);
         doublesRequest.status = approval.status;
 

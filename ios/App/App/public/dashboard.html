@@ -8,6 +8,13 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+
+        <!-- OneSignal SDK for PWA Push Notifications -->
+        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+        <script>
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+        </script>
+
         <title>Mein Dashboard - SC Champions</title>
 
         <!-- Favicon -->
@@ -72,7 +79,7 @@
                 background-color: #eef2ff; /* indigo-50 */
             }
 
-            /* Bottom navigation - explicit fixed positioning for Safari iOS */
+            /* Bottom navigation - explicit fixed positioning for Safari iOS PWA */
             #bottom-nav {
                 position: fixed !important;
                 bottom: 0 !important;
@@ -80,11 +87,57 @@
                 right: 0 !important;
                 -webkit-transform: translateZ(0);
                 transform: translateZ(0);
+                /* Extend background into safe area */
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            /* PWA standalone styles are in mobile-fixes.css */
+
+            /* Top safe area for PWA/standalone mode (status bar) */
+            .safe-area-top {
+                padding-top: env(safe-area-inset-top, 0);
             }
 
-            /* Bottom navigation safe area for iPhones */
-            .safe-area-bottom {
-                padding-bottom: env(safe-area-inset-bottom, 0);
+            /* PWA standalone mode - add top padding and background to body */
+            @media all and (display-mode: standalone) {
+                html {
+                    background-color: white;
+                }
+                body {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
+            /* iOS PWA detection via CSS */
+            @supports (-webkit-touch-callout: none) {
+                body.standalone-mode {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
+            /* Top navigation safe area in standalone/PWA mode */
+            @media all and (display-mode: standalone) {
+                #top-nav {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+            body.standalone-mode #top-nav {
+                padding-top: env(safe-area-inset-top, 0);
+            }
+
+            /* Main content needs extra top padding in standalone mode to account for taller top-nav */
+            @media all and (display-mode: standalone) {
+                #main-content {
+                    padding-top: calc(3.5rem + env(safe-area-inset-top, 0)) !important;
+                }
+            }
+            body.standalone-mode #main-content {
+                padding-top: calc(3.5rem + env(safe-area-inset-top, 0)) !important;
+                padding-bottom: calc(48px + env(safe-area-inset-bottom, 0)) !important;
+            }
+
+            /* Bottom nav safe area for iOS PWA (standalone mode) */
+            body.standalone-mode #bottom-nav {
+                padding-bottom: env(safe-area-inset-bottom, 0) !important;
             }
 
             /* Bottom nav button styles for mobile touch */
@@ -320,13 +373,35 @@
                     <i class="fas fa-search text-lg"></i>
                 </button>
 
-                <!-- Center: Profile Photo and Title -->
+                <!-- Center: Profile Photo, Title and Role Switcher -->
                 <div class="flex items-center gap-2">
                     <a id="header-profile-link" href="#" class="flex-shrink-0">
                         <img id="header-profile-pic" src="" alt="Profilbild"
                              class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
                     </a>
-                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
+                    <div class="relative">
+                        <button id="role-switcher-btn" class="flex items-center gap-1 text-base font-semibold text-gray-900 hover:text-indigo-600 transition-colors hidden">
+                            <span id="header-title">Start</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                        </button>
+                        <h1 id="header-title-static" class="text-base font-semibold text-gray-900">Start</h1>
+
+                        <!-- Role Dropdown Menu -->
+                        <div id="role-dropdown" class="hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                            <button id="role-player" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-user text-indigo-600 w-4"></i>
+                                <span>Mein Spieler</span>
+                            </button>
+                            <button id="role-guardian" class="hidden w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-child text-pink-600 w-4"></i>
+                                <span>Meine Kinder</span>
+                            </button>
+                            <button id="role-coach" class="hidden w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-whistle text-purple-600 w-4"></i>
+                                <span>Coach-Ansicht</span>
+                            </button>
+                        </div>
+                    </div>
                     <p id="header-club-info" class="hidden">
                         <span id="header-club-name"></span>
                     </p>
@@ -351,12 +426,31 @@
                     >
                         <i class="fas fa-cog text-lg"></i>
                     </a>
+                    <!-- Child/Minor Logout Button (shown only for kids/teen mode) -->
+                    <button
+                        id="child-logout-btn"
+                        class="hidden text-white text-sm font-medium hover:text-gray-200 transition-colors px-2 py-1"
+                        title="Abmelden"
+                    >
+                        Abmelden
+                    </button>
                 </div>
             </div>
         </header>
 
         <div id="main-content" class="container mx-auto px-4 sm:px-6 md:px-8 max-w-7xl pt-14">
             <div class="mb-4">
+                <!-- Guardian Indicator - shown for guardians -->
+                <div id="guardian-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center gap-2 text-purple-700">
+                        <i class="fas fa-users"></i>
+                        <span class="text-sm font-medium">Du hast ein Vormunds-Konto</span>
+                        <a href="/guardian-dashboard.html" class="ml-auto text-purple-600 hover:text-purple-800 text-sm font-semibold">
+                            Zu meinen Kindern <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+
                 <div id="coach-player-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
                     <div class="flex items-center gap-2 text-purple-700">
                         <i class="fas fa-info-circle"></i>
@@ -408,6 +502,27 @@
                             </div>
                             <div id="upcoming-events-list" class="space-y-3">
                                 <!-- Events werden hier dynamisch eingefügt -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Tournament Banner -->
+                    <div id="active-tournament-banner" class="hidden mb-4">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-trophy text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h3 id="tournament-banner-name" class="font-bold text-indigo-900 text-sm"></h3>
+                                        <p id="tournament-banner-round" class="text-xs text-indigo-700"></p>
+                                    </div>
+                                </div>
+                                <div id="tournament-banner-next" class="bg-white rounded-lg p-3 mt-2">
+                                    <p class="text-xs text-gray-500 mb-1">Nächster Gegner</p>
+                                    <p id="tournament-banner-opponent" class="font-semibold text-gray-900"></p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -466,6 +581,14 @@
                             </button>
                         </div>
 
+                        <!-- Pull-to-Refresh Indicator -->
+                        <div id="pull-to-refresh-indicator" class="flex flex-col items-center justify-center overflow-hidden transition-all duration-200" style="height: 0; opacity: 0;">
+                            <div id="ptr-content" class="py-3 text-center">
+                                <i id="ptr-icon" class="fas fa-arrow-down text-indigo-500 text-lg mb-1 transition-transform duration-200"></i>
+                                <p id="ptr-text" class="text-sm text-gray-500">Nach unten ziehen zum Aktualisieren</p>
+                            </div>
+                        </div>
+
                         <div id="activity-feed" class="space-y-3">
                             <div class="p-6 text-center text-gray-400">
                                 <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
@@ -497,33 +620,50 @@
                 </div>
 
                 <div id="tab-content-exercises" class="tab-content hidden">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4" data-i18n="dashboard.exercises.title">Übungskatalog</h2>
-                        <!-- Tag Filter Section (Collapsible) -->
-                        <div class="mb-4">
-                            <button
-                                id="toggle-tags-filter-player"
-                                class="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-semibold text-sm mb-2"
-                            >
-                                <svg
-                                    id="filter-icon-player"
-                                    class="w-4 h-4 transform transition-transform"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                        <!-- Sub-Tab Navigation -->
+                        <div class="border-b border-gray-200">
+                            <nav class="flex">
+                                <button class="exercises-sub-tab flex-1 py-3 px-4 text-center font-medium text-sm border-b-2 border-indigo-600 text-indigo-600"
+                                        data-subtab="catalog">
+                                    <i class="fas fa-dumbbell mr-2"></i>Übungskatalog
+                                </button>
+                                <button class="exercises-sub-tab flex-1 py-3 px-4 text-center font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+                                        data-subtab="my-videos">
+                                    <i class="fas fa-video mr-2"></i>Meine Videos
+                                    <span id="my-videos-count" class="hidden ml-1 bg-purple-100 text-purple-600 text-xs px-2 py-0.5 rounded-full"></span>
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Sub-Tab Content: Übungskatalog -->
+                        <div id="exercises-subtab-catalog" class="p-4 sm:p-6">
+                            <!-- Header mit Suche und Filter -->
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                                <button
+                                    id="toggle-tags-filter-player"
+                                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M19 9l-7 7-7-7"
-                                    ></path>
-                                </svg>
-                                🏷️ <span data-i18n="dashboard.exercises.filterTags">Tags filtern</span>
-                            </button>
+                                    <i class="fas fa-filter"></i>
+                                    <span data-i18n="dashboard.exercises.filterTags">Filter</span>
+                                </button>
+                                <div class="flex-1">
+                                    <div class="relative">
+                                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                        <input
+                                            type="text"
+                                            id="exercise-search-input"
+                                            placeholder="Suche nach Übungen"
+                                            data-i18n-placeholder="dashboard.exercises.searchExercises"
+                                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tag Filter Section (Collapsible) -->
                             <div
                                 id="tags-filter-section-player"
-                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50"
+                                class="hidden border border-gray-200 rounded-lg p-3 bg-gray-50 mb-4"
                             >
                                 <input
                                     type="text"
@@ -539,18 +679,80 @@
                                     <!-- Tag buttons will be dynamically inserted here -->
                                 </div>
                             </div>
+                            <!-- Übungsliste -->
+                            <div
+                                id="exercises-list"
+                                class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden bg-white"
+                            >
+                                <p class="p-4 text-gray-500" data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
+                            </div>
                         </div>
-                        <div
-                            id="exercises-list"
-                            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                        >
-                            <p data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
+
+                        <!-- Sub-Tab Content: Meine Videos -->
+                        <div id="exercises-subtab-my-videos" class="p-6 hidden">
+                            <div class="flex justify-between items-center mb-6">
+                                <div>
+                                    <h2 class="text-xl font-semibold">Meine Videos</h2>
+                                    <p class="text-sm text-gray-500 mt-1">Deine hochgeladenen Trainingsvideos und Coach-Feedback</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button id="open-video-comparison"
+                                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors flex items-center gap-2">
+                                        <i class="fas fa-columns"></i>
+                                        <span class="hidden sm:inline">Vergleichen</span>
+                                    </button>
+                                    <button id="open-video-upload-from-mediathek"
+                                            class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg shadow transition-colors flex items-center gap-2">
+                                        <i class="fas fa-upload"></i>
+                                        <span>Video hochladen</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Filter -->
+                            <div class="flex flex-wrap gap-3 mb-6">
+                                <select id="my-videos-filter-status" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+                                    <option value="all">Alle Videos</option>
+                                    <option value="pending">Warte auf Feedback</option>
+                                    <option value="reviewed">Mit Feedback</option>
+                                    <option value="private">Nur für mich</option>
+                                </select>
+                                <select id="my-videos-filter-exercise" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+                                    <option value="all">Alle Übungen</option>
+                                    <!-- Dynamisch gefüllt -->
+                                </select>
+                            </div>
+
+                            <!-- Video Grid -->
+                            <div id="my-videos-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <p class="text-gray-500 col-span-full text-center py-8">
+                                    <i class="fas fa-video text-4xl text-gray-300 mb-3 block"></i>
+                                    Noch keine Videos hochgeladen
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div id="tab-content-matches" class="tab-content hidden">
-                    <div class="space-y-4">
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                        <!-- Sub-Tab Navigation -->
+                        <div class="border-b border-gray-200">
+                            <nav class="flex">
+                                <button class="matches-sub-tab flex-1 py-3 px-4 text-center font-medium text-sm border-b-2 border-indigo-600 text-indigo-600"
+                                        data-subtab="wettkampf">
+                                    <i class="fas fa-table-tennis-paddle-ball mr-2"></i>Wettkämpfe
+                                </button>
+                                <button class="matches-sub-tab flex-1 py-3 px-4 text-center font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+                                        data-subtab="turniere">
+                                    <i class="fas fa-trophy mr-2"></i>Turniere
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Sub-Tab Content: Wettkämpfe -->
+                        <div id="matches-subtab-wettkampf" class="p-4">
+                            <div class="space-y-4">
                         <!-- Match Suggestions (Collapsible) -->
                         <div
                             class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm max-w-3xl mx-auto border border-indigo-200"
@@ -584,7 +786,7 @@
                         <!-- Match Request Form -->
                         <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
                             <h2 class="text-lg font-bold text-gray-800 mb-1">
-                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf melden</span>
+                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf eintragen</span>
                             </h2>
                             <p class="text-xs text-gray-600 mb-4" data-i18n="dashboard.matches.report.subtitle">Für bereits gespielte Matches</p>
                             <form id="match-request-form" class="space-y-6">
@@ -823,6 +1025,19 @@
                                     </div>
                                 </div>
 
+                                <!-- Tournament Match Info -->
+                                <div
+                                    id="tournament-match-info"
+                                    class="hidden bg-indigo-50 border border-indigo-200 rounded-md p-4"
+                                >
+                                    <p class="text-sm text-indigo-800 font-medium mb-2">
+                                        <i class="fas fa-trophy"></i> Turnierspiel
+                                    </p>
+                                    <div id="tournament-match-options" class="space-y-2">
+                                        <!-- Tournament match checkboxes will be inserted dynamically -->
+                                    </div>
+                                </div>
+
                                 <!-- Match Winner Display -->
                                 <div
                                     id="match-winner-info"
@@ -878,14 +1093,45 @@
                                 </p>
                             </div>
                         </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-Tab Content: Turniere -->
+                        <div id="matches-subtab-turniere" class="p-4 hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-gray-800">Turniere</h2>
+                                <div class="flex gap-2">
+                                    <button id="join-tournament-code-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 px-3 rounded-lg font-medium" title="Mit Code beitreten">
+                                        <i class="fas fa-key mr-1"></i>Code
+                                    </button>
+                                    <button id="create-tournament-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1.5 px-3 rounded-lg font-medium">
+                                        <i class="fas fa-plus mr-1"></i>Neues Turnier
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tournament Filter Tabs -->
+                            <div class="flex border-b border-gray-200 mb-4">
+                                <button id="tournament-tab-open" class="tournament-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition">Offen</button>
+                                <button id="tournament-tab-my" class="tournament-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition">Meine</button>
+                                <button id="tournament-tab-completed" class="tournament-tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition">Beendet</button>
+                            </div>
+
+                            <!-- Tournament List -->
+                            <div id="tournaments-list" class="space-y-3">
+                                <p class="text-gray-400 text-center py-4 text-sm">Lade Turniere...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div id="tab-content-leaderboard" class="tab-content hidden">
                     <!-- Season Countdown - important context for rankings -->
                     <div
+                        id="season-banner"
                         data-widget-id="season-countdown"
-                        class="max-w-2xl mx-auto mb-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 p-3 rounded-xl shadow-sm"
+                        class="max-w-2xl mx-auto mb-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        onclick="window.openSeasonModal && window.openSeasonModal()"
                     >
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -908,6 +1154,7 @@
                                     <h3 class="text-xs font-semibold text-yellow-900">
                                         ⏳ <span data-i18n="dashboard.leaderboard.seasonEnd">Saison-Ende</span>
                                     </h3>
+                                    <p class="text-xs text-yellow-700">Klicken für Details</p>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -1047,6 +1294,22 @@
                     alt="Übungsbild"
                     class="w-full max-h-96 object-contain rounded-md mb-4"
                 />
+
+                <!-- Animation Container -->
+                <div id="modal-exercise-animation" class="hidden mb-4">
+                    <div class="bg-slate-900 rounded-lg p-2 relative">
+                        <canvas id="modal-animation-canvas" class="w-full" style="height: 300px;"></canvas>
+                        <div class="absolute bottom-3 right-3">
+                            <button
+                                id="modal-animation-play-pause"
+                                class="bg-white/90 hover:bg-white text-slate-800 text-xs px-3 py-1.5 rounded-md shadow-md transition-colors"
+                            >
+                                <i class="fas fa-pause mr-1"></i>Pause
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="modal-exercise-tags" class="mb-4"></div>
                 <p
                     id="modal-exercise-description"
@@ -1056,6 +1319,17 @@
 
                 <!-- Ablauf/Procedure Section -->
                 <div id="modal-exercise-procedure" class="hidden"></div>
+
+                <!-- Musterbeispiele Section (für Spieler) -->
+                <div id="player-example-videos-section" class="mb-4 border-t border-gray-200 pt-4 hidden">
+                    <h4 class="font-medium text-gray-900 flex items-center gap-2 mb-3">
+                        <i class="fas fa-play-circle text-indigo-600"></i>
+                        Musterbeispiele
+                    </h4>
+                    <div id="player-example-videos-list" class="space-y-2">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                </div>
 
                 <!-- Abkürzungen Legende -->
                 <div class="mb-4 border-t border-gray-200 pt-3">
@@ -1106,6 +1380,352 @@
                         id="modal-exercise-points"
                         class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"
                     ></span>
+                </div>
+
+                <!-- Video-Analyse Bereich -->
+                <div id="exercise-video-section" class="mt-6 pt-4 border-t border-gray-200">
+                    <!-- Referenz-Video Anzeige -->
+                    <div id="exercise-reference-video" class="mb-4 hidden">
+                        <p class="text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-star text-yellow-500 mr-1"></i>Musterbeispiel:
+                        </p>
+                        <video id="reference-video-player" class="w-full rounded-lg bg-black max-h-48" controls preload="metadata">
+                            <source src="" type="video/mp4">
+                        </video>
+                    </div>
+
+                    <!-- Video-Upload Button -->
+                    <button
+                        id="start-video-analysis-btn"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        <i class="fas fa-video"></i>
+                        <span>Video zur Analyse hochladen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video-Upload Modal für Spieler -->
+        <div id="player-video-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" style="z-index: 100001;">
+            <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg">
+                    <div class="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
+                        <h3 class="text-base sm:text-lg font-bold truncate mr-2">Video zur Analyse hochladen</h3>
+                        <button id="close-player-video-upload" class="text-gray-400 hover:text-gray-600 p-2 -mr-2">
+                            <i class="fas fa-times text-xl sm:text-2xl"></i>
+                        </button>
+                    </div>
+                <form id="player-video-upload-form" class="p-4 sm:p-6 space-y-4">
+                    <input type="hidden" id="player-video-exercise-id">
+
+                    <!-- Video-Datei -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Video-Datei *</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors">
+                            <input type="file" id="player-video-file-input" accept="video/mp4,video/quicktime,video/webm" required class="hidden">
+                            <label for="player-video-file-input" class="cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-600">Klicken zum Auswählen</p>
+                                <p class="text-xs text-gray-400 mt-1">MP4, MOV, WebM (max. 100 MB)</p>
+                            </label>
+                        </div>
+                        <p id="player-selected-file-name" class="text-sm text-purple-600 mt-2 hidden"></p>
+                    </div>
+
+                    <!-- Titel -->
+                    <div>
+                        <label for="player-video-title" class="block text-sm font-medium text-gray-700 mb-1">Titel (optional)</label>
+                        <input type="text" id="player-video-title" placeholder="z.B. Mein Aufschlag"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Video-Datum -->
+                    <div>
+                        <label for="player-video-date" class="block text-sm font-medium text-gray-700 mb-1">Datum des Videos</label>
+                        <input type="date" id="player-video-date"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <p class="text-xs text-gray-400 mt-1">Wann wurde das Video aufgenommen?</p>
+                    </div>
+
+                    <!-- Übung zuordnen -->
+                    <div>
+                        <label for="player-video-exercise-select" class="block text-sm font-medium text-gray-700 mb-1">Übung zuordnen (optional)</label>
+                        <select id="player-video-exercise-select"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">-- Keine Übung --</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Ordne das Video einer Übung zu, damit dein Coach den Kontext sieht</p>
+                    </div>
+
+                    <!-- Tags -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tags (optional)</label>
+                        <div id="player-video-tags" class="flex flex-wrap gap-2">
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Aufschlag">Aufschlag</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Vorhand">Vorhand</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Rückhand">Rückhand</button>
+                            <button type="button" class="player-tag-btn px-3 py-1 rounded-full text-sm border border-gray-300 hover:border-purple-500" data-tag="Technik">Technik</button>
+                        </div>
+                        <!-- Custom Tag Input -->
+                        <div class="flex gap-2 mt-2">
+                            <input type="text" id="player-custom-tag-input"
+                                   placeholder="Eigenen Tag hinzufügen..."
+                                   class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                   maxlength="30">
+                            <button type="button" id="player-add-custom-tag-btn"
+                                    class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Coach Feedback Option (nur für Club-Spieler) -->
+                    <div id="coach-feedback-option" class="hidden">
+                        <label class="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors">
+                            <input type="checkbox" id="request-coach-feedback" checked
+                                   class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500">
+                            <div>
+                                <span class="font-medium text-purple-900">Coach um Feedback bitten</span>
+                                <p class="text-xs text-purple-700 mt-0.5">Dein Coach kann das Video analysieren und dir Tipps geben</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Info (dynamisch basierend auf Checkbox) -->
+                    <div id="upload-info-coach" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Nach dem Hochladen kann dein Coach das Video analysieren und dir Feedback mit Zeitstempeln geben.
+                        </p>
+                    </div>
+                    <div id="upload-info-private" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p class="text-sm text-gray-700">
+                            <i class="fas fa-lock mr-1"></i>
+                            Das Video wird nur in deiner persönlichen Mediathek gespeichert.
+                        </p>
+                    </div>
+
+                    <!-- KI-Training Consent (DSGVO) -->
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" id="allow-ai-training"
+                                   class="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+                            <div>
+                                <span class="font-medium text-gray-800 text-sm">KI-Verbesserung unterstützen</span>
+                                <p class="text-xs text-gray-600 mt-0.5">
+                                    Mein Video darf anonymisiert zur Verbesserung der automatischen Schlag-Erkennung genutzt werden.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div id="player-upload-progress" class="hidden">
+                        <div class="mb-2 flex justify-between text-sm">
+                            <span id="player-upload-status" class="text-gray-600">Wird vorbereitet...</span>
+                            <span id="player-upload-percent" class="font-medium text-purple-600">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div id="player-upload-bar" class="bg-purple-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="player-upload-size" class="text-xs text-gray-500 mt-1 text-center"></p>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" id="player-video-submit-btn"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-upload"></i>
+                        <span>Hochladen</span>
+                    </button>
+                </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Comparison Modal - same structure as coach -->
+        <div id="video-comparison-modal" class="hidden bg-black bg-opacity-90 overflow-hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100001;">
+            <div class="h-full w-full flex flex-col">
+                <!-- Header -->
+                <div class="bg-gray-900 text-white p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
+                    <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2">
+                        <i class="fas fa-columns"></i>
+                        <span class="hidden sm:inline">Video-Vergleich</span>
+                        <span class="sm:hidden">Vergleich</span>
+                    </h2>
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <!-- Sync Toggle -->
+                        <label class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                            <input type="checkbox" id="sync-playback" checked
+                                   class="rounded text-purple-600 focus:ring-purple-500">
+                            <span class="hidden sm:inline">Synchron abspielen</span>
+                            <span class="sm:hidden">Sync</span>
+                        </label>
+                        <button id="close-video-comparison" class="text-white hover:text-gray-300 transition-colors p-2 -mr-2">
+                            <i class="fas fa-times text-xl sm:text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video Container -->
+                <div class="flex-1 flex flex-col lg:flex-row gap-2 p-2 sm:p-4 overflow-hidden min-h-0">
+                    <!-- Left Video -->
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
+                            <select id="comparison-video-left" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-purple-500">
+                                <option value="">Video 1 auswählen...</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                            <video id="comparison-player-left" class="max-w-full max-h-full" controls playsinline></video>
+                        </div>
+                        <div id="comparison-info-left" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
+                            <p class="font-medium truncate" id="comparison-title-left"></p>
+                            <p class="text-gray-400 text-xs" id="comparison-date-left"></p>
+                        </div>
+                    </div>
+
+                    <!-- Right Video -->
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <div class="bg-gray-800 rounded-lg p-2 sm:p-3 mb-2 flex-shrink-0">
+                            <select id="comparison-video-right" class="w-full bg-gray-700 text-white px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-purple-500">
+                                <option value="">Video 2 auswählen...</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-0">
+                            <video id="comparison-player-right" class="max-w-full max-h-full" controls playsinline></video>
+                        </div>
+                        <div id="comparison-info-right" class="bg-gray-800 rounded-lg p-2 sm:p-3 mt-2 text-white text-xs sm:text-sm hidden flex-shrink-0">
+                            <p class="font-medium truncate" id="comparison-title-right"></p>
+                            <p class="text-gray-400 text-xs" id="comparison-date-right"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="bg-gray-900 p-3 sm:p-4 flex items-center justify-center gap-2 sm:gap-4 flex-shrink-0">
+                    <button id="comparison-play-pause" class="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white px-4 sm:px-6 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base">
+                        <i class="fas fa-play"></i>
+                        <span class="hidden sm:inline">Abspielen</span>
+                    </button>
+                    <button id="comparison-restart" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <div class="text-white text-sm">
+                        <span id="comparison-time">0:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Tournament Modal -->
+        <div id="create-tournament-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-trophy text-indigo-600 mr-2"></i>Neues Turnier</h3>
+                        <button id="close-create-tournament-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <form id="create-tournament-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Turniername *</label>
+                            <input type="text" id="tournament-name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="z.B. Frühjahrscup 2026">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                            <textarea id="tournament-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="Optional"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                            <select id="tournament-format" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="round_robin">Jeder gegen Jeden (bis 10)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Spielmodus</label>
+                            <select id="tournament-match-mode" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="best-of-5" selected>Best of 5 (Standard)</option>
+                                <option value="best-of-3">Best of 3</option>
+                                <option value="best-of-7">Best of 7</option>
+                                <option value="single-set">1 Satz</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Max. Teilnehmer *</label>
+                            <input type="number" id="tournament-max-participants" min="2" max="10" value="6" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Zugang</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="tournament-access" value="open" checked class="text-indigo-600">
+                                    <span class="text-sm">Offen</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="tournament-access" value="code" class="text-indigo-600">
+                                    <span class="text-sm">Nur mit Code</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Sichtbarkeit</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="tournament-visibility" value="global" checked class="text-indigo-600">
+                                    <span class="text-sm">Global</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="tournament-visibility" value="club" class="text-indigo-600">
+                                    <span class="text-sm">Nur Verein</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="tournament-handicap" class="text-indigo-600 rounded">
+                                <span class="text-sm text-gray-700">Mit Handicap</span>
+                            </label>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" id="cancel-create-tournament" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
+                            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Erstellen</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join Tournament Code Modal -->
+        <div id="join-tournament-code-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-sm w-full">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-key text-indigo-600 mr-2"></i>Mit Code beitreten</h3>
+                        <button id="close-join-code-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <form id="join-tournament-code-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Einladungscode</label>
+                            <input type="text" id="join-code-input" maxlength="6" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-center text-2xl font-mono tracking-widest uppercase" placeholder="ABC123">
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" id="cancel-join-code" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
+                            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Beitreten</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tournament Details Modal -->
+        <div id="tournament-details-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full my-8">
+                <div class="sticky top-0 bg-white rounded-t-xl border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                    <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-trophy text-indigo-600 mr-2"></i>Turnier-Details</h3>
+                    <button id="close-tournament-details-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div id="tournament-details-content" class="p-4">
+                    <p class="text-gray-500 text-center py-8">Lade...</p>
                 </div>
             </div>
         </div>
@@ -1367,6 +1987,21 @@
                         </select>
                     </div>
 
+                    <!-- Post as Club (nur für Coaches) -->
+                    <div id="post-as-club-section" class="bg-indigo-50 rounded-lg p-4 hidden">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="post-as-club"
+                                class="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800"><i class="fas fa-building mr-1 text-indigo-600"></i>Als Verein posten</span>
+                                <p class="text-xs text-gray-500">Beitrag wird im Namen des Vereins veröffentlicht</p>
+                            </div>
+                        </label>
+                    </div>
+
                     <!-- Submit Button -->
                     <div class="flex gap-3 pt-4">
                         <button
@@ -1497,6 +2132,21 @@
                         </select>
                     </div>
 
+                    <!-- Poll as Club (nur für Coaches) -->
+                    <div id="poll-as-club-section" class="bg-indigo-50 rounded-lg p-4 hidden">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="poll-as-club"
+                                class="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800"><i class="fas fa-building mr-1 text-indigo-600"></i>Als Verein posten</span>
+                                <p class="text-xs text-gray-500">Umfrage wird im Namen des Vereins veröffentlicht</p>
+                            </div>
+                        </label>
+                    </div>
+
                     <!-- Submit Button -->
                     <div class="flex gap-3 pt-4">
                         <button
@@ -1561,7 +2211,7 @@
         </footer>
 
         <!-- Bottom Navigation Bar (like Instagram) -->
-        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;" class="safe-area-bottom">
+        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;">
             <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
                 <button
                     class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
@@ -1635,6 +2285,12 @@
 
             // Initialize first tab on page load
             document.addEventListener('DOMContentLoaded', function() {
+                // Detect PWA standalone mode and add safe area padding
+                if (window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true) {
+                    document.body.classList.add('standalone-mode');
+                }
+
                 // Small delay to ensure everything is loaded
                 setTimeout(function() {
                     handleBottomTabClick('overview', 'Start');
@@ -1668,6 +2324,16 @@
                     topNav.style.background = 'white';
                     topNav.style.borderBottom = '1px solid #e5e7eb';
                 }
+
+                // Move modals to body to avoid CSS parent issues
+                var videoComparisonModal = document.getElementById('video-comparison-modal');
+                if (videoComparisonModal) {
+                    document.body.appendChild(videoComparisonModal);
+                }
+                var playerVideoUploadModal = document.getElementById('player-video-upload-modal');
+                if (playerVideoUploadModal) {
+                    document.body.appendChild(playerVideoUploadModal);
+                }
             });
         </script>
 
@@ -1686,6 +2352,8 @@
         </script>
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
+        <!-- Table Tennis Exercise Builder for animation playback -->
+        <script src="/js/table-tennis-exercise-builder.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Supabase Version - keine Firebase-Abhängigkeiten -->
@@ -1693,5 +2361,6 @@
         <script type="module" src="/js/posts-manager-supabase.js"></script>
         <script type="module" src="/js/activity-comments.js"></script>
         <script type="module" src="/js/match-media.js"></script>
+        <script type="module" src="/js/tournaments-ui-supabase.js"></script>
     </body>
 </html>
