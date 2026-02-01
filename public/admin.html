@@ -922,6 +922,7 @@
                                     <label
                                         for="exercise-image"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="admin.imageOptional"
                                         >Bild (optional)</label
                                     >
                                     <input
@@ -935,11 +936,11 @@
                                 <!-- Animationen (Optional, mehrere pro Händigkeit) -->
                                 <div class="border-t border-gray-200 pt-4">
                                     <div class="flex items-center justify-between mb-3">
-                                        <label class="text-sm font-medium text-gray-700">
+                                        <label class="text-sm font-medium text-gray-700" data-i18n="admin.animationsOptional">
                                             🏓 Animationen (optional)
                                         </label>
                                     </div>
-                                    <p class="text-xs text-gray-500 mb-3">
+                                    <p class="text-xs text-gray-500 mb-3" data-i18n="admin.animationsDesc">
                                         Füge Animationen für verschiedene Händigkeits-Kombinationen hinzu. Erstelle zuerst die Animation im Animator oben.
                                     </p>
 
@@ -958,7 +959,7 @@
                                                 <option value="L-R">L-R (Links gegen Rechts)</option>
                                             </select>
                                             <button type="button" id="add-animation-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                                <i class="fas fa-plus mr-1"></i>Animation hinzufügen
+                                                <i class="fas fa-plus mr-1"></i><span data-i18n="admin.addAnimation">Animation hinzufügen</span>
                                             </button>
                                         </div>
                                         <p class="text-xs text-gray-400">
@@ -975,6 +976,7 @@
                                     type="submit"
                                     id="create-exercise-submit"
                                     class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+                                    data-i18n="admin.saveExercise"
                                 >
                                     Übung speichern
                                 </button>
@@ -989,15 +991,15 @@
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">
                                 <i class="fas fa-sitemap mr-2 text-teal-600"></i>
-                                Vereinsübersicht
+                                <span data-i18n="admin.clubOverview">Vereinsübersicht</span>
                             </h2>
-                            <p class="text-sm text-gray-500 mb-4">Vereine → Sparten → Mitglieder</p>
+                            <p class="text-sm text-gray-500 mb-4" data-i18n="admin.clubOverviewDesc">Vereine → Sparten → Mitglieder</p>
                             <div id="clubs-list" class="space-y-4">
-                                <p>Vereine werden geladen...</p>
+                                <p data-i18n="admin.loadingClubs">Vereine werden geladen...</p>
                             </div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                            <h2 class="text-xl font-semibold mb-4" data-i18n="admin.exerciseCatalog">Übungskatalog</h2>
 
                             <!-- Header mit Suche und Filter -->
                             <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -1006,7 +1008,7 @@
                                     class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
                                     <i class="fas fa-filter"></i>
-                                    <span>Filter</span>
+                                    <span data-i18n="common.filter">Filter</span>
                                 </button>
                                 <div class="flex-1">
                                     <div class="relative">
@@ -1045,7 +1047,7 @@
                                 id="exercises-list-admin"
                                 class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto"
                             >
-                                <p class="p-4 text-gray-500">Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500" data-i18n="admin.loadingExercises">Übungen werden geladen...</p>
                             </div>
                         </div>
                     </div>
@@ -1054,59 +1056,59 @@
                 <!-- Audit Logs -->
                 <section id="audit-section" class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                        <i class="fas fa-history mr-2 text-purple-600"></i>Aktivitätsprotokoll
+                        <i class="fas fa-history mr-2 text-purple-600"></i><span data-i18n="admin.activityLog">Aktivitätsprotokoll</span>
                     </h2>
-                    <p class="text-sm text-gray-600 mb-6">Protokoll aller administrativen Aktionen auf der Plattform.</p>
+                    <p class="text-sm text-gray-600 mb-6" data-i18n="admin.activityLogDesc">Protokoll aller administrativen Aktionen auf der Plattform.</p>
 
                     <!-- Filter -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div>
-                            <label for="audit-filter-action" class="block text-sm font-medium text-gray-700">Aktion</label>
+                            <label for="audit-filter-action" class="block text-sm font-medium text-gray-700" data-i18n="admin.action">Aktion</label>
                             <select id="audit-filter-action" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Aktionen</option>
-                                <option value="invitation_created">Einladung erstellt</option>
-                                <option value="invitation_used">Einladung verwendet</option>
-                                <option value="season_started">Saison gestartet</option>
-                                <option value="season_ended">Saison beendet</option>
-                                <option value="role_changed">Rolle geändert</option>
-                                <option value="user_promoted">Benutzer befördert</option>
-                                <option value="user_removed">Benutzer entfernt</option>
-                                <option value="exercise_created">Übung erstellt</option>
-                                <option value="exercise_deleted">Übung gelöscht</option>
+                                <option value="" data-i18n="admin.allActions">Alle Aktionen</option>
+                                <option value="invitation_created" data-i18n="admin.auditInvitationCreated">Einladung erstellt</option>
+                                <option value="invitation_used" data-i18n="admin.auditInvitationUsed">Einladung verwendet</option>
+                                <option value="season_started" data-i18n="admin.auditSeasonStarted">Saison gestartet</option>
+                                <option value="season_ended" data-i18n="admin.auditSeasonEnded">Saison beendet</option>
+                                <option value="role_changed" data-i18n="admin.auditRoleChanged">Rolle geändert</option>
+                                <option value="user_promoted" data-i18n="admin.auditUserPromoted">Benutzer befördert</option>
+                                <option value="user_removed" data-i18n="admin.auditUserRemoved">Benutzer entfernt</option>
+                                <option value="exercise_created" data-i18n="admin.auditExerciseCreated">Übung erstellt</option>
+                                <option value="exercise_deleted" data-i18n="admin.auditExerciseDeleted">Übung gelöscht</option>
                             </select>
                         </div>
                         <div>
-                            <label for="audit-filter-club" class="block text-sm font-medium text-gray-700">Verein</label>
+                            <label for="audit-filter-club" class="block text-sm font-medium text-gray-700" data-i18n="admin.club">Verein</label>
                             <select id="audit-filter-club" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Vereine</option>
+                                <option value="" data-i18n="admin.allClubs">Alle Vereine</option>
                             </select>
                         </div>
                         <div>
-                            <label for="audit-filter-sport" class="block text-sm font-medium text-gray-700">Sportart</label>
+                            <label for="audit-filter-sport" class="block text-sm font-medium text-gray-700" data-i18n="admin.sportLabel">Sportart</label>
                             <select id="audit-filter-sport" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Sportarten</option>
+                                <option value="" data-i18n="admin.allSports">Alle Sportarten</option>
                             </select>
                         </div>
                         <div class="flex items-end">
                             <button id="audit-refresh-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors text-sm">
-                                <i class="fas fa-sync-alt mr-2"></i>Aktualisieren
+                                <i class="fas fa-sync-alt mr-2"></i><span data-i18n="common.refresh">Aktualisieren</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Logs Liste -->
                     <div id="audit-logs-container" class="space-y-3">
-                        <p class="text-gray-500">Logs werden geladen...</p>
+                        <p class="text-gray-500" data-i18n="admin.loadingLogs">Logs werden geladen...</p>
                     </div>
 
                     <!-- Pagination -->
                     <div id="audit-pagination" class="mt-6 flex justify-between items-center hidden">
                         <button id="audit-prev-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fas fa-chevron-left mr-1"></i>Zurück
+                            <i class="fas fa-chevron-left mr-1"></i><span data-i18n="common.back">Zurück</span>
                         </button>
                         <span id="audit-page-info" class="text-sm text-gray-600">Seite 1</span>
                         <button id="audit-next-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                            Weiter<i class="fas fa-chevron-right ml-1"></i>
+                            <span data-i18n="common.next">Weiter</span><i class="fas fa-chevron-right ml-1"></i>
                         </button>
                     </div>
                 </section>
@@ -1203,7 +1205,7 @@
                                 d="M19 9l-7 7-7-7"
                             ></path>
                         </svg>
-                        📖 Abkürzungen anzeigen
+                        <span data-i18n="admin.showAbbreviations">📖 Abkürzungen anzeigen</span>
                     </button>
                     <div
                         id="abbreviations-content-admin"
@@ -1239,12 +1241,14 @@
                         <button
                             id="modal-edit-exercise-button"
                             class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600"
+                            data-i18n="common.edit"
                         >
                             Bearbeiten
                         </button>
                         <button
                             id="modal-delete-exercise-button"
                             class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600"
+                            data-i18n="common.delete"
                         >
                             Löschen
                         </button>
@@ -1258,13 +1262,14 @@
             class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center"
         >
             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
-                <h3 class="text-xl font-semibold mb-4">Übung bearbeiten</h3>
+                <h3 class="text-xl font-semibold mb-4" data-i18n="admin.editExercise">Übung bearbeiten</h3>
                 <form id="edit-exercise-form" class="space-y-4">
                     <input type="hidden" id="edit-exercise-id" />
                     <div>
                         <label
                             for="edit-exercise-title"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.title"
                             >Titel</label
                         >
                         <input
@@ -1278,6 +1283,7 @@
                         <label
                             for="edit-exercise-description"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.description"
                             >Beschreibung</label
                         >
                         <div id="edit-description-toggle-container"></div>
@@ -1292,6 +1298,7 @@
                         <label
                             for="edit-exercise-points"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.points"
                             >Punkte</label
                         >
                         <input
@@ -1306,6 +1313,7 @@
                         <label
                             for="edit-exercise-tags"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="admin.tagsCommaSeparated"
                             >Tags (kommagetrennt)</label
                         >
                         <input
@@ -1319,12 +1327,14 @@
                             type="button"
                             id="close-edit-exercise-modal-button"
                             class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-300"
+                            data-i18n="common.cancel"
                         >
                             Abbrechen
                         </button>
                         <button
                             type="submit"
                             class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700"
+                            data-i18n="admin.saveChanges"
                         >
                             Änderungen speichern
                         </button>
