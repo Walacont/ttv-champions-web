@@ -67,6 +67,43 @@
     "cta": {
       "ready": "Ready to get started?",
       "getStarted": "Get Started"
+    },
+    "featureCards": {
+      "xp": {
+        "title": "Earn XP & Elo",
+        "description": "Earn experience points (XP) for dedication and attendance, and boost your skill rating (Elo) in matches. A dual system for real progress."
+      },
+      "ranks": {
+        "title": "Rise in Ranks",
+        "description": "Start as a 🔰 Recruit and fight your way up to 👑 Champion. Your permanent rank shows your true progress and keeps you motivated."
+      },
+      "roles": {
+        "title": "For Players & Coaches",
+        "description": "Players report matches and track their progress. Coaches manage attendance digitally, award points, and create daily challenges for entire groups."
+      },
+      "streaks": {
+        "title": "Attendance Streaks",
+        "description": "Consistency pays off! Build a streak by never missing practice and earn bonus XP for your commitment."
+      }
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "q1": "What is the difference between Elo, XP, and Season Points?",
+      "a1": "In short: <strong>XP (Dedication)</strong> are permanent points you earn from training and exercises that you never lose. They determine your rank. <strong>Elo (Skill)</strong> is your playing strength that you win or lose in matches. <strong>Season Points</strong> are temporary for the 6-week competition and reset afterwards.",
+      "q2": "How does the Elo system work?",
+      "a2_intro": "The Elo system calculates your playing strength based on your match results. The more games you play, the more stable your rating becomes.",
+      "a2_factor": "Your personal factor (A-Factor):",
+      "a2_f1": "<strong>Games 1-10:</strong> Factor 32 (quick calibration)",
+      "a2_f2": "<strong>Games 11-20:</strong> Factor 24 (stabilization)",
+      "a2_f3": "<strong>From game 21:</strong> Factor 16 (stable ranking)",
+      "a2_f4": "<strong>Youth (U21):</strong> Factor 20 (permanently increased)",
+      "a2_note": "New players start at 800 Elo. The higher factor at the beginning ensures you quickly reach your true level.",
+      "q3": "How do I rise in rank?",
+      "a3": "To rise in rank (e.g., from 🔰 Recruit to 🥉 Bronze), you must meet <strong>two conditions</strong>: a minimum level of <strong>XP (Dedication)</strong> and a minimum level of <strong>Elo (Skill)</strong>. For the very first promotion to Bronze, you must also complete 5 basic exercises.",
+      "q4": "What is a \"Streak\"?",
+      "a4": "A \"Streak\" is an attendance series. If you attend training sessions consecutively (per subgroup), you earn bonus XP. Miss a session and your streak for that group resets. Consistency really pays off!",
+      "viewAll": "View all Rules & FAQs",
+      "parentFaq": "Parents & Kids FAQ"
     }
   },
   "auth": {
@@ -96,7 +133,22 @@
     "userNotFound": "User not found",
     "wrongPassword": "Wrong password",
     "emailSent": "Email sent",
-    "resetEmailSent": "Password reset email sent"
+    "resetEmailSent": "Password reset email sent",
+    "tabEmail": "Email",
+    "tabChild": "<i class=\"fas fa-child mr-1\"></i> Kids",
+    "tabCode": "<i class=\"fas fa-key mr-1\"></i> Code",
+    "childLoginHint": "<i class=\"fas fa-child mr-1\"></i> Kids login: Enter your username and PIN.",
+    "username": "Username",
+    "usernamePlaceholder": "e.g. max2015",
+    "pin": "PIN",
+    "codeLoginHint": "<i class=\"fas fa-key mr-1\"></i> Sign in with invitation code (from your club/admin)",
+    "invitationCode": "Invitation Code",
+    "invitationCodePlaceholder": "TTV-XXX-YYY",
+    "invitationCodeHint": "Invitation code from your club or admin (format: TTV-XXX-YYY)",
+    "continueToRegister": "Continue to Registration",
+    "resetHint": "Enter your email address. We will send you a link to reset your password.",
+    "backToLogin": "← Back to Login",
+    "requestLink": "Request Link"
   },
   "register": {
     "title": "Create Account",

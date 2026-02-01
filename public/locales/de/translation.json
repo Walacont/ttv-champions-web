@@ -67,6 +67,43 @@
     "cta": {
       "ready": "Bereit loszulegen?",
       "getStarted": "Jetzt starten"
+    },
+    "featureCards": {
+      "xp": {
+        "title": "Sammle XP & Elo",
+        "description": "Erhalte Erfahrungspunkte (XP) für Fleiß und Anwesenheit und steigere deine Spielstärke (Elo) in Wettkämpfen. Ein duales System für echten Fortschritt."
+      },
+      "ranks": {
+        "title": "Steige im Rang auf",
+        "description": "Starte als 🔰 Rekrut und kämpfe dich hoch bis zum 👑 Champion. Dein permanenter Rang zeigt deinen wahren Fortschritt und motiviert langfristig."
+      },
+      "roles": {
+        "title": "Für Spieler & Coaches",
+        "description": "Spieler melden Matches und sehen ihren Fortschritt. Coaches verwalten digital Anwesenheit, vergeben Punkte und erstellen tägliche Challenges für ganze Gruppen."
+      },
+      "streaks": {
+        "title": "Anwesenheits-Streaks",
+        "description": "Regelmäßigkeit zahlt sich aus! Baue eine \"Streak\" auf, indem du kein Training verpasst, und erhalte Bonus-XP für deine Treue."
+      }
+    },
+    "faq": {
+      "title": "Häufig gestellte Fragen",
+      "q1": "Was ist der Unterschied zwischen Elo, XP und Saison-Punkten?",
+      "a1": "Kurz gesagt: <strong>XP (Fleiß)</strong> sind permanente Punkte, die du für Training und Übungen bekommst und nie verlierst. Sie bestimmen deinen Rang. <strong>Elo (Skill)</strong> ist deine Spielstärke, die du in Wettkämpfen gewinnst oder verlierst. <strong>Saison-Punkte</strong> sind temporär für den 6-wöchigen Wettbewerb und werden danach zurückgesetzt.",
+      "q2": "Wie funktioniert das Elo-System?",
+      "a2_intro": "Das Elo-System berechnet deine Spielstärke basierend auf deinen Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler wird dein Rating.",
+      "a2_factor": "Dein persönlicher Faktor (A-Faktor):",
+      "a2_f1": "<strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)",
+      "a2_f2": "<strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)",
+      "a2_f3": "<strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)",
+      "a2_f4": "<strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)",
+      "a2_note": "Neue Spieler starten bei 800 Elo. Der höhere Faktor am Anfang sorgt dafür, dass du schnell auf dein echtes Niveau kommst.",
+      "q3": "Wie steige ich im Rang auf?",
+      "a3": "Um im Rang aufzusteigen (z.B. von 🔰 Rekrut zu 🥉 Bronze), musst du <strong>zwei Bedingungen</strong> erfüllen: ein Mindestlevel an <strong>XP (Fleiß)</strong> und ein Mindestlevel an <strong>Elo (Skill)</strong>. Für den allerersten Aufstieg zu Bronze musst du außerdem 5 Grundlagen-Übungen absolvieren.",
+      "q4": "Was ist ein \"Streak\"?",
+      "a4": "Ein \"Streak\" ist eine Anwesenheits-Serie. Wenn du mehrmals hintereinander am Training teilnimmst (pro Untergruppe), erhältst du Bonus-XP. Verpasst du ein Training, wird dein Streak für diese Gruppe zurückgesetzt. Regelmäßigkeit lohnt sich also!",
+      "viewAll": "Alle Regeln & FAQs ansehen",
+      "parentFaq": "Eltern & Kinder FAQ"
     }
   },
   "auth": {
@@ -96,7 +133,22 @@
     "userNotFound": "Benutzer nicht gefunden",
     "wrongPassword": "Falsches Passwort",
     "emailSent": "E-Mail wurde gesendet",
-    "resetEmailSent": "Zurücksetzungs-E-Mail wurde gesendet"
+    "resetEmailSent": "Zurücksetzungs-E-Mail wurde gesendet",
+    "tabEmail": "Email",
+    "tabChild": "<i class=\"fas fa-child mr-1\"></i> Kinder",
+    "tabCode": "<i class=\"fas fa-key mr-1\"></i> Code",
+    "childLoginHint": "<i class=\"fas fa-child mr-1\"></i> Kinder-Login: Gib deinen Benutzernamen und PIN ein.",
+    "username": "Benutzername",
+    "usernamePlaceholder": "z.B. max2015",
+    "pin": "PIN",
+    "codeLoginHint": "<i class=\"fas fa-key mr-1\"></i> Anmeldung mit Einladungscode (vom Verein/Admin)",
+    "invitationCode": "Einladungscode",
+    "invitationCodePlaceholder": "TTV-XXX-YYY",
+    "invitationCodeHint": "Einladungscode vom Verein oder Admin (Format: TTV-XXX-YYY)",
+    "continueToRegister": "Weiter zur Registrierung",
+    "resetHint": "Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum Zurücksetzen Ihres Passworts.",
+    "backToLogin": "← Zurück zum Login",
+    "requestLink": "Link anfordern"
   },
   "register": {
     "title": "Konto erstellen",
