@@ -125,25 +125,54 @@
     /** Prüft ob Firebase/FCM korrekt konfiguriert ist */
     function isFirebaseAvailable() {
         try {
-            // Prüfen ob google-services.json vorhanden ist (Firebase App initialisiert)
-            return typeof com !== 'undefined' ||
-                   (window.Capacitor?.Plugins?.PushNotifications != null);
+            return window.Capacitor?.Plugins?.PushNotifications != null;
         } catch (e) {
             return false;
         }
     }
 
-    /** Sichere Registrierung - fängt native Crashes ab */
+    /**
+     * Sichere Registrierung - fängt native Crashes ab.
+     * Verwendet einen Timeout als Schutz, da native Firebase-Fehler
+     * auf einem separaten Thread auftreten und die JS-Promise nie resolved wird.
+     */
     async function safeRegister(PushNotifications) {
+        // Auf Android prüfen ob Firebase verfügbar ist
+        const platform = window.Capacitor?.getPlatform();
+        if (platform === 'android') {
+            try {
+                // Kurzer Test: checkPermissions funktioniert ohne Firebase
+                // Wenn das Plugin grundsätzlich nicht antwortet, ist etwas falsch
+                const testResult = await Promise.race([
+                    PushNotifications.checkPermissions(),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Plugin timeout')), 3000)
+                    )
+                ]);
+                console.log('[Push] Plugin health check passed:', JSON.stringify(testResult));
+            } catch (healthError) {
+                console.error('[Push] Plugin health check failed:', healthError);
+                window._pushNotificationsUnavailable = true;
+                return false;
+            }
+        }
+
         try {
-            await PushNotifications.register();
+            // register() mit Timeout absichern - wenn Firebase nicht initialisiert ist,
+            // crasht der native Thread und die Promise wird nie aufgelöst
+            await Promise.race([
+                PushNotifications.register(),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Registration timeout - Firebase may not be configured')), 5000)
+                )
+            ]);
             console.log('[Push] Registration call completed');
             return true;
         } catch (regError) {
             const errorMsg = regError?.message || JSON.stringify(regError) || 'Unknown error';
             console.error('[Push] Registration failed:', errorMsg);
-            // Firebase nicht konfiguriert - google-services.json fehlt wahrscheinlich
-            if (errorMsg.includes('Firebase') || errorMsg.includes('Default') || errorMsg.includes('IllegalState')) {
+            if (errorMsg.includes('Firebase') || errorMsg.includes('Default') ||
+                errorMsg.includes('IllegalState') || errorMsg.includes('timeout')) {
                 console.error('[Push] Firebase ist nicht konfiguriert. google-services.json fehlt im Android-Projekt.');
                 window._pushNotificationsUnavailable = true;
             }
