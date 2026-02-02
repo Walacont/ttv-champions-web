@@ -139,8 +139,8 @@ onAuthStateChange(async (event, session) => {
         return;
     }
 
-    // Nur bei explizitem Sign-In umleiten, nicht beim initialen Session-Check
-    if (event !== 'SIGNED_IN') {
+    // Bei SIGNED_IN oder INITIAL_SESSION mit gültiger Session umleiten
+    if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') {
         console.log('[INDEX-SUPABASE] Ignoring event:', event);
         return;
     }
