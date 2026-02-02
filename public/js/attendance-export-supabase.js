@@ -167,7 +167,9 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
         console.log(`[Export] Total sessions including events: ${sessions.length}`);
 
         // Event-Attendance laden (mit occurrence_date für wiederkehrende Events)
+        // Nur Attendance-Records laden, deren Datum im Exportmonat liegt
         const allEventIds = [...new Set(events.map(e => e.id))];
+        const validOccurrenceDates = new Set(events.map(e => e.occurrenceDate));
         let eventAttendanceMap = new Map();
         if (allEventIds.length > 0) {
             const { data: eventAttendanceData } = await supabase
@@ -176,8 +178,12 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
                 .in('event_id', allEventIds);
 
             (eventAttendanceData || []).forEach(ea => {
-                // Key: event_id + occurrence_date (für wiederkehrende Events)
                 const occDate = ea.occurrence_date || null;
+
+                // Nur Records berücksichtigen, die zu einem Vorkommnis im Exportmonat gehören
+                if (occDate && !validOccurrenceDates.has(occDate)) return;
+
+                // Key: event_id + occurrence_date (für wiederkehrende Events)
                 const key = occDate ? `${ea.event_id}_${occDate}` : ea.event_id;
                 eventAttendanceMap.set(key, {
                     presentPlayerIds: ea.present_user_ids || [],
@@ -628,7 +634,8 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
             ...(recurringEventsForSummary || []).map(e => e.id)
         ];
 
-        // Anzahl Event-Vorkommnisse im Monat zählen
+        // Gültige Vorkommensdaten im Monat berechnen und Anzahl zählen
+        const validSummaryOccurrenceDates = new Set();
         let eventOccurrenceCount = (singleEventsForSummary || []).length;
         (recurringEventsForSummary || []).forEach(e => {
             const eventStartDate = new Date(e.start_date + 'T12:00:00');
@@ -647,7 +654,10 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
                 if (e.repeat_type === 'weekly') matches = d.getDay() === eventDayOfWeek;
                 else if (e.repeat_type === 'daily') matches = true;
                 else if (e.repeat_type === 'monthly') matches = d.getDate() === eventStartDate.getDate();
-                if (matches) eventOccurrenceCount++;
+                if (matches) {
+                    eventOccurrenceCount++;
+                    validSummaryOccurrenceDates.add(ds);
+                }
             }
         });
 
@@ -657,7 +667,12 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
                 .from('event_attendance')
                 .select('present_user_ids, occurrence_date, event_id')
                 .in('event_id', [...new Set(summaryEventIds)]);
-            eventAttendanceRecords = eaData || [];
+
+            // Nur Records behalten, deren occurrence_date im Exportmonat liegt
+            eventAttendanceRecords = (eaData || []).filter(ea => {
+                if (!ea.occurrence_date) return true; // Einzel-Events ohne occurrence_date
+                return validSummaryOccurrenceDates.has(ea.occurrence_date);
+            });
         }
 
         const { data: playersData, error: playersError } = await supabase
