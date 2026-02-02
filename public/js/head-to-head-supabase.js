@@ -19,7 +19,7 @@ export async function showHeadToHeadModal(supabase, currentUserId, opponentId) {
 
     const modal = document.createElement('div');
     modal.id = 'head-to-head-modal';
-    modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
+    modal.className = 'fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4';
     // Höher als Header (9999) und Bottom Nav (99999)
     modal.style.cssText = 'z-index: 100001;';
     modal.innerHTML = `

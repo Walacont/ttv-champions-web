@@ -2473,7 +2473,7 @@ window.showChildDayEvents = function(dateStr) {
 
     // Simple modal
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     modal.innerHTML = `
         <div class="bg-white rounded-xl max-w-sm w-full p-4">
@@ -3022,7 +3022,7 @@ window.calendarDeclineEvent = async function(invitationId, eventId, occurrenceDa
     // Show decline options modal
     const declineModal = document.createElement('div');
     declineModal.id = 'cal-decline-modal';
-    declineModal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+    declineModal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100003] p-4';
 
     declineModal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">

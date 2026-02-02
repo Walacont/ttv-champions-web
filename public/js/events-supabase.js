@@ -1861,7 +1861,7 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
 
         const modal = document.createElement('div');
         modal.id = 'event-details-modal';
-        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100001] p-4';
+        modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100001] p-4';
 
         const presentIds = attendanceData?.present_user_ids || [];
         const coachHours = attendanceData?.coach_hours || {};
@@ -3102,7 +3102,7 @@ window.openEventExerciseSelector = async function(eventId) {
 
         const modal = document.createElement('div');
         modal.id = 'exercise-selector-modal';
-        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100002] p-4';
+        modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100002] p-4';
 
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
@@ -3213,7 +3213,7 @@ window.openCreateExerciseModal = function() {
 
     const modal = document.createElement('div');
     modal.id = 'create-exercise-modal';
-    modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+    modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100003] p-4';
 
     modal.innerHTML = `
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -3543,7 +3543,7 @@ window.openDeleteEventModal = async function(eventId, isRecurring, occurrenceDat
 
     const modal = document.createElement('div');
     modal.id = 'delete-event-modal';
-    modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+    modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100003] p-4';
 
     modal.innerHTML = `
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -3856,7 +3856,7 @@ window.openEditEventModal = async function(eventId) {
 
         const modal = document.createElement('div');
         modal.id = 'edit-event-modal';
-        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+        modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100003] p-4';
 
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">

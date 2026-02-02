@@ -699,7 +699,7 @@ async function respondToEvent(invitationId, status, reason = null) {
 async function showRejectModal(invitationId) {
     const modal = document.createElement('div');
     modal.id = 'event-reject-modal';
-    modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-2">Absage</h3>
@@ -850,7 +850,7 @@ async function showEventDetails(eventId) {
         // Modal erstellen
         const modal = document.createElement('div');
         modal.id = 'event-details-modal';
-        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-16';
+        modal.className = 'fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-16';
         modal.innerHTML = `
             <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
                 <!-- Header -->

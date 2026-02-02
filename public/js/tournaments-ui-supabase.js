@@ -502,13 +502,13 @@ function renderWinnerPodium(standings) {
             <p class="text-sm text-gray-600 mt-1">${winner.matches_won || 0} Siege &bull; ${winner.tournament_points || 0} Punkte</p>
         </div>
         ${top3.length > 1 ? `<div class="grid grid-cols-${top3.length === 3 ? '3' : '2'} gap-4">
-            ${second ? `<div class="text-center bg-white bg-opacity-50 rounded-lg p-4">
+            ${second ? `<div class="text-center bg-white/50 rounded-lg p-4">
                 <div class="text-3xl mb-2"><i class="fas fa-medal text-gray-400"></i></div>
                 <p class="text-xs text-gray-600 font-semibold">2. Platz</p>
                 <p class="font-bold text-gray-800">${escapeHtml(getPlayerName(second))}</p>
                 <p class="text-xs text-gray-600">${second.tournament_points || 0} Pkt</p>
             </div>` : ''}
-            ${third ? `<div class="text-center bg-white bg-opacity-50 rounded-lg p-4">
+            ${third ? `<div class="text-center bg-white/50 rounded-lg p-4">
                 <div class="text-3xl mb-2"><i class="fas fa-medal text-orange-400"></i></div>
                 <p class="text-xs text-gray-600 font-semibold">3. Platz</p>
                 <p class="font-bold text-gray-800">${escapeHtml(getPlayerName(third))}</p>
@@ -649,7 +649,7 @@ function openQuickMatchEntryModal(tournament) {
 
     const modal = document.createElement('div');
     modal.id = 'quick-match-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6">

@@ -200,7 +200,7 @@ export function showCompressionDialog(file) {
         // Modal erstellen
         const modal = document.createElement('div');
         modal.id = 'compression-dialog';
-        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
         modal.style.zIndex = '100002';
 
         modal.innerHTML = `
@@ -278,7 +278,7 @@ export function showCompressionDialog(file) {
 export function showCompressionProgress(file) {
     const modal = document.createElement('div');
     modal.id = 'compression-progress';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
     modal.style.zIndex = '100002';
 
     modal.innerHTML = `

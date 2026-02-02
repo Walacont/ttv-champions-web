@@ -327,7 +327,7 @@ export async function showPushPermissionPrompt() {
 
         const modal = document.createElement('div');
         modal.id = 'push-permission-modal';
-        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4';
+        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4';
         modal.innerHTML = `
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
                 <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">

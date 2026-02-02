@@ -2183,7 +2183,7 @@ async function openAddExampleForVideoModal(videoId, videoTitle) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'add-video-as-example-modal';
-        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 hidden';
+        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 hidden';
         modal.innerHTML = `
             <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
                 <div class="border-b px-6 py-4 flex justify-between items-center">

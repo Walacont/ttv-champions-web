@@ -1250,7 +1250,7 @@ window.openSeasonModalCoach = async function() {
 
     // Modal HTML erstellen
     const modalHtml = `
-        <div id="season-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="season-modal-coach" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
@@ -1366,7 +1366,7 @@ function updateModalCountdownCoach() {
 window.createNewSeasonCoach = async function() {
     // Form für neue Saison anzeigen
     const formHtml = `
-        <div id="season-form-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="season-form-modal-coach" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
                 <div class="p-6">
                     <h2 class="text-xl font-bold text-gray-800 mb-4">Neue Saison erstellen</h2>
@@ -1605,7 +1605,7 @@ async function endSeasonCoach(seasonId) {
 window.editSeasonCoach = async function(seasonId) {
     // Form für Bearbeitung anzeigen
     const formHtml = `
-        <div id="season-form-modal-coach" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="season-form-modal-coach" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
                 <div class="p-6">
                     <h2 class="text-xl font-bold text-gray-800 mb-4">Saison bearbeiten</h2>

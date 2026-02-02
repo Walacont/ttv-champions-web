@@ -571,7 +571,7 @@ function renderChildren() {
                                     ${thumbnailUrl ? `
                                         <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
                                             <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
-                                            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                            <div class="absolute inset-0 flex items-center justify-center bg-black/30">
                                                 <i class="fas fa-play text-white text-[8px]"></i>
                                             </div>
                                         </div>
@@ -1603,7 +1603,7 @@ window.openVideoPlayer = async function(videoUrl, title, videoId) {
     // Show loading state
     const loadingModal = document.createElement('div');
     loadingModal.id = 'video-player-modal';
-    loadingModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80';
+    loadingModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/80';
     loadingModal.innerHTML = '<i class="fas fa-spinner fa-spin text-white text-3xl"></i>';
     document.body.appendChild(loadingModal);
 
@@ -1667,7 +1667,7 @@ window.openVideoPlayer = async function(videoUrl, title, videoId) {
     modal.className = 'fixed inset-0 z-50 overflow-y-auto';
     modal.innerHTML = `
         <div class="min-h-full flex items-start sm:items-center justify-center p-4 py-6">
-            <div class="absolute inset-0 bg-black bg-opacity-80" onclick="closeVideoPlayer()"></div>
+            <div class="absolute inset-0 bg-black/80" onclick="closeVideoPlayer()"></div>
             <div class="relative w-full max-w-4xl bg-white rounded-xl overflow-hidden shadow-2xl">
                 <div class="flex items-center justify-between px-4 py-3 bg-gray-900">
                     <h3 class="text-sm text-white font-medium truncate pr-4">${escapeHtml(title)}</h3>

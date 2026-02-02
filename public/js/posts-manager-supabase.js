@@ -303,7 +303,7 @@ function updateImagePreviews() {
                         onclick="window.removeImageAtIndex(${index})">
                     <i class="fas fa-times text-xs"></i>
                 </button>
-                <div class="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-0.5 rounded">
+                <div class="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-2 py-0.5 rounded">
                     ${index + 1}/${selectedImageFiles.length}
                 </div>
             `;
