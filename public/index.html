@@ -673,33 +673,14 @@
 
                 // Globale Funktion für Sprachwechsel (wird von Buttons aufgerufen)
                 window.__switchLang = async function(lang) {
+                    // Save language and reload - most reliable approach
+                    localStorage.setItem('app_language', lang);
                     try {
-                        // Versuche i18n-Modul zu nutzen falls geladen
-                        if (window.__i18nChangeLanguage) {
-                            await window.__i18nChangeLanguage(lang);
-                            if (window.__i18nTranslatePage) window.__i18nTranslatePage();
-                        } else {
-                            // Fallback: Sprache in localStorage speichern und Seite neu laden
-                            localStorage.setItem('app_language', lang);
-                            try {
-                                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
-                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
-                                }
-                            } catch(e) { /* ignore */ }
-                            window.location.reload();
-                            return;
+                        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
+                            await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
                         }
-                    } catch(err) {
-                        console.error('[LangSwitcher] Error:', err);
-                        // Fallback: speichern und neu laden
-                        localStorage.setItem('app_language', lang);
-                        window.location.reload();
-                        return;
-                    }
-                    document.documentElement.lang = lang;
-                    updateLangSwitcher(lang);
-                    if (dropdown) dropdown.classList.add('hidden');
-                    if (chevron) chevron.style.transform = '';
+                    } catch(e) { /* ignore */ }
+                    window.location.reload();
                 };
 
                 // Initiale Sprache setzen (aus localStorage)

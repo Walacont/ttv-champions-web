@@ -397,7 +397,7 @@
                     if (content) content.style.display = 'block';
                     if (window.hideSplash) window.hideSplash();
                 }
-            }, 8000);
+            }, 2000);
         </script>
         <!-- Fallback handlers: attach critical click handlers without module dependencies.
              If the module script below loads successfully, it overrides these with richer versions. -->
@@ -476,7 +476,7 @@
                             });
                         });
                     }
-                }, 3000); // Wait 3s - if module loaded, it sets __settingsHandlersAttached=true
+                }, 1000); // Wait 1s - if module loaded, it sets __settingsHandlersAttached=true
             });
         </script>
         <script type="module">
@@ -703,7 +703,13 @@
                     if (!hasAccess) return;
                 }
 
-                // Initialize i18n (non-blocking with timeout)
+                // Show content immediately, don't block on i18n
+                document.getElementById('page-loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                window.__settingsInitDone = true;
+                if (window.hideSplash) window.hideSplash();
+
+                // Initialize i18n in background (non-blocking)
                 try {
                     await initI18n();
                     setupAutoTranslate();
@@ -712,12 +718,6 @@
                 } catch (i18nError) {
                     console.warn('[Settings] i18n init failed, continuing without translations:', i18nError);
                 }
-
-                // Show content as soon as possible, then load additional data
-                document.getElementById('page-loader').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
-                window.__settingsInitDone = true;
-                if (window.hideSplash) window.hideSplash();
 
                 // Benachrichtigungen-Card nur in PWA/native anzeigen
                 const notificationsCard = document.getElementById('notifications-card');
@@ -795,36 +795,17 @@
                     }
                 });
 
-                // Language selection
+                // Language selection - save and reload for reliable change
                 languageOptions.forEach(option => {
                     option.addEventListener('click', async () => {
                         const selectedLang = option.getAttribute('data-lang');
+                        localStorage.setItem('app_language', selectedLang);
                         try {
-                            await changeLanguage(selectedLang);
-                            updateActiveLanguage();
-
-                            // Show success feedback
-                            const feedback = document.createElement('div');
-                            feedback.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                            feedback.innerHTML = '<i class="fas fa-check mr-2"></i><span data-i18n="settings.language.changed">Sprache wurde geändert</span>';
-                            document.body.appendChild(feedback);
-                            translatePage(); // Re-translate the feedback message
-
-                            setTimeout(() => {
-                                feedback.remove();
-                                languageModal.classList.add('hidden');
-                            }, 2000);
-                        } catch (langError) {
-                            console.warn('[Settings] changeLanguage failed, using fallback:', langError);
-                            // Fallback: save to localStorage and reload
-                            localStorage.setItem('app_language', selectedLang);
-                            try {
-                                if (window.Capacitor?.Plugins?.Preferences) {
-                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: selectedLang });
-                                }
-                            } catch(e) {}
-                            window.location.reload();
-                        }
+                            if (window.Capacitor?.Plugins?.Preferences) {
+                                await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: selectedLang });
+                            }
+                        } catch(e) {}
+                        window.location.reload();
                     });
                 });
 
