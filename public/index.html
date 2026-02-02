@@ -84,6 +84,8 @@
         />
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <style>
+            /* Fallback für Tailwind-Klassen falls CDN nicht lädt (z.B. Android offline) */
+            .hidden { display: none !important; }
             body {
                 font-family: 'Inter', sans-serif;
             }
@@ -120,13 +122,13 @@
                             id="lang-dropdown"
                             class="hidden absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 overflow-hidden"
                         >
-                            <button data-lang="de" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="de" onclick="window.__switchLang && window.__switchLang('de')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇩🇪</span> Deutsch
                             </button>
-                            <button data-lang="en" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="en" onclick="window.__switchLang && window.__switchLang('en')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇬🇧</span> English
                             </button>
-                            <button data-lang="zh" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="zh" onclick="window.__switchLang && window.__switchLang('zh')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇨🇳</span> 中文
                             </button>
                         </div>
@@ -634,64 +636,92 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Firebase: <script type="module" src="/js/index.js"></script> -->
+        <script>
+            // Sprach-Switcher OHNE Abhängigkeit von CDN-Modulen (Fallback für Android/offline)
+            (function() {
+                var FLAGS = { de: '🇩🇪', en: '🇬🇧', zh: '🇨🇳' };
+
+                function updateLangSwitcher(lang) {
+                    var flag = document.getElementById('lang-flag');
+                    if (flag) flag.textContent = FLAGS[lang] || FLAGS.de;
+                    document.querySelectorAll('.lang-option').forEach(function(opt) {
+                        var isActive = opt.getAttribute('data-lang') === lang;
+                        opt.classList.toggle('bg-indigo-50', isActive);
+                        opt.classList.toggle('text-indigo-700', isActive);
+                        opt.classList.toggle('text-gray-700', !isActive);
+                    });
+                }
+
+                // Toggle Dropdown
+                var toggle = document.getElementById('lang-toggle');
+                var dropdown = document.getElementById('lang-dropdown');
+                var chevron = document.getElementById('lang-chevron');
+
+                if (toggle && dropdown) {
+                    toggle.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var isOpen = !dropdown.classList.contains('hidden');
+                        dropdown.classList.toggle('hidden');
+                        if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+                    });
+
+                    document.addEventListener('click', function() {
+                        dropdown.classList.add('hidden');
+                        if (chevron) chevron.style.transform = '';
+                    });
+
+                    dropdown.addEventListener('click', function(e) { e.stopPropagation(); });
+                }
+
+                // Globale Funktion für Sprachwechsel (wird von Buttons aufgerufen)
+                window.__switchLang = async function(lang) {
+                    try {
+                        // Versuche i18n-Modul zu nutzen falls geladen
+                        if (window.__i18nChangeLanguage) {
+                            await window.__i18nChangeLanguage(lang);
+                            if (window.__i18nTranslatePage) window.__i18nTranslatePage();
+                        } else {
+                            // Fallback: Sprache in localStorage speichern und Seite neu laden
+                            localStorage.setItem('app_language', lang);
+                            try {
+                                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
+                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
+                                }
+                            } catch(e) { /* ignore */ }
+                            window.location.reload();
+                            return;
+                        }
+                    } catch(err) {
+                        console.error('[LangSwitcher] Error:', err);
+                        // Fallback: speichern und neu laden
+                        localStorage.setItem('app_language', lang);
+                        window.location.reload();
+                        return;
+                    }
+                    document.documentElement.lang = lang;
+                    updateLangSwitcher(lang);
+                    if (dropdown) dropdown.classList.add('hidden');
+                    if (chevron) chevron.style.transform = '';
+                };
+
+                // Initiale Sprache setzen (aus localStorage)
+                var savedLang = localStorage.getItem('app_language') || 'de';
+                updateLangSwitcher(savedLang);
+            })();
+        </script>
         <script type="module">
             import { initI18n, translatePage, setupAutoTranslate, changeLanguage, getCurrentLanguage } from '/js/i18n.js';
 
-            const FLAGS = { de: '🇩🇪', en: '🇬🇧', zh: '🇨🇳' };
-
-            function updateLangSwitcher(lang) {
-                const flag = document.getElementById('lang-flag');
-                if (flag) flag.textContent = FLAGS[lang] || FLAGS.de;
-
-                document.querySelectorAll('.lang-option').forEach(opt => {
-                    const isActive = opt.getAttribute('data-lang') === lang;
-                    opt.classList.toggle('bg-indigo-50', isActive);
-                    opt.classList.toggle('text-indigo-700', isActive);
-                    opt.classList.toggle('text-gray-700', !isActive);
-                });
-            }
-
-            function initLangSwitcher() {
-                const toggle = document.getElementById('lang-toggle');
-                const dropdown = document.getElementById('lang-dropdown');
-                const chevron = document.getElementById('lang-chevron');
-                if (!toggle || !dropdown) return;
-
-                toggle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const isOpen = !dropdown.classList.contains('hidden');
-                    dropdown.classList.toggle('hidden');
-                    chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-                });
-
-                document.addEventListener('click', () => {
-                    dropdown.classList.add('hidden');
-                    chevron.style.transform = '';
-                });
-
-                dropdown.addEventListener('click', (e) => e.stopPropagation());
-
-                document.querySelectorAll('.lang-option').forEach(opt => {
-                    opt.addEventListener('click', async () => {
-                        const lang = opt.getAttribute('data-lang');
-                        await changeLanguage(lang);
-                        translatePage();
-                        document.documentElement.lang = lang;
-                        updateLangSwitcher(lang);
-                        dropdown.classList.add('hidden');
-                        chevron.style.transform = '';
-                    });
-                });
-            }
+            // Funktionen global verfügbar machen für den Sprach-Switcher
+            window.__i18nChangeLanguage = changeLanguage;
+            window.__i18nTranslatePage = translatePage;
 
             async function initializeI18n() {
                 await initI18n();
                 setupAutoTranslate();
                 translatePage();
-                const lang = getCurrentLanguage();
+                var lang = getCurrentLanguage();
                 document.documentElement.lang = lang;
-                updateLangSwitcher(lang);
-                initLangSwitcher();
             }
 
             initializeI18n();
