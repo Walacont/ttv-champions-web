@@ -580,6 +580,7 @@ async function openVideoDetailModal(videoId) {
                class="w-full rounded-lg bg-black"
                controls
                crossorigin="anonymous"
+               playsinline
                preload="metadata">
             <source src="${escapeHtml(video.video_url)}" type="video/mp4">
             Dein Browser unterstützt keine Videowiedergabe.

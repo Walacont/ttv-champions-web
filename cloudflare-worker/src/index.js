@@ -217,8 +217,8 @@ function getAllowedOrigin(request, env) {
     const origin = request.headers.get('Origin') || '';
     const allowedOrigins = (env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim());
 
-    // Capacitor App erlauben
-    if (origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
+    // Capacitor App erlauben (http und https für Android/iOS)
+    if (origin.startsWith('capacitor://') || origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) {
         return origin;
     }
 
