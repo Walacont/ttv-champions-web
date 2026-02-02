@@ -1,7 +1,7 @@
 // SC Champions Service Worker
-const CACHE_NAME = 'sc-champions-v11';
-const STATIC_CACHE = 'sc-static-v11';
-const DYNAMIC_CACHE = 'sc-dynamic-v11';
+const CACHE_NAME = 'sc-champions-v12';
+const STATIC_CACHE = 'sc-static-v12';
+const DYNAMIC_CACHE = 'sc-dynamic-v12';
 
 const STATIC_ASSETS = [
     '/',
