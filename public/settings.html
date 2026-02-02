@@ -799,20 +799,32 @@
                 languageOptions.forEach(option => {
                     option.addEventListener('click', async () => {
                         const selectedLang = option.getAttribute('data-lang');
-                        await changeLanguage(selectedLang);
-                        updateActiveLanguage();
+                        try {
+                            await changeLanguage(selectedLang);
+                            updateActiveLanguage();
 
-                        // Show success feedback
-                        const feedback = document.createElement('div');
-                        feedback.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                        feedback.innerHTML = '<i class="fas fa-check mr-2"></i><span data-i18n="settings.language.changed">Sprache wurde geändert</span>';
-                        document.body.appendChild(feedback);
-                        translatePage(); // Re-translate the feedback message
+                            // Show success feedback
+                            const feedback = document.createElement('div');
+                            feedback.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                            feedback.innerHTML = '<i class="fas fa-check mr-2"></i><span data-i18n="settings.language.changed">Sprache wurde geändert</span>';
+                            document.body.appendChild(feedback);
+                            translatePage(); // Re-translate the feedback message
 
-                        setTimeout(() => {
-                            feedback.remove();
-                            languageModal.classList.add('hidden');
-                        }, 2000);
+                            setTimeout(() => {
+                                feedback.remove();
+                                languageModal.classList.add('hidden');
+                            }, 2000);
+                        } catch (langError) {
+                            console.warn('[Settings] changeLanguage failed, using fallback:', langError);
+                            // Fallback: save to localStorage and reload
+                            localStorage.setItem('app_language', selectedLang);
+                            try {
+                                if (window.Capacitor?.Plugins?.Preferences) {
+                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: selectedLang });
+                                }
+                            } catch(e) {}
+                            window.location.reload();
+                        }
                     });
                 });
 
