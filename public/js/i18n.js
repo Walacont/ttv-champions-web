@@ -1,8 +1,8 @@
 // i18n Modul - Internationalisierung für SC Champions
 // Nutzt i18next für Übersetzungen
 
-import i18next from 'https://cdn.jsdelivr.net/npm/i18next@23.16.4/+esm';
-import HttpBackend from 'https://cdn.jsdelivr.net/npm/i18next-http-backend@2.6.2/+esm';
+import { i18next } from '/vendor/i18next.js';
+import { HttpBackend } from '/vendor/i18next.js';
 
 let i18nInitialized = false;
 const DEFAULT_LANGUAGE = 'de';
