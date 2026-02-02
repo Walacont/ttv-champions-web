@@ -173,6 +173,7 @@ async function initializeAuth() {
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
+        if (window.hideSplash) window.hideSplash();
     } else {
         window.location.href = '/index.html';
     }

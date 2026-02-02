@@ -101,17 +101,26 @@
             }
         }
 
+        // Splash screen: wait for page to signal readiness via hideSplash()
+        // Safety timeout: hide after 10s max to prevent stuck splash
         if (SplashScreen) {
-            setTimeout(async () => {
+            window.__splashHidden = false;
+            window.hideSplash = async function() {
+                if (window.__splashHidden) return;
+                window.__splashHidden = true;
                 try {
-                    await SplashScreen.hide({
-                        fadeOutDuration: 300
-                    });
-                    console.log('[Capacitor] Splash screen hidden');
+                    await SplashScreen.hide({ fadeOutDuration: 300 });
+                    console.log('[Capacitor] Splash screen hidden by page');
                 } catch (e) {
-                    console.log('[Capacitor] Splash screen error:', e.message);
+                    console.log('[Capacitor] Splash screen hide error:', e.message);
                 }
-            }, 500);
+            };
+            setTimeout(function() {
+                if (!window.__splashHidden) {
+                    console.warn('[Capacitor] Splash screen safety timeout, force-hiding');
+                    window.hideSplash();
+                }
+            }, 10000);
         }
 
         // Verzögert initialisieren, damit alle anderen Features bereit sind

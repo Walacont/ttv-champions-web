@@ -320,6 +320,7 @@ async function initializeCoachPage(userData) {
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
+    if (window.hideSplash) window.hideSplash();
 
     document.getElementById('welcome-message').textContent =
         `Willkommen, ${userData.firstName || userData.email}!`;

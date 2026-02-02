@@ -397,6 +397,7 @@
                     var content = document.getElementById('main-content');
                     if (loader) loader.style.display = 'none';
                     if (content) content.style.display = 'block';
+                    if (window.hideSplash) window.hideSplash();
                 }
             }, 8000);
         </script>
@@ -638,6 +639,7 @@
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
                 window.__settingsInitDone = true;
+                if (window.hideSplash) window.hideSplash();
 
                 // Benachrichtigungen-Card nur in PWA/native anzeigen
                 const notificationsCard = document.getElementById('notifications-card');
@@ -783,6 +785,7 @@
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
                 window.__settingsInitDone = true;
+                if (window.hideSplash) window.hideSplash();
             }
             }
 
