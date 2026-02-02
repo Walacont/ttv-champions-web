@@ -153,7 +153,7 @@ async function loadPendingFollowRequests() {
 
         const html = pendingRequests.map(request => {
             const user = request.addressee;
-            const photoUrl = user?.avatar_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user?.first_name?.[0] || '?'}`;
+            const photoUrl = user?.avatar_url || avatarPlaceholder(user?.first_name?.[0] || '?');
             const fullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unbekannt';
             const clubName = user?.clubs?.name || 'Kein Verein';
 
@@ -274,7 +274,7 @@ function renderSuggestedUsers(users) {
     if (!container) return;
 
     const html = users.map(user => {
-        const photoUrl = user.avatar_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user.first_name?.[0] || '?'}`;
+        const photoUrl = user.avatar_url || avatarPlaceholder(user.first_name?.[0] || '?');
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const clubName = user.clubs?.name || 'Kein Verein';
 

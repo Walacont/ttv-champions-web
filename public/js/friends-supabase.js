@@ -161,7 +161,7 @@ function renderSearchResults(players) {
     const resultsContainer = document.getElementById('player-search-results');
 
     const cardsHtml = players.map(player => {
-        const photoUrl = player.avatar_url || player.photo_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (player.first_name?.[0] || '?');
+        const photoUrl = player.avatar_url || player.photo_url || avatarPlaceholder(player.first_name?.[0] || '?');
         const fullName = `${player.first_name || ''} ${player.last_name || ''}`.trim();
         const clubName = player.club_name || 'Kein Verein';
         const elo = player.elo_rating || 800;
@@ -464,7 +464,7 @@ function renderReceivedRequests(requests) {
     }
 
     const html = requests.map(request => {
-        const photoUrl = request.requester_avatar_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (request.requester_first_name?.[0] || '?');
+        const photoUrl = request.requester_avatar_url || avatarPlaceholder(request.requester_first_name?.[0] || '?');
         const fullName = `${request.requester_first_name || ''} ${request.requester_last_name || ''}`.trim();
         const clubName = request.requester_club_name || 'Kein Verein';
         const elo = request.requester_elo_rating || 800;
@@ -527,7 +527,7 @@ function renderSentRequests(requests) {
     }
 
     const html = requests.map(request => {
-        const photoUrl = request.addressee_avatar_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (request.addressee_first_name?.[0] || '?');
+        const photoUrl = request.addressee_avatar_url || avatarPlaceholder(request.addressee_first_name?.[0] || '?');
         const fullName = `${request.addressee_first_name || ''} ${request.addressee_last_name || ''}`.trim();
         const clubName = request.addressee_club_name || 'Kein Verein';
         const elo = request.addressee_elo_rating || 800;
@@ -605,7 +605,7 @@ function renderFriendsList(friends) {
     }
 
     const html = friends.map(friend => {
-        const photoUrl = friend.avatar_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (friend.first_name?.[0] || '?');
+        const photoUrl = friend.avatar_url || avatarPlaceholder(friend.first_name?.[0] || '?');
         const fullName = `${friend.first_name || ''} ${friend.last_name || ''}`.trim();
         const clubName = friend.club_name || 'Kein Verein';
 

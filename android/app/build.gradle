@@ -6,9 +6,9 @@ android {
     signingConfigs {
         release {
             storeFile file('release-key.keystore')
-            storePassword System.getenv('KEYSTORE_PASSWORD') ?: 'scchampions2024'
-            keyAlias System.getenv('KEY_ALIAS') ?: 'sc-champions-key'
-            keyPassword System.getenv('KEY_PASSWORD') ?: 'scchampions2024'
+            storePassword System.getenv('KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('KEY_ALIAS') ?: ''
+            keyPassword System.getenv('KEY_PASSWORD') ?: ''
         }
     }
     defaultConfig {

@@ -867,12 +867,12 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
         const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
         const p1Avatar =
             pairing.player1PhotoURL ||
-            `https://placehold.co/40x40/e2e8f0/64748b?text=${p1Initials}`;
+            avatarPlaceholder(p1Initials);
 
         const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
         const p2Avatar =
             pairing.player2PhotoURL ||
-            `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
+            avatarPlaceholder(p2Initials);
 
         const isClickable = supabase && currentUserId &&
             pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId;
@@ -935,12 +935,12 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false, 
         const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
         const p1Avatar =
             pairing.player1PhotoURL ||
-            `https://placehold.co/32x32/e2e8f0/64748b?text=${p1Initials}`;
+            avatarPlaceholder(p1Initials);
 
         const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
         const p2Avatar =
             pairing.player2PhotoURL ||
-            `https://placehold.co/32x32/e2e8f0/64748b?text=${p2Initials}`;
+            avatarPlaceholder(p2Initials);
 
         const rankDisplay = rank === 1 ? '1' : rank === 2 ? '2' : rank === 3 ? '3' : `#${rank}`;
 
