@@ -769,7 +769,7 @@ export function createDrawingButton(videoElement, options = {}) {
     let drawingTool = null;
 
     const button = document.createElement('button');
-    button.className = 'drawing-toggle-btn absolute top-2 right-2 p-2 bg-black bg-opacity-60 rounded-lg text-white hover:bg-opacity-80 transition-all z-20';
+    button.className = 'drawing-toggle-btn absolute top-2 right-2 p-2 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-all z-20';
     button.innerHTML = '<i class="fas fa-pen"></i>';
     button.title = 'Zeichnen';
 

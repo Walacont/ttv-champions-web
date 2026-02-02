@@ -682,7 +682,7 @@ async function loadReferenceVideoForExercise(exerciseId) {
                             ? `<img src="${escapeHtml(ex.thumbnail_url)}" class="w-full h-full object-cover">`
                             : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video"></i></div>`
                         }
-                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/30">
                             <i class="fas fa-play text-white text-lg"></i>
                         </div>
                     </div>
@@ -717,7 +717,7 @@ function openExampleVideoPlayer(videoUrl, title) {
 
     const modal = document.createElement('div');
     modal.id = 'example-video-player-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] p-4';
+    modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4';
 
     modal.innerHTML = `
         <div class="relative w-full max-w-4xl">
@@ -1255,7 +1255,7 @@ function showPlayerVideoDetailModal(video, comments) {
 
     const modal = document.createElement('div');
     modal.id = 'player-video-detail-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 overflow-y-auto';
+    modal.className = 'fixed inset-0 bg-black/50 overflow-y-auto';
     modal.style.zIndex = '100001';
 
     const commentsHtml = comments.length > 0
@@ -1372,7 +1372,7 @@ function showPlayerVideoDetailModal(video, comments) {
 function showDeleteConfirmation(video, parentModal) {
     const confirmModal = document.createElement('div');
     confirmModal.id = 'delete-confirm-modal';
-    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
+    confirmModal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4';
 
     confirmModal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
@@ -1437,7 +1437,7 @@ function showDeleteConfirmation(video, parentModal) {
 function showDeleteConfirmationFromCard(video) {
     const confirmModal = document.createElement('div');
     confirmModal.id = 'delete-confirm-modal';
-    confirmModal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4';
+    confirmModal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4';
 
     confirmModal.innerHTML = `
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">

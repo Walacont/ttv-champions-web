@@ -511,7 +511,7 @@ async function showNotificationModal(userId) {
 
     const modal = document.createElement('div');
     modal.id = 'notification-modal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-start justify-center pt-16 sm:pt-20';
+    modal.className = 'fixed inset-0 bg-black/50 z-[99999] flex items-start justify-center pt-16 sm:pt-20';
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[70vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center">

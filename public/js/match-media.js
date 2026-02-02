@@ -38,7 +38,7 @@ function setupUploadModal() {
     if (document.getElementById('media-upload-modal')) return;
 
     const modalHTML = `
-        <div id="media-upload-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div id="media-upload-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between p-4 border-b border-gray-200">

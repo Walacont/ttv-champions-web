@@ -1540,7 +1540,7 @@ window.generateGuardianCodeForPlayer = async function(playerId, playerName) {
 
         const modal = document.createElement('div');
         modal.id = 'guardian-code-modal';
-        modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4';
+        modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4';
         modal.innerHTML = `
             <div class="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl" onclick="event.stopPropagation()">
                 <div class="text-center">

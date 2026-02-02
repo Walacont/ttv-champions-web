@@ -324,7 +324,7 @@ function setupLikesModal() {
     if (document.getElementById('likes-modal')) return;
 
     const modalHTML = `
-        <div id="likes-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div id="likes-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between p-4 border-b border-gray-200">
@@ -3467,11 +3467,11 @@ function renderPostCard(activity, profileMap) {
 
                     ${imageUrls.length > 1 ? `
                     <!-- Navigation Arrows -->
-                    <button class="carousel-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition"
+                    <button class="carousel-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition"
                             onclick="carouselPrev('${carouselId}')">
                         <i class="fas fa-chevron-left"></i>
                     </button>
-                    <button class="carousel-next absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition"
+                    <button class="carousel-next absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition"
                             onclick="carouselNext('${carouselId}')">
                         <i class="fas fa-chevron-right"></i>
                     </button>
@@ -3479,7 +3479,7 @@ function renderPostCard(activity, profileMap) {
                     <!-- Dot Indicators -->
                     <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
                         ${imageUrls.map((_, index) => `
-                            <button class="carousel-dot w-2 h-2 rounded-full transition ${index === 0 ? 'bg-white' : 'bg-white bg-opacity-50'}"
+                            <button class="carousel-dot w-2 h-2 rounded-full transition ${index === 0 ? 'bg-white' : 'bg-white/50'}"
                                     onclick="carouselGoTo('${carouselId}', ${index})"></button>
                         `).join('')}
                     </div>
@@ -4065,11 +4065,11 @@ function updateCarousel(carousel, newIndex) {
     // Punkte aktualisieren
     dots.forEach((dot, index) => {
         if (index === newIndex) {
-            dot.classList.remove('bg-opacity-50');
+            dot.classList.remove('bg-white/50');
             dot.classList.add('bg-white');
         } else {
-            dot.classList.add('bg-opacity-50');
             dot.classList.remove('bg-white');
+            dot.classList.add('bg-white/50');
         }
     });
 }

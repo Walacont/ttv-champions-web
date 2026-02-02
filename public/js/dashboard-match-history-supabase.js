@@ -520,7 +520,7 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     }
 
     const modalHtml = `
-        <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
+        <div id="match-details-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
             <div class="bg-white rounded-2xl max-w-md w-full max-h-[75vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-2xl">
                     <h3 class="text-lg font-bold">Match Details</h3>
@@ -685,7 +685,7 @@ function showDoublesMatchDetails(match, profileMap) {
     });
 
     const modalHtml = `
-        <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
+        <div id="match-details-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
             <div class="bg-white rounded-2xl max-w-md w-full max-h-[75vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-2xl">
                     <div class="flex items-center gap-2">

@@ -22,7 +22,7 @@ export async function showDoublesHeadToHeadModal(supabase, currentUserId, oppone
     // Modal-Container erstellen
     const modal = document.createElement('div');
     modal.id = 'doubles-h2h-modal';
-    modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
+    modal.className = 'fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4';
     modal.style.cssText = 'z-index: 100001;'; // Höher als Header (9999) und Bottom-Nav (99999)
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto" style="max-height: calc(100vh - 140px); margin-top: 60px; margin-bottom: 80px;">
