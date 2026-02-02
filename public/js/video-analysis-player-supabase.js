@@ -727,7 +727,7 @@ function openExampleVideoPlayer(videoUrl, title) {
                     <i class="fas fa-times text-2xl"></i>
                 </button>
             </div>
-            <video class="w-full rounded-lg" controls autoplay>
+            <video class="w-full rounded-lg" controls crossorigin="anonymous" playsinline autoplay>
                 <source src="${escapeHtml(videoUrl)}" type="video/mp4">
             </video>
         </div>
@@ -1313,7 +1313,7 @@ function showPlayerVideoDetailModal(video, comments) {
                 <div class="p-4 sm:p-6">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         <div class="flex justify-center">
-                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[30vh] sm:max-h-[45vh] max-w-[60vw] sm:max-w-full" controls playsinline>
+                            <video id="player-detail-video" class="rounded-lg bg-black max-h-[30vh] sm:max-h-[45vh] max-w-[60vw] sm:max-w-full" controls crossorigin="anonymous" playsinline>
                                 <source src="${escapeHtml(video.video_url)}" type="video/mp4">
                             </video>
                         </div>
