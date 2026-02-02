@@ -166,6 +166,17 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
         console.log(`[Export] Total sessions including events: ${sessions.length}`);
 
+        // Wiederkehrende Event-IDs ermitteln (haben mehrere Vorkommnisse im Monat)
+        const eventIdOccurrenceCount = new Map();
+        events.forEach(e => {
+            eventIdOccurrenceCount.set(e.id, (eventIdOccurrenceCount.get(e.id) || 0) + 1);
+        });
+        const recurringEventIds = new Set(
+            [...eventIdOccurrenceCount.entries()]
+                .filter(([, count]) => count > 1)
+                .map(([id]) => id)
+        );
+
         // Event-Attendance laden (mit occurrence_date für wiederkehrende Events)
         // Nur Attendance-Records laden, deren Datum im Exportmonat liegt
         const allEventIds = [...new Set(events.map(e => e.id))];
@@ -366,8 +377,10 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
                     // Event-Attendance: Key mit occurrence_date für wiederkehrende Events
                     const eventAttKey = session.occurrenceDate
                         ? `${session.id}_${session.occurrenceDate}` : session.id;
+                    // Fallback nur für Einzel-Events (nicht wiederkehrende),
+                    // da sonst eine Attendance-Record für ALLE Vorkommnisse angezeigt wird
                     const eventAtt = eventAttendanceMap.get(eventAttKey)
-                        || eventAttendanceMap.get(session.id);
+                        || (!recurringEventIds.has(session.id) ? eventAttendanceMap.get(session.id) : null);
                     presentPlayerIds = eventAtt?.presentPlayerIds || [];
                 } else {
                     // Normale Session-Attendance
@@ -410,7 +423,7 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
                     const eventAttKey = session.occurrenceDate
                         ? `${session.id}_${session.occurrenceDate}` : session.id;
                     const eventAtt = eventAttendanceMap.get(eventAttKey)
-                        || eventAttendanceMap.get(session.id);
+                        || (!recurringEventIds.has(session.id) ? eventAttendanceMap.get(session.id) : null);
                     if (eventAtt?.coachHours?.[coach.id]) {
                         hours = eventAtt.coachHours[coach.id];
                     }
@@ -454,7 +467,7 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
                 const eventAttKey = session.occurrenceDate
                     ? `${session.id}_${session.occurrenceDate}` : session.id;
                 const eventAtt = eventAttendanceMap.get(eventAttKey)
-                    || eventAttendanceMap.get(session.id);
+                    || (!recurringEventIds.has(session.id) ? eventAttendanceMap.get(session.id) : null);
                 presentPlayerIds = eventAtt?.presentPlayerIds || [];
             } else {
                 const attendanceKey = `${session.date}_${session.id}`;
