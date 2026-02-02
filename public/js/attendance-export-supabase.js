@@ -63,7 +63,7 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
             .from('training_sessions')
             .select('*')
             .eq('club_id', clubId)
-            .eq('cancelled', false)
+            .or('cancelled.eq.false,cancelled.is.null')
             .gte('date', startDate)
             .lte('date', endDate)
             .order('date', { ascending: true });
@@ -87,25 +87,78 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
         console.log(`[Export] Loaded ${sessions.length} training sessions`);
 
-        // Events (neues System) laden
-        const { data: eventsData } = await supabase
+        // Events (neues System) laden - Einzel-Events UND wiederkehrende Events
+        const { data: singleEventsData } = await supabase
             .from('events')
-            .select('id, title, start_date, start_time, end_time, target_subgroup_ids, event_category')
+            .select('id, title, start_date, start_time, end_time, target_subgroup_ids, event_category, event_type')
             .eq('club_id', clubId)
-            .eq('cancelled', false)
+            .or('cancelled.eq.false,cancelled.is.null')
+            .or('event_type.eq.single,event_type.is.null')
             .gte('start_date', startDate)
             .lte('start_date', endDate)
             .order('start_date', { ascending: true });
 
-        const events = (eventsData || []).map(e => ({
+        // Wiederkehrende Events laden (start_date kann VOR dem Monat liegen!)
+        const { data: recurringEventsData } = await supabase
+            .from('events')
+            .select('id, title, start_date, start_time, end_time, target_subgroup_ids, event_category, event_type, repeat_type, repeat_end_date, excluded_dates')
+            .eq('club_id', clubId)
+            .or('cancelled.eq.false,cancelled.is.null')
+            .eq('event_type', 'recurring')
+            .lte('start_date', endDate)
+            .or(`repeat_end_date.gte.${startDate},repeat_end_date.is.null`);
+
+        // Einzel-Events direkt übernehmen
+        const events = (singleEventsData || []).map(e => ({
             id: e.id,
             date: e.start_date,
             startTime: e.start_time || '18:00',
             endTime: e.end_time || '20:00',
             title: e.title,
             subgroupId: e.target_subgroup_ids?.[0] || null,
-            isEvent: true
+            isEvent: true,
+            occurrenceDate: e.start_date
         }));
+
+        // Wiederkehrende Events in einzelne Vorkommnisse pro Monatstag expandieren
+        (recurringEventsData || []).forEach(e => {
+            const eventStartDate = new Date(e.start_date + 'T12:00:00');
+            const monthStart = new Date(startDate + 'T12:00:00');
+            const monthEnd = new Date(endDate + 'T12:00:00');
+            const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+            const excludedDates = e.excluded_dates || [];
+            const eventDayOfWeek = eventStartDate.getDay();
+
+            for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                if (d < eventStartDate) continue;
+                if (repeatEndDate && d > repeatEndDate) continue;
+
+                const currentDateString = d.toISOString().split('T')[0];
+                if (excludedDates.includes(currentDateString)) continue;
+
+                let matches = false;
+                if (e.repeat_type === 'weekly') {
+                    matches = d.getDay() === eventDayOfWeek;
+                } else if (e.repeat_type === 'daily') {
+                    matches = true;
+                } else if (e.repeat_type === 'monthly') {
+                    matches = d.getDate() === eventStartDate.getDate();
+                }
+
+                if (matches) {
+                    events.push({
+                        id: e.id,
+                        date: currentDateString,
+                        startTime: e.start_time || '18:00',
+                        endTime: e.end_time || '20:00',
+                        title: e.title,
+                        subgroupId: e.target_subgroup_ids?.[0] || null,
+                        isEvent: true,
+                        occurrenceDate: currentDateString
+                    });
+                }
+            }
+        });
 
         // Events als zusätzliche Sessions behandeln
         sessions.push(...events);
@@ -113,17 +166,20 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
         console.log(`[Export] Total sessions including events: ${sessions.length}`);
 
-        // Event-Attendance laden
-        const eventIds = events.map(e => e.id);
+        // Event-Attendance laden (mit occurrence_date für wiederkehrende Events)
+        const allEventIds = [...new Set(events.map(e => e.id))];
         let eventAttendanceMap = new Map();
-        if (eventIds.length > 0) {
+        if (allEventIds.length > 0) {
             const { data: eventAttendanceData } = await supabase
                 .from('event_attendance')
-                .select('event_id, present_user_ids, coach_hours')
-                .in('event_id', eventIds);
+                .select('event_id, occurrence_date, present_user_ids, coach_hours')
+                .in('event_id', allEventIds);
 
             (eventAttendanceData || []).forEach(ea => {
-                eventAttendanceMap.set(ea.event_id, {
+                // Key: event_id + occurrence_date (für wiederkehrende Events)
+                const occDate = ea.occurrence_date || null;
+                const key = occDate ? `${ea.event_id}_${occDate}` : ea.event_id;
+                eventAttendanceMap.set(key, {
                     presentPlayerIds: ea.present_user_ids || [],
                     coachHours: ea.coach_hours || {}
                 });
@@ -301,8 +357,11 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
                 let presentPlayerIds = [];
                 if (session.isEvent) {
-                    // Event-Attendance aus eventAttendanceMap
-                    const eventAtt = eventAttendanceMap.get(session.id);
+                    // Event-Attendance: Key mit occurrence_date für wiederkehrende Events
+                    const eventAttKey = session.occurrenceDate
+                        ? `${session.id}_${session.occurrenceDate}` : session.id;
+                    const eventAtt = eventAttendanceMap.get(eventAttKey)
+                        || eventAttendanceMap.get(session.id);
                     presentPlayerIds = eventAtt?.presentPlayerIds || [];
                 } else {
                     // Normale Session-Attendance
@@ -342,7 +401,10 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
 
                 if (session.isEvent) {
                     // Event-Attendance: coach_hours als Objekt {coach_id: hours}
-                    const eventAtt = eventAttendanceMap.get(session.id);
+                    const eventAttKey = session.occurrenceDate
+                        ? `${session.id}_${session.occurrenceDate}` : session.id;
+                    const eventAtt = eventAttendanceMap.get(eventAttKey)
+                        || eventAttendanceMap.get(session.id);
                     if (eventAtt?.coachHours?.[coach.id]) {
                         hours = eventAtt.coachHours[coach.id];
                     }
@@ -383,7 +445,10 @@ export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFi
         for (const session of sessions) {
             let presentPlayerIds = [];
             if (session.isEvent) {
-                const eventAtt = eventAttendanceMap.get(session.id);
+                const eventAttKey = session.occurrenceDate
+                    ? `${session.id}_${session.occurrenceDate}` : session.id;
+                const eventAtt = eventAttendanceMap.get(eventAttKey)
+                    || eventAttendanceMap.get(session.id);
                 presentPlayerIds = eventAtt?.presentPlayerIds || [];
             } else {
                 const attendanceKey = `${session.date}_${session.id}`;
@@ -523,6 +588,7 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
 
         console.log(`[Export Summary] Loading data for ${year}-${month + 1}`);
 
+        // Alte Anwesenheitsdaten (training_sessions System)
         let attendanceQuery = supabase
             .from('attendance')
             .select('*')
@@ -536,6 +602,63 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
 
         const { data: attendanceData, error: attendanceError } = await attendanceQuery;
         if (attendanceError) throw attendanceError;
+
+        // Event-Anwesenheitsdaten (neues Event-System) laden
+        const { data: singleEventsForSummary } = await supabase
+            .from('events')
+            .select('id, target_subgroup_ids')
+            .eq('club_id', clubId)
+            .or('cancelled.eq.false,cancelled.is.null')
+            .or('event_type.eq.single,event_type.is.null')
+            .gte('start_date', startDate)
+            .lte('start_date', endDate);
+
+        const { data: recurringEventsForSummary } = await supabase
+            .from('events')
+            .select('id, target_subgroup_ids, start_date, repeat_type, repeat_end_date, excluded_dates')
+            .eq('club_id', clubId)
+            .or('cancelled.eq.false,cancelled.is.null')
+            .eq('event_type', 'recurring')
+            .lte('start_date', endDate)
+            .or(`repeat_end_date.gte.${startDate},repeat_end_date.is.null`);
+
+        // Alle Event-IDs sammeln (Einzel + wiederkehrend)
+        const summaryEventIds = [
+            ...(singleEventsForSummary || []).map(e => e.id),
+            ...(recurringEventsForSummary || []).map(e => e.id)
+        ];
+
+        // Anzahl Event-Vorkommnisse im Monat zählen
+        let eventOccurrenceCount = (singleEventsForSummary || []).length;
+        (recurringEventsForSummary || []).forEach(e => {
+            const eventStartDate = new Date(e.start_date + 'T12:00:00');
+            const monthStart = new Date(startDate + 'T12:00:00');
+            const monthEnd = new Date(endDate + 'T12:00:00');
+            const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+            const excludedDates = e.excluded_dates || [];
+            const eventDayOfWeek = eventStartDate.getDay();
+
+            for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                if (d < eventStartDate) continue;
+                if (repeatEndDate && d > repeatEndDate) continue;
+                const ds = d.toISOString().split('T')[0];
+                if (excludedDates.includes(ds)) continue;
+                let matches = false;
+                if (e.repeat_type === 'weekly') matches = d.getDay() === eventDayOfWeek;
+                else if (e.repeat_type === 'daily') matches = true;
+                else if (e.repeat_type === 'monthly') matches = d.getDate() === eventStartDate.getDate();
+                if (matches) eventOccurrenceCount++;
+            }
+        });
+
+        let eventAttendanceRecords = [];
+        if (summaryEventIds.length > 0) {
+            const { data: eaData } = await supabase
+                .from('event_attendance')
+                .select('present_user_ids, occurrence_date, event_id')
+                .in('event_id', [...new Set(summaryEventIds)]);
+            eventAttendanceRecords = eaData || [];
+        }
 
         const { data: playersData, error: playersError } = await supabase
             .from('profiles')
@@ -559,6 +682,7 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
 
         const playerStats = new Map();
 
+        // Alte Anwesenheitsdaten zählen
         (attendanceData || []).forEach(a => {
             const presentPlayerIds = a.present_player_ids || [];
 
@@ -572,10 +696,25 @@ export async function exportAttendanceSummary(supabase, clubId, date, subgroupFi
             });
         });
 
+        // Event-Anwesenheitsdaten zählen
+        eventAttendanceRecords.forEach(ea => {
+            const presentPlayerIds = ea.present_user_ids || [];
+            const dateStr = ea.occurrence_date || '';
+
+            presentPlayerIds.forEach(playerId => {
+                if (!playerStats.has(playerId)) {
+                    playerStats.set(playerId, { count: 0, dates: [] });
+                }
+                const stats = playerStats.get(playerId);
+                stats.count++;
+                if (dateStr) stats.dates.push(dateStr);
+            });
+        });
+
         const summaryData = [];
         summaryData.push(['Spieler', 'Trainingsteilnahmen', 'Anwesenheitsrate']);
 
-        const totalSessions = (attendanceData || []).length;
+        const totalSessions = (attendanceData || []).length + eventOccurrenceCount;
 
         for (const [playerId, stats] of playerStats) {
             const player = playersMap.get(playerId);
