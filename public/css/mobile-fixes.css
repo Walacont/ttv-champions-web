@@ -9,6 +9,15 @@ html, body {
     -webkit-overflow-scrolling: touch;
 }
 
+/* Prevent white flash on overscroll (Android WebView) */
+html {
+    background-color: #f3f4f6;
+    overscroll-behavior: none;
+}
+body {
+    overscroll-behavior-y: contain;
+}
+
 /* Fix for touch events */
 * {
     -webkit-tap-highlight-color: transparent;
@@ -72,10 +81,10 @@ html.plt-ios #top-nav {
     padding-top: max(env(safe-area-inset-top, 28px), 28px) !important;
 }
 
-/* Main content needs extra padding to account for taller header */
-html.plt-capacitor #main-content,
-html.plt-android #main-content,
-html.plt-ios #main-content {
+/* Main content needs extra padding ONLY on dashboard (which has #top-nav fixed header) */
+html.plt-capacitor #top-nav ~ #main-content,
+html.plt-android #top-nav ~ #main-content,
+html.plt-ios #top-nav ~ #main-content {
     padding-top: calc(56px + max(env(safe-area-inset-top, 28px), 28px)) !important;
 }
 

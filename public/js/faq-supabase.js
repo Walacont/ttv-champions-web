@@ -1,6 +1,6 @@
 // FAQ-Seite (Supabase-Version)
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/vendor/supabase.js';
 import { supabaseConfig } from './supabase-config.js';
 
 const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
