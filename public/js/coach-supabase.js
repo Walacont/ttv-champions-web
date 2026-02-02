@@ -277,7 +277,7 @@ async function setHeaderProfileAndClub(userData) {
         headerProfilePic.src = userData.photoURL;
     } else {
         const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
-        headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
+        headerProfilePic.src = avatarPlaceholder(initials);
     }
 
     if (userData.clubId) {

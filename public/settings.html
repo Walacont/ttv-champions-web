@@ -8,6 +8,7 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+        <script src="/js/avatar-utils.js"></script>
 
         <!-- Google tag (gtag.js) -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
@@ -398,6 +399,86 @@
                 }
             }, 8000);
         </script>
+        <!-- Fallback handlers: attach critical click handlers without module dependencies.
+             If the module script below loads successfully, it overrides these with richer versions. -->
+        <script>
+            window.__settingsHandlersAttached = false;
+            document.addEventListener('DOMContentLoaded', function() {
+                // Only attach fallbacks if the module hasn't done it yet
+                // Give module a short head start
+                setTimeout(function() {
+                    if (window.__settingsHandlersAttached) return;
+
+                    // Language card → open language modal
+                    var langCard = document.getElementById('language-card');
+                    var langModal = document.getElementById('language-modal');
+                    var closeLangBtn = document.getElementById('close-language-modal');
+                    if (langCard && langModal) {
+                        langCard.addEventListener('click', function() {
+                            if (window.__settingsHandlersAttached) return; // module took over
+                            langModal.classList.remove('hidden');
+                            // Highlight current language
+                            var currentLang = localStorage.getItem('app_language') || 'de';
+                            document.querySelectorAll('.language-option').forEach(function(opt) {
+                                var lang = opt.getAttribute('data-lang');
+                                var check = opt.querySelector('.check-icon');
+                                if (lang === currentLang) {
+                                    opt.classList.add('border-indigo-600', 'bg-indigo-50');
+                                    if (check) check.classList.remove('hidden');
+                                } else {
+                                    opt.classList.remove('border-indigo-600', 'bg-indigo-50');
+                                    if (check) check.classList.add('hidden');
+                                }
+                            });
+                        });
+                    }
+                    if (closeLangBtn && langModal) {
+                        closeLangBtn.addEventListener('click', function() {
+                            langModal.classList.add('hidden');
+                        });
+                        langModal.addEventListener('click', function(e) {
+                            if (e.target === langModal) langModal.classList.add('hidden');
+                        });
+                    }
+                    // Language option buttons
+                    document.querySelectorAll('.language-option').forEach(function(opt) {
+                        opt.addEventListener('click', function() {
+                            if (window.__settingsHandlersAttached) return;
+                            var lang = opt.getAttribute('data-lang');
+                            localStorage.setItem('app_language', lang);
+                            try {
+                                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
+                                    window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
+                                }
+                            } catch(e) {}
+                            window.location.reload();
+                        });
+                    });
+
+                    // Logout button
+                    var logoutBtn = document.getElementById('logout-button');
+                    if (logoutBtn) {
+                        logoutBtn.addEventListener('click', function() {
+                            if (window.__settingsHandlersAttached) return;
+                            // Dynamic import for logout - works even if top-level import failed
+                            import('/js/supabase-init.js').then(function(mod) {
+                                var supabase = mod.getSupabase();
+                                supabase.auth.signOut().then(function() {
+                                    window.location.href = '/index.html';
+                                }).catch(function(err) {
+                                    console.error('Logout error:', err);
+                                    alert('Fehler beim Abmelden: ' + err.message);
+                                });
+                            }).catch(function() {
+                                // Ultimate fallback: clear local storage and redirect
+                                localStorage.clear();
+                                window.location.href = '/index.html';
+                            });
+                        });
+                    }
+                }, 3000); // Wait 3s - if module loaded, it sets __settingsHandlersAttached=true
+            });
+        </script>
         <script type="module">
             import { getSupabase } from '/js/supabase-init.js';
             import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
@@ -692,6 +773,9 @@
                         }
                     });
                 }
+
+                // Mark that module handlers are active (disables fallback handlers)
+                window.__settingsHandlersAttached = true;
 
                 // Show modal
                 languageCard.addEventListener('click', () => {

@@ -13,10 +13,28 @@ const AUTO_COMPRESS_THRESHOLD = 15 * 1024 * 1024; // 15 MB
 const TARGET_SIZE_MB = 8; // Zielgröße nach Komprimierung
 
 /**
+ * Prüft ob FFmpeg-Komprimierung verfügbar ist.
+ * Auf nativen Apps (Android/iOS) ist FFmpeg.wasm nicht zuverlässig nutzbar,
+ * da es von CDN geladen werden muss und auf mobilen WebViews instabil ist.
+ */
+export function isCompressionAvailable() {
+    if (typeof window !== 'undefined' && window.Capacitor &&
+        window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        return false;
+    }
+    return typeof SharedArrayBuffer !== 'undefined';
+}
+
+/**
  * Lädt FFmpeg.wasm
  */
 async function loadFFmpeg(onProgress) {
     if (ffmpegLoaded && ffmpeg) return ffmpeg;
+
+    if (!isCompressionAvailable()) {
+        throw new Error('Video-Komprimierung ist auf der nativen App nicht verfügbar. Bitte lade das Video direkt hoch oder verwende die Web-Version.');
+    }
+
     if (ffmpegLoading) {
         // Warte bis FFmpeg geladen ist
         while (ffmpegLoading) {
@@ -66,6 +84,7 @@ async function loadFFmpeg(onProgress) {
  * @returns {boolean}
  */
 export function shouldCompressVideo(file) {
+    if (!isCompressionAvailable()) return false;
     return file.size > AUTO_COMPRESS_THRESHOLD;
 }
 

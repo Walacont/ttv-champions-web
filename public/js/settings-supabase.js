@@ -73,7 +73,7 @@ async function initializeAuth() {
 
             const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
             profileImagePreview.src =
-                currentUserData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
+                currentUserData.photoURL || avatarPlaceholder(initials);
             firstNameInput.value = currentUserData.firstName || '';
             lastNameInput.value = currentUserData.lastName || '';
 

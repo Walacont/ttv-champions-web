@@ -275,7 +275,7 @@ function calculateStats(matches, currentUserId) {
  */
 function renderHeadToHeadContent(container, opponentData, opponentName, opponentClubName, stats, matches, currentUserId) {
     const initials = `${opponentData.firstName?.[0] || ''}${opponentData.lastName?.[0] || ''}` || 'U';
-    const avatarSrc = opponentData.photoURL || `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
+    const avatarSrc = opponentData.photoURL || avatarPlaceholder(initials);
 
     let winRateColor = 'text-gray-600';
     if (stats.winRate >= 60) {

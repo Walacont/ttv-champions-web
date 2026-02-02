@@ -7,6 +7,7 @@
         <!-- Cookie Consent & Analytics -->
         <script src="/js/cookie-consent.js"></script>
         <script src="/js/capacitor-init.js"></script>
+        <script src="/js/avatar-utils.js"></script>
 
         <!-- Favicon -->
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -109,6 +110,7 @@
                             id="lang-toggle"
                             class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                             aria-label="Sprache wählen"
+                            onclick="var d=document.getElementById('lang-dropdown');if(d)d.classList.toggle('hidden')"
                         >
                             <span id="lang-flag" class="text-lg leading-none">🇩🇪</span>
                             <svg class="w-3.5 h-3.5 text-gray-500 transition-transform" id="lang-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,13 +121,13 @@
                             id="lang-dropdown"
                             class="hidden absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 overflow-hidden"
                         >
-                            <button data-lang="de" onclick="window.__switchLang && window.__switchLang('de')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="de" onclick="if(window.__switchLang){window.__switchLang('de')}else{localStorage.setItem('app_language','de');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇩🇪</span> Deutsch
                             </button>
-                            <button data-lang="en" onclick="window.__switchLang && window.__switchLang('en')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="en" onclick="if(window.__switchLang){window.__switchLang('en')}else{localStorage.setItem('app_language','en');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇬🇧</span> English
                             </button>
-                            <button data-lang="zh" onclick="window.__switchLang && window.__switchLang('zh')" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="zh" onclick="if(window.__switchLang){window.__switchLang('zh')}else{localStorage.setItem('app_language','zh');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇨🇳</span> 中文
                             </button>
                         </div>

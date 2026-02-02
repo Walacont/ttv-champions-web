@@ -8,11 +8,17 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+        <script src="/js/avatar-utils.js"></script>
 
-        <!-- OneSignal SDK for PWA Push Notifications -->
-        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+        <!-- OneSignal SDK for PWA Push Notifications (skip on native - Firebase handles it) -->
         <script>
             window.OneSignalDeferred = window.OneSignalDeferred || [];
+            if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+                var s = document.createElement('script');
+                s.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+                s.defer = true;
+                document.head.appendChild(s);
+            }
         </script>
 
         <title>Mein Dashboard - SC Champions</title>

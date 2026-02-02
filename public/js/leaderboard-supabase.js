@@ -710,7 +710,7 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo', 
                 <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-sm text-gray-500'}">
                     ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
                 </span>
-                <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
+                <img src="${player.photoURL || avatarPlaceholder((player.firstName?.[0] || '?'))}"
                      alt="${player.firstName || ''} ${player.lastName || ''}"
                      class="w-10 h-10 rounded-full object-cover">
                 <div>
@@ -769,7 +769,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
                 <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-sm text-gray-500'}">
                     ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
                 </span>
-                <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
+                <img src="${player.photoURL || avatarPlaceholder((player.firstName?.[0] || '?'))}"
                      alt="${player.firstName || ''} ${player.lastName || ''}"
                      class="w-10 h-10 rounded-full object-cover">
                 <div>
@@ -803,7 +803,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
         userRow.innerHTML = `
             <div class="flex items-center gap-3">
                 <span class="w-8 text-center font-bold text-sm text-gray-500">${currentUserRank}</span>
-                <img src="${currentUserData.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(currentUserData.firstName?.[0] || '?')}`}"
+                <img src="${currentUserData.photoURL || avatarPlaceholder((currentUserData.firstName?.[0] || '?'))}"
                      alt="${currentUserData.firstName || ''} ${currentUserData.lastName || ''}"
                      class="w-10 h-10 rounded-full object-cover">
                 <div>
@@ -1200,13 +1200,13 @@ async function loadRanksView(userData) {
                     ${playersInRank.map(player => {
                         const isCurrentUser = player.id === userData.id;
                         const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-                        const avatarSrc = player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+                        const avatarSrc = player.photoURL || avatarPlaceholder(initials);
                         const playerName = `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Unbekannt';
                         const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
 
                         return `
                             <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
-                                <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='https://placehold.co/32x32/e2e8f0/64748b?text=${initials}'">
+                                <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src=avatarPlaceholder('${initials}')">
                                 <div class="flex-grow">
                                     <p class="text-sm">${playerName}${hiddenIcon}</p>
                                 </div>

@@ -716,7 +716,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
                         const avatarSrc =
                             player.photoURL ||
-                            `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+                            avatarPlaceholder(initials);
                         const statusHtml = player.isOffline
                             ? '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>'
                             : '<span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';

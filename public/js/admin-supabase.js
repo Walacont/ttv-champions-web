@@ -1946,7 +1946,7 @@ function renderSportMembers(users, profileSportsMap, clubId, sportId) {
         .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
         .map(user => {
             const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
-            const avatarSrc = user.avatar_url || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+            const avatarSrc = user.avatar_url || avatarPlaceholder(initials);
 
             // Rolle für diese Sportart aus profileSportsMap abrufen
             const profileKey = `${user.id}_${clubId}`;
@@ -1986,7 +1986,7 @@ function renderLegacyMembers(users) {
         .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
         .map(user => {
             const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
-            const avatarSrc = user.avatar_url || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+            const avatarSrc = user.avatar_url || avatarPlaceholder(initials);
             const roleDisplay = getRoleDisplay(user.role);
 
             return `

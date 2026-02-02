@@ -519,7 +519,7 @@ async function checkViewPermission(profile, visibility) {
 /** Rendert Profil-Header mit Name, Avatar, Ort und Bio */
 function renderProfileHeader(profile) {
     const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannt';
-    const photoUrl = profile.avatar_url || `https://placehold.co/120x120/e2e8f0/64748b?text=${(profile.first_name?.[0] || '?')}`;
+    const photoUrl = profile.avatar_url || avatarPlaceholder((profile.first_name?.[0] || '?'));
 
     document.title = isOwnProfile ? 'Mein Profil - SC Champions' : `${fullName} - SC Champions`;
 

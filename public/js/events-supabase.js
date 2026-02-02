@@ -854,14 +854,14 @@ function renderMemberList() {
 
     listEl.innerHTML = clubMembers.map(member => {
         const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase();
-        const avatarUrl = member.avatar_url || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+        const avatarUrl = member.avatar_url || avatarPlaceholder(initials);
         const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim();
 
         return `
             <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all">
                 <img src="${avatarUrl}" alt="${fullName}"
                      class="w-10 h-10 rounded-full object-cover border border-gray-200"
-                     onerror="this.src='https://placehold.co/40x40/e2e8f0/64748b?text=${initials}'">
+                     onerror="this.src=avatarPlaceholder('${initials}')">
                 <span class="flex-1 font-medium text-gray-900">${fullName}</span>
                 <input type="checkbox" value="${member.id}" checked
                        class="member-checkbox h-5 w-5 text-indigo-600 rounded-full border-gray-300 focus:ring-indigo-500"
@@ -1050,7 +1050,7 @@ function renderGuardianList() {
 
     listEl.innerHTML = clubGuardians.map(guardian => {
         const initials = `${guardian.first_name?.[0] || ''}${guardian.last_name?.[0] || ''}`.toUpperCase();
-        const avatarUrl = guardian.avatar_url || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+        const avatarUrl = guardian.avatar_url || avatarPlaceholder(initials);
         const fullName = `${guardian.first_name || ''} ${guardian.last_name || ''}`.trim();
         const childrenText = guardian.children.length > 0
             ? `Vormund für ${guardian.children.join(', ')}`
@@ -1060,7 +1060,7 @@ function renderGuardianList() {
             <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all">
                 <img src="${avatarUrl}" alt="${fullName}"
                      class="w-10 h-10 rounded-full object-cover border border-gray-200"
-                     onerror="this.src='https://placehold.co/40x40/e2e8f0/64748b?text=${initials}'">
+                     onerror="this.src=avatarPlaceholder('${initials}')">
                 <div class="flex-1 min-w-0">
                     <span class="font-medium text-gray-900 block">${fullName}</span>
                     ${childrenText ? `<span class="text-xs text-gray-500 block truncate">${childrenText}</span>` : ''}
