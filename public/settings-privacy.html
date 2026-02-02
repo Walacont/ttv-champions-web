@@ -46,6 +46,7 @@
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <style>
+            .hidden { display: none !important; }
             body {
                 font-family: 'Inter', sans-serif;
             }
@@ -428,15 +429,31 @@
 
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
+        <!-- Safety timeout: show content even if CDN modules fail to load -->
+        <script>
+            setTimeout(function() {
+                var loader = document.getElementById('page-loader');
+                var content = document.getElementById('main-content');
+                if (loader && loader.style.display !== 'none') {
+                    console.warn('[SettingsPrivacy] Module init timed out, force-showing content');
+                    loader.style.display = 'none';
+                    if (content) content.style.display = 'block';
+                }
+            }, 8000);
+        </script>
         <script type="module">
             // Initialize i18n
             import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
 
             async function initializeI18n() {
-                await initI18n();
-                setupAutoTranslate();
-                translatePage();
-                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+                try {
+                    await initI18n();
+                    setupAutoTranslate();
+                    translatePage();
+                    document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+                } catch (e) {
+                    console.warn('[SettingsPrivacy] i18n init failed:', e);
+                }
             }
 
             initializeI18n();

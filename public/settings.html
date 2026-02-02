@@ -46,6 +46,8 @@
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <style>
+            /* Fallback for when Tailwind CDN doesn't load */
+            .hidden { display: none !important; }
             body {
                 font-family: 'Inter', sans-serif;
             }
@@ -385,6 +387,19 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
+        <!-- Safety timeout: show content even if CDN modules fail to load -->
+        <script>
+            window.__settingsInitDone = false;
+            setTimeout(function() {
+                if (!window.__settingsInitDone) {
+                    console.warn('[Settings] Module init timed out, force-showing content');
+                    var loader = document.getElementById('page-loader');
+                    var content = document.getElementById('main-content');
+                    if (loader) loader.style.display = 'none';
+                    if (content) content.style.display = 'block';
+                }
+            }, 8000);
+        </script>
         <script type="module">
             import { getSupabase } from '/js/supabase-init.js';
             import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
@@ -602,18 +617,27 @@
 
             // Initialize immediately or on DOMContentLoaded
             async function init() {
+                try {
                 // If viewing child settings, verify access first
                 if (childId) {
                     const hasAccess = await verifyGuardianAccess();
                     if (!hasAccess) return;
                 }
-                // Initialize i18n first
-                await initI18n();
-                setupAutoTranslate();
-                translatePage();
 
-                // Update HTML lang attribute
-                document.documentElement.lang = getCurrentLanguage();
+                // Initialize i18n (non-blocking with timeout)
+                try {
+                    await initI18n();
+                    setupAutoTranslate();
+                    translatePage();
+                    document.documentElement.lang = getCurrentLanguage();
+                } catch (i18nError) {
+                    console.warn('[Settings] i18n init failed, continuing without translations:', i18nError);
+                }
+
+                // Show content as soon as possible, then load additional data
+                document.getElementById('page-loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                window.__settingsInitDone = true;
 
                 // Benachrichtigungen-Card nur in PWA/native anzeigen
                 const notificationsCard = document.getElementById('notifications-card');
@@ -621,33 +645,32 @@
                     notificationsCard.classList.remove('hidden');
                 }
 
-                // Check if user is a guardian and show "Meine Kinder" card
-                await checkGuardianStatus();
-
-                // Vereinsseite-Karte nur für Coaches/Head-Coaches anzeigen
-                try {
-                    const supabase = getSupabase();
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('role, club_id')
-                            .eq('id', user.id)
-                            .single();
-                        const clubPageCard = document.getElementById('club-page-card');
-                        if (clubPageCard && profile && (profile.role === 'coach' || profile.role === 'head_coach') && profile.club_id) {
-                            clubPageCard.classList.remove('hidden');
+                // Check guardian and coach status in parallel (non-blocking)
+                const guardianPromise = checkGuardianStatus().catch(e => console.error('Guardian check failed:', e));
+                const coachPromise = (async () => {
+                    try {
+                        const supabase = getSupabase();
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (user) {
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('role, club_id')
+                                .eq('id', user.id)
+                                .single();
+                            const clubPageCard = document.getElementById('club-page-card');
+                            if (clubPageCard && profile && (profile.role === 'coach' || profile.role === 'head_coach') && profile.club_id) {
+                                clubPageCard.classList.remove('hidden');
+                            }
                         }
+                    } catch (e) {
+                        console.error('Club page card check failed:', e);
                     }
-                } catch (e) {
-                    console.error('Club page card check failed:', e);
-                }
+                })();
+
+                await Promise.all([guardianPromise, coachPromise]);
 
                 // Setup child mode UI if viewing child's settings
                 setupChildModeUI();
-
-                document.getElementById('page-loader').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
 
                 // Language selection modal
                 const languageCard = document.getElementById('language-card');
@@ -754,6 +777,13 @@
                         window.location.href = '/index.html';
                     }
                 });
+            } catch (err) {
+                console.error('[Settings] Init error:', err);
+                // Ensure content is visible even on error
+                document.getElementById('page-loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                window.__settingsInitDone = true;
+            }
             }
 
             // Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)

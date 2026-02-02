@@ -12,30 +12,42 @@ const STORAGE_KEY = 'app_language';
  * Initialisiert i18next mit HTTP-Backend
  * @returns {Promise<void>}
  */
-async function initI18n() {
+async function initI18n(timeoutMs = 5000) {
     if (i18nInitialized) {
         return i18next;
     }
 
-    const savedLanguage = await getStoredLanguage();
+    try {
+        const savedLanguage = await getStoredLanguage();
 
-    await i18next
-        .use(HttpBackend)
-        .init({
-            lng: savedLanguage || DEFAULT_LANGUAGE,
-            fallbackLng: DEFAULT_LANGUAGE,
-            debug: false,
-            backend: {
-                loadPath: '/locales/{{lng}}/translation.json',
-            },
-            interpolation: {
-                // Nicht nötig bei DOM-Manipulation
-                escapeValue: false,
-            },
-        });
+        await Promise.race([
+            i18next
+                .use(HttpBackend)
+                .init({
+                    lng: savedLanguage || DEFAULT_LANGUAGE,
+                    fallbackLng: DEFAULT_LANGUAGE,
+                    debug: false,
+                    backend: {
+                        loadPath: '/locales/{{lng}}/translation.json',
+                    },
+                    interpolation: {
+                        // Nicht nötig bei DOM-Manipulation
+                        escapeValue: false,
+                    },
+                }),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('i18n init timeout')), timeoutMs)
+            )
+        ]);
 
-    i18nInitialized = true;
-    return i18next;
+        i18nInitialized = true;
+        return i18next;
+    } catch (error) {
+        console.warn('[i18n] Initialization failed or timed out:', error.message);
+        // Mark as initialized anyway so the app can proceed with fallback keys
+        i18nInitialized = true;
+        return i18next;
+    }
 }
 
 /**

@@ -48,6 +48,8 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
         <style>
+            /* Fallback for when Tailwind CDN doesn't load */
+            .hidden { display: none !important; }
             body {
                 font-family: 'Inter', sans-serif;
             }
@@ -5535,15 +5537,31 @@
         <!-- Table Tennis Exercise Builder for animation playback -->
         <script src="/js/table-tennis-exercise-builder.js"></script>
 
+        <!-- Safety timeout: show content even if CDN modules fail to load -->
+        <script>
+            setTimeout(function() {
+                var loader = document.getElementById('page-loader');
+                var content = document.getElementById('main-content');
+                if (loader && loader.style.display !== 'none') {
+                    console.warn('[Coach] Module init timed out, force-showing content');
+                    loader.style.display = 'none';
+                    if (content) content.style.display = 'block';
+                }
+            }, 8000);
+        </script>
         <script type="module">
             // Initialize i18n
             import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
 
             async function initializeI18n() {
-                await initI18n();
-                setupAutoTranslate();
-                translatePage();
-                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+                try {
+                    await initI18n();
+                    setupAutoTranslate();
+                    translatePage();
+                    document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+                } catch (e) {
+                    console.warn('[Coach] i18n init failed:', e.message);
+                }
             }
 
             initializeI18n();
