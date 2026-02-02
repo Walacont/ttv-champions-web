@@ -80,6 +80,7 @@ async function init() {
     // Loader ausblenden und Inhalt anzeigen
     document.getElementById('page-loader').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
+    if (window.hideSplash) window.hideSplash();
 }
 
 /**

@@ -727,5 +727,14 @@
             initializeI18n();
         </script>
         <script type="module" src="/js/index-supabase.js"></script>
+        <!-- Hide native splash screen once login page is visible -->
+        <script>
+            if (window.hideSplash) {
+                window.hideSplash();
+            } else {
+                // capacitor-init may not have run yet, try after short delay
+                setTimeout(function() { if (window.hideSplash) window.hideSplash(); }, 1000);
+            }
+        </script>
     </body>
 </html>

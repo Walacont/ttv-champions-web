@@ -65,6 +65,7 @@ async function initConnections() {
 
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
+        if (window.hideSplash) window.hideSplash();
 
     } catch (error) {
         console.error('[Connections] Initialization error:', error);

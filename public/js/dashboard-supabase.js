@@ -508,6 +508,7 @@ async function initializeDashboard() {
     // Lader ausblenden, Inhalt anzeigen
     if (pageLoader) pageLoader.style.display = 'none';
     if (mainContent) mainContent.style.display = 'block';
+    if (window.hideSplash) window.hideSplash();
 
     // Sport-Kontext für Multi-Sport-Filterung laden
     // Bestimmt aktive Sportart, Verein und Rolle
