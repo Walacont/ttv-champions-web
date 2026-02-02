@@ -74,7 +74,7 @@
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                 </svg>
-                <p class="mt-4 text-gray-600">Lade...</p>
+                <p class="mt-4 text-gray-600" data-i18n="common.loading">Lade...</p>
             </div>
         </div>
 
@@ -91,8 +91,8 @@
                     <a id="back-to-settings-btn" href="/settings.html" class="hidden text-gray-600 hover:text-indigo-600 transition-colors p-1">
                         <i class="fas fa-arrow-left text-lg"></i>
                     </a>
-                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Eltern-Dashboard</h1>
-                    <button id="add-child-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen">
+                    <h1 id="header-title" class="text-base font-semibold text-gray-900" data-i18n="guardian.dashboard">Eltern-Dashboard</h1>
+                    <button id="add-child-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen" data-i18n="[title]guardian.addChild">
                         <i class="fas fa-plus text-lg"></i>
                     </button>
                 </div>
@@ -111,8 +111,8 @@
                                 <i class="fas fa-user-shield text-white text-lg"></i>
                             </div>
                             <div>
-                                <p id="menu-user-name" class="text-white font-semibold">Eltern-Account</p>
-                                <p class="text-indigo-200 text-xs">Vormund</p>
+                                <p id="menu-user-name" class="text-white font-semibold" data-i18n="guardian.parentAccount">Eltern-Account</p>
+                                <p class="text-indigo-200 text-xs" data-i18n="guardian.guardianRole">Vormund</p>
                             </div>
                         </div>
                     </div>
@@ -121,22 +121,22 @@
                         <!-- My Children -->
                         <a href="/guardian-dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
                             <i class="fas fa-child w-5 text-center"></i>
-                            Meine Kinder
+                            <span data-i18n="guardian.myChildren">Meine Kinder</span>
                         </a>
                         <!-- Add Child -->
                         <a href="/guardian-onboarding.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
                             <i class="fas fa-user-plus w-5 text-center"></i>
-                            Kind hinzufuegen
+                            <span data-i18n="guardian.addChild">Kind hinzufuegen</span>
                         </a>
                         <!-- Settings -->
                         <a href="/settings.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
                             <i class="fas fa-cog w-5 text-center"></i>
-                            Einstellungen
+                            <span data-i18n="nav.settings">Einstellungen</span>
                         </a>
                         <!-- FAQ -->
                         <a href="/guardian-faq.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
                             <i class="fas fa-question-circle w-5 text-center"></i>
-                            Hilfe & FAQ
+                            <span data-i18n="guardian.helpFaq">Hilfe & FAQ</span>
                         </a>
 
                         <!-- Divider -->
@@ -145,13 +145,13 @@
                         <!-- Switch to Player (only shown if is_player=true) -->
                         <a id="switch-to-player-btn" href="/dashboard.html" class="hidden flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
                             <i class="fas fa-table-tennis-paddle-ball w-5 text-center"></i>
-                            Zur Spieler-Ansicht
+                            <span data-i18n="guardian.switchToPlayer">Zur Spieler-Ansicht</span>
                         </a>
 
                         <!-- Become Player (only shown if is_player=false) -->
                         <button id="become-player-btn" class="hidden w-full flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-600 hover:bg-indigo-50 font-medium">
                             <i class="fas fa-gamepad w-5 text-center"></i>
-                            Auch als Spieler mitmachen
+                            <span data-i18n="guardian.becomePlayer">Auch als Spieler mitmachen</span>
                         </button>
 
                         <!-- Divider -->
@@ -160,7 +160,7 @@
                         <!-- Logout -->
                         <button id="logout-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50">
                             <i class="fas fa-sign-out-alt w-5 text-center"></i>
-                            Abmelden
+                            <span data-i18n="nav.logout">Abmelden</span>
                         </button>
                     </nav>
                 </div>
@@ -173,19 +173,19 @@
                     <!-- Loading state -->
                     <div class="bg-white rounded-lg p-6 text-center text-gray-500">
                         <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
-                        <p>Lade...</p>
+                        <p data-i18n="common.loading">Lade...</p>
                     </div>
                 </div>
 
                 <!-- Empty State (hidden by default) -->
                 <div id="no-children-message" class="hidden bg-white rounded-lg p-6 text-center">
-                    <p class="text-gray-600 mb-4">Noch keine Kinder verknüpft</p>
+                    <p class="text-gray-600 mb-4" data-i18n="guardian.noChildrenYet">Noch keine Kinder verknüpft</p>
                     <a
                         href="/guardian-onboarding.html"
                         class="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm"
                     >
                         <i class="fas fa-plus"></i>
-                        Kind hinzufügen
+                        <span data-i18n="guardian.addChild">Kind hinzufügen</span>
                     </a>
                 </div>
             </div>
@@ -195,7 +195,7 @@
         <div id="credentials-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-lg font-semibold text-gray-900">Zugangsdaten einrichten</h3>
+                    <h3 class="text-lg font-semibold text-gray-900" data-i18n="guardian.setupCredentials">Zugangsdaten einrichten</h3>
                     <button id="close-credentials-modal" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
@@ -208,14 +208,14 @@
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                     <p class="text-xs text-blue-800">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Mit diesen Daten kann sich dein Kind selbstständig anmelden.
+                        <span data-i18n="guardian.credentialsInfo">Mit diesen Daten kann sich dein Kind selbstständig anmelden.</span>
                     </p>
                 </div>
 
                 <form id="credentials-form" class="space-y-4">
                     <div>
                         <label for="credentials-username" class="block text-sm font-medium text-gray-700 mb-1">
-                            Benutzername <span class="text-red-500">*</span>
+                            <span data-i18n="guardian.username">Benutzername</span> <span class="text-red-500">*</span>
                         </label>
                         <div class="relative">
                             <input
@@ -229,14 +229,14 @@
                             />
                             <span id="username-check-status" class="absolute right-3 top-2 text-gray-400"></span>
                         </div>
-                        <p id="username-hint" class="text-xs text-gray-500 mt-1">
+                        <p id="username-hint" class="text-xs text-gray-500 mt-1" data-i18n="guardian.usernameHint">
                             3-30 Zeichen, nur Kleinbuchstaben, Zahlen, Punkte und Unterstriche
                         </p>
                     </div>
 
                     <div>
                         <label for="credentials-pin" class="block text-sm font-medium text-gray-700 mb-1">
-                            PIN <span class="text-red-500">*</span>
+                            <span data-i18n="guardian.pin">PIN</span> <span class="text-red-500">*</span>
                         </label>
                         <input
                             type="password"
@@ -253,7 +253,7 @@
 
                     <div>
                         <label for="credentials-pin-confirm" class="block text-sm font-medium text-gray-700 mb-1">
-                            PIN bestätigen <span class="text-red-500">*</span>
+                            <span data-i18n="guardian.pinConfirm">PIN bestätigen</span> <span class="text-red-500">*</span>
                         </label>
                         <input
                             type="password"
@@ -288,7 +288,7 @@
                         class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                     >
                         <i class="fas fa-save mr-2"></i>
-                        Zugangsdaten speichern
+                        <span data-i18n="guardian.saveCredentials">Zugangsdaten speichern</span>
                     </button>
                 </form>
             </div>
@@ -301,8 +301,8 @@
                     <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-full mb-3">
                         <i class="fas fa-child text-2xl text-indigo-600"></i>
                     </div>
-                    <h2 id="add-child-modal-title" class="text-xl font-bold text-gray-900">Kind hinzufügen</h2>
-                    <p id="add-child-modal-subtitle" class="text-gray-600 text-sm mt-1">Wie möchtest du das Kind hinzufügen?</p>
+                    <h2 id="add-child-modal-title" class="text-xl font-bold text-gray-900" data-i18n="guardian.addChild">Kind hinzufügen</h2>
+                    <p id="add-child-modal-subtitle" class="text-gray-600 text-sm mt-1" data-i18n="guardian.addChildHow">Wie möchtest du das Kind hinzufügen?</p>
                 </div>
 
                 <!-- Step 0: Choose method -->
@@ -318,8 +318,8 @@
                                 <i class="fas fa-ticket-alt text-indigo-600"></i>
                             </div>
                             <div>
-                                <span class="font-medium text-gray-900 text-sm block">Ich habe einen Einladungscode</span>
-                                <span class="text-xs text-gray-500">Code eingeben</span>
+                                <span class="font-medium text-gray-900 text-sm block" data-i18n="guardian.haveInviteCode">Ich habe einen Einladungscode</span>
+                                <span class="text-xs text-gray-500" data-i18n="guardian.enterCode">Code eingeben</span>
                             </div>
                             <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
                         </button>
@@ -334,8 +334,8 @@
                                 <i class="fas fa-user-plus text-gray-600"></i>
                             </div>
                             <div>
-                                <span class="font-medium text-gray-900 text-sm block">Kind manuell hinzufügen</span>
-                                <span class="text-xs text-gray-500">Daten selbst eingeben</span>
+                                <span class="font-medium text-gray-900 text-sm block" data-i18n="guardian.addManually">Kind manuell hinzufügen</span>
+                                <span class="text-xs text-gray-500" data-i18n="guardian.enterDataYourself">Daten selbst eingeben</span>
                             </div>
                             <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
                         </button>
@@ -345,7 +345,7 @@
                 <!-- Step 1: Enter Code -->
                 <div id="add-child-step-code" class="hidden">
                     <div class="mb-4">
-                        <label for="invitation-code-input" class="block text-sm font-medium text-gray-700 mb-1">
+                        <label for="invitation-code-input" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="guardian.inviteCode">
                             Einladungscode
                         </label>
                         <input
@@ -369,7 +369,7 @@
                         class="w-full bg-pink-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors"
                     >
                         <i class="fas fa-search mr-2"></i>
-                        Code prüfen
+                        <span data-i18n="guardian.checkCode">Code prüfen</span>
                     </button>
                 </div>
 
@@ -387,7 +387,7 @@
                         </div>
                     </div>
 
-                    <p class="text-sm text-gray-600 text-center mb-4">
+                    <p class="text-sm text-gray-600 text-center mb-4" data-i18n="guardian.confirmLinkChild">
                         Möchtest du dieses Kind mit deinem Account verknüpfen?
                     </p>
 
@@ -404,14 +404,14 @@
                             class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
                         >
                             <i class="fas fa-arrow-left mr-2"></i>
-                            Zurück
+                            <span data-i18n="common.back">Zurück</span>
                         </button>
                         <button
                             id="confirm-link-btn"
                             class="flex-1 bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
                         >
                             <i class="fas fa-check mr-2"></i>
-                            Verknüpfen
+                            <span data-i18n="guardian.link">Verknüpfen</span>
                         </button>
                     </div>
                 </div>
@@ -421,13 +421,13 @@
                     <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                         <i class="fas fa-check text-3xl text-green-600"></i>
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Kind erfolgreich hinzugefügt!</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2" data-i18n="guardian.childAddedSuccess">Kind erfolgreich hinzugefügt!</h3>
                     <p id="add-child-success-name" class="text-gray-600 mb-4">Name wurde hinzugefügt</p>
                     <button
                         id="add-child-done-btn"
                         class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
                     >
-                        Fertig
+                        <span data-i18n="guardian.done">Fertig</span>
                     </button>
                 </div>
 
@@ -437,7 +437,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="manual-first-name" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Vorname <span class="text-red-500">*</span>
+                                    <span data-i18n="guardian.firstName">Vorname</span> <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -448,7 +448,7 @@
                             </div>
                             <div>
                                 <label for="manual-last-name" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Nachname <span class="text-red-500">*</span>
+                                    <span data-i18n="guardian.lastName">Nachname</span> <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -461,7 +461,7 @@
 
                         <div>
                             <label for="manual-birthdate" class="block text-sm font-medium text-gray-700 mb-1">
-                                Geburtsdatum <span class="text-red-500">*</span>
+                                <span data-i18n="guardian.birthdate">Geburtsdatum</span> <span class="text-red-500">*</span>
                             </label>
                             <input
                                 type="date"
@@ -472,37 +472,37 @@
                         </div>
 
                         <div>
-                            <label for="manual-gender" class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="manual-gender" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="guardian.gender">
                                 Geschlecht
                             </label>
                             <select
                                 id="manual-gender"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             >
-                                <option value="">Bitte wählen</option>
-                                <option value="male">Männlich</option>
-                                <option value="female">Weiblich</option>
-                                <option value="diverse">Divers</option>
+                                <option value="" data-i18n="guardian.pleaseSelect">Bitte wählen</option>
+                                <option value="male" data-i18n="guardian.male">Männlich</option>
+                                <option value="female" data-i18n="guardian.female">Weiblich</option>
+                                <option value="diverse" data-i18n="guardian.diverse">Divers</option>
                             </select>
                         </div>
 
                         <div>
                             <label for="manual-sport" class="block text-sm font-medium text-gray-700 mb-1">
-                                Sportart <span class="text-red-500">*</span>
+                                <span data-i18n="guardian.sport">Sportart</span> <span class="text-red-500">*</span>
                             </label>
                             <select
                                 id="manual-sport"
                                 required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             >
-                                <option value="">Bitte wählen...</option>
+                                <option value="" data-i18n="guardian.pleaseSelectDots">Bitte wählen...</option>
                             </select>
                         </div>
 
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <p class="text-xs text-blue-700">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                Das Kind kann später über die Einstellungen einem Verein beitreten.
+                                <span data-i18n="guardian.childCanJoinClubLater">Das Kind kann später über die Einstellungen einem Verein beitreten.</span>
                             </p>
                         </div>
 
@@ -520,7 +520,7 @@
                                 class="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
                             >
                                 <i class="fas fa-arrow-left mr-2"></i>
-                                Zurück
+                                <span data-i18n="common.back">Zurück</span>
                             </button>
                             <button
                                 type="submit"
@@ -528,14 +528,14 @@
                                 class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
                             >
                                 <i class="fas fa-check mr-2"></i>
-                                Hinzufügen
+                                <span data-i18n="guardian.addAction">Hinzufügen</span>
                             </button>
                         </div>
                     </form>
                 </div>
 
                 <div class="mt-4 text-center">
-                    <button id="close-add-child-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                    <button id="close-add-child-modal" class="text-gray-500 hover:text-gray-700 text-sm" data-i18n="common.cancel">
                         Abbrechen
                     </button>
                 </div>
@@ -549,7 +549,7 @@
                     <div class="inline-flex items-center justify-center w-14 h-14 bg-purple-100 rounded-full mb-3">
                         <i class="fas fa-user-plus text-2xl text-purple-600"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-900">Vormund einladen</h2>
+                    <h2 class="text-xl font-bold text-gray-900" data-i18n="guardian.inviteGuardian">Vormund einladen</h2>
                     <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
                 </div>
 
@@ -558,7 +558,7 @@
                 </div>
 
                 <div id="invite-guardian-display" class="hidden">
-                    <p class="text-sm text-gray-600 text-center mb-4">
+                    <p class="text-sm text-gray-600 text-center mb-4" data-i18n="guardian.shareCodeHint">
                         Teile diesen Code mit dem anderen Vormund (z.B. Partner).
                         Der Vormund muss sich registrieren und den Code eingeben.
                     </p>
@@ -574,7 +574,7 @@
                         class="w-full bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors mb-2"
                     >
                         <i class="fas fa-copy mr-2"></i>
-                        Code kopieren
+                        <span data-i18n="guardian.copyCode">Code kopieren</span>
                     </button>
                 </div>
 
@@ -586,7 +586,7 @@
                 </div>
 
                 <div class="mt-4 text-center">
-                    <button id="close-invite-guardian-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                    <button id="close-invite-guardian-modal" class="text-gray-500 hover:text-gray-700 text-sm" data-i18n="common.close">
                         Schließen
                     </button>
                 </div>
@@ -600,21 +600,21 @@
                     <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-3">
                         <i class="fas fa-graduation-cap text-2xl text-green-600"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-gray-900">Account-Upgrade</h2>
+                    <h2 class="text-xl font-bold text-gray-900" data-i18n="guardian.accountUpgrade">Account-Upgrade</h2>
                     <p id="upgrade-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
                 </div>
 
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                     <p class="text-sm text-blue-800">
                         <i class="fas fa-info-circle mr-2"></i>
-                        Mit 16 Jahren kann dein Kind einen eigenen Account erstellen und sich selbst anmelden.
+                        <span data-i18n="guardian.upgradeInfo">Mit 16 Jahren kann dein Kind einen eigenen Account erstellen und sich selbst anmelden.</span>
                     </p>
                 </div>
 
                 <form id="child-upgrade-form" class="space-y-4">
                     <div>
                         <label for="upgrade-email" class="block text-sm font-medium text-gray-700 mb-1">
-                            E-Mail-Adresse des Kindes <span class="text-red-500">*</span>
+                            <span data-i18n="guardian.childEmail">E-Mail-Adresse des Kindes</span> <span class="text-red-500">*</span>
                         </label>
                         <input
                             type="email"
@@ -645,16 +645,16 @@
                         class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
                     >
                         <i class="fas fa-arrow-up mr-2"></i>
-                        Upgrade starten
+                        <span data-i18n="guardian.startUpgrade">Upgrade starten</span>
                     </button>
                 </form>
 
-                <p class="text-xs text-gray-500 text-center mt-4">
+                <p class="text-xs text-gray-500 text-center mt-4" data-i18n="guardian.upgradeEmailHint">
                     Das Kind erhält eine E-Mail zur Bestätigung und kann dann ein Passwort setzen.
                 </p>
 
                 <div class="mt-4 text-center">
-                    <button id="close-upgrade-modal" class="text-gray-500 hover:text-gray-700 text-sm">
+                    <button id="close-upgrade-modal" class="text-gray-500 hover:text-gray-700 text-sm" data-i18n="common.close">
                         Schließen
                     </button>
                 </div>
@@ -665,24 +665,25 @@
         <div id="sport-select-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Sportart wählen</h3>
+                    <h3 class="text-lg font-semibold text-gray-900" data-i18n="guardian.selectSport">Sportart wählen</h3>
                     <button id="close-sport-modal" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
-                <p class="text-sm text-gray-600 mb-4">
+                <p class="text-sm text-gray-600 mb-4" data-i18n="guardian.selectSportHint">
                     Wähle deine Sportart, um als Spieler mitzumachen:
                 </p>
 
                 <select id="player-sport-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-4">
-                    <option value="">Sportart wählen...</option>
+                    <option value="" data-i18n="guardian.selectSportPlaceholder">Sportart wählen...</option>
                 </select>
 
                 <div class="flex gap-2">
                     <button
                         id="cancel-sport-select"
                         class="flex-1 bg-gray-100 text-gray-700 py-2 px-3 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
+                        data-i18n="common.cancel"
                     >
                         Abbrechen
                     </button>
@@ -690,6 +691,7 @@
                         id="confirm-sport-select"
                         class="flex-1 bg-indigo-600 text-white py-2 px-3 rounded-lg hover:bg-indigo-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled
+                        data-i18n="common.confirm"
                     >
                         <i class="fas fa-check mr-1"></i>Bestätigen
                     </button>
@@ -698,5 +700,11 @@
         </div>
 
         <script type="module" src="/js/guardian-dashboard-supabase.js"></script>
+        <script type="module">
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            await initI18n();
+            translatePage();
+            setupAutoTranslate();
+        </script>
     </body>
 </html>

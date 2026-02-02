@@ -1340,5 +1340,11 @@
             }, 3000);
         }
     </script>
+    <script type="module">
+        import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+        await initI18n();
+        translatePage();
+        setupAutoTranslate();
+    </script>
 </body>
 </html>

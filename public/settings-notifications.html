@@ -163,12 +163,13 @@
                         </div>
                         <div>
                             <h3 class="font-semibold text-gray-900" data-i18n="settings.notifications.pushStatus">Push-Benachrichtigungen</h3>
-                            <p id="push-status-text" class="text-sm text-gray-500">Wird geladen...</p>
+                            <p id="push-status-text" class="text-sm text-gray-500" data-i18n="common.loading">Wird geladen...</p>
                         </div>
                     </div>
                     <button
                         id="enable-push-btn"
                         class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition"
+                        data-i18n="settings.notifications.enable"
                     >
                         Aktivieren
                     </button>
@@ -291,5 +292,11 @@
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <script type="module" src="/js/settings-notifications-supabase.js"></script>
+        <script type="module">
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            await initI18n();
+            translatePage();
+            setupAutoTranslate();
+        </script>
     </body>
 </html>

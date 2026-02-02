@@ -97,13 +97,14 @@
 
         <div id="auth-error-container">
             <div class="text-center p-8 bg-white rounded-lg shadow-md">
-                <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
-                <p id="auth-error-message" class="text-gray-700">
+                <h2 class="text-2xl font-bold text-red-600 mb-4" data-i18n="admin.accessDenied">Zugriff verweigert</h2>
+                <p id="auth-error-message" class="text-gray-700" data-i18n="admin.pageLoadError">
                     Die Seite konnte nicht geladen werden.
                 </p>
                 <button
                     id="error-logout-button"
                     class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+                    data-i18n="admin.backToLogin"
                 >
                     Zurück zum Login
                 </button>
@@ -113,14 +114,14 @@
         <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
             <header class="flex justify-between items-center mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                    <p id="welcome-message" class="text-gray-600">Willkommen!</p>
+                    <h1 class="text-3xl font-bold text-gray-900" data-i18n="admin.dashboard">Admin Dashboard</h1>
+                    <p id="welcome-message" class="text-gray-600" data-i18n="admin.welcome">Willkommen!</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a
                         href="/admin-reports.html"
                         class="relative text-gray-500 hover:text-gray-800 transition-colors"
-                        title="Meldungen verwalten"
+                        title="Meldungen verwalten" data-i18n-title="admin.manageReports"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -130,7 +131,7 @@
                     <a
                         href="/settings.html"
                         class="text-gray-500 hover:text-gray-800 transition-colors"
-                        title="Einstellungen"
+                        title="Einstellungen" data-i18n-title="common.settings"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -156,6 +157,7 @@
                     <button
                         id="logout-button"
                         class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105"
+                        data-i18n="common.logout"
                     >
                         Logout
                     </button>
@@ -166,30 +168,30 @@
             <div class="mb-6 bg-white p-4 rounded-xl shadow-md">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-gray-700">Sportart:</span>
+                        <span class="text-sm font-medium text-gray-700" data-i18n="admin.sport">Sportart:</span>
                         <div id="sport-switch-container" class="flex flex-wrap gap-2">
                             <!-- Sportart-Buttons werden dynamisch geladen -->
                             <button class="sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white" data-sport="all">
-                                📊 Alle
+                                📊 <span data-i18n="common.all">Alle</span>
                             </button>
                         </div>
                     </div>
                     <div id="current-sport-info" class="text-sm text-gray-500">
-                        Zeige: Alle Sportarten
+                        <span data-i18n="admin.showAllSports">Zeige: Alle Sportarten</span>
                     </div>
                 </div>
             </div>
 
             <main class="space-y-8">
                 <section id="statistics-section">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistik-Übersicht</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4" data-i18n="admin.statisticsOverview">Statistik-Übersicht</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
                             <div class="bg-indigo-100 p-3 rounded-full">
                                 <i class="fas fa-users text-indigo-600 text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Gesamte Nutzer</p>
+                                <p class="text-sm text-gray-500" data-i18n="admin.totalUsers">Gesamte Nutzer</p>
                                 <p id="stats-total-users" class="text-2xl font-bold">0</p>
                             </div>
                         </div>
@@ -198,7 +200,7 @@
                                 <i class="fas fa-shield-alt text-teal-600 text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Vereine</p>
+                                <p class="text-sm text-gray-500" data-i18n="admin.clubs">Vereine</p>
                                 <p id="stats-total-clubs" class="text-2xl font-bold">0</p>
                             </div>
                         </div>
@@ -207,7 +209,7 @@
                                 <i class="fas fa-star text-amber-600 text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Vergebene Punkte</p>
+                                <p class="text-sm text-gray-500" data-i18n="admin.awardedPoints">Vergebene Punkte</p>
                                 <p id="stats-total-points" class="text-2xl font-bold">0</p>
                             </div>
                         </div>
@@ -216,18 +218,18 @@
                                 <i class="fas fa-calendar-check text-rose-600 text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Anwesenheiten</p>
+                                <p class="text-sm text-gray-500" data-i18n="admin.attendances">Anwesenheiten</p>
                                 <p id="stats-total-attendance" class="text-2xl font-bold">0</p>
                             </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                            <h3 class="text-lg font-semibold mb-4">Geschlechterverteilung</h3>
+                            <h3 class="text-lg font-semibold mb-4" data-i18n="admin.genderDistribution">Geschlechterverteilung</h3>
                             <canvas id="gender-chart"></canvas>
                         </div>
                         <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
-                            <h3 class="text-lg font-semibold mb-4">Anwesenheit pro Monat</h3>
+                            <h3 class="text-lg font-semibold mb-4" data-i18n="admin.attendancePerMonth">Anwesenheit pro Monat</h3>
                             <canvas id="attendance-chart"></canvas>
                         </div>
                     </div>
@@ -237,87 +239,87 @@
                 <section id="competition-section" class="mt-8">
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-6 flex items-center">
-                            <span class="mr-3">🏓</span> Wettkampf-Aktivität (Global)
+                            <span class="mr-3">🏓</span> <span data-i18n="admin.competitionActivity">Wettkampf-Aktivität (Global)</span>
                         </h2>
-                        <p class="text-sm text-gray-500 mb-4">Zeigt alle Wettkämpfe aller Spieler auf der Plattform</p>
+                        <p class="text-sm text-gray-500 mb-4" data-i18n="admin.competitionActivityDesc">Zeigt alle Wettkämpfe aller Spieler auf der Plattform</p>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                             <div class="bg-emerald-50 p-4 rounded-lg text-center">
-                                <p id="admin-stats-competition-total-label" class="text-sm text-gray-600 mb-1">
+                                <p id="admin-stats-competition-total-label" class="text-sm text-gray-600 mb-1" data-i18n="admin.total12Months">
                                     Gesamt (12 Monate)
                                 </p>
                                 <p id="admin-stats-competition-total" class="text-3xl font-bold text-emerald-600">
                                     -
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
+                                <p class="text-xs text-gray-500 mt-1" data-i18n="admin.competitions">Wettkämpfe</p>
                             </div>
                             <div class="bg-sky-50 p-4 rounded-lg text-center">
-                                <p id="admin-stats-competition-avg-label" class="text-sm text-gray-600 mb-1">
+                                <p id="admin-stats-competition-avg-label" class="text-sm text-gray-600 mb-1" data-i18n="admin.avgPerMonth">
                                     Ø pro Monat
                                 </p>
                                 <p id="admin-stats-competition-avg" class="text-3xl font-bold text-sky-600">
                                     -
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
+                                <p class="text-xs text-gray-500 mt-1" data-i18n="admin.competitions">Wettkämpfe</p>
                             </div>
                             <div class="bg-violet-50 p-4 rounded-lg text-center">
-                                <p id="admin-stats-competition-active-period-label" class="text-sm text-gray-600 mb-1">
+                                <p id="admin-stats-competition-active-period-label" class="text-sm text-gray-600 mb-1" data-i18n="admin.mostActiveMonth">
                                     Aktivster Monat
                                 </p>
                                 <p id="admin-stats-competition-active-period" class="text-3xl font-bold text-violet-600">
                                     -
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">Zeitraum (Anzahl)</p>
+                                <p class="text-xs text-gray-500 mt-1" data-i18n="admin.periodCount">Zeitraum (Anzahl)</p>
                             </div>
                             <div class="bg-amber-50 p-4 rounded-lg text-center">
-                                <p class="text-sm text-gray-600 mb-1">Trend</p>
+                                <p class="text-sm text-gray-600 mb-1" data-i18n="admin.trend">Trend</p>
                                 <p id="admin-stats-competition-trend" class="text-3xl font-bold text-amber-600">
                                     -
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">Veränderung</p>
+                                <p class="text-xs text-gray-500 mt-1" data-i18n="admin.change">Veränderung</p>
                             </div>
                         </div>
 
                         <!-- Period Filter Buttons -->
                         <div class="mb-3">
-                            <p class="text-sm font-semibold text-gray-700 mb-2 text-center">Zeitraum:</p>
+                            <p class="text-sm font-semibold text-gray-700 mb-2 text-center" data-i18n="admin.period">Zeitraum:</p>
                             <div class="flex flex-wrap gap-2 justify-center">
                                 <button id="admin-competition-period-week"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700">
-                                    📅 Woche
+                                    📅 <span data-i18n="admin.week">Woche</span>
                                 </button>
                                 <button id="admin-competition-period-month"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white">
-                                    📆 Monat
+                                    📆 <span data-i18n="admin.month">Monat</span>
                                 </button>
                                 <button id="admin-competition-period-year"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700">
-                                    📊 Jahr
+                                    📊 <span data-i18n="admin.year">Jahr</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Type Filter Buttons -->
                         <div class="mb-4">
-                            <p class="text-sm font-semibold text-gray-700 mb-2 text-center">Ansicht:</p>
+                            <p class="text-sm font-semibold text-gray-700 mb-2 text-center" data-i18n="admin.view">Ansicht:</p>
                             <div class="flex flex-wrap gap-2 justify-center">
                                 <button id="admin-competition-filter-all"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white">
-                                    Alle (Einzel + Doppel)
+                                    <span data-i18n="admin.allSinglesDoubles">Alle (Einzel + Doppel)</span>
                                 </button>
                                 <button id="admin-competition-filter-singles"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700">
-                                    Nur Einzel
+                                    <span data-i18n="admin.singlesOnly">Nur Einzel</span>
                                 </button>
                                 <button id="admin-competition-filter-doubles"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700">
-                                    Nur Doppel
+                                    <span data-i18n="admin.doublesOnly">Nur Doppel</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Chart (fixed height container) -->
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold mb-4">Aktivitäts-Übersicht</h3>
+                            <h3 class="text-lg font-semibold mb-4" data-i18n="admin.activityOverview">Aktivitäts-Übersicht</h3>
                             <div style="height: 250px; max-height: 250px;">
                                 <canvas id="admin-competition-activity-chart"></canvas>
                             </div>
@@ -332,8 +334,8 @@
                             <span class="text-white text-lg">🏓</span>
                         </div>
                         <div>
-                            <h2 class="text-xl font-bold text-slate-800">Übungs-Animator</h2>
-                            <p class="text-xs text-slate-500">Animierte Tischtennis-Übungen erstellen</p>
+                            <h2 class="text-xl font-bold text-slate-800" data-i18n="admin.exerciseAnimator">Übungs-Animator</h2>
+                            <p class="text-xs text-slate-500" data-i18n="admin.exerciseAnimatorDesc">Animierte Tischtennis-Übungen erstellen</p>
                         </div>
                     </div>
 
@@ -341,22 +343,22 @@
                     <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
                         <div class="flex flex-wrap items-center gap-4">
                             <div class="flex items-center gap-2">
-                                <label class="text-sm font-medium text-indigo-700">Spieler A (unten):</label>
+                                <label class="text-sm font-medium text-indigo-700" data-i18n="admin.playerABottom">Spieler A (unten):</label>
                                 <select id="tt-player-a-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
-                                    <option value="R">Rechtshänder</option>
-                                    <option value="L">Linkshänder</option>
+                                    <option value="R" data-i18n="admin.rightHanded">Rechtshänder</option>
+                                    <option value="L" data-i18n="admin.leftHanded">Linkshänder</option>
                                 </select>
                             </div>
                             <div class="flex items-center gap-2">
-                                <label class="text-sm font-medium text-indigo-700">Spieler B (oben):</label>
+                                <label class="text-sm font-medium text-indigo-700" data-i18n="admin.playerBTop">Spieler B (oben):</label>
                                 <select id="tt-player-b-hand" class="px-3 py-1.5 text-sm border border-indigo-300 rounded-lg bg-white focus:ring-indigo-500 focus:border-indigo-500">
-                                    <option value="R">Rechtshänder</option>
-                                    <option value="L">Linkshänder</option>
+                                    <option value="R" data-i18n="admin.rightHanded">Rechtshänder</option>
+                                    <option value="L" data-i18n="admin.leftHanded">Linkshänder</option>
                                 </select>
                             </div>
                             <div class="text-xs text-indigo-600 ml-auto">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                VH/RH wird automatisch angepasst
+                                <span data-i18n="admin.vhRhAutoAdjust">VH/RH wird automatisch angepasst</span>
                             </div>
                         </div>
                     </div>
@@ -384,7 +386,7 @@
                             <!-- Loop toggle - inline -->
                             <div class="flex items-center justify-center gap-2 mb-3">
                                 <input type="checkbox" id="tt-loop-toggle" checked class="h-3.5 w-3.5 text-emerald-500 rounded">
-                                <label for="tt-loop-toggle" class="text-xs text-slate-600">Endlosschleife</label>
+                                <label for="tt-loop-toggle" class="text-xs text-slate-600" data-i18n="admin.loop">Endlosschleife</label>
                             </div>
 
                             <!-- Abbreviation Legend - Collapsible Compact -->
@@ -393,7 +395,7 @@
                                     <svg id="tt-legend-icon" class="w-3 h-3 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                     </svg>
-                                    Abkürzungen
+                                    <span data-i18n="admin.abbreviations">Abkürzungen</span>
                                 </button>
                                 <div id="tt-legend-content" class="hidden mt-2">
                                     <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
@@ -415,19 +417,19 @@
                         <!-- Step Builder Form - Compact -->
                         <div class="lg:col-span-1">
                             <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
-                                <h3 class="text-sm font-semibold text-slate-700 mb-2">Schritt hinzufügen</h3>
+                                <h3 class="text-sm font-semibold text-slate-700 mb-2" data-i18n="admin.addStep">Schritt hinzufügen</h3>
 
                                 <form id="tt-add-step-form" class="space-y-2">
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Spieler</label>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5" data-i18n="admin.player">Spieler</label>
                                             <select id="tt-player-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
                                                 <option value="A">A (unten)</option>
                                                 <option value="B">B (oben)</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Seite</label>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5" data-i18n="admin.side">Seite</label>
                                             <select id="tt-side-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
                                                 <option value="RH">RH</option>
                                                 <option value="VH">VH</option>
@@ -437,21 +439,21 @@
 
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Schlag</label>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5" data-i18n="admin.stroke">Schlag</label>
                                             <select id="tt-stroke-select" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
-                                                <option value="A">Aufschlag</option>
-                                                <option value="T">Topspin</option>
-                                                <option value="B">Block</option>
-                                                <option value="K">Konter</option>
-                                                <option value="F">Flip</option>
-                                                <option value="S">Smash</option>
-                                                <option value="SCH">Schupf</option>
+                                                <option value="A" data-i18n="admin.strokeServe">Aufschlag</option>
+                                                <option value="T" data-i18n="admin.strokeTopspin">Topspin</option>
+                                                <option value="B" data-i18n="admin.strokeBlock">Block</option>
+                                                <option value="K" data-i18n="admin.strokeCounter">Konter</option>
+                                                <option value="F" data-i18n="admin.strokeFlip">Flip</option>
+                                                <option value="S" data-i18n="admin.strokeSmash">Smash</option>
+                                                <option value="SCH" data-i18n="admin.strokePush">Schupf</option>
                                             </select>
                                         </div>
                                         <div class="flex items-end pb-1">
                                             <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                                                 <input type="checkbox" id="tt-short-checkbox" class="h-3.5 w-3.5 text-emerald-500 rounded">
-                                                Kurz
+                                                <span data-i18n="admin.short">Kurz</span>
                                             </label>
                                         </div>
                                     </div>
@@ -460,7 +462,7 @@
                                     <div class="border-t border-slate-200 pt-2 mt-2">
                                         <div class="flex items-center gap-1.5 mb-2">
                                             <input type="checkbox" id="tt-has-repetitions" class="h-3.5 w-3.5 text-blue-500 rounded">
-                                            <label for="tt-has-repetitions" class="text-[10px] font-medium text-slate-600">Wiederholungen</label>
+                                            <label for="tt-has-repetitions" class="text-[10px] font-medium text-slate-600" data-i18n="admin.repetitions">Wiederholungen</label>
                                         </div>
                                         <div id="tt-repetitions-container" class="hidden">
                                             <div class="flex items-center gap-2">
@@ -476,12 +478,12 @@
                                     <!-- Player Decides -->
                                     <div class="flex items-center gap-1.5 mt-2">
                                         <input type="checkbox" id="tt-player-decides" class="h-3.5 w-3.5 text-violet-500 rounded">
-                                        <label for="tt-player-decides" class="text-[10px] font-medium text-slate-600">Spieler entscheidet (wann/wohin)</label>
+                                        <label for="tt-player-decides" class="text-[10px] font-medium text-slate-600" data-i18n="admin.playerDecides">Spieler entscheidet (wann/wohin)</label>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Von</label>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5" data-i18n="admin.from">Von</label>
                                             <select id="tt-from-position" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
                                                 <option value="RH">RH</option>
                                                 <option value="M">Mitte</option>
@@ -489,7 +491,7 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5">Nach</label>
+                                            <label class="block text-[10px] font-medium text-slate-500 mb-0.5" data-i18n="admin.to">Nach</label>
                                             <select id="tt-to-position" class="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50">
                                                 <option value="RH">RH</option>
                                                 <option value="M">Mitte</option>
@@ -503,7 +505,7 @@
                                     <div class="border-t border-slate-200 pt-2 mt-2">
                                         <div class="flex items-center gap-1.5 mb-2">
                                             <input type="checkbox" id="tt-has-variants" class="h-3.5 w-3.5 text-emerald-500 rounded">
-                                            <label for="tt-has-variants" class="text-[10px] font-medium text-slate-600">Bedingte Verzweigung (oder)</label>
+                                            <label for="tt-has-variants" class="text-[10px] font-medium text-slate-600" data-i18n="admin.conditionalBranch">Bedingte Verzweigung (oder)</label>
                                         </div>
                                         <div id="tt-variants-container" class="hidden space-y-2">
                                             <p class="text-[9px] text-slate-400 italic">Alternative Reaktion hinzufügen (z.B. wenn RH → SCH, wenn VH → T)</p>
@@ -511,20 +513,20 @@
                                                 <!-- Variants will be added here -->
                                             </div>
                                             <button type="button" id="tt-add-variant-btn" class="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium">
-                                                <i class="fas fa-plus mr-0.5"></i>Alternative hinzufügen
+                                                <i class="fas fa-plus mr-0.5"></i><span data-i18n="admin.addAlternative">Alternative hinzufügen</span>
                                             </button>
                                         </div>
                                     </div>
 
                                     <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
-                                        <i class="fas fa-plus mr-1"></i>Hinzufügen
+                                        <i class="fas fa-plus mr-1"></i><span data-i18n="common.add">Hinzufügen</span>
                                     </button>
                                 </form>
                             </div>
 
                             <!-- Preset Exercises - Compact -->
                             <div class="mt-3 bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
-                                <h4 class="text-xs font-semibold text-slate-600 mb-2">Vorlagen</h4>
+                                <h4 class="text-xs font-semibold text-slate-600 mb-2" data-i18n="admin.templates">Vorlagen</h4>
                                 <div class="flex flex-wrap gap-1.5">
                                     <button id="tt-preset-falkenberg" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors border border-blue-100">
                                         Falkenberg
@@ -546,22 +548,22 @@
                         <div class="lg:col-span-1">
                             <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm mb-3">
                                 <div class="flex justify-between items-center mb-2">
-                                    <h4 class="text-xs font-semibold text-slate-600">Schritte</h4>
+                                    <h4 class="text-xs font-semibold text-slate-600" data-i18n="admin.steps">Schritte</h4>
                                     <button id="tt-clear-steps" class="text-[10px] text-red-500 hover:text-red-700 font-medium">
-                                        <i class="fas fa-trash mr-0.5"></i>Löschen
+                                        <i class="fas fa-trash mr-0.5"></i><span data-i18n="common.delete">Löschen</span>
                                     </button>
                                 </div>
                                 <div id="tt-steps-list" class="space-y-1.5 max-h-48 overflow-y-auto">
-                                    <p class="text-slate-400 text-[10px] italic">Keine Schritte</p>
+                                    <p class="text-slate-400 text-[10px] italic" data-i18n="admin.noSteps">Keine Schritte</p>
                                 </div>
                             </div>
 
                             <!-- Export GIF - Compact -->
                             <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
-                                <h4 class="text-xs font-semibold text-slate-600 mb-2">Exportieren</h4>
+                                <h4 class="text-xs font-semibold text-slate-600 mb-2" data-i18n="admin.export">Exportieren</h4>
                                 <input type="text" id="tt-exercise-name" placeholder="Dateiname" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 mb-2 bg-slate-50">
                                 <button id="tt-export-gif" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-2 rounded-lg transition-all shadow-sm">
-                                    <i class="fas fa-film mr-1"></i>Als GIF speichern
+                                    <i class="fas fa-film mr-1"></i><span data-i18n="admin.saveAsGif">Als GIF speichern</span>
                                 </button>
                             </div>
                         </div>
@@ -573,7 +575,7 @@
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">
                                 <i class="fas fa-user-tie mr-2 text-indigo-600"></i>
-                                Neuen Spartenleiter einladen
+                                <span data-i18n="admin.inviteCoach">Neuen Spartenleiter einladen</span>
                             </h2>
                             <form id="invite-coach-form" class="space-y-4">
                                 <!-- Schritt 1: Vereinsname eingeben -->
@@ -581,6 +583,7 @@
                                     <label
                                         for="clubName"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="admin.clubName"
                                         >Vereinsname</label
                                     >
                                     <input
@@ -595,7 +598,7 @@
                                     <div id="club-search-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto">
                                         <!-- Suchergebnisse werden hier eingefügt -->
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">Tippe um existierende Vereine zu suchen, oder gib einen neuen Namen ein.</p>
+                                    <p class="mt-1 text-xs text-gray-500" data-i18n="admin.clubSearchHint">Tippe um existierende Vereine zu suchen, oder gib einen neuen Namen ein.</p>
                                 </div>
 
                                 <!-- Ausgewählter Verein (wird eingeblendet wenn Verein ausgewählt) -->
@@ -603,7 +606,7 @@
                                     <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                                         <div class="flex justify-between items-start">
                                             <div>
-                                                <p class="text-sm font-medium text-indigo-800">Ausgewählter Verein:</p>
+                                                <p class="text-sm font-medium text-indigo-800" data-i18n="admin.selectedClub">Ausgewählter Verein:</p>
                                                 <p id="selected-club-name" class="text-lg font-bold text-indigo-900"></p>
                                             </div>
                                             <button type="button" id="clear-selected-club" class="text-indigo-600 hover:text-indigo-800">
@@ -612,7 +615,7 @@
                                         </div>
                                         <!-- Existierende Sparten -->
                                         <div id="existing-sports-container" class="mt-3 hidden">
-                                            <p class="text-xs font-medium text-indigo-700 mb-2">Existierende Sparten:</p>
+                                            <p class="text-xs font-medium text-indigo-700 mb-2" data-i18n="admin.existingSports">Existierende Sparten:</p>
                                             <div id="existing-sports-list" class="flex flex-wrap gap-2">
                                                 <!-- Sparten-Badges werden hier eingefügt -->
                                             </div>
@@ -626,6 +629,7 @@
                                     <label
                                         for="sportSelect"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="admin.sportDivision"
                                         >Sportart / Sparte</label
                                     >
                                     <select
@@ -633,17 +637,17 @@
                                         required
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                                     >
-                                        <option value="">-- Sportart wählen --</option>
+                                        <option value="" data-i18n="admin.chooseSport">-- Sportart wählen --</option>
                                         <!-- Sportarten werden dynamisch geladen -->
                                     </select>
-                                    <p id="sport-select-hint" class="mt-1 text-xs text-gray-500">Wähle die Sportart für den neuen Spartenleiter.</p>
+                                    <p id="sport-select-hint" class="mt-1 text-xs text-gray-500" data-i18n="admin.sportSelectHint">Wähle die Sportart für den neuen Spartenleiter.</p>
                                 </div>
 
                                 <!-- Info-Box für neuen Verein -->
                                 <div id="new-club-info" class="hidden bg-green-50 border border-green-200 rounded-lg p-3">
                                     <p class="text-sm text-green-800">
                                         <i class="fas fa-plus-circle mr-1"></i>
-                                        <strong>Neuer Verein:</strong> Der Verein wird automatisch erstellt.
+                                        <span data-i18n="admin.newClubInfo"><strong>Neuer Verein:</strong> Der Verein wird automatisch erstellt.</span>
                                     </p>
                                 </div>
 
@@ -651,7 +655,7 @@
                                 <div id="existing-sport-warning" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3">
                                     <p class="text-sm text-amber-800">
                                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                                        <strong>Hinweis:</strong> Diese Sparte existiert bereits. Der neue Spartenleiter wird zusätzlich hinzugefügt.
+                                        <span data-i18n="admin.existingSportWarning"><strong>Hinweis:</strong> Diese Sparte existiert bereits. Der neue Spartenleiter wird zusätzlich hinzugefügt.</span>
                                     </p>
                                 </div>
 
@@ -660,11 +664,12 @@
                                     id="generate-code-btn"
                                     class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
                                 >
-                                    <i class="fas fa-key mr-2"></i>Einladungscode generieren
+                                    <i class="fas fa-key mr-2"></i><span data-i18n="admin.generateInviteCode">Einladungscode generieren</span>
                                 </button>
                             </form>
                             <div id="invite-link-container" class="mt-4 hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-2"
+                                    data-i18n="admin.generatedCode"
                                     >Generierter Code:</label
                                 >
                                 <input
@@ -677,24 +682,25 @@
                                     id="copy-link-button"
                                     class="w-full mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm"
                                 >
-                                    <i class="fas fa-copy mr-2"></i>Code kopieren
+                                    <i class="fas fa-copy mr-2"></i><span data-i18n="admin.copyCode">Code kopieren</span>
                                 </button>
-                                <p class="mt-2 text-xs text-gray-500 text-center">
+                                <p class="mt-2 text-xs text-gray-500 text-center" data-i18n="admin.codeInstructions">
                                     Der Coach kann sich mit diesem Code auf der Login-Seite anmelden
                                     und seine Email-Adresse eingeben.
                                 </p>
                             </div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-2">Übung erstellen</h2>
+                            <h2 class="text-xl font-semibold mb-2" data-i18n="admin.createExercise">Übung erstellen</h2>
                             <div id="exercise-sport-info" class="mb-4 text-sm text-gray-600">
-                                Für: <span id="exercise-sport-label" class="font-medium">Alle Sportarten</span>
+                                <span data-i18n="admin.for">Für:</span> <span id="exercise-sport-label" class="font-medium" data-i18n="admin.allSports">Alle Sportarten</span>
                             </div>
                             <form id="create-exercise-form" class="space-y-4">
                                 <div>
                                     <label
                                         for="exercise-title"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="common.title"
                                         >Titel</label
                                     >
                                     <input
@@ -708,6 +714,7 @@
                                     <label
                                         for="exercise-description"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="common.description"
                                         >Beschreibung</label
                                     >
                                     <div id="description-toggle-container"></div>
@@ -722,6 +729,7 @@
                                     <label
                                         for="exercise-points"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="common.points"
                                         >Punkte</label
                                     >
                                     <input
@@ -731,14 +739,14 @@
                                         min="1"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
-                                    <p class="text-xs text-gray-500 mt-1">
+                                    <p class="text-xs text-gray-500 mt-1" data-i18n="admin.totalPointsForExercise">
                                         Gesamtpunkte für diese Übung
                                     </p>
                                 </div>
 
                                 <!-- Übungstyp (Spieler-Aktivität) -->
                                 <div class="border-t pt-4">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="admin.exerciseType">
                                         Übungstyp (Spieler-Aktivität)
                                     </label>
                                     <div class="space-y-2">
@@ -749,7 +757,7 @@
                                                 value="solo"
                                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span class="text-sm text-gray-700">Einzelübung / Allgemein</span>
+                                            <span class="text-sm text-gray-700" data-i18n="admin.soloExercise">Einzelübung / Allgemein</span>
                                             <span class="text-xs text-gray-500">(Seilspringen, Laufen, etc. - keine Paarung)</span>
                                         </label>
                                         <label class="flex items-center gap-2 cursor-pointer">
@@ -759,7 +767,7 @@
                                                 value="both_active"
                                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span class="text-sm text-gray-700">Paarung: Beide aktiv</span>
+                                            <span class="text-sm text-gray-700" data-i18n="admin.bothActive">Paarung: Beide aktiv</span>
                                             <span class="text-xs text-gray-500">(beide bekommen 100% der Punkte)</span>
                                         </label>
                                         <label class="flex items-center gap-2 cursor-pointer">
@@ -770,7 +778,7 @@
                                                 checked
                                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span class="text-sm text-gray-700">Paarung: A aktiv & B passiv</span>
+                                            <span class="text-sm text-gray-700" data-i18n="admin.aActiveBPassive">Paarung: A aktiv & B passiv</span>
                                             <span class="text-xs text-gray-500">(A: 100%, B: 50% der Punkte)</span>
                                         </label>
                                     </div>
@@ -787,6 +795,7 @@
                                         <label
                                             for="exercise-tiered-points-toggle"
                                             class="ml-2 text-sm font-medium text-gray-700"
+                                            data-i18n="admin.tieredPointsLabel"
                                         >
                                             🎯 Abgestufte Punktevergabe aktivieren (für
                                             wiederholbare Übungen)
@@ -854,6 +863,7 @@
                                     <label
                                         for="exercise-tags"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="admin.tagsCommaSeparated"
                                         >Tags (kommagetrennt)</label
                                     >
                                     <input
@@ -868,12 +878,13 @@
                                 <div class="border-t border-gray-200 pt-4 space-y-4">
                                     <p class="text-sm font-medium text-gray-700">
                                         <i class="fas fa-globe mr-1"></i>
-                                        Sichtbarkeit (Admin-Einstellung)
+                                        <span data-i18n="admin.visibility">Sichtbarkeit (Admin-Einstellung)</span>
                                     </p>
                                     <div>
                                         <label
                                             for="exercise-club"
                                             class="block text-sm font-medium text-gray-700"
+                                            data-i18n="admin.club"
                                             >Verein</label
                                         >
                                         <select
@@ -883,7 +894,7 @@
                                             <option value="">🌍 Global (alle Vereine)</option>
                                             <!-- Clubs will be loaded dynamically -->
                                         </select>
-                                        <p class="text-xs text-gray-500 mt-1">
+                                        <p class="text-xs text-gray-500 mt-1" data-i18n="admin.globalVisibleAll">
                                             Global = für alle Vereine sichtbar
                                         </p>
                                     </div>
@@ -891,6 +902,7 @@
                                         <label
                                             for="exercise-sport"
                                             class="block text-sm font-medium text-gray-700"
+                                            data-i18n="admin.sportLabel"
                                             >Sportart</label
                                         >
                                         <select
@@ -900,7 +912,7 @@
                                             <option value="">📊 Alle Sportarten</option>
                                             <!-- Sports will be loaded dynamically -->
                                         </select>
-                                        <p class="text-xs text-gray-500 mt-1">
+                                        <p class="text-xs text-gray-500 mt-1" data-i18n="admin.emptyAllSportsVisible">
                                             Leer = für alle Sportarten sichtbar
                                         </p>
                                     </div>
@@ -910,6 +922,7 @@
                                     <label
                                         for="exercise-image"
                                         class="block text-sm font-medium text-gray-700"
+                                        data-i18n="admin.imageOptional"
                                         >Bild (optional)</label
                                     >
                                     <input
@@ -923,11 +936,11 @@
                                 <!-- Animationen (Optional, mehrere pro Händigkeit) -->
                                 <div class="border-t border-gray-200 pt-4">
                                     <div class="flex items-center justify-between mb-3">
-                                        <label class="text-sm font-medium text-gray-700">
+                                        <label class="text-sm font-medium text-gray-700" data-i18n="admin.animationsOptional">
                                             🏓 Animationen (optional)
                                         </label>
                                     </div>
-                                    <p class="text-xs text-gray-500 mb-3">
+                                    <p class="text-xs text-gray-500 mb-3" data-i18n="admin.animationsDesc">
                                         Füge Animationen für verschiedene Händigkeits-Kombinationen hinzu. Erstelle zuerst die Animation im Animator oben.
                                     </p>
 
@@ -946,7 +959,7 @@
                                                 <option value="L-R">L-R (Links gegen Rechts)</option>
                                             </select>
                                             <button type="button" id="add-animation-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                                                <i class="fas fa-plus mr-1"></i>Animation hinzufügen
+                                                <i class="fas fa-plus mr-1"></i><span data-i18n="admin.addAnimation">Animation hinzufügen</span>
                                             </button>
                                         </div>
                                         <p class="text-xs text-gray-400">
@@ -963,6 +976,7 @@
                                     type="submit"
                                     id="create-exercise-submit"
                                     class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+                                    data-i18n="admin.saveExercise"
                                 >
                                     Übung speichern
                                 </button>
@@ -977,15 +991,15 @@
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">
                                 <i class="fas fa-sitemap mr-2 text-teal-600"></i>
-                                Vereinsübersicht
+                                <span data-i18n="admin.clubOverview">Vereinsübersicht</span>
                             </h2>
-                            <p class="text-sm text-gray-500 mb-4">Vereine → Sparten → Mitglieder</p>
+                            <p class="text-sm text-gray-500 mb-4" data-i18n="admin.clubOverviewDesc">Vereine → Sparten → Mitglieder</p>
                             <div id="clubs-list" class="space-y-4">
-                                <p>Vereine werden geladen...</p>
+                                <p data-i18n="admin.loadingClubs">Vereine werden geladen...</p>
                             </div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                            <h2 class="text-xl font-semibold mb-4" data-i18n="admin.exerciseCatalog">Übungskatalog</h2>
 
                             <!-- Header mit Suche und Filter -->
                             <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -994,7 +1008,7 @@
                                     class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium text-sm px-3 py-2 border border-gray-300 rounded-lg hover:border-indigo-400 transition-colors"
                                 >
                                     <i class="fas fa-filter"></i>
-                                    <span>Filter</span>
+                                    <span data-i18n="common.filter">Filter</span>
                                 </button>
                                 <div class="flex-1">
                                     <div class="relative">
@@ -1033,7 +1047,7 @@
                                 id="exercises-list-admin"
                                 class="flex flex-col divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto"
                             >
-                                <p class="p-4 text-gray-500">Übungen werden geladen...</p>
+                                <p class="p-4 text-gray-500" data-i18n="admin.loadingExercises">Übungen werden geladen...</p>
                             </div>
                         </div>
                     </div>
@@ -1042,59 +1056,59 @@
                 <!-- Audit Logs -->
                 <section id="audit-section" class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                        <i class="fas fa-history mr-2 text-purple-600"></i>Aktivitätsprotokoll
+                        <i class="fas fa-history mr-2 text-purple-600"></i><span data-i18n="admin.activityLog">Aktivitätsprotokoll</span>
                     </h2>
-                    <p class="text-sm text-gray-600 mb-6">Protokoll aller administrativen Aktionen auf der Plattform.</p>
+                    <p class="text-sm text-gray-600 mb-6" data-i18n="admin.activityLogDesc">Protokoll aller administrativen Aktionen auf der Plattform.</p>
 
                     <!-- Filter -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div>
-                            <label for="audit-filter-action" class="block text-sm font-medium text-gray-700">Aktion</label>
+                            <label for="audit-filter-action" class="block text-sm font-medium text-gray-700" data-i18n="admin.action">Aktion</label>
                             <select id="audit-filter-action" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Aktionen</option>
-                                <option value="invitation_created">Einladung erstellt</option>
-                                <option value="invitation_used">Einladung verwendet</option>
-                                <option value="season_started">Saison gestartet</option>
-                                <option value="season_ended">Saison beendet</option>
-                                <option value="role_changed">Rolle geändert</option>
-                                <option value="user_promoted">Benutzer befördert</option>
-                                <option value="user_removed">Benutzer entfernt</option>
-                                <option value="exercise_created">Übung erstellt</option>
-                                <option value="exercise_deleted">Übung gelöscht</option>
+                                <option value="" data-i18n="admin.allActions">Alle Aktionen</option>
+                                <option value="invitation_created" data-i18n="admin.auditInvitationCreated">Einladung erstellt</option>
+                                <option value="invitation_used" data-i18n="admin.auditInvitationUsed">Einladung verwendet</option>
+                                <option value="season_started" data-i18n="admin.auditSeasonStarted">Saison gestartet</option>
+                                <option value="season_ended" data-i18n="admin.auditSeasonEnded">Saison beendet</option>
+                                <option value="role_changed" data-i18n="admin.auditRoleChanged">Rolle geändert</option>
+                                <option value="user_promoted" data-i18n="admin.auditUserPromoted">Benutzer befördert</option>
+                                <option value="user_removed" data-i18n="admin.auditUserRemoved">Benutzer entfernt</option>
+                                <option value="exercise_created" data-i18n="admin.auditExerciseCreated">Übung erstellt</option>
+                                <option value="exercise_deleted" data-i18n="admin.auditExerciseDeleted">Übung gelöscht</option>
                             </select>
                         </div>
                         <div>
-                            <label for="audit-filter-club" class="block text-sm font-medium text-gray-700">Verein</label>
+                            <label for="audit-filter-club" class="block text-sm font-medium text-gray-700" data-i18n="admin.club">Verein</label>
                             <select id="audit-filter-club" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Vereine</option>
+                                <option value="" data-i18n="admin.allClubs">Alle Vereine</option>
                             </select>
                         </div>
                         <div>
-                            <label for="audit-filter-sport" class="block text-sm font-medium text-gray-700">Sportart</label>
+                            <label for="audit-filter-sport" class="block text-sm font-medium text-gray-700" data-i18n="admin.sportLabel">Sportart</label>
                             <select id="audit-filter-sport" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
-                                <option value="">Alle Sportarten</option>
+                                <option value="" data-i18n="admin.allSports">Alle Sportarten</option>
                             </select>
                         </div>
                         <div class="flex items-end">
                             <button id="audit-refresh-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors text-sm">
-                                <i class="fas fa-sync-alt mr-2"></i>Aktualisieren
+                                <i class="fas fa-sync-alt mr-2"></i><span data-i18n="common.refresh">Aktualisieren</span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Logs Liste -->
                     <div id="audit-logs-container" class="space-y-3">
-                        <p class="text-gray-500">Logs werden geladen...</p>
+                        <p class="text-gray-500" data-i18n="admin.loadingLogs">Logs werden geladen...</p>
                     </div>
 
                     <!-- Pagination -->
                     <div id="audit-pagination" class="mt-6 flex justify-between items-center hidden">
                         <button id="audit-prev-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fas fa-chevron-left mr-1"></i>Zurück
+                            <i class="fas fa-chevron-left mr-1"></i><span data-i18n="common.back">Zurück</span>
                         </button>
                         <span id="audit-page-info" class="text-sm text-gray-600">Seite 1</span>
                         <button id="audit-next-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                            Weiter<i class="fas fa-chevron-right ml-1"></i>
+                            <span data-i18n="common.next">Weiter</span><i class="fas fa-chevron-right ml-1"></i>
                         </button>
                     </div>
                 </section>
@@ -1191,7 +1205,7 @@
                                 d="M19 9l-7 7-7-7"
                             ></path>
                         </svg>
-                        📖 Abkürzungen anzeigen
+                        <span data-i18n="admin.showAbbreviations">📖 Abkürzungen anzeigen</span>
                     </button>
                     <div
                         id="abbreviations-content-admin"
@@ -1227,12 +1241,14 @@
                         <button
                             id="modal-edit-exercise-button"
                             class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600"
+                            data-i18n="common.edit"
                         >
                             Bearbeiten
                         </button>
                         <button
                             id="modal-delete-exercise-button"
                             class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600"
+                            data-i18n="common.delete"
                         >
                             Löschen
                         </button>
@@ -1246,13 +1262,14 @@
             class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center"
         >
             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
-                <h3 class="text-xl font-semibold mb-4">Übung bearbeiten</h3>
+                <h3 class="text-xl font-semibold mb-4" data-i18n="admin.editExercise">Übung bearbeiten</h3>
                 <form id="edit-exercise-form" class="space-y-4">
                     <input type="hidden" id="edit-exercise-id" />
                     <div>
                         <label
                             for="edit-exercise-title"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.title"
                             >Titel</label
                         >
                         <input
@@ -1266,6 +1283,7 @@
                         <label
                             for="edit-exercise-description"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.description"
                             >Beschreibung</label
                         >
                         <div id="edit-description-toggle-container"></div>
@@ -1280,6 +1298,7 @@
                         <label
                             for="edit-exercise-points"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="common.points"
                             >Punkte</label
                         >
                         <input
@@ -1294,6 +1313,7 @@
                         <label
                             for="edit-exercise-tags"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="admin.tagsCommaSeparated"
                             >Tags (kommagetrennt)</label
                         >
                         <input
@@ -1307,12 +1327,14 @@
                             type="button"
                             id="close-edit-exercise-modal-button"
                             class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-300"
+                            data-i18n="common.cancel"
                         >
                             Abbrechen
                         </button>
                         <button
                             type="submit"
                             class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700"
+                            data-i18n="admin.saveChanges"
                         >
                             Änderungen speichern
                         </button>
@@ -1329,5 +1351,11 @@
         <script type="module" src="/js/admin-supabase.js"></script>
         <script src="/js/table-tennis-exercise-builder.js"></script>
         <script src="/js/table-tennis-exercise-ui.js"></script>
+        <script type="module">
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+            await initI18n();
+            translatePage();
+            setupAutoTranslate();
+        </script>
     </body>
 </html>
