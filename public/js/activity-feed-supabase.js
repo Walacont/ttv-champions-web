@@ -1865,6 +1865,7 @@ async function toggleActivityLike(activityId, activityType) {
                 likeCount: data.like_count
             };
             updateLikeUI(likeBtn, countEl, data.is_liked, data.like_count);
+            if (data.is_liked && window.trackEvent) window.trackEvent('activity_like');
         }
 
     } catch (error) {

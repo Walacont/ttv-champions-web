@@ -1,25 +1,25 @@
 // Lightweight non-module translation script
 // Applies translations from /locales/{lang}/translation.json without ES module imports
 // This works on Android WebView where <script type="module"> may fail
+// Also provides a global t() function for JS code that builds HTML dynamically
 (function() {
     'use strict';
 
     var lang = localStorage.getItem('app_language') || 'de';
-
-    // No translation needed for default language
-    if (lang === 'de') return;
-
     var translationData = null;
     var domReady = document.readyState !== 'loading';
 
-    // Fetch translations
+    // Always load translations (even for 'de') so t() works for dynamic content
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/locales/' + lang + '/translation.json', true);
     xhr.onload = function() {
         if (xhr.status !== 200) return;
         try {
             translationData = JSON.parse(xhr.responseText);
+            window.__i18nData = translationData;
+            window.__i18nLang = lang;
             if (domReady) applyTranslations(translationData);
+            console.log('[i18n-lite] Loaded translations for', lang);
         } catch(e) {
             console.warn('[i18n-lite] Failed to parse translations:', e);
         }
@@ -43,6 +43,28 @@
         }
         return current;
     }
+
+    // Global t() function - works even when i18next module fails to load
+    // Supports simple {{variable}} interpolation and { returnObjects: true }
+    window.t = function(key, options) {
+        if (!translationData) return key;
+        var val = resolve(translationData, key);
+        if (val == null) return key;
+
+        // Return objects (arrays, objects) when requested
+        if (options && options.returnObjects) return val;
+
+        // Must be a string for interpolation
+        if (typeof val !== 'string') return key;
+
+        // Simple {{variable}} interpolation
+        if (options) {
+            val = val.replace(/\{\{(\w+)\}\}/g, function(match, varName) {
+                return options[varName] != null ? options[varName] : match;
+            });
+        }
+        return val;
+    };
 
     function applyTranslations(translations) {
         // data-i18n -> textContent
@@ -81,6 +103,5 @@
         }
 
         document.documentElement.lang = lang;
-        console.log('[i18n-lite] Applied translations for', lang);
     }
 })();

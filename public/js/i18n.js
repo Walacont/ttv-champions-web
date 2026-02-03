@@ -112,11 +112,16 @@ async function changeLanguage(language) {
  * @returns {string}
  */
 function t(key, options = {}) {
-    if (!i18nInitialized) {
-        console.warn('i18n noch nicht initialisiert, gebe Schlüssel zurück:', key);
-        return key;
+    // Try i18next first (fully initialized)
+    if (i18nInitialized && i18next.isInitialized) {
+        return i18next.t(key, options);
     }
-    return i18next.t(key, options);
+    // Fallback to i18n-lite.js global t() if available
+    if (window.__i18nData && window.t && window.t !== t) {
+        return window.t(key, options);
+    }
+    // Last resort: return key
+    return key;
 }
 
 /**
