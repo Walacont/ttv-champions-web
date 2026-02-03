@@ -3407,9 +3407,8 @@ function showNewRequestNotification() {
         setTimeout(() => requestsSection.classList.remove('animate-pulse'), 2000);
     }
 
-    // Browser-Benachrichtigung nur wenn bereits erlaubt
-    // Hinweis: requestPermission() kann nur durch Benutzerinteraktion aufgerufen werden
-    if (Notification.permission === 'granted') {
+    // Browser-Benachrichtigung nur wenn bereits erlaubt (nicht auf nativen Apps verfügbar)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
             new Notification('Neue Spielanfrage!', {
                 body: 'Du hast eine neue Wettkampfanfrage erhalten.',
