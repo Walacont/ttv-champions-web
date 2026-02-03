@@ -134,6 +134,8 @@
     /** Prüft ob Firebase/FCM korrekt konfiguriert ist */
     function isFirebaseAvailable() {
         try {
+            // Check native-side flag first (set by MainActivity)
+            if (window.__firebaseAvailable === false) return false;
             return window.Capacitor?.Plugins?.PushNotifications != null;
         } catch (e) {
             return false;
@@ -146,6 +148,13 @@
      * auf einem separaten Thread auftreten und die JS-Promise nie resolved wird.
      */
     async function safeRegister(PushNotifications) {
+        // Skip if Firebase is known to be unavailable
+        if (window.__firebaseAvailable === false) {
+            console.log('[Push] Skipping register - Firebase not available');
+            window._pushNotificationsUnavailable = true;
+            return false;
+        }
+
         // Auf Android prüfen ob Firebase verfügbar ist
         const platform = window.Capacitor?.getPlatform();
         if (platform === 'android') {
@@ -192,6 +201,13 @@
     /** Initialisiert Push-Benachrichtigungen für native Apps */
     async function initializePushNotifications() {
         console.log('[Push] Initializing push notifications...');
+
+        // Check if Firebase is available before touching PushNotifications plugin
+        if (window.__firebaseAvailable === false) {
+            console.log('[Push] Firebase not available (google-services.json missing), skipping push init');
+            window._pushNotificationsUnavailable = true;
+            return;
+        }
 
         const Plugins = getPlugins();
         const PushNotifications = Plugins.PushNotifications;
