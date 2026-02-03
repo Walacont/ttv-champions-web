@@ -294,6 +294,9 @@ DROP POLICY IF EXISTS "Tournament creators and coaches can delete" ON tournament
 DROP POLICY IF EXISTS "Users can view tournament participants" ON tournament_participants;
 DROP POLICY IF EXISTS "Users can join tournaments" ON tournament_participants;
 DROP POLICY IF EXISTS "Users can leave tournaments" ON tournament_participants;
+DROP POLICY IF EXISTS "Coaches can add players to tournaments" ON tournament_participants;
+DROP POLICY IF EXISTS "Coaches can update tournament participants" ON tournament_participants;
+DROP POLICY IF EXISTS "Coaches can remove players from tournaments" ON tournament_participants;
 
 DROP POLICY IF EXISTS "Users can view tournament matches" ON tournament_matches;
 DROP POLICY IF EXISTS "System can create tournament matches" ON tournament_matches;
@@ -331,7 +334,7 @@ USING (
     OR (club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach')))
 );
 
--- PARTICIPANTS (simple policy, no circular references)
+-- PARTICIPANTS
 CREATE POLICY "Users can view tournament participants" ON tournament_participants FOR SELECT
 USING (
     tournament_id IN (
@@ -344,16 +347,68 @@ USING (
 
 CREATE POLICY "Users can join tournaments" ON tournament_participants FOR INSERT
 WITH CHECK (
-    player_id = auth.uid()
-    AND tournament_id IN (
+    -- Self-registration
+    (
+        player_id = auth.uid()
+        AND tournament_id IN (
+            SELECT id FROM tournaments
+            WHERE status = 'registration'
+            AND ((is_club_only = false) OR (is_club_only = true AND club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid())))
+        )
+    )
+    OR
+    -- Coach adds players from their club
+    (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid()
+            AND role IN ('coach', 'head_coach')
+            AND club_id IN (
+                SELECT club_id FROM tournaments WHERE id = tournament_participants.tournament_id
+            )
+        )
+    )
+);
+
+CREATE POLICY "Coaches can update tournament participants" ON tournament_participants FOR UPDATE
+USING (
+    tournament_id IN (
         SELECT id FROM tournaments
-        WHERE status = 'registration'
-        AND ((is_club_only = false) OR (is_club_only = true AND club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid())))
+        WHERE created_by = auth.uid()
+        OR club_id IN (
+            SELECT club_id FROM profiles
+            WHERE id = auth.uid() AND role IN ('coach', 'head_coach')
+        )
     )
 );
 
 CREATE POLICY "Users can leave tournaments" ON tournament_participants FOR DELETE
-USING (player_id = auth.uid() AND tournament_id IN (SELECT id FROM tournaments WHERE status = 'registration'));
+USING (
+    -- Self-removal during registration
+    (
+        player_id = auth.uid()
+        AND tournament_id IN (SELECT id FROM tournaments WHERE status = 'registration')
+    )
+    OR
+    -- Coach removes players from their club's tournament
+    (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid()
+            AND role IN ('coach', 'head_coach')
+            AND club_id IN (
+                SELECT club_id FROM tournaments WHERE id = tournament_participants.tournament_id
+            )
+        )
+    )
+    OR
+    -- Tournament creator can remove players
+    (
+        tournament_id IN (
+            SELECT id FROM tournaments WHERE created_by = auth.uid()
+        )
+    )
+);
 
 -- MATCHES
 CREATE POLICY "Users can view tournament matches" ON tournament_matches FOR SELECT
