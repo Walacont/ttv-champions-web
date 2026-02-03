@@ -213,6 +213,9 @@
             // Check current permission status
             var hasPermission = OneSignal.Notifications.hasPermission();
             console.log('[Push] OneSignal permission status:', hasPermission);
+            if (hasPermission) {
+                localStorage.setItem('onesignal_push_granted', 'true');
+            }
 
             // Store OneSignal reference for later use
             window._oneSignalNative = OneSignal;
@@ -271,12 +274,16 @@
                 var hasPermission = OneSignal.Notifications.hasPermission();
                 if (hasPermission) {
                     console.log('[Push] Already has permission');
+                    localStorage.setItem('onesignal_push_granted', 'true');
                     return true;
                 }
 
                 console.log('[Push] Requesting OneSignal permission...');
                 var granted = await OneSignal.Notifications.requestPermission(true);
                 console.log('[Push] Permission result:', granted);
+                if (granted) {
+                    localStorage.setItem('onesignal_push_granted', 'true');
+                }
                 return granted;
             } catch (e) {
                 console.error('[Push] Error requesting permission:', e);
@@ -291,13 +298,21 @@
             }
 
             var OneSignal = window._oneSignalNative || findOneSignalPlugin();
-            if (!OneSignal) return false;
-
-            try {
-                return OneSignal.Notifications.hasPermission();
-            } catch (e) {
-                return false;
+            if (OneSignal) {
+                try {
+                    var hasPermission = OneSignal.Notifications.hasPermission();
+                    if (hasPermission) {
+                        localStorage.setItem('onesignal_push_granted', 'true');
+                        return true;
+                    }
+                } catch (e) {
+                    // fall through to localStorage check
+                }
             }
+
+            // Fallback: check localStorage flag set when permission was granted
+            // OneSignal.Notifications.hasPermission() can return false due to timing issues
+            return localStorage.getItem('onesignal_push_granted') === 'true';
         },
 
         /** Login bei OneSignal mit User-ID (für Targeting) */

@@ -110,6 +110,7 @@ export async function disablePushNotifications() {
             await optOutOneSignal();
         }
 
+        localStorage.removeItem('onesignal_push_granted');
         console.log('[Push] Notifications disabled');
     } catch (e) {
         console.error('[Push] Error disabling notifications:', e);
@@ -303,6 +304,9 @@ export async function showPushPermissionPrompt() {
             try {
                 const granted = await requestPushPermission();
                 console.log('[Push] Permission granted:', granted);
+                if (granted) {
+                    localStorage.setItem('onesignal_push_granted', 'true');
+                }
                 resolve(granted);
             } catch (e) {
                 console.error('[Push] Error after enable button click:', e);
@@ -337,6 +341,9 @@ export function isPushSupported() {
  */
 export async function shouldShowPushPrompt() {
     if (!isPushSupported()) return false;
+
+    // If push was already granted, never show the prompt
+    if (localStorage.getItem('onesignal_push_granted') === 'true') return false;
 
     const dismissedPermanently = localStorage.getItem('push_prompt_dismissed_permanently');
     if (dismissedPermanently === 'true') return false;
