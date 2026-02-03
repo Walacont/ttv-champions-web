@@ -162,6 +162,8 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
 
     if (insertError) throw insertError;
 
+    if (window.trackEvent) window.trackEvent('doubles_match_save');
+
     console.log('Doubles match saved:', doublesMatch.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
 
     // Punktehistorie für alle 4 Spieler erstellen
@@ -411,6 +413,8 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         .single();
 
     if (insertError) throw insertError;
+
+    if (window.trackEvent) window.trackEvent('doubles_match_request');
 
     console.log('Doubles match request created successfully! ID:', request.id);
 

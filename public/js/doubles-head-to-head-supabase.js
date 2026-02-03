@@ -16,6 +16,7 @@ let currentModal = null;
  * @param {Object} opponentTeam - Gegnerteam-Objekt mit player1Id und player2Id
  */
 export async function showDoublesHeadToHeadModal(supabase, currentUserId, opponentTeam) {
+    if (window.trackEvent) window.trackEvent('doubles_h2h_view');
     // Bestehendes Modal schließen falls vorhanden
     closeDoublesHeadToHeadModal();
 

@@ -830,6 +830,8 @@ async function submitMatchRequest(callbacks = {}) {
 
         if (error) throw error;
 
+        if (window.trackEvent) window.trackEvent('match_request_submit');
+
         const playerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
         const opponentName = selectedOpponent.displayName || selectedOpponent.display_name ||
             `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() || 'du';

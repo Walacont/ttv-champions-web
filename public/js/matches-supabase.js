@@ -382,6 +382,8 @@ export async function saveMatchResult(matchData, currentUserData) {
 
         if (error) throw error;
 
+        if (window.trackEvent) window.trackEvent('match_result_save');
+
         console.log('[Matches] Match saved successfully:', data.id);
 
         try {

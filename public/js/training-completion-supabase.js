@@ -341,6 +341,7 @@ async function handleCompletionSubmit(e) {
                 ? 'Training erfolgreich abgeschlossen! Punkte wurden vergeben.'
                 : 'Training erfolgreich abgeschlossen! (Nur Anwesenheit)';
         showFeedback(successMessage, 'success');
+        if (window.trackEvent) window.trackEvent('training_complete');
 
         window.dispatchEvent(
             new CustomEvent('trainingCompleted', {

@@ -10,6 +10,7 @@
         <script src="/js/capacitor-init.js"></script>
         <script src="/js/avatar-utils.js"></script>
         <script src="/js/i18n-lite.js"></script>
+        <script src="/js/analytics.js"></script>
 
         <!-- Google tag (gtag.js) -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
@@ -705,5 +706,6 @@
             translatePage();
             setupAutoTranslate();
         </script>
+        <script>if(window.trackView)window.trackView('guardian_dashboard');</script>
     </body>
 </html>

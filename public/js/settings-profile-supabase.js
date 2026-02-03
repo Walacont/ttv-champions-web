@@ -288,6 +288,7 @@ uploadPhotoForm.addEventListener('submit', async e => {
         uploadFeedback.classList.add('text-green-600');
         savePhotoButton.classList.add('opacity-0');
         selectedFile = null;
+        if (window.trackEvent) window.trackEvent('profile_update');
     } catch (error) {
         console.error('Fehler beim Hochladen des Bildes:', error);
         uploadFeedback.textContent = 'Fehler beim Speichern des Bildes.';
@@ -321,6 +322,7 @@ updateNameForm.addEventListener('submit', async e => {
 
         nameFeedback.textContent = 'Name erfolgreich gespeichert!';
         nameFeedback.className = 'mt-2 text-sm text-green-600';
+        if (window.trackEvent) window.trackEvent('profile_update');
     } catch (error) {
         console.error('Fehler beim Speichern des Namens:', error);
         nameFeedback.textContent = 'Fehler beim Speichern des Namens.';
@@ -380,6 +382,7 @@ updateEmailForm.addEventListener('submit', async e => {
 
         newEmailInput.value = '';
         currentPasswordInput.value = '';
+        if (window.trackEvent) window.trackEvent('profile_update');
     } catch (error) {
         console.error('Fehler beim Ändern der Email:', error);
 
@@ -428,6 +431,7 @@ updatePersonalDataForm.addEventListener('submit', async e => {
 
         personalDataFeedback.textContent = 'Persönliche Daten erfolgreich gespeichert!';
         personalDataFeedback.className = 'mt-2 text-sm text-green-600';
+        if (window.trackEvent) window.trackEvent('profile_update');
     } catch (error) {
         console.error('Fehler beim Speichern der persönlichen Daten:', error);
         personalDataFeedback.textContent = 'Fehler beim Speichern der persönlichen Daten.';
@@ -477,6 +481,7 @@ updatePasswordForm.addEventListener('submit', async e => {
         oldPasswordInput.value = '';
         newPasswordInput.value = '';
         confirmPasswordInput.value = '';
+        if (window.trackEvent) window.trackEvent('profile_update');
     } catch (error) {
         console.error('Fehler beim Ändern des Passworts:', error);
 

@@ -245,6 +245,8 @@ export async function sendFriendRequest(targetUserId) {
         const result = typeof data === 'string' ? JSON.parse(data) : data;
 
         if (result.success) {
+            if (window.trackEvent) window.trackEvent('friend_request_send');
+
             alert(result.message === 'Friend request accepted (mutual)'
                 ? 'Ihr seid jetzt Freunde!'
                 : 'Freundschaftsanfrage gesendet!');

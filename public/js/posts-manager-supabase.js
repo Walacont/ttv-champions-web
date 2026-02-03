@@ -475,6 +475,7 @@ async function handleTextPostSubmit(e) {
         }
 
         showFeedback(postFormFeedback, 'success', 'Beitrag erfolgreich erstellt!');
+        if (window.trackEvent) window.trackEvent('post_create');
 
         // Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
@@ -590,6 +591,7 @@ async function handlePollSubmit(e) {
         }
 
         showFeedback(pollFormFeedback, 'success', 'Umfrage erfolgreich erstellt!');
+        if (window.trackEvent) window.trackEvent('poll_create');
 
         // Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
