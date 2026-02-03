@@ -132,6 +132,7 @@ import {
     loadRecurringTemplates,
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
+import { initCoachTournamentsUI, updateCoachTournamentPlayers, loadCoachTournaments } from './coach-tournaments-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
 import { initVideoAnalysis, loadPendingVideos, loadAllVideos, initExampleVideos, loadExerciseExampleVideos } from './video-analysis-supabase.js';
 
@@ -354,7 +355,7 @@ async function initializeCoachPage(userData) {
     setupLeaderboardTabs(userData);
     setupLeaderboardToggle(userData);
 
-    // Gespeicherte Paarungen laden, wenn Wettkampf-Tab geöffnet wird
+    // Gespeicherte Paarungen und Turniere laden, wenn Wettkampf-Tab geöffnet wird
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
@@ -428,6 +429,10 @@ async function initializeCoachPage(userData) {
 
         // Musterlösungen-Verwaltung initialisieren
         initExampleVideos();
+
+        // Coach-Turniere initialisieren (benötigt clubPlayers)
+        initCoachTournamentsUI(userData, clubPlayers);
+        updateCoachTournamentPlayers(clubPlayers);
     });
 
     // Satz-Eingabe für Einzel und Doppel
@@ -495,6 +500,7 @@ async function initializeCoachPage(userData) {
             populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
             updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
             updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
+            updateCoachTournamentPlayers(clubPlayers);
         });
     });
 
