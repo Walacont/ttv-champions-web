@@ -3156,12 +3156,21 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_a_id=eq.${currentUser.id}`
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Match request update (player_a):', payload.eventType);
             debounce('match-requests-reload', () => {
                 loadMatchRequests();
                 loadPendingRequests();
             });
+            // Wenn Spieler B geantwortet hat, Bottom-Sheet für Spieler A prüfen
+            if (payload.eventType === 'UPDATE' && payload.new &&
+                (payload.new.status === 'pending_player' || payload.new.status === 'pending_player_a')) {
+                console.log('[Realtime] Match request needs player_a confirmation - showing bottom sheet');
+                const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                if (pendingConfirmations && pendingConfirmations.length > 0) {
+                    showMatchConfirmationBottomSheet(pendingConfirmations);
+                }
+            }
         })
         .subscribe((status) => {
             handleSubscriptionStatus('Match request (player_a)', status);
@@ -3371,6 +3380,8 @@ function setupRealtimeSubscriptions() {
         loadMatchRequests();
         loadPendingRequests();
         loadMatchHistory();
+        // Ausstehende Bestätigungen prüfen und Bottom-Sheet anzeigen
+        checkPendingMatchConfirmations(currentUser.id);
     });
 
     // Auch auf Seitensichtbarkeits-Änderung hören (funktioniert auf Web und Native)
@@ -3381,6 +3392,8 @@ function setupRealtimeSubscriptions() {
             loadMatchRequests();
             loadPendingRequests();
             loadMatchHistory();
+            // Ausstehende Bestätigungen prüfen und Bottom-Sheet anzeigen
+            checkPendingMatchConfirmations(currentUser.id);
         }
     });
 }
