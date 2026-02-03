@@ -1399,6 +1399,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         }
 
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        if (window.trackEvent) window.trackEvent('exercise_create');
         e.target.reset();
 
         delete form.dataset.editingId;

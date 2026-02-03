@@ -35,6 +35,7 @@ function calculateSessionDuration(startTime, endTime) {
  * @param {string} subgroupFilter - Untergruppen-ID oder 'all'
  */
 export async function exportAttendanceToExcel(supabase, clubId, date, subgroupFilter = 'all') {
+    if (window.trackEvent) window.trackEvent('attendance_export');
     try {
         const loadingEl = document.getElementById('export-loading');
         if (loadingEl) loadingEl.classList.remove('hidden');

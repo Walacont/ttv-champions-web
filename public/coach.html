@@ -10,6 +10,7 @@
         <script src="/js/capacitor-init.js"></script>
         <script src="/js/avatar-utils.js"></script>
         <script src="/js/i18n-lite.js"></script>
+        <script src="/js/analytics.js"></script>
         <title>Mein Dashboard - SC Champions</title>
 
         <!-- Favicon -->
@@ -5569,5 +5570,6 @@
 
         <!-- Firebase: <script type="module" src="/js/coach.js"></script> -->
         <script type="module" src="/js/coach-supabase.js"></script>
+        <script>if(window.trackView)window.trackView('coach_dashboard');</script>
     </body>
 </html>

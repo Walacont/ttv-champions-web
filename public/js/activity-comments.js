@@ -254,6 +254,8 @@ export async function submitComment() {
 
         if (error) throw error;
 
+        if (window.trackEvent) window.trackEvent('comment_post');
+
         input.value = '';
         document.getElementById('comment-char-count').textContent = '0 / 2000';
 

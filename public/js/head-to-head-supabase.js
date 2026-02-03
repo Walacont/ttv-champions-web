@@ -15,6 +15,7 @@ let currentModal = null;
  * @param {string} opponentId - Gegner-ID
  */
 export async function showHeadToHeadModal(supabase, currentUserId, opponentId) {
+    if (window.trackEvent) window.trackEvent('head_to_head_view');
     closeHeadToHeadModal();
 
     const modal = document.createElement('div');

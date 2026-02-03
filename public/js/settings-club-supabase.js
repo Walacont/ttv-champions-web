@@ -1006,6 +1006,7 @@ async function submitMemberJoinRequest(clubId, clubName) {
 
         clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+        if (window.trackEvent) window.trackEvent('club_join_request');
 
         clubSearchInput.value = '';
         clubSearchResults.innerHTML = '';

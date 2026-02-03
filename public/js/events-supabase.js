@@ -1514,6 +1514,7 @@ async function submitEvent() {
             }
         }
 
+        if (window.trackEvent) window.trackEvent('event_create');
         alert('Veranstaltung erfolgreich erstellt!');
         closeAllModals();
         resetEventData();
@@ -2546,6 +2547,7 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
 
         // Erfolg - Flag zurücksetzen
         isSubmittingAttendance = false;
+        if (window.trackEvent) window.trackEvent('event_rsvp');
 
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);

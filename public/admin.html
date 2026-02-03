@@ -10,6 +10,7 @@
         <script src="/js/capacitor-init.js"></script>
         <script src="/js/avatar-utils.js"></script>
         <script src="/js/i18n-lite.js"></script>
+        <script src="/js/analytics.js"></script>
         <title>Admin Dashboard - SC Champions</title>
 
         <!-- Favicon -->
@@ -1356,5 +1357,6 @@
             translatePage();
             setupAutoTranslate();
         </script>
+        <script>if(window.trackView)window.trackView('admin');</script>
     </body>
 </html>

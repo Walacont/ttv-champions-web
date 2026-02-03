@@ -10,6 +10,7 @@
         <script src="/js/capacitor-init.js"></script>
         <script src="/js/avatar-utils.js"></script>
         <script src="/js/i18n-lite.js"></script>
+        <script src="/js/analytics.js"></script>
 
         <!-- OneSignal SDK for PWA Push Notifications (skip on native - Firebase handles it) -->
         <script>
@@ -2385,5 +2386,6 @@
         <script type="module" src="/js/activity-comments.js"></script>
         <script type="module" src="/js/match-media.js"></script>
         <script type="module" src="/js/tournaments-ui-supabase.js"></script>
+        <script>if(window.trackView)window.trackView('dashboard');</script>
     </body>
 </html>

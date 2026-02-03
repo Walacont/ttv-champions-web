@@ -1899,6 +1899,7 @@ async function toggleLikeFallback(activityId, activityType, shouldLike, key) {
                     activity_type: activityType,
                     user_id: currentUser.id
                 });
+            if (window.trackEvent) window.trackEvent('activity_like');
         } else {
             await supabase
                 .from('activity_likes')
@@ -3878,6 +3879,8 @@ window.votePoll = async function(pollId, optionId, allowMultiple = false) {
                 }
             }
         }
+
+        if (window.trackEvent) window.trackEvent('poll_vote');
 
         // Umfrage-Karte aktualisieren um neue Ergebnisse anzuzeigen
         await refreshPollCard(pollId);

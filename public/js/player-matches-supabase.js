@@ -309,6 +309,8 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
 
         if (error) throw error;
 
+        if (window.trackEvent) window.trackEvent('match_request_submit');
+
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');
 
         clearOpponentSelection(currentUserData);
