@@ -27,6 +27,12 @@ const config: CapacitorConfig = {
             resize: 'body',
             resizeOnFullScreen: true
         },
+        CapacitorHttp: {
+            enabled: false
+        },
+        CapacitorCookies: {
+            enabled: false
+        },
     },
     android: {
         allowMixedContent: false,
