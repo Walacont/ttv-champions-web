@@ -120,13 +120,13 @@
                             id="lang-dropdown"
                             class="hidden absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50 overflow-hidden"
                         >
-                            <button data-lang="de" onclick="if(window.__switchLang){window.__switchLang('de')}else{localStorage.setItem('app_language','de');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="de" onclick="localStorage.setItem('app_language','de');location.reload()" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇩🇪</span> Deutsch
                             </button>
-                            <button data-lang="en" onclick="if(window.__switchLang){window.__switchLang('en')}else{localStorage.setItem('app_language','en');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="en" onclick="localStorage.setItem('app_language','en');location.reload()" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇬🇧</span> English
                             </button>
-                            <button data-lang="zh" onclick="if(window.__switchLang){window.__switchLang('zh')}else{localStorage.setItem('app_language','zh');location.reload()}" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
+                            <button data-lang="zh" onclick="localStorage.setItem('app_language','zh');location.reload()" class="lang-option w-full flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors text-sm font-medium text-gray-700">
                                 <span class="text-lg leading-none">🇨🇳</span> 中文
                             </button>
                         </div>
@@ -673,33 +673,14 @@
 
                 // Globale Funktion für Sprachwechsel (wird von Buttons aufgerufen)
                 window.__switchLang = async function(lang) {
+                    // Save language and reload - most reliable approach
+                    localStorage.setItem('app_language', lang);
                     try {
-                        // Versuche i18n-Modul zu nutzen falls geladen
-                        if (window.__i18nChangeLanguage) {
-                            await window.__i18nChangeLanguage(lang);
-                            if (window.__i18nTranslatePage) window.__i18nTranslatePage();
-                        } else {
-                            // Fallback: Sprache in localStorage speichern und Seite neu laden
-                            localStorage.setItem('app_language', lang);
-                            try {
-                                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
-                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
-                                }
-                            } catch(e) { /* ignore */ }
-                            window.location.reload();
-                            return;
+                        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
+                            await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
                         }
-                    } catch(err) {
-                        console.error('[LangSwitcher] Error:', err);
-                        // Fallback: speichern und neu laden
-                        localStorage.setItem('app_language', lang);
-                        window.location.reload();
-                        return;
-                    }
-                    document.documentElement.lang = lang;
-                    updateLangSwitcher(lang);
-                    if (dropdown) dropdown.classList.add('hidden');
-                    if (chevron) chevron.style.transform = '';
+                    } catch(e) { /* ignore */ }
+                    window.location.reload();
                 };
 
                 // Initiale Sprache setzen (aus localStorage)

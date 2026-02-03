@@ -385,98 +385,84 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <!-- Safety timeout: show content even if CDN modules fail to load -->
+        <!-- Primary handlers: show content and attach click handlers immediately (no module dependency) -->
         <script>
             window.__settingsInitDone = false;
-            setTimeout(function() {
-                if (!window.__settingsInitDone) {
-                    console.warn('[Settings] Module init timed out, force-showing content');
-                    var loader = document.getElementById('page-loader');
-                    var content = document.getElementById('main-content');
-                    if (loader) loader.style.display = 'none';
-                    if (content) content.style.display = 'block';
-                    if (window.hideSplash) window.hideSplash();
-                }
-            }, 8000);
-        </script>
-        <!-- Fallback handlers: attach critical click handlers without module dependencies.
-             If the module script below loads successfully, it overrides these with richer versions. -->
-        <script>
-            window.__settingsHandlersAttached = false;
-            document.addEventListener('DOMContentLoaded', function() {
-                // Only attach fallbacks if the module hasn't done it yet
-                // Give module a short head start
-                setTimeout(function() {
-                    if (window.__settingsHandlersAttached) return;
 
-                    // Language card → open language modal
-                    var langCard = document.getElementById('language-card');
-                    var langModal = document.getElementById('language-modal');
-                    var closeLangBtn = document.getElementById('close-language-modal');
-                    if (langCard && langModal) {
-                        langCard.addEventListener('click', function() {
-                            if (window.__settingsHandlersAttached) return; // module took over
-                            langModal.classList.remove('hidden');
-                            // Highlight current language
-                            var currentLang = localStorage.getItem('app_language') || 'de';
-                            document.querySelectorAll('.language-option').forEach(function(opt) {
-                                var lang = opt.getAttribute('data-lang');
-                                var check = opt.querySelector('.check-icon');
-                                if (lang === currentLang) {
-                                    opt.classList.add('border-indigo-600', 'bg-indigo-50');
-                                    if (check) check.classList.remove('hidden');
-                                } else {
-                                    opt.classList.remove('border-indigo-600', 'bg-indigo-50');
-                                    if (check) check.classList.add('hidden');
-                                }
-                            });
-                        });
-                    }
-                    if (closeLangBtn && langModal) {
-                        closeLangBtn.addEventListener('click', function() {
-                            langModal.classList.add('hidden');
-                        });
-                        langModal.addEventListener('click', function(e) {
-                            if (e.target === langModal) langModal.classList.add('hidden');
-                        });
-                    }
-                    // Language option buttons
-                    document.querySelectorAll('.language-option').forEach(function(opt) {
-                        opt.addEventListener('click', function() {
-                            if (window.__settingsHandlersAttached) return;
+            // Show content immediately on DOMContentLoaded - don't wait for module
+            document.addEventListener('DOMContentLoaded', function() {
+                // Show content right away
+                var loader = document.getElementById('page-loader');
+                var content = document.getElementById('main-content');
+                if (loader) loader.style.display = 'none';
+                if (content) content.style.display = 'block';
+                window.__settingsInitDone = true;
+                if (window.hideSplash) window.hideSplash();
+
+                // Language card → open language modal
+                var langCard = document.getElementById('language-card');
+                var langModal = document.getElementById('language-modal');
+                var closeLangBtn = document.getElementById('close-language-modal');
+                if (langCard && langModal) {
+                    langCard.addEventListener('click', function() {
+                        langModal.classList.remove('hidden');
+                        // Highlight current language
+                        var currentLang = localStorage.getItem('app_language') || 'de';
+                        document.querySelectorAll('.language-option').forEach(function(opt) {
                             var lang = opt.getAttribute('data-lang');
-                            localStorage.setItem('app_language', lang);
-                            try {
-                                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
-                                    window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
-                                }
-                            } catch(e) {}
-                            window.location.reload();
+                            var check = opt.querySelector('.check-icon');
+                            if (lang === currentLang) {
+                                opt.classList.add('border-indigo-600', 'bg-indigo-50');
+                                if (check) check.classList.remove('hidden');
+                            } else {
+                                opt.classList.remove('border-indigo-600', 'bg-indigo-50');
+                                if (check) check.classList.add('hidden');
+                            }
                         });
                     });
+                }
+                if (closeLangBtn && langModal) {
+                    closeLangBtn.addEventListener('click', function() {
+                        langModal.classList.add('hidden');
+                    });
+                    langModal.addEventListener('click', function(e) {
+                        if (e.target === langModal) langModal.classList.add('hidden');
+                    });
+                }
+                // Language option buttons - always save + reload
+                document.querySelectorAll('.language-option').forEach(function(opt) {
+                    opt.addEventListener('click', function() {
+                        var lang = opt.getAttribute('data-lang');
+                        localStorage.setItem('app_language', lang);
+                        try {
+                            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences) {
+                                window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: lang });
+                            }
+                        } catch(e) {}
+                        window.location.reload();
+                    });
+                });
 
-                    // Logout button
-                    var logoutBtn = document.getElementById('logout-button');
-                    if (logoutBtn) {
-                        logoutBtn.addEventListener('click', function() {
-                            if (window.__settingsHandlersAttached) return;
-                            // Dynamic import for logout - works even if top-level import failed
-                            import('/js/supabase-init.js').then(function(mod) {
-                                var supabase = mod.getSupabase();
-                                supabase.auth.signOut().then(function() {
-                                    window.location.href = '/index.html';
-                                }).catch(function(err) {
-                                    console.error('Logout error:', err);
-                                    alert('Fehler beim Abmelden: ' + err.message);
-                                });
-                            }).catch(function() {
-                                // Ultimate fallback: clear local storage and redirect
+                // Logout button
+                var logoutBtn = document.getElementById('logout-button');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', function() {
+                        // Dynamic import for logout
+                        import('/js/supabase-init.js').then(function(mod) {
+                            var supabase = mod.getSupabase();
+                            supabase.auth.signOut().then(function() {
+                                window.location.href = '/index.html';
+                            }).catch(function(err) {
+                                console.error('Logout error:', err);
                                 localStorage.clear();
                                 window.location.href = '/index.html';
                             });
+                        }).catch(function() {
+                            localStorage.clear();
+                            window.location.href = '/index.html';
                         });
-                    }
-                }, 3000); // Wait 3s - if module loaded, it sets __settingsHandlersAttached=true
+                    });
+                }
             });
         </script>
         <script type="module">
@@ -694,30 +680,34 @@
                 }
             }
 
-            // Initialize immediately or on DOMContentLoaded
+            // Module init: enhances the page with i18n translations and Supabase data
+            // Content display and click handlers are already set up by the non-module script above
             async function init() {
                 try {
+                console.log('[Settings Module] init started');
+
                 // If viewing child settings, verify access first
                 if (childId) {
                     const hasAccess = await verifyGuardianAccess();
                     if (!hasAccess) return;
                 }
 
-                // Initialize i18n (non-blocking with timeout)
+                // Ensure content is visible (might already be from non-module script)
+                document.getElementById('page-loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                window.__settingsInitDone = true;
+                if (window.hideSplash) window.hideSplash();
+
+                // Initialize i18n for translations (enhancement - page works without this)
                 try {
                     await initI18n();
                     setupAutoTranslate();
                     translatePage();
                     document.documentElement.lang = getCurrentLanguage();
+                    console.log('[Settings Module] i18n initialized');
                 } catch (i18nError) {
                     console.warn('[Settings] i18n init failed, continuing without translations:', i18nError);
                 }
-
-                // Show content as soon as possible, then load additional data
-                document.getElementById('page-loader').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
-                window.__settingsInitDone = true;
-                if (window.hideSplash) window.hideSplash();
 
                 // Benachrichtigungen-Card nur in PWA/native anzeigen
                 const notificationsCard = document.getElementById('notifications-card');
@@ -752,82 +742,6 @@
                 // Setup child mode UI if viewing child's settings
                 setupChildModeUI();
 
-                // Language selection modal
-                const languageCard = document.getElementById('language-card');
-                const languageModal = document.getElementById('language-modal');
-                const closeModalBtn = document.getElementById('close-language-modal');
-                const languageOptions = document.querySelectorAll('.language-option');
-
-                // Update active language indicator
-                function updateActiveLanguage() {
-                    const currentLang = getCurrentLanguage();
-                    languageOptions.forEach(option => {
-                        const lang = option.getAttribute('data-lang');
-                        const checkIcon = option.querySelector('.check-icon');
-                        if (lang === currentLang) {
-                            option.classList.add('border-indigo-600', 'bg-indigo-50');
-                            checkIcon.classList.remove('hidden');
-                        } else {
-                            option.classList.remove('border-indigo-600', 'bg-indigo-50');
-                            checkIcon.classList.add('hidden');
-                        }
-                    });
-                }
-
-                // Mark that module handlers are active (disables fallback handlers)
-                window.__settingsHandlersAttached = true;
-
-                // Show modal
-                languageCard.addEventListener('click', () => {
-                    languageModal.classList.remove('hidden');
-                    updateActiveLanguage();
-                });
-
-                // Close modal
-                closeModalBtn.addEventListener('click', () => {
-                    languageModal.classList.add('hidden');
-                });
-
-                // Close modal on backdrop click
-                languageModal.addEventListener('click', (e) => {
-                    if (e.target === languageModal) {
-                        languageModal.classList.add('hidden');
-                    }
-                });
-
-                // Language selection
-                languageOptions.forEach(option => {
-                    option.addEventListener('click', async () => {
-                        const selectedLang = option.getAttribute('data-lang');
-                        try {
-                            await changeLanguage(selectedLang);
-                            updateActiveLanguage();
-
-                            // Show success feedback
-                            const feedback = document.createElement('div');
-                            feedback.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-                            feedback.innerHTML = '<i class="fas fa-check mr-2"></i><span data-i18n="settings.language.changed">Sprache wurde geändert</span>';
-                            document.body.appendChild(feedback);
-                            translatePage(); // Re-translate the feedback message
-
-                            setTimeout(() => {
-                                feedback.remove();
-                                languageModal.classList.add('hidden');
-                            }, 2000);
-                        } catch (langError) {
-                            console.warn('[Settings] changeLanguage failed, using fallback:', langError);
-                            // Fallback: save to localStorage and reload
-                            localStorage.setItem('app_language', selectedLang);
-                            try {
-                                if (window.Capacitor?.Plugins?.Preferences) {
-                                    await window.Capacitor.Plugins.Preferences.set({ key: 'app_language', value: selectedLang });
-                                }
-                            } catch(e) {}
-                            window.location.reload();
-                        }
-                    });
-                });
-
                 // Cache reset functionality
                 document.getElementById('cache-reset-card').addEventListener('click', async () => {
                     if (confirm('Cache und lokale Daten zurücksetzen? Die App wird danach neu geladen.')) {
@@ -860,18 +774,8 @@
                     }
                 });
 
-                // Logout functionality
-                document.getElementById('logout-button').addEventListener('click', async () => {
-                    const supabase = getSupabase();
-                    const { error } = await supabase.auth.signOut();
-
-                    if (error) {
-                        console.error('Logout error:', error);
-                        alert('Fehler beim Abmelden: ' + error.message);
-                    } else {
-                        window.location.href = '/index.html';
-                    }
-                });
+                // Logout is handled by the non-module script above
+                console.log('[Settings Module] init completed');
             } catch (err) {
                 console.error('[Settings] Init error:', err);
                 // Ensure content is visible even on error

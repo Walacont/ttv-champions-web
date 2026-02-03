@@ -6,6 +6,20 @@
     window.serviceWorkerReady = false;
 
     if ('serviceWorker' in navigator) {
+        // On Capacitor native apps, unregister any existing service workers
+        // The native WebView serves files from the APK - SW caching causes stale files
+        var isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+        if (isNative) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                registrations.forEach(function(reg) {
+                    reg.unregister();
+                    console.log('[PWA] Unregistered service worker on native app');
+                });
+            });
+            // Don't register SW on native
+            return;
+        }
+
         window.addEventListener('load', async () => {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js', {
