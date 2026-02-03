@@ -2415,7 +2415,7 @@ async function loadMatchRequests() {
         // Ausstehende EINZEL-Anfragen abrufen wo Benutzer beteiligt
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals')
+            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals, player_a_sets_won, player_b_sets_won, winner_id, handicap_used, match_mode')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
@@ -3884,7 +3884,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // Angenommen - Match-Anfrage-Details abrufen
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, approvals, sets, created_at')
+            .select('id, player_a_id, player_b_id, status, approvals, sets, created_at, winner_id, loser_id, sport_id, handicap_used, handicap, match_mode, club_id, player_a_sets_won, player_b_sets_won')
             .eq('id', requestId)
             .single();
 
@@ -4172,7 +4172,7 @@ async function loadPendingRequests() {
         // Einzel-Anfragen laden
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals')
+            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals, player_a_sets_won, player_b_sets_won, winner_id, handicap_used, match_mode')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false });
