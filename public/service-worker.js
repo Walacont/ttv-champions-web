@@ -30,12 +30,6 @@ const STATIC_ASSETS = [
 ];
 
 const NETWORK_ONLY = [
-    'firestore.googleapis.com',
-    'firebase.googleapis.com',
-    'identitytoolkit.googleapis.com',
-    'securetoken.googleapis.com',
-    'cloudfunctions.net',
-    'googleapis.com/storage',
     'google-analytics.com',
     'googletagmanager.com',
     // Supabase muss Cache umgehen wegen Echtzeit-Daten

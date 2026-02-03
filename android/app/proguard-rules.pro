@@ -19,12 +19,9 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Keep our custom Application class (uses reflection for Firebase)
--keep class de.scchampions.app.MainApplication { *; }
-
-# Firebase (if present) - keep for reflection-based init
--keep class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
+# OneSignal
+-keep class com.onesignal.** { *; }
+-dontwarn com.onesignal.**
 
 # AndroidX
 -keep class androidx.core.splashscreen.** { *; }
