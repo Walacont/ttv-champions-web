@@ -133,35 +133,51 @@
 
     const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
 
+    /** Findet den OneSignal Plugin-Zugriff */
+    function findOneSignalPlugin() {
+        // Try all known locations where the Cordova plugin may be registered
+        if (window.plugins?.OneSignal) return window.plugins.OneSignal;
+        if (window.OneSignalPlugin) return window.OneSignalPlugin;
+        if (window.cordova?.plugins?.OneSignal) return window.cordova.plugins.OneSignal;
+        // OneSignal Cordova SDK v5 registers as window.OneSignalCordova
+        if (window.OneSignalCordova) return window.OneSignalCordova;
+        // Some versions register on window directly
+        if (window.OneSignal && window.OneSignal.initialize) return window.OneSignal;
+        return null;
+    }
+
     /** Initialisiert OneSignal Push-Benachrichtigungen für native Apps */
     async function initializeOneSignalPush() {
         console.log('[Push] Initializing OneSignal push notifications...');
+        console.log('[Push] Available: window.plugins=', typeof window.plugins,
+            'window.OneSignal=', typeof window.OneSignal,
+            'window.cordova=', typeof window.cordova,
+            'window.OneSignalPlugin=', typeof window.OneSignalPlugin);
 
         try {
-            // OneSignal Cordova Plugin is available via window.plugins.OneSignal
-            // after cap sync installs it
-            var OneSignal = window.plugins?.OneSignal || window.OneSignalPlugin;
-            if (!OneSignal) {
-                // Try Cordova plugin access
-                if (window.cordova?.plugins?.OneSignal) {
-                    OneSignal = window.cordova.plugins.OneSignal;
-                }
-            }
+            var OneSignal = findOneSignalPlugin();
 
             if (!OneSignal) {
-                console.warn('[Push] OneSignal plugin not available, retrying...');
-                // Retry after a short delay - plugin may not be loaded yet
+                console.warn('[Push] OneSignal plugin not available, retrying in 2s...');
                 await new Promise(r => setTimeout(r, 2000));
-                OneSignal = window.plugins?.OneSignal || window.OneSignalPlugin || window.cordova?.plugins?.OneSignal;
+                OneSignal = findOneSignalPlugin();
             }
 
             if (!OneSignal) {
-                console.error('[Push] OneSignal plugin not found. Make sure onesignal-cordova-plugin is installed.');
+                console.warn('[Push] Still not available, retrying in 3s...');
+                await new Promise(r => setTimeout(r, 3000));
+                OneSignal = findOneSignalPlugin();
+            }
+
+            if (!OneSignal) {
+                console.error('[Push] OneSignal plugin not found after retries.');
+                console.error('[Push] window.plugins keys:', window.plugins ? Object.keys(window.plugins) : 'none');
+                console.error('[Push] window.cordova?.plugins keys:', window.cordova?.plugins ? Object.keys(window.cordova.plugins) : 'none');
                 window._pushNotificationsUnavailable = true;
                 return;
             }
 
-            console.log('[Push] OneSignal plugin found, initializing...');
+            console.log('[Push] OneSignal plugin found, initializing with App ID:', ONESIGNAL_APP_ID);
 
             // Initialize OneSignal
             OneSignal.initialize(ONESIGNAL_APP_ID);
@@ -245,7 +261,7 @@
                 return await requestWebPushPermission();
             }
 
-            var OneSignal = window._oneSignalNative;
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
             if (!OneSignal) {
                 console.error('[Push] OneSignal not initialized');
                 return false;
@@ -274,7 +290,7 @@
                 return 'Notification' in window && Notification.permission === 'granted';
             }
 
-            var OneSignal = window._oneSignalNative;
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
             if (!OneSignal) return false;
 
             try {
@@ -286,7 +302,7 @@
 
         /** Login bei OneSignal mit User-ID (für Targeting) */
         async loginOneSignal(userId) {
-            var OneSignal = window._oneSignalNative;
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
             if (!OneSignal || !userId) return;
 
             try {
@@ -299,7 +315,7 @@
 
         /** Logout bei OneSignal */
         async logoutOneSignal() {
-            var OneSignal = window._oneSignalNative;
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
             if (!OneSignal) return;
 
             try {
