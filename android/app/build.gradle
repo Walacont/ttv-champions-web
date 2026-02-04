@@ -53,3 +53,9 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// google-services plugin needed by OneSignal (uses FCM as transport layer)
+// Requires google-services.json in this directory
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
