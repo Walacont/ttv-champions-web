@@ -3032,8 +3032,8 @@ let pollingInterval = null;
  * Handle realtime subscription status changes
  * Auto-reconnect on CHANNEL_ERROR, fall back to polling after repeated failures
  */
-function handleSubscriptionStatus(channelName, status) {
-    console.log(`[Realtime] ${channelName} subscription status:`, status);
+function handleSubscriptionStatus(channelName, status, err) {
+    console.log(`[Realtime] ${channelName} subscription status:`, status, err ? `error: ${JSON.stringify(err)}` : '');
 
     if (status === 'SUBSCRIBED') {
         // Erfolgreiche Verbindung - Fehlerzähler zurücksetzen
@@ -3043,7 +3043,7 @@ function handleSubscriptionStatus(channelName, status) {
 
     if (status === 'CHANNEL_ERROR' && !isReconnecting) {
         realtimeFailCount++;
-        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR (attempt ${realtimeFailCount})`);
+        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR (attempt ${realtimeFailCount})`, err);
 
         if (realtimeFailCount <= 3) {
             scheduleReconnect();
@@ -3154,6 +3154,16 @@ let visibilityHandlerInitialized = false;
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
 
+    // Auth-Session prüfen bevor Subscriptions eingerichtet werden
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+            console.error('[Realtime] No auth session available - subscriptions will fail');
+            startPollingFallback();
+            return;
+        }
+        console.log('[Realtime] Auth session verified, token expires:', new Date(session.expires_at * 1000).toISOString());
+    });
+
     // Sichtbarkeits-Änderungs-Handler einrichten (nur einmal)
     if (!visibilityHandlerInitialized) {
         setupVisibilityChangeHandler();
@@ -3181,8 +3191,8 @@ function setupRealtimeSubscriptions() {
             updateStatsDisplay();
             updateRankDisplay();
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Profile', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Profile', status, err);
         });
 
     realtimeSubscriptions.push(profileSub);
@@ -3211,8 +3221,8 @@ function setupRealtimeSubscriptions() {
                 }
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request (player_a)', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request (player_a)', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestSubA);
@@ -3244,8 +3254,8 @@ function setupRealtimeSubscriptions() {
                 }
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request (player_b)', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request (player_b)', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestSubB);
@@ -3265,8 +3275,8 @@ function setupRealtimeSubscriptions() {
                 loadPendingRequests();
             });
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request DELETE', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request DELETE', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestDeleteSub);
@@ -3300,8 +3310,8 @@ function setupRealtimeSubscriptions() {
                 }
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles match requests', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles match requests', status, err);
         });
 
     realtimeSubscriptions.push(doublesRequestSub);
@@ -3320,8 +3330,8 @@ function setupRealtimeSubscriptions() {
                 loadPendingRequests();
             });
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles match request DELETE', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles match request DELETE', status, err);
         });
 
     realtimeSubscriptions.push(doublesRequestDeleteSub);
@@ -3352,8 +3362,8 @@ function setupRealtimeSubscriptions() {
                 });
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Matches', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Matches', status, err);
         });
 
     realtimeSubscriptions.push(matchesSub);
@@ -3380,8 +3390,8 @@ function setupRealtimeSubscriptions() {
                 });
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles matches', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles matches', status, err);
         });
 
     realtimeSubscriptions.push(doublesMatchesSub);
@@ -3403,8 +3413,8 @@ function setupRealtimeSubscriptions() {
                 }, 2000);
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Leaderboard', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Leaderboard', status, err);
         });
 
     realtimeSubscriptions.push(leaderboardSub);
