@@ -3041,9 +3041,9 @@ function handleSubscriptionStatus(channelName, status, err) {
         stopPollingFallback();
     }
 
-    if (status === 'CHANNEL_ERROR' && !isReconnecting) {
+    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !isReconnecting) {
         realtimeFailCount++;
-        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR (attempt ${realtimeFailCount})`, err);
+        console.warn(`[Realtime] ${channelName} got ${status} (attempt ${realtimeFailCount})`, err);
 
         if (realtimeFailCount <= 3) {
             scheduleReconnect();
@@ -3100,15 +3100,28 @@ async function reconnectRealtime() {
     console.log('[Realtime] Reconnecting...');
 
     try {
-        // Alle bestehenden Subscriptions abmelden
-        for (const sub of realtimeSubscriptions) {
-            try {
-                await supabase.removeChannel(sub);
-            } catch (e) {
-                console.warn('[Realtime] Error removing channel:', e);
+        // Auth-Token erneuern bevor Subscriptions neu eingerichtet werden
+        try {
+            const { data, error } = await supabase.auth.refreshSession();
+            if (error) {
+                console.warn('[Realtime] Token refresh failed:', error.message);
+            } else if (data.session) {
+                console.log('[Realtime] Token refreshed, expires:', new Date(data.session.expires_at * 1000).toISOString());
             }
+        } catch (e) {
+            console.warn('[Realtime] Token refresh error:', e);
+        }
+
+        // Alle bestehenden Channels entfernen
+        try {
+            await supabase.removeAllChannels();
+        } catch (e) {
+            console.warn('[Realtime] Error removing channels:', e);
         }
         realtimeSubscriptions = [];
+
+        // Fehlerzähler zurücksetzen für neuen Versuch
+        realtimeFailCount = 0;
 
         // Kurz warten vor Wiederverbindung
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -3129,15 +3142,27 @@ async function reconnectRealtime() {
 function setupVisibilityChangeHandler() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && currentUser) {
-            console.log('[Realtime] App became visible, checking connections...');
-            // Prüfen ob Subscriptions im Fehlerzustand sind
-            const hasError = realtimeSubscriptions.some(sub =>
-                sub.state === 'errored' || sub.state === 'closed'
-            );
-            if (hasError || realtimeSubscriptions.length === 0) {
-                console.log('[Realtime] Detected disconnected state, reconnecting...');
-                reconnectRealtime();
-            }
+            console.log('[Realtime] App became visible, refreshing data and reconnecting');
+            // Daten sofort aktualisieren
+            loadMatchRequests();
+            loadPendingRequests();
+            loadMatchHistory();
+            checkPendingMatchConfirmations(currentUser.id);
+            // Android WebView schließt WebSocket-Verbindungen im Hintergrund,
+            // daher immer neu verbinden wenn App sichtbar wird
+            reconnectRealtime();
+        }
+    });
+
+    // App-resumed Event (Capacitor native)
+    window.addEventListener('app-resumed', () => {
+        if (currentUser) {
+            console.log('[Realtime] App resumed event, refreshing data and reconnecting');
+            loadMatchRequests();
+            loadPendingRequests();
+            loadMatchHistory();
+            checkPendingMatchConfirmations(currentUser.id);
+            reconnectRealtime();
         }
     });
 
@@ -3420,31 +3445,6 @@ function setupRealtimeSubscriptions() {
     realtimeSubscriptions.push(leaderboardSub);
 
     console.log('[Realtime] All subscriptions set up');
-
-    // Auf App-Resume-Events hören (Android/iOS native Apps)
-    // WebSocket connections may be suspended when app is backgrounded
-    window.addEventListener('app-resumed', () => {
-        console.log('[Realtime] App resumed - refreshing match data');
-        // Alle Match-bezogenen Daten aktualisieren wenn App in Vordergrund kommt
-        loadMatchRequests();
-        loadPendingRequests();
-        loadMatchHistory();
-        // Ausstehende Bestätigungen prüfen und Bottom-Sheet anzeigen
-        checkPendingMatchConfirmations(currentUser.id);
-    });
-
-    // Auch auf Seitensichtbarkeits-Änderung hören (funktioniert auf Web und Native)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            console.log('[Realtime] Page became visible - refreshing match data');
-            // Alle Match-bezogenen Daten aktualisieren wenn Seite sichtbar wird
-            loadMatchRequests();
-            loadPendingRequests();
-            loadMatchHistory();
-            // Ausstehende Bestätigungen prüfen und Bottom-Sheet anzeigen
-            checkPendingMatchConfirmations(currentUser.id);
-        }
-    });
 }
 
 // --- Show notification for new incoming match request ---
