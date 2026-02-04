@@ -4151,6 +4151,8 @@ async function createMatchFromRequest(request) {
             winner_id: request.winner_id,
             loser_id: request.loser_id,
             sets: request.sets,
+            player_a_sets_won: request.player_a_sets_won || 0,
+            player_b_sets_won: request.player_b_sets_won || 0,
             handicap_used: request.handicap_used || false,
             handicap: request.handicap || null,
             match_mode: request.match_mode || 'best-of-5',
