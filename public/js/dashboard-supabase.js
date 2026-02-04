@@ -40,6 +40,7 @@ import {
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
 import { initPlayerVideoUpload, setCurrentExerciseId } from './video-analysis-player-supabase.js';
+import { createNotification as createNotificationWithPush } from './notifications-supabase.js';
 
 suppressConsoleLogs();
 
@@ -119,29 +120,10 @@ async function loadFollowingIds() {
 }
 
 /**
- * Helper function to create a notification for a user
+ * Helper function to create a notification for a user (with push via Edge Function)
  */
 async function createNotification(userId, type, title, message, data = {}) {
-    try {
-        const { error } = await supabase
-            .from('notifications')
-            .insert({
-                user_id: userId,
-                type: type,
-                title: title,
-                message: message,
-                data: data,
-                is_read: false
-            });
-
-        if (error) {
-            console.error('[Dashboard] Error creating notification:', error);
-        } else {
-            console.log(`[Dashboard] Notification sent to ${userId}: ${type}`);
-        }
-    } catch (error) {
-        console.error('[Dashboard] Error creating notification:', error);
-    }
+    await createNotificationWithPush(userId, type, title, message, data);
 }
 
 /**

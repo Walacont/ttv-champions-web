@@ -6,6 +6,7 @@ import { getSupabase } from './supabase-init.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { escapeHtml } from './utils/security.js';
+import { createNotification } from './notifications-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -64,29 +65,7 @@ async function loadTestClubIds() {
     return testClubIdsCache;
 }
 
-/**
- * Benachrichtigung für einen Benutzer erstellen
- */
-async function createNotification(userId, type, title, message, data = {}) {
-    try {
-        const { error } = await supabase
-            .from('notifications')
-            .insert({
-                user_id: userId,
-                type: type,
-                title: title,
-                message: message,
-                data: data,
-                is_read: false
-            });
-
-        if (error) {
-            console.error('[MatchForm] Error creating notification:', error);
-        }
-    } catch (error) {
-        console.error('[MatchForm] Error creating notification:', error);
-    }
-}
+// createNotification is imported from notifications-supabase.js (sends push via Edge Function)
 
 /**
  * Match-Request-Formular einrichten
