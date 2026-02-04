@@ -3025,16 +3025,55 @@ function updateModalCountdown() {
 
 // --- Realtime Subscriptions ---
 
+let realtimeFailCount = 0;
+let pollingInterval = null;
+
 /**
  * Handle realtime subscription status changes
- * Auto-reconnect on CHANNEL_ERROR
+ * Auto-reconnect on CHANNEL_ERROR, fall back to polling after repeated failures
  */
 function handleSubscriptionStatus(channelName, status) {
     console.log(`[Realtime] ${channelName} subscription status:`, status);
 
+    if (status === 'SUBSCRIBED') {
+        // Erfolgreiche Verbindung - Fehlerzähler zurücksetzen
+        realtimeFailCount = 0;
+        stopPollingFallback();
+    }
+
     if (status === 'CHANNEL_ERROR' && !isReconnecting) {
-        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR, scheduling reconnect...`);
-        scheduleReconnect();
+        realtimeFailCount++;
+        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR (attempt ${realtimeFailCount})`);
+
+        if (realtimeFailCount <= 3) {
+            scheduleReconnect();
+        } else if (!pollingInterval) {
+            console.warn('[Realtime] Too many failures, switching to polling fallback');
+            startPollingFallback();
+        }
+    }
+}
+
+/**
+ * Polling fallback: periodically reload match data when realtime is unavailable
+ */
+function startPollingFallback() {
+    if (pollingInterval) return;
+    console.log('[Realtime] Starting polling fallback (every 15s)');
+    pollingInterval = setInterval(() => {
+        if (document.visibilityState === 'visible' && currentUser) {
+            loadMatchRequests();
+            loadPendingRequests();
+            checkPendingMatchConfirmations(currentUser.id);
+        }
+    }, 15000);
+}
+
+function stopPollingFallback() {
+    if (pollingInterval) {
+        console.log('[Realtime] Stopping polling fallback (realtime working)');
+        clearInterval(pollingInterval);
+        pollingInterval = null;
     }
 }
 
