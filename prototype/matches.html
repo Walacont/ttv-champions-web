@@ -2,8 +2,20 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TTV Champions - Spiel eintragen</title>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3B82F6">
+    <meta name="description" content="Gamification-App für Tischtennisvereine">
+
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TTV Champions">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -90,6 +102,18 @@
     </main>
 
     <nav id="app-nav"></nav>
+
+    <!-- Ladebalken für SPA-Navigation -->
+    <div id="page-loader" class="fixed top-0 left-0 w-full h-1 bg-blue-100 hidden z-50">
+        <div class="h-full bg-blue-600 transition-all duration-300" style="width: 0%"></div>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/prototype/sw.js').catch(() => {});
+        }
+    </script>
 
     <script type="module">
         import { initAuth, getCurrentProfile, supabase } from './js/supabase-client.js';

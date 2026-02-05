@@ -1,6 +1,11 @@
 /**
  * Haupt-App-Modul für TTV Champions Prototyp
- * Initialisierung, Navigation und globale Funktionen
+ * PWA mit Hybrid-SPA-Ansatz
+ *
+ * Features:
+ * - Service Worker für Caching
+ * - SPA-artiges Routing (Links werden abgefangen, Inhalt per AJAX nachgeladen)
+ * - Ladebalken für flüssige Übergänge
  */
 
 import { supabase, initAuth, getCurrentProfile, isLoggedIn, isCoach, logout } from './supabase-client.js';
@@ -16,13 +21,202 @@ import {
 } from './leaderboards.js';
 
 // ============================================
-// APP INITIALISIERUNG
+// APP STATE
 // ============================================
 
 let app = {
     profile: null,
-    isInitialized: false
+    isInitialized: false,
+    currentPage: null,
+    isNavigating: false
 };
+
+// ============================================
+// SPA ROUTER (Hybrid-Ansatz)
+// ============================================
+
+/**
+ * Initialisiert den SPA-Router
+ * Fängt Link-Clicks ab und lädt Inhalte per AJAX nach
+ */
+function initSpaRouter() {
+    // Alle internen Links abfangen
+    document.addEventListener('click', handleLinkClick);
+
+    // Browser-Navigation (Zurück/Vor) behandeln
+    window.addEventListener('popstate', handlePopState);
+
+    console.log('[SPA] Router initialized');
+}
+
+/**
+ * Behandelt Klicks auf Links
+ */
+function handleLinkClick(event) {
+    const link = event.target.closest('a');
+
+    if (!link) return;
+
+    const href = link.getAttribute('href');
+
+    // Nur interne HTML-Links behandeln
+    if (!href ||
+        href.startsWith('http') ||
+        href.startsWith('#') ||
+        href.startsWith('mailto:') ||
+        !href.endsWith('.html')) {
+        return;
+    }
+
+    // Login-Seite normal laden (hat eigene Scripts)
+    if (href.includes('login.html')) {
+        return;
+    }
+
+    event.preventDefault();
+    navigateTo(href);
+}
+
+/**
+ * Behandelt Browser-Navigation (Zurück/Vor-Buttons)
+ */
+function handlePopState(event) {
+    if (event.state?.page) {
+        navigateTo(event.state.page, false);
+    }
+}
+
+/**
+ * Navigiert zu einer neuen Seite (SPA-artig)
+ *
+ * @param {string} url - Ziel-URL
+ * @param {boolean} pushState - History-Eintrag erstellen?
+ */
+async function navigateTo(url, pushState = true) {
+    if (app.isNavigating) return;
+    app.isNavigating = true;
+
+    // Ladebalken anzeigen
+    showPageLoader();
+
+    try {
+        // Seite per fetch laden
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Seite nicht gefunden');
+
+        const html = await response.text();
+
+        // Nur den main-Inhalt extrahieren
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newMain = doc.querySelector('#app-main');
+        const newTitle = doc.querySelector('title')?.textContent;
+
+        if (newMain) {
+            // Inhalt ersetzen
+            const currentMain = document.getElementById('app-main');
+            currentMain.innerHTML = newMain.innerHTML;
+
+            // Titel aktualisieren
+            if (newTitle) {
+                document.title = newTitle;
+            }
+
+            // History aktualisieren
+            if (pushState) {
+                history.pushState({ page: url }, newTitle || '', url);
+            }
+
+            // Aktiven Nav-Item aktualisieren
+            updateActiveNavItem(url);
+
+            // Seiten-spezifische Initialisierung
+            app.currentPage = url;
+            await initPageContent(url);
+        }
+    } catch (error) {
+        console.error('[SPA] Navigation failed:', error);
+        // Fallback: Normale Navigation
+        window.location.href = url;
+    } finally {
+        hidePageLoader();
+        app.isNavigating = false;
+    }
+}
+
+/**
+ * Zeigt den Ladebalken an
+ */
+function showPageLoader() {
+    const loader = document.getElementById('page-loader');
+    if (loader) {
+        loader.classList.remove('hidden');
+        const bar = loader.querySelector('div');
+        if (bar) {
+            bar.style.width = '30%';
+            setTimeout(() => bar.style.width = '70%', 100);
+        }
+    }
+}
+
+/**
+ * Versteckt den Ladebalken
+ */
+function hidePageLoader() {
+    const loader = document.getElementById('page-loader');
+    if (loader) {
+        const bar = loader.querySelector('div');
+        if (bar) {
+            bar.style.width = '100%';
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                bar.style.width = '0%';
+            }, 200);
+        }
+    }
+}
+
+/**
+ * Aktualisiert den aktiven Navigation-Item
+ */
+function updateActiveNavItem(url) {
+    const nav = document.getElementById('app-nav');
+    if (!nav) return;
+
+    nav.querySelectorAll('.nav-item').forEach(item => {
+        const href = item.getAttribute('href');
+        if (href && url.includes(href.replace('./', ''))) {
+            item.classList.remove('text-gray-600');
+            item.classList.add('text-blue-600');
+        } else {
+            item.classList.remove('text-blue-600');
+            item.classList.add('text-gray-600');
+        }
+    });
+}
+
+/**
+ * Initialisiert Seiten-spezifischen Content nach SPA-Navigation
+ */
+async function initPageContent(url) {
+    if (url.includes('index.html') || url === '/' || url === '') {
+        await initDashboard();
+    } else if (url.includes('profile.html')) {
+        await initProfile();
+    } else if (url.includes('leaderboards.html')) {
+        await initLeaderboards();
+    } else if (url.includes('matches.html')) {
+        await initMatches();
+    } else if (url.includes('training.html')) {
+        await initTraining();
+    } else if (url.includes('coach.html')) {
+        await initCoachDashboard();
+    }
+}
+
+// ============================================
+// APP INITIALISIERUNG
+// ============================================
 
 /**
  * Initialisiert die App
@@ -60,6 +254,9 @@ export async function initApp() {
     }
 
     app.isInitialized = true;
+
+    // SPA Router initialisieren
+    initSpaRouter();
 
     // Seiten-spezifische Initialisierung
     initPage();
