@@ -2,7 +2,7 @@
   "name": "TTV Champions",
   "short_name": "TTV Champions",
   "description": "Gamification-App für Tischtennisvereine",
-  "start_url": "/prototype/index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3B82F6",

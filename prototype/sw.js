@@ -9,28 +9,28 @@ const DYNAMIC_CACHE = 'ttv-dynamic-v1';
 
 // Statische Assets, die beim Install gecached werden
 const STATIC_ASSETS = [
-    '/prototype/',
-    '/prototype/index.html',
-    '/prototype/login.html',
-    '/prototype/profile.html',
-    '/prototype/leaderboards.html',
-    '/prototype/matches.html',
-    '/prototype/training.html',
-    '/prototype/coach.html',
-    '/prototype/css/style.css',
-    '/prototype/js/app.js',
-    '/prototype/js/supabase-client.js',
-    '/prototype/js/ranks.js',
-    '/prototype/js/elo.js',
-    '/prototype/js/points.js',
-    '/prototype/js/streaks.js',
-    '/prototype/js/matches.js',
-    '/prototype/js/exercises.js',
-    '/prototype/js/challenges.js',
-    '/prototype/js/leaderboards.js',
-    '/prototype/js/feed.js',
-    '/prototype/js/notifications.js',
-    '/prototype/manifest.json'
+    '/',
+    '/index.html',
+    '/login.html',
+    '/profile.html',
+    '/leaderboards.html',
+    '/matches.html',
+    '/training.html',
+    '/coach.html',
+    '/css/style.css',
+    '/js/app.js',
+    '/js/supabase-client.js',
+    '/js/ranks.js',
+    '/js/elo.js',
+    '/js/points.js',
+    '/js/streaks.js',
+    '/js/matches.js',
+    '/js/exercises.js',
+    '/js/challenges.js',
+    '/js/leaderboards.js',
+    '/js/feed.js',
+    '/js/notifications.js',
+    '/manifest.json'
 ];
 
 // ============================================
@@ -162,7 +162,7 @@ async function networkFirst(request) {
 
         // Offline-Fallback für HTML
         if (request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/prototype/index.html');
+            return caches.match('/index.html');
         }
 
         throw error;
@@ -227,11 +227,11 @@ self.addEventListener('push', (event) => {
 
     const options = {
         body: data.body || '',
-        icon: '/prototype/icons/icon-192.png',
-        badge: '/prototype/icons/icon-192.png',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
         vibrate: [100, 50, 100],
         data: {
-            url: data.url || '/prototype/index.html'
+            url: data.url || '/index.html'
         }
     };
 
@@ -244,14 +244,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const url = event.notification.data?.url || '/prototype/index.html';
+    const url = event.notification.data?.url || '/index.html';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then((windowClients) => {
                 // Existierendes Fenster fokussieren
                 for (const client of windowClients) {
-                    if (client.url.includes('/prototype/') && 'focus' in client) {
+                    if (client.url.includes('/') && 'focus' in client) {
                         client.navigate(url);
                         return client.focus();
                     }
