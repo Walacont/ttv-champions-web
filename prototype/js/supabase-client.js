@@ -19,6 +19,12 @@ let currentProfile = null;
  * Initialisiert den Auth-Status
  */
 export async function initAuth() {
+    // Zuerst prüfen ob Code-Login existiert
+    if (checkCodeLogin()) {
+        return { user: null, profile: currentProfile, loginType: 'code' };
+    }
+
+    // Dann normales Supabase-Auth prüfen
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session?.user) {
@@ -80,14 +86,28 @@ export function getCurrentProfile() {
  * Prüft, ob der Benutzer eingeloggt ist
  */
 export function isLoggedIn() {
-    return currentUser !== null;
+    return currentUser !== null || currentProfile !== null;
 }
 
 /**
  * Prüft, ob der Benutzer ein Coach ist
  */
 export function isCoach() {
-    return currentProfile?.role === 'coach';
+    return currentProfile?.role === 'coach' || currentProfile?.role === 'admin';
+}
+
+/**
+ * Prüft, ob der Benutzer ein Admin ist
+ */
+export function isAdmin() {
+    return currentProfile?.role === 'admin';
+}
+
+/**
+ * Gibt die Rolle des Benutzers zurück
+ */
+export function getRole() {
+    return currentProfile?.role || 'player';
 }
 
 /**
@@ -114,6 +134,117 @@ export async function login(email, password) {
     await loadCurrentProfile();
 
     return { success: true, user: data.user, profile: currentProfile };
+}
+
+/**
+ * Login mit Code (6-stelliger Code)
+ * Code wird vom Coach/Admin erstellt und an Spieler verteilt
+ */
+export async function loginWithCode(code) {
+    // Code in der Datenbank suchen
+    const { data: loginCode, error: codeError } = await supabase
+        .from('login_codes')
+        .select(`
+            *,
+            profile:user_id(id, email)
+        `)
+        .eq('code', code.toUpperCase())
+        .eq('is_active', true)
+        .single();
+
+    if (codeError || !loginCode) {
+        return { success: false, error: 'Ungültiger Code' };
+    }
+
+    // Mit der Email des Benutzers und einem temporären Passwort einloggen
+    // Alternativ: Magic Link oder Custom Token
+    // Für den Prototyp: Wir setzen den Benutzer direkt
+
+    // Code als verwendet markieren
+    await supabase
+        .from('login_codes')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', loginCode.id);
+
+    // Profil laden
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select(`
+            *,
+            club:clubs(id, name)
+        `)
+        .eq('id', loginCode.user_id)
+        .single();
+
+    if (profileError || !profile) {
+        return { success: false, error: 'Profil nicht gefunden' };
+    }
+
+    // Für Code-Login: Wir speichern das Profil im localStorage
+    // und simulieren einen eingeloggten Zustand
+    currentProfile = profile;
+    localStorage.setItem('ttv_code_login_profile', JSON.stringify(profile));
+
+    return { success: true, profile: currentProfile, loginType: 'code' };
+}
+
+/**
+ * Prüft ob ein Code-Login existiert (beim App-Start)
+ */
+export function checkCodeLogin() {
+    const stored = localStorage.getItem('ttv_code_login_profile');
+    if (stored) {
+        try {
+            currentProfile = JSON.parse(stored);
+            return true;
+        } catch {
+            localStorage.removeItem('ttv_code_login_profile');
+        }
+    }
+    return false;
+}
+
+/**
+ * Logout für Code-Login
+ */
+export function logoutCodeLogin() {
+    localStorage.removeItem('ttv_code_login_profile');
+    currentProfile = null;
+}
+
+/**
+ * Login-Code erstellen (nur für Coach/Admin)
+ */
+export async function createLoginCode(userId) {
+    // 6-stelligen Code generieren
+    const code = generateCode();
+
+    const { data, error } = await supabase
+        .from('login_codes')
+        .insert({
+            user_id: userId,
+            code: code
+        })
+        .select()
+        .single();
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, code: code };
+}
+
+/**
+ * Generiert einen 6-stelligen alphanumerischen Code
+ */
+function generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Ohne 0, O, 1, I
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
 }
 
 /**
@@ -153,12 +284,14 @@ export async function register(email, password, firstName, lastName) {
  * Logout
  */
 export async function logout() {
+    // Code-Login Logout
+    logoutCodeLogin();
+
+    // Supabase Auth Logout
     const { error } = await supabase.auth.signOut();
 
-    if (!error) {
-        currentUser = null;
-        currentProfile = null;
-    }
+    currentUser = null;
+    currentProfile = null;
 
     return { success: !error, error: error?.message };
 }
