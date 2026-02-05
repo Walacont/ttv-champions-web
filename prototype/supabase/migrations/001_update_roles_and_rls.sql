@@ -1,6 +1,7 @@
 -- ============================================
 -- Migration: head_coach Rolle und RLS-Policies
 -- Für TTV Champions Prototyp
+-- Verwendet invitation_codes wie im Main Branch
 -- ============================================
 
 -- 1. Role-Constraint aktualisieren (head_coach hinzufügen)
@@ -9,7 +10,48 @@ ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
     CHECK (role IN ('player', 'coach', 'head_coach', 'admin'));
 
--- 2. Bestehende Policies löschen (falls vorhanden)
+-- 2. invitation_codes Tabelle erstellen (wie im Main Branch)
+-- ============================================
+CREATE TABLE IF NOT EXISTS invitation_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE,
+    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    subgroup_id UUID REFERENCES subgroups(id) ON DELETE SET NULL,
+
+    -- Nutzungslimits
+    max_uses INTEGER DEFAULT 1,
+    use_count INTEGER DEFAULT 0,
+    expires_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    -- Spieler-Daten (optional, für Offline-Spieler)
+    first_name TEXT,
+    last_name TEXT,
+    birthdate TEXT,
+    gender TEXT,
+    role TEXT DEFAULT 'player',
+    subgroup_ids UUID[] DEFAULT '{}',
+
+    -- Verknüpfung mit bestehendem Offline-Spieler
+    player_id UUID REFERENCES profiles(id),
+
+    -- Nutzungsstatus
+    used BOOLEAN DEFAULT FALSE,
+    used_by UUID REFERENCES profiles(id),
+    used_at TIMESTAMPTZ,
+    superseded BOOLEAN DEFAULT FALSE,
+    superseded_at TIMESTAMPTZ,
+
+    created_by UUID REFERENCES profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indizes für invitation_codes
+CREATE INDEX IF NOT EXISTS idx_invitation_codes_code ON invitation_codes(code) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_invitation_codes_club ON invitation_codes(club_id);
+CREATE INDEX IF NOT EXISTS idx_invitation_codes_player ON invitation_codes(player_id);
+
+-- 3. Bestehende Policies löschen (falls vorhanden)
 -- ============================================
 
 -- CLUBS
@@ -27,11 +69,11 @@ DROP POLICY IF EXISTS "Eigenes Profil bearbeiten" ON profiles;
 DROP POLICY IF EXISTS "Coaches können Vereinsmitglieder bearbeiten" ON profiles;
 DROP POLICY IF EXISTS "Coaches können Offline-Spieler erstellen" ON profiles;
 
--- LOGIN_CODES
-DROP POLICY IF EXISTS "Login-Codes können abgefragt werden" ON login_codes;
-DROP POLICY IF EXISTS "Login-Codes können aktualisiert werden" ON login_codes;
-DROP POLICY IF EXISTS "Coaches können Login-Codes erstellen" ON login_codes;
-DROP POLICY IF EXISTS "Coaches können Login-Codes löschen" ON login_codes;
+-- INVITATION_CODES
+DROP POLICY IF EXISTS "Invitation-Codes können abgefragt werden" ON invitation_codes;
+DROP POLICY IF EXISTS "Invitation-Codes können aktualisiert werden" ON invitation_codes;
+DROP POLICY IF EXISTS "Coaches können Invitation-Codes erstellen" ON invitation_codes;
+DROP POLICY IF EXISTS "Coaches können Invitation-Codes löschen" ON invitation_codes;
 
 -- SEASONS
 DROP POLICY IF EXISTS "Seasons sind für Vereinsmitglieder lesbar" ON seasons;
@@ -109,12 +151,12 @@ DROP POLICY IF EXISTS "Eigene Benachrichtigungen aktualisieren" ON notifications
 DROP POLICY IF EXISTS "Eigene Benachrichtigungen löschen" ON notifications;
 DROP POLICY IF EXISTS "System kann Benachrichtigungen erstellen" ON notifications;
 
--- 3. RLS aktivieren (falls noch nicht aktiviert)
+-- 4. RLS aktivieren (falls noch nicht aktiviert)
 -- ============================================
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subgroups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE login_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitation_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE xp_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE points_history ENABLE ROW LEVEL SECURITY;
@@ -132,7 +174,7 @@ ALTER TABLE completed_challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_feed ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- 4. Neue RLS Policies erstellen
+-- 5. Neue RLS Policies erstellen
 -- ============================================
 
 -- CLUBS
@@ -185,19 +227,19 @@ CREATE POLICY "Coaches können Offline-Spieler erstellen" ON profiles
         )
     );
 
--- LOGIN_CODES (Wichtig für Code-Login!)
-CREATE POLICY "Login-Codes können abgefragt werden" ON login_codes
+-- INVITATION_CODES (wie im Main Branch)
+CREATE POLICY "Invitation-Codes können abgefragt werden" ON invitation_codes
     FOR SELECT USING (is_active = true);
 
-CREATE POLICY "Login-Codes können aktualisiert werden" ON login_codes
+CREATE POLICY "Invitation-Codes können aktualisiert werden" ON invitation_codes
     FOR UPDATE USING (true);
 
-CREATE POLICY "Coaches können Login-Codes erstellen" ON login_codes
+CREATE POLICY "Coaches können Invitation-Codes erstellen" ON invitation_codes
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
-CREATE POLICY "Coaches können Login-Codes löschen" ON login_codes
+CREATE POLICY "Coaches können Invitation-Codes löschen" ON invitation_codes
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );

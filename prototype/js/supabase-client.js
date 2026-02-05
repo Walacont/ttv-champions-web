@@ -146,52 +146,67 @@ export async function login(email, password) {
 /**
  * Login mit Einladungs-Code (Format: XXX-XXX-XXX)
  * Code wird vom Coach/Admin erstellt und an Spieler verteilt
+ * Verwendet invitation_codes Tabelle wie im Main Branch
  */
 export async function loginWithCode(code) {
     // Bindestriche entfernen und uppercase
     const cleanCode = code.replace(/-/g, '').toUpperCase();
 
-    // Code in der Datenbank suchen
-    const { data: loginCode, error: codeError } = await supabase
-        .from('login_codes')
-        .select(`
-            *,
-            profile:user_id(id, email)
-        `)
+    // Code in der invitation_codes Tabelle suchen
+    const { data: invitationCode, error: codeError } = await supabase
+        .from('invitation_codes')
+        .select('*')
         .eq('code', cleanCode)
         .eq('is_active', true)
         .single();
 
-    if (codeError || !loginCode) {
+    if (codeError || !invitationCode) {
         return { success: false, error: 'Ungültiger Code' };
     }
 
-    // Mit der Email des Benutzers und einem temporären Passwort einloggen
-    // Alternativ: Magic Link oder Custom Token
-    // Für den Prototyp: Wir setzen den Benutzer direkt
+    // Prüfen ob Code abgelaufen ist
+    if (invitationCode.expires_at && new Date(invitationCode.expires_at) < new Date()) {
+        return { success: false, error: 'Code ist abgelaufen' };
+    }
+
+    // Prüfen ob Code bereits verwendet wurde (max_uses erreicht)
+    if (invitationCode.max_uses && invitationCode.use_count >= invitationCode.max_uses) {
+        return { success: false, error: 'Code wurde bereits verwendet' };
+    }
+
+    // Profil laden (entweder über player_id oder Profil erstellen)
+    let profile = null;
+
+    if (invitationCode.player_id) {
+        // Code ist mit bestehendem Offline-Spieler verknüpft
+        const { data, error } = await supabase
+            .from('profiles')
+            .select(`
+                *,
+                club:clubs(id, name)
+            `)
+            .eq('id', invitationCode.player_id)
+            .single();
+
+        if (error || !data) {
+            return { success: false, error: 'Profil nicht gefunden' };
+        }
+        profile = data;
+    } else {
+        return { success: false, error: 'Kein Spieler mit diesem Code verknüpft' };
+    }
 
     // Code als verwendet markieren
     await supabase
-        .from('login_codes')
-        .update({ last_used_at: new Date().toISOString() })
-        .eq('id', loginCode.id);
-
-    // Profil laden
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select(`
-            *,
-            club:clubs(id, name)
-        `)
-        .eq('id', loginCode.user_id)
-        .single();
-
-    if (profileError || !profile) {
-        return { success: false, error: 'Profil nicht gefunden' };
-    }
+        .from('invitation_codes')
+        .update({
+            use_count: (invitationCode.use_count || 0) + 1,
+            used: true,
+            used_at: new Date().toISOString()
+        })
+        .eq('id', invitationCode.id);
 
     // Für Code-Login: Wir speichern das Profil im localStorage
-    // und simulieren einen eingeloggten Zustand
     currentProfile = profile;
     localStorage.setItem('ttv_code_login_profile', JSON.stringify(profile));
 
@@ -223,17 +238,29 @@ export function logoutCodeLogin() {
 }
 
 /**
- * Login-Code erstellen (nur für Coach/Admin)
+ * Einladungs-Code erstellen (nur für Coach/Admin)
+ * Verwendet invitation_codes Tabelle wie im Main Branch
  */
-export async function createLoginCode(userId) {
-    // 6-stelligen Code generieren
+export async function createInvitationCode(playerId, clubId, options = {}) {
     const code = generateCode();
 
+    // Code-Ablaufdatum (Standard: 30 Tage)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + (options.expiryDays || 30));
+
     const { data, error } = await supabase
-        .from('login_codes')
+        .from('invitation_codes')
         .insert({
-            user_id: userId,
-            code: code
+            code: code,
+            club_id: clubId,
+            player_id: playerId,
+            first_name: options.firstName || null,
+            last_name: options.lastName || null,
+            birthdate: options.birthdate || null,
+            gender: options.gender || null,
+            max_uses: 1,
+            expires_at: expiresAt.toISOString(),
+            created_by: currentProfile?.id || null
         })
         .select()
         .single();
@@ -243,6 +270,25 @@ export async function createLoginCode(userId) {
     }
 
     return { success: true, code: code };
+}
+
+// Alias für Rückwärtskompatibilität
+export async function createLoginCode(userId) {
+    // Hole club_id vom Spieler
+    const { data: player } = await supabase
+        .from('profiles')
+        .select('club_id, first_name, last_name')
+        .eq('id', userId)
+        .single();
+
+    if (!player?.club_id) {
+        return { success: false, error: 'Spieler hat keinen Verein' };
+    }
+
+    return createInvitationCode(userId, player.club_id, {
+        firstName: player.first_name,
+        lastName: player.last_name
+    });
 }
 
 /**

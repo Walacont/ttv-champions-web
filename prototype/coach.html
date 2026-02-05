@@ -108,7 +108,7 @@
     </script>
 
     <script type="module">
-        import { initAuth, getCurrentProfile, isCoach, supabase, createLoginCode, formatCodeForDisplay } from './js/supabase-client.js';
+        import { initAuth, getCurrentProfile, isCoach, supabase, createInvitationCode, formatCodeForDisplay } from './js/supabase-client.js';
         import { getCurrentSeason, startNewSeason, endCurrentSeason } from './js/points.js';
         import { createChallenge, createChallengeForm } from './js/challenges.js';
         import { calculateRank, createRankBadge } from './js/ranks.js';
@@ -364,8 +364,13 @@
 
                 if (error) throw error;
 
-                // Login-Code für den Spieler erstellen
-                const codeResult = await createLoginCode(newPlayer.id);
+                // Einladungs-Code für den Spieler erstellen (wie im Main Branch)
+                const codeResult = await createInvitationCode(newPlayer.id, profile.club_id, {
+                    firstName: firstName,
+                    lastName: lastName,
+                    birthdate: birthdate,
+                    gender: gender
+                });
 
                 if (codeResult.success) {
                     const formattedCode = formatCodeForDisplay(codeResult.code);
@@ -403,7 +408,7 @@
         }
 
         async function generateCodeForPlayer(playerId, playerName) {
-            const result = await createLoginCode(playerId);
+            const result = await createInvitationCode(playerId, profile.club_id);
 
             if (result.success) {
                 const formattedCode = formatCodeForDisplay(result.code);

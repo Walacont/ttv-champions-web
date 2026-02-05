@@ -53,18 +53,45 @@ CREATE TABLE profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Login-Codes (für Code-basiertes Login)
-CREATE TABLE login_codes (
+-- Einladungs-Codes (wie im Main Branch)
+CREATE TABLE invitation_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    code TEXT NOT NULL UNIQUE,           -- 9-stelliger Code (XXX-XXX-XXX ohne Bindestriche)
+    code TEXT NOT NULL UNIQUE,
+    club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    subgroup_id UUID REFERENCES subgroups(id) ON DELETE SET NULL,
+
+    -- Nutzungslimits
+    max_uses INTEGER DEFAULT 1,
+    use_count INTEGER DEFAULT 0,
+    expires_at TIMESTAMPTZ,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    last_used_at TIMESTAMPTZ
+
+    -- Spieler-Daten (optional, für Offline-Spieler)
+    first_name TEXT,
+    last_name TEXT,
+    birthdate TEXT,
+    gender TEXT,
+    role TEXT DEFAULT 'player',
+    subgroup_ids UUID[] DEFAULT '{}',
+
+    -- Verknüpfung mit bestehendem Offline-Spieler
+    player_id UUID REFERENCES profiles(id),
+
+    -- Nutzungsstatus
+    used BOOLEAN DEFAULT FALSE,
+    used_by UUID REFERENCES profiles(id),
+    used_at TIMESTAMPTZ,
+    superseded BOOLEAN DEFAULT FALSE,
+    superseded_at TIMESTAMPTZ,
+
+    created_by UUID REFERENCES profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index für schnelle Code-Suche
-CREATE INDEX idx_login_codes_code ON login_codes(code) WHERE is_active = TRUE;
+CREATE INDEX idx_invitation_codes_code ON invitation_codes(code) WHERE is_active = TRUE;
+CREATE INDEX idx_invitation_codes_club ON invitation_codes(club_id);
+CREATE INDEX idx_invitation_codes_player ON invitation_codes(player_id);
 
 -- Saison-Verwaltung
 CREATE TABLE seasons (
@@ -668,7 +695,7 @@ CREATE TRIGGER trigger_update_h2h
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subgroups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE login_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitation_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE xp_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE points_history ENABLE ROW LEVEL SECURITY;
@@ -733,24 +760,24 @@ CREATE POLICY "Coaches können Vereinsmitglieder bearbeiten" ON profiles
     );
 
 -- ============================================
--- LOGIN_CODES
+-- INVITATION_CODES
 -- ============================================
 -- Codes können ohne Auth abgefragt werden (für Code-Login)
-CREATE POLICY "Login-Codes können abgefragt werden" ON login_codes
+CREATE POLICY "Invitation-Codes können abgefragt werden" ON invitation_codes
     FOR SELECT USING (is_active = true);
 
 -- Codes können von angemeldeten Benutzern aktualisiert werden
-CREATE POLICY "Login-Codes können aktualisiert werden" ON login_codes
+CREATE POLICY "Invitation-Codes können aktualisiert werden" ON invitation_codes
     FOR UPDATE USING (true);
 
 -- Coaches/Admins können Codes erstellen
-CREATE POLICY "Coaches können Login-Codes erstellen" ON login_codes
+CREATE POLICY "Coaches können Invitation-Codes erstellen" ON invitation_codes
     FOR INSERT WITH CHECK (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- Coaches/Admins können Codes löschen
-CREATE POLICY "Coaches können Login-Codes löschen" ON login_codes
+CREATE POLICY "Coaches können Invitation-Codes löschen" ON invitation_codes
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
