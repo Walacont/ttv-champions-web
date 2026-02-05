@@ -1,0 +1,352 @@
+/**
+ * TTV Champions Prototyp - Custom Styles
+ * Ergänzt Tailwind CSS
+ */
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.animate-slide-in {
+    animation: slide-in 0.3s ease-out forwards;
+}
+
+.animate-slide-out {
+    animation: slide-out 0.3s ease-out forwards;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.toast {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.toast-close {
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.toast-close:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   PROGRESS BARS
+   ============================================ */
+
+.progress-bar {
+    transition: width 0.5s ease-out;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+button {
+    transition: all 0.2s ease;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   FORM INPUTS
+   ============================================ */
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* ============================================
+   CARDS & SHADOWS
+   ============================================ */
+
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.card-hover {
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card-hover:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
+
+.nav-item {
+    transition: color 0.2s;
+}
+
+.nav-item.active {
+    color: #2563eb;
+}
+
+/* Bottom nav safe area for iOS */
+#app-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ============================================
+   LEADERBOARD
+   ============================================ */
+
+.leaderboard-row {
+    transition: background-color 0.2s;
+}
+
+.leaderboard-row:hover {
+    background-color: #f9fafb;
+}
+
+.leaderboard-row.current-user {
+    background-color: #eff6ff;
+    border-left: 4px solid #3b82f6;
+}
+
+/* ============================================
+   RANK BADGES
+   ============================================ */
+
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* ============================================
+   STREAK DISPLAY
+   ============================================ */
+
+.streak-fire {
+    animation: fire-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes fire-glow {
+    from {
+        filter: brightness(1) drop-shadow(0 0 2px #ff6b00);
+    }
+    to {
+        filter: brightness(1.2) drop-shadow(0 0 8px #ff9500);
+    }
+}
+
+/* ============================================
+   MODALS
+   ============================================ */
+
+#modal-container {
+    backdrop-filter: blur(4px);
+}
+
+#modal-content {
+    animation: modal-appear 0.2s ease-out;
+}
+
+@keyframes modal-appear {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* ============================================
+   RESPONSIVE UTILITIES
+   ============================================ */
+
+@media (max-width: 640px) {
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+@media (min-width: 641px) {
+    .hide-desktop {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   NOTIFICATION DROPDOWN
+   ============================================ */
+
+#notification-dropdown {
+    animation: dropdown-appear 0.2s ease-out;
+}
+
+@keyframes dropdown-appear {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   ACTIVITY FEED
+   ============================================ */
+
+.feed-item {
+    transition: background-color 0.2s;
+}
+
+.feed-item:hover {
+    background-color: #f9fafb;
+}
+
+/* ============================================
+   SAFE AREAS (iOS)
+   ============================================ */
+
+.safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    #app-header,
+    #app-nav,
+    #toast-container,
+    button {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+    }
+}

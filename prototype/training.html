@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTV Champions - Training</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header id="app-header"></header>
+
+    <main id="app-main" class="pb-20">
+        <div class="max-w-4xl mx-auto px-4 py-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-6">Training</h1>
+
+            <!-- Streak-Anzeige -->
+            <div id="streaks-section" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                <h2 class="font-semibold text-gray-900 mb-4">Deine Streaks 🔥</h2>
+                <div id="streaks-list" class="space-y-3">
+                    <p class="text-gray-500">Lade...</p>
+                </div>
+            </div>
+
+            <!-- Kommende Trainings -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900">Kommende Trainings</h2>
+                </div>
+                <div id="upcoming-sessions" class="divide-y divide-gray-100">
+                    <p class="p-4 text-gray-500">Lade...</p>
+                </div>
+            </div>
+
+            <!-- Challenges -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900">Aktive Challenges</h2>
+                </div>
+                <div id="challenges-list" class="p-4 space-y-4">
+                    <p class="text-gray-500">Lade...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav id="app-nav"></nav>
+
+    <script type="module">
+        import { initAuth, getCurrentProfile, supabase } from './js/supabase-client.js';
+        import { getAllStreaks, createStreakBadge } from './js/streaks.js';
+        import { getChallengesWithStatus, createChallengeCard } from './js/challenges.js';
+
+        let profile = null;
+
+        async function init() {
+            await initAuth();
+            profile = getCurrentProfile();
+
+            if (!profile) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            await Promise.all([
+                loadStreaks(),
+                loadUpcomingSessions(),
+                loadChallenges()
+            ]);
+
+            // Header & Nav rendern
+            const appModule = await import('./js/app.js');
+        }
+
+        async function loadStreaks() {
+            const streaks = await getAllStreaks(profile.id);
+            const container = document.getElementById('streaks-list');
+
+            if (streaks.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4">
+                        <p class="text-gray-500">Noch keine Streaks</p>
+                        <p class="text-sm text-gray-400">Nimm an Trainings teil, um Streaks aufzubauen!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = streaks.map(streak => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <span class="font-medium">${streak.subgroup?.name || 'Hauptgruppe'}</span>
+                        <p class="text-xs text-gray-500">Längster Streak: ${streak.longest_streak}</p>
+                    </div>
+                    ${createStreakBadge(streak.current_streak)}
+                </div>
+            `).join('');
+        }
+
+        async function loadUpcomingSessions() {
+            if (!profile.club_id) {
+                document.getElementById('upcoming-sessions').innerHTML =
+                    '<p class="p-4 text-gray-500">Kein Verein zugeordnet</p>';
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            const { data: sessions } = await supabase
+                .from('training_sessions')
+                .select(`
+                    *,
+                    subgroup:subgroups(name)
+                `)
+                .eq('club_id', profile.club_id)
+                .gte('date', today)
+                .order('date')
+                .limit(5);
+
+            const container = document.getElementById('upcoming-sessions');
+
+            if (!sessions || sessions.length === 0) {
+                container.innerHTML = '<p class="p-4 text-gray-500">Keine kommenden Trainings</p>';
+                return;
+            }
+
+            container.innerHTML = sessions.map(session => {
+                const date = new Date(session.date);
+                const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+
+                return `
+                    <div class="p-4 flex items-center justify-between">
+                        <div>
+                            <div class="font-medium">${session.title}</div>
+                            <div class="text-sm text-gray-500">
+                                ${dateStr} ${session.start_time ? `• ${session.start_time.slice(0,5)}` : ''}
+                            </div>
+                            ${session.subgroup ? `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${session.subgroup.name}</span>` : ''}
+                        </div>
+                        ${session.completed ? `
+                            <span class="text-green-600 text-sm">✓ Abgeschlossen</span>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadChallenges() {
+            if (!profile.club_id) {
+                document.getElementById('challenges-list').innerHTML =
+                    '<p class="text-gray-500">Kein Verein zugeordnet</p>';
+                return;
+            }
+
+            const challenges = await getChallengesWithStatus(profile.club_id, profile.id);
+            const container = document.getElementById('challenges-list');
+
+            if (challenges.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4">
+                        <p class="text-gray-500">Keine aktiven Challenges</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = challenges.map(c => createChallengeCard(c, c.isCompleted)).join('');
+        }
+
+        init();
+    </script>
+</body>
+</html>

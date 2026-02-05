@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTV Champions - Profil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header id="app-header"></header>
+
+    <main id="app-main" class="pb-20">
+        <div class="max-w-4xl mx-auto px-4 py-6">
+            <!-- Profil-Header -->
+            <div id="profile-header" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+                        <span id="profile-initials">?</span>
+                    </div>
+                    <div>
+                        <h1 id="profile-name" class="text-2xl font-bold text-gray-900">Lade...</h1>
+                        <p id="profile-club" class="text-gray-600"></p>
+                        <div id="profile-rank" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiken -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div id="stat-elo" class="text-2xl font-bold text-blue-600">-</div>
+                    <div class="text-xs text-gray-500">Elo-Wertung</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div id="stat-xp" class="text-2xl font-bold text-purple-600">-</div>
+                    <div class="text-xs text-gray-500">XP</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div id="stat-season" class="text-2xl font-bold text-green-600">-</div>
+                    <div class="text-xs text-gray-500">Saison-Punkte</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div id="stat-winrate" class="text-2xl font-bold text-orange-600">-</div>
+                    <div class="text-xs text-gray-500">Siegquote</div>
+                </div>
+            </div>
+
+            <!-- Rang-Fortschritt -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900">Rang-Fortschritt</h2>
+                </div>
+                <div id="rank-progress" class="p-4">
+                    <!-- Wird via JS gefüllt -->
+                </div>
+            </div>
+
+            <!-- Spielhistorie -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900">Letzte Spiele</h2>
+                </div>
+                <div id="match-history" class="divide-y divide-gray-100">
+                    <!-- Wird via JS gefüllt -->
+                </div>
+            </div>
+
+            <!-- Logout -->
+            <div class="text-center">
+                <button onclick="app.logout()" class="text-red-600 hover:text-red-800 text-sm">
+                    Abmelden
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <nav id="app-nav"></nav>
+
+    <script type="module">
+        import { initAuth, getCurrentProfile } from './js/supabase-client.js';
+        import { calculateRank, getRankProgress, createRankBadge, createRankProgressDisplay } from './js/ranks.js';
+        import { getMatches, formatMatchResult } from './js/matches.js';
+
+        async function initProfile() {
+            await initAuth();
+            const profile = getCurrentProfile();
+
+            if (!profile) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Header
+            document.getElementById('profile-initials').textContent =
+                (profile.first_name?.charAt(0) || '') + (profile.last_name?.charAt(0) || '');
+            document.getElementById('profile-name').textContent =
+                `${profile.first_name} ${profile.last_name}`;
+            document.getElementById('profile-club').textContent =
+                profile.club?.name || 'Kein Verein';
+
+            // Rang
+            const rank = calculateRank(profile.elo_rating, profile.xp, profile.grundlagen_completed || 0);
+            document.getElementById('profile-rank').innerHTML = createRankBadge(rank, 'md');
+
+            // Statistiken
+            document.getElementById('stat-elo').textContent = profile.elo_rating;
+            document.getElementById('stat-xp').textContent = profile.xp;
+            document.getElementById('stat-season').textContent = profile.season_points;
+
+            const totalMatches = (profile.singles_wins || 0) + (profile.singles_losses || 0);
+            const winRate = totalMatches > 0
+                ? Math.round((profile.singles_wins / totalMatches) * 100)
+                : 0;
+            document.getElementById('stat-winrate').textContent = `${winRate}%`;
+
+            // Rang-Fortschritt
+            const progress = getRankProgress(profile.elo_rating, profile.xp, profile.grundlagen_completed || 0);
+            document.getElementById('rank-progress').innerHTML = createRankProgressDisplay(progress);
+
+            // Spielhistorie
+            const matches = await getMatches({ playerId: profile.id, limit: 5 });
+            const historyContainer = document.getElementById('match-history');
+
+            if (matches.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="p-4 text-center text-gray-500">
+                        Noch keine Spiele gespielt
+                    </div>
+                `;
+            } else {
+                historyContainer.innerHTML = matches.map(match => {
+                    const isWinner = match.winner_id === profile.id;
+                    const opponent = match.player_a_id === profile.id ? match.player_b : match.player_a;
+                    const eloChange = match.player_a_id === profile.id
+                        ? (match.player_a_elo_after - match.player_a_elo_before)
+                        : (match.player_b_elo_after - match.player_b_elo_before);
+
+                    return `
+                        <div class="p-4 flex items-center justify-between">
+                            <div>
+                                <div class="font-medium ${isWinner ? 'text-green-600' : 'text-red-600'}">
+                                    ${isWinner ? 'Sieg' : 'Niederlage'} vs ${opponent?.first_name} ${opponent?.last_name}
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    ${formatMatchResult(match)}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="${eloChange >= 0 ? 'text-green-600' : 'text-red-600'} font-bold">
+                                    ${eloChange >= 0 ? '+' : ''}${eloChange} Elo
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Header & Nav rendern
+            const appModule = await import('./js/app.js');
+        }
+
+        initProfile();
+    </script>
+</body>
+</html>

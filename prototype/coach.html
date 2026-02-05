@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTV Champions - Coach Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header id="app-header"></header>
+
+    <main id="app-main" class="pb-20">
+        <div class="max-w-4xl mx-auto px-4 py-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-6">Coach Dashboard</h1>
+
+            <!-- Quick Actions -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <button id="btn-training" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-left hover:border-blue-300 transition-colors">
+                    <div class="text-2xl mb-2">📋</div>
+                    <div class="font-medium">Training abschließen</div>
+                    <div class="text-sm text-gray-500">Anwesenheit & Punkte</div>
+                </button>
+                <button id="btn-match" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-left hover:border-blue-300 transition-colors">
+                    <div class="text-2xl mb-2">🏓</div>
+                    <div class="font-medium">Spiel eintragen</div>
+                    <div class="text-sm text-gray-500">Direkt bestätigt</div>
+                </button>
+                <button id="btn-challenge" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-left hover:border-blue-300 transition-colors">
+                    <div class="text-2xl mb-2">🎯</div>
+                    <div class="font-medium">Challenge erstellen</div>
+                    <div class="text-sm text-gray-500">Neue Aufgabe</div>
+                </button>
+                <button id="btn-season" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-left hover:border-blue-300 transition-colors">
+                    <div class="text-2xl mb-2">🏆</div>
+                    <div class="font-medium">Saison verwalten</div>
+                    <div class="text-sm text-gray-500">Start/Reset</div>
+                </button>
+            </div>
+
+            <!-- Aktuelle Saison -->
+            <div id="season-info" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                <h2 class="font-semibold text-gray-900 mb-4">Aktuelle Saison</h2>
+                <div id="season-details">
+                    <p class="text-gray-500">Lade...</p>
+                </div>
+            </div>
+
+            <!-- Heutige Trainings -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900">Heutige Trainings</h2>
+                </div>
+                <div id="today-sessions" class="divide-y divide-gray-100">
+                    <p class="p-4 text-gray-500">Lade...</p>
+                </div>
+            </div>
+
+            <!-- Vereins-Spieler -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+                    <h2 class="font-semibold text-gray-900">Spieler</h2>
+                    <span id="player-count" class="text-sm text-gray-500"></span>
+                </div>
+                <div id="players-list" class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                    <p class="p-4 text-gray-500">Lade...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="modal-container" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div id="modal-content" class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <!-- Modal content wird dynamisch eingefügt -->
+            </div>
+        </div>
+    </main>
+
+    <nav id="app-nav"></nav>
+
+    <script type="module">
+        import { initAuth, getCurrentProfile, isCoach, supabase } from './js/supabase-client.js';
+        import { getCurrentSeason, startNewSeason, endCurrentSeason } from './js/points.js';
+        import { createChallenge, createChallengeForm } from './js/challenges.js';
+        import { calculateRank, createRankBadge } from './js/ranks.js';
+
+        let profile = null;
+
+        async function init() {
+            await initAuth();
+            profile = getCurrentProfile();
+
+            if (!profile || !isCoach()) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            await Promise.all([
+                loadSeasonInfo(),
+                loadTodaySessions(),
+                loadPlayers()
+            ]);
+
+            initEventListeners();
+
+            // Header & Nav rendern
+            const appModule = await import('./js/app.js');
+        }
+
+        async function loadSeasonInfo() {
+            const season = await getCurrentSeason(profile.club_id);
+            const container = document.getElementById('season-details');
+
+            if (!season) {
+                container.innerHTML = `
+                    <p class="text-gray-500 mb-4">Keine aktive Saison</p>
+                    <button id="start-season-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                        Neue Saison starten
+                    </button>
+                `;
+                document.getElementById('start-season-btn')?.addEventListener('click', showStartSeasonModal);
+            } else {
+                const startDate = new Date(season.started_at).toLocaleDateString('de-DE');
+                container.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-medium text-lg">${season.name}</div>
+                            <div class="text-sm text-gray-500">Gestartet am ${startDate}</div>
+                        </div>
+                        <button id="end-season-btn" class="text-red-600 hover:text-red-800 text-sm">
+                            Saison beenden
+                        </button>
+                    </div>
+                `;
+                document.getElementById('end-season-btn')?.addEventListener('click', handleEndSeason);
+            }
+        }
+
+        async function loadTodaySessions() {
+            const today = new Date().toISOString().split('T')[0];
+
+            const { data: sessions } = await supabase
+                .from('training_sessions')
+                .select(`*, subgroup:subgroups(name)`)
+                .eq('club_id', profile.club_id)
+                .eq('date', today);
+
+            const container = document.getElementById('today-sessions');
+
+            if (!sessions || sessions.length === 0) {
+                container.innerHTML = '<p class="p-4 text-gray-500">Keine Trainings heute</p>';
+                return;
+            }
+
+            container.innerHTML = sessions.map(session => `
+                <div class="p-4 flex items-center justify-between">
+                    <div>
+                        <div class="font-medium">${session.title}</div>
+                        <div class="text-sm text-gray-500">
+                            ${session.start_time?.slice(0,5) || ''} - ${session.end_time?.slice(0,5) || ''}
+                            ${session.subgroup ? `• ${session.subgroup.name}` : ''}
+                        </div>
+                    </div>
+                    ${session.completed ? `
+                        <span class="text-green-600 text-sm">✓ Abgeschlossen</span>
+                    ` : `
+                        <button onclick="openTrainingModal('${session.id}')"
+                                class="bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700">
+                            Abschließen
+                        </button>
+                    `}
+                </div>
+            `).join('');
+        }
+
+        async function loadPlayers() {
+            const { data: players } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('club_id', profile.club_id)
+                .eq('role', 'player')
+                .order('first_name');
+
+            document.getElementById('player-count').textContent = `${players?.length || 0} Spieler`;
+
+            const container = document.getElementById('players-list');
+
+            if (!players || players.length === 0) {
+                container.innerHTML = '<p class="p-4 text-gray-500">Keine Spieler</p>';
+                return;
+            }
+
+            container.innerHTML = players.map(player => {
+                const rank = calculateRank(player.elo_rating, player.xp, player.grundlagen_completed || 0);
+                return `
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                ${player.first_name?.charAt(0) || '?'}
+                            </div>
+                            <div>
+                                <div class="font-medium">${player.first_name} ${player.last_name}</div>
+                                <div class="text-sm text-gray-500">
+                                    ${player.elo_rating} Elo • ${player.xp} XP
+                                </div>
+                            </div>
+                        </div>
+                        ${createRankBadge(rank, 'sm')}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function initEventListeners() {
+            document.getElementById('btn-training').addEventListener('click', () => {
+                window.location.href = 'training.html';
+            });
+
+            document.getElementById('btn-match').addEventListener('click', () => {
+                window.location.href = 'matches.html';
+            });
+
+            document.getElementById('btn-challenge').addEventListener('click', showChallengeModal);
+
+            document.getElementById('btn-season').addEventListener('click', showStartSeasonModal);
+
+            // Modal schließen
+            document.getElementById('modal-container').addEventListener('click', (e) => {
+                if (e.target.id === 'modal-container') {
+                    closeModal();
+                }
+            });
+        }
+
+        function showModal(content) {
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+        window.closeModal = closeModal;
+
+        function showChallengeModal() {
+            showModal(`
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">Challenge erstellen</h2>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    ${createChallengeForm()}
+                </div>
+            `);
+
+            document.getElementById('challenge-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+
+                const result = await createChallenge({
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    xpReward: parseInt(formData.get('xpReward')),
+                    pointsReward: parseInt(formData.get('pointsReward') || 0)
+                });
+
+                if (result.success) {
+                    alert('Challenge erstellt!');
+                    closeModal();
+                } else {
+                    alert('Fehler: ' + result.error);
+                }
+            });
+        }
+
+        function showStartSeasonModal() {
+            showModal(`
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">Neue Saison starten</h2>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <p class="text-gray-600 mb-4">
+                        Beim Starten einer neuen Saison werden alle Saisonpunkte auf 0 zurückgesetzt.
+                        XP und Elo bleiben erhalten.
+                    </p>
+                    <form id="season-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Saison-Name</label>
+                            <input type="text" name="name" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                                   placeholder="z.B. Frühjahr 2024">
+                        </div>
+                        <button type="submit"
+                                class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700">
+                            Saison starten
+                        </button>
+                    </form>
+                </div>
+            `);
+
+            document.getElementById('season-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+
+                const result = await startNewSeason(profile.club_id, formData.get('name'), profile.id);
+
+                if (result.success) {
+                    alert('Saison gestartet!');
+                    closeModal();
+                    await loadSeasonInfo();
+                } else {
+                    alert('Fehler: ' + result.error);
+                }
+            });
+        }
+
+        async function handleEndSeason() {
+            if (!confirm('Saison wirklich beenden?')) return;
+
+            const result = await endCurrentSeason(profile.club_id);
+
+            if (result.success) {
+                alert('Saison beendet!');
+                await loadSeasonInfo();
+            } else {
+                alert('Fehler: ' + result.error);
+            }
+        }
+
+        window.openTrainingModal = (sessionId) => {
+            // Vereinfachte Version - In der vollständigen App würde hier ein komplettes Modal sein
+            alert('Training-Abschluss-Modal würde hier öffnen für Session: ' + sessionId);
+        };
+
+        init();
+    </script>
+</body>
+</html>
