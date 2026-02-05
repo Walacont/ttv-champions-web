@@ -221,7 +221,7 @@ export function createFeedFilters(activeFilter = FEED_FILTERS.ALL) {
  * @param {Object} entry - Feed-Eintrag
  * @returns {string} HTML
  */
-export function createFeedEntry(entry) {
+export function renderFeedEntry(entry) {
     const timeAgo = formatTimeAgo(entry.created_at);
 
     let content;

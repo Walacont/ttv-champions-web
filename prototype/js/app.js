@@ -11,7 +11,7 @@
 import { supabase, initAuth, getCurrentProfile, isLoggedIn, isCoach, logout } from './supabase-client.js';
 import { calculateRank, getRankProgress, createRankBadge, createRankProgressDisplay } from './ranks.js';
 import { updateNotificationBadge, initNotificationListener, getNotifications, createNotificationDropdown } from './notifications.js';
-import { getFeed, createFeedEntry as renderFeedEntry, createEmptyFeed, createFeedFilters, FEED_FILTERS } from './feed.js';
+import { getFeed, renderFeedEntry, createEmptyFeed, createFeedFilters, FEED_FILTERS } from './feed.js';
 import {
     getSkillLeaderboard, getEffortLeaderboard, getSeasonLeaderboard,
     getRanksOverview, getDoublesLeaderboard,
