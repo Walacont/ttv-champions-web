@@ -151,6 +151,10 @@
                     <span><strong>Coach</strong> - Training verwalten, Spieler betreuen</span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <span><strong>Head Coach</strong> - Erweiterte Coach-Rechte</span>
+                </div>
+                <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-purple-500"></span>
                     <span><strong>Admin</strong> - Vollzugriff auf alle Funktionen</span>
                 </div>
@@ -164,7 +168,21 @@
     </div>
 
     <script type="module">
-        import { login, loginWithCode, register } from './js/supabase-client.js';
+        import { login, loginWithCode, register, getCurrentProfile, getRole } from './js/supabase-client.js';
+
+        // Rollenbasierte Weiterleitung (wie im Main Branch)
+        function getRedirectUrl() {
+            const role = getRole();
+            switch (role) {
+                case 'admin':
+                case 'head_coach':
+                case 'coach':
+                    return 'coach.html';
+                case 'player':
+                default:
+                    return 'index.html';
+            }
+        }
 
         // Tab-Switching
         const tabCode = document.getElementById('tab-code');
@@ -213,7 +231,7 @@
                 const result = await loginWithCode(formData.get('code'));
 
                 if (result.success) {
-                    window.location.href = 'index.html';
+                    window.location.href = getRedirectUrl();
                 } else {
                     errorDiv.textContent = result.error || 'Ungültiger Code';
                     errorDiv.classList.remove('hidden');
@@ -234,7 +252,7 @@
                 const result = await login(formData.get('email'), formData.get('password'));
 
                 if (result.success) {
-                    window.location.href = 'index.html';
+                    window.location.href = getRedirectUrl();
                 } else {
                     errorDiv.textContent = result.error || 'Anmeldung fehlgeschlagen';
                     errorDiv.classList.remove('hidden');
@@ -260,6 +278,7 @@
                 );
 
                 if (result.success) {
+                    // Neue Benutzer sind immer Spieler, daher index.html
                     window.location.href = 'index.html';
                 } else {
                     errorDiv.textContent = result.error || 'Registrierung fehlgeschlagen';

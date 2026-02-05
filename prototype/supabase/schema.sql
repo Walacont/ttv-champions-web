@@ -28,7 +28,7 @@ CREATE TABLE profiles (
     birthdate DATE,
     gender TEXT CHECK (gender IN ('M', 'F')),
     club_id UUID REFERENCES clubs(id),
-    role TEXT DEFAULT 'player' CHECK (role IN ('player', 'coach', 'admin')),
+    role TEXT DEFAULT 'player' CHECK (role IN ('player', 'coach', 'head_coach', 'admin')),
     is_offline BOOLEAN DEFAULT FALSE,        -- True für Spieler ohne eigenes Konto
 
     -- Gamification-Punkte
@@ -694,7 +694,7 @@ CREATE POLICY "Clubs sind öffentlich lesbar" ON clubs
 
 CREATE POLICY "Coaches können Clubs verwalten" ON clubs
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -707,7 +707,7 @@ CREATE POLICY "Subgroups sind für Vereinsmitglieder lesbar" ON subgroups
 
 CREATE POLICY "Coaches können Subgroups verwalten" ON subgroups
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin') AND club_id = subgroups.club_id)
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin') AND club_id = subgroups.club_id)
     );
 
 -- ============================================
@@ -727,7 +727,7 @@ CREATE POLICY "Coaches können Vereinsmitglieder bearbeiten" ON profiles
         EXISTS (
             SELECT 1 FROM profiles p
             WHERE p.id = auth.uid()
-            AND p.role IN ('coach', 'admin')
+            AND p.role IN ('coach', 'head_coach', 'admin')
             AND p.club_id = profiles.club_id
         )
     );
@@ -746,13 +746,13 @@ CREATE POLICY "Login-Codes können aktualisiert werden" ON login_codes
 -- Coaches/Admins können Codes erstellen
 CREATE POLICY "Coaches können Login-Codes erstellen" ON login_codes
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- Coaches/Admins können Codes löschen
 CREATE POLICY "Coaches können Login-Codes löschen" ON login_codes
     FOR DELETE USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -765,7 +765,7 @@ CREATE POLICY "Seasons sind für Vereinsmitglieder lesbar" ON seasons
 
 CREATE POLICY "Coaches können Seasons verwalten" ON seasons
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin') AND club_id = seasons.club_id)
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin') AND club_id = seasons.club_id)
     );
 
 -- ============================================
@@ -776,7 +776,7 @@ CREATE POLICY "Eigene XP-Historie lesbar" ON xp_history
 
 CREATE POLICY "Coaches können XP vergeben" ON xp_history
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "System kann XP vergeben" ON xp_history
@@ -787,7 +787,7 @@ CREATE POLICY "Eigene Punkte-Historie lesbar" ON points_history
 
 CREATE POLICY "Coaches können Punkte vergeben" ON points_history
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "System kann Punkte vergeben" ON points_history
@@ -803,7 +803,7 @@ CREATE POLICY "Trainings sind für Vereinsmitglieder lesbar" ON training_session
 
 CREATE POLICY "Coaches können Trainings verwalten" ON training_sessions
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin') AND club_id = training_sessions.club_id)
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin') AND club_id = training_sessions.club_id)
     );
 
 -- ============================================
@@ -814,12 +814,12 @@ CREATE POLICY "Eigene Anwesenheit lesbar" ON attendance
 
 CREATE POLICY "Coaches können Anwesenheit im Verein sehen" ON attendance
     FOR SELECT USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin') AND club_id = attendance.club_id)
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin') AND club_id = attendance.club_id)
     );
 
 CREATE POLICY "Coaches können Anwesenheit verwalten" ON attendance
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -833,7 +833,7 @@ CREATE POLICY "Eigene Streaks verwalten" ON streaks
 
 CREATE POLICY "Coaches können Streaks verwalten" ON streaks
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -845,13 +845,13 @@ CREATE POLICY "Matches sind öffentlich lesbar" ON matches
 CREATE POLICY "Beteiligte können Matches erstellen" ON matches
     FOR INSERT WITH CHECK (
         auth.uid() IN (player_a_id, player_b_id) OR
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "Beteiligte und Coaches können Matches bearbeiten" ON matches
     FOR UPDATE USING (
         auth.uid() IN (player_a_id, player_b_id) OR
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -863,13 +863,13 @@ CREATE POLICY "Doppel-Matches sind öffentlich lesbar" ON doubles_matches
 CREATE POLICY "Beteiligte können Doppel-Matches erstellen" ON doubles_matches
     FOR INSERT WITH CHECK (
         auth.uid() IN (team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id) OR
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "Beteiligte und Coaches können Doppel-Matches bearbeiten" ON doubles_matches
     FOR UPDATE USING (
         auth.uid() IN (team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id) OR
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -892,7 +892,7 @@ CREATE POLICY "System kann Doppel-Teams aktualisieren" ON doubles_teams
 CREATE POLICY "H2H-Stats sind für Beteiligte lesbar" ON head_to_head
     FOR SELECT USING (
         auth.uid() IN (player1_id, player2_id) OR
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "System kann H2H-Stats verwalten" ON head_to_head
@@ -906,7 +906,7 @@ CREATE POLICY "Übungen sind öffentlich lesbar" ON exercises
 
 CREATE POLICY "Coaches können Übungen erstellen" ON exercises
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "Ersteller können Übungen bearbeiten" ON exercises
@@ -920,12 +920,12 @@ CREATE POLICY "Eigene abgeschlossene Übungen lesbar" ON completed_exercises
 
 CREATE POLICY "Coaches können abgeschlossene Übungen sehen" ON completed_exercises
     FOR SELECT USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "Coaches können Übungsabschluss eintragen" ON completed_exercises
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================
@@ -938,7 +938,7 @@ CREATE POLICY "Challenges sind für Vereinsmitglieder lesbar" ON challenges
 
 CREATE POLICY "Coaches können Challenges verwalten" ON challenges
     FOR ALL USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin') AND club_id = challenges.club_id)
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin') AND club_id = challenges.club_id)
     );
 
 -- ============================================
@@ -949,12 +949,12 @@ CREATE POLICY "Eigene abgeschlossene Challenges lesbar" ON completed_challenges
 
 CREATE POLICY "Coaches können Challenge-Abschlüsse sehen" ON completed_challenges
     FOR SELECT USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 CREATE POLICY "Coaches können Challenge-Abschluss eintragen" ON completed_challenges
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'admin'))
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('coach', 'head_coach', 'admin'))
     );
 
 -- ============================================

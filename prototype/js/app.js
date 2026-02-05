@@ -8,7 +8,7 @@
  * - Ladebalken für flüssige Übergänge
  */
 
-import { supabase, initAuth, getCurrentProfile, isLoggedIn, isCoach, logout } from './supabase-client.js';
+import { supabase, initAuth, getCurrentProfile, isLoggedIn, isCoach, isHeadCoach, isAdmin, logout, getRole } from './supabase-client.js';
 import { calculateRank, getRankProgress, createRankBadge, createRankProgressDisplay } from './ranks.js';
 import { updateNotificationBadge, initNotificationListener, getNotifications, createNotificationDropdown } from './notifications.js';
 import { getFeed, renderFeedEntry, createEmptyFeed, createFeedFilters, FEED_FILTERS } from './feed.js';
@@ -215,6 +215,31 @@ async function initPageContent(url) {
 }
 
 // ============================================
+// ROLLENBASIERTE WEITERLEITUNG
+// ============================================
+
+/**
+ * Gibt die Ziel-URL basierend auf der Benutzerrolle zurück
+ * (Analog zur Logik im Main Branch)
+ */
+function getRoleBasedRedirectUrl() {
+    const role = getRole();
+
+    switch (role) {
+        case 'admin':
+            // Admin geht zum Coach Dashboard (kein separates Admin-Dashboard im Prototyp)
+            return 'coach.html';
+        case 'head_coach':
+            return 'coach.html';
+        case 'coach':
+            return 'coach.html';
+        case 'player':
+        default:
+            return 'index.html';
+    }
+}
+
+// ============================================
 // APP INITIALISIERUNG
 // ============================================
 
@@ -236,9 +261,10 @@ export async function initApp() {
             return;
         }
     } else {
-        // Auf Dashboard umleiten wenn auf Login-Seite
+        // Rollenbasierte Weiterleitung wenn auf Login-Seite (wie im Main Branch)
         if (window.location.pathname.includes('login.html')) {
-            window.location.href = 'index.html';
+            const targetUrl = getRoleBasedRedirectUrl();
+            window.location.href = targetUrl;
             return;
         }
     }

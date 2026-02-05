@@ -90,10 +90,17 @@ export function isLoggedIn() {
 }
 
 /**
- * Prüft, ob der Benutzer ein Coach ist
+ * Prüft, ob der Benutzer ein Coach ist (inkl. Head Coach)
  */
 export function isCoach() {
-    return currentProfile?.role === 'coach' || currentProfile?.role === 'admin';
+    return currentProfile?.role === 'coach' || currentProfile?.role === 'head_coach' || currentProfile?.role === 'admin';
+}
+
+/**
+ * Prüft, ob der Benutzer ein Head Coach ist
+ */
+export function isHeadCoach() {
+    return currentProfile?.role === 'head_coach' || currentProfile?.role === 'admin';
 }
 
 /**
