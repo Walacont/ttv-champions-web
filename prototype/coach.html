@@ -71,8 +71,13 @@
             <!-- Vereins-Spieler -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                 <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-                    <h2 class="font-semibold text-gray-900">Spieler</h2>
-                    <span id="player-count" class="text-sm text-gray-500"></span>
+                    <div class="flex items-center gap-3">
+                        <h2 class="font-semibold text-gray-900">Spieler</h2>
+                        <span id="player-count" class="text-sm text-gray-500"></span>
+                    </div>
+                    <button id="btn-add-player" class="bg-green-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-green-700 flex items-center gap-1">
+                        <span>+</span> Spieler hinzufügen
+                    </button>
                 </div>
                 <div id="players-list" class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
                     <p class="p-4 text-gray-500">Lade...</p>
@@ -103,7 +108,7 @@
     </script>
 
     <script type="module">
-        import { initAuth, getCurrentProfile, isCoach, supabase } from './js/supabase-client.js';
+        import { initAuth, getCurrentProfile, isCoach, supabase, createLoginCode, formatCodeForDisplay } from './js/supabase-client.js';
         import { getCurrentSeason, startNewSeason, endCurrentSeason } from './js/points.js';
         import { createChallenge, createChallengeForm } from './js/challenges.js';
         import { calculateRank, createRankBadge } from './js/ranks.js';
@@ -219,17 +224,28 @@
                 return `
                     <div class="p-4 flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium">
                                 ${player.first_name?.charAt(0) || '?'}
                             </div>
                             <div>
-                                <div class="font-medium">${player.first_name} ${player.last_name}</div>
+                                <div class="font-medium">
+                                    ${player.first_name} ${player.last_name}
+                                    ${player.is_offline ? '<span class="ml-1 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Offline</span>' : ''}
+                                </div>
                                 <div class="text-sm text-gray-500">
                                     ${player.elo_rating} Elo • ${player.xp} XP
                                 </div>
                             </div>
                         </div>
-                        ${createRankBadge(rank, 'sm')}
+                        <div class="flex items-center gap-2">
+                            ${createRankBadge(rank, 'sm')}
+                            <button onclick="generateCodeForPlayer('${player.id}', '${player.first_name} ${player.last_name}')"
+                                    class="text-blue-600 hover:text-blue-800 p-1" title="Code generieren">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -248,6 +264,8 @@
 
             document.getElementById('btn-season').addEventListener('click', showStartSeasonModal);
 
+            document.getElementById('btn-add-player').addEventListener('click', showAddPlayerModal);
+
             // Modal schließen
             document.getElementById('modal-container').addEventListener('click', (e) => {
                 if (e.target.id === 'modal-container') {
@@ -255,6 +273,161 @@
                 }
             });
         }
+
+        function showAddPlayerModal() {
+            showModal(`
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">Spieler hinzufügen</h2>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-4">
+                        Erstelle einen Offline-Spieler (ohne eigenes Konto). Der Spieler kann sich später mit einem Einladungs-Code anmelden.
+                    </p>
+                    <form id="add-player-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+                                <input type="text" name="firstName" required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+                                <input type="text" name="lastName" required
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-Mail (optional)</label>
+                            <input type="email" name="email"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg"
+                                   placeholder="Optional für spätere Kontoverknüpfung">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+                                <input type="date" name="birthdate"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Geschlecht</label>
+                                <select name="gender" class="w-full px-4 py-3 border border-gray-300 rounded-lg">
+                                    <option value="">-- Auswählen --</option>
+                                    <option value="M">Männlich</option>
+                                    <option value="F">Weiblich</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="add-player-error" class="hidden text-red-600 text-sm bg-red-50 p-3 rounded-lg"></div>
+                        <button type="submit"
+                                class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700">
+                            Spieler erstellen
+                        </button>
+                    </form>
+                </div>
+            `);
+
+            document.getElementById('add-player-form').addEventListener('submit', handleAddPlayer);
+        }
+
+        async function handleAddPlayer(e) {
+            e.preventDefault();
+            const form = e.target;
+            const errorDiv = document.getElementById('add-player-error');
+
+            const firstName = form.firstName.value.trim();
+            const lastName = form.lastName.value.trim();
+            const email = form.email.value.trim() || null;
+            const birthdate = form.birthdate.value || null;
+            const gender = form.gender.value || null;
+
+            try {
+                // Offline-Spieler erstellen (ohne Auth-Benutzer)
+                const { data: newPlayer, error } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: crypto.randomUUID(), // Generiere eine UUID
+                        email: email || `offline_${Date.now()}@ttv-champions.local`,
+                        first_name: firstName,
+                        last_name: lastName,
+                        birthdate: birthdate,
+                        gender: gender,
+                        club_id: profile.club_id,
+                        role: 'player',
+                        is_offline: true,
+                        elo_rating: 800,
+                        xp: 0,
+                        season_points: 0
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                // Login-Code für den Spieler erstellen
+                const codeResult = await createLoginCode(newPlayer.id);
+
+                if (codeResult.success) {
+                    const formattedCode = formatCodeForDisplay(codeResult.code);
+                    showModal(`
+                        <div class="p-6 text-center">
+                            <div class="text-5xl mb-4">✅</div>
+                            <h2 class="text-xl font-bold mb-2">Spieler erstellt!</h2>
+                            <p class="text-gray-600 mb-4">${firstName} ${lastName} wurde hinzugefügt.</p>
+
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <p class="text-sm text-blue-800 mb-2">Einladungs-Code:</p>
+                                <p class="text-3xl font-mono font-bold text-blue-600 tracking-wider">${formattedCode}</p>
+                            </div>
+
+                            <p class="text-gray-500 text-sm mb-4">
+                                Mit diesem Code kann sich ${firstName} in der App anmelden.
+                            </p>
+
+                            <button onclick="closeModal(); loadPlayers();"
+                                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700">
+                                Fertig
+                            </button>
+                        </div>
+                    `);
+                } else {
+                    alert('Spieler erstellt, aber Code-Generierung fehlgeschlagen.');
+                    closeModal();
+                    await loadPlayers();
+                }
+            } catch (error) {
+                console.error('Fehler beim Erstellen:', error);
+                errorDiv.textContent = error.message || 'Ein Fehler ist aufgetreten';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function generateCodeForPlayer(playerId, playerName) {
+            const result = await createLoginCode(playerId);
+
+            if (result.success) {
+                const formattedCode = formatCodeForDisplay(result.code);
+                showModal(`
+                    <div class="p-6 text-center">
+                        <h2 class="text-xl font-bold mb-4">Neuer Einladungs-Code</h2>
+                        <p class="text-gray-600 mb-4">Code für ${playerName}:</p>
+
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <p class="text-3xl font-mono font-bold text-blue-600 tracking-wider">${formattedCode}</p>
+                        </div>
+
+                        <button onclick="closeModal()"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700">
+                            Fertig
+                        </button>
+                    </div>
+                `);
+            } else {
+                alert('Fehler: ' + result.error);
+            }
+        }
+        window.generateCodeForPlayer = generateCodeForPlayer;
+        window.loadPlayers = loadPlayers;
 
         function showModal(content) {
             document.getElementById('modal-content').innerHTML = content;

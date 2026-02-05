@@ -21,13 +21,15 @@ CREATE TABLE subgroups (
 
 -- Spielerprofile
 CREATE TABLE profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,                     -- Kann auth.users referenzieren oder eigenständig sein
     email TEXT UNIQUE NOT NULL,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     birthdate DATE,
+    gender TEXT CHECK (gender IN ('M', 'F')),
     club_id UUID REFERENCES clubs(id),
     role TEXT DEFAULT 'player' CHECK (role IN ('player', 'coach', 'admin')),
+    is_offline BOOLEAN DEFAULT FALSE,        -- True für Spieler ohne eigenes Konto
 
     -- Gamification-Punkte
     xp INTEGER DEFAULT 0,                    -- Experience Points (dauerhaft)
@@ -55,7 +57,7 @@ CREATE TABLE profiles (
 CREATE TABLE login_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    code TEXT NOT NULL UNIQUE,           -- 6-stelliger Code
+    code TEXT NOT NULL UNIQUE,           -- 9-stelliger Code (XXX-XXX-XXX ohne Bindestriche)
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     last_used_at TIMESTAMPTZ

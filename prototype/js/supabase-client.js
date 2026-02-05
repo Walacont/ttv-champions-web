@@ -137,10 +137,13 @@ export async function login(email, password) {
 }
 
 /**
- * Login mit Code (6-stelliger Code)
+ * Login mit Einladungs-Code (Format: XXX-XXX-XXX)
  * Code wird vom Coach/Admin erstellt und an Spieler verteilt
  */
 export async function loginWithCode(code) {
+    // Bindestriche entfernen und uppercase
+    const cleanCode = code.replace(/-/g, '').toUpperCase();
+
     // Code in der Datenbank suchen
     const { data: loginCode, error: codeError } = await supabase
         .from('login_codes')
@@ -148,7 +151,7 @@ export async function loginWithCode(code) {
             *,
             profile:user_id(id, email)
         `)
-        .eq('code', code.toUpperCase())
+        .eq('code', cleanCode)
         .eq('is_active', true)
         .single();
 
@@ -236,15 +239,24 @@ export async function createLoginCode(userId) {
 }
 
 /**
- * Generiert einen 6-stelligen alphanumerischen Code
+ * Generiert einen 9-stelligen alphanumerischen Code (ohne Bindestriche gespeichert)
+ * Anzeige-Format: XXX-XXX-XXX
  */
 function generateCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Ohne 0, O, 1, I
     let code = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 9; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+}
+
+/**
+ * Formatiert einen Code für die Anzeige (XXX-XXX-XXX)
+ */
+export function formatCodeForDisplay(code) {
+    if (!code || code.length !== 9) return code;
+    return `${code.slice(0, 3)}-${code.slice(3, 6)}-${code.slice(6, 9)}`;
 }
 
 /**
