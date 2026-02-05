@@ -649,36 +649,301 @@ CREATE TRIGGER trigger_update_h2h
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================
 
+-- RLS aktivieren für alle Tabellen
+ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subgroups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE xp_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE points_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE streaks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE doubles_matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE doubles_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE head_to_head ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exercises ENABLE ROW LEVEL SECURITY;
+ALTER TABLE completed_exercises ENABLE ROW LEVEL SECURITY;
+ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE completed_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_feed ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Spieler sehen alle Profile (für Ranglisten)
+-- ============================================
+-- CLUBS
+-- ============================================
+CREATE POLICY "Clubs sind öffentlich lesbar" ON clubs
+    FOR SELECT USING (true);
+
+CREATE POLICY "Coaches können Clubs verwalten" ON clubs
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- SUBGROUPS
+-- ============================================
+CREATE POLICY "Subgroups sind für Vereinsmitglieder lesbar" ON subgroups
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND club_id = subgroups.club_id)
+    );
+
+CREATE POLICY "Coaches können Subgroups verwalten" ON subgroups
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach' AND club_id = subgroups.club_id)
+    );
+
+-- ============================================
+-- PROFILES
+-- ============================================
 CREATE POLICY "Profiles sind öffentlich lesbar" ON profiles
     FOR SELECT USING (true);
 
--- Spieler können nur ihr eigenes Profil bearbeiten
+CREATE POLICY "Eigenes Profil erstellen" ON profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Eigenes Profil bearbeiten" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
--- Matches: Alle können lesen, beteiligte können erstellen/bestätigen
-CREATE POLICY "Matches sind lesbar" ON matches
+CREATE POLICY "Coaches können Vereinsmitglieder bearbeiten" ON profiles
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = auth.uid()
+            AND p.role = 'coach'
+            AND p.club_id = profiles.club_id
+        )
+    );
+
+-- ============================================
+-- SEASONS
+-- ============================================
+CREATE POLICY "Seasons sind für Vereinsmitglieder lesbar" ON seasons
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND club_id = seasons.club_id)
+    );
+
+CREATE POLICY "Coaches können Seasons verwalten" ON seasons
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach' AND club_id = seasons.club_id)
+    );
+
+-- ============================================
+-- XP_HISTORY & POINTS_HISTORY
+-- ============================================
+CREATE POLICY "Eigene XP-Historie lesbar" ON xp_history
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können XP vergeben" ON xp_history
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "System kann XP vergeben" ON xp_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Eigene Punkte-Historie lesbar" ON points_history
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können Punkte vergeben" ON points_history
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "System kann Punkte vergeben" ON points_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ============================================
+-- TRAINING_SESSIONS
+-- ============================================
+CREATE POLICY "Trainings sind für Vereinsmitglieder lesbar" ON training_sessions
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND club_id = training_sessions.club_id)
+    );
+
+CREATE POLICY "Coaches können Trainings verwalten" ON training_sessions
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach' AND club_id = training_sessions.club_id)
+    );
+
+-- ============================================
+-- ATTENDANCE
+-- ============================================
+CREATE POLICY "Eigene Anwesenheit lesbar" ON attendance
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können Anwesenheit im Verein sehen" ON attendance
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach' AND club_id = attendance.club_id)
+    );
+
+CREATE POLICY "Coaches können Anwesenheit verwalten" ON attendance
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- STREAKS
+-- ============================================
+CREATE POLICY "Eigene Streaks lesbar" ON streaks
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Eigene Streaks verwalten" ON streaks
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können Streaks verwalten" ON streaks
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- MATCHES (Einzel)
+-- ============================================
+CREATE POLICY "Matches sind öffentlich lesbar" ON matches
     FOR SELECT USING (true);
 
-CREATE POLICY "Matches erstellen" ON matches
-    FOR INSERT WITH CHECK (auth.uid() IN (player_a_id, player_b_id, created_by));
+CREATE POLICY "Beteiligte können Matches erstellen" ON matches
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (player_a_id, player_b_id) OR
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
 
-CREATE POLICY "Matches bestätigen" ON matches
+CREATE POLICY "Beteiligte und Coaches können Matches bearbeiten" ON matches
     FOR UPDATE USING (
         auth.uid() IN (player_a_id, player_b_id) OR
         EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
     );
 
--- Benachrichtigungen: Nur eigene
-CREATE POLICY "Eigene Benachrichtigungen" ON notifications
-    FOR ALL USING (auth.uid() = user_id);
+-- ============================================
+-- DOUBLES_MATCHES
+-- ============================================
+CREATE POLICY "Doppel-Matches sind öffentlich lesbar" ON doubles_matches
+    FOR SELECT USING (true);
+
+CREATE POLICY "Beteiligte können Doppel-Matches erstellen" ON doubles_matches
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id) OR
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "Beteiligte und Coaches können Doppel-Matches bearbeiten" ON doubles_matches
+    FOR UPDATE USING (
+        auth.uid() IN (team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id) OR
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- DOUBLES_TEAMS
+-- ============================================
+CREATE POLICY "Doppel-Teams sind öffentlich lesbar" ON doubles_teams
+    FOR SELECT USING (true);
+
+CREATE POLICY "Beteiligte können Doppel-Teams erstellen" ON doubles_teams
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (player1_id, player2_id)
+    );
+
+CREATE POLICY "System kann Doppel-Teams aktualisieren" ON doubles_teams
+    FOR UPDATE USING (true);
+
+-- ============================================
+-- HEAD_TO_HEAD
+-- ============================================
+CREATE POLICY "H2H-Stats sind für Beteiligte lesbar" ON head_to_head
+    FOR SELECT USING (
+        auth.uid() IN (player1_id, player2_id) OR
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "System kann H2H-Stats verwalten" ON head_to_head
+    FOR ALL USING (true);
+
+-- ============================================
+-- EXERCISES
+-- ============================================
+CREATE POLICY "Übungen sind öffentlich lesbar" ON exercises
+    FOR SELECT USING (true);
+
+CREATE POLICY "Coaches können Übungen erstellen" ON exercises
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "Ersteller können Übungen bearbeiten" ON exercises
+    FOR UPDATE USING (auth.uid() = created_by);
+
+-- ============================================
+-- COMPLETED_EXERCISES
+-- ============================================
+CREATE POLICY "Eigene abgeschlossene Übungen lesbar" ON completed_exercises
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können abgeschlossene Übungen sehen" ON completed_exercises
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "Coaches können Übungsabschluss eintragen" ON completed_exercises
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- CHALLENGES
+-- ============================================
+CREATE POLICY "Challenges sind für Vereinsmitglieder lesbar" ON challenges
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND club_id = challenges.club_id)
+    );
+
+CREATE POLICY "Coaches können Challenges verwalten" ON challenges
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach' AND club_id = challenges.club_id)
+    );
+
+-- ============================================
+-- COMPLETED_CHALLENGES
+-- ============================================
+CREATE POLICY "Eigene abgeschlossene Challenges lesbar" ON completed_challenges
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Coaches können Challenge-Abschlüsse sehen" ON completed_challenges
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+CREATE POLICY "Coaches können Challenge-Abschluss eintragen" ON completed_challenges
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'coach')
+    );
+
+-- ============================================
+-- ACTIVITY_FEED
+-- ============================================
+CREATE POLICY "Feed ist für Vereinsmitglieder lesbar" ON activity_feed
+    FOR SELECT USING (
+        club_id IS NULL OR
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND club_id = activity_feed.club_id)
+    );
+
+CREATE POLICY "Authentifizierte können Feed-Einträge erstellen" ON activity_feed
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- ============================================
+-- NOTIFICATIONS
+-- ============================================
+CREATE POLICY "Eigene Benachrichtigungen lesen" ON notifications
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Eigene Benachrichtigungen aktualisieren" ON notifications
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Eigene Benachrichtigungen löschen" ON notifications
+    FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "System kann Benachrichtigungen erstellen" ON notifications
+    FOR INSERT WITH CHECK (true);
 
 -- ============================================
 -- INDIZES FÜR PERFORMANCE
