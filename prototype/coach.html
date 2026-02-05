@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TTV Champions - Coach Dashboard</title>
+    <title>SC Champions - Coach Dashboard</title>
 
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
@@ -13,7 +13,7 @@
     <!-- iOS PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="TTV Champions">
+    <meta name="apple-mobile-web-app-title" content="SC Champions">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -347,7 +347,7 @@
                     .from('profiles')
                     .insert({
                         id: crypto.randomUUID(), // Generiere eine UUID
-                        email: email || `offline_${Date.now()}@ttv-champions.local`,
+                        email: email || `offline_${Date.now()}@sc-champions.local`,
                         first_name: firstName,
                         last_name: lastName,
                         birthdate: birthdate,

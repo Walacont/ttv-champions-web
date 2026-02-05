@@ -1,5 +1,5 @@
 /**
- * Aktivitätsfeed für TTV Champions Prototyp
+ * Aktivitätsfeed für SC Champions Prototyp
  * Zeigt Spielergebnisse, Saisonstarts, Rangänderungen
  */
 

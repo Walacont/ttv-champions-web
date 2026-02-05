@@ -1,5 +1,5 @@
 /**
- * Punktesystem für TTV Champions Prototyp
+ * Punktesystem für SC Champions Prototyp
  * XP (dauerhaft) und Season Points (resetbar)
  */
 

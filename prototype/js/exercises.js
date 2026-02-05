@@ -1,5 +1,5 @@
 /**
- * Übungssystem für TTV Champions Prototyp
+ * Übungssystem für SC Champions Prototyp
  * Einzelübungen, Paarübungen und Meilensteine
  */
 

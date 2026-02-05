@@ -1,5 +1,5 @@
 /**
- * Rang-System für TTV Champions Prototyp
+ * Rang-System für SC Champions Prototyp
  * Schwellenwerte nach Bachelorarbeit
  */
 

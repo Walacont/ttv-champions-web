@@ -1,6 +1,6 @@
 {
-  "name": "TTV Champions",
-  "short_name": "TTV Champions",
+  "name": "SC Champions",
+  "short_name": "SC Champions",
   "description": "Gamification-App für Tischtennisvereine",
   "start_url": "/index.html",
   "display": "standalone",

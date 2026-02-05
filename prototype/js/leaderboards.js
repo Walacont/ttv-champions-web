@@ -1,5 +1,5 @@
 /**
- * Ranglisten für TTV Champions Prototyp
+ * Ranglisten für SC Champions Prototyp
  * 5 Ranglisten: Fleiß (XP), Saison, Skill (Elo), Rang-Übersicht, Doppel
  */
 

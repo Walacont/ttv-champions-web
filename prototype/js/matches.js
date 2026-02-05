@@ -1,5 +1,5 @@
 /**
- * Match-Workflow für TTV Champions Prototyp
+ * Match-Workflow für SC Champions Prototyp
  * Verwaltet Einzel- und Doppelspiele
  */
 

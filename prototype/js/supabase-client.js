@@ -1,5 +1,5 @@
 /**
- * Supabase Client für TTV Champions Prototyp
+ * Supabase Client für SC Champions Prototyp
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';

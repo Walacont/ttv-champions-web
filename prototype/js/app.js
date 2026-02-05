@@ -1,5 +1,5 @@
 /**
- * Haupt-App-Modul für TTV Champions Prototyp
+ * Haupt-App-Modul für SC Champions Prototyp
  * PWA mit Hybrid-SPA-Ansatz
  *
  * Features:
@@ -324,7 +324,7 @@ function renderHeader() {
             <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                 <a href="index.html" class="flex items-center gap-2">
                     <span class="text-2xl">🏓</span>
-                    <span class="font-bold text-xl text-gray-900">TTV Champions</span>
+                    <span class="font-bold text-xl text-gray-900">SC Champions</span>
                 </a>
 
                 <div class="flex items-center gap-4">
@@ -487,7 +487,7 @@ async function initDashboard() {
             <!-- Begrüßung -->
             <div class="mb-6">
                 <h1 class="text-2xl font-bold text-gray-900">Hallo, ${profile.first_name}! 👋</h1>
-                <p class="text-gray-600">Willkommen zurück bei TTV Champions</p>
+                <p class="text-gray-600">Willkommen zurück bei SC Champions</p>
             </div>
 
             <!-- Rang-Karte -->

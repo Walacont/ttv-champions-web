@@ -1,5 +1,5 @@
 /**
- * Streak-System für TTV Champions Prototyp
+ * Streak-System für SC Champions Prototyp
  * Verwaltet Trainingsstreaks pro Untergruppe
  */
 

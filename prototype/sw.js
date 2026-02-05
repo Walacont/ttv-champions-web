@@ -1,9 +1,9 @@
 /**
- * Service Worker für TTV Champions Prototyp
+ * Service Worker für SC Champions Prototyp
  * Implementiert Caching-Strategien für PWA-Funktionalität
  */
 
-const CACHE_NAME = 'ttv-champions-v1';
+const CACHE_NAME = 'sc-champions-v1';
 const STATIC_CACHE = 'ttv-static-v1';
 const DYNAMIC_CACHE = 'ttv-dynamic-v1';
 
@@ -236,7 +236,7 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title || 'TTV Champions', options)
+        self.registration.showNotification(data.title || 'SC Champions', options)
     );
 });
 

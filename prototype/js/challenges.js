@@ -1,5 +1,5 @@
 /**
- * Challenge-System für TTV Champions Prototyp
+ * Challenge-System für SC Champions Prototyp
  * Trainer erstellen Challenges für ihren Verein
  */
 

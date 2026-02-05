@@ -1,5 +1,5 @@
 /**
- * Elo-System für TTV Champions Prototyp
+ * Elo-System für SC Champions Prototyp
  * Basierend auf dem QTTR-Verfahren des DTTB
  */
 

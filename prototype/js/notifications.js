@@ -1,5 +1,5 @@
 /**
- * Benachrichtigungssystem für TTV Champions Prototyp
+ * Benachrichtigungssystem für SC Champions Prototyp
  * In-App Benachrichtigungen und Push-Notifications
  */
 
