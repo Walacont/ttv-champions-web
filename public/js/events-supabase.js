@@ -2473,7 +2473,7 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         for (let i = 0; i < newAttendees.length; i += BATCH_SIZE) {
             const batch = newAttendees.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(playerId =>
-                awardEventAttendancePoints(playerId, event, totalExercisePoints)
+                awardEventAttendancePoints(playerId, event, totalExercisePoints, occurrenceDate)
             ));
         }
 
@@ -2481,7 +2481,7 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         for (let i = 0; i < removedAttendees.length; i += BATCH_SIZE) {
             const batch = removedAttendees.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(playerId =>
-                deductEventAttendancePoints(playerId, event)
+                deductEventAttendancePoints(playerId, event, occurrenceDate)
             ));
         }
 
@@ -2647,9 +2647,11 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
  * @param {string} playerId - Spieler ID
  * @param {Object} event - Event-Daten
  * @param {number} exercisePoints - Zusätzliche Übungspunkte
+ * @param {string} occurrenceDate - Tatsächliches Datum (für wiederkehrende Events)
  */
-async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
-    const date = event.start_date;
+async function awardEventAttendancePoints(playerId, event, exercisePoints = 0, occurrenceDate = null) {
+    // Verwende occurrenceDate wenn vorhanden, sonst event.start_date
+    const date = occurrenceDate || event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
     const subgroupIds = event.target_subgroup_ids || [];
     const isTraining = event.event_category === 'training';
@@ -2693,8 +2695,7 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
-        // Einfachere Logik: Lade direkt die letzte Anwesenheit aus event_attendance
-        // für Trainings-Events dieser Untergruppe(n)
+        // Lade Anwesenheiten aus event_attendance für Trainings-Events dieser Untergruppe(n)
         const { data: lastAttendances } = await supabase
             .from('event_attendance')
             .select(`
@@ -2710,35 +2711,41 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             `)
             .eq('events.club_id', event.club_id)
             .eq('events.event_category', 'training')
-            .order('created_at', { ascending: false })
-            .limit(20);
+            .limit(50);
 
         // Finde die letzte Anwesenheit VOR dem aktuellen Event-Datum
         // die für eine passende Untergruppe ist
         const targetSubgroups = event.target_subgroup_ids || [];
-        let lastRelevantAttendance = null;
 
-        for (const att of (lastAttendances || [])) {
-            const attDate = att.occurrence_date || att.events?.start_date;
-            if (!attDate || attDate >= date) continue;
+        // Alle relevanten Anwesenheiten mit tatsächlichem Datum sammeln
+        const relevantAttendances = (lastAttendances || [])
+            .map(att => ({
+                ...att,
+                actualDate: att.occurrence_date || att.events?.start_date
+            }))
+            .filter(att => {
+                if (!att.actualDate || att.actualDate >= date) return false;
 
-            // Prüfe ob die Untergruppen übereinstimmen
-            const attSubgroups = att.events?.target_subgroup_ids || [];
-            const isClubWide = attSubgroups.length === 0;
-            const hasOverlap = isClubWide || targetSubgroups.length === 0 ||
-                attSubgroups.some(sg => targetSubgroups.includes(sg));
+                // Prüfe ob die Untergruppen übereinstimmen
+                const attSubgroups = att.events?.target_subgroup_ids || [];
+                const isClubWide = attSubgroups.length === 0;
+                const hasOverlap = isClubWide || targetSubgroups.length === 0 ||
+                    attSubgroups.some(sg => targetSubgroups.includes(sg));
 
-            if (hasOverlap) {
-                lastRelevantAttendance = att;
-                break;
-            }
-        }
+                return hasOverlap;
+            })
+            // Nach tatsächlichem Datum sortieren (neueste zuerst)
+            .sort((a, b) => b.actualDate.localeCompare(a.actualDate));
+
+        const lastRelevantAttendance = relevantAttendances[0] || null;
 
         if (lastRelevantAttendance) {
             wasPresentAtLastEvent = lastRelevantAttendance.present_user_ids?.includes(playerId) || false;
+            console.log(`[Events] Streak check for ${playerId}: last training ${lastRelevantAttendance.actualDate}, was present: ${wasPresentAtLastEvent}`);
         } else {
-            // Kein vorheriges Training gefunden → Streak startet neu
+            // Kein vorheriges Training gefunden → Streak startet bei 1
             wasPresentAtLastEvent = true;
+            console.log(`[Events] Streak check for ${playerId}: no previous training found, starting fresh`);
         }
 
         const { data: streakData } = await supabase
@@ -2907,9 +2914,11 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 /**
  * Zieht Punkte ab wenn Spieler nachträglich von Anwesenheit entfernt wird
  * Sucht die tatsächlich vergebenen Punkte und verringert Streak um 1
+ * @param {string} occurrenceDate - Tatsächliches Datum (für wiederkehrende Events)
  */
-async function deductEventAttendancePoints(playerId, event) {
-    const date = event.start_date;
+async function deductEventAttendancePoints(playerId, event, occurrenceDate = null) {
+    // Verwende occurrenceDate wenn vorhanden, sonst event.start_date
+    const date = occurrenceDate || event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
     const isTraining = event.event_category === 'training';
     const subgroupIds = event.target_subgroup_ids || [];
