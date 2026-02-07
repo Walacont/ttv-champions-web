@@ -825,6 +825,14 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                 'player-detail-actions-desktop'
                             );
 
+                            console.log('[PlayerManagement] Click handler triggered for:', player.firstName, player.lastName);
+                            console.log('[PlayerManagement] DOM elements found:', {
+                                detailPanelDesktop: !!detailPanelDesktop,
+                                detailPlaceholderDesktop: !!detailPlaceholderDesktop,
+                                detailContentDesktop: !!detailContentDesktop,
+                                actionsContainerDesktop: !!actionsContainerDesktop
+                            });
+
                             if (
                                 detailPanelDesktop &&
                                 detailPlaceholderDesktop &&
@@ -832,7 +840,9 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                 actionsContainerDesktop
                             ) {
                                 try {
+                                    console.log('[PlayerManagement] Calling showPlayerDetails...');
                                     await showPlayerDetails(player, detailContentDesktop, supabase);
+                                    console.log('[PlayerManagement] showPlayerDetails completed successfully');
                                     actionsContainerDesktop.innerHTML = actionsHtml;
                                     detailPanelDesktop.classList.remove('hidden');
                                     detailPlaceholderDesktop.classList.add('hidden');
@@ -842,6 +852,8 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                     detailPanelDesktop.classList.remove('hidden');
                                     detailPlaceholderDesktop.classList.add('hidden');
                                 }
+                            } else {
+                                console.error('[PlayerManagement] DOM elements not found, cannot show details');
                             }
 
                             // Mobile: Öffne Modal
@@ -1036,12 +1048,19 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
  * @param {Object} supabase - Supabase-Client-Instanz
  */
 export async function showPlayerDetails(player, detailContent, supabase) {
-    if (!detailContent) return;
+    console.log('[showPlayerDetails] Starting for player:', player?.firstName, player?.lastName);
+    if (!detailContent) {
+        console.error('[showPlayerDetails] detailContent is null/undefined');
+        return;
+    }
 
     // Rangs-Modul-Funktionen importieren
+    console.log('[showPlayerDetails] Importing ranks.js...');
     const { getRankProgress } = await import('./ranks.js');
+    console.log('[showPlayerDetails] ranks.js imported successfully');
     const grundlagenCount = player.grundlagenCompleted || 0;
     const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+    console.log('[showPlayerDetails] Rank progress calculated:', progress?.currentRank?.name);
 
     // Load guardian info if player has one
     let guardianHtml = '';
@@ -1261,6 +1280,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 ${guardianCodeHtml}
             </div>
         `;
+    console.log('[showPlayerDetails] innerHTML set successfully');
 }
 
 /**
