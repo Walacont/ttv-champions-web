@@ -355,85 +355,72 @@ async function generateDoubleEliminationMatches(tournamentId) {
 
     // Find next power of 2
     const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
-    if (bracketSize > 16) throw new Error('Double Elimination unterstützt maximal 16 Spieler');
+    if (bracketSize > 16) throw new Error('Double Elimination unterstuetzt maximal 16 Spieler');
 
     const playerIds = participants.map(p => p.player_id);
     const matches = [];
 
-    // Seed players into bracket positions (standard seeding: 1v16, 8v9, 5v12, 4v13, etc.)
+    // Seed players into bracket positions
     const seedOrder = generateSeedOrder(bracketSize);
 
     // ============ WINNERS BRACKET ============
     const winnersRounds = Math.log2(bracketSize);
     let matchNumber = 1;
-    let bracketPosition = 1;
 
-    // Round 1 of Winners Bracket
-    const winnersR1Matches = [];
-    for (let i = 0; i < bracketSize / 2; i++) {
-        const seed1 = seedOrder[i * 2];
-        const seed2 = seedOrder[i * 2 + 1];
-        const player1 = seed1 <= n ? playerIds[seed1 - 1] : null;
-        const player2 = seed2 <= n ? playerIds[seed2 - 1] : null;
-
-        const isBye = !player1 || !player2;
-        const match = {
-            tournament_id: tournamentId,
-            round_number: 1,
-            match_number: matchNumber++,
-            bracket_type: 'winners',
-            bracket_position: bracketPosition++,
-            player_a_id: player1,
-            player_b_id: player2,
-            status: isBye ? 'completed' : 'pending',
-            winner_id: isBye ? (player1 || player2) : null
-        };
-        matches.push(match);
-        winnersR1Matches.push(match);
-    }
-
-    // Subsequent Winners Bracket rounds (will be filled as matches complete)
-    for (let round = 2; round <= winnersRounds; round++) {
+    // Generate all Winners Bracket rounds
+    for (let round = 1; round <= winnersRounds; round++) {
         const matchesInRound = bracketSize / Math.pow(2, round);
-        for (let i = 0; i < matchesInRound; i++) {
+        for (let pos = 1; pos <= matchesInRound; pos++) {
+            let player1 = null, player2 = null;
+
+            // Only Round 1 has initial players
+            if (round === 1) {
+                const idx = (pos - 1) * 2;
+                const seed1 = seedOrder[idx];
+                const seed2 = seedOrder[idx + 1];
+                player1 = seed1 <= n ? playerIds[seed1 - 1] : null;
+                player2 = seed2 <= n ? playerIds[seed2 - 1] : null;
+            }
+
+            const isBye = round === 1 && (!player1 || !player2);
             matches.push({
                 tournament_id: tournamentId,
                 round_number: round,
                 match_number: matchNumber++,
                 bracket_type: 'winners',
-                bracket_position: bracketPosition++,
-                player_a_id: null, // TBD
-                player_b_id: null, // TBD
-                status: 'pending'
+                bracket_position: pos,
+                player_a_id: player1,
+                player_b_id: player2,
+                status: isBye ? 'completed' : 'pending',
+                winner_id: isBye ? (player1 || player2) : null
             });
         }
     }
 
     // ============ LOSERS BRACKET ============
-    // Losers bracket has (2 * winnersRounds - 2) rounds for standard DE
+    // For bracketSize players, Losers Bracket has (2 * winnersRounds - 2) rounds
+    // Structure:
+    //   - Odd rounds (1,3,5...): Winners from previous LB round play losers dropping from WB
+    //   - Even rounds (2,4,6...): LB matches between survivors
     const losersRounds = 2 * (winnersRounds - 1);
-    let losersBracketPosition = 1;
 
     for (let round = 1; round <= losersRounds; round++) {
-        // Number of matches varies by round
-        // Odd rounds: matches from losers playing each other
-        // Even rounds: losers from winners bracket join
-        let matchesInRound;
-        if (round <= 2) {
-            matchesInRound = bracketSize / 4;
-        } else {
-            matchesInRound = Math.max(1, bracketSize / Math.pow(2, Math.floor((round + 3) / 2)));
-        }
+        // Calculate matches per round
+        // Round 1: bracketSize/4 matches (losers from WB R1)
+        // Round 2: bracketSize/4 matches (survivors from LB R1)
+        // Round 3: bracketSize/8 matches (LB R2 winners + WB R2 losers)
+        // etc.
+        const matchesInRound = Math.max(1, bracketSize / Math.pow(2, Math.floor((round + 3) / 2)));
 
-        for (let i = 0; i < matchesInRound; i++) {
+        for (let pos = 1; pos <= matchesInRound; pos++) {
             matches.push({
                 tournament_id: tournamentId,
                 round_number: round,
                 match_number: matchNumber++,
                 bracket_type: 'losers',
-                bracket_position: losersBracketPosition++,
-                player_a_id: null, // TBD
-                player_b_id: null, // TBD
+                bracket_position: pos,
+                player_a_id: null,
+                player_b_id: null,
                 status: 'pending'
             });
         }
@@ -526,93 +513,170 @@ async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winn
     const roundNumber = completedMatch.round_number;
     const bracketPosition = completedMatch.bracket_position;
 
+    // Get bracket info to calculate total rounds
+    const { data: allMatches } = await supabase
+        .from('tournament_matches')
+        .select('bracket_type, round_number')
+        .eq('tournament_id', tournamentId);
+
+    const winnersRounds = Math.max(...allMatches.filter(m => m.bracket_type === 'winners').map(m => m.round_number));
+    const losersRounds = Math.max(...allMatches.filter(m => m.bracket_type === 'losers').map(m => m.round_number));
+
     if (bracketType === 'winners') {
-        // Find next winners bracket match
-        const nextRound = roundNumber + 1;
-        const nextPosition = Math.ceil(bracketPosition / 2);
-
-        const { data: nextMatch } = await supabase
-            .from('tournament_matches')
-            .select('*')
-            .eq('tournament_id', tournamentId)
-            .eq('bracket_type', 'winners')
-            .eq('round_number', nextRound)
-            .eq('bracket_position', nextPosition)
-            .maybeSingle();
-
-        if (nextMatch) {
+        // Check if this is the Winners Bracket Final
+        if (roundNumber === winnersRounds) {
+            // Winner goes to Grand Finals as player_a
+            await supabase
+                .from('tournament_matches')
+                .update({ player_a_id: winnerId })
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'finals');
+        } else {
+            // Advance to next winners bracket round
+            const nextRound = roundNumber + 1;
+            const nextPosition = Math.ceil(bracketPosition / 2);
             const isSlotA = bracketPosition % 2 === 1;
-            const updateField = isSlotA ? 'player_a_id' : 'player_b_id';
 
             await supabase
                 .from('tournament_matches')
-                .update({ [updateField]: winnerId })
-                .eq('id', nextMatch.id);
+                .update({ [isSlotA ? 'player_a_id' : 'player_b_id']: winnerId })
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'winners')
+                .eq('round_number', nextRound)
+                .eq('bracket_position', nextPosition);
         }
     } else if (bracketType === 'losers') {
-        // Advance in losers bracket - more complex logic
-        // For now, find next losers match
-        const nextRound = roundNumber + 1;
-        const nextPosition = Math.ceil(bracketPosition / 2);
-
-        const { data: nextMatch } = await supabase
-            .from('tournament_matches')
-            .select('*')
-            .eq('tournament_id', tournamentId)
-            .eq('bracket_type', 'losers')
-            .eq('round_number', nextRound)
-            .limit(1)
-            .maybeSingle();
-
-        if (nextMatch) {
-            const updateField = nextMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+        // Check if this is the Losers Bracket Final
+        if (roundNumber === losersRounds) {
+            // Winner goes to Grand Finals as player_b
             await supabase
                 .from('tournament_matches')
-                .update({ [updateField]: winnerId })
-                .eq('id', nextMatch.id);
+                .update({ player_b_id: winnerId })
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'finals');
+        } else {
+            // Advance in losers bracket
+            const nextRound = roundNumber + 1;
+
+            // In LB, even rounds halve the matches, odd rounds don't
+            let nextPosition;
+            if (roundNumber % 2 === 0) {
+                // Even round -> next is odd, positions halve
+                nextPosition = Math.ceil(bracketPosition / 2);
+            } else {
+                // Odd round -> next is even, same number of positions
+                nextPosition = bracketPosition;
+            }
+
+            const { data: nextMatches } = await supabase
+                .from('tournament_matches')
+                .select('*')
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'losers')
+                .eq('round_number', nextRound)
+                .order('bracket_position', { ascending: true });
+
+            if (nextMatches && nextMatches.length > 0) {
+                // Find slot based on position
+                const targetMatch = nextMatches.find(m => m.bracket_position === nextPosition) || nextMatches[0];
+                if (targetMatch) {
+                    const updateField = targetMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+                    await supabase
+                        .from('tournament_matches')
+                        .update({ [updateField]: winnerId })
+                        .eq('id', targetMatch.id);
+                }
+            }
         }
     } else if (bracketType === 'finals') {
-        // Check if grand finals reset is needed
-        // Winner from losers bracket winning finals triggers reset
+        // Grand Finals completed
+        // Check if the loser (from LB) won - if so, need reset match
+        const { data: finalsMatch } = await supabase
+            .from('tournament_matches')
+            .select('player_a_id, player_b_id, winner_id')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'finals')
+            .single();
+
+        if (finalsMatch && finalsMatch.winner_id === finalsMatch.player_b_id) {
+            // LB champion won - trigger Grand Finals Reset
+            await supabase
+                .from('tournament_matches')
+                .update({
+                    player_a_id: finalsMatch.player_a_id,
+                    player_b_id: finalsMatch.player_b_id
+                })
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'grand_finals');
+        }
     }
 }
 
 /**
  * Drop loser to losers bracket in Double Elimination
+ * Maps WB round losses to correct LB round:
+ * - WB R1 losers -> LB R1 (play each other)
+ * - WB R2 losers -> LB R2 (play LB R1 winners)
+ * - WB R3 losers -> LB R4 (play LB R3 winners)
+ * - WB RN losers -> LB R(2N-2) for N>1
  */
 async function dropToLosersBracket(tournamentId, completedMatch, loserId) {
-    const roundNumber = completedMatch.round_number;
+    const wbRound = completedMatch.round_number;
+    const wbPosition = completedMatch.bracket_position;
 
-    // Find appropriate losers bracket match
-    // Losers from winners R1 go to losers R1
-    // Losers from winners R2 go to losers R2, etc.
-    const losersRound = roundNumber;
+    // Calculate target LB round
+    // WB R1 -> LB R1, WB R2 -> LB R2, WB R3 -> LB R4, WB R4 -> LB R6
+    let lbRound;
+    if (wbRound === 1) {
+        lbRound = 1;
+    } else {
+        lbRound = 2 * (wbRound - 1);
+    }
 
-    const { data: losersMatches } = await supabase
+    const { data: lbMatches } = await supabase
         .from('tournament_matches')
         .select('*')
         .eq('tournament_id', tournamentId)
         .eq('bracket_type', 'losers')
-        .eq('round_number', losersRound)
+        .eq('round_number', lbRound)
         .order('bracket_position', { ascending: true });
 
-    if (losersMatches && losersMatches.length > 0) {
-        // Find first available slot
-        for (const match of losersMatches) {
-            if (!match.player_a_id) {
-                await supabase
-                    .from('tournament_matches')
-                    .update({ player_a_id: loserId })
-                    .eq('id', match.id);
-                return;
-            } else if (!match.player_b_id) {
-                await supabase
-                    .from('tournament_matches')
-                    .update({ player_b_id: loserId })
-                    .eq('id', match.id);
-                return;
-            }
+    if (!lbMatches || lbMatches.length === 0) return;
+
+    // Determine target position based on WB position
+    // For WB R1: losers pair up (pos 1,2 -> LB pos 1, pos 3,4 -> LB pos 2, etc.)
+    // For later rounds: map directly or fill next available
+    let targetPosition;
+    if (wbRound === 1) {
+        targetPosition = Math.ceil(wbPosition / 2);
+    } else {
+        // For WB R2+, losers go into odd rounds of LB where they face LB survivors
+        targetPosition = wbPosition;
+    }
+
+    // Find target match and available slot
+    let targetMatch = lbMatches.find(m => m.bracket_position === targetPosition);
+    if (!targetMatch) {
+        // Fallback: find any match with available slot
+        targetMatch = lbMatches.find(m => !m.player_a_id || !m.player_b_id);
+    }
+
+    if (targetMatch) {
+        // For WB R1 losers: they play each other in LB R1
+        // For WB R2+ losers: they face LB survivors (usually go to player_b slot)
+        let updateField;
+        if (wbRound === 1) {
+            // WB R1 losers fill both slots of LB R1 matches
+            updateField = targetMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+        } else {
+            // WB R2+ losers usually go to player_b (facing LB survivor in player_a)
+            updateField = targetMatch.player_a_id ? 'player_b_id' : 'player_a_id';
         }
+
+        await supabase
+            .from('tournament_matches')
+            .update({ [updateField]: loserId })
+            .eq('id', targetMatch.id);
     }
 }
 

@@ -1056,7 +1056,7 @@ function openQuickMatchEntryModal(tournament) {
     const maxSets = getMaxSets(matchMode);
     const setsToWin = getSetsToWin(matchMode);
     const formatName = getTournamentFormatName(tournament.format);
-    const isDoubleElim = tournament.format === 'double-elimination';
+    const isDoubleElim = tournament.format === 'double_elimination' || tournament.format === 'double_elim_32';
 
     const modal = document.createElement('div');
     modal.id = 'coach-quick-match-modal';
