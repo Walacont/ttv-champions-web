@@ -1169,6 +1169,47 @@ function printTournament(tournament) {
     const matches = tournament.tournament_matches || [];
     const standings = tournament.tournament_standings || [];
 
+    // Generate round-robin pairings table (only numbers)
+    let roundPairingsHtml = '';
+    if (participants.length >= 3 && tournament.format === 'round-robin') {
+        const n = participants.length;
+        const players = Array.from({ length: n }, (_, i) => i + 1);
+        if (n % 2 !== 0) players.push(0); // bye placeholder
+        const numPlayers = players.length;
+        const numRounds = numPlayers - 1;
+        const rounds = [];
+
+        for (let r = 0; r < numRounds; r++) {
+            const roundPairings = [];
+            for (let i = 0; i < numPlayers / 2; i++) {
+                const p1 = players[i];
+                const p2 = players[numPlayers - 1 - i];
+                if (p1 !== 0 && p2 !== 0) {
+                    roundPairings.push(`${p1}-${p2}`);
+                }
+            }
+            rounds.push(roundPairings);
+            const last = players.pop();
+            players.splice(1, 0, last);
+        }
+
+        roundPairingsHtml = `
+            <div style="margin-top:25px; border:1px solid #ddd; padding:10px; font-size:11px;">
+                <strong>Für ${n} Teilnehmer - Rundenpaarungen:</strong>
+                <table style="margin-top:8px; border-collapse:collapse;">
+                    <tr style="background:#f3f4f6;">
+                        ${rounds.map((_, i) => `<th style="border:1px solid #ddd; padding:4px 8px; text-align:center;">${i + 1}.R.</th>`).join('')}
+                    </tr>
+                    ${Array.from({ length: Math.max(...rounds.map(r => r.length)) }, (_, rowIdx) => `
+                        <tr>
+                            ${rounds.map(round => `<td style="border:1px solid #ddd; padding:3px 8px; text-align:center; font-family:monospace;">${round[rowIdx] || ''}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+        `;
+    }
+
     let crossTableHtml = '';
     if (participants.length > 0 && matches.length > 0) {
         const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
@@ -1256,6 +1297,7 @@ function printTournament(tournament) {
                 ${tournament.with_handicap ? '<div class="info-item"><span class="info-label">Handicap:</span> Aktiv</div>' : ''}
             </div>
             ${crossTableHtml}
+            ${roundPairingsHtml}
             <p style="margin-top:30px; font-size:10px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
             <script>window.print();</script>
         </body>
