@@ -1070,15 +1070,7 @@ function openQuickMatchEntryModal(tournament) {
                 </div>
                 <div class="mb-3 p-2 bg-gray-50 rounded-lg">
                     <div class="text-sm font-medium text-gray-800">${escapeHtml(tournament.name)}</div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        <span class="inline-flex items-center gap-1">
-                            <i class="fas fa-trophy text-indigo-500"></i>${formatName}
-                        </span>
-                        <span class="mx-2">|</span>
-                        <span class="inline-flex items-center gap-1">
-                            <i class="fas fa-table-tennis text-green-500"></i>${getMatchModeName(matchMode)}
-                        </span>
-                    </div>
+                    <div class="text-xs text-gray-500 mt-1">${formatName} | ${getMatchModeName(matchMode)}</div>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Match auswaehlen</label>
