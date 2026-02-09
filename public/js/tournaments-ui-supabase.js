@@ -1240,10 +1240,16 @@ function openQuickMatchEntryModal(tournament) {
 
 /**
  * Load and display active tournament banner on the start screen
+ * Supports multiple tournaments with carousel navigation
  */
 export async function loadActiveTournamentBanner() {
     const banner = document.getElementById('active-tournament-banner');
-    if (!banner) return;
+    const slidesContainer = document.getElementById('tournament-slides');
+    const dotsContainer = document.getElementById('tournament-dots');
+    const prevBtn = document.getElementById('tournament-prev-btn');
+    const nextBtn = document.getElementById('tournament-next-btn');
+
+    if (!banner || !slidesContainer) return;
 
     const userId = getCurrentUserId();
     if (!userId) { banner.classList.add('hidden'); return; }
@@ -1262,67 +1268,232 @@ export async function loadActiveTournamentBanner() {
 
         const tournamentIds = participations.map(p => p.tournament_id);
 
+        // Get ALL active tournaments (not just one)
         const { data: activeTournaments, error: tErr } = await supabase
             .from('tournaments')
             .select('id, name')
             .in('id', tournamentIds)
             .eq('status', 'in_progress')
-            .limit(1);
+            .order('created_at', { ascending: false });
 
         if (tErr || !activeTournaments || activeTournaments.length === 0) {
             banner.classList.add('hidden');
             return;
         }
 
-        const tournament = activeTournaments[0];
+        // Load data for each tournament
+        const tournamentsData = [];
+        for (const tournament of activeTournaments) {
+            // Get pending matches for this user in this tournament
+            const { data: pendingMatches } = await supabase
+                .from('tournament_matches')
+                .select(`
+                    id, round_number, player_a_id, player_b_id, status, bracket_type,
+                    player_a:profiles!tournament_matches_player_a_id_fkey(first_name, last_name),
+                    player_b:profiles!tournament_matches_player_b_id_fkey(first_name, last_name)
+                `)
+                .eq('tournament_id', tournament.id)
+                .in('status', ['pending', 'in_progress'])
+                .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`)
+                .order('round_number', { ascending: true });
 
-        // Get pending matches for this user in this tournament
-        const { data: pendingMatches, error: mErr } = await supabase
-            .from('tournament_matches')
-            .select(`
-                id, round_number, player_a_id, player_b_id, status,
-                player_a:profiles!tournament_matches_player_a_id_fkey(first_name, last_name),
-                player_b:profiles!tournament_matches_player_b_id_fkey(first_name, last_name)
-            `)
-            .eq('tournament_id', tournament.id)
-            .in('status', ['pending', 'in_progress'])
-            .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`)
-            .order('round_number', { ascending: true });
+            if (!pendingMatches || pendingMatches.length === 0) continue;
 
-        if (mErr || !pendingMatches || pendingMatches.length === 0) {
-            // All matches done
+            const nextMatch = pendingMatches[0];
+            const isPlayerA = nextMatch.player_a_id === userId;
+            const opponent = isPlayerA ? nextMatch.player_b : nextMatch.player_a;
+            const opponentName = opponent
+                ? `${opponent.first_name || ''} ${opponent.last_name || ''}`.trim() || 'Unbekannt'
+                : 'Freilos';
+
+            // Count total rounds
+            const { data: allMatches } = await supabase
+                .from('tournament_matches')
+                .select('round_number, status, bracket_type')
+                .eq('tournament_id', tournament.id)
+                .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`);
+
+            const totalRounds = allMatches ? Math.max(...allMatches.map(m => m.round_number)) : 0;
+
+            // Determine bracket label for Double Elimination
+            const bracketLabel = nextMatch.bracket_type && nextMatch.bracket_type !== 'winners'
+                ? getBracketLabel(nextMatch.bracket_type) + ' · '
+                : (nextMatch.bracket_type === 'winners' ? 'Hauptrunde · ' : '');
+
+            tournamentsData.push({
+                tournament,
+                nextMatch,
+                opponentName,
+                totalRounds,
+                pendingCount: pendingMatches.length,
+                bracketLabel
+            });
+        }
+
+        if (tournamentsData.length === 0) {
             banner.classList.add('hidden');
             return;
         }
 
-        const nextMatch = pendingMatches[0];
-        const isPlayerA = nextMatch.player_a_id === userId;
-        const opponent = isPlayerA ? nextMatch.player_b : nextMatch.player_a;
-        const opponentName = opponent
-            ? `${opponent.first_name || ''} ${opponent.last_name || ''}`.trim() || 'Unbekannt'
-            : 'Freilos';
+        // Build carousel slides
+        slidesContainer.innerHTML = tournamentsData.map((data, index) => `
+            <div class="tournament-slide w-full flex-shrink-0" data-index="${index}">
+                <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-trophy text-white"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-indigo-900 text-sm truncate">${escapeHtml(data.tournament.name)}</h3>
+                            <p class="text-xs text-indigo-700">${data.bracketLabel}Runde ${data.nextMatch.round_number} von ${data.totalRounds} · ${data.pendingCount} Spiel${data.pendingCount !== 1 ? 'e' : ''} offen</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 mt-2">
+                        <p class="text-xs text-gray-500 mb-1">Nächster Gegner</p>
+                        <p class="font-semibold text-gray-900">${escapeHtml(data.opponentName)}</p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
 
-        // Count total rounds and completed rounds
-        const { data: allMatches } = await supabase
-            .from('tournament_matches')
-            .select('round_number, status')
-            .eq('tournament_id', tournament.id)
-            .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`);
-
-        const totalRounds = allMatches ? Math.max(...allMatches.map(m => m.round_number)) : 0;
-        const completedRounds = allMatches
-            ? new Set(allMatches.filter(m => m.status === 'completed').map(m => m.round_number)).size
-            : 0;
-
-        document.getElementById('tournament-banner-name').textContent = tournament.name;
-        document.getElementById('tournament-banner-round').textContent =
-            `Runde ${nextMatch.round_number} von ${totalRounds} · ${pendingMatches.length} Spiel${pendingMatches.length !== 1 ? 'e' : ''} offen`;
-        document.getElementById('tournament-banner-opponent').textContent = opponentName;
+        // Show/hide navigation based on tournament count
+        const hasMultiple = tournamentsData.length > 1;
+        if (prevBtn) prevBtn.classList.toggle('hidden', !hasMultiple);
+        if (nextBtn) nextBtn.classList.toggle('hidden', !hasMultiple);
+        if (dotsContainer) {
+            dotsContainer.classList.toggle('hidden', !hasMultiple);
+            // Build dots
+            dotsContainer.innerHTML = tournamentsData.map((_, index) =>
+                `<button class="tournament-dot w-2 h-2 rounded-full transition-colors ${index === 0 ? 'bg-indigo-600' : 'bg-gray-300'}" data-index="${index}"></button>`
+            ).join('');
+        }
 
         banner.classList.remove('hidden');
+
+        // Initialize carousel if multiple tournaments
+        if (hasMultiple) {
+            initTournamentCarousel(tournamentsData.length);
+        }
     } catch (err) {
         console.error('[Tournaments UI] Error loading tournament banner:', err);
         banner.classList.add('hidden');
+    }
+}
+
+/**
+ * Initialize tournament carousel with swipe and navigation
+ */
+let tournamentCarouselIndex = 0;
+let tournamentCarouselCount = 0;
+let touchStartX = 0;
+let touchEndX = 0;
+
+function initTournamentCarousel(count) {
+    tournamentCarouselCount = count;
+    tournamentCarouselIndex = 0;
+
+    const slidesContainer = document.getElementById('tournament-slides');
+    const prevBtn = document.getElementById('tournament-prev-btn');
+    const nextBtn = document.getElementById('tournament-next-btn');
+    const dotsContainer = document.getElementById('tournament-dots');
+    const carousel = document.getElementById('tournament-carousel');
+
+    if (!slidesContainer || !carousel) return;
+
+    // Arrow navigation
+    prevBtn?.addEventListener('click', () => goToTournamentSlide(tournamentCarouselIndex - 1));
+    nextBtn?.addEventListener('click', () => goToTournamentSlide(tournamentCarouselIndex + 1));
+
+    // Dot navigation
+    dotsContainer?.querySelectorAll('.tournament-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+            const index = parseInt(dot.dataset.index);
+            goToTournamentSlide(index);
+        });
+    });
+
+    // Touch/swipe support for mobile
+    carousel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    carousel.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleTournamentSwipe();
+    }, { passive: true });
+
+    // Mouse drag support for desktop
+    let isDragging = false;
+    let dragStartX = 0;
+
+    carousel.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        carousel.style.cursor = 'grabbing';
+    });
+
+    carousel.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+    });
+
+    carousel.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        carousel.style.cursor = 'grab';
+        const diff = dragStartX - e.clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) goToTournamentSlide(tournamentCarouselIndex + 1);
+            else goToTournamentSlide(tournamentCarouselIndex - 1);
+        }
+    });
+
+    carousel.addEventListener('mouseleave', () => {
+        isDragging = false;
+        carousel.style.cursor = '';
+    });
+
+    // Set initial cursor style
+    if (count > 1) {
+        carousel.style.cursor = 'grab';
+    }
+}
+
+function handleTournamentSwipe() {
+    const swipeThreshold = 50;
+    const diff = touchStartX - touchEndX;
+
+    if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0) {
+            // Swipe left -> next
+            goToTournamentSlide(tournamentCarouselIndex + 1);
+        } else {
+            // Swipe right -> previous
+            goToTournamentSlide(tournamentCarouselIndex - 1);
+        }
+    }
+}
+
+function goToTournamentSlide(index) {
+    // Wrap around
+    if (index < 0) index = tournamentCarouselCount - 1;
+    if (index >= tournamentCarouselCount) index = 0;
+
+    tournamentCarouselIndex = index;
+
+    const slidesContainer = document.getElementById('tournament-slides');
+    const dotsContainer = document.getElementById('tournament-dots');
+
+    if (slidesContainer) {
+        slidesContainer.style.transform = `translateX(-${index * 100}%)`;
+    }
+
+    // Update dots
+    if (dotsContainer) {
+        dotsContainer.querySelectorAll('.tournament-dot').forEach((dot, i) => {
+            dot.classList.toggle('bg-indigo-600', i === index);
+            dot.classList.toggle('bg-gray-300', i !== index);
+        });
     }
 }
 

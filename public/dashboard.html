@@ -513,22 +513,26 @@
                         </div>
                     </div>
 
-                    <!-- Active Tournament Banner -->
+                    <!-- Active Tournament Banner (Carousel for multiple tournaments) -->
                     <div id="active-tournament-banner" class="hidden mb-4">
                         <div class="max-w-2xl mx-auto">
-                            <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <div class="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-                                        <i class="fas fa-trophy text-white"></i>
-                                    </div>
-                                    <div>
-                                        <h3 id="tournament-banner-name" class="font-bold text-indigo-900 text-sm"></h3>
-                                        <p id="tournament-banner-round" class="text-xs text-indigo-700"></p>
+                            <div class="relative">
+                                <!-- Carousel Container -->
+                                <div id="tournament-carousel" class="overflow-hidden">
+                                    <div id="tournament-slides" class="flex transition-transform duration-300 ease-out">
+                                        <!-- Tournament slides will be inserted here dynamically -->
                                     </div>
                                 </div>
-                                <div id="tournament-banner-next" class="bg-white rounded-lg p-3 mt-2">
-                                    <p class="text-xs text-gray-500 mb-1">Nächster Gegner</p>
-                                    <p id="tournament-banner-opponent" class="font-semibold text-gray-900"></p>
+                                <!-- Navigation Arrows (shown only when multiple tournaments) -->
+                                <button id="tournament-prev-btn" class="hidden absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                    <i class="fas fa-chevron-left text-sm"></i>
+                                </button>
+                                <button id="tournament-next-btn" class="hidden absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                    <i class="fas fa-chevron-right text-sm"></i>
+                                </button>
+                                <!-- Dots Navigation (shown only when multiple tournaments) -->
+                                <div id="tournament-dots" class="hidden flex justify-center gap-2 mt-3">
+                                    <!-- Dots will be inserted here dynamically -->
                                 </div>
                             </div>
                         </div>
