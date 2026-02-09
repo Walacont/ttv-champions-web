@@ -1184,7 +1184,7 @@ export function formatSetsDisplay(sets, match) {
     if (!sets || sets.length === 0) {
         const aWins = match?.player_a_sets_won || 0;
         const bWins = match?.player_b_sets_won || 0;
-        if (aWins === 0 && bWins === 0) return 'Keine Sätze';
+        if (aWins === 0 && bWins === 0) return '—';
         return `${aWins}:${bWins}`;
     }
     return sets.map((set) => `${set.playerA || set.teamA || 0}:${set.playerB || set.teamB || 0}`).join(', ');

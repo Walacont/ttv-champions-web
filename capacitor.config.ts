@@ -27,9 +27,12 @@ const config: CapacitorConfig = {
             resize: 'body',
             resizeOnFullScreen: true
         },
-        PushNotifications: {
-            presentationOptions: ['badge', 'sound', 'alert']
-        }
+        CapacitorHttp: {
+            enabled: false
+        },
+        CapacitorCookies: {
+            enabled: false
+        },
     },
     android: {
         allowMixedContent: false,

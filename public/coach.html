@@ -48,8 +48,7 @@
         <script src="/vendor/chart.umd.min.js"></script>
         <script src="/vendor/exceljs.min.js"></script>
         <style>
-            /* Fallback for when Tailwind CDN doesn't load */
-            .hidden { display: none !important; }
+            /* Note: .hidden is defined in Tailwind CSS - no fallback needed with compiled CSS */
             body {
                 font-family: 'Inter', sans-serif;
             }
@@ -486,20 +485,6 @@
                         <!-- Sub-Tab Content: Wettkampf -->
                         <div id="coach-matches-subtab-wettkampf" class="p-4">
                     <div class="space-y-8">
-                        <!-- Saved Pairings Section -->
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                            <h2 class="text-xl font-semibold mb-4">Gespeicherte Paarungen</h2>
-                            <p class="text-sm text-gray-600 mb-4">
-                                Hier siehst du alle gespeicherten Paarungen aus den Trainings. Du
-                                kannst entweder das Ergebnis eingeben oder die Paarung verwerfen.
-                            </p>
-                            <div id="saved-pairings-container" class="space-y-4">
-                                <p class="text-center text-gray-500 py-8">
-                                    Lade gespeicherte Paarungen...
-                                </p>
-                            </div>
-                        </div>
-
                         <!-- Coach Match Reporting Form -->
                         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
                             <h2 class="text-xl font-semibold mb-4">
@@ -680,7 +665,7 @@
                                     id="handicap-suggestion"
                                     class="p-3 bg-indigo-50 rounded-md text-center hidden"
                                 >
-                                    <p class="text-sm font-medium text-indigo-800">
+                                    <p id="handicap-label" class="text-sm font-medium text-indigo-800">
                                         Handicap-Vorschlag:
                                         <span id="handicap-text" class="font-bold"></span>
                                     </p>
@@ -723,6 +708,17 @@
                                         class="block text-sm font-medium text-gray-700 mb-2"
                                         >Satzergebnisse</label
                                     >
+                                    <!-- Entry Mode Toggle (Quick vs Detail) -->
+                                    <div id="coach-entry-mode-toggle" class="flex gap-2 mb-3">
+                                        <button type="button"
+                                            id="coach-mode-quick"
+                                            class="flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-indigo-600 text-white border-indigo-600"
+                                            data-mode="quick">Schnell (Sätze)</button>
+                                        <button type="button"
+                                            id="coach-mode-detail"
+                                            class="flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                                            data-mode="detail">Detail (Punkte)</button>
+                                    </div>
                                     <div id="coach-set-score-container" class="space-y-2"></div>
                                     <p class="text-xs text-gray-500 mt-2">
                                         Der Gewinner wird automatisch aus den Satzergebnissen
@@ -2265,27 +2261,7 @@
                 </div>
 
                 <div id="tab-content-exercises" class="tab-content hidden">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                            <!-- Info Box for Coaches -->
-                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div class="flex items-start gap-3">
-                                    <div class="flex-shrink-0">
-                                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-sm font-semibold text-blue-800 mb-1">Hinweis</h3>
-                                        <p class="text-sm text-blue-700">
-                                            Neue Übungen werden vom Administrator erstellt und verwaltet.
-                                            Du kannst hier alle verfügbaren Übungen einsehen und für dein Training nutzen.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md">
                             <!-- Header mit Suche und Filter -->
                             <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                                 <button

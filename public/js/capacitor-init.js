@@ -123,193 +123,127 @@
             }, 10000);
         }
 
-        // Verzögert initialisieren, damit alle anderen Features bereit sind
+        // OneSignal Push-Benachrichtigungen initialisieren
         setTimeout(() => {
-            initializePushNotifications().catch(e => {
-                console.error('[Push] Failed to initialize:', e);
+            initializeOneSignalPush().catch(e => {
+                console.error('[Push] Failed to initialize OneSignal:', e);
             });
         }, 1000);
     }
 
-    /** Prüft ob Firebase/FCM korrekt konfiguriert ist */
-    function isFirebaseAvailable() {
-        try {
-            // Check native-side flag first (set by MainActivity)
-            if (window.__firebaseAvailable === false) return false;
-            return window.Capacitor?.Plugins?.PushNotifications != null;
-        } catch (e) {
-            return false;
-        }
+    const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
+
+    /** Findet den OneSignal Plugin-Zugriff */
+    function findOneSignalPlugin() {
+        // Try all known locations where the Cordova plugin may be registered
+        if (window.plugins?.OneSignal) return window.plugins.OneSignal;
+        if (window.OneSignalPlugin) return window.OneSignalPlugin;
+        if (window.cordova?.plugins?.OneSignal) return window.cordova.plugins.OneSignal;
+        // OneSignal Cordova SDK v5 registers as window.OneSignalCordova
+        if (window.OneSignalCordova) return window.OneSignalCordova;
+        // Some versions register on window directly
+        if (window.OneSignal && window.OneSignal.initialize) return window.OneSignal;
+        return null;
     }
 
-    /**
-     * Sichere Registrierung - fängt native Crashes ab.
-     * Verwendet einen Timeout als Schutz, da native Firebase-Fehler
-     * auf einem separaten Thread auftreten und die JS-Promise nie resolved wird.
-     */
-    async function safeRegister(PushNotifications) {
-        // Skip if Firebase is known to be unavailable
-        if (window.__firebaseAvailable === false) {
-            console.log('[Push] Skipping register - Firebase not available');
-            window._pushNotificationsUnavailable = true;
-            return false;
-        }
-
-        // Auf Android prüfen ob Firebase verfügbar ist
-        const platform = window.Capacitor?.getPlatform();
-        if (platform === 'android') {
-            try {
-                // Kurzer Test: checkPermissions funktioniert ohne Firebase
-                // Wenn das Plugin grundsätzlich nicht antwortet, ist etwas falsch
-                const testResult = await Promise.race([
-                    PushNotifications.checkPermissions(),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Plugin timeout')), 3000)
-                    )
-                ]);
-                console.log('[Push] Plugin health check passed:', JSON.stringify(testResult));
-            } catch (healthError) {
-                console.error('[Push] Plugin health check failed:', healthError);
-                window._pushNotificationsUnavailable = true;
-                return false;
-            }
-        }
+    /** Initialisiert OneSignal Push-Benachrichtigungen für native Apps */
+    async function initializeOneSignalPush() {
+        console.log('[Push] Initializing OneSignal push notifications...');
+        console.log('[Push] Available: window.plugins=', typeof window.plugins,
+            'window.OneSignal=', typeof window.OneSignal,
+            'window.cordova=', typeof window.cordova,
+            'window.OneSignalPlugin=', typeof window.OneSignalPlugin);
 
         try {
-            // register() mit Timeout absichern - wenn Firebase nicht initialisiert ist,
-            // crasht der native Thread und die Promise wird nie aufgelöst
-            await Promise.race([
-                PushNotifications.register(),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Registration timeout - Firebase may not be configured')), 5000)
-                )
-            ]);
-            console.log('[Push] Registration call completed');
-            return true;
-        } catch (regError) {
-            const errorMsg = regError?.message || JSON.stringify(regError) || 'Unknown error';
-            console.error('[Push] Registration failed:', errorMsg);
-            if (errorMsg.includes('Firebase') || errorMsg.includes('Default') ||
-                errorMsg.includes('IllegalState') || errorMsg.includes('timeout')) {
-                console.error('[Push] Firebase ist nicht konfiguriert. google-services.json fehlt im Android-Projekt.');
-                window._pushNotificationsUnavailable = true;
+            var OneSignal = findOneSignalPlugin();
+
+            if (!OneSignal) {
+                console.warn('[Push] OneSignal plugin not available, retrying in 2s...');
+                await new Promise(r => setTimeout(r, 2000));
+                OneSignal = findOneSignalPlugin();
             }
-            return false;
-        }
-    }
 
-    /** Initialisiert Push-Benachrichtigungen für native Apps */
-    async function initializePushNotifications() {
-        console.log('[Push] Initializing push notifications...');
+            if (!OneSignal) {
+                console.warn('[Push] Still not available, retrying in 3s...');
+                await new Promise(r => setTimeout(r, 3000));
+                OneSignal = findOneSignalPlugin();
+            }
 
-        // Check if Firebase is available before touching PushNotifications plugin
-        if (window.__firebaseAvailable === false) {
-            console.log('[Push] Firebase not available (google-services.json missing), skipping push init');
-            window._pushNotificationsUnavailable = true;
-            return;
-        }
-
-        const Plugins = getPlugins();
-        const PushNotifications = Plugins.PushNotifications;
-
-        if (!PushNotifications) {
-            console.log('[Push] PushNotifications plugin not available');
-            return;
-        }
-
-        try {
-            console.log('[Push] PushNotifications plugin loaded');
-
-            let permStatus;
-            try {
-                permStatus = await PushNotifications.checkPermissions();
-                console.log('[Push] Initial permission status:', JSON.stringify(permStatus));
-            } catch (e) {
-                console.error('[Push] Error checking permissions:', e);
+            if (!OneSignal) {
+                console.error('[Push] OneSignal plugin not found after retries.');
+                console.error('[Push] window.plugins keys:', window.plugins ? Object.keys(window.plugins) : 'none');
+                console.error('[Push] window.cordova?.plugins keys:', window.cordova?.plugins ? Object.keys(window.cordova.plugins) : 'none');
                 window._pushNotificationsUnavailable = true;
                 return;
             }
 
-            try {
-                await PushNotifications.addListener('registration', (token) => {
-                    console.log('[Push] Registration successful!');
-                    const tokenValue = token?.value || '';
-                    console.log('[Push] Token received:', tokenValue ? tokenValue.substring(0, 30) + '...' : 'empty');
-                    // Token wird beim Login in Supabase gespeichert
-                    window.pushToken = tokenValue;
-                    try {
-                        window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: tokenValue } }));
-                    } catch (e) {
-                        console.error('[Push] Error dispatching token event:', e);
-                    }
-                });
-            } catch (e) {
-                console.error('[Push] Error adding registration listener:', e);
-            }
+            console.log('[Push] OneSignal plugin found, initializing with App ID:', ONESIGNAL_APP_ID);
 
-            try {
-                await PushNotifications.addListener('registrationError', (error) => {
-                    console.error('[Push] Registration error:', JSON.stringify(error));
-                });
-            } catch (e) {
-                console.error('[Push] Error adding registrationError listener:', e);
-            }
+            // Initialize OneSignal
+            OneSignal.initialize(ONESIGNAL_APP_ID);
 
-            try {
-                await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                    console.log('[Push] Notification received in foreground:', JSON.stringify(notification));
-                    try {
-                        window.dispatchEvent(new CustomEvent('push-notification-received', {
-                            detail: notification
-                        }));
-                    } catch (e) {
-                        console.error('[Push] Error dispatching notification event:', e);
-                    }
-                });
-            } catch (e) {
-                console.error('[Push] Error adding pushNotificationReceived listener:', e);
-            }
+            // Listen for notification clicks
+            OneSignal.Notifications.addEventListener('click', (event) => {
+                console.log('[Push] Notification clicked:', JSON.stringify(event));
+                const data = event.notification?.additionalData || {};
+                handleNotificationAction(data);
+            });
 
-            try {
-                await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                    console.log('[Push] Notification action performed:', JSON.stringify(action));
-                    const data = action?.notification?.data;
-
-                    // Immer zum Spieler-Dashboard (nicht Coach-Dashboard), außer bei Club-Anfragen
-                    if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
-                        window.location.href = '/dashboard.html?tab=matches&scrollTo=pending-requests-section';
-                    } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
-                        if (data?.requester_id) {
-                            window.location.href = `/profile.html?id=${data.requester_id}`;
-                        } else {
-                            window.location.href = '/dashboard.html?scrollTo=pending-follow-requests-section';
+            // Listen for foreground notifications
+            OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event) => {
+                console.log('[Push] Notification received in foreground:', JSON.stringify(event.getNotification()));
+                const notification = event.getNotification();
+                // Show in-app toast
+                try {
+                    window.dispatchEvent(new CustomEvent('push-notification-received', {
+                        detail: {
+                            title: notification.title,
+                            body: notification.body,
+                            data: notification.additionalData || {}
                         }
-                    } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
-                        // Club-Anfragen weiterhin zum Coach-Dashboard
-                        window.location.href = '/coach.html?tab=club&scrollTo=club-join-requests-list';
-                    } else if (data?.url) {
-                        window.location.href = data.url;
-                    } else {
-                        window.location.href = '/dashboard.html?tab=matches';
-                    }
-                });
-            } catch (e) {
-                console.error('[Push] Error adding pushNotificationActionPerformed listener:', e);
+                    }));
+                } catch (e) {
+                    console.error('[Push] Error dispatching notification event:', e);
+                }
+                // Let OneSignal display the notification
+                event.preventDefault();
+                event.getNotification().display();
+            });
+
+            // Check current permission status
+            var hasPermission = OneSignal.Notifications.hasPermission();
+            console.log('[Push] OneSignal permission status:', hasPermission);
+            if (hasPermission) {
+                localStorage.setItem('onesignal_push_granted', 'true');
             }
 
-            console.log('[Push] All listeners registered');
+            // Store OneSignal reference for later use
+            window._oneSignalNative = OneSignal;
+            window._pushNotificationsAvailable = true;
 
-            // Sofort registrieren wenn Berechtigung bereits erteilt, um Token zu erhalten
-            if (permStatus && permStatus.receive === 'granted') {
-                console.log('[Push] Permission already granted, registering to get token...');
-                await safeRegister(PushNotifications);
-            } else {
-                console.log('[Push] Permission not yet granted, status:', permStatus?.receive);
-            }
-
-            console.log('[Push] Push notifications initialized successfully');
+            console.log('[Push] OneSignal push notifications initialized successfully');
         } catch (e) {
-            console.error('[Push] Push notifications initialization failed:', e);
+            console.error('[Push] OneSignal initialization failed:', e);
+            window._pushNotificationsUnavailable = true;
+        }
+    }
+
+    /** Navigiert basierend auf Notification-Daten */
+    function handleNotificationAction(data) {
+        if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
+            window.location.href = '/dashboard.html?tab=matches&scrollTo=pending-requests-section';
+        } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
+            if (data?.requester_id) {
+                window.location.href = '/profile.html?id=' + data.requester_id;
+            } else {
+                window.location.href = '/dashboard.html?scrollTo=pending-follow-requests-section';
+            }
+        } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
+            window.location.href = '/coach.html?tab=club&scrollTo=club-join-requests-list';
+        } else if (data?.url) {
+            window.location.href = data.url;
+        } else {
+            window.location.href = '/dashboard.html?tab=matches';
         }
     }
 
@@ -317,63 +251,44 @@
         isNative: () => isCapacitor,
         getPlatform: () => (isCapacitor ? window.Capacitor.getPlatform() : 'web'),
 
-        /** Fordert Push-Benachrichtigungs-Berechtigung an */
+        /** Fordert Push-Benachrichtigungs-Berechtigung an (OneSignal) */
         async requestPushPermission() {
-            console.log('[Push] requestPushPermission called, isCapacitor:', isCapacitor);
+            console.log('[Push] requestPushPermission called');
 
-            // Prüfen ob Push als nicht verfügbar markiert wurde (z.B. Firebase fehlt)
             if (window._pushNotificationsUnavailable) {
-                console.warn('[Push] Push notifications unavailable (Firebase nicht konfiguriert)');
+                console.warn('[Push] Push notifications unavailable');
                 return false;
             }
 
             if (!isCapacitor) {
-                console.log('[Push] Not running in Capacitor, using web notifications');
                 return await requestWebPushPermission();
             }
 
-            const Plugins = getPlugins();
-            const PushNotifications = Plugins.PushNotifications;
-
-            if (!PushNotifications) {
-                console.error('[Push] PushNotifications plugin not available');
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
+            if (!OneSignal) {
+                console.error('[Push] OneSignal not initialized');
                 return false;
             }
 
             try {
-                console.log('[Push] PushNotifications module loaded');
-
-                const permStatus = await PushNotifications.checkPermissions();
-                console.log('[Push] Current permission status:', JSON.stringify(permStatus));
-
-                if (permStatus.receive === 'granted') {
-                    console.log('[Push] Already granted, registering...');
-                    const registered = await safeRegister(PushNotifications);
-                    return registered;
+                var hasPermission = OneSignal.Notifications.hasPermission();
+                if (hasPermission) {
+                    console.log('[Push] Already has permission');
+                    localStorage.setItem('onesignal_push_granted', 'true');
+                    return true;
                 }
 
-                // Ab Android 13+ wird der System-Dialog angezeigt
-                console.log('[Push] Requesting permission...');
-                const result = await PushNotifications.requestPermissions();
-                console.log('[Push] Permission request result:', JSON.stringify(result));
-
-                if (result.receive === 'granted') {
-                    console.log('[Push] Permission granted, registering...');
-                    const registered = await safeRegister(PushNotifications);
-                    return registered;
+                console.log('[Push] Requesting OneSignal permission...');
+                var granted = await OneSignal.Notifications.requestPermission(true);
+                console.log('[Push] Permission result:', granted);
+                if (granted) {
+                    localStorage.setItem('onesignal_push_granted', 'true');
                 }
-
-                console.log('[Push] Permission not granted:', result.receive);
-                return false;
+                return granted;
             } catch (e) {
                 console.error('[Push] Error requesting permission:', e);
                 return false;
             }
-        },
-
-        /** Gibt das aktuelle Push-Token zurück */
-        getPushToken() {
-            return window.pushToken || null;
         },
 
         /** Prüft ob Push-Benachrichtigungen aktiviert sind */
@@ -382,15 +297,47 @@
                 return 'Notification' in window && Notification.permission === 'granted';
             }
 
-            const Plugins = getPlugins();
-            const PushNotifications = Plugins.PushNotifications;
-            if (!PushNotifications) return false;
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
+            if (OneSignal) {
+                try {
+                    var hasPermission = OneSignal.Notifications.hasPermission();
+                    if (hasPermission) {
+                        localStorage.setItem('onesignal_push_granted', 'true');
+                        return true;
+                    }
+                } catch (e) {
+                    // fall through to localStorage check
+                }
+            }
+
+            // Fallback: check localStorage flag set when permission was granted
+            // OneSignal.Notifications.hasPermission() can return false due to timing issues
+            return localStorage.getItem('onesignal_push_granted') === 'true';
+        },
+
+        /** Login bei OneSignal mit User-ID (für Targeting) */
+        async loginOneSignal(userId) {
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
+            if (!OneSignal || !userId) return;
 
             try {
-                const permStatus = await PushNotifications.checkPermissions();
-                return permStatus.receive === 'granted';
+                await OneSignal.login(userId);
+                console.log('[Push] OneSignal user logged in:', userId);
             } catch (e) {
-                return false;
+                console.error('[Push] OneSignal login error:', e);
+            }
+        },
+
+        /** Logout bei OneSignal */
+        async logoutOneSignal() {
+            var OneSignal = window._oneSignalNative || findOneSignalPlugin();
+            if (!OneSignal) return;
+
+            try {
+                await OneSignal.logout();
+                console.log('[Push] OneSignal user logged out');
+            } catch (e) {
+                console.error('[Push] OneSignal logout error:', e);
             }
         },
 

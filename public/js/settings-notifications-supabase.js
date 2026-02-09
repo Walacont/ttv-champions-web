@@ -219,7 +219,26 @@ function setupEventListeners() {
             const granted = await requestPushPermission();
 
             if (granted) {
-                await updatePushStatus();
+                // Direkt UI aktualisieren ohne erneuten isPushEnabled() Check
+                // da isPushEnabled() manchmal verzögert den neuen Status liefert
+                const statusIcon = document.getElementById('push-status-icon');
+                const statusText = document.getElementById('push-status-text');
+                if (statusIcon) {
+                    statusIcon.className = 'w-10 h-10 bg-green-100 rounded-full flex items-center justify-center';
+                    statusIcon.innerHTML = '<i class="fas fa-bell text-green-600"></i>';
+                }
+                if (statusText) {
+                    statusText.textContent = 'Push-Benachrichtigungen sind aktiviert';
+                    statusText.className = 'text-sm text-green-600';
+                }
+                enableBtn.classList.add('hidden');
+
+                // Toggles aktivieren
+                PREFERENCE_KEYS.forEach(key => {
+                    const toggle = document.getElementById(`pref-${key}`);
+                    if (toggle) toggle.disabled = false;
+                });
+
                 showSaveStatus('success', 'Push-Benachrichtigungen aktiviert!');
             } else {
                 showSaveStatus('error', 'Berechtigung verweigert');

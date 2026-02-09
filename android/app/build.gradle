@@ -54,11 +54,8 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+// google-services plugin needed by OneSignal (uses FCM as transport layer)
+// Requires google-services.json in this directory
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
 }

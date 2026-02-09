@@ -745,7 +745,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                 `;
 
                         // Click-Handler für Desktop und Mobile
-                        card.addEventListener('click', () => {
+                        card.addEventListener('click', async () => {
                             // Highlight aktiven Spieler
                             document
                                 .querySelectorAll('.player-list-item')
@@ -831,10 +831,17 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                 detailContentDesktop &&
                                 actionsContainerDesktop
                             ) {
-                                showPlayerDetails(player, detailContentDesktop, supabase);
-                                actionsContainerDesktop.innerHTML = actionsHtml;
-                                detailPanelDesktop.classList.remove('hidden');
-                                detailPlaceholderDesktop.classList.add('hidden');
+                                try {
+                                    await showPlayerDetails(player, detailContentDesktop, supabase);
+                                    actionsContainerDesktop.innerHTML = actionsHtml;
+                                    detailPanelDesktop.classList.remove('hidden');
+                                    detailPlaceholderDesktop.classList.add('hidden');
+                                } catch (error) {
+                                    console.error('[PlayerManagement] Error showing player details:', error);
+                                    detailContentDesktop.innerHTML = `<p class="text-red-500 p-4">Fehler beim Laden der Details: ${error.message}</p>`;
+                                    detailPanelDesktop.classList.remove('hidden');
+                                    detailPlaceholderDesktop.classList.add('hidden');
+                                }
                             }
 
                             // Mobile: Öffne Modal
@@ -849,9 +856,15 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             );
 
                             if (mobileModal && detailContentMobile && actionsContainerMobile) {
-                                showPlayerDetails(player, detailContentMobile, supabase);
-                                actionsContainerMobile.innerHTML = actionsHtml;
-                                mobileModal.classList.remove('hidden');
+                                try {
+                                    await showPlayerDetails(player, detailContentMobile, supabase);
+                                    actionsContainerMobile.innerHTML = actionsHtml;
+                                    mobileModal.classList.remove('hidden');
+                                } catch (error) {
+                                    console.error('[PlayerManagement] Error showing player details mobile:', error);
+                                    detailContentMobile.innerHTML = `<p class="text-red-500 p-4">Fehler beim Laden: ${error.message}</p>`;
+                                    mobileModal.classList.remove('hidden');
+                                }
                             }
                         });
 

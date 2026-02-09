@@ -2473,7 +2473,7 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         for (let i = 0; i < newAttendees.length; i += BATCH_SIZE) {
             const batch = newAttendees.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(playerId =>
-                awardEventAttendancePoints(playerId, event, totalExercisePoints)
+                awardEventAttendancePoints(playerId, event, totalExercisePoints, occurrenceDate)
             ));
         }
 
@@ -2481,7 +2481,7 @@ window.saveEventAttendance = async function(eventId, occurrenceDate = null) {
         for (let i = 0; i < removedAttendees.length; i += BATCH_SIZE) {
             const batch = removedAttendees.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(playerId =>
-                deductEventAttendancePoints(playerId, event)
+                deductEventAttendancePoints(playerId, event, occurrenceDate)
             ));
         }
 
@@ -2647,9 +2647,11 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
  * @param {string} playerId - Spieler ID
  * @param {Object} event - Event-Daten
  * @param {number} exercisePoints - Zusätzliche Übungspunkte
+ * @param {string} occurrenceDate - Tatsächliches Datum (für wiederkehrende Events)
  */
-async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
-    const date = event.start_date;
+async function awardEventAttendancePoints(playerId, event, exercisePoints = 0, occurrenceDate = null) {
+    // Verwende occurrenceDate wenn vorhanden, sonst event.start_date
+    const date = occurrenceDate || event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
     const subgroupIds = event.target_subgroup_ids || [];
     const isTraining = event.event_category === 'training';
@@ -2693,8 +2695,10 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
     let newStreak = 1;
 
     if (isTraining && primarySubgroupId) {
-        // Einfachere Logik: Lade direkt die letzte Anwesenheit aus event_attendance
-        // für Trainings-Events dieser Untergruppe(n)
+        // Lade die letzten Anwesenheiten für Trainings mit passenden Untergruppen
+        // WICHTIG: Mit ORDER BY und nur Events VOR dem aktuellen Datum
+        const targetSubgroups = event.target_subgroup_ids || [];
+
         const { data: lastAttendances } = await supabase
             .from('event_attendance')
             .select(`
@@ -2705,40 +2709,55 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
                     id,
                     event_category,
                     target_subgroup_ids,
-                    start_date
+                    start_date,
+                    club_id
                 )
             `)
             .eq('events.club_id', event.club_id)
             .eq('events.event_category', 'training')
             .order('created_at', { ascending: false })
-            .limit(20);
+            .limit(100);
 
-        // Finde die letzte Anwesenheit VOR dem aktuellen Event-Datum
-        // die für eine passende Untergruppe ist
-        const targetSubgroups = event.target_subgroup_ids || [];
-        let lastRelevantAttendance = null;
+        // Alle relevanten Anwesenheiten mit tatsächlichem Datum sammeln
+        const relevantAttendances = (lastAttendances || [])
+            .map(att => ({
+                ...att,
+                actualDate: att.occurrence_date || att.events?.start_date
+            }))
+            .filter(att => {
+                if (!att.actualDate || att.actualDate >= date) return false;
 
-        for (const att of (lastAttendances || [])) {
-            const attDate = att.occurrence_date || att.events?.start_date;
-            if (!attDate || attDate >= date) continue;
+                // Prüfe ob die Untergruppen übereinstimmen
+                const attSubgroups = att.events?.target_subgroup_ids || [];
 
-            // Prüfe ob die Untergruppen übereinstimmen
-            const attSubgroups = att.events?.target_subgroup_ids || [];
-            const isClubWide = attSubgroups.length === 0;
-            const hasOverlap = isClubWide || targetSubgroups.length === 0 ||
-                attSubgroups.some(sg => targetSubgroups.includes(sg));
+                // Exakte Untergruppen-Übereinstimmung für Streak-Berechnung
+                // (nur Events der gleichen Untergruppe zählen)
+                if (targetSubgroups.length > 0 && attSubgroups.length > 0) {
+                    // Beide haben Untergruppen - mindestens eine muss übereinstimmen
+                    return attSubgroups.some(sg => targetSubgroups.includes(sg));
+                } else if (targetSubgroups.length === 0 && attSubgroups.length === 0) {
+                    // Beide sind club-weit
+                    return true;
+                }
+                // Ansonsten nicht relevant (eines club-weit, anderes mit Untergruppe)
+                return false;
+            })
+            // Nach tatsächlichem Datum sortieren (neueste zuerst)
+            .sort((a, b) => b.actualDate.localeCompare(a.actualDate));
 
-            if (hasOverlap) {
-                lastRelevantAttendance = att;
-                break;
-            }
-        }
+        console.log(`[Events] Streak check for ${playerId}: found ${relevantAttendances.length} relevant prior trainings for subgroups ${targetSubgroups.join(',')}`);
+
+        const lastRelevantAttendance = relevantAttendances[0] || null;
 
         if (lastRelevantAttendance) {
-            wasPresentAtLastEvent = lastRelevantAttendance.present_user_ids?.includes(playerId) || false;
+            // Prüfen ob der Spieler beim letzten Training anwesend war
+            const presentIds = lastRelevantAttendance.present_user_ids || [];
+            wasPresentAtLastEvent = presentIds.includes(playerId);
+            console.log(`[Events] Streak check for ${playerId}: last training ${lastRelevantAttendance.actualDate}, present_ids count: ${presentIds.length}, was present: ${wasPresentAtLastEvent}`);
         } else {
-            // Kein vorheriges Training gefunden → Streak startet neu
+            // Kein vorheriges Training gefunden → Streak startet bei 1
             wasPresentAtLastEvent = true;
+            console.log(`[Events] Streak check for ${playerId}: no previous training found, starting fresh`);
         }
 
         const { data: streakData } = await supabase
@@ -2749,6 +2768,8 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
             .maybeSingle();
         currentStreak = streakData?.current_streak || 0;
         newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
+
+        console.log(`[Events] Streak result for ${playerId}: currentStreak=${currentStreak}, wasPresentAtLast=${wasPresentAtLastEvent}, newStreak=${newStreak}`);
     }
 
     // Prüfen ob bereits heute bei anderem Event anwesend (halbe Punkte)
@@ -2907,9 +2928,11 @@ async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
 /**
  * Zieht Punkte ab wenn Spieler nachträglich von Anwesenheit entfernt wird
  * Sucht die tatsächlich vergebenen Punkte und verringert Streak um 1
+ * @param {string} occurrenceDate - Tatsächliches Datum (für wiederkehrende Events)
  */
-async function deductEventAttendancePoints(playerId, event) {
-    const date = event.start_date;
+async function deductEventAttendancePoints(playerId, event, occurrenceDate = null) {
+    // Verwende occurrenceDate wenn vorhanden, sonst event.start_date
+    const date = occurrenceDate || event.start_date;
     const eventTitle = event.title || 'Veranstaltung';
     const isTraining = event.event_category === 'training';
     const subgroupIds = event.target_subgroup_ids || [];
@@ -4387,7 +4410,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
 
 /**
  * Berechnet Streaks rückwirkend für alle Spieler eines Clubs
- * und vergibt fehlende Bonus-Punkte
+ * Berücksichtigt occurrence_date für wiederkehrende Events
  */
 window.recalculateStreaksRetroactively = async function(clubId) {
     if (!clubId) {
@@ -4398,13 +4421,12 @@ window.recalculateStreaksRetroactively = async function(clubId) {
     console.log('[Streaks] Starting retroactive streak calculation for club:', clubId);
 
     try {
-        // 1. Alle Trainings-Events laden (nach Datum sortiert)
+        // 1. Alle Trainings-Events laden
         const { data: trainingEvents, error: eventsError } = await supabase
             .from('events')
             .select('id, title, start_date, target_type, target_subgroup_ids, event_category')
             .eq('club_id', clubId)
-            .eq('event_category', 'training')
-            .order('start_date', { ascending: true });
+            .eq('event_category', 'training');
 
         if (eventsError) throw eventsError;
         console.log('[Streaks] Found', trainingEvents?.length || 0, 'training events');
@@ -4414,30 +4436,47 @@ window.recalculateStreaksRetroactively = async function(clubId) {
             return;
         }
 
-        // 2. Alle Attendance-Daten laden
+        // 2. Alle Attendance-Daten laden (mit occurrence_date für wiederkehrende Events!)
         const eventIds = trainingEvents.map(e => e.id);
         const { data: attendanceData, error: attError } = await supabase
             .from('event_attendance')
-            .select('event_id, present_user_ids, points_awarded_to')
+            .select('event_id, present_user_ids, points_awarded_to, occurrence_date')
             .in('event_id', eventIds);
 
         if (attError) throw attError;
         console.log('[Streaks] Found', attendanceData?.length || 0, 'attendance records');
 
-        const attendanceMap = new Map();
-        attendanceData?.forEach(a => attendanceMap.set(a.event_id, a));
+        // Map Event-ID -> Event-Daten
+        const eventMap = new Map();
+        trainingEvents.forEach(e => eventMap.set(e.id, e));
+
+        // Attendance-Daten mit tatsächlichem Datum anreichern und sortieren
+        // WICHTIG: Auch Records mit leeren present_user_ids einbeziehen (alle waren abwesend)
+        const allAttendances = (attendanceData || []).map(a => {
+            const event = eventMap.get(a.event_id);
+            return {
+                ...a,
+                event,
+                actualDate: a.occurrence_date || event?.start_date,
+                subgroupIds: event?.target_subgroup_ids || [],
+                present_user_ids: a.present_user_ids || []
+            };
+        }).filter(a => a.actualDate) // Nur gültige Daten
+          .sort((a, b) => a.actualDate.localeCompare(b.actualDate)); // Chronologisch sortieren
+
+        console.log('[Streaks] Sorted attendance records:', allAttendances.length);
 
         // 3. Alle Spieler im Club laden
         const { data: players, error: playersError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, subgroup_ids')
             .eq('club_id', clubId)
-            .eq('role', 'player');
+            .in('role', ['player', 'coach', 'head_coach']);
 
         if (playersError) throw playersError;
         console.log('[Streaks] Found', players?.length || 0, 'players');
 
-        // 4. Hauptgruppe für Club-weite Trainings finden (is_default = true)
+        // 4. Hauptgruppe für Club-weite Trainings finden
         const { data: hauptgruppe } = await supabase
             .from('subgroups')
             .select('id, name')
@@ -4449,49 +4488,42 @@ window.recalculateStreaksRetroactively = async function(clubId) {
         const fallbackSubgroupId = hauptgruppe?.id;
         if (fallbackSubgroupId) {
             console.log('[Streaks] Using Hauptgruppe:', hauptgruppe.name);
-        } else {
-            console.log('[Streaks] No Hauptgruppe found - club-wide trainings will be skipped');
         }
 
-        // 5. Für jeden Spieler Streaks berechnen
+        // 5. Alle existierenden Streaks löschen (clean slate)
+        await supabase
+            .from('streaks')
+            .delete()
+            .in('user_id', players.map(p => p.id));
+        console.log('[Streaks] Cleared existing streaks');
+
+        // 6. Für jeden Spieler Streaks berechnen
         let playersUpdated = 0;
+        const streakResults = [];
 
         for (const player of players || []) {
             const playerSubgroups = player.subgroup_ids || [];
 
-            // Trainings filtern, zu denen der Spieler eingeladen war
-            const playerTrainings = trainingEvents.filter(event => {
-                if (event.target_type === 'club') return true;
-                if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
-                    return event.target_subgroup_ids.some(sgId => playerSubgroups.includes(sgId));
-                }
-                // Club-weite Trainings ohne Untergruppe
-                if (!event.target_subgroup_ids || event.target_subgroup_ids.length === 0) return true;
-                return false;
-            });
-
-            if (playerTrainings.length === 0) continue;
-
-            // Nur Trainings berücksichtigen, wo Attendance eingetragen wurde
-            const playerTrainingsWithAttendance = playerTrainings.filter(t => {
-                const att = attendanceMap.get(t.id);
-                return att && att.present_user_ids && att.present_user_ids.length > 0;
-            });
-
             // Streak pro Untergruppe berechnen
             const subgroupStreaks = new Map();
 
-            for (const training of playerTrainingsWithAttendance) {
-                const attendance = attendanceMap.get(training.id);
-                const wasPresent = attendance?.present_user_ids?.includes(player.id) || false;
+            for (const attendance of allAttendances) {
+                // Prüfen ob der Spieler zu diesem Training eingeladen war
+                const eventSubgroups = attendance.subgroupIds;
+                const isClubWide = eventSubgroups.length === 0;
+                const wasInvited = isClubWide || eventSubgroups.some(sg => playerSubgroups.includes(sg));
 
-                // Für Vereinstrainings: Fallback-Subgroup verwenden
-                let subgroupId = training.target_subgroup_ids?.[0];
+                if (!wasInvited) continue;
+
+                // Untergruppe für Streak-Tracking bestimmen
+                let subgroupId = eventSubgroups[0];
                 if (!subgroupId && fallbackSubgroupId) {
                     subgroupId = fallbackSubgroupId;
                 }
+                if (!subgroupId) continue;
 
-                if (!subgroupId) continue; // Kein gültiges Subgroup-ID
+                // Prüfen ob Spieler anwesend war
+                const wasPresent = attendance.present_user_ids.includes(player.id);
 
                 if (!subgroupStreaks.has(subgroupId)) {
                     subgroupStreaks.set(subgroupId, { currentStreak: 0, lastAttendedDate: null });
@@ -4501,13 +4533,15 @@ window.recalculateStreaksRetroactively = async function(clubId) {
 
                 if (wasPresent) {
                     streakData.currentStreak++;
-                    streakData.lastAttendedDate = training.start_date;
+                    streakData.lastAttendedDate = attendance.actualDate;
                 } else {
+                    // Spieler war nicht da → Streak auf 0 zurücksetzen
                     streakData.currentStreak = 0;
+                    streakData.lastAttendedDate = null;
                 }
             }
 
-            // Streaks in DB aktualisieren
+            // Streaks in DB speichern (nur > 0)
             for (const [subgroupId, streakData] of subgroupStreaks) {
                 if (streakData.currentStreak > 0) {
                     const { error: upsertError } = await supabase
@@ -4524,7 +4558,11 @@ window.recalculateStreaksRetroactively = async function(clubId) {
 
                     if (!upsertError) {
                         playersUpdated++;
-                        console.log(`[Streaks] Updated streak for ${player.first_name} ${player.last_name}: ${streakData.currentStreak}`);
+                        streakResults.push({
+                            player: `${player.first_name} ${player.last_name}`,
+                            subgroupId,
+                            streak: streakData.currentStreak
+                        });
                     }
                 }
             }

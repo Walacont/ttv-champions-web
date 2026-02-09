@@ -1,5 +1,6 @@
 import { formatDate } from './ui-utils-supabase.js';
 import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
+import { createNotification as createNotificationWithPush } from './notifications-supabase.js';
 
 /**
  * Doppel-Matches Modul
@@ -11,35 +12,11 @@ import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
 // ========================================================================
 
 /**
- * Erstellt eine Benachrichtigung für einen Benutzer
- * @param {Object} supabase - Supabase Client
- * @param {string} userId - Benutzer-ID
- * @param {string} type - Benachrichtigungstyp
- * @param {string} title - Titel
- * @param {string} message - Nachricht
- * @param {Object} data - Zusätzliche Daten (optional)
+ * Erstellt eine Benachrichtigung für einen Benutzer (mit Push via Edge Function)
+ * Wrapper für die importierte createNotification, behält die supabase-Parameter-Signatur bei
  */
 async function createNotification(supabase, userId, type, title, message, data = {}) {
-    try {
-        const { error } = await supabase
-            .from('notifications')
-            .insert({
-                user_id: userId,
-                type: type,
-                title: title,
-                message: message,
-                data: data,
-                is_read: false
-            });
-
-        if (error) {
-            console.error('Error creating notification:', error);
-        } else {
-            console.log(`[Doubles] Notification sent to ${userId}: ${type}`);
-        }
-    } catch (error) {
-        console.error('Error creating notification:', error);
-    }
+    await createNotificationWithPush(userId, type, title, message, data);
 }
 
 // ========================================================================

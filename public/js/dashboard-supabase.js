@@ -40,6 +40,7 @@ import {
     deleteMatchRequest
 } from './dashboard-match-history-supabase.js';
 import { initPlayerVideoUpload, setCurrentExerciseId } from './video-analysis-player-supabase.js';
+import { createNotification as createNotificationWithPush } from './notifications-supabase.js';
 
 suppressConsoleLogs();
 
@@ -119,29 +120,10 @@ async function loadFollowingIds() {
 }
 
 /**
- * Helper function to create a notification for a user
+ * Helper function to create a notification for a user (with push via Edge Function)
  */
 async function createNotification(userId, type, title, message, data = {}) {
-    try {
-        const { error } = await supabase
-            .from('notifications')
-            .insert({
-                user_id: userId,
-                type: type,
-                title: title,
-                message: message,
-                data: data,
-                is_read: false
-            });
-
-        if (error) {
-            console.error('[Dashboard] Error creating notification:', error);
-        } else {
-            console.log(`[Dashboard] Notification sent to ${userId}: ${type}`);
-        }
-    } catch (error) {
-        console.error('[Dashboard] Error creating notification:', error);
-    }
+    await createNotificationWithPush(userId, type, title, message, data);
 }
 
 /**
@@ -3025,16 +3007,55 @@ function updateModalCountdown() {
 
 // --- Realtime Subscriptions ---
 
+let realtimeFailCount = 0;
+let pollingInterval = null;
+
 /**
  * Handle realtime subscription status changes
- * Auto-reconnect on CHANNEL_ERROR
+ * Auto-reconnect on CHANNEL_ERROR, fall back to polling after repeated failures
  */
-function handleSubscriptionStatus(channelName, status) {
-    console.log(`[Realtime] ${channelName} subscription status:`, status);
+function handleSubscriptionStatus(channelName, status, err) {
+    console.log(`[Realtime] ${channelName} subscription status:`, status, err ? `error: ${JSON.stringify(err)}` : '');
 
-    if (status === 'CHANNEL_ERROR' && !isReconnecting) {
-        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR, scheduling reconnect...`);
-        scheduleReconnect();
+    if (status === 'SUBSCRIBED') {
+        // Erfolgreiche Verbindung - Fehlerzähler zurücksetzen
+        realtimeFailCount = 0;
+        stopPollingFallback();
+    }
+
+    if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !isReconnecting) {
+        realtimeFailCount++;
+        console.warn(`[Realtime] ${channelName} got ${status} (attempt ${realtimeFailCount})`, err);
+
+        if (realtimeFailCount <= 3) {
+            scheduleReconnect();
+        } else if (!pollingInterval) {
+            console.warn('[Realtime] Too many failures, switching to polling fallback');
+            startPollingFallback();
+        }
+    }
+}
+
+/**
+ * Polling fallback: periodically reload match data when realtime is unavailable
+ */
+function startPollingFallback() {
+    if (pollingInterval) return;
+    console.log('[Realtime] Starting polling fallback (every 15s)');
+    pollingInterval = setInterval(() => {
+        if (document.visibilityState === 'visible' && currentUser) {
+            loadMatchRequests();
+            loadPendingRequests();
+            checkPendingMatchConfirmations(currentUser.id);
+        }
+    }, 15000);
+}
+
+function stopPollingFallback() {
+    if (pollingInterval) {
+        console.log('[Realtime] Stopping polling fallback (realtime working)');
+        clearInterval(pollingInterval);
+        pollingInterval = null;
     }
 }
 
@@ -3061,15 +3082,28 @@ async function reconnectRealtime() {
     console.log('[Realtime] Reconnecting...');
 
     try {
-        // Alle bestehenden Subscriptions abmelden
-        for (const sub of realtimeSubscriptions) {
-            try {
-                await supabase.removeChannel(sub);
-            } catch (e) {
-                console.warn('[Realtime] Error removing channel:', e);
+        // Auth-Token erneuern bevor Subscriptions neu eingerichtet werden
+        try {
+            const { data, error } = await supabase.auth.refreshSession();
+            if (error) {
+                console.warn('[Realtime] Token refresh failed:', error.message);
+            } else if (data.session) {
+                console.log('[Realtime] Token refreshed, expires:', new Date(data.session.expires_at * 1000).toISOString());
             }
+        } catch (e) {
+            console.warn('[Realtime] Token refresh error:', e);
+        }
+
+        // Alle bestehenden Channels entfernen
+        try {
+            await supabase.removeAllChannels();
+        } catch (e) {
+            console.warn('[Realtime] Error removing channels:', e);
         }
         realtimeSubscriptions = [];
+
+        // Fehlerzähler zurücksetzen für neuen Versuch
+        realtimeFailCount = 0;
 
         // Kurz warten vor Wiederverbindung
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -3090,15 +3124,27 @@ async function reconnectRealtime() {
 function setupVisibilityChangeHandler() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && currentUser) {
-            console.log('[Realtime] App became visible, checking connections...');
-            // Prüfen ob Subscriptions im Fehlerzustand sind
-            const hasError = realtimeSubscriptions.some(sub =>
-                sub.state === 'errored' || sub.state === 'closed'
-            );
-            if (hasError || realtimeSubscriptions.length === 0) {
-                console.log('[Realtime] Detected disconnected state, reconnecting...');
-                reconnectRealtime();
-            }
+            console.log('[Realtime] App became visible, refreshing data and reconnecting');
+            // Daten sofort aktualisieren
+            loadMatchRequests();
+            loadPendingRequests();
+            loadMatchHistory();
+            checkPendingMatchConfirmations(currentUser.id);
+            // Android WebView schließt WebSocket-Verbindungen im Hintergrund,
+            // daher immer neu verbinden wenn App sichtbar wird
+            reconnectRealtime();
+        }
+    });
+
+    // App-resumed Event (Capacitor native)
+    window.addEventListener('app-resumed', () => {
+        if (currentUser) {
+            console.log('[Realtime] App resumed event, refreshing data and reconnecting');
+            loadMatchRequests();
+            loadPendingRequests();
+            loadMatchHistory();
+            checkPendingMatchConfirmations(currentUser.id);
+            reconnectRealtime();
         }
     });
 
@@ -3114,6 +3160,16 @@ let visibilityHandlerInitialized = false;
 
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
+
+    // Auth-Session prüfen bevor Subscriptions eingerichtet werden
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+            console.error('[Realtime] No auth session available - subscriptions will fail');
+            startPollingFallback();
+            return;
+        }
+        console.log('[Realtime] Auth session verified, token expires:', new Date(session.expires_at * 1000).toISOString());
+    });
 
     // Sichtbarkeits-Änderungs-Handler einrichten (nur einmal)
     if (!visibilityHandlerInitialized) {
@@ -3142,8 +3198,8 @@ function setupRealtimeSubscriptions() {
             updateStatsDisplay();
             updateRankDisplay();
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Profile', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Profile', status, err);
         });
 
     realtimeSubscriptions.push(profileSub);
@@ -3156,15 +3212,24 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_a_id=eq.${currentUser.id}`
-        }, (payload) => {
+        }, async (payload) => {
             console.log('[Realtime] Match request update (player_a):', payload.eventType);
             debounce('match-requests-reload', () => {
                 loadMatchRequests();
                 loadPendingRequests();
             });
+            // Wenn Spieler B geantwortet hat, Bottom-Sheet für Spieler A prüfen
+            if (payload.eventType === 'UPDATE' && payload.new &&
+                (payload.new.status === 'pending_player' || payload.new.status === 'pending_player_a')) {
+                console.log('[Realtime] Match request needs player_a confirmation - showing bottom sheet');
+                const pendingConfirmations = await loadAllPendingConfirmations(currentUser.id);
+                if (pendingConfirmations && pendingConfirmations.length > 0) {
+                    showMatchConfirmationBottomSheet(pendingConfirmations);
+                }
+            }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request (player_a)', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request (player_a)', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestSubA);
@@ -3196,8 +3261,8 @@ function setupRealtimeSubscriptions() {
                 }
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request (player_b)', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request (player_b)', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestSubB);
@@ -3217,8 +3282,8 @@ function setupRealtimeSubscriptions() {
                 loadPendingRequests();
             });
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Match request DELETE', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Match request DELETE', status, err);
         });
 
     realtimeSubscriptions.push(matchRequestDeleteSub);
@@ -3252,8 +3317,8 @@ function setupRealtimeSubscriptions() {
                 }
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles match requests', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles match requests', status, err);
         });
 
     realtimeSubscriptions.push(doublesRequestSub);
@@ -3272,8 +3337,8 @@ function setupRealtimeSubscriptions() {
                 loadPendingRequests();
             });
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles match request DELETE', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles match request DELETE', status, err);
         });
 
     realtimeSubscriptions.push(doublesRequestDeleteSub);
@@ -3304,8 +3369,8 @@ function setupRealtimeSubscriptions() {
                 });
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Matches', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Matches', status, err);
         });
 
     realtimeSubscriptions.push(matchesSub);
@@ -3332,8 +3397,8 @@ function setupRealtimeSubscriptions() {
                 });
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Doubles matches', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Doubles matches', status, err);
         });
 
     realtimeSubscriptions.push(doublesMatchesSub);
@@ -3355,34 +3420,13 @@ function setupRealtimeSubscriptions() {
                 }, 2000);
             }
         })
-        .subscribe((status) => {
-            handleSubscriptionStatus('Leaderboard', status);
+        .subscribe((status, err) => {
+            handleSubscriptionStatus('Leaderboard', status, err);
         });
 
     realtimeSubscriptions.push(leaderboardSub);
 
     console.log('[Realtime] All subscriptions set up');
-
-    // Auf App-Resume-Events hören (Android/iOS native Apps)
-    // WebSocket connections may be suspended when app is backgrounded
-    window.addEventListener('app-resumed', () => {
-        console.log('[Realtime] App resumed - refreshing match data');
-        // Alle Match-bezogenen Daten aktualisieren wenn App in Vordergrund kommt
-        loadMatchRequests();
-        loadPendingRequests();
-        loadMatchHistory();
-    });
-
-    // Auch auf Seitensichtbarkeits-Änderung hören (funktioniert auf Web und Native)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            console.log('[Realtime] Page became visible - refreshing match data');
-            // Alle Match-bezogenen Daten aktualisieren wenn Seite sichtbar wird
-            loadMatchRequests();
-            loadPendingRequests();
-            loadMatchHistory();
-        }
-    });
 }
 
 // --- Show notification for new incoming match request ---
@@ -3394,9 +3438,8 @@ function showNewRequestNotification() {
         setTimeout(() => requestsSection.classList.remove('animate-pulse'), 2000);
     }
 
-    // Browser-Benachrichtigung nur wenn bereits erlaubt
-    // Hinweis: requestPermission() kann nur durch Benutzerinteraktion aufgerufen werden
-    if (Notification.permission === 'granted') {
+    // Browser-Benachrichtigung nur wenn bereits erlaubt (nicht auf nativen Apps verfügbar)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
             new Notification('Neue Spielanfrage!', {
                 body: 'Du hast eine neue Wettkampfanfrage erhalten.',
@@ -4139,6 +4182,8 @@ async function createMatchFromRequest(request) {
             winner_id: request.winner_id,
             loser_id: request.loser_id,
             sets: request.sets,
+            player_a_sets_won: request.player_a_sets_won || 0,
+            player_b_sets_won: request.player_b_sets_won || 0,
             handicap_used: request.handicap_used || false,
             handicap: request.handicap || null,
             match_mode: request.match_mode || 'best-of-5',
