@@ -322,13 +322,13 @@ function renderTournamentDetails(tournament, participating) {
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
-                        ${tournament.status === 'in_progress' && tournament.created_by === getCurrentUserId() ? `
+                        ${tournament.status === 'in_progress' && isCreator ? `
                             <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
                                 <i class="fas fa-bolt mr-1"></i>Eintragen
                             </button>
                         ` : ''}
                     </div>
-                    ${renderMatches(tournament.tournament_matches || [])}
+                    ${renderMatches(tournament.tournament_matches || [], isCreator)}
                 </div>
             ` : ''}
         </div>
@@ -349,12 +349,24 @@ function renderActionButtons(tournament, participating) {
             buttons.push(`<button id="start-tournament-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium"><i class="fas fa-play mr-2"></i>Starten</button>`);
         }
         if (isCreator) {
-            buttons.push(`<button id="delete-tournament-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium"><i class="fas fa-trash mr-2"></i>Löschen</button>`);
+            buttons.push(`<button id="edit-tournament-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg font-medium" title="Bearbeiten"><i class="fas fa-edit"></i></button>`);
+            buttons.push(`<button id="cancel-tournament-btn" class="bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded-lg font-medium" title="Abbrechen"><i class="fas fa-ban"></i></button>`);
         }
     }
 
     if (tournament.status === 'in_progress' && isCreator) {
         buttons.push(`<button id="regenerate-pairings-btn" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium"><i class="fas fa-sync-alt mr-2"></i>Neu generieren</button>`);
+        buttons.push(`<button id="cancel-tournament-btn" class="bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded-lg font-medium" title="Abbrechen"><i class="fas fa-ban"></i></button>`);
+    }
+
+    // Copy and Print buttons for creator (all statuses except cancelled)
+    if (isCreator && tournament.status !== 'cancelled') {
+        buttons.push(`<button id="copy-tournament-btn" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-3 rounded-lg font-medium" title="Kopieren"><i class="fas fa-copy"></i></button>`);
+    }
+
+    // Print button for all (if tournament has matches)
+    if (tournament.tournament_matches?.length > 0) {
+        buttons.push(`<button id="print-tournament-btn" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-3 rounded-lg font-medium" title="Drucken"><i class="fas fa-print"></i></button>`);
     }
 
     return buttons.join('');
@@ -521,7 +533,7 @@ function renderWinnerPodium(standings) {
     </div>`;
 }
 
-function renderMatches(matches) {
+function renderMatches(matches, isCreator = false) {
     if (!matches.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
 
     const byRound = {};
@@ -539,14 +551,14 @@ function renderMatches(matches) {
                 <span class="text-xs text-gray-500">${completed}/${actual.length} abgeschlossen</span>
             </div>
             <div class="space-y-2">
-                ${actual.map(m => renderMatchCard(m)).join('')}
+                ${actual.map(m => renderMatchCard(m, isCreator)).join('')}
                 ${byes.map(m => renderByeCard(m)).join('')}
             </div>
         </div>`;
     }).join('');
 }
 
-function renderMatchCard(match) {
+function renderMatchCard(match, isCreator = false) {
     const a = getPlayerName(match.player_a);
     const b = getPlayerName(match.player_b);
     const done = match.status === 'completed';
@@ -563,9 +575,12 @@ function renderMatchCard(match) {
                     ${done ? `<span class="text-sm font-mono">${match.player_b_sets_won || 0}</span>` : ''}
                 </div>
             </div>
-            ${done
-                ? '<span class="text-xs text-gray-500"><i class="fas fa-check text-green-500 mr-1"></i>Gespielt</span>'
-                : '<span class="text-xs text-gray-500"><i class="fas fa-clock text-yellow-500 mr-1"></i>Ausstehend</span>'}
+            <div class="flex items-center gap-2">
+                ${done
+                    ? '<span class="text-xs text-gray-500"><i class="fas fa-check text-green-500 mr-1"></i>Gespielt</span>'
+                    : '<span class="text-xs text-gray-500"><i class="fas fa-clock text-yellow-500 mr-1"></i>Ausstehend</span>'}
+                ${done && isCreator ? `<button class="correct-match-btn text-xs text-indigo-600 hover:text-indigo-800 ml-2" data-match-id="${match.id}" title="Korrigieren"><i class="fas fa-edit"></i></button>` : ''}
+            </div>
         </div>
     </div>`;
 }
@@ -594,17 +609,28 @@ function setupDetailEventListeners(tournament, participating) {
             try { await startTournament(tournament.id); await openTournamentDetails(tournament.id); await loadTournaments(); } catch {}
         }
     });
-    document.getElementById('delete-tournament-btn')?.addEventListener('click', async () => {
-        if (confirm('Turnier wirklich löschen?')) {
-            try { await deleteTournament(tournament.id); closeTournamentDetailsModal(); await loadTournaments(); } catch {}
-        }
-    });
     document.getElementById('regenerate-pairings-btn')?.addEventListener('click', async () => {
         if (confirm('Paarungen neu generieren? Alle bisherigen Ergebnisse werden gelöscht!')) {
             try { await regeneratePairings(tournament.id); await openTournamentDetails(tournament.id); await loadTournaments(); } catch {}
         }
     });
     document.getElementById('quick-match-entry-btn')?.addEventListener('click', () => openQuickMatchEntryModal(tournament));
+
+    // New action buttons
+    document.getElementById('edit-tournament-btn')?.addEventListener('click', () => openEditTournamentModal(tournament));
+    document.getElementById('cancel-tournament-btn')?.addEventListener('click', () => handleCancelTournament(tournament));
+    document.getElementById('copy-tournament-btn')?.addEventListener('click', () => openCopyTournamentModal(tournament));
+    document.getElementById('print-tournament-btn')?.addEventListener('click', () => printTournament(tournament));
+
+    // Match correction buttons (on completed matches)
+    document.querySelectorAll('.correct-match-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const matchId = btn.dataset.matchId;
+            const match = tournament.tournament_matches?.find(m => m.id === matchId);
+            if (match) openCorrectMatchModal(match, tournament);
+        });
+    });
 }
 
 async function handleCreateTournament() {
@@ -953,5 +979,494 @@ export async function loadActiveTournamentBanner() {
     } catch (err) {
         console.error('[Tournaments UI] Error loading tournament banner:', err);
         banner.classList.add('hidden');
+    }
+}
+
+// ========== NEW FEATURE FUNCTIONS ==========
+
+/**
+ * Open modal to edit tournament details (name, description, max participants)
+ */
+function openEditTournamentModal(tournament) {
+    const modal = document.createElement('div');
+    modal.id = 'edit-tournament-modal';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-edit text-indigo-600 mr-2"></i>Turnier bearbeiten</h3>
+                    <button id="close-edit-tournament" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <form id="edit-tournament-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" id="edit-tournament-name" value="${escapeHtml(tournament.name)}" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                        <textarea id="edit-tournament-description" rows="2"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">${escapeHtml(tournament.description || '')}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Max. Teilnehmer</label>
+                        <input type="number" id="edit-tournament-max" value="${tournament.max_participants}" min="${tournament.tournament_participants?.length || 2}" max="32"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <p class="text-xs text-gray-500 mt-1">Mindestens ${tournament.tournament_participants?.length || 2} (aktuelle Teilnehmer)</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="cancel-edit-tournament" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
+                        <button type="submit" id="save-edit-tournament" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    modal.querySelector('#close-edit-tournament').addEventListener('click', closeModal);
+    modal.querySelector('#cancel-edit-tournament').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    modal.querySelector('#edit-tournament-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = modal.querySelector('#edit-tournament-name').value.trim();
+        const description = modal.querySelector('#edit-tournament-description').value.trim();
+        const maxParticipants = parseInt(modal.querySelector('#edit-tournament-max').value) || tournament.max_participants;
+
+        if (!name) { showToast('Name ist erforderlich', 'error'); return; }
+
+        const saveBtn = modal.querySelector('#save-edit-tournament');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Speichere...';
+
+        try {
+            const { error } = await supabase
+                .from('tournaments')
+                .update({ name, description, max_participants: maxParticipants })
+                .eq('id', tournament.id);
+
+            if (error) throw error;
+            showToast('Turnier aktualisiert!', 'success');
+            closeModal();
+            await openTournamentDetails(tournament.id);
+            await loadTournaments();
+        } catch (err) {
+            console.error('[Tournaments UI] Error updating tournament:', err);
+            showToast('Fehler: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Speichern';
+        }
+    });
+}
+
+/**
+ * Cancel tournament (mark as cancelled instead of deleting)
+ */
+async function handleCancelTournament(tournament) {
+    if (!confirm('Turnier wirklich abbrechen? Das Turnier wird als "Abgebrochen" markiert und kann nicht fortgesetzt werden.')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('tournaments')
+            .update({ status: 'cancelled' })
+            .eq('id', tournament.id);
+
+        if (error) throw error;
+        showToast('Turnier abgebrochen', 'success');
+        closeTournamentDetailsModal();
+        await loadTournaments();
+    } catch (err) {
+        console.error('[Tournaments UI] Error cancelling tournament:', err);
+        showToast('Fehler: ' + err.message, 'error');
+    }
+}
+
+/**
+ * Open modal to copy tournament as template
+ */
+function openCopyTournamentModal(tournament) {
+    const modal = document.createElement('div');
+    modal.id = 'copy-tournament-modal';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-copy text-purple-600 mr-2"></i>Turnier kopieren</h3>
+                    <button id="close-copy-tournament" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <p class="text-sm text-gray-600 mb-4">Erstelle ein neues Turnier mit den gleichen Einstellungen wie "${escapeHtml(tournament.name)}".</p>
+                <form id="copy-tournament-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Neuer Name</label>
+                        <input type="text" id="copy-tournament-name" value="${escapeHtml(tournament.name)} (Kopie)" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="cancel-copy-tournament" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
+                        <button type="submit" id="save-copy-tournament" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-medium">Kopieren</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    modal.querySelector('#close-copy-tournament').addEventListener('click', closeModal);
+    modal.querySelector('#cancel-copy-tournament').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    modal.querySelector('#copy-tournament-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = modal.querySelector('#copy-tournament-name').value.trim();
+        if (!name) { showToast('Name ist erforderlich', 'error'); return; }
+
+        const saveBtn = modal.querySelector('#save-copy-tournament');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Kopiere...';
+
+        try {
+            const newTournament = await createTournament({
+                name,
+                description: tournament.description,
+                format: tournament.format,
+                matchMode: tournament.match_mode,
+                maxParticipants: tournament.max_participants,
+                isOpen: tournament.is_open,
+                isClubOnly: tournament.is_club_only,
+                withHandicap: tournament.with_handicap
+            });
+
+            showToast('Turnier kopiert!', 'success');
+            closeModal();
+            closeTournamentDetailsModal();
+            await loadTournaments();
+            await openTournamentDetails(newTournament.id);
+        } catch (err) {
+            console.error('[Tournaments UI] Error copying tournament:', err);
+            showToast('Fehler: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Kopieren';
+        }
+    });
+}
+
+/**
+ * Print tournament schedule/overview
+ */
+function printTournament(tournament) {
+    const formatName = getTournamentFormatName(tournament.format);
+    const statusName = getTournamentStatusName(tournament.status);
+
+    // Build cross table HTML
+    const participants = tournament.tournament_participants || [];
+    const matches = tournament.tournament_matches || [];
+    const standings = tournament.tournament_standings || [];
+
+    let crossTableHtml = '';
+    if (participants.length > 0 && matches.length > 0) {
+        const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
+        const results = {};
+        sorted.forEach(p => { results[p.player_id] = {}; });
+
+        matches.forEach(m => {
+            if (!m.player_a_id || !m.player_b_id || m.status !== 'completed') return;
+            results[m.player_a_id][m.player_b_id] = { setsA: m.player_a_sets_won || 0, setsB: m.player_b_sets_won || 0 };
+            results[m.player_b_id][m.player_a_id] = { setsA: m.player_b_sets_won || 0, setsB: m.player_a_sets_won || 0 };
+        });
+
+        const standingsMap = {};
+        standings.forEach(s => { standingsMap[s.player_id] = s; });
+
+        crossTableHtml = `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:20px;">
+                <thead>
+                    <tr style="background:#f3f4f6;">
+                        <th style="border:1px solid #ddd; padding:4px; width:20px;"></th>
+                        <th style="border:1px solid #ddd; padding:4px; text-align:left;">Name</th>
+                        ${sorted.map((_, i) => `<th style="border:1px solid #ddd; padding:4px; width:35px; text-align:center;">${i + 1}</th>`).join('')}
+                        <th style="border:1px solid #ddd; padding:4px; width:35px;">Sp</th>
+                        <th style="border:1px solid #ddd; padding:4px; width:35px;">Satz</th>
+                        <th style="border:1px solid #ddd; padding:4px; width:25px;">Pl.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sorted.map((rowPlayer, rowIdx) => {
+                        const name = getPlayerName(rowPlayer);
+                        const st = standingsMap[rowPlayer.player_id];
+                        const wins = st?.matches_won || 0;
+                        const losses = st?.matches_lost || 0;
+                        const setsW = st?.sets_won || 0;
+                        const setsL = st?.sets_lost || 0;
+                        const rank = st?.rank || '-';
+
+                        return `<tr>
+                            <td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold;">${rowIdx + 1}</td>
+                            <td style="border:1px solid #ddd; padding:4px;">${escapeHtml(name)}</td>
+                            ${sorted.map((colPlayer, colIdx) => {
+                                if (rowIdx === colIdx) return '<td style="border:1px solid #ddd; background:#333;"></td>';
+                                const result = results[rowPlayer.player_id]?.[colPlayer.player_id];
+                                if (result) {
+                                    const won = result.setsA > result.setsB;
+                                    return `<td style="border:1px solid #ddd; padding:4px; text-align:center; font-family:monospace; ${won ? 'font-weight:bold;' : ''}">${result.setsA}:${result.setsB}</td>`;
+                                }
+                                return '<td style="border:1px solid #ddd; padding:4px; text-align:center; color:#ccc;">-</td>';
+                            }).join('')}
+                            <td style="border:1px solid #ddd; padding:4px; text-align:center;">${wins}:${losses}</td>
+                            <td style="border:1px solid #ddd; padding:4px; text-align:center;">${setsW}:${setsL}</td>
+                            <td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold;">${rank}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${escapeHtml(tournament.name)} - Spielplan</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h1 { margin-bottom: 5px; }
+                .subtitle { color: #666; margin-bottom: 20px; }
+                .info { display: flex; gap: 30px; margin-bottom: 20px; font-size: 14px; }
+                .info-item { display: flex; gap: 8px; }
+                .info-label { color: #666; }
+                @media print {
+                    body { padding: 10px; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>${escapeHtml(tournament.name)}</h1>
+            <p class="subtitle">${escapeHtml(tournament.description || '')}</p>
+            <div class="info">
+                <div class="info-item"><span class="info-label">Modus:</span> ${formatName}</div>
+                <div class="info-item"><span class="info-label">Status:</span> ${statusName}</div>
+                <div class="info-item"><span class="info-label">Teilnehmer:</span> ${participants.length}</div>
+                ${tournament.with_handicap ? '<div class="info-item"><span class="info-label">Handicap:</span> Aktiv</div>' : ''}
+            </div>
+            ${crossTableHtml}
+            <p style="margin-top:30px; font-size:10px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+/**
+ * Open modal to correct a completed match result
+ */
+function openCorrectMatchModal(match, tournament) {
+    const matchMode = tournament.match_mode || 'best-of-5';
+    const maxSets = getMaxSets(matchMode);
+    const setsToWin = getSetsToWin(matchMode);
+    const playerAName = getPlayerName(match.player_a);
+    const playerBName = getPlayerName(match.player_b);
+
+    const modal = document.createElement('div');
+    modal.id = 'correct-match-modal';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-edit text-orange-600 mr-2"></i>Ergebnis korrigieren</h3>
+                    <button id="close-correct-match" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <p class="text-sm text-gray-600 mb-4">Korrigiere das Ergebnis für Runde ${match.round_number}</p>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-3 gap-2 items-center">
+                        <div>
+                            <input type="number" id="correct-sets-a" min="0" max="${maxSets}" value="${match.player_a_sets_won || 0}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold">
+                            <div class="text-xs text-gray-600 mt-1 text-center truncate">${escapeHtml(playerAName)}</div>
+                        </div>
+                        <div class="text-center text-gray-400 font-bold text-xl">:</div>
+                        <div>
+                            <input type="number" id="correct-sets-b" min="0" max="${maxSets}" value="${match.player_b_sets_won || 0}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-bold">
+                            <div class="text-xs text-gray-600 mt-1 text-center truncate">${escapeHtml(playerBName)}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="cancel-correct-match" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
+                        <button type="button" id="save-correct-match" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg font-medium">Korrigieren</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    modal.querySelector('#close-correct-match').addEventListener('click', closeModal);
+    modal.querySelector('#cancel-correct-match').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    modal.querySelector('#save-correct-match').addEventListener('click', async () => {
+        const setsA = parseInt(modal.querySelector('#correct-sets-a').value) || 0;
+        const setsB = parseInt(modal.querySelector('#correct-sets-b').value) || 0;
+
+        // Validation
+        if (setsA + setsB > maxSets) {
+            showToast(`Maximal ${maxSets} Sätze möglich`, 'error'); return;
+        }
+        if (setsA !== setsToWin && setsB !== setsToWin) {
+            showToast(`Ein Spieler muss ${setsToWin} Sätze gewinnen`, 'error'); return;
+        }
+        if (setsA === setsB) {
+            showToast('Unentschieden nicht möglich', 'error'); return;
+        }
+
+        const saveBtn = modal.querySelector('#save-correct-match');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Speichere...';
+
+        try {
+            const newWinnerId = setsA > setsB ? match.player_a_id : match.player_b_id;
+
+            // Update tournament_match
+            const { error: tmError } = await supabase
+                .from('tournament_matches')
+                .update({
+                    player_a_sets_won: setsA,
+                    player_b_sets_won: setsB,
+                    winner_id: newWinnerId
+                })
+                .eq('id', match.id);
+
+            if (tmError) throw tmError;
+
+            // Also update the linked match in matches table if exists
+            if (match.match_id) {
+                await supabase
+                    .from('matches')
+                    .update({
+                        player_a_sets_won: setsA,
+                        player_b_sets_won: setsB,
+                        winner_id: newWinnerId,
+                        loser_id: setsA > setsB ? match.player_b_id : match.player_a_id
+                    })
+                    .eq('id', match.match_id);
+            }
+
+            // Recalculate standings
+            await recalculateTournamentStandings(tournament.id);
+
+            showToast('Ergebnis korrigiert!', 'success');
+            closeModal();
+            await openTournamentDetails(tournament.id);
+            await loadTournaments();
+        } catch (err) {
+            console.error('[Tournaments UI] Error correcting match:', err);
+            showToast('Fehler: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Korrigieren';
+        }
+    });
+}
+
+/**
+ * Recalculate tournament standings after match correction
+ */
+async function recalculateTournamentStandings(tournamentId) {
+    try {
+        // Get all completed matches
+        const { data: matches, error: mErr } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('status', 'completed');
+
+        if (mErr) throw mErr;
+
+        // Get all participants
+        const { data: participants, error: pErr } = await supabase
+            .from('tournament_participants')
+            .select('player_id')
+            .eq('tournament_id', tournamentId);
+
+        if (pErr) throw pErr;
+
+        // Calculate standings for each player
+        const standingsData = {};
+        participants.forEach(p => {
+            standingsData[p.player_id] = {
+                player_id: p.player_id,
+                tournament_id: tournamentId,
+                matches_played: 0,
+                matches_won: 0,
+                matches_lost: 0,
+                sets_won: 0,
+                sets_lost: 0,
+                tournament_points: 0
+            };
+        });
+
+        matches.forEach(m => {
+            if (!m.player_a_id || !m.player_b_id) return;
+
+            // Player A stats
+            if (standingsData[m.player_a_id]) {
+                standingsData[m.player_a_id].matches_played++;
+                standingsData[m.player_a_id].sets_won += m.player_a_sets_won || 0;
+                standingsData[m.player_a_id].sets_lost += m.player_b_sets_won || 0;
+                if (m.winner_id === m.player_a_id) {
+                    standingsData[m.player_a_id].matches_won++;
+                    standingsData[m.player_a_id].tournament_points += 2;
+                } else {
+                    standingsData[m.player_a_id].matches_lost++;
+                }
+            }
+
+            // Player B stats
+            if (standingsData[m.player_b_id]) {
+                standingsData[m.player_b_id].matches_played++;
+                standingsData[m.player_b_id].sets_won += m.player_b_sets_won || 0;
+                standingsData[m.player_b_id].sets_lost += m.player_a_sets_won || 0;
+                if (m.winner_id === m.player_b_id) {
+                    standingsData[m.player_b_id].matches_won++;
+                    standingsData[m.player_b_id].tournament_points += 2;
+                } else {
+                    standingsData[m.player_b_id].matches_lost++;
+                }
+            }
+        });
+
+        // Sort and assign ranks
+        const sortedStandings = Object.values(standingsData).sort((a, b) => {
+            if (b.tournament_points !== a.tournament_points) return b.tournament_points - a.tournament_points;
+            const aDiff = a.sets_won - a.sets_lost;
+            const bDiff = b.sets_won - b.sets_lost;
+            if (bDiff !== aDiff) return bDiff - aDiff;
+            return b.sets_won - a.sets_won;
+        });
+
+        sortedStandings.forEach((s, i) => { s.rank = i + 1; });
+
+        // Delete old standings and insert new ones
+        await supabase.from('tournament_standings').delete().eq('tournament_id', tournamentId);
+
+        if (sortedStandings.length > 0) {
+            const { error: insertErr } = await supabase
+                .from('tournament_standings')
+                .insert(sortedStandings);
+            if (insertErr) throw insertErr;
+        }
+
+        console.log('[Tournaments UI] Standings recalculated');
+    } catch (err) {
+        console.error('[Tournaments UI] Error recalculating standings:', err);
     }
 }
