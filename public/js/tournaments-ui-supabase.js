@@ -549,6 +549,12 @@ function renderWinnerPodium(standings) {
 function renderMatches(matches, isCreator = false, filter = 'all') {
     if (!matches.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
 
+    // Check if this is a Double Elimination tournament (has bracket_type)
+    const hasDoubleElim = matches.some(m => m.bracket_type && m.bracket_type !== 'winners');
+    if (hasDoubleElim || matches.some(m => m.bracket_type === 'winners')) {
+        return renderDoubleEliminationMatches(matches, isCreator, filter);
+    }
+
     const byRound = {};
     matches.forEach(m => { const r = m.round_number || 1; if (!byRound[r]) byRound[r] = []; byRound[r].push(m); });
 
@@ -587,6 +593,98 @@ function renderMatches(matches, isCreator = false, filter = 'all') {
             </div>
         </div>`;
     }).join('');
+}
+
+function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'all') {
+    const bracketNames = {
+        'winners': 'Siegerseite',
+        'losers': 'Verliererseite',
+        'finals': 'Finale',
+        'grand_finals': 'Entscheidungsspiel'
+    };
+
+    // Group by bracket type
+    const brackets = { winners: [], losers: [], finals: [], grand_finals: [] };
+    matches.forEach(m => {
+        const type = m.bracket_type || 'winners';
+        if (brackets[type]) brackets[type].push(m);
+    });
+
+    let html = '';
+
+    // Render each bracket
+    for (const [bracketType, bracketMatches] of Object.entries(brackets)) {
+        if (!bracketMatches.length) continue;
+
+        // Skip grand finals if not needed yet
+        if (bracketType === 'grand_finals' && !bracketMatches.some(m => m.player_a_id || m.player_b_id)) continue;
+
+        // Group by round within bracket
+        const byRound = {};
+        bracketMatches.forEach(m => {
+            const r = m.round_number || 1;
+            if (!byRound[r]) byRound[r] = [];
+            byRound[r].push(m);
+        });
+
+        // Filter rounds
+        const filteredRounds = Object.keys(byRound).sort((a, b) => a - b).filter(round => {
+            const rm = byRound[round];
+            const actual = rm.filter(m => m.player_a_id && m.player_b_id);
+            const completedCount = actual.filter(m => m.status === 'completed').length;
+            const isRoundCompleted = completedCount === actual.length && actual.length > 0;
+
+            if (filter === 'remaining') return !isRoundCompleted || !actual.length;
+            if (filter === 'completed') return isRoundCompleted && actual.length > 0;
+            return true;
+        });
+
+        if (!filteredRounds.length) continue;
+
+        const bracketIcon = bracketType === 'winners' ? 'fa-trophy text-yellow-500' :
+                          bracketType === 'losers' ? 'fa-arrow-down text-red-400' :
+                          'fa-crown text-purple-500';
+
+        html += `<div class="mb-6">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                <i class="fas ${bracketIcon}"></i>
+                <h4 class="font-bold text-gray-800">${bracketNames[bracketType]}</h4>
+            </div>`;
+
+        for (const round of filteredRounds) {
+            const rm = byRound[round];
+            const withPlayers = rm.filter(m => m.player_a_id || m.player_b_id);
+            if (!withPlayers.length) continue;
+
+            const actual = rm.filter(m => m.player_a_id && m.player_b_id);
+            const completed = actual.filter(m => m.status === 'completed').length;
+            const waiting = rm.filter(m => !m.player_a_id || !m.player_b_id);
+
+            const roundName = bracketType === 'finals' ? 'Finale' :
+                            bracketType === 'grand_finals' ? 'Entscheidung' :
+                            `Runde ${round}`;
+
+            html += `<div class="mb-3 ml-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h5 class="text-sm font-semibold text-gray-600">${roundName}</h5>
+                    ${actual.length ? `<span class="text-xs text-gray-500">${completed}/${actual.length} abgeschlossen</span>` : ''}
+                </div>
+                <div class="space-y-2">
+                    ${withPlayers.map(m => renderMatchCard(m, isCreator)).join('')}
+                    ${waiting.length && filter !== 'completed' ? `<p class="text-xs text-gray-400 italic">${waiting.length} Spiel(e) warten auf Spieler</p>` : ''}
+                </div>
+            </div>`;
+        }
+
+        html += '</div>';
+    }
+
+    if (!html) {
+        if (filter === 'remaining') return '<p class="text-gray-400 text-sm"><i class="fas fa-check-circle text-green-500 mr-2"></i>Alle Spiele abgeschlossen!</p>';
+        if (filter === 'completed') return '<p class="text-gray-400 text-sm">Noch keine Spiele abgeschlossen</p>';
+    }
+
+    return html || '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
 }
 
 function renderMatchCard(match, isCreator = false) {

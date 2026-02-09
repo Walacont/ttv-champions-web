@@ -84,6 +84,7 @@ export async function createTournament(tournamentData) {
         if (!name || !maxParticipants) throw new Error('Name und Teilnehmerzahl sind erforderlich');
         if (!currentClubId || !currentSportId) throw new Error('Kein Verein oder Sportart ausgewählt');
         if (format === 'round_robin' && maxParticipants > 16) throw new Error('Jeder gegen Jeden ist nur bis 16 Spieler möglich');
+        if (format === 'double_elimination' && maxParticipants > 16) throw new Error('Doppel-K.O. ist nur bis 16 Spieler möglich');
 
         const joinCode = !isOpen ? generateJoinCode() : null;
 
@@ -204,6 +205,8 @@ export async function startTournament(tournamentId) {
 
         if (tournament.format === 'round_robin') {
             await generateRoundRobinMatches(tournamentId);
+        } else if (tournament.format === 'double_elimination' || tournament.format === 'double_elim_32') {
+            await generateDoubleEliminationMatches(tournamentId);
         } else {
             throw new Error(`Format ${tournament.format} wird noch nicht unterstützt`);
         }
@@ -242,6 +245,8 @@ export async function regeneratePairings(tournamentId) {
         await assignSeeds(tournamentId);
         if (tournament.format === 'round_robin') {
             await generateRoundRobinMatches(tournamentId);
+        } else if (tournament.format === 'double_elimination' || tournament.format === 'double_elim_32') {
+            await generateDoubleEliminationMatches(tournamentId);
         }
 
         showToast('Paarungen erfolgreich neu generiert!', 'success');
@@ -332,6 +337,285 @@ async function generateRoundRobinMatches(tournamentId) {
     return matches;
 }
 
+/**
+ * Generate Double Elimination bracket matches
+ * Supports 4, 8, and 16 players
+ */
+async function generateDoubleEliminationMatches(tournamentId) {
+    // Safety: remove any existing matches before generating
+    await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+
+    const { data: participants, error } = await supabase
+        .from('tournament_participants').select('player_id, seed')
+        .eq('tournament_id', tournamentId).order('seed', { ascending: true });
+    if (error) throw error;
+
+    const n = participants.length;
+    if (n < 2) throw new Error('Mindestens 2 Teilnehmer erforderlich');
+
+    // Find next power of 2
+    const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
+    if (bracketSize > 16) throw new Error('Double Elimination unterstützt maximal 16 Spieler');
+
+    const playerIds = participants.map(p => p.player_id);
+    const matches = [];
+
+    // Seed players into bracket positions (standard seeding: 1v16, 8v9, 5v12, 4v13, etc.)
+    const seedOrder = generateSeedOrder(bracketSize);
+
+    // ============ WINNERS BRACKET ============
+    const winnersRounds = Math.log2(bracketSize);
+    let matchNumber = 1;
+    let bracketPosition = 1;
+
+    // Round 1 of Winners Bracket
+    const winnersR1Matches = [];
+    for (let i = 0; i < bracketSize / 2; i++) {
+        const seed1 = seedOrder[i * 2];
+        const seed2 = seedOrder[i * 2 + 1];
+        const player1 = seed1 <= n ? playerIds[seed1 - 1] : null;
+        const player2 = seed2 <= n ? playerIds[seed2 - 1] : null;
+
+        const isBye = !player1 || !player2;
+        const match = {
+            tournament_id: tournamentId,
+            round_number: 1,
+            match_number: matchNumber++,
+            bracket_type: 'winners',
+            bracket_position: bracketPosition++,
+            player_a_id: player1,
+            player_b_id: player2,
+            status: isBye ? 'completed' : 'pending',
+            winner_id: isBye ? (player1 || player2) : null
+        };
+        matches.push(match);
+        winnersR1Matches.push(match);
+    }
+
+    // Subsequent Winners Bracket rounds (will be filled as matches complete)
+    for (let round = 2; round <= winnersRounds; round++) {
+        const matchesInRound = bracketSize / Math.pow(2, round);
+        for (let i = 0; i < matchesInRound; i++) {
+            matches.push({
+                tournament_id: tournamentId,
+                round_number: round,
+                match_number: matchNumber++,
+                bracket_type: 'winners',
+                bracket_position: bracketPosition++,
+                player_a_id: null, // TBD
+                player_b_id: null, // TBD
+                status: 'pending'
+            });
+        }
+    }
+
+    // ============ LOSERS BRACKET ============
+    // Losers bracket has (2 * winnersRounds - 2) rounds for standard DE
+    const losersRounds = 2 * (winnersRounds - 1);
+    let losersBracketPosition = 1;
+
+    for (let round = 1; round <= losersRounds; round++) {
+        // Number of matches varies by round
+        // Odd rounds: matches from losers playing each other
+        // Even rounds: losers from winners bracket join
+        let matchesInRound;
+        if (round <= 2) {
+            matchesInRound = bracketSize / 4;
+        } else {
+            matchesInRound = Math.max(1, bracketSize / Math.pow(2, Math.floor((round + 3) / 2)));
+        }
+
+        for (let i = 0; i < matchesInRound; i++) {
+            matches.push({
+                tournament_id: tournamentId,
+                round_number: round,
+                match_number: matchNumber++,
+                bracket_type: 'losers',
+                bracket_position: losersBracketPosition++,
+                player_a_id: null, // TBD
+                player_b_id: null, // TBD
+                status: 'pending'
+            });
+        }
+    }
+
+    // ============ GRAND FINALS ============
+    matches.push({
+        tournament_id: tournamentId,
+        round_number: 1,
+        match_number: matchNumber++,
+        bracket_type: 'finals',
+        bracket_position: 1,
+        player_a_id: null, // Winners bracket champion
+        player_b_id: null, // Losers bracket champion
+        status: 'pending'
+    });
+
+    // Grand Finals Reset (if losers champion wins first finals)
+    matches.push({
+        tournament_id: tournamentId,
+        round_number: 2,
+        match_number: matchNumber++,
+        bracket_type: 'grand_finals',
+        bracket_position: 1,
+        player_a_id: null,
+        player_b_id: null,
+        status: 'pending'
+    });
+
+    // Insert all matches
+    const { error: insertError } = await supabase.from('tournament_matches').insert(matches);
+    if (insertError) throw insertError;
+
+    // Process byes - advance players who got a bye in round 1
+    await processDoubleEliminationByes(tournamentId);
+
+    // Create standings entries
+    const standings = participants.map(p => ({
+        tournament_id: tournamentId, round_id: null, player_id: p.player_id
+    }));
+    const { error: standingsError } = await supabase
+        .from('tournament_standings')
+        .upsert(standings, { onConflict: 'tournament_id,round_id,player_id', ignoreDuplicates: false });
+    if (standingsError) throw standingsError;
+
+    return matches;
+}
+
+/**
+ * Generate standard seeding order for bracket
+ * Returns array of seeds in bracket order (e.g., for 8: [1,8,4,5,2,7,3,6])
+ */
+function generateSeedOrder(bracketSize) {
+    if (bracketSize === 2) return [1, 2];
+    if (bracketSize === 4) return [1, 4, 2, 3];
+    if (bracketSize === 8) return [1, 8, 4, 5, 2, 7, 3, 6];
+    if (bracketSize === 16) return [1, 16, 8, 9, 4, 13, 5, 12, 2, 15, 7, 10, 3, 14, 6, 11];
+    // Fallback for other sizes
+    const order = [];
+    for (let i = 1; i <= bracketSize; i++) order.push(i);
+    return order;
+}
+
+/**
+ * Process byes in Double Elimination - advance players who had no opponent
+ */
+async function processDoubleEliminationByes(tournamentId) {
+    const { data: byeMatches, error } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'winners')
+        .eq('round_number', 1)
+        .eq('status', 'completed');
+
+    if (error || !byeMatches) return;
+
+    for (const byeMatch of byeMatches) {
+        if (byeMatch.winner_id) {
+            await advanceDoubleEliminationWinner(tournamentId, byeMatch, byeMatch.winner_id);
+        }
+    }
+}
+
+/**
+ * Advance winner to next match in Double Elimination
+ */
+async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winnerId) {
+    const bracketType = completedMatch.bracket_type;
+    const roundNumber = completedMatch.round_number;
+    const bracketPosition = completedMatch.bracket_position;
+
+    if (bracketType === 'winners') {
+        // Find next winners bracket match
+        const nextRound = roundNumber + 1;
+        const nextPosition = Math.ceil(bracketPosition / 2);
+
+        const { data: nextMatch } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'winners')
+            .eq('round_number', nextRound)
+            .eq('bracket_position', nextPosition)
+            .single();
+
+        if (nextMatch) {
+            const isSlotA = bracketPosition % 2 === 1;
+            const updateField = isSlotA ? 'player_a_id' : 'player_b_id';
+
+            await supabase
+                .from('tournament_matches')
+                .update({ [updateField]: winnerId })
+                .eq('id', nextMatch.id);
+        }
+    } else if (bracketType === 'losers') {
+        // Advance in losers bracket - more complex logic
+        // For now, find next losers match
+        const nextRound = roundNumber + 1;
+        const nextPosition = Math.ceil(bracketPosition / 2);
+
+        const { data: nextMatch } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'losers')
+            .eq('round_number', nextRound)
+            .limit(1)
+            .single();
+
+        if (nextMatch) {
+            const updateField = nextMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+            await supabase
+                .from('tournament_matches')
+                .update({ [updateField]: winnerId })
+                .eq('id', nextMatch.id);
+        }
+    } else if (bracketType === 'finals') {
+        // Check if grand finals reset is needed
+        // Winner from losers bracket winning finals triggers reset
+    }
+}
+
+/**
+ * Drop loser to losers bracket in Double Elimination
+ */
+async function dropToLosersBracket(tournamentId, completedMatch, loserId) {
+    const roundNumber = completedMatch.round_number;
+
+    // Find appropriate losers bracket match
+    // Losers from winners R1 go to losers R1
+    // Losers from winners R2 go to losers R2, etc.
+    const losersRound = roundNumber;
+
+    const { data: losersMatches } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'losers')
+        .eq('round_number', losersRound)
+        .order('bracket_position', { ascending: true });
+
+    if (losersMatches && losersMatches.length > 0) {
+        // Find first available slot
+        for (const match of losersMatches) {
+            if (!match.player_a_id) {
+                await supabase
+                    .from('tournament_matches')
+                    .update({ player_a_id: loserId })
+                    .eq('id', match.id);
+                return;
+            } else if (!match.player_b_id) {
+                await supabase
+                    .from('tournament_matches')
+                    .update({ player_b_id: loserId })
+                    .eq('id', match.id);
+                return;
+            }
+        }
+    }
+}
+
 export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
     try {
         const { data: match, error: matchError } = await supabase
@@ -341,7 +625,7 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
         // Fetch tournament match with tournament info for player order + match_mode validation
         const { data: tournamentMatch, error: tmError } = await supabase
             .from('tournament_matches')
-            .select('tournament_id, player_a_id, player_b_id, tournament:tournament_id(match_mode)')
+            .select('*, tournament:tournament_id(match_mode, format)')
             .eq('id', tournamentMatchId).single();
         if (tmError) throw tmError;
 
@@ -378,6 +662,22 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
             tournamentMatch.tournament_id, tournamentMatch.player_a_id, tournamentMatch.player_b_id,
             match.winner_id, tmPlayerASets, tmPlayerBSets
         );
+
+        // Handle Double Elimination bracket progression
+        const format = tournamentMatch.tournament?.format;
+        if (format === 'double_elimination' || format === 'double_elim_32') {
+            const loserId = match.winner_id === tournamentMatch.player_a_id
+                ? tournamentMatch.player_b_id
+                : tournamentMatch.player_a_id;
+
+            // Advance winner
+            await advanceDoubleEliminationWinner(tournamentMatch.tournament_id, tournamentMatch, match.winner_id);
+
+            // Drop loser to losers bracket (only from winners bracket)
+            if (tournamentMatch.bracket_type === 'winners') {
+                await dropToLosersBracket(tournamentMatch.tournament_id, tournamentMatch, loserId);
+            }
+        }
 
         await checkAndCompleteTournament(tournamentMatch.tournament_id);
         showToast('Turnier-Match Ergebnis gespeichert!', 'success');
@@ -646,12 +946,13 @@ export async function isParticipating(tournamentId) {
 export function getTournamentFormatName(format) {
     const formats = {
         'round_robin': 'Jeder gegen Jeden',
+        'double_elimination': 'Doppel-K.O.',
         'pool_6': 'Poolplan bis 6',
         'pool_8': 'Poolplan bis 8',
         'groups_4': 'Vierergruppen',
         'knockout_16': 'K.O. bis 16',
         'knockout_32': 'K.O. bis 32',
-        'double_elim_32': 'Doppeltes K.O.',
+        'double_elim_32': 'Doppel-K.O.',
         'groups_knockout_32': 'Gruppen + K.O. (32)',
         'groups_knockout_64': 'Gruppen + K.O. (64)',
         'doubles_team': 'Zweiermannschaft',
