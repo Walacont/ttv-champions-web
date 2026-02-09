@@ -1615,6 +1615,7 @@ function openCoachCopyTournamentModal(tournament) {
 
 /**
  * Generate bracket tree HTML for Double Elimination print/PDF
+ * Creates a visual tree structure with connecting lines
  */
 function generateBracketTreeHtml(matches, participants) {
     // Group matches by bracket type
@@ -1632,6 +1633,10 @@ function generateBracketTreeHtml(matches, participants) {
             if (!byRound[r]) byRound[r] = [];
             byRound[r].push(m);
         });
+        // Sort matches by position within each round
+        Object.keys(byRound).forEach(r => {
+            byRound[r].sort((a, b) => (a.bracket_position || 0) - (b.bracket_position || 0));
+        });
         return byRound;
     };
 
@@ -1641,21 +1646,27 @@ function generateBracketTreeHtml(matches, participants) {
     const lbRoundNums = Object.keys(lbRounds).sort((a, b) => a - b);
     const totalWbRounds = wbRoundNums.length;
 
+    // Match box dimensions for tree layout
+    const matchHeight = 44;
+    const matchWidth = 130;
+    const horizontalGap = 30;
+    const connectorWidth = 15;
+
     // Helper to get round name
     const getRoundName = (roundNum, total, bracketType) => {
         const num = parseInt(roundNum);
         if (bracketType === 'winners') {
-            if (num === total) return 'WB Finale';
-            if (num === total - 1) return 'WB Halbfinale';
-            if (num === total - 2) return 'WB Viertelfinale';
-            if (num === total - 3) return 'WB Achtelfinale';
-            return `WB Runde ${num}`;
+            if (num === total) return 'Finale';
+            if (num === total - 1) return 'Halbfinale';
+            if (num === total - 2) return 'Viertelfinale';
+            if (num === total - 3) return 'Achtelfinale';
+            return `Runde ${num}`;
         }
-        return `LB Runde ${num}`;
+        return `Runde ${num}`;
     };
 
-    // Helper to render a single match
-    const renderMatch = (m) => {
+    // Helper to render a single match box
+    const renderMatchBox = (m, showConnectorLeft = false, showConnectorRight = false, isTop = false, isBottom = false) => {
         const playerA = getPlayerName(m.player_a);
         const playerB = getPlayerName(m.player_b);
         const isCompleted = m.status === 'completed';
@@ -1663,43 +1674,115 @@ function generateBracketTreeHtml(matches, participants) {
         const bWon = m.winner_id === m.player_b_id;
         const scoreA = m.player_a_sets_won || 0;
         const scoreB = m.player_b_sets_won || 0;
+        const isBye = (m.player_a_id && !m.player_b_id) || (!m.player_a_id && m.player_b_id);
 
         return `
-            <div style="border:1px solid #ddd; border-radius:4px; margin:3px 0; font-size:10px; background:${isCompleted ? '#f9fafb' : '#fff'};">
-                <div style="display:flex; justify-content:space-between; padding:4px 6px; border-bottom:1px solid #eee; ${aWon ? 'font-weight:bold; background:#ecfdf5;' : ''}">
-                    <span style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_a_id ? escapeHtml(playerA) : 'TBD'}</span>
-                    ${isCompleted ? `<span style="font-family:monospace;">${scoreA}</span>` : ''}
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:4px 6px; ${bWon ? 'font-weight:bold; background:#ecfdf5;' : ''}">
-                    <span style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_b_id ? escapeHtml(playerB) : 'TBD'}</span>
-                    ${isCompleted ? `<span style="font-family:monospace;">${scoreB}</span>` : ''}
+            <div style="position:relative; width:${matchWidth}px; height:${matchHeight}px; margin:2px 0;">
+                ${showConnectorLeft ? `
+                    <div style="position:absolute; left:-${connectorWidth}px; top:50%; width:${connectorWidth}px; height:2px; background:#16a34a;"></div>
+                ` : ''}
+                ${showConnectorRight ? `
+                    <div style="position:absolute; right:-${connectorWidth}px; top:50%; width:${connectorWidth}px; height:2px; background:#16a34a;"></div>
+                    ${isTop ? `<div style="position:absolute; right:-${connectorWidth}px; top:50%; width:2px; height:calc(50% + ${matchHeight/2 + 2}px); background:#16a34a;"></div>` : ''}
+                    ${isBottom ? `<div style="position:absolute; right:-${connectorWidth}px; bottom:50%; width:2px; height:calc(50% + ${matchHeight/2 + 2}px); background:#16a34a;"></div>` : ''}
+                ` : ''}
+                <div style="border:1px solid #999; border-radius:3px; font-size:9px; background:#fff; height:100%; display:flex; flex-direction:column;">
+                    <div style="display:flex; justify-content:space-between; padding:2px 4px; border-bottom:1px solid #ddd; flex:1; align-items:center; ${aWon ? 'font-weight:bold; background:#d1fae5;' : ''}${isBye && m.player_a_id ? 'background:#fef3c7;' : ''}">
+                        <span style="max-width:85px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_a_id ? escapeHtml(playerA) : ''}</span>
+                        ${isCompleted && !isBye ? `<span style="font-family:monospace; font-size:10px;">${scoreA}</span>` : ''}
+                        ${isBye && m.player_a_id ? '<span style="font-size:8px; color:#92400e;">BYE</span>' : ''}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; padding:2px 4px; flex:1; align-items:center; ${bWon ? 'font-weight:bold; background:#d1fae5;' : ''}${isBye && m.player_b_id ? 'background:#fef3c7;' : ''}">
+                        <span style="max-width:85px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_b_id ? escapeHtml(playerB) : ''}</span>
+                        ${isCompleted && !isBye ? `<span style="font-family:monospace; font-size:10px;">${scoreB}</span>` : ''}
+                        ${isBye && m.player_b_id ? '<span style="font-size:8px; color:#92400e;">BYE</span>' : ''}
+                    </div>
                 </div>
             </div>
         `;
     };
 
-    // Render bracket section
-    const renderBracketSection = (roundsMap, roundNums, bracketType, total, title, bgColor) => {
+    // Render bracket tree with connecting lines
+    const renderBracketTree = (roundsMap, roundNums, bracketType, title, bgColor) => {
+        if (!roundNums.length) return '';
+
+        const total = roundNums.length;
+        const firstRoundMatches = roundsMap[roundNums[0]]?.length || 0;
+        const treeHeight = Math.max(200, firstRoundMatches * (matchHeight + 20));
+
+        let html = `
+            <div style="margin-bottom:25px; page-break-inside:avoid;">
+                <div style="background:${bgColor}; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px; border-radius:4px 4px 0 0; display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#fff;"></span>
+                    ${title}
+                </div>
+                <div style="border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fafafa; padding:15px; overflow-x:auto;">
+                    <div style="display:flex; align-items:flex-start; gap:0; min-height:${treeHeight}px;">
+        `;
+
+        roundNums.forEach((roundNum, roundIdx) => {
+            const roundMatches = roundsMap[roundNum] || [];
+            const roundName = getRoundName(roundNum, total, bracketType);
+            const isFirstRound = roundIdx === 0;
+            const isLastRound = roundIdx === roundNums.length - 1;
+
+            // Calculate vertical spacing for tree effect
+            const spacingMultiplier = Math.pow(2, roundIdx);
+            const verticalGap = (matchHeight + 4) * (spacingMultiplier - 1) / 2;
+
+            html += `
+                <div style="display:flex; flex-direction:column; align-items:center; min-width:${matchWidth + horizontalGap}px;">
+                    <div style="font-size:9px; font-weight:bold; color:#666; margin-bottom:8px; text-align:center; padding:3px 8px; background:#e5e7eb; border-radius:3px;">${roundName}</div>
+                    <div style="display:flex; flex-direction:column; justify-content:space-around; height:${treeHeight - 30}px;">
+            `;
+
+            roundMatches.forEach((m, matchIdx) => {
+                const showConnectorLeft = !isFirstRound;
+                const showConnectorRight = !isLastRound;
+                const isTop = matchIdx % 2 === 0;
+                const isBottom = matchIdx % 2 === 1;
+
+                html += `
+                    <div style="display:flex; align-items:center; ${roundIdx > 0 ? `margin:${verticalGap}px 0;` : ''}">
+                        ${renderMatchBox(m, showConnectorLeft, showConnectorRight, isTop && showConnectorRight, isBottom && showConnectorRight)}
+                    </div>
+                `;
+            });
+
+            html += '</div></div>';
+        });
+
+        html += '</div></div></div>';
+        return html;
+    };
+
+    // Render Losers Bracket (simpler horizontal layout due to complexity)
+    const renderLosersBracket = (roundsMap, roundNums, title, bgColor) => {
         if (!roundNums.length) return '';
 
         let html = `
-            <div style="margin-bottom:20px;">
-                <div style="background:${bgColor}; color:#fff; padding:6px 10px; font-weight:bold; font-size:12px; border-radius:4px 4px 0 0;">${title}</div>
-                <div style="display:flex; gap:15px; overflow-x:auto; padding:10px; border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fafafa;">
+            <div style="margin-bottom:25px; page-break-inside:avoid;">
+                <div style="background:${bgColor}; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px; border-radius:4px 4px 0 0; display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#fff;"></span>
+                    ${title}
+                </div>
+                <div style="border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fff8f8; padding:15px; overflow-x:auto;">
+                    <div style="display:flex; gap:20px; align-items:flex-start;">
         `;
 
-        roundNums.forEach(roundNum => {
+        roundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            const roundName = getRoundName(roundNum, total, bracketType);
             html += `
-                <div style="min-width:140px;">
-                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">${roundName}</div>
-                    ${roundMatches.map(m => renderMatch(m)).join('')}
+                <div style="min-width:${matchWidth + 10}px;">
+                    <div style="font-size:9px; font-weight:bold; color:#991b1b; margin-bottom:8px; text-align:center; padding:3px 8px; background:#fee2e2; border-radius:3px;">LB Runde ${roundNum}</div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${roundMatches.map(m => renderMatchBox(m, roundIdx > 0, roundIdx < roundNums.length - 1)).join('')}
+                    </div>
                 </div>
             `;
         });
 
-        html += '</div></div>';
+        html += '</div></div></div>';
         return html;
     };
 
@@ -1711,37 +1794,81 @@ function generateBracketTreeHtml(matches, participants) {
         if (!grandFinal && !resetMatch) return '';
 
         let html = `
-            <div style="margin-bottom:20px;">
-                <div style="background:#7c3aed; color:#fff; padding:6px 10px; font-weight:bold; font-size:12px; border-radius:4px 4px 0 0;">Grand Final</div>
-                <div style="display:flex; gap:15px; padding:10px; border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fafafa;">
+            <div style="margin-bottom:25px; page-break-inside:avoid;">
+                <div style="background:#7c3aed; color:#fff; padding:8px 12px; font-weight:bold; font-size:13px; border-radius:4px 4px 0 0; display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#fff;"></span>
+                    Entscheidung
+                </div>
+                <div style="border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#faf5ff; padding:15px;">
+                    <div style="display:flex; gap:40px; justify-content:center; align-items:center; flex-wrap:wrap;">
         `;
 
         if (grandFinal) {
+            const gfPlayerA = getPlayerName(grandFinal.player_a);
+            const gfPlayerB = getPlayerName(grandFinal.player_b);
+            const gfCompleted = grandFinal.status === 'completed';
+            const gfAWon = grandFinal.winner_id === grandFinal.player_a_id;
+            const gfBWon = grandFinal.winner_id === grandFinal.player_b_id;
+
             html += `
-                <div style="min-width:140px;">
-                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">Grand Final</div>
-                    ${renderMatch(grandFinal)}
+                <div style="text-align:center;">
+                    <div style="font-size:10px; font-weight:bold; color:#6b21a8; margin-bottom:8px; padding:4px 12px; background:#e9d5ff; border-radius:4px;">Grand Final</div>
+                    <div style="border:2px solid #7c3aed; border-radius:4px; width:150px; background:#fff;">
+                        <div style="display:flex; justify-content:space-between; padding:6px 8px; border-bottom:1px solid #ddd; ${gfAWon ? 'font-weight:bold; background:#d1fae5;' : ''}">
+                            <span style="font-size:10px; display:flex; align-items:center; gap:4px;">
+                                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;"></span>
+                                ${grandFinal.player_a_id ? escapeHtml(gfPlayerA) : 'TBD'}
+                            </span>
+                            ${gfCompleted ? `<span style="font-family:monospace;">${grandFinal.player_a_sets_won || 0}</span>` : ''}
+                        </div>
+                        <div style="display:flex; justify-content:space-between; padding:6px 8px; ${gfBWon ? 'font-weight:bold; background:#d1fae5;' : ''}">
+                            <span style="font-size:10px; display:flex; align-items:center; gap:4px;">
+                                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#dc2626;"></span>
+                                ${grandFinal.player_b_id ? escapeHtml(gfPlayerB) : 'TBD'}
+                            </span>
+                            ${gfCompleted ? `<span style="font-family:monospace;">${grandFinal.player_b_sets_won || 0}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size:8px; color:#666; margin-top:4px;">
+                        <span style="color:#16a34a;">● Hauptrunde</span> vs <span style="color:#dc2626;">● Zweite Chance</span>
+                    </div>
                 </div>
             `;
         }
 
         if (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id)) {
+            const rmPlayerA = getPlayerName(resetMatch.player_a);
+            const rmPlayerB = getPlayerName(resetMatch.player_b);
+            const rmCompleted = resetMatch.status === 'completed';
+            const rmAWon = resetMatch.winner_id === resetMatch.player_a_id;
+            const rmBWon = resetMatch.winner_id === resetMatch.player_b_id;
+
             html += `
-                <div style="min-width:140px;">
-                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">Reset Match</div>
-                    ${renderMatch(resetMatch)}
+                <div style="text-align:center;">
+                    <div style="font-size:10px; font-weight:bold; color:#991b1b; margin-bottom:8px; padding:4px 12px; background:#fee2e2; border-radius:4px;">Entscheidungsspiel</div>
+                    <div style="border:2px solid #dc2626; border-radius:4px; width:150px; background:#fff;">
+                        <div style="display:flex; justify-content:space-between; padding:6px 8px; border-bottom:1px solid #ddd; ${rmAWon ? 'font-weight:bold; background:#d1fae5;' : ''}">
+                            <span style="font-size:10px;">${resetMatch.player_a_id ? escapeHtml(rmPlayerA) : 'TBD'}</span>
+                            ${rmCompleted ? `<span style="font-family:monospace;">${resetMatch.player_a_sets_won || 0}</span>` : ''}
+                        </div>
+                        <div style="display:flex; justify-content:space-between; padding:6px 8px; ${rmBWon ? 'font-weight:bold; background:#d1fae5;' : ''}">
+                            <span style="font-size:10px;">${resetMatch.player_b_id ? escapeHtml(rmPlayerB) : 'TBD'}</span>
+                            ${rmCompleted ? `<span style="font-family:monospace;">${resetMatch.player_b_sets_won || 0}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size:8px; color:#666; margin-top:4px;">Falls Zweite Chance gewinnt</div>
                 </div>
             `;
         }
 
-        html += '</div></div>';
+        html += '</div></div></div>';
         return html;
     };
 
     // Build complete bracket tree
     let html = '<div style="margin-top:15px;">';
-    html += renderBracketSection(wbRounds, wbRoundNums, 'winners', totalWbRounds, 'Hauptrunde (Winners Bracket)', '#16a34a');
-    html += renderBracketSection(lbRounds, lbRoundNums, 'losers', lbRoundNums.length, 'Zweite Chance (Losers Bracket)', '#dc2626');
+    html += renderBracketTree(wbRounds, wbRoundNums, 'winners', 'Hauptrunde (Winners Bracket)', '#16a34a');
+    html += renderLosersBracket(lbRounds, lbRoundNums, 'Zweite Chance (Losers Bracket)', '#dc2626');
     html += renderFinals();
     html += '</div>';
 
