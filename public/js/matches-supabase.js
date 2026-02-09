@@ -106,12 +106,19 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
     }
 }
 
+// Coach Entry Mode: 'quick' oder 'detail'
+let coachEntryMode = 'quick';
+let coachQuickSetsA = 0;
+let coachQuickSetsB = 0;
+
 export async function initializeCoachSetScoreInput(currentUserId) {
     const container = document.getElementById('coach-set-score-container');
     const matchModeSelect = document.getElementById('coach-match-mode-select');
     const setScoreLabel = document.getElementById('coach-set-score-label');
     const goldenPointCheckbox = document.getElementById('coach-golden-point-checkbox');
     const matchTieBreakCheckbox = document.getElementById('coach-match-tiebreak-checkbox');
+    const quickModeBtn = document.getElementById('coach-mode-quick');
+    const detailModeBtn = document.getElementById('coach-mode-detail');
 
     if (!container) return null;
 
@@ -133,6 +140,15 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         if (isTennisOrPadel || isBadminton) {
             matchModeSelect.value = 'best-of-3';
         }
+    }
+
+    function getSetsToWin() {
+        const mode = matchModeSelect?.value || 'best-of-5';
+        if (mode === 'single-set') return 1;
+        if (mode === 'best-of-3') return 2;
+        if (mode === 'best-of-5') return 3;
+        if (mode === 'best-of-7') return 4;
+        return 3;
     }
 
     function updateSetScoreLabel(mode, sportType = 'table_tennis') {
@@ -157,6 +173,77 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         }
     }
 
+    function renderQuickMode() {
+        const setsToWin = getSetsToWin();
+        const quickDiv = document.createElement('div');
+        quickDiv.className = 'flex items-center justify-center gap-4 py-4';
+        quickDiv.innerHTML = `
+            <div class="flex flex-col items-center">
+                <span class="text-xs text-gray-500 mb-1">Spieler A</span>
+                <input type="number" id="coach-quick-sets-a" min="0" max="${setsToWin}"
+                    class="w-16 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    placeholder="0" value="${coachQuickSetsA || ''}">
+            </div>
+            <span class="text-2xl font-bold text-gray-400">:</span>
+            <div class="flex flex-col items-center">
+                <span class="text-xs text-gray-500 mb-1">Spieler B</span>
+                <input type="number" id="coach-quick-sets-b" min="0" max="${setsToWin}"
+                    class="w-16 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    placeholder="0" value="${coachQuickSetsB || ''}">
+            </div>
+        `;
+        quickDiv.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                coachQuickSetsA = parseInt(quickDiv.querySelector('#coach-quick-sets-a').value) || 0;
+                coachQuickSetsB = parseInt(quickDiv.querySelector('#coach-quick-sets-b').value) || 0;
+                updateWinnerDisplay();
+            });
+        });
+        return quickDiv;
+    }
+
+    function updateWinnerDisplay() {
+        const winnerInfo = document.getElementById('coach-match-winner-info');
+        const winnerText = document.getElementById('coach-match-winner-text');
+        const playerASelect = document.getElementById('player-a-select');
+        const playerBSelect = document.getElementById('player-b-select');
+
+        if (!winnerInfo || !winnerText) return;
+
+        const setsToWin = getSetsToWin();
+        let winnerName = null;
+        let setsA = 0, setsB = 0;
+
+        if (coachEntryMode === 'quick') {
+            setsA = coachQuickSetsA;
+            setsB = coachQuickSetsB;
+            if (setsA >= setsToWin) {
+                winnerName = playerASelect?.selectedOptions[0]?.text || 'Spieler A';
+            } else if (setsB >= setsToWin) {
+                winnerName = playerBSelect?.selectedOptions[0]?.text || 'Spieler B';
+            }
+        } else if (coachSetScoreInput && typeof coachSetScoreInput.getMatchWinner === 'function') {
+            const result = coachSetScoreInput.getMatchWinner();
+            if (result?.winner) {
+                setsA = result.setsA;
+                setsB = result.setsB;
+                winnerName = result.winner === 'A'
+                    ? (playerASelect?.selectedOptions[0]?.text || 'Spieler A')
+                    : (playerBSelect?.selectedOptions[0]?.text || 'Spieler B');
+            }
+        }
+
+        if (winnerName) {
+            winnerText.textContent = `${winnerName} gewinnt mit ${setsA}:${setsB} Sätzen`;
+            winnerInfo.classList.remove('hidden');
+        } else if (setsA > 0 || setsB > 0) {
+            winnerText.textContent = `Aktueller Stand: ${setsA}:${setsB} Sätze`;
+            winnerInfo.classList.remove('hidden');
+        } else {
+            winnerInfo.classList.add('hidden');
+        }
+    }
+
     function createScoreInputForSport(mode) {
         if (!container) return null;
 
@@ -174,15 +261,56 @@ export async function initializeCoachSetScoreInput(currentUserId) {
         }
     }
 
+    function renderCurrentMode() {
+        container.innerHTML = '';
+        if (coachEntryMode === 'quick') {
+            container.appendChild(renderQuickMode());
+            // Quick-Modus: kein detaillierter Score-Input, aber wir brauchen trotzdem die Validierung
+            coachSetScoreInput = null;
+        } else {
+            const currentMode = matchModeSelect?.value || 'best-of-5';
+            coachSetScoreInput = createScoreInputForSport(currentMode);
+        }
+        updateWinnerDisplay();
+    }
+
+    function updateModeButtons() {
+        if (quickModeBtn && detailModeBtn) {
+            if (coachEntryMode === 'quick') {
+                quickModeBtn.className = 'flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-indigo-600 text-white border-indigo-600';
+                detailModeBtn.className = 'flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-white text-gray-600 border-gray-300 hover:bg-gray-50';
+            } else {
+                detailModeBtn.className = 'flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-indigo-600 text-white border-indigo-600';
+                quickModeBtn.className = 'flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-white text-gray-600 border-gray-300 hover:bg-gray-50';
+            }
+        }
+    }
+
+    // Mode toggle buttons
+    quickModeBtn?.addEventListener('click', () => {
+        coachEntryMode = 'quick';
+        updateModeButtons();
+        renderCurrentMode();
+    });
+
+    detailModeBtn?.addEventListener('click', () => {
+        coachEntryMode = 'detail';
+        updateModeButtons();
+        renderCurrentMode();
+    });
+
     const currentMode = matchModeSelect ? matchModeSelect.value : (isTennisOrPadel || isBadminton ? 'best-of-3' : 'best-of-5');
-    coachSetScoreInput = createScoreInputForSport(currentMode);
     updateSetScoreLabel(currentMode, sportName);
+    updateModeButtons();
+    renderCurrentMode();
 
     if (matchModeSelect) {
         matchModeSelect.addEventListener('change', () => {
             const newMode = matchModeSelect.value;
-            coachSetScoreInput = createScoreInputForSport(newMode);
             updateSetScoreLabel(newMode, sportName);
+            coachQuickSetsA = 0;
+            coachQuickSetsB = 0;
+            renderCurrentMode();
 
             if (window.setDoublesSetScoreInput) {
                 window.setDoublesSetScoreInput(coachSetScoreInput);
@@ -191,14 +319,32 @@ export async function initializeCoachSetScoreInput(currentUserId) {
     }
 
     goldenPointCheckbox?.addEventListener('change', () => {
-        coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+        if (coachEntryMode === 'detail') {
+            coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+        }
     });
 
     matchTieBreakCheckbox?.addEventListener('change', () => {
-        coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+        if (coachEntryMode === 'detail') {
+            coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+        }
     });
 
     return coachSetScoreInput;
+}
+
+// Exportiere Funktionen für Quick Mode Validierung
+export function getCoachEntryMode() {
+    return coachEntryMode;
+}
+
+export function getCoachQuickSets() {
+    return { setsA: coachQuickSetsA, setsB: coachQuickSetsB };
+}
+
+export function resetCoachQuickSets() {
+    coachQuickSetsA = 0;
+    coachQuickSetsB = 0;
 }
 
 export function setCurrentPairingsSession(sessionId) {
@@ -650,11 +796,17 @@ export async function updateMatchUI(clubPlayers) {
             console.log('[Matches] H2H check failed:', e);
         }
 
-        // H2H hat Priorität vor Elo-Handicap
+        // Wähle das HÖHERE Handicap (H2H oder Elo)
         const unitText = eloHandicap?.unit || 'Punkte';
+        const h2hPoints = h2hHandicap?.points || 0;
+        const eloPoints = eloHandicap?.points || 0;
 
-        if (h2hHandicap && h2hHandicap.points > 0) {
-            // H2H-Handicap anzeigen
+        // Bestimme welches Handicap höher ist
+        const useH2H = h2hPoints > 0 && h2hPoints >= eloPoints;
+        const useElo = eloPoints > 0 && eloPoints > h2hPoints;
+
+        if (useH2H) {
+            // H2H-Handicap anzeigen (ist höher oder gleich)
             const streakWinner = h2hHandicap.streakWinnerId === playerAId ? playerA : playerB;
             const streakLoser = h2hHandicap.streakWinnerId === playerAId ? playerB : playerA;
 
@@ -681,8 +833,8 @@ export async function updateMatchUI(clubPlayers) {
             if (handicapToggle?.checked && coachSetScoreInput) {
                 coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
             }
-        } else if (eloHandicap && eloHandicap.points > 0) {
-            // Elo-Handicap anzeigen (wie bisher)
+        } else if (useElo) {
+            // Elo-Handicap anzeigen (ist höher)
             currentHandicapData = {
                 player: eloHandicap.player.id === playerAId ? 'A' : 'B',
                 points: eloHandicap.points,
@@ -873,29 +1025,68 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         return;
     }
 
-    if (!coachSetScoreInput) {
-        if (feedbackEl) feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
-        return;
-    }
-
-    const validation = coachSetScoreInput.validate();
-    if (!validation.valid) {
-        if (feedbackEl) feedbackEl.textContent = validation.error || 'Bitte Satzergebnis eingeben.';
-        return;
-    }
-
-    const sets = coachSetScoreInput.getSets();
-
-    // Sets müssen gezählt werden, da verschiedene Formate möglich sind
     let setsA = 0;
     let setsB = 0;
-    if (sets && sets.length > 0) {
-        sets.forEach(set => {
-            const scoreA = set.playerA ?? set.player_a ?? 0;
-            const scoreB = set.playerB ?? set.player_b ?? 0;
-            if (scoreA > scoreB) setsA++;
-            else if (scoreB > scoreA) setsB++;
-        });
+    let sets = [];
+
+    // Quick Mode oder Detail Mode?
+    if (coachEntryMode === 'quick') {
+        // Quick Mode: Nur Sätze eingegeben
+        setsA = coachQuickSetsA;
+        setsB = coachQuickSetsB;
+
+        // Validierung
+        const matchModeSelect = document.getElementById('coach-match-mode-select');
+        const mode = matchModeSelect?.value || 'best-of-5';
+        let setsToWin = 3;
+        if (mode === 'single-set') setsToWin = 1;
+        else if (mode === 'best-of-3') setsToWin = 2;
+        else if (mode === 'best-of-5') setsToWin = 3;
+        else if (mode === 'best-of-7') setsToWin = 4;
+
+        if (setsA === 0 && setsB === 0) {
+            if (feedbackEl) feedbackEl.textContent = 'Bitte Satzergebnis eingeben.';
+            return;
+        }
+        if (setsA < setsToWin && setsB < setsToWin) {
+            if (feedbackEl) feedbackEl.textContent = `Ein Spieler muss ${setsToWin} Sätze gewinnen.`;
+            return;
+        }
+        if (setsA > setsToWin || setsB > setsToWin) {
+            if (feedbackEl) feedbackEl.textContent = `Maximal ${setsToWin} Sätze pro Spieler möglich.`;
+            return;
+        }
+        if (setsA === setsToWin && setsB === setsToWin) {
+            if (feedbackEl) feedbackEl.textContent = 'Beide Spieler können nicht gleichzeitig gewinnen.';
+            return;
+        }
+
+        // Quick Mode hat keine detaillierten Set-Scores
+        sets = [];
+    } else {
+        // Detail Mode: coachSetScoreInput verwenden
+        if (!coachSetScoreInput) {
+            if (feedbackEl) feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
+            return;
+        }
+
+        const validation = coachSetScoreInput.validate();
+        if (!validation.valid) {
+            if (feedbackEl) feedbackEl.textContent = validation.error || 'Bitte Satzergebnis eingeben.';
+            return;
+        }
+
+        sets = coachSetScoreInput.getSets();
+
+        // Sets müssen gezählt werden, da verschiedene Formate möglich sind
+        if (sets && sets.length > 0) {
+            sets.forEach(set => {
+                const scoreA = set.playerA ?? set.player_a ?? 0;
+                const scoreB = set.playerB ?? set.player_b ?? 0;
+                if (scoreA > scoreB) setsA++;
+                else if (scoreB > scoreA) setsB++;
+            });
+        }
     }
 
     const winnerId = setsA > setsB ? playerAId : playerBId;
@@ -1049,6 +1240,40 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         document.getElementById('player-b-select').value = '';
         if (coachSetScoreInput && typeof coachSetScoreInput.reset === 'function') {
             coachSetScoreInput.reset();
+        }
+        // Reset quick mode values
+        coachQuickSetsA = 0;
+        coachQuickSetsB = 0;
+        // Re-render quick mode inputs if in quick mode
+        if (coachEntryMode === 'quick') {
+            const container = document.getElementById('coach-set-score-container');
+            if (container) {
+                container.innerHTML = '';
+                const quickDiv = document.createElement('div');
+                quickDiv.className = 'flex items-center justify-center gap-4 py-4';
+                quickDiv.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-gray-500 mb-1">Spieler A</span>
+                        <input type="number" id="coach-quick-sets-a" min="0" max="4"
+                            class="w-16 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                            placeholder="0" value="">
+                    </div>
+                    <span class="text-2xl font-bold text-gray-400">:</span>
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-gray-500 mb-1">Spieler B</span>
+                        <input type="number" id="coach-quick-sets-b" min="0" max="4"
+                            class="w-16 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                            placeholder="0" value="">
+                    </div>
+                `;
+                quickDiv.querySelectorAll('input').forEach(input => {
+                    input.addEventListener('input', () => {
+                        coachQuickSetsA = parseInt(document.getElementById('coach-quick-sets-a')?.value) || 0;
+                        coachQuickSetsB = parseInt(document.getElementById('coach-quick-sets-b')?.value) || 0;
+                    });
+                });
+                container.appendChild(quickDiv);
+            }
         }
         // Reset tournament match state
         coachPendingTournamentMatches = [];
