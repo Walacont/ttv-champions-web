@@ -202,12 +202,13 @@ async function processClub(clubId) {
     }
 
     // 8. Load points_history entries for training attendance
+    // Filter by reason containing training-related keywords instead of awarded_by
     const { data: pointsHistory, error: phError } = await supabase
         .from('points_history')
-        .select('id, user_id, points, reason, created_at')
-        .eq('awarded_by', 'System (Veranstaltung)')
+        .select('id, user_id, points, reason, timestamp')
         .in('user_id', players.map(p => p.id))
-        .like('reason', '%Training%');
+        .like('reason', '%Training%')
+        .gt('points', 0);
 
     if (phError) throw phError;
     console.log(`  Found ${pointsHistory?.length || 0} training points_history entries`);
@@ -215,10 +216,10 @@ async function processClub(clubId) {
     // 9. Also load xp_history entries
     const { data: xpHistory, error: xhError } = await supabase
         .from('xp_history')
-        .select('id, user_id, xp, reason, created_at')
-        .eq('awarded_by', 'System (Veranstaltung)')
+        .select('id, user_id, xp, reason, timestamp')
         .in('user_id', players.map(p => p.id))
-        .like('reason', '%Training%');
+        .like('reason', '%Training%')
+        .gt('xp', 0);
 
     if (xhError) throw xhError;
     console.log(`  Found ${xpHistory?.length || 0} training xp_history entries`);
@@ -332,7 +333,7 @@ async function processClub(clubId) {
             // Also update xp_history if exists
             const matchingXp = xpHistory?.find(xp =>
                 xp.user_id === ph.user_id &&
-                Math.abs(new Date(xp.created_at) - new Date(ph.created_at)) < 5000 // Within 5 seconds
+                Math.abs(new Date(xp.timestamp) - new Date(ph.timestamp)) < 5000 // Within 5 seconds
             );
 
             if (matchingXp) {
