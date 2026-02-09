@@ -1294,11 +1294,18 @@ function printCoachTournament(tournament) {
     const participants = tournament.tournament_participants || [];
     const matches = tournament.tournament_matches || [];
     const standings = tournament.tournament_standings || [];
+    const n = participants.length;
+
+    // Adaptive sizing for larger tournaments
+    const isLarge = n > 10;
+    const fontSize = isLarge ? '9px' : '11px';
+    const cellPadding = isLarge ? '2px' : '4px';
+    const cellWidth = isLarge ? '28px' : '35px';
+    const nameCellStyle = isLarge ? 'max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' : '';
 
     // Generate round-robin pairings table (only numbers)
     let roundPairingsHtml = '';
-    if (participants.length >= 3 && tournament.format === 'round_robin') {
-        const n = participants.length;
+    if (n >= 3 && tournament.format === 'round_robin') {
         const players = Array.from({ length: n }, (_, i) => i + 1);
         if (n % 2 !== 0) players.push(0); // bye placeholder
         const numPlayers = players.length;
@@ -1319,25 +1326,34 @@ function printCoachTournament(tournament) {
             players.splice(1, 0, last);
         }
 
+        // For large tournaments (>10), split rounds into multiple rows
+        const roundsPerRow = isLarge ? 8 : numRounds;
+        const roundChunks = [];
+        for (let i = 0; i < rounds.length; i += roundsPerRow) {
+            roundChunks.push(rounds.slice(i, i + roundsPerRow));
+        }
+
         roundPairingsHtml = `
-            <div style="margin-top:25px; border:1px solid #ddd; padding:10px; font-size:11px;">
+            <div style="margin-top:20px; border:1px solid #ddd; padding:8px; font-size:${isLarge ? '8px' : '10px'};">
                 <strong>Für ${n} Teilnehmer - Rundenpaarungen:</strong>
-                <table style="margin-top:8px; border-collapse:collapse;">
-                    <tr style="background:#f3f4f6;">
-                        ${rounds.map((_, i) => `<th style="border:1px solid #ddd; padding:4px 8px; text-align:center;">${i + 1}.R.</th>`).join('')}
-                    </tr>
-                    ${Array.from({ length: Math.max(...rounds.map(r => r.length)) }, (_, rowIdx) => `
-                        <tr>
-                            ${rounds.map(round => `<td style="border:1px solid #ddd; padding:3px 8px; text-align:center; font-family:monospace;">${round[rowIdx] || ''}</td>`).join('')}
+                ${roundChunks.map((chunk, chunkIdx) => `
+                    <table style="margin-top:6px; border-collapse:collapse; ${chunkIdx > 0 ? 'margin-top:10px;' : ''}">
+                        <tr style="background:#f3f4f6;">
+                            ${chunk.map((_, i) => `<th style="border:1px solid #ddd; padding:2px 4px; text-align:center;">${chunkIdx * roundsPerRow + i + 1}.R.</th>`).join('')}
                         </tr>
-                    `).join('')}
-                </table>
+                        ${Array.from({ length: Math.max(...chunk.map(r => r.length)) }, (_, rowIdx) => `
+                            <tr>
+                                ${chunk.map(round => `<td style="border:1px solid #ddd; padding:2px 4px; text-align:center; font-family:monospace;">${round[rowIdx] || ''}</td>`).join('')}
+                            </tr>
+                        `).join('')}
+                    </table>
+                `).join('')}
             </div>
         `;
     }
 
     let crossTableHtml = '';
-    if (participants.length > 0 && matches.length > 0) {
+    if (n > 0 && matches.length > 0) {
         const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
         const results = {};
         sorted.forEach(p => { results[p.player_id] = {}; });
@@ -1352,15 +1368,15 @@ function printCoachTournament(tournament) {
         standings.forEach(s => { standingsMap[s.player_id] = s; });
 
         crossTableHtml = `
-            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:20px;">
+            <table style="width:100%; border-collapse:collapse; font-size:${fontSize}; margin-top:15px;">
                 <thead>
                     <tr style="background:#f3f4f6;">
-                        <th style="border:1px solid #ddd; padding:4px; width:20px;"></th>
-                        <th style="border:1px solid #ddd; padding:4px; text-align:left;">Name</th>
-                        ${sorted.map((_, i) => `<th style="border:1px solid #ddd; padding:4px; width:35px; text-align:center;">${i + 1}</th>`).join('')}
-                        <th style="border:1px solid #ddd; padding:4px; width:35px;">Sp</th>
-                        <th style="border:1px solid #ddd; padding:4px; width:35px;">Satz</th>
-                        <th style="border:1px solid #ddd; padding:4px; width:25px;">Pl.</th>
+                        <th style="border:1px solid #ddd; padding:${cellPadding}; width:18px;"></th>
+                        <th style="border:1px solid #ddd; padding:${cellPadding}; text-align:left; ${nameCellStyle}">Name</th>
+                        ${sorted.map((_, i) => `<th style="border:1px solid #ddd; padding:${cellPadding}; width:${cellWidth}; text-align:center;">${i + 1}</th>`).join('')}
+                        <th style="border:1px solid #ddd; padding:${cellPadding}; width:${cellWidth};">Sp</th>
+                        <th style="border:1px solid #ddd; padding:${cellPadding}; width:${cellWidth};">Satz</th>
+                        <th style="border:1px solid #ddd; padding:${cellPadding}; width:22px;">Pl.</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1374,20 +1390,20 @@ function printCoachTournament(tournament) {
                         const rank = st?.rank || '-';
 
                         return `<tr>
-                            <td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold;">${rowIdx + 1}</td>
-                            <td style="border:1px solid #ddd; padding:4px;">${escapeHtml(name)}</td>
+                            <td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center; font-weight:bold;">${rowIdx + 1}</td>
+                            <td style="border:1px solid #ddd; padding:${cellPadding}; ${nameCellStyle}">${escapeHtml(name)}</td>
                             ${sorted.map((colPlayer, colIdx) => {
-                                if (rowIdx === colIdx) return '<td style="border:1px solid #ddd; background:#333;"></td>';
+                                if (rowIdx === colIdx) return `<td style="border:1px solid #ddd; background:#333;"></td>`;
                                 const result = results[rowPlayer.player_id]?.[colPlayer.player_id];
                                 if (result) {
                                     const won = result.setsA > result.setsB;
-                                    return `<td style="border:1px solid #ddd; padding:4px; text-align:center; font-family:monospace; ${won ? 'font-weight:bold;' : ''}">${result.setsA}:${result.setsB}</td>`;
+                                    return `<td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center; font-family:monospace; ${won ? 'font-weight:bold;' : ''}">${result.setsA}:${result.setsB}</td>`;
                                 }
-                                return '<td style="border:1px solid #ddd; padding:4px; text-align:center; color:#ccc;">-</td>';
+                                return `<td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center; color:#ccc;">-</td>`;
                             }).join('')}
-                            <td style="border:1px solid #ddd; padding:4px; text-align:center;">${wins}:${losses}</td>
-                            <td style="border:1px solid #ddd; padding:4px; text-align:center;">${setsW}:${setsL}</td>
-                            <td style="border:1px solid #ddd; padding:4px; text-align:center; font-weight:bold;">${rank}</td>
+                            <td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center;">${wins}:${losses}</td>
+                            <td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center;">${setsW}:${setsL}</td>
+                            <td style="border:1px solid #ddd; padding:${cellPadding}; text-align:center; font-weight:bold;">${rank}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -1402,26 +1418,33 @@ function printCoachTournament(tournament) {
         <head>
             <title>${escapeHtml(tournament.name)} - Spielplan</title>
             <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                h1 { margin-bottom: 5px; }
-                .subtitle { color: #666; margin-bottom: 20px; }
-                .info { display: flex; gap: 30px; margin-bottom: 20px; font-size: 14px; }
-                .info-item { display: flex; gap: 8px; }
+                body { font-family: Arial, sans-serif; padding: ${isLarge ? '10px' : '20px'}; font-size: ${isLarge ? '12px' : '14px'}; }
+                h1 { margin-bottom: 5px; font-size: ${isLarge ? '18px' : '24px'}; }
+                .subtitle { color: #666; margin-bottom: 15px; font-size: ${isLarge ? '11px' : '14px'}; }
+                .info { display: flex; flex-wrap: wrap; gap: ${isLarge ? '15px' : '30px'}; margin-bottom: 15px; font-size: ${isLarge ? '11px' : '14px'}; }
+                .info-item { display: flex; gap: 6px; }
                 .info-label { color: #666; }
+                ${isLarge ? '.landscape-hint { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 4px; margin-bottom: 15px; font-size: 11px; color: #92400e; }' : ''}
+                @media print {
+                    body { padding: 8px; }
+                    ${isLarge ? '@page { size: landscape; }' : ''}
+                    .landscape-hint { display: none; }
+                }
             </style>
         </head>
         <body>
+            ${isLarge ? '<div class="landscape-hint"><strong>Tipp:</strong> Für beste Darstellung im Querformat drucken (Landscape)</div>' : ''}
             <h1>${escapeHtml(tournament.name)}</h1>
             <p class="subtitle">${escapeHtml(tournament.description || '')}</p>
             <div class="info">
                 <div class="info-item"><span class="info-label">Turniermodus:</span> ${formatName}</div>
                 <div class="info-item"><span class="info-label">Spielmodus:</span> ${getMatchModeName(tournament.match_mode)}</div>
                 <div class="info-item"><span class="info-label">Handicap:</span> ${tournament.with_handicap ? 'Ja' : 'Nein'}</div>
-                <div class="info-item"><span class="info-label">Teilnehmer:</span> ${participants.length}</div>
+                <div class="info-item"><span class="info-label">Teilnehmer:</span> ${n}</div>
             </div>
             ${crossTableHtml}
             ${roundPairingsHtml}
-            <p style="margin-top:30px; font-size:10px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
+            <p style="margin-top:20px; font-size:9px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
             <script>window.print();</script>
         </body>
         </html>
