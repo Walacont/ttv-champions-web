@@ -613,37 +613,65 @@ function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'al
         if (brackets[type]) brackets[type].push(m);
     });
 
-    let html = '<div class="bracket-container">';
+    // Check if we have any matches
+    const hasWinners = brackets.winners.length > 0;
+    const hasLosers = brackets.losers.length > 0;
+    const hasFinalsData = [...brackets.finals, ...brackets.grand_finals].some(m => m.player_a_id || m.player_b_id);
 
-    // Render Winners Bracket
-    if (brackets.winners.length) {
-        html += renderBracketSection(brackets.winners, 'winners', 'Siegerseite', 'fa-trophy', isCreator, filter);
-    }
-
-    // Render Losers Bracket
-    if (brackets.losers.length) {
-        html += renderBracketSection(brackets.losers, 'losers', 'Verliererseite', 'fa-arrow-down', isCreator, filter);
-    }
-
-    // Render Finals
-    const finalsMatches = [...brackets.finals, ...brackets.grand_finals];
-    if (finalsMatches.length && finalsMatches.some(m => m.player_a_id || m.player_b_id)) {
-        html += renderFinalsSection(finalsMatches, isCreator, filter);
-    }
-
-    html += '</div>';
-
-    if (html === '<div class="bracket-container"></div>') {
-        if (filter === 'remaining') return '<p class="text-gray-400 text-sm"><i class="fas fa-check-circle text-green-500 mr-2"></i>Alle Spiele abgeschlossen!</p>';
+    if (!hasWinners && !hasLosers && !hasFinalsData) {
+        if (filter === 'remaining') return '<p class="text-gray-400 text-sm">Alle Spiele abgeschlossen!</p>';
         if (filter === 'completed') return '<p class="text-gray-400 text-sm">Noch keine Spiele abgeschlossen</p>';
         return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
     }
 
+    // Generate unique ID for this bracket instance
+    const bracketId = 'bracket-' + Math.random().toString(36).substr(2, 9);
+
+    // Prepare bracket data for tabs
+    const bracketData = {
+        winners: prepareBracketData(brackets.winners, 'winners', filter),
+        losers: prepareBracketData(brackets.losers, 'losers', filter),
+        finals: prepareFinalsData([...brackets.finals, ...brackets.grand_finals], filter)
+    };
+
+    // Determine default active bracket
+    let defaultBracket = 'winners';
+    if (!bracketData.winners.rounds.length && bracketData.losers.rounds.length) defaultBracket = 'losers';
+    if (!bracketData.winners.rounds.length && !bracketData.losers.rounds.length && bracketData.finals.matches.length) defaultBracket = 'finals';
+
+    let html = `<div class="bracket-tabs-container" id="${bracketId}" data-is-creator="${isCreator}">`;
+
+    // Bracket Type Toggle
+    html += '<div class="bracket-type-toggle">';
+    if (hasWinners) {
+        html += `<button class="bracket-type-btn winners ${defaultBracket === 'winners' ? 'active' : ''}" data-bracket="winners">Siegerseite</button>`;
+    }
+    if (hasLosers) {
+        html += `<button class="bracket-type-btn losers ${defaultBracket === 'losers' ? 'active' : ''}" data-bracket="losers">Verliererseite</button>`;
+    }
+    if (hasFinalsData) {
+        html += `<button class="bracket-type-btn finals ${defaultBracket === 'finals' ? 'active' : ''}" data-bracket="finals">Finale</button>`;
+    }
+    html += '</div>';
+
+    // Store bracket data in a data attribute
+    html += `<script type="application/json" id="${bracketId}-data">${JSON.stringify(bracketData)}</script>`;
+
+    // Round Tabs (will be populated by JS)
+    html += `<div class="bracket-round-tabs" id="${bracketId}-round-tabs"></div>`;
+
+    // Content Area
+    html += `<div class="bracket-content" id="${bracketId}-content"></div>`;
+
+    html += '</div>';
+
+    // Initialize after DOM insertion
+    setTimeout(() => initBracketTabs(bracketId, defaultBracket), 0);
+
     return html;
 }
 
-function renderBracketSection(bracketMatches, bracketType, title, icon, isCreator, filter) {
-    // Group by round
+function prepareBracketData(bracketMatches, bracketType, filter) {
     const byRound = {};
     bracketMatches.forEach(m => {
         const r = m.round_number || 1;
@@ -651,103 +679,162 @@ function renderBracketSection(bracketMatches, bracketType, title, icon, isCreato
         byRound[r].push(m);
     });
 
-    const rounds = Object.keys(byRound).sort((a, b) => a - b);
-    if (!rounds.length) return '';
+    const allRounds = Object.keys(byRound).sort((a, b) => a - b);
+    const totalRounds = allRounds.length;
 
-    // Filter rounds based on filter
-    const filteredRounds = rounds.filter(round => {
-        const rm = byRound[round];
-        const actual = rm.filter(m => m.player_a_id && m.player_b_id);
-        const completedCount = actual.filter(m => m.status === 'completed').length;
-        const isRoundCompleted = completedCount === actual.length && actual.length > 0;
-
-        if (filter === 'remaining') return !isRoundCompleted || !actual.length;
-        if (filter === 'completed') return isRoundCompleted && actual.length > 0;
-        return true;
-    });
-
-    if (!filteredRounds.length) return '';
-
-    const headerClass = bracketType === 'winners' ? 'winners' : 'losers';
-    const iconColor = bracketType === 'winners' ? 'text-yellow-600' : 'text-red-500';
-
-    let html = `
-        <div class="bracket-section">
-            <div class="bracket-section-header ${headerClass}">
-                <i class="fas ${icon} ${iconColor}"></i>
-                <span>${title}</span>
-            </div>
-            <div class="bracket-wrapper">`;
-
-    // Render each round
-    for (let i = 0; i < filteredRounds.length; i++) {
-        const round = filteredRounds[i];
+    const rounds = allRounds.map(round => {
         const roundMatches = byRound[round];
         const roundNum = parseInt(round);
-        const totalRounds = rounds.length;
+        const actual = roundMatches.filter(m => m.player_a_id && m.player_b_id);
+        const completed = actual.filter(m => m.status === 'completed').length;
+        const isCompleted = completed === actual.length && actual.length > 0;
+        const hasWaiting = roundMatches.some(m => !m.player_a_id || !m.player_b_id);
+
+        // Apply filter
+        if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
+        if (filter === 'completed' && !completed) return null;
 
         // Determine round name
-        let roundName;
+        let name;
         if (bracketType === 'winners') {
-            if (roundNum === totalRounds) roundName = 'Finale WB';
-            else if (roundNum === totalRounds - 1) roundName = 'Halbfinale';
-            else if (roundNum === totalRounds - 2) roundName = 'Viertelfinale';
-            else roundName = `Runde ${roundNum}`;
+            if (roundNum === totalRounds) name = 'Finale WB';
+            else if (roundNum === totalRounds - 1) name = 'Halbfinale';
+            else if (roundNum === totalRounds - 2) name = 'Viertelfinale';
+            else if (roundNum === totalRounds - 3) name = 'Achtelfinale';
+            else name = `Runde ${roundNum}`;
         } else {
-            roundName = `Runde ${roundNum}`;
+            name = `Runde ${roundNum}`;
         }
 
-        html += `
-            <div class="bracket-round">
-                <div class="bracket-round-header">${roundName}</div>
-                ${roundMatches.map(m => renderBracketMatch(m, isCreator)).join('')}
-            </div>`;
+        return {
+            number: roundNum,
+            name: name,
+            matches: roundMatches,
+            completed: completed,
+            total: actual.length,
+            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending')
+        };
+    }).filter(r => r !== null);
 
-        // Add connector between rounds (except after last round)
-        if (i < filteredRounds.length - 1) {
-            html += '<div class="bracket-connector"><div class="bracket-connector-line"></div></div>';
-        }
-    }
-
-    html += `
-            </div>
-        </div>`;
-
-    return html;
+    return { rounds, bracketType };
 }
 
-function renderFinalsSection(finalsMatches, isCreator, filter) {
+function prepareFinalsData(finalsMatches, filter) {
     const grandFinal = finalsMatches.find(m => m.bracket_type === 'finals');
     const resetMatch = finalsMatches.find(m => m.bracket_type === 'grand_finals');
 
-    // Check if we should show based on filter
-    const hasCompleted = finalsMatches.some(m => m.status === 'completed');
-    const allCompleted = finalsMatches.filter(m => m.player_a_id && m.player_b_id).every(m => m.status === 'completed');
-
-    if (filter === 'completed' && !hasCompleted) return '';
-    if (filter === 'remaining' && allCompleted) return '';
-
-    let html = `
-        <div class="bracket-section">
-            <div class="bracket-section-header finals">
-                <i class="fas fa-crown text-purple-600"></i>
-                <span>Grand Final</span>
-            </div>
-            <div class="bracket-finals">`;
-
-    if (grandFinal) {
-        html += `<div class="bracket-grand-final">${renderBracketMatch(grandFinal, isCreator)}</div>`;
+    const matches = [];
+    if (grandFinal && (grandFinal.player_a_id || grandFinal.player_b_id)) {
+        matches.push({ ...grandFinal, label: 'Grand Final' });
     }
-
     if (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id)) {
-        html += `<div class="bracket-reset-match">${renderBracketMatch(resetMatch, isCreator)}</div>`;
+        matches.push({ ...resetMatch, label: 'Reset Match' });
     }
 
-    html += `
-            </div>
-        </div>`;
+    // Apply filter
+    const hasCompleted = matches.some(m => m.status === 'completed');
+    if (filter === 'completed' && !hasCompleted) return { matches: [] };
+    if (filter === 'remaining' && matches.every(m => m.status === 'completed')) return { matches: [] };
 
-    return html;
+    return { matches };
+}
+
+function initBracketTabs(bracketId, defaultBracket) {
+    const container = document.getElementById(bracketId);
+    if (!container) return;
+
+    const dataEl = document.getElementById(`${bracketId}-data`);
+    if (!dataEl) return;
+
+    const bracketData = JSON.parse(dataEl.textContent);
+    const isCreator = container.dataset.isCreator === 'true';
+
+    // Bracket type toggle
+    container.querySelectorAll('.bracket-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('.bracket-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderBracketRoundTabs(bracketId, btn.dataset.bracket, bracketData, isCreator);
+        });
+    });
+
+    // Initial render
+    renderBracketRoundTabs(bracketId, defaultBracket, bracketData, isCreator);
+}
+
+function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) {
+    const tabsContainer = document.getElementById(`${bracketId}-round-tabs`);
+    const contentContainer = document.getElementById(`${bracketId}-content`);
+    if (!tabsContainer || !contentContainer) return;
+
+    if (bracketType === 'finals') {
+        // Finals don't have rounds - show directly
+        tabsContainer.innerHTML = '';
+        renderFinalsContent(contentContainer, bracketData.finals, isCreator);
+        return;
+    }
+
+    const data = bracketData[bracketType];
+    if (!data || !data.rounds.length) {
+        tabsContainer.innerHTML = '';
+        contentContainer.innerHTML = '<div class="bracket-empty-state">Keine Spiele in dieser Kategorie</div>';
+        return;
+    }
+
+    // Render round tabs
+    tabsContainer.innerHTML = data.rounds.map((round, idx) => `
+        <button class="bracket-round-tab ${idx === 0 ? 'active' : ''}" data-round="${round.number}">
+            ${round.name}
+            <span class="round-status ${round.status}"></span>
+        </button>
+    `).join('');
+
+    // Tab click handlers
+    tabsContainer.querySelectorAll('.bracket-round-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabsContainer.querySelectorAll('.bracket-round-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const round = data.rounds.find(r => r.number === parseInt(tab.dataset.round));
+            if (round) renderRoundContent(contentContainer, round, isCreator);
+        });
+    });
+
+    // Render first round
+    renderRoundContent(contentContainer, data.rounds[0], isCreator);
+}
+
+function renderRoundContent(container, round, isCreator) {
+    container.innerHTML = `
+        <div class="bracket-round-content">
+            <div class="bracket-round-info">
+                <span class="bracket-round-title">${round.name}</span>
+                <span class="bracket-round-progress">${round.completed}/${round.total} abgeschlossen</span>
+            </div>
+            <div class="bracket-matches-list">
+                ${round.matches.map(m => renderBracketMatch(m, isCreator)).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderFinalsContent(container, finalsData, isCreator) {
+    if (!finalsData.matches.length) {
+        container.innerHTML = '<div class="bracket-empty-state">Finale noch nicht bereit</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="bracket-round-content">
+            <div class="bracket-finals">
+                ${finalsData.matches.map(m => `
+                    <div class="${m.bracket_type === 'grand_finals' ? 'bracket-reset-match' : 'bracket-grand-final'}">
+                        <div class="text-xs text-center text-gray-500 mb-2">${m.label}</div>
+                        ${renderBracketMatch(m, isCreator)}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
 }
 
 function renderBracketMatch(match, isCreator) {
