@@ -149,11 +149,16 @@ async function loadTournaments() {
             const all = await getTournaments();
             const my = [];
             for (const t of all) {
-                if (t.status !== 'completed' && await isParticipating(t.id)) my.push(t);
+                if (t.status !== 'completed' && t.status !== 'cancelled' && await isParticipating(t.id)) my.push(t);
             }
             tournaments = my;
         } else if (currentFilter === 'completed') {
-            tournaments = await getTournaments('completed');
+            // Show both completed and cancelled tournaments
+            const allCompleted = await getTournaments('completed');
+            const allCancelled = await getTournaments('cancelled');
+            tournaments = [...allCompleted, ...allCancelled].sort((a, b) =>
+                new Date(b.created_at) - new Date(a.created_at)
+            );
         }
 
         if (tournaments.length === 0) {
@@ -1291,10 +1296,10 @@ function printTournament(tournament) {
             <h1>${escapeHtml(tournament.name)}</h1>
             <p class="subtitle">${escapeHtml(tournament.description || '')}</p>
             <div class="info">
-                <div class="info-item"><span class="info-label">Modus:</span> ${formatName}</div>
-                <div class="info-item"><span class="info-label">Status:</span> ${statusName}</div>
+                <div class="info-item"><span class="info-label">Turniermodus:</span> ${formatName}</div>
+                <div class="info-item"><span class="info-label">Spielmodus:</span> ${getMatchModeName(tournament.match_mode)}</div>
+                <div class="info-item"><span class="info-label">Handicap:</span> ${tournament.with_handicap ? 'Ja' : 'Nein'}</div>
                 <div class="info-item"><span class="info-label">Teilnehmer:</span> ${participants.length}</div>
-                ${tournament.with_handicap ? '<div class="info-item"><span class="info-label">Handicap:</span> Aktiv</div>' : ''}
             </div>
             ${crossTableHtml}
             ${roundPairingsHtml}

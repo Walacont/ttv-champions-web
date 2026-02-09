@@ -177,10 +177,15 @@ export async function loadCoachTournaments() {
             tournaments = all;
         } else if (currentFilter === 'my') {
             const all = await getTournaments();
-            // Show tournaments created by this coach that are not completed
-            tournaments = all.filter(t => t.status !== 'completed' && t.created_by === userId);
+            // Show tournaments created by this coach that are not completed/cancelled
+            tournaments = all.filter(t => t.status !== 'completed' && t.status !== 'cancelled' && t.created_by === userId);
         } else if (currentFilter === 'completed') {
-            tournaments = await getTournaments('completed');
+            // Show both completed and cancelled tournaments
+            const allCompleted = await getTournaments('completed');
+            const allCancelled = await getTournaments('cancelled');
+            tournaments = [...allCompleted, ...allCancelled].sort((a, b) =>
+                new Date(b.created_at) - new Date(a.created_at)
+            );
         }
 
         if (tournaments.length === 0) {
@@ -386,6 +391,11 @@ function renderActionButtons(tournament) {
     // Print button (if tournament has matches)
     if (tournament.tournament_matches?.length > 0) {
         buttons.push(`<button id="coach-print-tournament-btn" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-3 rounded-lg font-medium" title="Drucken"><i class="fas fa-print"></i></button>`);
+    }
+
+    // Delete button for cancelled tournaments (only creator can delete)
+    if (isCreator && tournament.status === 'cancelled') {
+        buttons.push(`<button id="coach-delete-tournament-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg font-medium" title="Löschen"><i class="fas fa-trash"></i></button>`);
     }
 
     return buttons.join('');
@@ -641,6 +651,7 @@ function setupDetailEventListeners(tournament) {
     document.getElementById('coach-cancel-tournament-btn')?.addEventListener('click', () => handleCoachCancelTournament(tournament));
     document.getElementById('coach-copy-tournament-btn')?.addEventListener('click', () => openCoachCopyTournamentModal(tournament));
     document.getElementById('coach-print-tournament-btn')?.addEventListener('click', () => printCoachTournament(tournament));
+    document.getElementById('coach-delete-tournament-btn')?.addEventListener('click', () => handleCoachDeleteTournament(tournament));
 
     // Match correction buttons
     document.querySelectorAll('.coach-correct-match-btn').forEach(btn => {
@@ -1025,6 +1036,41 @@ async function handleCoachCancelTournament(tournament) {
 }
 
 /**
+ * Delete a cancelled tournament permanently
+ */
+async function handleCoachDeleteTournament(tournament) {
+    if (tournament.status !== 'cancelled') {
+        showToast('Nur abgebrochene Turniere können gelöscht werden', 'error');
+        return;
+    }
+
+    if (!confirm('Turnier endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+        return;
+    }
+
+    try {
+        // Delete related data first (foreign key constraints)
+        await supabase.from('tournament_standings').delete().eq('tournament_id', tournament.id);
+        await supabase.from('tournament_matches').delete().eq('tournament_id', tournament.id);
+        await supabase.from('tournament_participants').delete().eq('tournament_id', tournament.id);
+
+        // Delete the tournament itself
+        const { error } = await supabase
+            .from('tournaments')
+            .delete()
+            .eq('id', tournament.id);
+
+        if (error) throw error;
+        showToast('Turnier gelöscht', 'success');
+        closeDetailsModal();
+        await loadCoachTournaments();
+    } catch (err) {
+        console.error('[Coach Tournaments] Error deleting tournament:', err);
+        showToast('Fehler: ' + err.message, 'error');
+    }
+}
+
+/**
  * Open modal to copy tournament
  */
 function openCoachCopyTournamentModal(tournament) {
@@ -1105,6 +1151,47 @@ function printCoachTournament(tournament) {
     const matches = tournament.tournament_matches || [];
     const standings = tournament.tournament_standings || [];
 
+    // Generate round-robin pairings table (only numbers)
+    let roundPairingsHtml = '';
+    if (participants.length >= 3 && tournament.format === 'round-robin') {
+        const n = participants.length;
+        const players = Array.from({ length: n }, (_, i) => i + 1);
+        if (n % 2 !== 0) players.push(0); // bye placeholder
+        const numPlayers = players.length;
+        const numRounds = numPlayers - 1;
+        const rounds = [];
+
+        for (let r = 0; r < numRounds; r++) {
+            const roundPairings = [];
+            for (let i = 0; i < numPlayers / 2; i++) {
+                const p1 = players[i];
+                const p2 = players[numPlayers - 1 - i];
+                if (p1 !== 0 && p2 !== 0) {
+                    roundPairings.push(`${p1}-${p2}`);
+                }
+            }
+            rounds.push(roundPairings);
+            const last = players.pop();
+            players.splice(1, 0, last);
+        }
+
+        roundPairingsHtml = `
+            <div style="margin-top:25px; border:1px solid #ddd; padding:10px; font-size:11px;">
+                <strong>Für ${n} Teilnehmer - Rundenpaarungen:</strong>
+                <table style="margin-top:8px; border-collapse:collapse;">
+                    <tr style="background:#f3f4f6;">
+                        ${rounds.map((_, i) => `<th style="border:1px solid #ddd; padding:4px 8px; text-align:center;">${i + 1}.R.</th>`).join('')}
+                    </tr>
+                    ${Array.from({ length: Math.max(...rounds.map(r => r.length)) }, (_, rowIdx) => `
+                        <tr>
+                            ${rounds.map(round => `<td style="border:1px solid #ddd; padding:3px 8px; text-align:center; font-family:monospace;">${round[rowIdx] || ''}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </table>
+            </div>
+        `;
+    }
+
     let crossTableHtml = '';
     if (participants.length > 0 && matches.length > 0) {
         const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
@@ -1183,11 +1270,13 @@ function printCoachTournament(tournament) {
             <h1>${escapeHtml(tournament.name)}</h1>
             <p class="subtitle">${escapeHtml(tournament.description || '')}</p>
             <div class="info">
-                <div class="info-item"><span class="info-label">Modus:</span> ${formatName}</div>
-                <div class="info-item"><span class="info-label">Status:</span> ${statusName}</div>
+                <div class="info-item"><span class="info-label">Turniermodus:</span> ${formatName}</div>
+                <div class="info-item"><span class="info-label">Spielmodus:</span> ${getMatchModeName(tournament.match_mode)}</div>
+                <div class="info-item"><span class="info-label">Handicap:</span> ${tournament.with_handicap ? 'Ja' : 'Nein'}</div>
                 <div class="info-item"><span class="info-label">Teilnehmer:</span> ${participants.length}</div>
             </div>
             ${crossTableHtml}
+            ${roundPairingsHtml}
             <p style="margin-top:30px; font-size:10px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
             <script>window.print();</script>
         </body>
