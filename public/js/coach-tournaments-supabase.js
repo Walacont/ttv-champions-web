@@ -1079,9 +1079,12 @@ function openQuickMatchEntryModal(tournament) {
 // ========== NEW FEATURE FUNCTIONS ==========
 
 /**
- * Open modal to edit tournament details
+ * Open modal to edit tournament details (name, description, max participants, match mode, handicap)
  */
 function openCoachEditTournamentModal(tournament) {
+    const isStarted = tournament.status !== 'registration';
+    const currentMatchMode = tournament.match_mode || 'best-of-5';
+
     const modal = document.createElement('div');
     modal.id = 'coach-edit-tournament-modal';
     modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
@@ -1109,6 +1112,26 @@ function openCoachEditTournamentModal(tournament) {
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
                         <p class="text-xs text-gray-500 mt-1">Min. ${tournament.tournament_participants?.length || 2}, Max. 16</p>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Spielmodus</label>
+                        <select id="coach-edit-tournament-match-mode" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" ${isStarted ? 'disabled' : ''}>
+                            <option value="best-of-5" ${currentMatchMode === 'best-of-5' ? 'selected' : ''}>Best of 5 (Standard)</option>
+                            <option value="best-of-3" ${currentMatchMode === 'best-of-3' ? 'selected' : ''}>Best of 3</option>
+                            <option value="best-of-7" ${currentMatchMode === 'best-of-7' ? 'selected' : ''}>Best of 7</option>
+                        </select>
+                        ${isStarted ? '<p class="text-xs text-gray-500 mt-1">Kann nach Turnierstart nicht mehr geändert werden</p>' : ''}
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-3 cursor-pointer ${isStarted ? 'opacity-50' : ''}">
+                            <input type="checkbox" id="coach-edit-tournament-handicap" ${tournament.with_handicap ? 'checked' : ''} ${isStarted ? 'disabled' : ''}
+                                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Handicap aktivieren</span>
+                                <p class="text-xs text-gray-500">Elo-basierter Satzvorsprung für schwächere Spieler</p>
+                            </div>
+                        </label>
+                        ${isStarted ? '<p class="text-xs text-gray-500 mt-1">Kann nach Turnierstart nicht mehr geändert werden</p>' : ''}
+                    </div>
                     <div class="flex gap-2">
                         <button type="button" id="cancel-coach-edit-tournament" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
                         <button type="submit" id="save-coach-edit-tournament" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Speichern</button>
@@ -1129,6 +1152,8 @@ function openCoachEditTournamentModal(tournament) {
         const name = modal.querySelector('#coach-edit-tournament-name').value.trim();
         const description = modal.querySelector('#coach-edit-tournament-description').value.trim();
         const maxParticipants = Math.min(16, Math.max(tournament.tournament_participants?.length || 2, parseInt(modal.querySelector('#coach-edit-tournament-max').value) || tournament.max_participants));
+        const matchMode = modal.querySelector('#coach-edit-tournament-match-mode').value;
+        const withHandicap = modal.querySelector('#coach-edit-tournament-handicap').checked;
 
         if (!name) { showToast('Name ist erforderlich', 'error'); return; }
         if (maxParticipants > 16) { showToast('Maximum ist 16 Teilnehmer', 'error'); return; }
@@ -1138,9 +1163,16 @@ function openCoachEditTournamentModal(tournament) {
         saveBtn.textContent = 'Speichere...';
 
         try {
+            const updateData = { name, description, max_participants: maxParticipants };
+            // Only update match_mode and with_handicap if tournament hasn't started
+            if (!isStarted) {
+                updateData.match_mode = matchMode;
+                updateData.with_handicap = withHandicap;
+            }
+
             const { error } = await supabase
                 .from('tournaments')
-                .update({ name, description, max_participants: maxParticipants })
+                .update(updateData)
                 .eq('id', tournament.id);
 
             if (error) throw error;
