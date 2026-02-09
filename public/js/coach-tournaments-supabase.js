@@ -121,6 +121,10 @@ function setupCoachTournamentEventListeners() {
     // Player search
     document.getElementById('coach-tournament-player-search')?.addEventListener('input', handlePlayerSearch);
 
+    // Quick create offline player toggle
+    document.getElementById('coach-tournament-toggle-quick-create')?.addEventListener('click', toggleQuickCreateForm);
+    document.getElementById('coach-tournament-create-offline-player')?.addEventListener('click', handleQuickCreateOfflinePlayer);
+
     // Filter tabs
     document.getElementById('coach-tournament-tab-open')?.addEventListener('click', () => switchTab('open'));
     document.getElementById('coach-tournament-tab-my')?.addEventListener('click', () => switchTab('my'));
@@ -708,6 +712,95 @@ function handlePlayerSearch(e) {
         const name = item.dataset.name || '';
         item.style.display = name.includes(searchTerm) ? '' : 'none';
     });
+}
+
+function toggleQuickCreateForm() {
+    const form = document.getElementById('coach-tournament-quick-create-form');
+    const icon = document.getElementById('coach-tournament-quick-create-icon');
+    if (form && icon) {
+        form.classList.toggle('hidden');
+        icon.classList.toggle('rotate-180');
+    }
+}
+
+async function handleQuickCreateOfflinePlayer() {
+    const firstName = document.getElementById('coach-tournament-new-player-firstname')?.value.trim();
+    const lastName = document.getElementById('coach-tournament-new-player-lastname')?.value.trim();
+    const eloInput = document.getElementById('coach-tournament-new-player-elo')?.value;
+    const elo = eloInput ? parseInt(eloInput) : 800;
+
+    if (!firstName && !lastName) {
+        showToast('Bitte mindestens Vor- oder Nachname eingeben', 'error');
+        return;
+    }
+
+    const createBtn = document.getElementById('coach-tournament-create-offline-player');
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>...';
+    }
+
+    try {
+        // Create offline player profile
+        const { data: newProfile, error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                first_name: firstName || null,
+                last_name: lastName || null,
+                display_name: `${firstName || ''} ${lastName || ''}`.trim(),
+                elo_rating: elo,
+                is_offline: true
+            })
+            .select()
+            .single();
+
+        if (profileError) throw profileError;
+
+        // Add to club_members
+        const { error: memberError } = await supabase
+            .from('club_members')
+            .insert({
+                club_id: coachUserData.clubId,
+                user_id: newProfile.id,
+                role: 'player',
+                status: 'active'
+            });
+
+        if (memberError) throw memberError;
+
+        // Add to local cache
+        clubPlayersCache.push({
+            id: newProfile.id,
+            firstName: firstName,
+            lastName: lastName,
+            eloRating: elo,
+            isOffline: true
+        });
+
+        // Clear form
+        document.getElementById('coach-tournament-new-player-firstname').value = '';
+        document.getElementById('coach-tournament-new-player-lastname').value = '';
+        document.getElementById('coach-tournament-new-player-elo').value = '';
+
+        // Refresh player list
+        const modal = document.getElementById('coach-tournament-add-players-modal');
+        const tournamentId = modal?.dataset.tournamentId;
+        if (tournamentId) {
+            const tournament = await getTournamentDetails(tournamentId);
+            const existingPlayerIds = (tournament.tournament_participants || []).map(p => p.player_id);
+            renderPlayerList(existingPlayerIds, tournament);
+        }
+
+        showToast(`${firstName || ''} ${lastName || ''} erstellt!`, 'success');
+    } catch (err) {
+        console.error('[Coach Tournaments] Error creating offline player:', err);
+        showToast('Fehler: ' + err.message, 'error');
+    } finally {
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = '<i class="fas fa-user-plus mr-1"></i>Erstellen';
+        }
+    }
 }
 
 async function handleConfirmAddPlayers() {
