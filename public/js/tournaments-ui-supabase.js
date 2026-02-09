@@ -51,11 +51,14 @@ export async function initTournamentsUI(userId, clubId, sportId) {
     initTournaments(userId, clubId, sportId);
     setupEventListeners();
 
-    const openTab = document.getElementById('tournament-tab-open');
-    if (openTab) {
-        openTab.classList.remove('text-gray-400', 'border-transparent');
-        openTab.classList.add('text-indigo-600', 'border-indigo-600');
+    // Set default active tab to "Aktiv" (my tournaments)
+    const myTab = document.getElementById('tournament-tab-my');
+    if (myTab) {
+        myTab.classList.remove('text-gray-400', 'border-transparent');
+        myTab.classList.add('text-indigo-600', 'border-indigo-600');
     }
+    // Also switch the filter to 'my' on init
+    switchTab('my');
 
     await loadTournaments();
 

@@ -55,12 +55,14 @@ export function initCoachTournamentsUI(userData, clubPlayers) {
     setupCoachTournamentEventListeners();
     setupCoachMatchesSubTabs();
 
-    // Set default active tab
-    const openTab = document.getElementById('coach-tournament-tab-open');
-    if (openTab) {
-        openTab.classList.remove('text-gray-400', 'border-transparent');
-        openTab.classList.add('text-indigo-600', 'border-indigo-600');
+    // Set default active tab to "Aktiv" (my tournaments)
+    const myTab = document.getElementById('coach-tournament-tab-my');
+    if (myTab) {
+        myTab.classList.remove('text-gray-400', 'border-transparent');
+        myTab.classList.add('text-indigo-600', 'border-indigo-600');
     }
+    // Also switch the filter to 'my' on init
+    switchTab('my');
 }
 
 /**
