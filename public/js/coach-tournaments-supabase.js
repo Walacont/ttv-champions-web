@@ -45,12 +45,12 @@ function getSetsToWin(mode) {
 
 function getBracketLabel(bracketType) {
     const labels = {
-        'winners': 'Siegerseite',
-        'losers': 'Verliererseite',
+        'winners': 'Hauptrunde',
+        'losers': 'Zweite Chance',
         'finals': 'Finale',
         'grand_finals': 'Entscheidung'
     };
-    return labels[bracketType] || 'Siegerseite';
+    return labels[bracketType] || 'Hauptrunde';
 }
 
 /**
@@ -350,7 +350,7 @@ function renderTournamentDetails(tournament) {
                 ${renderParticipants(tournament.tournament_participants || [], tournament.status === 'registration' && isCreator)}
             </div>
 
-            ${tournament.tournament_matches?.length > 0 ? `
+            ${tournament.tournament_matches?.length > 0 && tournament.format === 'round_robin' ? `
                 <div>
                     <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-table mr-2"></i>Kreuztabelle</h4>
                     ${renderCrossTable(tournament.tournament_participants || [], tournament.tournament_matches || [], tournament.tournament_standings || [])}
@@ -573,8 +573,10 @@ function renderMatches(matches, isCreator = false, filter = 'all') {
 
     return filteredRounds.map(round => {
         const rm = byRound[round];
-        const actual = rm.filter(m => m.player_b_id !== null);
-        const byes = rm.filter(m => m.player_b_id === null);
+        // Echte Matches: beide Spieler vorhanden
+        const actual = rm.filter(m => m.player_a_id && m.player_b_id);
+        // Freilose: genau ein Spieler vorhanden (nicht beide null!)
+        const byes = rm.filter(m => (m.player_a_id && !m.player_b_id) || (!m.player_a_id && m.player_b_id));
         const completed = actual.filter(m => m.status === 'completed').length;
 
         return `<div class="mb-4">
@@ -629,10 +631,10 @@ function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'al
     // Bracket Type Toggle
     html += '<div class="bracket-type-toggle">';
     if (hasWinners) {
-        html += `<button class="bracket-type-btn winners ${defaultBracket === 'winners' ? 'active' : ''}" data-bracket="winners">Siegerseite</button>`;
+        html += `<button class="bracket-type-btn winners ${defaultBracket === 'winners' ? 'active' : ''}" data-bracket="winners">Hauptrunde</button>`;
     }
     if (hasLosers) {
-        html += `<button class="bracket-type-btn losers ${defaultBracket === 'losers' ? 'active' : ''}" data-bracket="losers">Verliererseite</button>`;
+        html += `<button class="bracket-type-btn losers ${defaultBracket === 'losers' ? 'active' : ''}" data-bracket="losers">Zweite Chance</button>`;
     }
     if (hasFinalsData) {
         html += `<button class="bracket-type-btn finals ${defaultBracket === 'finals' ? 'active' : ''}" data-bracket="finals">Finale</button>`;
@@ -881,7 +883,9 @@ function renderMatchCard(match, isCreator) {
 }
 
 function renderByeCard(match) {
-    const name = getPlayerName(match.player_a);
+    // Nimm den Spieler, der existiert (entweder player_a oder player_b)
+    const player = match.player_a_id ? match.player_a : match.player_b;
+    const name = getPlayerName(player);
     return `<div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2"><i class="fas fa-coffee text-gray-400"></i><span class="text-gray-700">${escapeHtml(name)}</span></div>
@@ -1736,8 +1740,8 @@ function generateBracketTreeHtml(matches, participants) {
 
     // Build complete bracket tree
     let html = '<div style="margin-top:15px;">';
-    html += renderBracketSection(wbRounds, wbRoundNums, 'winners', totalWbRounds, 'Siegerseite (Winners Bracket)', '#16a34a');
-    html += renderBracketSection(lbRounds, lbRoundNums, 'losers', lbRoundNums.length, 'Verliererseite (Losers Bracket)', '#dc2626');
+    html += renderBracketSection(wbRounds, wbRoundNums, 'winners', totalWbRounds, 'Hauptrunde (Winners Bracket)', '#16a34a');
+    html += renderBracketSection(lbRounds, lbRoundNums, 'losers', lbRoundNums.length, 'Zweite Chance (Losers Bracket)', '#dc2626');
     html += renderFinals();
     html += '</div>';
 
