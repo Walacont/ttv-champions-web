@@ -216,7 +216,7 @@ async function processClub(clubId) {
     // 9. Also load xp_history entries
     const { data: xpHistory, error: xhError } = await supabase
         .from('xp_history')
-        .select('id, user_id, xp, reason, timestamp')
+        .select('id, user_id, xp, reason, created_at')
         .in('user_id', players.map(p => p.id))
         .like('reason', '%Training%')
         .gt('xp', 0);
@@ -333,7 +333,7 @@ async function processClub(clubId) {
             // Also update xp_history if exists
             const matchingXp = xpHistory?.find(xp =>
                 xp.user_id === ph.user_id &&
-                Math.abs(new Date(xp.timestamp) - new Date(ph.timestamp)) < 5000 // Within 5 seconds
+                Math.abs(new Date(xp.created_at) - new Date(ph.timestamp)) < 5000 // Within 5 seconds
             );
 
             if (matchingXp) {
