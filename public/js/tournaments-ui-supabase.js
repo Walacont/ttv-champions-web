@@ -327,13 +327,22 @@ function renderTournamentDetails(tournament, participating) {
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
-                        ${tournament.status === 'in_progress' && isCreator ? `
-                            <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
-                                <i class="fas fa-bolt mr-1"></i>Eintragen
-                            </button>
-                        ` : ''}
+                        <div class="flex items-center gap-2">
+                            <select id="rounds-filter" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white">
+                                <option value="remaining" selected>Übrige Runden</option>
+                                <option value="completed">Abgeschlossene</option>
+                                <option value="all">Alle Runden</option>
+                            </select>
+                            ${tournament.status === 'in_progress' && isCreator ? `
+                                <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
+                                    <i class="fas fa-bolt mr-1"></i>Eintragen
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
-                    ${renderMatches(tournament.tournament_matches || [], isCreator)}
+                    <div id="matches-container">
+                        ${renderMatches(tournament.tournament_matches || [], isCreator, 'remaining')}
+                    </div>
                 </div>
             ` : ''}
         </div>
@@ -537,13 +546,31 @@ function renderWinnerPodium(standings) {
     </div>`;
 }
 
-function renderMatches(matches, isCreator = false) {
+function renderMatches(matches, isCreator = false, filter = 'all') {
     if (!matches.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
 
     const byRound = {};
     matches.forEach(m => { const r = m.round_number || 1; if (!byRound[r]) byRound[r] = []; byRound[r].push(m); });
 
-    return Object.keys(byRound).sort((a, b) => a - b).map(round => {
+    // Determine which rounds to show based on filter
+    const filteredRounds = Object.keys(byRound).sort((a, b) => a - b).filter(round => {
+        const rm = byRound[round];
+        const actual = rm.filter(m => m.player_b_id !== null);
+        const completedCount = actual.filter(m => m.status === 'completed').length;
+        const isRoundCompleted = completedCount === actual.length && actual.length > 0;
+
+        if (filter === 'remaining') return !isRoundCompleted;
+        if (filter === 'completed') return isRoundCompleted;
+        return true; // 'all'
+    });
+
+    if (!filteredRounds.length) {
+        if (filter === 'remaining') return '<p class="text-gray-400 text-sm"><i class="fas fa-check-circle text-green-500 mr-2"></i>Alle Runden abgeschlossen!</p>';
+        if (filter === 'completed') return '<p class="text-gray-400 text-sm">Noch keine Runden abgeschlossen</p>';
+        return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
+    }
+
+    return filteredRounds.map(round => {
         const rm = byRound[round];
         const actual = rm.filter(m => m.player_b_id !== null);
         const byes = rm.filter(m => m.player_b_id === null);
@@ -635,6 +662,28 @@ function setupDetailEventListeners(tournament, participating) {
             if (match) openCorrectMatchModal(match, tournament);
         });
     });
+
+    // Rounds filter dropdown
+    const roundsFilter = document.getElementById('rounds-filter');
+    if (roundsFilter) {
+        const isCreator = tournament.created_by === getCurrentUserId();
+        roundsFilter.addEventListener('change', () => {
+            const filter = roundsFilter.value;
+            const container = document.getElementById('matches-container');
+            if (container) {
+                container.innerHTML = renderMatches(tournament.tournament_matches || [], isCreator, filter);
+                // Re-attach correction button listeners
+                document.querySelectorAll('.correct-match-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const matchId = btn.dataset.matchId;
+                        const match = tournament.tournament_matches?.find(m => m.id === matchId);
+                        if (match) openCorrectMatchModal(match, tournament);
+                    });
+                });
+            }
+        });
+    }
 }
 
 async function handleCreateTournament() {
