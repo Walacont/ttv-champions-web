@@ -1064,9 +1064,9 @@ function openEditTournamentModal(tournament) {
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Max. Teilnehmer</label>
-                        <input type="number" id="edit-tournament-max" value="${tournament.max_participants}" min="${tournament.tournament_participants?.length || 2}" max="32"
+                        <input type="number" id="edit-tournament-max" value="${tournament.max_participants}" min="${tournament.tournament_participants?.length || 2}" max="16"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <p class="text-xs text-gray-500 mt-1">Mindestens ${tournament.tournament_participants?.length || 2} (aktuelle Teilnehmer)</p>
+                        <p class="text-xs text-gray-500 mt-1">Min. ${tournament.tournament_participants?.length || 2} (aktuelle Teilnehmer), Max. 16</p>
                     </div>
                     <div class="flex gap-2">
                         <button type="button" id="cancel-edit-tournament" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
@@ -1087,9 +1087,10 @@ function openEditTournamentModal(tournament) {
         e.preventDefault();
         const name = modal.querySelector('#edit-tournament-name').value.trim();
         const description = modal.querySelector('#edit-tournament-description').value.trim();
-        const maxParticipants = parseInt(modal.querySelector('#edit-tournament-max').value) || tournament.max_participants;
+        const maxParticipants = Math.min(16, Math.max(tournament.tournament_participants?.length || 2, parseInt(modal.querySelector('#edit-tournament-max').value) || tournament.max_participants));
 
         if (!name) { showToast('Name ist erforderlich', 'error'); return; }
+        if (maxParticipants > 16) { showToast('Maximum ist 16 Teilnehmer', 'error'); return; }
 
         const saveBtn = modal.querySelector('#save-edit-tournament');
         saveBtn.disabled = true;
