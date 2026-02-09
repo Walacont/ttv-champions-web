@@ -835,6 +835,11 @@ function openQuickMatchEntryModal(tournament) {
                     </select>
                 </div>
                 <div id="coach-quick-match-form" class="hidden space-y-4">
+                    <div class="flex gap-2 mb-2">
+                        <button type="button" class="coach-entry-mode flex-1 py-1.5 px-3 text-sm font-medium rounded-lg bg-indigo-600 text-white" data-mode="quick">Schnell (Saetze)</button>
+                        <button type="button" class="coach-entry-mode flex-1 py-1.5 px-3 text-sm font-medium rounded-lg bg-gray-200 text-gray-700" data-mode="detailed">Detail (Punkte)</button>
+                    </div>
+
                     <div id="coach-quick-mode-sets">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ergebnis (Saetze)</label>
                         <div class="grid grid-cols-3 gap-2 items-center">
@@ -849,6 +854,16 @@ function openQuickMatchEntryModal(tournament) {
                             </div>
                         </div>
                     </div>
+
+                    <div id="coach-quick-mode-detailed" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <span id="coach-detail-player-a-name" class="text-xs font-medium text-gray-700 truncate max-w-[40%]"></span>
+                            <span id="coach-detail-player-b-name" class="text-xs font-medium text-gray-700 truncate max-w-[40%] text-right"></span>
+                        </div>
+                        <div id="coach-detail-sets-container" class="space-y-2"></div>
+                        <div id="coach-detail-result-preview" class="mt-2 text-center text-sm font-medium text-gray-600"></div>
+                    </div>
+
                     <div class="flex gap-2">
                         <button id="cancel-coach-quick-match" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium">Abbrechen</button>
                         <button id="submit-coach-quick-match" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">Speichern</button>
@@ -862,12 +877,79 @@ function openQuickMatchEntryModal(tournament) {
     const matchSelect = modal.querySelector('#coach-quick-match-select');
     const matchForm = modal.querySelector('#coach-quick-match-form');
     let selectedMatch = null;
+    let entryMode = 'quick';
+
+    // Mode toggle
+    modal.querySelectorAll('.coach-entry-mode').forEach(btn => {
+        btn.addEventListener('click', () => {
+            entryMode = btn.dataset.mode;
+            modal.querySelectorAll('.coach-entry-mode').forEach(b => {
+                b.classList.toggle('bg-indigo-600', b.dataset.mode === entryMode);
+                b.classList.toggle('text-white', b.dataset.mode === entryMode);
+                b.classList.toggle('bg-gray-200', b.dataset.mode !== entryMode);
+                b.classList.toggle('text-gray-700', b.dataset.mode !== entryMode);
+            });
+            modal.querySelector('#coach-quick-mode-sets').classList.toggle('hidden', entryMode !== 'quick');
+            modal.querySelector('#coach-quick-mode-detailed').classList.toggle('hidden', entryMode !== 'detailed');
+        });
+    });
+
+    function renderDetailedSets() {
+        const container = modal.querySelector('#coach-detail-sets-container');
+        container.innerHTML = '';
+        for (let i = 0; i < maxSets; i++) {
+            container.innerHTML += `
+                <div class="grid grid-cols-3 gap-2 items-center">
+                    <input type="number" min="0" class="coach-detail-score-a w-full px-2 py-1.5 border border-gray-300 rounded text-center text-sm" data-set="${i}" placeholder="0">
+                    <div class="text-center text-gray-400 text-xs">Satz ${i + 1}</div>
+                    <input type="number" min="0" class="coach-detail-score-b w-full px-2 py-1.5 border border-gray-300 rounded text-center text-sm" data-set="${i}" placeholder="0">
+                </div>
+            `;
+        }
+        container.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateDetailedPreview);
+        });
+    }
+
+    function getDetailedSets() {
+        const sets = [];
+        for (let i = 0; i < maxSets; i++) {
+            const a = parseInt(modal.querySelector(`.coach-detail-score-a[data-set="${i}"]`)?.value) || 0;
+            const b = parseInt(modal.querySelector(`.coach-detail-score-b[data-set="${i}"]`)?.value) || 0;
+            if (a > 0 || b > 0) sets.push({ playerA: a, playerB: b });
+        }
+        return sets;
+    }
+
+    function updateDetailedPreview() {
+        const sets = getDetailedSets();
+        let sA = 0, sB = 0;
+        for (const s of sets) {
+            if (s.playerA > s.playerB) sA++;
+            else if (s.playerB > s.playerA) sB++;
+        }
+        const preview = modal.querySelector('#coach-detail-result-preview');
+        if (sets.length > 0) {
+            const setsStr = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+            preview.textContent = `Saetze: ${sA}:${sB} (${setsStr})`;
+            preview.className = (sA >= setsToWin || sB >= setsToWin)
+                ? 'mt-2 text-center text-sm font-medium text-green-600'
+                : 'mt-2 text-center text-sm font-medium text-gray-600';
+        } else {
+            preview.textContent = '';
+        }
+    }
 
     matchSelect.addEventListener('change', () => {
         if (matchSelect.value) {
             selectedMatch = pendingMatches.find(m => m.id === matchSelect.value);
-            modal.querySelector('#coach-quick-player-a-name').textContent = getPlayerName(selectedMatch.player_a);
-            modal.querySelector('#coach-quick-player-b-name').textContent = getPlayerName(selectedMatch.player_b);
+            const nameA = getPlayerName(selectedMatch.player_a);
+            const nameB = getPlayerName(selectedMatch.player_b);
+            modal.querySelector('#coach-quick-player-a-name').textContent = nameA;
+            modal.querySelector('#coach-quick-player-b-name').textContent = nameB;
+            modal.querySelector('#coach-detail-player-a-name').textContent = nameA;
+            modal.querySelector('#coach-detail-player-b-name').textContent = nameB;
+            renderDetailedSets();
             matchForm.classList.remove('hidden');
         } else {
             matchForm.classList.add('hidden');
@@ -882,18 +964,33 @@ function openQuickMatchEntryModal(tournament) {
     modal.querySelector('#submit-coach-quick-match').addEventListener('click', async () => {
         if (!selectedMatch) return;
 
-        const setsA = parseInt(modal.querySelector('#coach-quick-sets-a').value) || 0;
-        const setsB = parseInt(modal.querySelector('#coach-quick-sets-b').value) || 0;
+        let setsA, setsB, setsArray = [];
 
-        if (setsA + setsB > maxSets) {
-            showToast(`Maximal ${maxSets} Saetze moeglich bei ${getMatchModeName(matchMode)}`, 'error'); return;
+        if (entryMode === 'quick') {
+            setsA = parseInt(modal.querySelector('#coach-quick-sets-a').value) || 0;
+            setsB = parseInt(modal.querySelector('#coach-quick-sets-b').value) || 0;
+            if (setsA + setsB > maxSets) {
+                showToast(`Maximal ${maxSets} Saetze moeglich bei ${getMatchModeName(matchMode)}`, 'error'); return;
+            }
+            if (Math.max(setsA, setsB) > setsToWin) {
+                showToast(`Maximal ${setsToWin} gewonnene Saetze bei ${getMatchModeName(matchMode)}`, 'error'); return;
+            }
+            if (setsA !== setsToWin && setsB !== setsToWin) {
+                showToast(`Ein Spieler muss ${setsToWin} Saetze gewinnen (${getMatchModeName(matchMode)})`, 'error'); return;
+            }
+        } else {
+            setsArray = getDetailedSets();
+            if (setsArray.length === 0) { showToast('Bitte Satzpunkte eingeben', 'error'); return; }
+            setsA = 0; setsB = 0;
+            for (const s of setsArray) {
+                if (s.playerA > s.playerB) setsA++;
+                else if (s.playerB > s.playerA) setsB++;
+            }
+            if (setsA !== setsToWin && setsB !== setsToWin) {
+                showToast(`Ein Spieler muss ${setsToWin} Saetze gewinnen (${getMatchModeName(matchMode)})`, 'error'); return;
+            }
         }
-        if (Math.max(setsA, setsB) > setsToWin) {
-            showToast(`Maximal ${setsToWin} gewonnene Saetze bei ${getMatchModeName(matchMode)}`, 'error'); return;
-        }
-        if (setsA !== setsToWin && setsB !== setsToWin) {
-            showToast(`Ein Spieler muss ${setsToWin} Saetze gewinnen (${getMatchModeName(matchMode)})`, 'error'); return;
-        }
+
         if (setsA === 0 && setsB === 0) { showToast('Bitte Ergebnis eingeben', 'error'); return; }
         if (setsA === setsB) { showToast('Unentschieden nicht moeglich', 'error'); return; }
 
@@ -911,7 +1008,7 @@ function openQuickMatchEntryModal(tournament) {
                     player_a_id: selectedMatch.player_a_id, player_b_id: selectedMatch.player_b_id,
                     winner_id: winnerId, loser_id: loserId,
                     player_a_sets_won: setsA, player_b_sets_won: setsB,
-                    sets: [], club_id: coachUserData.clubId, created_by: getCurrentUserId(),
+                    sets: setsArray, club_id: coachUserData.clubId, created_by: getCurrentUserId(),
                     sport_id: coachUserData.activeSportId, played_at: new Date().toISOString(),
                     match_mode: matchMode, handicap_used: false,
                     tournament_match_id: selectedMatch.id

@@ -281,9 +281,14 @@ function canViewMatch(match, matchType, privacyMap, viewerId, viewerClubId, view
         return true;
     }
 
-    // Tournament matches: only visible to tournament participants (loaded via tournamentParticipantIds)
-    if (match.tournament_match_id && window._tournamentParticipantIds) {
-        return window._tournamentParticipantIds.has(viewerId);
+    // Tournament matches: only visible to tournament participants AND must pass privacy check
+    if (match.tournament_match_id) {
+        const participantIds = match._tournamentParticipantIds || [];
+        const isParticipant = participantIds.includes(viewerId);
+        if (!isParticipant) {
+            return false; // Not a tournament participant, hide match
+        }
+        // Continue to privacy check below for tournament participants
     }
 
     // Prüfen ob ALLE Spieler Sichtbarkeit basierend auf ihren Datenschutzeinstellungen erlauben
@@ -813,23 +818,6 @@ export async function loadActivityFeed() {
             return;
         }
 
-        // Load tournament participant IDs for filtering tournament matches
-        if (currentUser) {
-            try {
-                const { data: myTournaments } = await supabase
-                    .from('tournament_participants')
-                    .select('tournament_id')
-                    .eq('player_id', currentUser.id);
-                if (myTournaments && myTournaments.length > 0) {
-                    window._tournamentParticipantIds = new Set([currentUser.id]);
-                } else {
-                    window._tournamentParticipantIds = new Set();
-                }
-            } catch {
-                window._tournamentParticipantIds = new Set();
-            }
-        }
-
         // Cache für Paginierung
         followingIdsCache = userIds;
 
@@ -1221,7 +1209,7 @@ async function fetchActivities(userIds) {
             ...trainingSummaries
         ];
 
-        // Enrich tournament match data for activity cards
+        // Enrich tournament match data for activity cards + load participant IDs for visibility
         const tournamentMatchIds = [...new Set(
             allActivities
                 .filter(a => a.activityType === 'singles' && a.tournament_match_id)
@@ -1231,14 +1219,35 @@ async function fetchActivities(userIds) {
             try {
                 const { data: tmData } = await supabase
                     .from('tournament_matches')
-                    .select('id, round_number, tournament:tournament_id(id, name)')
+                    .select('id, round_number, tournament_id, tournament:tournament_id(id, name)')
                     .in('id', tournamentMatchIds);
                 if (tmData) {
                     const tmMap = {};
+                    const tournamentIds = [...new Set(tmData.map(tm => tm.tournament_id).filter(Boolean))];
                     tmData.forEach(tm => { tmMap[tm.id] = tm; });
+
+                    // Load tournament participants for visibility check
+                    let participantsMap = {};
+                    if (tournamentIds.length > 0) {
+                        const { data: participants } = await supabase
+                            .from('tournament_participants')
+                            .select('tournament_id, player_id')
+                            .in('tournament_id', tournamentIds);
+                        if (participants) {
+                            participants.forEach(p => {
+                                if (!participantsMap[p.tournament_id]) {
+                                    participantsMap[p.tournament_id] = [];
+                                }
+                                participantsMap[p.tournament_id].push(p.player_id);
+                            });
+                        }
+                    }
+
                     allActivities.forEach(a => {
                         if (a.tournament_match_id && tmMap[a.tournament_match_id]) {
                             a._tournamentInfo = tmMap[a.tournament_match_id];
+                            const tournamentId = tmMap[a.tournament_match_id].tournament_id;
+                            a._tournamentParticipantIds = participantsMap[tournamentId] || [];
                         }
                     });
                 }
