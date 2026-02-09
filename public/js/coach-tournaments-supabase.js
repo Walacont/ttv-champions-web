@@ -1610,6 +1610,141 @@ function openCoachCopyTournamentModal(tournament) {
 }
 
 /**
+ * Generate bracket tree HTML for Double Elimination print/PDF
+ */
+function generateBracketTreeHtml(matches, participants) {
+    // Group matches by bracket type
+    const brackets = { winners: [], losers: [], finals: [], grand_finals: [] };
+    matches.forEach(m => {
+        const type = m.bracket_type || 'winners';
+        if (brackets[type]) brackets[type].push(m);
+    });
+
+    // Group by rounds
+    const groupByRound = (arr) => {
+        const byRound = {};
+        arr.forEach(m => {
+            const r = m.round_number || 1;
+            if (!byRound[r]) byRound[r] = [];
+            byRound[r].push(m);
+        });
+        return byRound;
+    };
+
+    const wbRounds = groupByRound(brackets.winners);
+    const lbRounds = groupByRound(brackets.losers);
+    const wbRoundNums = Object.keys(wbRounds).sort((a, b) => a - b);
+    const lbRoundNums = Object.keys(lbRounds).sort((a, b) => a - b);
+    const totalWbRounds = wbRoundNums.length;
+
+    // Helper to get round name
+    const getRoundName = (roundNum, total, bracketType) => {
+        const num = parseInt(roundNum);
+        if (bracketType === 'winners') {
+            if (num === total) return 'WB Finale';
+            if (num === total - 1) return 'WB Halbfinale';
+            if (num === total - 2) return 'WB Viertelfinale';
+            if (num === total - 3) return 'WB Achtelfinale';
+            return `WB Runde ${num}`;
+        }
+        return `LB Runde ${num}`;
+    };
+
+    // Helper to render a single match
+    const renderMatch = (m) => {
+        const playerA = getPlayerName(m.player_a);
+        const playerB = getPlayerName(m.player_b);
+        const isCompleted = m.status === 'completed';
+        const aWon = m.winner_id === m.player_a_id;
+        const bWon = m.winner_id === m.player_b_id;
+        const scoreA = m.player_a_sets_won || 0;
+        const scoreB = m.player_b_sets_won || 0;
+
+        return `
+            <div style="border:1px solid #ddd; border-radius:4px; margin:3px 0; font-size:10px; background:${isCompleted ? '#f9fafb' : '#fff'};">
+                <div style="display:flex; justify-content:space-between; padding:4px 6px; border-bottom:1px solid #eee; ${aWon ? 'font-weight:bold; background:#ecfdf5;' : ''}">
+                    <span style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_a_id ? escapeHtml(playerA) : 'TBD'}</span>
+                    ${isCompleted ? `<span style="font-family:monospace;">${scoreA}</span>` : ''}
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 6px; ${bWon ? 'font-weight:bold; background:#ecfdf5;' : ''}">
+                    <span style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.player_b_id ? escapeHtml(playerB) : 'TBD'}</span>
+                    ${isCompleted ? `<span style="font-family:monospace;">${scoreB}</span>` : ''}
+                </div>
+            </div>
+        `;
+    };
+
+    // Render bracket section
+    const renderBracketSection = (roundsMap, roundNums, bracketType, total, title, bgColor) => {
+        if (!roundNums.length) return '';
+
+        let html = `
+            <div style="margin-bottom:20px;">
+                <div style="background:${bgColor}; color:#fff; padding:6px 10px; font-weight:bold; font-size:12px; border-radius:4px 4px 0 0;">${title}</div>
+                <div style="display:flex; gap:15px; overflow-x:auto; padding:10px; border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fafafa;">
+        `;
+
+        roundNums.forEach(roundNum => {
+            const roundMatches = roundsMap[roundNum] || [];
+            const roundName = getRoundName(roundNum, total, bracketType);
+            html += `
+                <div style="min-width:140px;">
+                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">${roundName}</div>
+                    ${roundMatches.map(m => renderMatch(m)).join('')}
+                </div>
+            `;
+        });
+
+        html += '</div></div>';
+        return html;
+    };
+
+    // Render finals
+    const renderFinals = () => {
+        const grandFinal = brackets.finals[0];
+        const resetMatch = brackets.grand_finals[0];
+
+        if (!grandFinal && !resetMatch) return '';
+
+        let html = `
+            <div style="margin-bottom:20px;">
+                <div style="background:#7c3aed; color:#fff; padding:6px 10px; font-weight:bold; font-size:12px; border-radius:4px 4px 0 0;">Grand Final</div>
+                <div style="display:flex; gap:15px; padding:10px; border:1px solid #ddd; border-top:none; border-radius:0 0 4px 4px; background:#fafafa;">
+        `;
+
+        if (grandFinal) {
+            html += `
+                <div style="min-width:140px;">
+                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">Grand Final</div>
+                    ${renderMatch(grandFinal)}
+                </div>
+            `;
+        }
+
+        if (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id)) {
+            html += `
+                <div style="min-width:140px;">
+                    <div style="font-size:10px; font-weight:bold; color:#666; margin-bottom:6px; text-align:center; border-bottom:1px solid #ddd; padding-bottom:4px;">Reset Match</div>
+                    ${renderMatch(resetMatch)}
+                </div>
+            `;
+        }
+
+        html += '</div></div>';
+        return html;
+    };
+
+    // Build complete bracket tree
+    let html = '<div style="margin-top:15px;">';
+    html += renderBracketSection(wbRounds, wbRoundNums, 'winners', totalWbRounds, 'Siegerseite (Winners Bracket)', '#16a34a');
+    html += renderBracketSection(lbRounds, lbRoundNums, 'losers', lbRoundNums.length, 'Verliererseite (Losers Bracket)', '#dc2626');
+    html += renderFinals();
+    html += '</div>';
+
+    return html;
+}
+
+/**
  * Print tournament
  */
 function printCoachTournament(tournament) {
@@ -1676,8 +1811,14 @@ function printCoachTournament(tournament) {
         `;
     }
 
+    // Generate Double Elimination bracket tree for print
+    let bracketTreeHtml = '';
+    if ((tournament.format === 'double_elimination' || tournament.format === 'double_elim_32') && matches.length > 0) {
+        bracketTreeHtml = generateBracketTreeHtml(matches, participants);
+    }
+
     let crossTableHtml = '';
-    if (n > 0 && matches.length > 0) {
+    if (n > 0 && matches.length > 0 && tournament.format !== 'double_elimination' && tournament.format !== 'double_elim_32') {
         const sorted = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
         const results = {};
         sorted.forEach(p => { results[p.player_id] = {}; });
@@ -1766,6 +1907,7 @@ function printCoachTournament(tournament) {
                 <div class="info-item"><span class="info-label">Handicap:</span> ${tournament.with_handicap ? 'Ja' : 'Nein'}</div>
                 <div class="info-item"><span class="info-label">Teilnehmer:</span> ${n}</div>
             </div>
+            ${bracketTreeHtml}
             ${crossTableHtml}
             ${roundPairingsHtml}
             <p style="margin-top:20px; font-size:9px; color:#999;">Erstellt am ${new Date().toLocaleDateString('de-DE')} - SC Champions</p>
