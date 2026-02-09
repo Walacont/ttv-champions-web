@@ -677,7 +677,7 @@ export async function getPendingTournamentMatch(playerAId, playerBId) {
             .from('tournament_matches')
             .select('*, tournament:tournaments(id, name, format, with_handicap)')
             .eq('status', 'pending')
-            .or(`and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_eq.${playerAId})`)
+            .or(`and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_id.eq.${playerAId})`)
             .limit(1)
             .maybeSingle();
 

@@ -1176,7 +1176,7 @@ function printTournament(tournament) {
 
     // Generate round-robin pairings table (only numbers)
     let roundPairingsHtml = '';
-    if (participants.length >= 3 && tournament.format === 'round-robin') {
+    if (participants.length >= 3 && tournament.format === 'round_robin') {
         const n = participants.length;
         const players = Array.from({ length: n }, (_, i) => i + 1);
         if (n % 2 !== 0) players.push(0); // bye placeholder
