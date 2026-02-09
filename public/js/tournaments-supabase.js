@@ -538,7 +538,7 @@ async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winn
             .eq('bracket_type', 'winners')
             .eq('round_number', nextRound)
             .eq('bracket_position', nextPosition)
-            .single();
+            .maybeSingle();
 
         if (nextMatch) {
             const isSlotA = bracketPosition % 2 === 1;
@@ -562,7 +562,7 @@ async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winn
             .eq('bracket_type', 'losers')
             .eq('round_number', nextRound)
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (nextMatch) {
             const updateField = nextMatch.player_a_id ? 'player_b_id' : 'player_a_id';
@@ -791,7 +791,7 @@ async function updateStandings(tournamentId, playerAId, playerBId, winnerId, pla
 
     const { data: standingsA } = await supabase
         .from('tournament_standings').select('*')
-        .eq('tournament_id', tournamentId).eq('player_id', playerAId).is('round_id', null).single();
+        .eq('tournament_id', tournamentId).eq('player_id', playerAId).is('round_id', null).maybeSingle();
 
     if (standingsA) {
         await supabase.from('tournament_standings').update({
@@ -807,7 +807,7 @@ async function updateStandings(tournamentId, playerAId, playerBId, winnerId, pla
 
     const { data: standingsB } = await supabase
         .from('tournament_standings').select('*')
-        .eq('tournament_id', tournamentId).eq('player_id', playerBId).is('round_id', null).single();
+        .eq('tournament_id', tournamentId).eq('player_id', playerBId).is('round_id', null).maybeSingle();
 
     if (standingsB) {
         await supabase.from('tournament_standings').update({
@@ -829,7 +829,7 @@ async function updateStandings(tournamentId, playerAId, playerBId, winnerId, pla
 async function updateParticipantStats(tournamentId, playerId, won, setsWon, setsLost) {
     const { data: participant } = await supabase
         .from('tournament_participants').select('*')
-        .eq('tournament_id', tournamentId).eq('player_id', playerId).single();
+        .eq('tournament_id', tournamentId).eq('player_id', playerId).maybeSingle();
 
     if (participant) {
         await supabase.from('tournament_participants').update({
