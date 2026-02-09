@@ -5605,13 +5605,13 @@
         </div>
 
         <!-- Coach Tournament Details Modal -->
-        <div id="coach-tournament-details-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
-            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full my-8">
-                <div class="sticky top-0 bg-white rounded-t-xl border-b border-gray-200 p-4 flex items-center justify-between z-10">
+        <div id="coach-tournament-details-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full my-8 flex flex-col max-h-[calc(100vh-4rem)]">
+                <div class="bg-white rounded-t-xl border-b border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
                     <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-trophy text-indigo-600 mr-2"></i>Turnier-Details</h3>
                     <button id="close-coach-tournament-details-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
                 </div>
-                <div id="coach-tournament-details-content" class="p-4">
+                <div id="coach-tournament-details-content" class="p-4 overflow-y-auto">
                     <p class="text-gray-500 text-center py-8">Lade...</p>
                 </div>
             </div>
