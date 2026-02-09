@@ -46,6 +46,16 @@ function getSetsToWin(mode) {
     return map[mode] || 3;
 }
 
+function getBracketLabel(bracketType) {
+    const labels = {
+        'winners': 'Siegerseite',
+        'losers': 'Verliererseite',
+        'finals': 'Finale',
+        'grand_finals': 'Entscheidung'
+    };
+    return labels[bracketType] || 'Siegerseite';
+}
+
 export async function initTournamentsUI(userId, clubId, sportId) {
     console.log('[Tournaments UI] Initializing...');
     initTournaments(userId, clubId, sportId);
@@ -912,6 +922,9 @@ function openQuickMatchEntryModal(tournament) {
     const maxSets = getMaxSets(matchMode);
     const setsToWin = getSetsToWin(matchMode);
 
+    const formatName = getTournamentFormatName(tournament.format);
+    const isDoubleElim = tournament.format === 'double-elimination';
+
     const modal = document.createElement('div');
     modal.id = 'quick-match-modal';
     modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
@@ -922,7 +935,18 @@ function openQuickMatchEntryModal(tournament) {
                     <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-bolt text-indigo-600 mr-2"></i>Match eintragen</h3>
                     <button id="close-quick-match" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
                 </div>
-                <div class="mb-3 text-xs text-gray-500">Spielmodus: <span class="font-medium">${getMatchModeName(matchMode)}</span></div>
+                <div class="mb-3 p-2 bg-gray-50 rounded-lg">
+                    <div class="text-sm font-medium text-gray-800">${escapeHtml(tournament.name)}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span class="inline-flex items-center gap-1">
+                            <i class="fas fa-trophy text-indigo-500"></i>${formatName}
+                        </span>
+                        <span class="mx-2">|</span>
+                        <span class="inline-flex items-center gap-1">
+                            <i class="fas fa-table-tennis text-green-500"></i>${getMatchModeName(matchMode)}
+                        </span>
+                    </div>
+                </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Match auswählen</label>
                     <select id="quick-match-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
@@ -930,7 +954,8 @@ function openQuickMatchEntryModal(tournament) {
                         ${pendingMatches.map(m => {
                             const a = getPlayerName(m.player_a);
                             const b = getPlayerName(m.player_b);
-                            return `<option value="${m.id}">Runde ${m.round_number}: ${escapeHtml(a)} vs ${escapeHtml(b)}</option>`;
+                            const bracketLabel = isDoubleElim ? getBracketLabel(m.bracket_type) + ' - ' : '';
+                            return `<option value="${m.id}">${bracketLabel}Runde ${m.round_number}: ${escapeHtml(a)} vs ${escapeHtml(b)}</option>`;
                         }).join('')}
                     </select>
                 </div>
