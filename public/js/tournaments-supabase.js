@@ -83,7 +83,7 @@ export async function createTournament(tournamentData) {
 
         if (!name || !maxParticipants) throw new Error('Name und Teilnehmerzahl sind erforderlich');
         if (!currentClubId || !currentSportId) throw new Error('Kein Verein oder Sportart ausgewählt');
-        if (format === 'round_robin' && maxParticipants > 10) throw new Error('Jeder gegen Jeden ist nur bis 10 Spieler möglich');
+        if (format === 'round_robin' && maxParticipants > 16) throw new Error('Jeder gegen Jeden ist nur bis 16 Spieler möglich');
 
         const joinCode = !isOpen ? generateJoinCode() : null;
 
