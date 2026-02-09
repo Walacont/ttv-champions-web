@@ -360,7 +360,6 @@ function renderActionButtons(tournament, participating) {
     }
 
     if (tournament.status === 'in_progress' && isCreator) {
-        buttons.push(`<button id="regenerate-pairings-btn" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium"><i class="fas fa-sync-alt mr-2"></i>Neu generieren</button>`);
         buttons.push(`<button id="cancel-tournament-btn" class="bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded-lg font-medium" title="Abbrechen"><i class="fas fa-ban"></i></button>`);
     }
 
