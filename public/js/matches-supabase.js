@@ -610,29 +610,94 @@ export async function getHeadToHead(playerAId, playerBId) {
     };
 }
 
-export function updateMatchUI(clubPlayers) {
+export async function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select')?.value;
     const playerBId = document.getElementById('player-b-select')?.value;
     const handicapContainer = document.getElementById('handicap-suggestion');
     const handicapToggleContainer = document.getElementById('handicap-toggle-container');
     const handicapToggle = document.getElementById('handicap-toggle');
+    const handicapText = document.getElementById('handicap-text');
+    const handicapLabel = document.getElementById('handicap-label');
 
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
 
     if (playerA && playerB && playerAId !== playerBId) {
-        const handicap = calculateHandicap(playerA, playerB, currentSportName);
+        // Elo-basiertes Handicap berechnen
+        const eloHandicap = calculateHandicap(playerA, playerB, currentSportName);
 
-        if (handicap && handicap.points > 0) {
+        // H2H-Handicap abrufen (Siegesserie zwischen den beiden Spielern)
+        let h2hHandicap = null;
+        try {
+            const { data: h2hData, error } = await supabase
+                .rpc('get_h2h_handicap', {
+                    p1_id: playerAId,
+                    p2_id: playerBId
+                });
+
+            if (!error && h2hData && h2hData.length > 0) {
+                const h2h = h2hData[0];
+                if (h2h.suggested_handicap > 0 && h2h.streak_winner_id) {
+                    h2hHandicap = {
+                        points: h2h.suggested_handicap,
+                        streakWinnerId: h2h.streak_winner_id,
+                        streakLoserId: h2h.streak_loser_id,
+                        consecutiveWins: h2h.consecutive_wins
+                    };
+                }
+            }
+        } catch (e) {
+            console.log('[Matches] H2H check failed:', e);
+        }
+
+        // H2H hat Priorität vor Elo-Handicap
+        const unitText = eloHandicap?.unit || 'Punkte';
+
+        if (h2hHandicap && h2hHandicap.points > 0) {
+            // H2H-Handicap anzeigen
+            const streakWinner = h2hHandicap.streakWinnerId === playerAId ? playerA : playerB;
+            const streakLoser = h2hHandicap.streakWinnerId === playerAId ? playerB : playerA;
+
             currentHandicapData = {
-                player: handicap.player.id === playerAId ? 'A' : 'B',
-                points: handicap.points,
+                player: h2hHandicap.streakWinnerId === playerAId ? 'B' : 'A', // Verlierer bekommt Vorsprung
+                points: h2hHandicap.points,
+                type: 'h2h'
             };
 
-            const unitText = handicap.unit || 'Punkte';
-            document.getElementById('handicap-text').textContent =
-                `${handicap.player.firstName} startet mit ${handicap.points} ${unitText} Vorsprung pro Satz.`;
-            handicapContainer?.classList.remove('hidden');
+            const winnerName = streakWinner.firstName || streakWinner.first_name || 'Spieler';
+            const loserName = streakLoser.firstName || streakLoser.first_name || 'Spieler';
+
+            const h2hMessage = `${winnerName} hat ${h2hHandicap.consecutiveWins}x in Folge gewonnen. ${loserName} startet mit ${h2hHandicap.points} ${unitText} Vorsprung pro Satz.`;
+            if (handicapLabel) {
+                handicapLabel.classList.remove('text-indigo-800');
+                handicapLabel.classList.add('text-purple-800');
+                handicapLabel.innerHTML = `<span class="text-purple-600 font-semibold">H2H-Handicap:</span> <span class="font-bold">${h2hMessage}</span>`;
+            }
+            handicapContainer?.classList.remove('hidden', 'bg-indigo-50');
+            handicapContainer?.classList.add('bg-purple-50');
+            handicapToggleContainer?.classList.remove('hidden');
+            handicapToggleContainer?.classList.add('flex');
+
+            if (handicapToggle?.checked && coachSetScoreInput) {
+                coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+            }
+        } else if (eloHandicap && eloHandicap.points > 0) {
+            // Elo-Handicap anzeigen (wie bisher)
+            currentHandicapData = {
+                player: eloHandicap.player.id === playerAId ? 'A' : 'B',
+                points: eloHandicap.points,
+                type: 'elo'
+            };
+
+            const weakerName = eloHandicap.player.firstName || eloHandicap.player.first_name || 'Spieler';
+            const eloMessage = `${weakerName} startet mit ${eloHandicap.points} ${unitText} Vorsprung pro Satz.`;
+            if (handicapLabel) {
+                handicapLabel.classList.remove('text-purple-800');
+                handicapLabel.classList.add('text-indigo-800');
+                handicapLabel.innerHTML = `Handicap-Vorschlag: <span class="font-bold">${eloMessage}</span>`;
+            }
+            handicapContainer?.classList.remove('hidden', 'bg-purple-50');
+            handicapContainer?.classList.add('bg-indigo-50');
             handicapToggleContainer?.classList.remove('hidden');
             handicapToggleContainer?.classList.add('flex');
 
