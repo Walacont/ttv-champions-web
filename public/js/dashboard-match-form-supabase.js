@@ -586,7 +586,17 @@ async function checkHandicap() {
         let displayText = '';
         let selectedSuggestion = null;
 
-        if (h2hSuggestion) {
+        // Wähle das HÖHERE Handicap (H2H oder Elo)
+        if (h2hSuggestion && eloSuggestion) {
+            // Beide vorhanden - nimm das höhere
+            if (h2hSuggestion.value >= eloSuggestion.value) {
+                selectedSuggestion = h2hSuggestion;
+                displayText = h2hSuggestion.text;
+            } else {
+                selectedSuggestion = eloSuggestion;
+                displayText = eloSuggestion.text;
+            }
+        } else if (h2hSuggestion) {
             displayText = h2hSuggestion.text;
             selectedSuggestion = h2hSuggestion;
         } else if (eloSuggestion) {

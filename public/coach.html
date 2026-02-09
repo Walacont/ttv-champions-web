@@ -705,6 +705,17 @@
                                         class="block text-sm font-medium text-gray-700 mb-2"
                                         >Satzergebnisse</label
                                     >
+                                    <!-- Entry Mode Toggle (Quick vs Detail) -->
+                                    <div id="coach-entry-mode-toggle" class="flex gap-2 mb-3">
+                                        <button type="button"
+                                            id="coach-mode-quick"
+                                            class="flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-indigo-600 text-white border-indigo-600"
+                                            data-mode="quick">Schnell (Sätze)</button>
+                                        <button type="button"
+                                            id="coach-mode-detail"
+                                            class="flex-1 py-2 px-4 text-sm font-medium rounded-lg border transition-colors bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                                            data-mode="detail">Detail (Punkte)</button>
+                                    </div>
                                     <div id="coach-set-score-container" class="space-y-2"></div>
                                     <p class="text-xs text-gray-500 mt-2">
                                         Der Gewinner wird automatisch aus den Satzergebnissen
