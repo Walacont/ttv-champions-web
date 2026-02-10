@@ -13,6 +13,28 @@ import {
 let currentUserId = null;
 
 /**
+ * Saves push subscription status to the profiles table so the DB trigger
+ * knows this user has push notifications enabled.
+ */
+async function savePushTokenToProfile(userId, platform) {
+    try {
+        const db = getSupabase();
+        if (!db || !userId) return;
+
+        await db.from('profiles').update({
+            fcm_token: `onesignal:${userId}`,
+            fcm_token_updated_at: new Date().toISOString(),
+            push_platform: platform,
+            notifications_enabled: true
+        }).eq('id', userId);
+
+        console.log('[Push] Push token saved to profile for', platform);
+    } catch (e) {
+        console.error('[Push] Error saving push token to profile:', e);
+    }
+}
+
+/**
  * Initialisiert Push-Benachrichtigungen für einen angemeldeten Benutzer
  * @param {string} userId - Benutzer-ID
  */
@@ -24,6 +46,13 @@ export async function initPushNotifications(userId) {
         // Native: OneSignal login via Capacitor plugin
         if (window.CapacitorUtils.loginOneSignal) {
             await window.CapacitorUtils.loginOneSignal(userId);
+        }
+
+        // Save push token if permission already granted
+        const hasPermission = await window.CapacitorUtils.isPushEnabled();
+        if (hasPermission) {
+            const platform = window.CapacitorUtils.getPlatform();
+            await savePushTokenToProfile(userId, platform);
         }
 
         // Listen for foreground notifications (in-app toast)
@@ -48,6 +77,12 @@ export async function initPushNotifications(userId) {
                 await syncUserWithOneSignal(userId);
             }
         }
+
+        // Save push token if permission already granted
+        const webEnabled = await isOneSignalEnabled();
+        if (webEnabled) {
+            await savePushTokenToProfile(userId, 'web');
+        }
     }
 }
 
@@ -63,12 +98,19 @@ export async function requestPushPermission() {
             console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
             const granted = await window.CapacitorUtils.requestPushPermission();
             console.log('[Push] Permission result:', granted);
+            if (granted && currentUserId) {
+                const platform = window.CapacitorUtils.getPlatform();
+                await savePushTokenToProfile(currentUserId, platform);
+            }
             return granted;
         }
 
         console.log('[Push] Using OneSignal for PWA...');
         const granted = await requestOneSignalPermission();
         console.log('[Push] OneSignal permission result:', granted);
+        if (granted && currentUserId) {
+            await savePushTokenToProfile(currentUserId, 'web');
+        }
         return granted;
     } catch (e) {
         console.error('[Push] Error in requestPushPermission:', e);
