@@ -2126,6 +2126,9 @@ function printCoachTournament(tournament) {
 
     // Adaptive sizing for larger tournaments
     const isLarge = n > 10;
+    // Double Elimination always uses landscape for better bracket visibility
+    const isDoubleElim = tournament.format === 'double_elimination' || tournament.format === 'double_elim_32';
+    const useLandscape = isLarge || isDoubleElim;
     const fontSize = isLarge ? '9px' : '11px';
     const cellPadding = isLarge ? '2px' : '4px';
     const cellWidth = isLarge ? '28px' : '35px';
@@ -2258,16 +2261,16 @@ function printCoachTournament(tournament) {
                 .info { display: flex; flex-wrap: wrap; gap: ${isLarge ? '15px' : '30px'}; margin-bottom: 15px; font-size: ${isLarge ? '11px' : '14px'}; }
                 .info-item { display: flex; gap: 6px; }
                 .info-label { color: #666; }
-                ${isLarge ? '.landscape-hint { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 4px; margin-bottom: 15px; font-size: 11px; color: #92400e; }' : ''}
+                ${useLandscape ? '.landscape-hint { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; border-radius: 4px; margin-bottom: 15px; font-size: 11px; color: #92400e; }' : ''}
                 @media print {
                     body { padding: 8px; }
-                    ${isLarge ? '@page { size: landscape; }' : ''}
+                    @page { size: landscape; }
                     .landscape-hint { display: none; }
                 }
             </style>
         </head>
         <body>
-            ${isLarge ? '<div class="landscape-hint"><strong>Tipp:</strong> Für beste Darstellung im Querformat drucken (Landscape)</div>' : ''}
+            ${useLandscape ? '<div class="landscape-hint"><strong>Tipp:</strong> Für beste Darstellung im Querformat drucken (Landscape)</div>' : ''}
             <h1>${escapeHtml(tournament.name)}</h1>
             <p class="subtitle">${escapeHtml(tournament.description || '')}</p>
             <div class="info">
