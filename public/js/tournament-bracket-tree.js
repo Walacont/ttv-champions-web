@@ -439,7 +439,7 @@ export function renderTournamentBracket(container, bracketData) {
             <div class="bracket-section">
                 <div class="flex items-center gap-2 mb-4">
                     <i class="fas fa-trophy text-amber-500 text-xl"></i>
-                    <h3 class="text-xl font-bold text-gray-900">Siegerseite (Winners Bracket)</h3>
+                    <h3 class="text-xl font-bold text-gray-900">Hauptrunde</h3>
                 </div>
                 <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl overflow-x-auto">
                     ${renderBracketSection(winners, false)}
@@ -454,7 +454,7 @@ export function renderTournamentBracket(container, bracketData) {
             <div class="bracket-section">
                 <div class="flex items-center gap-2 mb-4">
                     <i class="fas fa-level-down-alt text-orange-500 text-xl"></i>
-                    <h3 class="text-xl font-bold text-gray-900">Verliererseite (Losers Bracket)</h3>
+                    <h3 class="text-xl font-bold text-gray-900">Trostrunde</h3>
                 </div>
                 <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl overflow-x-auto">
                     ${renderBracketSection(losers, true)}
