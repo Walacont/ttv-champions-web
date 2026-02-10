@@ -1659,6 +1659,11 @@ async function handleCoachApproval(requestId, approve, userData) {
                     else if (scoreB > scoreA) setsB++;
                 });
             }
+            // Fallback to match record sets when sets array is empty (quick mode)
+            if (setsA === 0 && setsB === 0) {
+                setsA = match.player_a_sets_won || request.player_a_sets_won || 0;
+                setsB = match.player_b_sets_won || request.player_b_sets_won || 0;
+            }
 
             const matchType = request.handicap_used ? 'Handicap-Einzel' : 'Einzel';
             const setsDisplay = `${setsA}:${setsB}`;
@@ -2461,6 +2466,11 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                             if (scoreA > scoreB) setsA++;
                             else if (scoreB > scoreA) setsB++;
                         });
+                    }
+                    // Fallback to match record sets when sets array is empty (quick mode)
+                    if (setsA === 0 && setsB === 0) {
+                        setsA = match.player_a_sets_won || request.player_a_sets_won || 0;
+                        setsB = match.player_b_sets_won || request.player_b_sets_won || 0;
                     }
                     const setsDisplay = `${setsA}:${setsB}`;
                     const playedAt = match.played_at || new Date().toISOString();

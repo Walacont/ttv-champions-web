@@ -1505,6 +1505,46 @@ function openQuickMatchEntryModal(tournament, preSelectedMatchId = null) {
             if (matchError) throw matchError;
 
             await recordTournamentMatchResult(selectedMatch.id, match.id);
+
+            // Create points_history entries
+            try {
+                const { data: playersData } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name')
+                    .in('id', [selectedMatch.player_a_id, selectedMatch.player_b_id]);
+
+                const playerNameMap = {};
+                (playersData || []).forEach(p => {
+                    playerNameMap[p.id] = `${p.first_name} ${p.last_name}`;
+                });
+
+                const winnerEloChange = winnerId === match.player_a_id
+                    ? (match.player_a_elo_after - match.player_a_elo_before)
+                    : (match.player_b_elo_after - match.player_b_elo_before);
+                const loserEloChange = loserId === match.player_a_id
+                    ? (match.player_a_elo_after - match.player_a_elo_before)
+                    : (match.player_b_elo_after - match.player_b_elo_before);
+
+                const winnerPoints = Math.max(10, Math.abs(winnerEloChange) || 10);
+                const setsDisplay = `${setsA}:${setsB}`;
+                const playedAt = match.played_at || new Date().toISOString();
+
+                await supabase.from('points_history').insert({
+                    user_id: winnerId, points: winnerPoints, xp: winnerPoints,
+                    elo_change: winnerEloChange || 0,
+                    reason: `Sieg im Einzel gegen ${playerNameMap[loserId] || 'Gegner'} (${setsDisplay})`,
+                    timestamp: playedAt, awarded_by: 'System (Wettkampf)'
+                });
+                await supabase.from('points_history').insert({
+                    user_id: loserId, points: 0, xp: 0,
+                    elo_change: loserEloChange || 0,
+                    reason: `Niederlage im Einzel gegen ${playerNameMap[winnerId] || 'Gegner'} (${setsDisplay})`,
+                    timestamp: playedAt, awarded_by: 'System (Wettkampf)'
+                });
+            } catch (historyErr) {
+                console.warn('[Tournaments UI] Error creating points history:', historyErr);
+            }
+
             showToast('Match eingetragen!', 'success');
             closeModal();
             await refreshTournamentDetailsView(tournament.id);
