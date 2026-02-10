@@ -572,7 +572,8 @@ function renderMatches(matches, isCreator = false, filter = 'all') {
     const filteredRounds = Object.keys(byRound).sort((a, b) => a - b).filter(round => {
         const rm = byRound[round];
         const actual = rm.filter(m => m.player_b_id !== null);
-        const completedCount = actual.filter(m => m.status === 'completed').length;
+        // 'completed' = regulär beendet, 'skipped' = übersprungen (Bye oder nicht benötigt)
+        const completedCount = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
         const isRoundCompleted = completedCount === actual.length && actual.length > 0;
 
         if (filter === 'remaining') return !isRoundCompleted;
@@ -592,7 +593,7 @@ function renderMatches(matches, isCreator = false, filter = 'all') {
         const actual = rm.filter(m => m.player_a_id && m.player_b_id);
         // Freilose: genau ein Spieler vorhanden (nicht beide null!)
         const byes = rm.filter(m => (m.player_a_id && !m.player_b_id) || (!m.player_a_id && m.player_b_id));
-        const completed = actual.filter(m => m.status === 'completed').length;
+        const completed = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
 
         return `<div class="mb-4">
             <div class="flex items-center justify-between mb-2">
@@ -713,7 +714,7 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         const roundMatches = byRound[round];
         const roundNum = parseInt(round);
         const actual = roundMatches.filter(m => m.player_a_id && m.player_b_id);
-        const completed = actual.filter(m => m.status === 'completed').length;
+        const completed = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
         const isCompleted = completed === actual.length && actual.length > 0;
         const hasWaiting = roundMatches.some(m => !m.player_a_id || !m.player_b_id);
 
@@ -760,10 +761,10 @@ function prepareFinalsData(finalsMatches, filter) {
         matches.push({ ...resetMatch, label: 'Reset Match' });
     }
 
-    // Apply filter
-    const hasCompleted = matches.some(m => m.status === 'completed');
+    // Apply filter - 'completed' und 'skipped' gelten als beendet
+    const hasCompleted = matches.some(m => m.status === 'completed' || m.status === 'skipped');
     if (filter === 'completed' && !hasCompleted) return { matches: [] };
-    if (filter === 'remaining' && matches.every(m => m.status === 'completed')) return { matches: [] };
+    if (filter === 'remaining' && matches.every(m => m.status === 'completed' || m.status === 'skipped')) return { matches: [] };
 
     return { matches };
 }
@@ -1063,31 +1064,37 @@ function renderBracketMatch(match, isCreator) {
     const playerA = getPlayerName(match.player_a);
     const playerB = getPlayerName(match.player_b);
     const isCompleted = match.status === 'completed';
+    const isSkipped = match.status === 'skipped'; // Match übersprungen (nicht benötigt)
     const isWaiting = !match.player_a_id || !match.player_b_id;
 
     let statusClass = 'pending';
     if (isCompleted) statusClass = 'completed';
+    else if (isSkipped) statusClass = 'completed skipped'; // Zeige als abgeschlossen, aber mit Markierung
     else if (isWaiting) statusClass = 'waiting';
 
     const aWon = match.winner_id === match.player_a_id;
     const bWon = match.winner_id === match.player_b_id;
+    const showScores = isCompleted || isSkipped;
 
     return `
         <div class="bracket-match ${statusClass}" data-match-id="${match.id}">
-            <div class="bracket-player ${isCompleted && aWon ? 'winner' : ''} ${isCompleted && !aWon ? 'loser' : ''}">
+            <div class="bracket-player ${showScores && aWon ? 'winner' : ''} ${showScores && !aWon && match.winner_id ? 'loser' : ''}">
                 <span class="bracket-player-name" title="${escapeHtml(playerA)}">
                     ${match.player_a_id ? escapeHtml(playerA) : '<span class="bracket-player-tbd">TBD</span>'}
                 </span>
-                ${isCompleted ? `<span class="bracket-player-score">${match.player_a_sets_won || 0}</span>` : ''}
+                ${showScores && !isSkipped ? `<span class="bracket-player-score">${match.player_a_sets_won || 0}</span>` : ''}
+                ${isSkipped ? '<span class="bracket-player-score text-xs">-</span>' : ''}
             </div>
-            <div class="bracket-player ${isCompleted && bWon ? 'winner' : ''} ${isCompleted && !bWon ? 'loser' : ''}">
+            <div class="bracket-player ${showScores && bWon ? 'winner' : ''} ${showScores && !bWon && match.winner_id ? 'loser' : ''}">
                 <span class="bracket-player-name" title="${escapeHtml(playerB)}">
                     ${match.player_b_id ? escapeHtml(playerB) : '<span class="bracket-player-tbd">TBD</span>'}
                 </span>
-                ${isCompleted ? `<span class="bracket-player-score">${match.player_b_sets_won || 0}</span>` : ''}
+                ${showScores && !isSkipped ? `<span class="bracket-player-score">${match.player_b_sets_won || 0}</span>` : ''}
+                ${isSkipped ? '<span class="bracket-player-score text-xs">-</span>' : ''}
             </div>
             ${isCompleted && isCreator ? `<button class="correct-match-btn bracket-match-status" data-match-id="${match.id}" title="Korrigieren"><i class="fas fa-edit text-indigo-500"></i></button>` : ''}
-            ${!isCompleted && !isWaiting ? '<span class="bracket-match-status"><i class="fas fa-clock text-yellow-500"></i></span>' : ''}
+            ${isSkipped ? '<span class="bracket-match-status" title="Nicht benötigt"><i class="fas fa-forward text-gray-400"></i></span>' : ''}
+            ${!isCompleted && !isSkipped && !isWaiting ? '<span class="bracket-match-status"><i class="fas fa-clock text-yellow-500"></i></span>' : ''}
         </div>`;
 }
 
@@ -1095,23 +1102,29 @@ function renderMatchCard(match, isCreator = false) {
     const a = getPlayerName(match.player_a);
     const b = getPlayerName(match.player_b);
     const done = match.status === 'completed';
+    const skipped = match.status === 'skipped';
+    const finished = done || skipped;
 
-    return `<div class="bg-white border border-gray-200 rounded-lg p-3">
+    return `<div class="bg-white border border-gray-200 rounded-lg p-3 ${skipped ? 'opacity-60' : ''}">
         <div class="flex items-center justify-between">
             <div class="flex-1">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="${match.winner_id === match.player_a_id ? 'font-bold text-gray-900' : 'text-gray-700'}">${escapeHtml(a)}</span>
                     ${done ? `<span class="text-sm font-mono">${match.player_a_sets_won || 0}</span>` : ''}
+                    ${skipped ? '<span class="text-sm font-mono">-</span>' : ''}
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="${match.winner_id === match.player_b_id ? 'font-bold text-gray-900' : 'text-gray-700'}">${escapeHtml(b)}</span>
                     ${done ? `<span class="text-sm font-mono">${match.player_b_sets_won || 0}</span>` : ''}
+                    ${skipped ? '<span class="text-sm font-mono">-</span>' : ''}
                 </div>
             </div>
             <div class="flex items-center gap-2">
                 ${done
                     ? '<span class="text-xs text-gray-500"><i class="fas fa-check text-green-500 mr-1"></i>Gespielt</span>'
-                    : '<span class="text-xs text-gray-500"><i class="fas fa-clock text-yellow-500 mr-1"></i>Ausstehend</span>'}
+                    : (skipped
+                        ? '<span class="text-xs text-gray-400"><i class="fas fa-forward mr-1"></i>Übersprungen</span>'
+                        : '<span class="text-xs text-gray-500"><i class="fas fa-clock text-yellow-500 mr-1"></i>Ausstehend</span>')}
                 ${done && isCreator ? `<button class="correct-match-btn text-xs text-indigo-600 hover:text-indigo-800 ml-2" data-match-id="${match.id}" title="Korrigieren"><i class="fas fa-edit"></i></button>` : ''}
             </div>
         </div>

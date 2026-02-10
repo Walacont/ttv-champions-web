@@ -486,9 +486,11 @@ function generateSeedOrder(bracketSize) {
 
 /**
  * Process byes in Double Elimination - advance players who had no opponent
+ * Behandelt Byes in beiden Brackets (Winners und Losers)
  */
 async function processDoubleEliminationByes(tournamentId) {
-    const { data: byeMatches, error } = await supabase
+    // 1. Verarbeite WB R1 Byes - Spieler ohne Gegner rücken vor
+    const { data: wbByeMatches, error } = await supabase
         .from('tournament_matches')
         .select('*')
         .eq('tournament_id', tournamentId)
@@ -496,12 +498,62 @@ async function processDoubleEliminationByes(tournamentId) {
         .eq('round_number', 1)
         .eq('status', 'completed');
 
-    if (error || !byeMatches) return;
+    if (error || !wbByeMatches) return;
 
-    for (const byeMatch of byeMatches) {
+    for (const byeMatch of wbByeMatches) {
         if (byeMatch.winner_id) {
             await advanceDoubleEliminationWinner(tournamentId, byeMatch, byeMatch.winner_id);
         }
+    }
+
+    // 2. Markiere LB R1 Matches die keine Spieler bekommen werden als "skipped"
+    // (passiert wenn zu viele Byes im WB sind)
+    // Bei bracketSize 8 mit 5 Spielern: 3 Byes in WB R1 -> nur 2 Verlierer für 2 LB R1 Matches
+    // Aber einer der LB R1 Matches könnte leer bleiben
+
+    // Zähle wie viele echte WB R1 Matches es gab (ohne Byes)
+    const { data: allWbR1 } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'winners')
+        .eq('round_number', 1);
+
+    const realWbR1Matches = allWbR1?.filter(m => m.player_a_id && m.player_b_id).length || 0;
+    const expectedLbR1Losers = realWbR1Matches; // Jedes echte WB R1 Match produziert einen Verlierer
+
+    // Hole LB R1 Matches
+    const { data: lbR1Matches } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'losers')
+        .eq('round_number', 1)
+        .order('bracket_position', { ascending: true });
+
+    if (!lbR1Matches || lbR1Matches.length === 0) return;
+
+    // Berechne wie viele LB R1 Matches wirklich gespielt werden können
+    // Jedes LB R1 Match braucht 2 Verlierer aus WB R1
+    const playableLbR1Matches = Math.floor(expectedLbR1Losers / 2);
+
+    // Markiere überzählige LB R1 Matches als skipped
+    for (let i = playableLbR1Matches; i < lbR1Matches.length; i++) {
+        const match = lbR1Matches[i];
+        if (match.status === 'pending' && !match.player_a_id && !match.player_b_id) {
+            await supabase
+                .from('tournament_matches')
+                .update({ status: 'skipped' })
+                .eq('id', match.id);
+        }
+    }
+
+    // 3. Prüfe ob es ungerade Anzahl von Verlierern gibt -> ein LB R1 Match ist ein Bye
+    // Das passiert wenn expectedLbR1Losers ungerade ist
+    if (expectedLbR1Losers % 2 === 1 && expectedLbR1Losers > 0) {
+        // Ein LB R1 Match wird nur einen Spieler haben
+        // Die WB R1 Matches müssen erst abgeschlossen werden bevor wir das wissen
+        // Also markieren wir hier nichts - das wird nach den ersten WB R1 Matches passieren
     }
 }
 
@@ -589,8 +641,8 @@ async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winn
             }
         }
     } else if (bracketType === 'finals') {
-        // Grand Finals completed
-        // Check if the loser (from LB) won - if so, need reset match
+        // Grand Finals (erstes Finale) abgeschlossen
+        // Prüfe ob LB-Champion (player_b) gewonnen hat - wenn ja, Bracket Reset nötig
         const { data: finalsMatch } = await supabase
             .from('tournament_matches')
             .select('player_a_id, player_b_id, winner_id')
@@ -598,34 +650,63 @@ async function advanceDoubleEliminationWinner(tournamentId, completedMatch, winn
             .eq('bracket_type', 'finals')
             .single();
 
-        if (finalsMatch && finalsMatch.winner_id === finalsMatch.player_b_id) {
-            // LB champion won - trigger Grand Finals Reset
-            await supabase
-                .from('tournament_matches')
-                .update({
-                    player_a_id: finalsMatch.player_a_id,
-                    player_b_id: finalsMatch.player_b_id
-                })
-                .eq('tournament_id', tournamentId)
-                .eq('bracket_type', 'grand_finals');
+        if (finalsMatch) {
+            if (finalsMatch.winner_id === finalsMatch.player_b_id) {
+                // LB-Champion hat gewonnen -> Bracket Reset erforderlich!
+                // Beide Spieler haben jetzt je eine Niederlage
+                await supabase
+                    .from('tournament_matches')
+                    .update({
+                        player_a_id: finalsMatch.player_a_id,  // WB-Champion
+                        player_b_id: finalsMatch.player_b_id   // LB-Champion
+                    })
+                    .eq('tournament_id', tournamentId)
+                    .eq('bracket_type', 'grand_finals');
+            } else {
+                // WB-Champion hat gewonnen -> Turnier beendet, kein Reset nötig
+                // LB-Champion hat jetzt 2 Niederlagen
+                await supabase
+                    .from('tournament_matches')
+                    .update({
+                        status: 'skipped',
+                        winner_id: finalsMatch.winner_id  // WB-Champion ist Turniersieger
+                    })
+                    .eq('tournament_id', tournamentId)
+                    .eq('bracket_type', 'grand_finals');
+            }
         }
     }
 }
 
 /**
  * Drop loser to losers bracket in Double Elimination
- * Maps WB round losses to correct LB round:
- * - WB R1 losers -> LB R1 (play each other)
- * - WB R2 losers -> LB R2 (play LB R1 winners)
- * - WB R3 losers -> LB R4 (play LB R3 winners)
- * - WB RN losers -> LB R(2N-2) for N>1
+ *
+ * WICHTIGE REGELN:
+ * 1. LB hat spezielle Runden-Struktur:
+ *    - LB R1: WB R1 Verlierer spielen gegeneinander (Sonderfall)
+ *    - Gerade LB-Runden (2,4,6): "Aufnahme-Runden" - WB-Verlierer treffen auf LB-Überlebende
+ *    - Ungerade LB-Runden nach R1 (3,5,7): "Halbierungs-Runden" - nur LB-Spieler gegeneinander
+ *
+ * 2. Mapping WB -> LB:
+ *    - WB R1 Verlierer -> LB R1 (spielen gegeneinander)
+ *    - WB R2 Verlierer -> LB R2 (spielen gegen LB R1 Gewinner)
+ *    - WB R3 Verlierer -> LB R4 (spielen gegen LB R3 Gewinner)
+ *    - WB R4 Verlierer -> LB R6 (spielen gegen LB R5 Gewinner)
+ *    - Allgemein: WB Rn -> LB R(2n-2) für n>1
+ *
+ * 3. Cross-Over Logik zur Rematch-Vermeidung:
+ *    - WB-Verlierer aus oberer Hälfte -> untere Hälfte im LB
+ *    - WB-Verlierer aus unterer Hälfte -> obere Hälfte im LB
  */
 async function dropToLosersBracket(tournamentId, completedMatch, loserId) {
     const wbRound = completedMatch.round_number;
     const wbPosition = completedMatch.bracket_position;
 
-    // Calculate target LB round
-    // WB R1 -> LB R1, WB R2 -> LB R2, WB R3 -> LB R4, WB R4 -> LB R6
+    // Berechne Ziel-LB-Runde
+    // WB R1 -> LB R1 (Verlierer spielen gegeneinander)
+    // WB R2 -> LB R2 (Verlierer spielen gegen LB R1 Gewinner)
+    // WB R3 -> LB R4 (Verlierer spielen gegen LB R3 Gewinner)
+    // WB R4 -> LB R6 (Verlierer spielen gegen LB R5 Gewinner)
     let lbRound;
     if (wbRound === 1) {
         lbRound = 1;
@@ -643,40 +724,225 @@ async function dropToLosersBracket(tournamentId, completedMatch, loserId) {
 
     if (!lbMatches || lbMatches.length === 0) return;
 
-    // Determine target position based on WB position
-    // For WB R1: losers pair up (pos 1,2 -> LB pos 1, pos 3,4 -> LB pos 2, etc.)
-    // For later rounds: map directly or fill next available
+    const numLbMatches = lbMatches.length;
+
+    // Berechne Ziel-Position mit Cross-Over Logik
     let targetPosition;
+
     if (wbRound === 1) {
-        targetPosition = Math.ceil(wbPosition / 2);
-    } else {
-        // For WB R2+, losers go into odd rounds of LB where they face LB survivors
-        targetPosition = wbPosition;
-    }
+        // WB R1 Verlierer: Paaren sich im LB R1
+        // Position 1,2 -> LB Match 1, Position 3,4 -> LB Match 2, etc.
+        // ABER mit Cross-Over: Position 1 und 4 zusammen, Position 2 und 3 zusammen (bei 4 Matches)
+        const matchesInWbR1 = numLbMatches * 2; // Doppelte Anzahl der LB R1 Matches
 
-    // Find target match and available slot
-    let targetMatch = lbMatches.find(m => m.bracket_position === targetPosition);
-    if (!targetMatch) {
-        // Fallback: find any match with available slot
-        targetMatch = lbMatches.find(m => !m.player_a_id || !m.player_b_id);
-    }
+        // Cross-Over: Verlierer aus oberer Hälfte trifft Verlierer aus unterer Hälfte
+        // Bei 8 Spielern (4 WB R1 Matches, 2 LB R1 Matches):
+        // WB Pos 1 (Seed 1 vs 8) loser -> LB Pos 1, Slot A
+        // WB Pos 2 (Seed 4 vs 5) loser -> LB Pos 2, Slot A
+        // WB Pos 3 (Seed 2 vs 7) loser -> LB Pos 2, Slot B (Cross-Over)
+        // WB Pos 4 (Seed 3 vs 6) loser -> LB Pos 1, Slot B (Cross-Over)
+        const halfWbMatches = matchesInWbR1 / 2;
 
-    if (targetMatch) {
-        // For WB R1 losers: they play each other in LB R1
-        // For WB R2+ losers: they face LB survivors (usually go to player_b slot)
-        let updateField;
-        if (wbRound === 1) {
-            // WB R1 losers fill both slots of LB R1 matches
-            updateField = targetMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+        if (wbPosition <= halfWbMatches) {
+            // Obere Hälfte: geht in die gleiche Position
+            targetPosition = wbPosition;
         } else {
-            // WB R2+ losers usually go to player_b (facing LB survivor in player_a)
-            updateField = targetMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+            // Untere Hälfte: Cross-Over - spiegelt in die andere Hälfte
+            // Pos 3 -> 2, Pos 4 -> 1 (bei 4 Matches)
+            // Pos 5 -> 4, Pos 6 -> 3, Pos 7 -> 2, Pos 8 -> 1 (bei 8 Matches)
+            targetPosition = matchesInWbR1 - wbPosition + 1;
         }
+
+        // Bestimme Slot (A oder B) basierend auf ursprünglicher Position
+        const isUpperHalf = wbPosition <= halfWbMatches;
+
+        const targetMatch = lbMatches.find(m => m.bracket_position === targetPosition);
+        if (targetMatch) {
+            // Obere WB-Hälfte geht in Slot A, untere in Slot B
+            const updateField = isUpperHalf ? 'player_a_id' : 'player_b_id';
+
+            await supabase
+                .from('tournament_matches')
+                .update({ [updateField]: loserId })
+                .eq('id', targetMatch.id);
+
+            // Prüfe ob dieses LB R1 Match jetzt ein Bye ist
+            await checkAndProcessLbMatchBye(tournamentId, targetMatch.id, lbRound);
+        }
+    } else {
+        // WB R2+ Verlierer: Treffen auf LB-Überlebende
+        // Cross-Over Logik: Verlierer aus oberer WB-Hälfte trifft LB-Spieler aus unterer Hälfte
+
+        // Berechne wie viele Matches in dieser WB-Runde waren
+        const matchesInThisWbRound = numLbMatches; // Sollte gleich sein
+        const halfMatches = Math.ceil(matchesInThisWbRound / 2);
+
+        if (matchesInThisWbRound === 1) {
+            // Nur ein Match in dieser Runde - kein Cross-Over nötig
+            targetPosition = 1;
+        } else if (wbPosition <= halfMatches) {
+            // Obere Hälfte -> Cross-Over zur unteren Hälfte des LB
+            // Position 1 -> letzte LB Position, Position 2 -> vorletzte, etc.
+            targetPosition = numLbMatches - wbPosition + 1;
+        } else {
+            // Untere Hälfte -> Cross-Over zur oberen Hälfte des LB
+            // Position 3 -> Position 2, Position 4 -> Position 1 (bei 4 Matches)
+            targetPosition = matchesInThisWbRound - wbPosition + 1;
+        }
+
+        const targetMatch = lbMatches.find(m => m.bracket_position === targetPosition);
+        if (!targetMatch) {
+            // Fallback: Finde Match mit verfügbarem Slot
+            const availableMatch = lbMatches.find(m => !m.player_a_id || !m.player_b_id);
+            if (availableMatch) {
+                const updateField = availableMatch.player_a_id ? 'player_b_id' : 'player_a_id';
+                await supabase
+                    .from('tournament_matches')
+                    .update({ [updateField]: loserId })
+                    .eq('id', availableMatch.id);
+            }
+            return;
+        }
+
+        // WB-Verlierer kommen in Slot B (LB-Überlebende sind in Slot A)
+        // Außer wenn Slot B schon belegt ist
+        const updateField = targetMatch.player_b_id ? 'player_a_id' : 'player_b_id';
 
         await supabase
             .from('tournament_matches')
             .update({ [updateField]: loserId })
             .eq('id', targetMatch.id);
+
+        // Prüfe ob dieses LB-Match jetzt ein Bye ist (nur ein Spieler, der andere kommt nicht mehr)
+        await checkAndProcessLbMatchBye(tournamentId, targetMatch.id, lbRound);
+    }
+}
+
+/**
+ * Prüft ob ein LB-Match ein Bye ist und verarbeitet es entsprechend
+ * Ein Bye entsteht wenn einer der erwarteten Spieler aus dem WB nicht kommt (weil sein WB-Match ein Bye war)
+ */
+async function checkAndProcessLbMatchBye(tournamentId, matchId, lbRound) {
+    // Hole aktuellen Stand des Matches
+    const { data: match } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('id', matchId)
+        .single();
+
+    if (!match || match.status !== 'pending') return;
+
+    const hasPlayerA = !!match.player_a_id;
+    const hasPlayerB = !!match.player_b_id;
+
+    // Wenn beide Spieler da sind, ist es kein Bye
+    if (hasPlayerA && hasPlayerB) return;
+
+    // Prüfe ob wir noch auf weitere Spieler warten müssen
+    // Für LB R1: Warten auf 2 WB R1 Verlierer
+    // Für LB R2, R4, R6 (gerade): Warten auf 1 LB-Gewinner + 1 WB-Verlierer
+    // Für LB R3, R5 (ungerade nach R1): Warten auf 2 LB-Gewinner
+
+    if (lbRound === 1) {
+        // LB R1 braucht 2 Verlierer aus WB R1
+        // Prüfe ob alle WB R1 Matches abgeschlossen sind
+        const { data: wbR1Matches } = await supabase
+            .from('tournament_matches')
+            .select('status')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'winners')
+            .eq('round_number', 1);
+
+        const allWbR1Done = wbR1Matches?.every(m => m.status === 'completed' || m.status === 'skipped');
+
+        if (allWbR1Done && (hasPlayerA !== hasPlayerB)) {
+            // Alle WB R1 Matches sind fertig, aber nur ein Spieler im LB Match -> Bye!
+            const winnerId = hasPlayerA ? match.player_a_id : match.player_b_id;
+            await supabase
+                .from('tournament_matches')
+                .update({ status: 'completed', winner_id: winnerId })
+                .eq('id', matchId);
+            await advanceDoubleEliminationWinner(tournamentId, match, winnerId);
+        }
+    } else if (lbRound % 2 === 0) {
+        // Gerade LB-Runde: LB-Gewinner vs WB-Verlierer
+        // Prüfe ob alle entsprechenden WB-Matches fertig sind
+        const wbRound = Math.floor(lbRound / 2) + 1; // LB R2 -> WB R2, LB R4 -> WB R3, LB R6 -> WB R4
+
+        const { data: wbMatches } = await supabase
+            .from('tournament_matches')
+            .select('status')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'winners')
+            .eq('round_number', wbRound);
+
+        const allWbDone = wbMatches?.every(m => m.status === 'completed' || m.status === 'skipped');
+
+        // Auch prüfen ob vorherige LB-Runde fertig ist
+        const { data: prevLbMatches } = await supabase
+            .from('tournament_matches')
+            .select('status')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'losers')
+            .eq('round_number', lbRound - 1);
+
+        const allPrevLbDone = prevLbMatches?.every(m => m.status === 'completed' || m.status === 'skipped');
+
+        if (allWbDone && allPrevLbDone && (hasPlayerA !== hasPlayerB)) {
+            // Beide Quellen sind fertig, aber nur ein Spieler -> Bye!
+            const winnerId = hasPlayerA ? match.player_a_id : match.player_b_id;
+            await supabase
+                .from('tournament_matches')
+                .update({ status: 'completed', winner_id: winnerId })
+                .eq('id', matchId);
+            await advanceDoubleEliminationWinner(tournamentId, { ...match, round_number: lbRound, bracket_type: 'losers' }, winnerId);
+        }
+    }
+}
+
+/**
+ * Verarbeitet Byes im Losers Bracket nach dem Droppen von Spielern
+ * Wird aufgerufen nachdem alle Spieler einer WB-Runde ins LB gedroppt wurden
+ * Prüft ob LB-Matches nur einen Spieler haben (Bye) und lässt diesen automatisch weiterkommen
+ */
+async function processLosersBracketByes(tournamentId, lbRound) {
+    const { data: lbMatches } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'losers')
+        .eq('round_number', lbRound)
+        .eq('status', 'pending');
+
+    if (!lbMatches) return;
+
+    for (const match of lbMatches) {
+        const hasPlayerA = !!match.player_a_id;
+        const hasPlayerB = !!match.player_b_id;
+
+        // Bye: Nur ein Spieler vorhanden
+        if (hasPlayerA && !hasPlayerB) {
+            // Player A gewinnt automatisch
+            await supabase
+                .from('tournament_matches')
+                .update({
+                    status: 'completed',
+                    winner_id: match.player_a_id
+                })
+                .eq('id', match.id);
+            await advanceDoubleEliminationWinner(tournamentId, match, match.player_a_id);
+        } else if (!hasPlayerA && hasPlayerB) {
+            // Player B gewinnt automatisch
+            await supabase
+                .from('tournament_matches')
+                .update({
+                    status: 'completed',
+                    winner_id: match.player_b_id
+                })
+                .eq('id', match.id);
+            await advanceDoubleEliminationWinner(tournamentId, match, match.player_b_id);
+        }
+        // Beide Slots leer: wird später gefüllt oder Match wird geskippt
     }
 }
 
@@ -759,9 +1025,10 @@ async function checkAndCompleteTournament(tournamentId) {
         if (error) throw error;
 
         const total = allMatches.length;
-        const completed = allMatches.filter(m => m.status === 'completed').length;
+        // 'completed' = regulär beendet, 'skipped' = übersprungen (z.B. Grand Finals Reset nicht nötig)
+        const finished = allMatches.filter(m => m.status === 'completed' || m.status === 'skipped').length;
 
-        if (total > 0 && completed === total) {
+        if (total > 0 && finished === total) {
             await supabase.from('tournaments')
                 .update({ status: 'completed', completed_at: new Date().toISOString() })
                 .eq('id', tournamentId);
