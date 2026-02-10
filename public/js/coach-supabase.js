@@ -328,7 +328,7 @@ async function initializeCoachPage(userData) {
 
     await setHeaderProfileAndClub(userData);
 
-    // Analytics per Console statt Firebase
+    // Analytics per Console
     console.log('[Analytics] Coach page view tracked', {
         page_title: 'Coach Dashboard',
         page_location: window.location.href,

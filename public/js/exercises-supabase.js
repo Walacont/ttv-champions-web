@@ -1,5 +1,4 @@
 // Übungen-Modul - Supabase-Version
-// 1:1 Migration von exercises.js - Firebase → Supabase
 
 import { getSupabase } from './supabase-init.js';
 import { renderTableForDisplay } from './tableEditor.js';

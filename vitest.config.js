@@ -7,7 +7,7 @@ export default defineConfig({
         include: ['public/js/__tests__/**/*.test.js'],
         exclude: [
             'node_modules/**',
-            'functions/**',  // Firebase Cloud Functions have their own test setup
+            'functions/**',
             'android/**',
             'ios/**'
         ]

@@ -1,4 +1,4 @@
-// Validierungs-Utilities für Match-Daten (ohne Firebase-Abhängigkeiten)
+// Validierungs-Utilities für Match-Daten
 
 /** Validiert einen Satz nach offiziellen Tischtennis-Regeln */
 export function isValidSet(scoreA, scoreB) {

@@ -270,7 +270,7 @@ describe('isCodeExpired()', () => {
         expect(isCodeExpired('2024-01-20T12:00:00Z')).toBe(false);
     });
 
-    test('sollte mit Firebase Timestamp (toDate) funktionieren', () => {
+    test('sollte mit Timestamp-Objekt (toDate) funktionieren', () => {
         vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
 
         const mockTimestamp = {
@@ -323,7 +323,7 @@ describe('getRemainingDays()', () => {
         expect(getRemainingDays('2024-01-22T12:00:00Z')).toBe(7);
     });
 
-    test('sollte mit Firebase Timestamp funktionieren', () => {
+    test('sollte mit Timestamp-Objekt funktionieren', () => {
         vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
 
         const mockTimestamp = {

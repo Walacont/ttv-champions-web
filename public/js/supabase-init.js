@@ -1,4 +1,4 @@
-// Migration von Firebase zu Supabase
+// Supabase Client Initialization
 
 import { createClient } from '/vendor/supabase.js';
 import { supabaseConfig } from './supabase-config.js';

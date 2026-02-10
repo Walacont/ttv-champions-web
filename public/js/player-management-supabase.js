@@ -1140,7 +1140,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
 
     // Lade Gruppen-Namen statt nur IDs
     const subgroups = player.subgroupIDs || [];
-    // Alte Firebase-IDs (nicht-UUIDs) vor Abfrage herausfiltern
+    // Nicht-UUIDs vor Abfrage herausfiltern
     const validSubgroups = filterValidUUIDs(subgroups);
     let subgroupHtml = '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
 

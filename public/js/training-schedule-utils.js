@@ -1,7 +1,7 @@
 /**
  * Training Schedule Utility Functions
  * Pure functions for date/time validation and manipulation
- * No Firebase dependencies - safe for unit testing
+ * Pure utility functions - safe for unit testing
  */
 
 /**

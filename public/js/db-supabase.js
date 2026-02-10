@@ -1,5 +1,4 @@
 // Datenbank-Abstraktionsschicht für Supabase
-// Bietet Firebase-ähnliche API für einfachere Migration
 
 import { getSupabase } from './supabase-init.js';
 
@@ -8,7 +7,7 @@ import { getSupabase } from './supabase-init.js';
 // ============================================
 
 const fieldMappings = {
-    // User/Profile Felder (1:1 Firebase Mapping)
+    // User/Profile Felder
     firstName: 'first_name',
     lastName: 'last_name',
     photoURL: 'avatar_url',
@@ -127,7 +126,7 @@ const reverseFieldMappings = Object.fromEntries(
     Object.entries(fieldMappings).map(([k, v]) => [v, k])
 );
 
-// Collection-Namen-Mapping (Firestore → Supabase Tabellen)
+// Collection-Namen-Mapping
 const collectionMappings = {
     users: 'profiles',
     clubs: 'clubs',
@@ -196,12 +195,10 @@ function getTableName(collectionName) {
 }
 
 // ============================================
-// DOKUMENT-REFERENZ (Firebase-ähnliche API)
-// ============================================
+// DOKUMENT-REFERENZ // ============================================
 
 /**
- * Erstellt eine Dokumentreferenz (wie Firestore doc())
- */
+ * Erstellt eine Dokumentreferenz */
 export function doc(collectionName, docId) {
     return {
         _type: 'doc_ref',
@@ -211,8 +208,7 @@ export function doc(collectionName, docId) {
 }
 
 /**
- * Holt ein einzelnes Dokument (wie Firestore getDoc())
- */
+ * Holt ein einzelnes Dokument */
 export async function getDoc(docRef) {
     const supabase = getSupabase();
 
@@ -234,8 +230,7 @@ export async function getDoc(docRef) {
 }
 
 /**
- * Aktualisiert ein Dokument (wie Firestore updateDoc())
- */
+ * Aktualisiert ein Dokument */
 export async function updateDoc(docRef, updates) {
     const supabase = getSupabase();
 
@@ -254,8 +249,7 @@ export async function updateDoc(docRef, updates) {
 }
 
 /**
- * Setzt ein Dokument (wie Firestore setDoc())
- */
+ * Setzt ein Dokument */
 export async function setDoc(docRef, data, options = {}) {
     const supabase = getSupabase();
 
@@ -278,8 +272,7 @@ export async function setDoc(docRef, data, options = {}) {
 }
 
 /**
- * Löscht ein Dokument (wie Firestore deleteDoc())
- */
+ * Löscht ein Dokument */
 export async function deleteDoc(docRef) {
     const supabase = getSupabase();
 
@@ -292,12 +285,10 @@ export async function deleteDoc(docRef) {
 }
 
 // ============================================
-// COLLECTION-REFERENZ (Firebase-ähnliche API)
-// ============================================
+// COLLECTION-REFERENZ // ============================================
 
 /**
- * Erstellt eine Collection-Referenz (wie Firestore collection())
- */
+ * Erstellt eine Collection-Referenz */
 export function collection(collectionName) {
     return {
         _type: 'collection_ref',
@@ -306,8 +297,7 @@ export function collection(collectionName) {
 }
 
 /**
- * Fügt ein Dokument zur Collection hinzu (wie Firestore addDoc())
- */
+ * Fügt ein Dokument zur Collection hinzu */
 export async function addDoc(collectionRef, data) {
     const supabase = getSupabase();
 
@@ -329,8 +319,7 @@ export async function addDoc(collectionRef, data) {
 }
 
 /**
- * Holt alle Dokumente aus Collection (wie Firestore getDocs())
- */
+ * Holt alle Dokumente aus Collection */
 export async function getDocs(queryObj) {
     const supabase = getSupabase();
     let query = supabase.from(queryObj._collection || queryObj.name).select('*');
@@ -386,12 +375,10 @@ export async function getDocs(queryObj) {
 }
 
 // ============================================
-// QUERY BUILDER (Firebase-ähnliche API)
-// ============================================
+// QUERY BUILDER // ============================================
 
 /**
- * Erstellt eine Query (wie Firestore query())
- */
+ * Erstellt eine Query */
 export function query(collectionRef, ...constraints) {
     const queryObj = {
         _type: 'query',
@@ -415,8 +402,7 @@ export function query(collectionRef, ...constraints) {
 }
 
 /**
- * Erstellt eine Where-Bedingung (wie Firestore where())
- */
+ * Erstellt eine Where-Bedingung */
 export function where(field, op, value) {
     const snakeField = fieldMappings[field] || field.replace(/([A-Z])/g, '_$1').toLowerCase();
     return {
@@ -428,8 +414,7 @@ export function where(field, op, value) {
 }
 
 /**
- * Erstellt eine OrderBy-Bedingung (wie Firestore orderBy())
- */
+ * Erstellt eine OrderBy-Bedingung */
 export function orderBy(field, direction = 'asc') {
     const snakeField = fieldMappings[field] || field.replace(/([A-Z])/g, '_$1').toLowerCase();
     return {
@@ -440,8 +425,7 @@ export function orderBy(field, direction = 'asc') {
 }
 
 /**
- * Erstellt eine Limit-Bedingung (wie Firestore limit())
- */
+ * Erstellt eine Limit-Bedingung */
 export function limit(n) {
     return {
         _type: 'limit',
@@ -450,12 +434,10 @@ export function limit(n) {
 }
 
 // ============================================
-// ECHTZEIT-LISTENER (Firebase-ähnliche API)
-// ============================================
+// ECHTZEIT-LISTENER // ============================================
 
 /**
- * Richtet einen Echtzeit-Listener ein (wie Firestore onSnapshot())
- */
+ * Richtet einen Echtzeit-Listener ein */
 export function onSnapshot(target, callback, errorCallback) {
     const supabase = getSupabase();
 
@@ -528,12 +510,10 @@ export function onSnapshot(target, callback, errorCallback) {
 }
 
 // ============================================
-// BATCH-SCHREIBVORGÄNGE (Firebase-ähnliche API)
-// ============================================
+// BATCH-SCHREIBVORGÄNGE // ============================================
 
 /**
- * Erstellt einen Schreibstapel (wie Firestore writeBatch())
- */
+ * Erstellt einen Schreibstapel */
 export function writeBatch() {
     const operations = [];
 
@@ -580,33 +560,28 @@ export function writeBatch() {
 }
 
 // ============================================
-// SPEZIELLE WERTE (Firebase-ähnliche API)
-// ============================================
+// SPEZIELLE WERTE // ============================================
 
 /**
- * Server-Zeitstempel-Platzhalter (wie Firestore serverTimestamp())
- */
+ * Server-Zeitstempel-Platzhalter */
 export function serverTimestamp() {
     return { _type: 'serverTimestamp' };
 }
 
 /**
- * Inkrementierungswert (wie Firestore increment())
- */
+ * Inkrementierungswert */
 export function increment(n) {
     return { _type: 'increment', value: n };
 }
 
 /**
- * Array-Union (wie Firestore arrayUnion())
- */
+ * Array-Union */
 export function arrayUnion(...elements) {
     return { _type: 'arrayUnion', elements };
 }
 
 /**
- * Array-Remove (wie Firestore arrayRemove())
- */
+ * Array-Remove */
 export function arrayRemove(...elements) {
     return { _type: 'arrayRemove', elements };
 }

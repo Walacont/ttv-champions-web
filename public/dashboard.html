@@ -12,7 +12,7 @@
         <script src="/js/i18n-lite.js"></script>
         <script src="/js/analytics.js"></script>
 
-        <!-- OneSignal SDK for PWA Push Notifications (skip on native - Firebase handles it) -->
+        <!-- OneSignal SDK for PWA Push Notifications (skip on native - OneSignal Cordova plugin handles it) -->
         <script>
             window.OneSignalDeferred = window.OneSignalDeferred || [];
             if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
@@ -2385,7 +2385,6 @@
         <script src="/js/table-tennis-exercise-builder.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <!-- Supabase Version - keine Firebase-Abhängigkeiten -->
         <script type="module" src="/js/dashboard-supabase.js"></script>
         <script type="module" src="/js/posts-manager-supabase.js"></script>
         <script type="module" src="/js/activity-comments.js"></script>

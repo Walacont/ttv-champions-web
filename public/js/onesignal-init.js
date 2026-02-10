@@ -36,7 +36,7 @@ export async function initOneSignal() {
     if (isOneSignalInitialized) return Promise.resolve();
     if (typeof window === 'undefined') return Promise.resolve();
 
-    // Native Apps verwenden FCM direkt statt OneSignal Web SDK
+    // Native Apps verwenden OneSignal Cordova Plugin statt Web SDK
     if (window.CapacitorUtils?.isNative()) {
         console.log('[OneSignal] Skipping - running in native app');
         return Promise.resolve();

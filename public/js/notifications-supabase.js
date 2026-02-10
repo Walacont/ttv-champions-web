@@ -942,7 +942,7 @@ async function sendPushNotification(userId, type, title, body, data = {}) {
                 notification_type: type,
                 data: {
                     ...data,
-                    // Strings sicherstellen für FCM
+                    // Strings sicherstellen für Push-Daten
                     ...(data.video_id && { video_id: String(data.video_id) }),
                     ...(data.request_id && { request_id: String(data.request_id) }),
                 },

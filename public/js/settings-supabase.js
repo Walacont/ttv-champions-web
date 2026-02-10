@@ -98,7 +98,7 @@ async function initializeAuth() {
         }
 
         currentEmailDisplay.textContent = currentUser.email || 'Keine Email hinterlegt';
-        // Supabase verwendet ein anderes Verifizierungssystem als Firebase
+        // E-Mail-Verifizierung prüfen
         updateEmailVerificationStatus(currentUser.email_confirmed_at != null);
 
         pageLoader.style.display = 'none';
