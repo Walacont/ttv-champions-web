@@ -128,19 +128,34 @@ function transformMatch(match) {
 }
 
 /**
- * Get round name based on position from end
+ * Get round name based on match count in the round
+ * @param {number} matchCount - Number of matches in this round
+ * @param {boolean} isLosersBracket - Whether this is the losers bracket
+ * @param {number} roundIndex - Index of the round (for losers bracket naming)
+ * @param {string} bracketType - Type of bracket (winners, losers, finals, grand_finals)
  */
-function getRoundName(index, totalRounds, isLosersBracket) {
+function getRoundName(matchCount, isLosersBracket, roundIndex, bracketType) {
+    // Special cases for finals
+    if (bracketType === 'grand_finals') return 'Grand Finals';
+    if (bracketType === 'finals') return 'Finale';
+
+    // Losers/Trostrunde naming
     if (isLosersBracket) {
-        return `LR ${index + 1}`;
+        return `TR ${roundIndex + 1}`;
     }
 
-    const fromEnd = totalRounds - index - 1;
-    if (fromEnd === 0) return 'Finale';
-    if (fromEnd === 1) return 'Halbfinale';
-    if (fromEnd === 2) return 'Viertelfinale';
-    if (fromEnd === 3) return 'Achtelfinale';
-    return `Runde ${index + 1}`;
+    // Winners/Hauptrunde naming based on match count
+    // matchCount = number of matches = number of players / 2
+    // 1 match = 2 players = Halbfinale (or Finale if it's the last)
+    // 2 matches = 4 players = Viertelfinale
+    // 4 matches = 8 players = Achtelfinale
+    // 8 matches = 16 players = Runde 1
+    if (matchCount === 1) return 'Halbfinale';
+    if (matchCount === 2) return 'Viertelfinale';
+    if (matchCount === 4) return 'Achtelfinale';
+    if (matchCount === 8) return 'Runde 1';
+    if (matchCount === 16) return 'Runde 1';
+    return `Runde ${roundIndex + 1}`;
 }
 
 /**
@@ -340,8 +355,10 @@ function renderBracketSection(rounds, isLosersBracket) {
     let html = `<div class="bracket-rounds-container flex gap-16 min-w-max p-6">`;
 
     rounds.forEach((round, roundIndex) => {
-        const roundName = getRoundName(roundIndex, rounds.length, isLosersBracket);
-        const isFinal = roundIndex === rounds.length - 1;
+        const matchCount = round.length;
+        const bracketType = round[0]?.bracketType || (isLosersBracket ? 'losers' : 'winners');
+        const roundName = getRoundName(matchCount, isLosersBracket, roundIndex, bracketType);
+        const isFinal = bracketType === 'finals' || bracketType === 'grand_finals' || roundIndex === rounds.length - 1;
 
         html += `
             <div class="bracket-round relative" style="padding-top: 48px;">
