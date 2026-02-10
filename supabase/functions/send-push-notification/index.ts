@@ -39,6 +39,8 @@ async function sendOneSignalNotification(
       data: data || {},
     }
 
+    console.log('[Push] Sending to OneSignal:', JSON.stringify({ app_id: appId, userIds, title }))
+
     const response = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
       headers: {
@@ -49,14 +51,20 @@ async function sendOneSignalNotification(
     })
 
     const result = await response.json()
+    console.log('[Push] OneSignal response:', response.status, JSON.stringify(result))
 
     if (response.ok && !result.errors) {
       return { success: true }
     }
 
+    const errorMsg = Array.isArray(result.errors)
+      ? result.errors.join(', ')
+      : JSON.stringify(result.errors || result)
+    console.error('[Push] OneSignal error:', errorMsg)
+
     return {
       success: false,
-      error: result.errors?.join(', ') || 'Unknown OneSignal error',
+      error: errorMsg,
     }
   } catch (e) {
     return { success: false, error: e.message }
