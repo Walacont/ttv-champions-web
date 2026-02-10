@@ -48,13 +48,18 @@ export function transformMatchesToBracketData(matches) {
     const losersRounds = groupByRound(losersMatches);
 
     // Convert to array format (sorted by round number)
-    const winnersArray = Object.keys(winnersRounds)
-        .sort((a, b) => Number(a) - Number(b))
-        .map(roundNum => winnersRounds[roundNum].map(m => transformMatch(m)));
+    const sortedWinnersRoundNums = Object.keys(winnersRounds).sort((a, b) => Number(a) - Number(b));
+    const firstWinnersRound = sortedWinnersRoundNums[0];
+
+    const winnersArray = sortedWinnersRoundNums
+        .map(roundNum => {
+            const isFirstRound = roundNum === firstWinnersRound;
+            return winnersRounds[roundNum].map(m => transformMatch(m, isFirstRound, true));
+        });
 
     const losersArray = Object.keys(losersRounds)
         .sort((a, b) => Number(a) - Number(b))
-        .map(roundNum => losersRounds[roundNum].map(m => transformMatch(m)));
+        .map(roundNum => losersRounds[roundNum].map(m => transformMatch(m, false, false)));
 
     // Add finals to winners bracket if exists
     if (finalsMatches.length > 0) {
@@ -74,11 +79,16 @@ export function transformMatchesToBracketData(matches) {
 
 /**
  * Transform a single match to the bracket format
+ * @param {Object} match - The match object
+ * @param {boolean} isFirstRound - Whether this is the first round of the bracket
+ * @param {boolean} isWinnersBracket - Whether this is in the winners bracket
  */
-function transformMatch(match) {
+function transformMatch(match, isFirstRound = false, isWinnersBracket = true) {
     const getPlayerData = (player, playerId) => {
         if (!playerId) {
-            return { name: 'TBD', seed: null, elo: null, avatar: null };
+            // In der ersten Runde des Winners-Brackets: "Freilos" statt "TBD"
+            const displayName = (isFirstRound && isWinnersBracket) ? 'Freilos' : 'TBD';
+            return { name: displayName, seed: null, elo: null, avatar: null, isBye: isFirstRound && isWinnersBracket };
         }
         const displayName = player?.display_name ||
             `${player?.first_name || ''} ${player?.last_name || ''}`.trim() ||
@@ -225,7 +235,8 @@ function createConnectorSVG(roundIndex, matchIndex, totalHeight, meetingPointY, 
  */
 function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
     const isCompleted = match.status === 'completed';
-    const isTBD = match.player1.name === 'TBD' && match.player2.name === 'TBD';
+    const isPlaceholder = (name) => name === 'TBD' || name === 'Freilos';
+    const isTBD = isPlaceholder(match.player1.name) && isPlaceholder(match.player2.name);
 
     // Border and shadow colors based on status
     let borderClass = 'border-gray-200';
@@ -265,7 +276,7 @@ function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
 
         // Get initials for fallback avatar
         const getInitials = (name) => {
-            if (!name || name === 'TBD') return '?';
+            if (!name || name === 'TBD' || name === 'Freilos') return '?';
             const parts = name.trim().split(' ');
             if (parts.length >= 2) {
                 return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -273,9 +284,12 @@ function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
             return name.substring(0, 2).toUpperCase();
         };
 
+        // Check if this is a placeholder (TBD or Freilos)
+        const isPlaceholderPlayer = player.name === 'TBD' || player.name === 'Freilos';
+
         return `
             <div class="flex items-center gap-2 p-2 ${getPlayerBg(playerNum)} ${hasBorder ? 'border-b border-gray-100' : ''}">
-                ${player.name !== 'TBD' ? `
+                ${!isPlaceholderPlayer ? `
                     <div class="relative flex-shrink-0">
                         ${hasAvatar ? `
                             <img src="${escapeHtml(player.avatar)}"
@@ -300,7 +314,7 @@ function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1">
                         <span class="font-semibold text-sm truncate ${getNameColor(playerNum)}">
-                            ${player.name === 'TBD' ? '<span class="text-gray-400 italic">TBD</span>' : escapeHtml(player.name)}
+                            ${isPlaceholderPlayer ? `<span class="text-gray-400 italic">${escapeHtml(player.name)}</span>` : escapeHtml(player.name)}
                         </span>
                         ${isWinner ? '<i class="fas fa-crown text-yellow-500 text-xs flex-shrink-0"></i>' : ''}
                     </div>

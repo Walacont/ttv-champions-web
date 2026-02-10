@@ -711,6 +711,8 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
     const allRounds = Object.keys(byRound).sort((a, b) => a - b);
     const totalRounds = allRounds.length;
 
+    const firstRoundNumber = allRounds.length > 0 ? parseInt(allRounds[0]) : 1;
+
     const rounds = allRounds.map(round => {
         const roundMatches = byRound[round];
         const roundNum = parseInt(round);
@@ -718,6 +720,7 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         const completed = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
         const isCompleted = completed === actual.length && actual.length > 0;
         const hasWaiting = roundMatches.some(m => !m.player_a_id || !m.player_b_id);
+        const isFirstRound = roundNum === firstRoundNumber;
 
         // Apply filter
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
@@ -744,7 +747,8 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
             matches: roundMatches,
             completed: completed,
             total: actual.length,
-            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending')
+            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending'),
+            isFirstRound: isFirstRound
         };
     }).filter(r => r !== null);
 
@@ -886,7 +890,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
             if (currentRoundIndex > 0) {
                 currentRoundIndex--;
                 renderCarousel();
-                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'prev');
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'prev', bracketType);
             }
         });
 
@@ -894,7 +898,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
             if (currentRoundIndex < rounds.length - 1) {
                 currentRoundIndex++;
                 renderCarousel();
-                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'next');
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'next', bracketType);
             }
         });
 
@@ -906,7 +910,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
                     const direction = newIndex > currentRoundIndex ? 'next' : 'prev';
                     currentRoundIndex = newIndex;
                     renderCarousel();
-                    renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, direction);
+                    renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, direction, bracketType);
                 }
             });
         });
@@ -914,24 +918,28 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
 
     // Initial render
     renderCarousel();
-    renderRoundContent(contentContainer, rounds[0], isCreator);
+    renderRoundContent(contentContainer, rounds[0], isCreator, null, bracketType);
 }
 
-function renderRoundContent(container, round, isCreator, slideDirection = null) {
+function renderRoundContent(container, round, isCreator, slideDirection = null, bracketType = 'winners') {
     const slideClass = slideDirection === 'next' ? 'slide-from-right' : (slideDirection === 'prev' ? 'slide-from-left' : '');
+    // In der ersten Runde des Winners-Brackets: "Freilos" statt "TBD" anzeigen
+    const showFreilos = round.isFirstRound && bracketType === 'winners';
 
     container.innerHTML = `
         <div class="bracket-round-content ${slideClass}">
             <div class="bracket-matches-list">
-                ${round.matches.map((m, idx) => renderCarouselMatchCard(m, isCreator, idx + 1)).join('')}
+                ${round.matches.map((m, idx) => renderCarouselMatchCard(m, isCreator, idx + 1, showFreilos)).join('')}
             </div>
         </div>
     `;
 }
 
-function renderCarouselMatchCard(match, isCreator, matchNumber) {
+function renderCarouselMatchCard(match, isCreator, matchNumber, showFreilos = false) {
     const playerA = match.player_a ? getPlayerName(match.player_a) : null;
     const playerB = match.player_b ? getPlayerName(match.player_b) : null;
+    // Text für fehlende Spieler: "Freilos" in erster Runde, sonst "TBD"
+    const missingPlayerText = showFreilos ? 'Freilos' : 'TBD';
     const playerAElo = match.player_a?.elo_rating;
     const playerBElo = match.player_b?.elo_rating;
     const playerASeed = match.player_a?.seed;
@@ -972,7 +980,7 @@ function renderCarouselMatchCard(match, isCreator, matchNumber) {
                 <div class="match-player-card tbd">
                     <div class="match-player-avatar tbd">?</div>
                     <div class="match-player-info">
-                        <span class="match-player-name tbd">TBD</span>
+                        <span class="match-player-name tbd">${missingPlayerText}</span>
                     </div>
                 </div>
             `;

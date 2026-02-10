@@ -696,6 +696,8 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
     const allRounds = Object.keys(byRound).sort((a, b) => a - b);
     const totalRounds = allRounds.length;
 
+    const firstRoundNumber = allRounds.length > 0 ? parseInt(allRounds[0]) : 1;
+
     const rounds = allRounds.map(round => {
         const roundMatches = byRound[round];
         const roundNum = parseInt(round);
@@ -703,6 +705,7 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         const completed = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
         const isCompleted = completed === actual.length && actual.length > 0;
         const hasWaiting = roundMatches.some(m => !m.player_a_id || !m.player_b_id);
+        const isFirstRound = roundNum === firstRoundNumber;
 
         // Apply filter
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
@@ -728,7 +731,8 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
             matches: roundMatches,
             completed: completed,
             total: actual.length,
-            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending')
+            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending'),
+            isFirstRound: isFirstRound
         };
     }).filter(r => r !== null);
 
@@ -870,7 +874,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
             if (currentRoundIndex > 0) {
                 currentRoundIndex--;
                 renderCarousel();
-                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'prev');
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'prev', bracketType);
             }
         });
 
@@ -878,7 +882,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
             if (currentRoundIndex < rounds.length - 1) {
                 currentRoundIndex++;
                 renderCarousel();
-                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'next');
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'next', bracketType);
             }
         });
 
@@ -890,7 +894,7 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
                     const direction = newIndex > currentRoundIndex ? 'next' : 'prev';
                     currentRoundIndex = newIndex;
                     renderCarousel();
-                    renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, direction);
+                    renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, direction, bracketType);
                 }
             });
         });
@@ -898,16 +902,18 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
 
     // Initial render
     renderCarousel();
-    renderRoundContent(contentContainer, rounds[0], isCreator);
+    renderRoundContent(contentContainer, rounds[0], isCreator, null, bracketType);
 }
 
-function renderRoundContent(container, round, isCreator, slideDirection = null) {
+function renderRoundContent(container, round, isCreator, slideDirection = null, bracketType = 'winners') {
     const slideClass = slideDirection === 'next' ? 'slide-from-right' : (slideDirection === 'prev' ? 'slide-from-left' : '');
+    // In der ersten Runde des Winners-Brackets: "Freilos" statt "TBD" anzeigen
+    const showFreilos = round.isFirstRound && bracketType === 'winners';
 
     container.innerHTML = `
         <div class="bracket-round-content ${slideClass}">
             <div class="bracket-matches-list">
-                ${round.matches.map(m => renderBracketMatch(m, isCreator)).join('')}
+                ${round.matches.map(m => renderBracketMatch(m, isCreator, showFreilos)).join('')}
             </div>
         </div>
     `;
@@ -933,12 +939,14 @@ function renderFinalsContent(container, finalsData, isCreator) {
     `;
 }
 
-function renderBracketMatch(match, isCreator) {
+function renderBracketMatch(match, isCreator, showFreilos = false) {
     const playerA = getPlayerName(match.player_a);
     const playerB = getPlayerName(match.player_b);
     const isCompleted = match.status === 'completed';
     const isSkipped = match.status === 'skipped'; // Match übersprungen (nicht benötigt)
     const isWaiting = !match.player_a_id || !match.player_b_id;
+    // Text für fehlende Spieler: "Freilos" in erster Runde, sonst "TBD"
+    const missingPlayerText = showFreilos ? 'Freilos' : 'TBD';
 
     let statusClass = 'pending';
     if (isCompleted) statusClass = 'completed';
@@ -953,14 +961,14 @@ function renderBracketMatch(match, isCreator) {
         <div class="bracket-match ${statusClass}" data-match-id="${match.id}">
             <div class="bracket-player ${showScores && aWon ? 'winner' : ''} ${showScores && !aWon && match.winner_id ? 'loser' : ''}">
                 <span class="bracket-player-name" title="${escapeHtml(playerA)}">
-                    ${match.player_a_id ? escapeHtml(playerA) : '<span class="bracket-player-tbd">TBD</span>'}
+                    ${match.player_a_id ? escapeHtml(playerA) : `<span class="bracket-player-tbd">${missingPlayerText}</span>`}
                 </span>
                 ${showScores && !isSkipped ? `<span class="bracket-player-score">${match.player_a_sets_won || 0}</span>` : ''}
                 ${isSkipped ? '<span class="bracket-player-score text-xs">-</span>' : ''}
             </div>
             <div class="bracket-player ${showScores && bWon ? 'winner' : ''} ${showScores && !bWon && match.winner_id ? 'loser' : ''}">
                 <span class="bracket-player-name" title="${escapeHtml(playerB)}">
-                    ${match.player_b_id ? escapeHtml(playerB) : '<span class="bracket-player-tbd">TBD</span>'}
+                    ${match.player_b_id ? escapeHtml(playerB) : `<span class="bracket-player-tbd">${missingPlayerText}</span>`}
                 </span>
                 ${showScores && !isSkipped ? `<span class="bracket-player-score">${match.player_b_sets_won || 0}</span>` : ''}
                 ${isSkipped ? '<span class="bracket-player-score text-xs">-</span>' : ''}
