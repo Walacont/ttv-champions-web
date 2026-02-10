@@ -968,7 +968,7 @@ button:active,
     background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
 }
 
-/* Losers/Zweite Chance - Red */
+/* Losers/Trost Runde - Red */
 .bracket-type-btn.losers {
     color: #dc2626;
 }

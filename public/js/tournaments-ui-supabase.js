@@ -50,7 +50,7 @@ function getSetsToWin(mode) {
 function getBracketLabel(bracketType) {
     const labels = {
         'winners': 'Hauptrunde',
-        'losers': 'Zweite Chance',
+        'losers': 'Trost Runde',
         'finals': 'Finale',
         'grand_finals': 'Entscheidung'
     };
@@ -672,7 +672,7 @@ function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'al
     if (hasLosers) {
         html += `<button class="bracket-type-btn losers ${defaultBracket === 'losers' ? 'active' : ''}" data-bracket="losers">
             <span class="bracket-indicator" style="background:#dc2626;"></span>
-            Zweite Chance
+            Trost Runde
         </button>`;
     }
     if (hasFinalsData) {
@@ -2168,7 +2168,7 @@ function generateBracketTreeHtml(matches, participants) {
                         </div>
                     </div>
                     <div style="font-size:8px; color:#666; margin-top:4px;">
-                        <span style="color:#16a34a;">● Hauptrunde</span> vs <span style="color:#dc2626;">● Zweite Chance</span>
+                        <span style="color:#16a34a;">● Hauptrunde</span> vs <span style="color:#dc2626;">● Trost Runde</span>
                     </div>
                 </div>
             `;
@@ -2194,7 +2194,7 @@ function generateBracketTreeHtml(matches, participants) {
                             ${rmCompleted ? `<span style="font-family:monospace;">${resetMatch.player_b_sets_won || 0}</span>` : ''}
                         </div>
                     </div>
-                    <div style="font-size:8px; color:#666; margin-top:4px;">Falls Zweite Chance gewinnt</div>
+                    <div style="font-size:8px; color:#666; margin-top:4px;">Falls Trost Runde gewinnt</div>
                 </div>
             `;
         }
@@ -2206,7 +2206,7 @@ function generateBracketTreeHtml(matches, participants) {
     // Build complete bracket tree
     let html = '<div style="margin-top:15px;">';
     html += renderBracketTree(wbRounds, wbRoundNums, 'winners', 'Hauptrunde (Winners Bracket)', '#16a34a');
-    html += renderLosersBracket(lbRounds, lbRoundNums, 'Zweite Chance (Losers Bracket)', '#dc2626');
+    html += renderLosersBracket(lbRounds, lbRoundNums, 'Trost Runde (Losers Bracket)', '#dc2626');
     html += renderFinals();
     html += '</div>';
 
