@@ -246,16 +246,35 @@ function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
 
     const renderPlayer = (player, playerNum, hasBorder) => {
         const isWinner = match.winner === playerNum;
-        const avatarUrl = player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(player.name)}`;
+        const hasAvatar = player.avatar && player.avatar.trim() !== '';
+
+        // Get initials for fallback avatar
+        const getInitials = (name) => {
+            if (!name || name === 'TBD') return '?';
+            const parts = name.trim().split(' ');
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        };
 
         return `
             <div class="flex items-center gap-2 p-2 ${getPlayerBg(playerNum)} ${hasBorder ? 'border-b border-gray-100' : ''}">
                 ${player.name !== 'TBD' ? `
                     <div class="relative flex-shrink-0">
-                        <img src="${escapeHtml(avatarUrl)}"
-                             alt="${escapeHtml(player.name)}"
-                             class="w-8 h-8 rounded-full ${getPlayerRing(playerNum)}"
-                             onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=default'" />
+                        ${hasAvatar ? `
+                            <img src="${escapeHtml(player.avatar)}"
+                                 alt="${escapeHtml(player.name)}"
+                                 class="w-8 h-8 rounded-full ${getPlayerRing(playerNum)} object-cover"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                            <div class="w-8 h-8 rounded-full ${getPlayerRing(playerNum)} bg-gray-200 items-center justify-center text-xs font-bold text-gray-600" style="display: none;">
+                                ${escapeHtml(getInitials(player.name))}
+                            </div>
+                        ` : `
+                            <div class="w-8 h-8 rounded-full ${getPlayerRing(playerNum)} bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                                ${escapeHtml(getInitials(player.name))}
+                            </div>
+                        `}
                         ${player.seed ? `
                             <div class="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
                                 ${player.seed}
