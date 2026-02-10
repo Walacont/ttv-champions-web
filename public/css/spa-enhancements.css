@@ -915,6 +915,16 @@ button:active,
     transition: all 0.2s ease;
     background: #f3f4f6;
     color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bracket-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .bracket-type-btn:hover {
@@ -1082,4 +1092,128 @@ button:active,
     padding: 24px;
     color: #9ca3af;
     font-size: 14px;
+}
+
+/* ==================== BRACKET TREE VIEW ==================== */
+
+.bracket-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.tree-section {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bracket-tree-wrapper {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    align-items: flex-start;
+}
+
+.bracket-tree-wrapper.losers-tree {
+    background: #fef2f2;
+}
+
+.bracket-tree-round {
+    min-width: 160px;
+    flex-shrink: 0;
+}
+
+.bracket-round-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: space-around;
+    min-height: 100px;
+}
+
+/* Match styling for tree view */
+.tree-match {
+    width: 150px;
+}
+
+.bracket-match.bye {
+    border-color: #fbbf24;
+    background: #fffbeb;
+}
+
+.bracket-bye-label {
+    font-size: 9px;
+    color: #92400e;
+    font-style: italic;
+    padding: 2px 4px;
+    background: #fef3c7;
+    border-radius: 3px;
+}
+
+/* Finals container in tree view */
+.bracket-finals-container {
+    display: flex;
+    gap: 32px;
+    padding: 16px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.bracket-grand-final-wrapper,
+.bracket-reset-wrapper {
+    text-align: center;
+}
+
+.bracket-final-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #5b21b6;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bracket-reset-wrapper .bracket-match {
+    opacity: 0.7;
+    border-style: dashed;
+}
+
+.bracket-reset-wrapper .bracket-final-label {
+    color: #991b1b;
+}
+
+/* View Toggle Button Enhancement */
+.bracket-view-toggle {
+    margin-bottom: 16px;
+}
+
+.bracket-view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bracket-view-btn i {
+    font-size: 12px;
+}
+
+/* Mobile responsive tree view */
+@media (max-width: 640px) {
+    .bracket-tree-round {
+        min-width: 140px;
+    }
+
+    .tree-match {
+        width: 130px;
+    }
+
+    .bracket-finals-container {
+        flex-direction: column;
+        align-items: center;
+    }
 }
