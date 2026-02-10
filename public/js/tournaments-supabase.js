@@ -1177,13 +1177,72 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
 
 async function checkAndCompleteTournament(tournamentId) {
     try {
-        const { data: allMatches, error } = await supabase
-            .from('tournament_matches').select('id, status, player_b_id').eq('tournament_id', tournamentId);
+        // Fetch all matches once for efficient in-memory processing
+        let { data: allMatches, error } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId);
         if (error) throw error;
 
+        const isDone = m => m.status === 'completed' || m.status === 'skipped';
+
+        // Phase 1: Auto-skip all pending matches with no players at all
+        const emptyPending = allMatches.filter(m => m.status === 'pending' && !m.player_a_id && !m.player_b_id);
+        if (emptyPending.length > 0) {
+            const emptyIds = emptyPending.map(m => m.id);
+            await supabase.from('tournament_matches')
+                .update({ status: 'skipped' })
+                .in('id', emptyIds);
+            emptyPending.forEach(m => m.status = 'skipped');
+        }
+
+        // Phase 2: Cascade-process byes for matches with one player where sources are done
+        let changed = true;
+        let iterations = 0;
+        while (changed && iterations < 30) {
+            changed = false;
+            iterations++;
+
+            const pending = allMatches.filter(m => m.status === 'pending');
+            if (pending.length === 0) break;
+
+            for (const match of pending) {
+                const hasA = !!match.player_a_id;
+                const hasB = !!match.player_b_id;
+
+                if (!hasA && !hasB) {
+                    // Both empty - check if all source rounds are done, then skip
+                    if (areMatchSourcesDone(allMatches, match)) {
+                        await supabase.from('tournament_matches')
+                            .update({ status: 'skipped' })
+                            .eq('id', match.id);
+                        match.status = 'skipped';
+                        changed = true;
+                    }
+                } else if (hasA !== hasB) {
+                    // One player only - check if this is a bye (sources all done)
+                    if (areMatchSourcesDone(allMatches, match)) {
+                        const winnerId = match.player_a_id || match.player_b_id;
+                        await supabase.from('tournament_matches')
+                            .update({ status: 'completed', winner_id: winnerId })
+                            .eq('id', match.id);
+                        match.status = 'completed';
+                        match.winner_id = winnerId;
+                        await advanceDoubleEliminationWinner(tournamentId, match, winnerId);
+                        // Re-fetch to get updated match data after advancement
+                        const { data: fresh } = await supabase
+                            .from('tournament_matches').select('*').eq('tournament_id', tournamentId);
+                        allMatches = fresh;
+                        changed = true;
+                        break; // Restart loop with fresh data
+                    }
+                }
+            }
+        }
+
+        // Phase 3: Check completion
         const total = allMatches.length;
-        // 'completed' = regulär beendet, 'skipped' = übersprungen (z.B. Grand Finals Reset nicht nötig)
-        const finished = allMatches.filter(m => m.status === 'completed' || m.status === 'skipped').length;
+        const finished = allMatches.filter(isDone).length;
 
         if (total > 0 && finished === total) {
             await supabase.from('tournaments')
@@ -1198,6 +1257,61 @@ async function checkAndCompleteTournament(tournamentId) {
     } catch (error) {
         console.error('[Tournaments] Error checking tournament completion:', error);
     }
+}
+
+/**
+ * Check if all source matches for a given match are done (completed/skipped)
+ * Used to determine if a pending match can be auto-resolved as bye or skipped
+ */
+function areMatchSourcesDone(allMatches, match) {
+    const { bracket_type, round_number } = match;
+    const isDone = m => m.status === 'completed' || m.status === 'skipped';
+
+    if (bracket_type === 'winners') {
+        if (round_number <= 1) return true;
+        return allMatches
+            .filter(m => m.bracket_type === 'winners' && m.round_number === round_number - 1)
+            .every(isDone);
+    }
+
+    if (bracket_type === 'losers') {
+        if (round_number <= 1) {
+            // LB R1 sources: WB R1
+            return allMatches
+                .filter(m => m.bracket_type === 'winners' && m.round_number === 1)
+                .every(isDone);
+        }
+        if (round_number % 2 === 0) {
+            // Even LB round: needs LB previous round + WB source round
+            const wbSourceRound = Math.floor(round_number / 2) + 1;
+            const wbDone = allMatches
+                .filter(m => m.bracket_type === 'winners' && m.round_number === wbSourceRound)
+                .every(isDone);
+            const prevLbDone = allMatches
+                .filter(m => m.bracket_type === 'losers' && m.round_number === round_number - 1)
+                .every(isDone);
+            return wbDone && prevLbDone;
+        } else {
+            // Odd LB round (>1): needs only LB previous round
+            return allMatches
+                .filter(m => m.bracket_type === 'losers' && m.round_number === round_number - 1)
+                .every(isDone);
+        }
+    }
+
+    if (bracket_type === 'finals') {
+        return allMatches
+            .filter(m => m.bracket_type === 'winners' || m.bracket_type === 'losers')
+            .every(isDone);
+    }
+
+    if (bracket_type === 'grand_finals') {
+        return allMatches
+            .filter(m => m.bracket_type === 'finals')
+            .every(isDone);
+    }
+
+    return true;
 }
 
 async function createTournamentCompletedEvents(tournamentId) {

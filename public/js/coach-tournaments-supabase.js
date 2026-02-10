@@ -749,7 +749,7 @@ function prepareFinalsData(finalsMatches, filter) {
     if (grandFinal && (grandFinal.player_a_id || grandFinal.player_b_id)) {
         matches.push({ ...grandFinal, label: 'Grand Final' });
     }
-    if (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id)) {
+    if (resetMatch && resetMatch.status !== 'skipped' && (resetMatch.player_a_id || resetMatch.player_b_id)) {
         matches.push({ ...resetMatch, label: 'Reset Match' });
     }
 

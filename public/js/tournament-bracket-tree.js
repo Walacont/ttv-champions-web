@@ -66,9 +66,12 @@ export function transformMatchesToBracketData(matches) {
         winnersArray.push(finalsMatches.map(m => transformMatch(m)));
     }
 
-    // Add grand finals reset match if exists
+    // Add grand finals reset match only if it's actually needed (not skipped)
     if (grandFinalsMatches.length > 0) {
-        winnersArray.push(grandFinalsMatches.map(m => transformMatch(m)));
+        const activeGrandFinals = grandFinalsMatches.filter(m => m.status !== 'skipped');
+        if (activeGrandFinals.length > 0) {
+            winnersArray.push(activeGrandFinals.map(m => transformMatch(m)));
+        }
     }
 
     return {
