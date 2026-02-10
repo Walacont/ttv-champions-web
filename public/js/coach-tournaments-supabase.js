@@ -288,8 +288,12 @@ async function openTournamentDetails(tournamentId) {
         let tournament = await getTournamentDetails(tournamentId);
         // Backwards compatibility: check if in_progress tournament should be completed
         if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            const oldStatus = tournament.status;
             await checkAndCompleteTournament(tournamentId);
             tournament = await getTournamentDetails(tournamentId);
+            if (tournament.status !== oldStatus) {
+                loadCoachTournaments(); // Refresh list in background
+            }
         }
         content.innerHTML = renderTournamentDetails(tournament);
         setupDetailEventListeners(tournament);
@@ -307,8 +311,12 @@ async function refreshDetailsView() {
         let tournament = await getTournamentDetails(selectedTournamentId);
         // Backwards compatibility: check if in_progress tournament should be completed
         if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            const oldStatus = tournament.status;
             await checkAndCompleteTournament(selectedTournamentId);
             tournament = await getTournamentDetails(selectedTournamentId);
+            if (tournament.status !== oldStatus) {
+                loadCoachTournaments(); // Refresh list in background
+            }
         }
         content.innerHTML = renderTournamentDetails(tournament);
         setupDetailEventListeners(tournament);

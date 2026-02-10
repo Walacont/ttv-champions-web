@@ -260,8 +260,12 @@ async function openTournamentDetails(tournamentId) {
         let tournament = await getTournamentDetails(tournamentId);
         // Backwards compatibility: check if in_progress tournament should be completed
         if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            const oldStatus = tournament.status;
             await checkAndCompleteTournament(tournamentId);
             tournament = await getTournamentDetails(tournamentId);
+            if (tournament.status !== oldStatus) {
+                loadTournaments(); // Refresh list in background
+            }
         }
         const participating = await isParticipating(tournamentId);
         content.innerHTML = renderTournamentDetails(tournament, participating);
@@ -286,8 +290,12 @@ async function refreshTournamentDetailsView(tournamentId) {
         let tournament = await getTournamentDetails(tournamentId);
         // Backwards compatibility: check if in_progress tournament should be completed
         if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            const oldStatus = tournament.status;
             await checkAndCompleteTournament(tournamentId);
             tournament = await getTournamentDetails(tournamentId);
+            if (tournament.status !== oldStatus) {
+                loadTournaments(); // Refresh list in background
+            }
         }
         const participating = await isParticipating(tournamentId);
         content.innerHTML = renderTournamentDetails(tournament, participating);
