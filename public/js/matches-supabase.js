@@ -2534,6 +2534,18 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
             }
         } else {
             const table = isDoubles ? 'doubles_match_requests' : 'match_requests';
+
+            // Fetch request to check for linked tournament match before rejecting
+            let tournamentMatchId = null;
+            if (!isDoubles) {
+                const { data: reqData } = await supabase
+                    .from('match_requests')
+                    .select('tournament_match_id')
+                    .eq('id', requestId)
+                    .single();
+                tournamentMatchId = reqData?.tournament_match_id;
+            }
+
             await supabase
                 .from(table)
                 .update({
@@ -2543,12 +2555,12 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 .eq('id', requestId);
 
             // Also cancel linked tournament_match so it doesn't stay pending
-            if (!isDoubles && request?.tournament_match_id) {
+            if (tournamentMatchId) {
                 try {
                     await supabase
                         .from('tournament_matches')
                         .update({ status: 'cancelled' })
-                        .eq('id', request.tournament_match_id);
+                        .eq('id', tournamentMatchId);
                     console.log('[Matches] Tournament match cancelled due to rejection');
                 } catch (tmError) {
                     console.warn('[Matches] Error cancelling tournament match:', tmError);
