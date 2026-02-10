@@ -496,43 +496,48 @@
 
             <main class="pb-16">
                 <div id="tab-content-overview" class="tab-content">
-                    <!-- Upcoming Events Section -->
-                    <div id="upcoming-events-section" class="hidden mb-6">
+                    <!-- Combined Invitations & Tournaments Section (collapsible) -->
+                    <div id="invitations-box" class="hidden mb-6">
                         <div class="max-w-2xl mx-auto">
-                            <div class="flex items-center justify-between mb-3">
+                            <button id="invitations-box-toggle" class="w-full flex items-center justify-between mb-3 group cursor-pointer">
                                 <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
                                     <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                     </svg>
-                                    Kommende Veranstaltungen
+                                    Einladungen & Turniere
+                                    <span id="invitations-box-count" class="text-sm font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full"></span>
                                 </h2>
-                            </div>
-                            <div id="upcoming-events-list" class="space-y-3">
-                                <!-- Events werden hier dynamisch eingefügt -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Active Tournament Banner (Carousel for multiple tournaments) -->
-                    <div id="active-tournament-banner" class="hidden mb-4">
-                        <div class="max-w-2xl mx-auto">
-                            <div class="relative">
-                                <!-- Carousel Container -->
-                                <div id="tournament-carousel" class="overflow-hidden">
-                                    <div id="tournament-slides" class="flex transition-transform duration-300 ease-out">
-                                        <!-- Tournament slides will be inserted here dynamically -->
+                                <i id="invitations-box-icon" class="fas fa-chevron-down text-gray-400 group-hover:text-gray-600 transition-transform"></i>
+                            </button>
+                            <div id="invitations-box-content" class="space-y-4">
+                                <!-- Active Tournament Banner (Carousel for multiple tournaments) -->
+                                <div id="active-tournament-banner" class="hidden">
+                                    <div class="relative">
+                                        <!-- Carousel Container -->
+                                        <div id="tournament-carousel" class="overflow-hidden">
+                                            <div id="tournament-slides" class="flex transition-transform duration-300 ease-out">
+                                                <!-- Tournament slides will be inserted here dynamically -->
+                                            </div>
+                                        </div>
+                                        <!-- Navigation Arrows (shown only when multiple tournaments) -->
+                                        <button id="tournament-prev-btn" class="hidden absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                            <i class="fas fa-chevron-left text-sm"></i>
+                                        </button>
+                                        <button id="tournament-next-btn" class="hidden absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                            <i class="fas fa-chevron-right text-sm"></i>
+                                        </button>
+                                        <!-- Dots Navigation (shown only when multiple tournaments) -->
+                                        <div id="tournament-dots" class="hidden flex justify-center gap-2 mt-3">
+                                            <!-- Dots will be inserted here dynamically -->
+                                        </div>
                                     </div>
                                 </div>
-                                <!-- Navigation Arrows (shown only when multiple tournaments) -->
-                                <button id="tournament-prev-btn" class="hidden absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
-                                    <i class="fas fa-chevron-left text-sm"></i>
-                                </button>
-                                <button id="tournament-next-btn" class="hidden absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
-                                    <i class="fas fa-chevron-right text-sm"></i>
-                                </button>
-                                <!-- Dots Navigation (shown only when multiple tournaments) -->
-                                <div id="tournament-dots" class="hidden flex justify-center gap-2 mt-3">
-                                    <!-- Dots will be inserted here dynamically -->
+
+                                <!-- Upcoming Events -->
+                                <div id="upcoming-events-section" class="hidden">
+                                    <div id="upcoming-events-list" class="space-y-3">
+                                        <!-- Events werden hier dynamisch eingefügt -->
+                                    </div>
                                 </div>
                             </div>
                         </div>

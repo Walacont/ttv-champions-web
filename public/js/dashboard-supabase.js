@@ -546,7 +546,7 @@ async function initializeDashboard() {
     initActivityFeedModule(currentUser, currentUserData);
 
     // Spieler-Events-Modul initialisieren
-    initPlayerEvents(currentUser.id);
+    initPlayerEvents(currentUser.id).then(() => updateInvitationsBox());
 
     // Kommentare-Modul initialisieren
     initComments(currentUserData);
@@ -559,8 +559,11 @@ async function initializeDashboard() {
     const tournamentSportId = currentSportContext?.sportId || currentUserData.active_sport_id;
     initTournamentsUI(currentUser.id, tournamentClubId, tournamentSportId);
     if (tournamentClubId && tournamentSportId) {
-        loadActiveTournamentBanner();
+        loadActiveTournamentBanner().then(() => updateInvitationsBox());
     }
+
+    // Collapsible box toggle and hash-based scrolling
+    setupInvitationsBox();
 
     // Video-Analyse für Spieler initialisieren (Upload-Funktion)
     initPlayerVideoUpload(supabase, currentUserData);
@@ -629,6 +632,68 @@ async function initializeDashboard() {
     // Hinweis: i18n wird durch das inline-Skript von dashboard.html initialisiert
     // translatePage() will safely skip if not ready yet
     translatePage();
+}
+
+// --- Setup Invitations Box (collapsible Einladungen & Turniere) ---
+function setupInvitationsBox() {
+    const toggle = document.getElementById('invitations-box-toggle');
+    const content = document.getElementById('invitations-box-content');
+    const icon = document.getElementById('invitations-box-icon');
+    if (!toggle || !content) return;
+
+    toggle.addEventListener('click', () => {
+        const isCollapsed = content.classList.toggle('hidden');
+        if (icon) {
+            icon.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
+        }
+    });
+
+    // Watch child sections for visibility changes and auto-update parent
+    const eventsSection = document.getElementById('upcoming-events-section');
+    const tournamentBanner = document.getElementById('active-tournament-banner');
+    const observer = new MutationObserver(() => updateInvitationsBox());
+    const observeOpts = { attributes: true, attributeFilter: ['class'] };
+    if (eventsSection) observer.observe(eventsSection, observeOpts);
+    if (tournamentBanner) observer.observe(tournamentBanner, observeOpts);
+
+    // Handle hash-based scrolling (from notification click)
+    if (window.location.hash === '#upcoming-events-section') {
+        setTimeout(() => {
+            const box = document.getElementById('invitations-box');
+            if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+    }
+}
+
+function updateInvitationsBox() {
+    const parentBox = document.getElementById('invitations-box');
+    const eventsSection = document.getElementById('upcoming-events-section');
+    const tournamentBanner = document.getElementById('active-tournament-banner');
+    const countBadge = document.getElementById('invitations-box-count');
+    if (!parentBox) return;
+
+    const hasEvents = eventsSection && !eventsSection.classList.contains('hidden');
+    const hasTournaments = tournamentBanner && !tournamentBanner.classList.contains('hidden');
+
+    if (hasEvents || hasTournaments) {
+        parentBox.classList.remove('hidden');
+
+        // Count items for the badge
+        let count = 0;
+        if (hasEvents) {
+            const eventCards = document.querySelectorAll('#upcoming-events-list > *');
+            count += eventCards.length;
+        }
+        if (hasTournaments) {
+            const slides = document.querySelectorAll('.tournament-slide');
+            count += slides.length;
+        }
+        if (countBadge) {
+            countBadge.textContent = count > 0 ? count : '';
+        }
+    } else {
+        parentBox.classList.add('hidden');
+    }
 }
 
 // --- Setup Header ---

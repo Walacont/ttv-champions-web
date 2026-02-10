@@ -1093,6 +1093,27 @@ function handleNotificationClick(notification) {
         return;
     }
 
+    // Event-Erinnerung: Zum Events-Bereich navigieren
+    if (type === 'event_reminder') {
+        const eventId = notification.data?.event_id;
+
+        if (window.location.pathname.includes('dashboard')) {
+            // Already on dashboard - scroll to upcoming events section
+            const overviewTab = document.querySelector('[data-tab="overview"]');
+            if (overviewTab) overviewTab.click();
+            setTimeout(() => {
+                const eventsSection = document.getElementById('upcoming-events-section');
+                if (eventsSection) {
+                    eventsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+            return;
+        }
+
+        window.location.href = '/dashboard.html#upcoming-events-section';
+        return;
+    }
+
     // Video-Feedback: Zum "Meine Videos"-Tab navigieren
     if (type === 'video_feedback') {
         const videoId = notification.data?.video_id;
@@ -1155,6 +1176,7 @@ function getNotificationIcon(type) {
         'club_leave_rejected': '<i class="fas fa-door-open text-red-500 text-lg"></i>',
         'club_kicked': '<i class="fas fa-user-slash text-red-500 text-lg"></i>',
         'video_feedback': '<i class="fas fa-video text-purple-500 text-lg"></i>',
+        'event_reminder': '<i class="fas fa-calendar-check text-amber-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;
