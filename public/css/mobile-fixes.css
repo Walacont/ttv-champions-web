@@ -334,11 +334,22 @@ button {
     user-select: none;
 }
 
-/* Fix for keyboard showing (Capacitor only) */
-html.plt-capacitor .keyboard-visible,
-html.plt-android .keyboard-visible,
-html.plt-ios .keyboard-visible {
-    height: calc(100% - var(--keyboard-height, 0px));
+/* Fix for keyboard showing (Capacitor only)
+   Capacitor Keyboard plugin with resize:'body' already handles body margin/padding.
+   Do NOT also constrain height, as that causes double-shrink and white space on Android.
+   Instead, ensure the focused input stays visible and content remains scrollable. */
+html.plt-capacitor body.keyboard-visible,
+html.plt-android body.keyboard-visible,
+html.plt-ios body.keyboard-visible {
+    /* Let Capacitor handle the body resize via margin-bottom.
+       Only ensure the content can scroll and doesn't get cut off. */
+    overflow-y: auto !important;
+}
+
+/* When keyboard is open, ensure bottom-nav doesn't overlap content */
+html.plt-capacitor body.keyboard-visible #bottom-nav,
+html.plt-android body.keyboard-visible #bottom-nav {
+    display: none !important;
 }
 
 /* Ensure main content is scrollable */

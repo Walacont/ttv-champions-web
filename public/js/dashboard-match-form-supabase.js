@@ -323,6 +323,17 @@ export function setupMatchForm(callbacks = {}) {
         document.getElementById('doubles-players-container')?.classList.remove('hidden');
     });
 
+    // On Android, when the keyboard opens the form content can scroll out of view.
+    // Scroll the form heading into view so the user sees context around the search input.
+    opponentSearchInput?.addEventListener('focus', () => {
+        setTimeout(() => {
+            const formContainer = opponentSearchInput.closest('.bg-white');
+            if (formContainer) {
+                formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 350);
+    });
+
     let searchTimeout = null;
     opponentSearchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
