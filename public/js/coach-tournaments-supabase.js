@@ -11,6 +11,7 @@ import {
 
 import { escapeHtml } from './utils/security.js';
 import { getSupabase } from './supabase-init.js';
+import { renderBracketFromMatches } from './tournament-bracket-tree.js';
 
 const supabase = getSupabase();
 
@@ -803,164 +804,15 @@ function initBracketTabs(bracketId, defaultBracket) {
     renderBracketRoundTabs(bracketId, defaultBracket, bracketData, isCreator);
 }
 
-// Render full bracket tree view (interactive version)
+// Render full bracket tree view (interactive version with SVG connectors)
 function renderBracketTreeView(bracketId, bracketData, isCreator) {
     const contentContainer = document.getElementById(`${bracketId}-content`);
     if (!contentContainer) return;
 
     const allMatches = bracketData.allMatches || [];
-    const brackets = { winners: [], losers: [], finals: [], grand_finals: [] };
-    allMatches.forEach(m => {
-        const type = m.bracket_type || 'winners';
-        if (brackets[type]) brackets[type].push(m);
-    });
 
-    // Group by rounds
-    const groupByRound = (arr) => {
-        const byRound = {};
-        arr.forEach(m => {
-            const r = m.round_number || 1;
-            if (!byRound[r]) byRound[r] = [];
-            byRound[r].push(m);
-        });
-        Object.keys(byRound).forEach(r => {
-            byRound[r].sort((a, b) => (a.bracket_position || 0) - (b.bracket_position || 0));
-        });
-        return byRound;
-    };
-
-    const wbRounds = groupByRound(brackets.winners);
-    const lbRounds = groupByRound(brackets.losers);
-    const wbRoundNums = Object.keys(wbRounds).sort((a, b) => a - b);
-    const lbRoundNums = Object.keys(lbRounds).sort((a, b) => a - b);
-    const totalWbRounds = wbRoundNums.length;
-
-    // Get round name based on number of matches in the round
-    const getRoundName = (matchCount, bracketType, roundNum) => {
-        if (bracketType === 'winners') {
-            if (matchCount === 1) return 'WB Finale';
-            if (matchCount === 2) return 'Halbfinale';
-            if (matchCount === 4) return 'Viertelfinale';
-            if (matchCount === 8) return 'Achtelfinale';
-            return `Runde ${roundNum}`;
-        }
-        return `LB Runde ${roundNum}`;
-    };
-
-    // Render single match for tree view
-    const renderTreeMatch = (m) => {
-        const playerA = getPlayerName(m.player_a);
-        const playerB = getPlayerName(m.player_b);
-        const isCompleted = m.status === 'completed';
-        const aWon = m.winner_id === m.player_a_id;
-        const bWon = m.winner_id === m.player_b_id;
-        const isBye = (m.player_a_id && !m.player_b_id) || (!m.player_a_id && m.player_b_id);
-        const isWaiting = !m.player_a_id && !m.player_b_id;
-
-        if (isWaiting) {
-            return `<div class="bracket-match waiting tree-match"><div class="bracket-player"><span class="bracket-player-tbd">TBD</span></div><div class="bracket-player"><span class="bracket-player-tbd">TBD</span></div></div>`;
-        }
-
-        return `
-            <div class="bracket-match ${isCompleted ? 'completed' : (isBye ? 'bye' : 'pending')} tree-match" data-match-id="${m.id}">
-                <div class="bracket-player ${aWon ? 'winner' : (isCompleted && bWon ? 'loser' : '')}">
-                    <span class="bracket-player-name">${m.player_a_id ? escapeHtml(playerA) : '<span class="bracket-player-tbd">TBD</span>'}</span>
-                    ${isCompleted && !isBye ? `<span class="bracket-player-score">${m.player_a_sets_won || 0}</span>` : ''}
-                    ${isBye && m.player_a_id ? '<span class="bracket-bye-label">Freilos</span>' : ''}
-                </div>
-                <div class="bracket-player ${bWon ? 'winner' : (isCompleted && aWon ? 'loser' : '')}">
-                    <span class="bracket-player-name">${m.player_b_id ? escapeHtml(playerB) : '<span class="bracket-player-tbd">TBD</span>'}</span>
-                    ${isCompleted && !isBye ? `<span class="bracket-player-score">${m.player_b_sets_won || 0}</span>` : ''}
-                    ${isBye && m.player_b_id ? '<span class="bracket-bye-label">Freilos</span>' : ''}
-                </div>
-            </div>
-        `;
-    };
-
-    let html = '<div class="bracket-tree-container">';
-    html += '<div class="bracket-scroll-info"><i class="fas fa-arrows-alt-h"></i> Horizontal scrollen um den gesamten Baum zu sehen</div>';
-
-    // Winners Bracket
-    if (wbRoundNums.length > 0) {
-        html += `
-            <div class="bracket-section tree-section">
-                <div class="bracket-section-header winners">
-                    <span class="bracket-indicator" style="background:#16a34a;"></span>
-                    Hauptrunde (Winners Bracket)
-                </div>
-                <div class="bracket-tree-wrapper">
-        `;
-
-        wbRoundNums.forEach((roundNum, idx) => {
-            const roundMatches = wbRounds[roundNum] || [];
-            const roundName = getRoundName(roundMatches.length, 'winners', roundNum);
-            html += `
-                <div class="bracket-tree-round" style="--round-index: ${idx};">
-                    <div class="bracket-round-header">${roundName}</div>
-                    <div class="bracket-round-matches">
-                        ${roundMatches.map(m => renderTreeMatch(m)).join('')}
-                    </div>
-                </div>
-            `;
-        });
-
-        html += '</div></div>';
-    }
-
-    // Losers Bracket (filter out empty matches)
-    const hasLBMatches = lbRoundNums.some(rn => (lbRounds[rn] || []).some(m => m.player_a_id || m.player_b_id));
-    if (hasLBMatches) {
-        html += `
-            <div class="bracket-section tree-section">
-                <div class="bracket-section-header losers">
-                    <span class="bracket-indicator" style="background:#dc2626;"></span>
-                    Zweite Chance (Losers Bracket)
-                </div>
-                <div class="bracket-tree-wrapper losers-tree">
-        `;
-
-        lbRoundNums.forEach((roundNum, idx) => {
-            const roundMatches = (lbRounds[roundNum] || []).filter(m => m.player_a_id || m.player_b_id);
-            if (roundMatches.length === 0) return;
-
-            html += `
-                <div class="bracket-tree-round">
-                    <div class="bracket-round-header">LB Runde ${roundNum}</div>
-                    <div class="bracket-round-matches">
-                        ${roundMatches.map(m => renderTreeMatch(m)).join('')}
-                    </div>
-                </div>
-            `;
-        });
-
-        html += '</div></div>';
-    }
-
-    // Finals
-    const grandFinal = brackets.finals[0];
-    const resetMatch = brackets.grand_finals[0];
-    if ((grandFinal && (grandFinal.player_a_id || grandFinal.player_b_id)) || (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id))) {
-        html += `
-            <div class="bracket-section tree-section">
-                <div class="bracket-section-header finals">
-                    <span class="bracket-indicator" style="background:#7c3aed;"></span>
-                    Entscheidung
-                </div>
-                <div class="bracket-finals-container">
-        `;
-
-        if (grandFinal && (grandFinal.player_a_id || grandFinal.player_b_id)) {
-            html += `<div class="bracket-grand-final-wrapper"><div class="bracket-final-label">Grand Final</div>${renderTreeMatch(grandFinal)}</div>`;
-        }
-        if (resetMatch && (resetMatch.player_a_id || resetMatch.player_b_id)) {
-            html += `<div class="bracket-reset-wrapper"><div class="bracket-final-label">Reset Match</div>${renderTreeMatch(resetMatch)}</div>`;
-        }
-
-        html += '</div></div>';
-    }
-
-    html += '</div>';
-    contentContainer.innerHTML = html;
+    // Use the new tournament-bracket-tree component for rendering
+    renderBracketFromMatches(contentContainer, allMatches);
 }
 
 function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) {

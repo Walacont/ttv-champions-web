@@ -1707,3 +1707,122 @@ button:active,
         align-items: center;
     }
 }
+
+/* ==================== NEW TOURNAMENT BRACKET TREE ==================== */
+/* Modern bracket visualization with SVG connectors */
+
+.tournament-bracket-container {
+    width: 100%;
+}
+
+.bracket-rounds-container {
+    display: flex;
+    gap: 64px;
+    min-width: max-content;
+    padding: 24px;
+    align-items: flex-start;
+}
+
+.bracket-round {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bracket-round-matches {
+    display: flex;
+    flex-direction: column;
+}
+
+.bracket-match-wrapper {
+    position: relative;
+}
+
+/* Match Card Styles */
+.bracket-match-card {
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.bracket-match-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+/* SVG Connector Animation */
+.bracket-connector-line {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: bracketConnectorDraw 0.4s ease-out forwards;
+}
+
+@keyframes bracketConnectorDraw {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Match Card Fade In Animation */
+@keyframes bracketMatchFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Scrollbar Styling for Bracket */
+.bracket-section > div::-webkit-scrollbar {
+    height: 8px;
+}
+
+.bracket-section > div::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+}
+
+.bracket-section > div::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.bracket-section > div::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Winners Bracket specific */
+.bracket-section:first-of-type > div::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.4);
+}
+
+.bracket-section:first-of-type > div::-webkit-scrollbar-thumb:hover {
+    background: rgba(16, 185, 129, 0.6);
+}
+
+/* Losers Bracket specific */
+.bracket-section:last-of-type > div::-webkit-scrollbar-thumb {
+    background: rgba(249, 115, 22, 0.4);
+}
+
+.bracket-section:last-of-type > div::-webkit-scrollbar-thumb:hover {
+    background: rgba(249, 115, 22, 0.6);
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+    .bracket-rounds-container {
+        gap: 48px;
+        padding: 16px;
+    }
+
+    .bracket-match-card {
+        width: 180px !important;
+    }
+
+    .bracket-scroll-info {
+        font-size: 12px;
+    }
+}
