@@ -48,12 +48,10 @@ export async function initPushNotifications(userId) {
             await window.CapacitorUtils.loginOneSignal(userId);
         }
 
-        // Save push token if permission already granted
-        const hasPermission = await window.CapacitorUtils.isPushEnabled();
-        if (hasPermission) {
-            const platform = window.CapacitorUtils.getPlatform();
-            await savePushTokenToProfile(userId, platform);
-        }
+        // Always save push token on native - OneSignal handles FCM internally
+        // and hasPermission() can return stale false on some Android versions
+        const platform = window.CapacitorUtils.getPlatform();
+        await savePushTokenToProfile(userId, platform);
 
         // Listen for foreground notifications (in-app toast)
         window.addEventListener('push-notification-received', (event) => {
