@@ -1238,8 +1238,9 @@ export async function getTournamentDetails(tournamentId) {
                     player_a_id, player_b_id, match_id, scheduled_for, deadline,
                     status, winner_id, player_a_sets_won, player_b_sets_won,
                     is_walkover, created_at, completed_at,
-                    player_a:profiles!tournament_matches_player_a_id_fkey(id, display_name, first_name, last_name),
-                    player_b:profiles!tournament_matches_player_b_id_fkey(id, display_name, first_name, last_name),
+                    bracket_type, bracket_position,
+                    player_a:profiles!tournament_matches_player_a_id_fkey(id, display_name, first_name, last_name, elo_rating, avatar_url),
+                    player_b:profiles!tournament_matches_player_b_id_fkey(id, display_name, first_name, last_name, elo_rating, avatar_url),
                     winner:profiles!tournament_matches_winner_id_fkey(id, display_name, first_name, last_name)
                 ),
                 tournament_standings(
