@@ -353,9 +353,9 @@ async function generateDoubleEliminationMatches(tournamentId) {
     const n = participants.length;
     if (n < 2) throw new Error('Mindestens 2 Teilnehmer erforderlich');
 
-    // Find next power of 2
-    const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
-    if (bracketSize > 16) throw new Error('Double Elimination unterstuetzt maximal 16 Spieler');
+    // Always use bracket size 16 so bracket starts at Achtelfinale
+    if (n > 16) throw new Error('Double Elimination unterstuetzt maximal 16 Spieler');
+    const bracketSize = 16;
 
     const playerIds = participants.map(p => p.player_id);
     const matches = [];
@@ -382,6 +382,7 @@ async function generateDoubleEliminationMatches(tournamentId) {
                 player2 = seed2 <= n ? playerIds[seed2 - 1] : null;
             }
 
+            const isDoubleBye = round === 1 && !player1 && !player2;
             const isBye = round === 1 && (!player1 || !player2);
             matches.push({
                 tournament_id: tournamentId,
@@ -391,8 +392,8 @@ async function generateDoubleEliminationMatches(tournamentId) {
                 bracket_position: pos,
                 player_a_id: player1,
                 player_b_id: player2,
-                status: isBye ? 'completed' : 'pending',
-                winner_id: isBye ? (player1 || player2) : null
+                status: isDoubleBye ? 'skipped' : (isBye ? 'completed' : 'pending'),
+                winner_id: isDoubleBye ? null : (isBye ? (player1 || player2) : null)
             });
         }
     }
@@ -506,12 +507,121 @@ async function processDoubleEliminationByes(tournamentId) {
         }
     }
 
-    // 2. Markiere LB R1 Matches die keine Spieler bekommen werden als "skipped"
-    // (passiert wenn zu viele Byes im WB sind)
-    // Bei bracketSize 8 mit 5 Spielern: 3 Byes in WB R1 -> nur 2 Verlierer für 2 LB R1 Matches
-    // Aber einer der LB R1 Matches könnte leer bleiben
+    // 2. Kaskadierte Byes verarbeiten: WB R2+ Matches pruefen
+    // Wenn ein Spieler vorrückt aber der Gegner aus einem Double-Bye kommt (leer),
+    // muss das Match als Bye auto-abgeschlossen werden
+    await processCascadingWbByes(tournamentId);
 
-    // Zähle wie viele echte WB R1 Matches es gab (ohne Byes)
+    // 3. Markiere LB Matches die keine Spieler bekommen als "skipped"
+    await processLbSkippedMatches(tournamentId);
+}
+
+/**
+ * Process cascading byes in Winners Bracket rounds 2+
+ * When a match has one player but the opponent slot is empty
+ * (because both feeder matches were byes/skipped), auto-complete as bye
+ */
+async function processCascadingWbByes(tournamentId) {
+    let changed = true;
+    while (changed) {
+        changed = false;
+
+        // Get all pending WB matches that have exactly one player
+        const { data: pendingMatches } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'winners')
+            .eq('status', 'pending')
+            .order('round_number', { ascending: true });
+
+        if (!pendingMatches) break;
+
+        for (const match of pendingMatches) {
+            const hasA = !!match.player_a_id;
+            const hasB = !!match.player_b_id;
+
+            // Skip if both players present or both empty
+            if ((hasA && hasB) || (!hasA && !hasB)) continue;
+
+            // Check if the feeder matches for the empty slot are all done
+            const prevRound = match.round_number - 1;
+            if (prevRound < 1) continue;
+
+            // Feeder positions: for bracket_position P, feeders are positions P*2-1 and P*2
+            const feederPos1 = match.bracket_position * 2 - 1;
+            const feederPos2 = match.bracket_position * 2;
+
+            const { data: feeders } = await supabase
+                .from('tournament_matches')
+                .select('status, winner_id')
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'winners')
+                .eq('round_number', prevRound)
+                .in('bracket_position', [feederPos1, feederPos2]);
+
+            if (!feeders || feeders.length === 0) continue;
+
+            const allFeedersDone = feeders.every(f => f.status === 'completed' || f.status === 'skipped');
+            if (!allFeedersDone) continue;
+
+            // All feeders done but one slot is empty -> this is a bye
+            const winnerId = hasA ? match.player_a_id : match.player_b_id;
+            await supabase
+                .from('tournament_matches')
+                .update({ status: 'completed', winner_id: winnerId })
+                .eq('id', match.id);
+
+            await advanceDoubleEliminationWinner(tournamentId, match, winnerId);
+            changed = true;
+        }
+
+        // Also check for double-bye matches in WB R2+ (both slots empty, both feeders done)
+        const { data: emptyMatches } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'winners')
+            .eq('status', 'pending')
+            .order('round_number', { ascending: true });
+
+        for (const match of (emptyMatches || [])) {
+            if (match.player_a_id || match.player_b_id) continue;
+            if (match.round_number < 2) continue;
+
+            const prevRound = match.round_number - 1;
+            const feederPos1 = match.bracket_position * 2 - 1;
+            const feederPos2 = match.bracket_position * 2;
+
+            const { data: feeders } = await supabase
+                .from('tournament_matches')
+                .select('status, winner_id')
+                .eq('tournament_id', tournamentId)
+                .eq('bracket_type', 'winners')
+                .eq('round_number', prevRound)
+                .in('bracket_position', [feederPos1, feederPos2]);
+
+            if (!feeders || feeders.length < 2) continue;
+
+            const allDone = feeders.every(f => f.status === 'completed' || f.status === 'skipped');
+            const noWinners = feeders.every(f => !f.winner_id);
+
+            if (allDone && noWinners) {
+                await supabase
+                    .from('tournament_matches')
+                    .update({ status: 'skipped' })
+                    .eq('id', match.id);
+                changed = true;
+            }
+        }
+    }
+}
+
+/**
+ * Mark LB matches that won't receive players as skipped
+ */
+async function processLbSkippedMatches(tournamentId) {
+    // Count real WB R1 matches (ones that produce actual losers)
     const { data: allWbR1 } = await supabase
         .from('tournament_matches')
         .select('*')
@@ -520,9 +630,9 @@ async function processDoubleEliminationByes(tournamentId) {
         .eq('round_number', 1);
 
     const realWbR1Matches = allWbR1?.filter(m => m.player_a_id && m.player_b_id).length || 0;
-    const expectedLbR1Losers = realWbR1Matches; // Jedes echte WB R1 Match produziert einen Verlierer
+    const expectedLbR1Losers = realWbR1Matches;
 
-    // Hole LB R1 Matches
+    // Get LB R1 matches
     const { data: lbR1Matches } = await supabase
         .from('tournament_matches')
         .select('*')
@@ -533,11 +643,10 @@ async function processDoubleEliminationByes(tournamentId) {
 
     if (!lbR1Matches || lbR1Matches.length === 0) return;
 
-    // Berechne wie viele LB R1 Matches wirklich gespielt werden können
-    // Jedes LB R1 Match braucht 2 Verlierer aus WB R1
+    // How many LB R1 matches can actually be played
     const playableLbR1Matches = Math.floor(expectedLbR1Losers / 2);
 
-    // Markiere überzählige LB R1 Matches als skipped
+    // Mark excess LB R1 matches as skipped
     for (let i = playableLbR1Matches; i < lbR1Matches.length; i++) {
         const match = lbR1Matches[i];
         if (match.status === 'pending' && !match.player_a_id && !match.player_b_id) {
@@ -548,12 +657,39 @@ async function processDoubleEliminationByes(tournamentId) {
         }
     }
 
-    // 3. Prüfe ob es ungerade Anzahl von Verlierern gibt -> ein LB R1 Match ist ein Bye
-    // Das passiert wenn expectedLbR1Losers ungerade ist
-    if (expectedLbR1Losers % 2 === 1 && expectedLbR1Losers > 0) {
-        // Ein LB R1 Match wird nur einen Spieler haben
-        // Die WB R1 Matches müssen erst abgeschlossen werden bevor wir das wissen
-        // Also markieren wir hier nichts - das wird nach den ersten WB R1 Matches passieren
+    // Also mark all LB matches in later rounds that can't receive players
+    // This happens when WB rounds produce no real losers (all byes)
+    const { data: allLbMatches } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'losers')
+        .eq('status', 'pending')
+        .order('round_number', { ascending: true });
+
+    // For even LB rounds, they need WB losers + LB survivors
+    // For odd LB rounds, they need LB survivors only
+    // Mark matches that definitely won't get players as skipped
+    const { data: allWbMatches } = await supabase
+        .from('tournament_matches')
+        .select('round_number, player_a_id, player_b_id')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', 'winners');
+
+    for (const lbMatch of (allLbMatches || [])) {
+        if (lbMatch.round_number <= 1) continue;
+
+        // Even LB rounds receive WB losers from WB round (lbRound/2 + 1)
+        if (lbMatch.round_number % 2 === 0) {
+            const sourceWbRound = Math.floor(lbMatch.round_number / 2) + 1;
+            const wbRoundMatches = allWbMatches?.filter(m => m.round_number === sourceWbRound) || [];
+            const hasRealWbMatches = wbRoundMatches.some(m => m.player_a_id && m.player_b_id);
+
+            if (!hasRealWbMatches && !lbMatch.player_a_id && !lbMatch.player_b_id) {
+                // No real WB matches in source round -> no losers will come
+                // But LB survivor might still come, so only skip if definitely empty
+            }
+        }
     }
 }
 

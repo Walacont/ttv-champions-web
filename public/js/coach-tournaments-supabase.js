@@ -713,16 +713,14 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name based on number of match slots
+        // Determine round name based on match count
         let name;
         if (bracketType === 'winners') {
             const slotCount = roundMatches.length;
-            if (slotCount === 1) name = 'Finale';
-            else if (slotCount === 2) name = 'Halbfinale';
-            else if (slotCount === 4) name = 'Viertelfinale';
-            else if (slotCount === 8) name = 'Achtelfinale';
-            else if (slotCount === 16) name = 'Sechzehntelfinale';
-            else name = `Runde ${roundNum}`;
+            if (slotCount >= 8) name = 'Achtelfinale';
+            else if (slotCount >= 4) name = 'Viertelfinale';
+            else if (slotCount >= 2) name = 'Halbfinale';
+            else name = 'WB Finale';
         } else {
             name = `Runde ${roundNum}`;
         }
@@ -1788,14 +1786,13 @@ function generateBracketTreeHtml(matches, participants) {
     const horizontalGap = isCompact ? 20 : 30;
     const connectorWidth = 15;
 
-    // Helper to get round name based on position relative to finals
-    const getRoundName = (matchCount, bracketType, roundNum, roundIdx, totalRounds) => {
+    // Helper to get round name based on match count
+    const getRoundName = (matchCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            const roundsFromEnd = totalRounds - 1 - roundIdx;
-            if (roundsFromEnd === 0) return 'Halbfinale';
-            if (roundsFromEnd === 1) return 'Viertelfinale';
-            if (roundsFromEnd === 2) return 'Achtelfinale';
-            return `Runde ${roundIdx + 1}`;
+            if (matchCount >= 8) return 'Achtelfinale';
+            if (matchCount >= 4) return 'Viertelfinale';
+            if (matchCount >= 2) return 'Halbfinale';
+            return 'WB Finale';
         }
         return `Runde ${roundNum}`;
     };
@@ -1871,7 +1868,7 @@ function generateBracketTreeHtml(matches, participants) {
 
         roundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            const roundName = getRoundName(roundMatches.length, bracketType, roundNum, roundIdx, total);
+            const roundName = getRoundName(roundMatches.length, bracketType, roundNum);
             const isFirstRound = roundIdx === 0;
             const isLastRound = roundIdx === roundNums.length - 1;
 

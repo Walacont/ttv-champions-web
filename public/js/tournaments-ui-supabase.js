@@ -731,17 +731,14 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name based on number of match slots in the round
-        // Use roundMatches.length (total slots) to properly name rounds even when no players are assigned yet
+        // Determine round name based on match count
         let name;
         if (bracketType === 'winners') {
             const slotCount = roundMatches.length;
-            if (slotCount === 1) name = 'Finale';
-            else if (slotCount === 2) name = 'Halbfinale';
-            else if (slotCount === 4) name = 'Viertelfinale';
-            else if (slotCount === 8) name = 'Achtelfinale';
-            else if (slotCount === 16) name = 'Sechzehntelfinale';
-            else name = `Runde ${roundNum}`;
+            if (slotCount >= 8) name = 'Achtelfinale';
+            else if (slotCount >= 4) name = 'Viertelfinale';
+            else if (slotCount >= 2) name = 'Halbfinale';
+            else name = 'WB Finale';
         } else {
             name = `Runde ${roundNum}`;
         }
@@ -1967,15 +1964,13 @@ function generateBracketTreeHtml(matches, participants) {
     const horizontalGap = isCompact ? 20 : 30;
     const connectorWidth = 15;
 
-    // Helper to get round name based on number of match slots
+    // Helper to get round name based on match count
     const getRoundName = (slotCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            if (slotCount === 1) return 'Finale';
-            if (slotCount === 2) return 'Halbfinale';
-            if (slotCount === 4) return 'Viertelfinale';
-            if (slotCount === 8) return 'Achtelfinale';
-            if (slotCount === 16) return 'Sechzehntelfinale';
-            return `Runde ${roundNum}`;
+            if (slotCount >= 8) return 'Achtelfinale';
+            if (slotCount >= 4) return 'Viertelfinale';
+            if (slotCount >= 2) return 'Halbfinale';
+            return 'WB Finale';
         }
         return `Runde ${roundNum}`;
     };
