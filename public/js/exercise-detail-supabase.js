@@ -861,8 +861,8 @@ function setupAnimation(rawSteps) {
     animationSteps = steps;
     availableHandedness = data?.handedness || ['R-R'];
     currentHandedness = availableHandedness[0] || 'R-R';
-    currentStepIndex = 0; // Start at first step
-    showAllMode = false;
+    currentStepIndex = -1; // Start in "show all" mode
+    showAllMode = true;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');
@@ -930,8 +930,8 @@ function setupMultipleAnimations(animations) {
     // Get the first animation
     const firstAnimation = animations[0];
     animationSteps = firstAnimation.steps || [];
-    currentStepIndex = 0; // Start at first step
-    showAllMode = false;
+    currentStepIndex = -1; // Start in "show all" mode
+    showAllMode = true;
 
     const container = document.getElementById('exercise-animation-container');
     const canvas = document.getElementById('exercise-animation-canvas');

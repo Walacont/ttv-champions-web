@@ -2229,32 +2229,72 @@ window.sendEventReminder = async function(eventId, occurrenceDate) {
     try {
         const { data: event } = await supabase
             .from('events')
-            .select('title, start_date')
+            .select('title, start_date, club_id, target_type, target_subgroup_ids')
             .eq('id', eventId)
             .single();
 
         if (!event) return;
 
-        // Get pending invitations
-        const { data: pendingInvitations } = await supabase
-            .from('event_invitations')
-            .select('user_id')
-            .eq('event_id', eventId)
-            .eq('status', 'pending');
+        // Load all relevant club members (same logic as event detail display)
+        const { data: members } = await supabase
+            .from('profiles')
+            .select('id, subgroup_ids, role')
+            .eq('club_id', event.club_id)
+            .in('role', ['player']);
 
-        if (!pendingInvitations || pendingInvitations.length === 0) {
+        if (!members || members.length === 0) {
+            alert('Keine Mitglieder gefunden.');
+            return;
+        }
+
+        // Filter by target subgroups if applicable
+        let targetMembers = members;
+        if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
+            targetMembers = members.filter(m =>
+                m.subgroup_ids?.some(sg => event.target_subgroup_ids.includes(sg))
+            );
+        }
+
+        // Load existing invitations for this event (optionally filtered by occurrence_date)
+        let invQuery = supabase
+            .from('event_invitations')
+            .select('user_id, status')
+            .eq('event_id', eventId);
+
+        if (occurrenceDate) {
+            invQuery = invQuery.eq('occurrence_date', occurrenceDate);
+        }
+
+        const { data: invitations } = await invQuery;
+
+        // Build map of invitation statuses
+        const statusMap = new Map();
+        (invitations || []).forEach(inv => {
+            statusMap.set(inv.user_id, inv.status);
+        });
+
+        // Find members who haven't accepted or declined (status is 'pending', 'none', or no record)
+        const pendingUserIds = targetMembers
+            .filter(m => {
+                const status = statusMap.get(m.id);
+                return !status || status === 'pending' || status === 'none';
+            })
+            .map(m => m.id);
+
+        if (pendingUserIds.length === 0) {
             alert('Keine ausstehenden Antworten vorhanden.');
             return;
         }
 
-        const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+        const displayDate = occurrenceDate || event.start_date;
+        const formattedDate = new Date(displayDate + 'T12:00:00').toLocaleDateString('de-DE', {
             weekday: 'short',
             day: 'numeric',
             month: 'short'
         });
 
-        const notifications = pendingInvitations.map(inv => ({
-            user_id: inv.user_id,
+        const notifications = pendingUserIds.map(userId => ({
+            user_id: userId,
             type: 'event_reminder',
             title: 'Erinnerung: Antwort ausstehend',
             message: `Bitte antworte auf die Einladung zu "${event.title}" am ${formattedDate}`,
@@ -2266,7 +2306,7 @@ window.sendEventReminder = async function(eventId, occurrenceDate) {
         const { error } = await supabase.from('notifications').insert(notifications);
         if (error) throw error;
 
-        alert(`Erinnerung an ${pendingInvitations.length} Spieler gesendet!`);
+        alert(`Erinnerung an ${pendingUserIds.length} Spieler gesendet!`);
     } catch (error) {
         console.error('[Events] Error sending reminders:', error);
         alert('Fehler beim Senden der Erinnerungen: ' + error.message);
