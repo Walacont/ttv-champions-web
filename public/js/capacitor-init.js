@@ -148,8 +148,8 @@
 
     /** Initialisiert OneSignal Push-Benachrichtigungen für native Apps */
     async function initializeOneSignalPush() {
-        // Guard: use window property so it survives SPA page navigations
-        if (window._oneSignalInitDone) {
+        // Guard: use sessionStorage so it survives full page navigations within session
+        if (sessionStorage.getItem('onesignal_init_done')) {
             console.log('[Push] Already initialized, skipping');
             return;
         }
@@ -226,7 +226,7 @@
             // Store OneSignal reference for later use
             window._oneSignalNative = OneSignal;
             window._pushNotificationsAvailable = true;
-            window._oneSignalInitDone = true;
+            sessionStorage.setItem('onesignal_init_done', 'true');
 
             console.log('[Push] OneSignal push notifications initialized successfully');
         } catch (e) {
