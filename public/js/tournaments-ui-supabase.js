@@ -1004,38 +1004,165 @@ function renderBracketRoundTabs(bracketId, bracketType, bracketData, isCreator) 
         return;
     }
 
-    // Render round tabs
-    tabsContainer.innerHTML = data.rounds.map((round, idx) => `
-        <button class="bracket-round-tab ${idx === 0 ? 'active' : ''}" data-round="${round.number}">
-            ${round.name}
-            <span class="round-status ${round.status}"></span>
-        </button>
-    `).join('');
+    let currentRoundIndex = 0;
+    const rounds = data.rounds;
 
-    // Tab click handlers
-    tabsContainer.querySelectorAll('.bracket-round-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabsContainer.querySelectorAll('.bracket-round-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const round = data.rounds.find(r => r.number === parseInt(tab.dataset.round));
-            if (round) renderRoundContent(contentContainer, round, isCreator);
+    // Render carousel-style round navigation
+    const renderCarousel = () => {
+        const round = rounds[currentRoundIndex];
+        const matchCount = round.matches.filter(m => m.player_a_id || m.player_b_id).length;
+        const hasPrev = currentRoundIndex > 0;
+        const hasNext = currentRoundIndex < rounds.length - 1;
+
+        tabsContainer.innerHTML = `
+            <div class="bracket-carousel">
+                <button class="bracket-carousel-btn prev ${!hasPrev ? 'disabled' : ''}" ${!hasPrev ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="bracket-carousel-center">
+                    <h3 class="bracket-carousel-title">${round.name}</h3>
+                    <span class="bracket-carousel-count">${matchCount} Match${matchCount !== 1 ? 'es' : ''}</span>
+                    <div class="bracket-carousel-dots">
+                        ${rounds.map((_, idx) => `<span class="bracket-carousel-dot ${idx === currentRoundIndex ? 'active' : ''}" data-index="${idx}"></span>`).join('')}
+                    </div>
+                </div>
+                <button class="bracket-carousel-btn next ${!hasNext ? 'disabled' : ''}" ${!hasNext ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+
+        // Navigation handlers
+        const prevBtn = tabsContainer.querySelector('.bracket-carousel-btn.prev');
+        const nextBtn = tabsContainer.querySelector('.bracket-carousel-btn.next');
+
+        prevBtn?.addEventListener('click', () => {
+            if (currentRoundIndex > 0) {
+                currentRoundIndex--;
+                renderCarousel();
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'prev');
+            }
         });
-    });
 
-    // Render first round
-    renderRoundContent(contentContainer, data.rounds[0], isCreator);
+        nextBtn?.addEventListener('click', () => {
+            if (currentRoundIndex < rounds.length - 1) {
+                currentRoundIndex++;
+                renderCarousel();
+                renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, 'next');
+            }
+        });
+
+        // Dot click handlers
+        tabsContainer.querySelectorAll('.bracket-carousel-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const newIndex = parseInt(dot.dataset.index);
+                if (newIndex !== currentRoundIndex) {
+                    const direction = newIndex > currentRoundIndex ? 'next' : 'prev';
+                    currentRoundIndex = newIndex;
+                    renderCarousel();
+                    renderRoundContent(contentContainer, rounds[currentRoundIndex], isCreator, direction);
+                }
+            });
+        });
+    };
+
+    // Initial render
+    renderCarousel();
+    renderRoundContent(contentContainer, rounds[0], isCreator);
 }
 
-function renderRoundContent(container, round, isCreator) {
+function renderRoundContent(container, round, isCreator, slideDirection = null) {
+    const slideClass = slideDirection === 'next' ? 'slide-from-right' : (slideDirection === 'prev' ? 'slide-from-left' : '');
+
     container.innerHTML = `
-        <div class="bracket-round-content">
-            <div class="bracket-round-info">
-                <span class="bracket-round-title">${round.name}</span>
-                <span class="bracket-round-progress">${round.completed}/${round.total} abgeschlossen</span>
-            </div>
+        <div class="bracket-round-content ${slideClass}">
             <div class="bracket-matches-list">
-                ${round.matches.map(m => renderBracketMatch(m, isCreator)).join('')}
+                ${round.matches.map((m, idx) => renderCarouselMatchCard(m, isCreator, idx + 1)).join('')}
             </div>
+        </div>
+    `;
+}
+
+function renderCarouselMatchCard(match, isCreator, matchNumber) {
+    const playerA = match.player_a ? getPlayerName(match.player_a) : null;
+    const playerB = match.player_b ? getPlayerName(match.player_b) : null;
+    const playerAElo = match.player_a?.elo_rating;
+    const playerBElo = match.player_b?.elo_rating;
+    const playerASeed = match.player_a?.seed;
+    const playerBSeed = match.player_b?.seed;
+    const playerAAvatarUrl = match.player_a?.avatar_url;
+    const playerBAvatarUrl = match.player_b?.avatar_url;
+
+    const isCompleted = match.status === 'completed';
+    const isSkipped = match.status === 'skipped';
+    const isWaiting = !match.player_a_id && !match.player_b_id;
+    const isPending = !isCompleted && !isSkipped && match.player_a_id && match.player_b_id;
+
+    const aWon = match.winner_id === match.player_a_id;
+    const bWon = match.winner_id === match.player_b_id;
+
+    // Status badge
+    let statusBadge = '';
+    if (isCompleted) {
+        statusBadge = '<span class="match-status-badge completed"><i class="fas fa-check"></i> Beendet</span>';
+    } else if (isSkipped) {
+        statusBadge = '<span class="match-status-badge skipped"><i class="fas fa-forward"></i> Übersprungen</span>';
+    } else if (isPending) {
+        statusBadge = '<span class="match-status-badge pending"><i class="fas fa-clock"></i> Ausstehend</span>';
+    }
+
+    // Score display
+    const scoreDisplay = isCompleted && !isSkipped ? `
+        <div class="match-score-display">
+            <span class="match-vs">vs</span>
+            <span class="match-score">${match.player_a_sets_won || 0}:${match.player_b_sets_won || 0}</span>
+        </div>
+    ` : '<div class="match-score-display"><span class="match-vs">vs</span></div>';
+
+    // Player card renderer
+    const renderPlayer = (player, playerId, playerName, elo, seed, avatarUrl, isWinner) => {
+        if (!playerId) {
+            return `
+                <div class="match-player-card tbd">
+                    <div class="match-player-avatar tbd">?</div>
+                    <div class="match-player-info">
+                        <span class="match-player-name tbd">TBD</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        const avatarHtml = avatarUrl
+            ? `<img src="${avatarUrl}" alt="" class="match-player-avatar">`
+            : `<div class="match-player-avatar placeholder">${playerName?.charAt(0)?.toUpperCase() || '?'}</div>`;
+
+        return `
+            <div class="match-player-card ${isWinner ? 'winner' : ''} ${isCompleted && !isWinner && match.winner_id ? 'loser' : ''}">
+                <div class="match-player-avatar-wrapper">
+                    ${avatarHtml}
+                    ${seed ? `<span class="match-player-seed">${seed}</span>` : ''}
+                </div>
+                <div class="match-player-info">
+                    <span class="match-player-name">${escapeHtml(playerName)}</span>
+                    ${elo ? `<span class="match-player-elo">Elo: ${elo}</span>` : ''}
+                </div>
+                ${isWinner ? '<i class="fas fa-check match-winner-check"></i>' : ''}
+            </div>
+        `;
+    };
+
+    return `
+        <div class="match-card ${isCompleted ? 'completed' : ''} ${isSkipped ? 'skipped' : ''} ${isPending ? 'pending' : ''} ${isWaiting ? 'waiting' : ''}" data-match-id="${match.id}">
+            <div class="match-card-header">
+                <span class="match-number">Match #${matchNumber}</span>
+                ${statusBadge}
+            </div>
+            <div class="match-card-body">
+                ${renderPlayer(match.player_a, match.player_a_id, playerA, playerAElo, playerASeed, playerAAvatarUrl, aWon)}
+                ${scoreDisplay}
+                ${renderPlayer(match.player_b, match.player_b_id, playerB, playerBElo, playerBSeed, playerBAvatarUrl, bWon)}
+            </div>
+            ${isCompleted && isCreator ? `<button class="correct-match-btn" data-match-id="${match.id}" title="Ergebnis korrigieren"><i class="fas fa-edit"></i></button>` : ''}
         </div>
     `;
 }
@@ -1049,10 +1176,10 @@ function renderFinalsContent(container, finalsData, isCreator) {
     container.innerHTML = `
         <div class="bracket-round-content">
             <div class="bracket-finals">
-                ${finalsData.matches.map(m => `
-                    <div class="${m.bracket_type === 'grand_finals' ? 'bracket-reset-match' : 'bracket-grand-final'}">
-                        <div class="text-xs text-center text-gray-500 mb-2">${m.label}</div>
-                        ${renderBracketMatch(m, isCreator)}
+                ${finalsData.matches.map((m, idx) => `
+                    <div class="finals-match-wrapper ${m.bracket_type === 'grand_finals' ? 'reset-match' : 'grand-final'}">
+                        <div class="finals-match-label">${m.label}</div>
+                        ${renderCarouselMatchCard(m, isCreator, idx + 1)}
                     </div>
                 `).join('')}
             </div>
