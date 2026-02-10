@@ -721,13 +721,15 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name
+        // Determine round name based on number of matches in the round
+        // This is more reliable than counting from the end
         let name;
         if (bracketType === 'winners') {
-            if (roundNum === totalRounds) name = 'Finale WB';
-            else if (roundNum === totalRounds - 1) name = 'Halbfinale';
-            else if (roundNum === totalRounds - 2) name = 'Viertelfinale';
-            else if (roundNum === totalRounds - 3) name = 'Achtelfinale';
+            const matchCount = roundMatches.length;
+            if (matchCount === 1) name = 'Finale WB';
+            else if (matchCount === 2) name = 'Halbfinale';
+            else if (matchCount === 4) name = 'Viertelfinale';
+            else if (matchCount === 8) name = 'Achtelfinale';
             else name = `Runde ${roundNum}`;
         } else {
             name = `Runde ${roundNum}`;
@@ -847,17 +849,16 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
     const lbRoundNums = Object.keys(lbRounds).sort((a, b) => a - b);
     const totalWbRounds = wbRoundNums.length;
 
-    // Get round name
-    const getRoundName = (roundNum, total, bracketType) => {
-        const num = parseInt(roundNum);
+    // Get round name based on number of matches in the round
+    const getRoundName = (matchCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            if (num === total) return 'WB Finale';
-            if (num === total - 1) return 'Halbfinale';
-            if (num === total - 2) return 'Viertelfinale';
-            if (num === total - 3) return 'Achtelfinale';
-            return `Runde ${num}`;
+            if (matchCount === 1) return 'WB Finale';
+            if (matchCount === 2) return 'Halbfinale';
+            if (matchCount === 4) return 'Viertelfinale';
+            if (matchCount === 8) return 'Achtelfinale';
+            return `Runde ${roundNum}`;
         }
-        return `LB Runde ${num}`;
+        return `LB Runde ${roundNum}`;
     };
 
     // Render single match for tree view
@@ -906,7 +907,7 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
 
         wbRoundNums.forEach((roundNum, idx) => {
             const roundMatches = wbRounds[roundNum] || [];
-            const roundName = getRoundName(roundNum, totalWbRounds, 'winners');
+            const roundName = getRoundName(roundMatches.length, 'winners', roundNum);
             html += `
                 <div class="bracket-tree-round" style="--round-index: ${idx};">
                     <div class="bracket-round-header">${roundName}</div>
@@ -1960,17 +1961,16 @@ function generateBracketTreeHtml(matches, participants) {
     const horizontalGap = isCompact ? 20 : 30;
     const connectorWidth = 15;
 
-    // Helper to get round name
-    const getRoundName = (roundNum, total, bracketType) => {
-        const num = parseInt(roundNum);
+    // Helper to get round name based on number of matches
+    const getRoundName = (matchCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            if (num === total) return 'Finale';
-            if (num === total - 1) return 'Halbfinale';
-            if (num === total - 2) return 'Viertelfinale';
-            if (num === total - 3) return 'Achtelfinale';
-            return `Runde ${num}`;
+            if (matchCount === 1) return 'Finale';
+            if (matchCount === 2) return 'Halbfinale';
+            if (matchCount === 4) return 'Viertelfinale';
+            if (matchCount === 8) return 'Achtelfinale';
+            return `Runde ${roundNum}`;
         }
-        return `Runde ${num}`;
+        return `Runde ${roundNum}`;
     };
 
     // Helper to render a single match box
@@ -2044,7 +2044,7 @@ function generateBracketTreeHtml(matches, participants) {
 
         roundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            const roundName = getRoundName(roundNum, total, bracketType);
+            const roundName = getRoundName(roundMatches.length, bracketType, roundNum);
             const isFirstRound = roundIdx === 0;
             const isLastRound = roundIdx === roundNums.length - 1;
 
