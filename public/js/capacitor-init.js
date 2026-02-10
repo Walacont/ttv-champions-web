@@ -132,6 +132,7 @@
     }
 
     const ONESIGNAL_APP_ID = '4cc26bd1-bfa5-4b18-bbf3-640f2db2435b';
+    var _oneSignalInitialized = false;
 
     /** Findet den OneSignal Plugin-Zugriff */
     function findOneSignalPlugin() {
@@ -148,6 +149,11 @@
 
     /** Initialisiert OneSignal Push-Benachrichtigungen für native Apps */
     async function initializeOneSignalPush() {
+        if (_oneSignalInitialized) {
+            console.log('[Push] Already initialized, skipping');
+            return;
+        }
+
         console.log('[Push] Initializing OneSignal push notifications...');
         console.log('[Push] Available: window.plugins=', typeof window.plugins,
             'window.OneSignal=', typeof window.OneSignal,
@@ -220,6 +226,7 @@
             // Store OneSignal reference for later use
             window._oneSignalNative = OneSignal;
             window._pushNotificationsAvailable = true;
+            _oneSignalInitialized = true;
 
             console.log('[Push] OneSignal push notifications initialized successfully');
         } catch (e) {
@@ -323,6 +330,24 @@
             try {
                 await OneSignal.login(userId);
                 console.log('[Push] OneSignal user logged in:', userId);
+
+                // Auto-request permission if not yet granted and not yet asked
+                var hasPermission = OneSignal.Notifications.hasPermission();
+                if (!hasPermission && !localStorage.getItem('push_permission_asked')) {
+                    console.log('[Push] Permission not granted, requesting after delay...');
+                    setTimeout(async () => {
+                        try {
+                            localStorage.setItem('push_permission_asked', 'true');
+                            var granted = await OneSignal.Notifications.requestPermission(true);
+                            console.log('[Push] Auto-request permission result:', granted);
+                            if (granted) {
+                                localStorage.setItem('onesignal_push_granted', 'true');
+                            }
+                        } catch (e) {
+                            console.error('[Push] Auto-request permission error:', e);
+                        }
+                    }, 2000);
+                }
             } catch (e) {
                 console.error('[Push] OneSignal login error:', e);
             }

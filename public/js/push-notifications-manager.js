@@ -240,7 +240,8 @@ function showInAppNotification(notification) {
     const body = notification.body || '';
 
     const toast = document.createElement('div');
-    toast.className = 'fixed top-4 right-4 left-4 sm:left-auto sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-[9999] transform translate-y-0 opacity-100 transition-all duration-300';
+    toast.className = 'fixed top-4 right-4 left-4 sm:left-auto sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 transform translate-y-0 opacity-100 transition-all duration-300';
+    toast.style.zIndex = '9999';
     toast.innerHTML = `
         <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
@@ -317,7 +318,8 @@ export async function showPushPermissionPrompt() {
 
         const modal = document.createElement('div');
         modal.id = 'push-permission-modal';
-        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4';
+        modal.className = 'fixed inset-0 flex items-center justify-center p-4';
+        modal.style.cssText = 'z-index: 9999; background: rgba(0,0,0,0.5);';
         modal.innerHTML = `
             <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
                 <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
