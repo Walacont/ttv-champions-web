@@ -89,8 +89,8 @@ function transformMatch(match, isFirstRound = false, isWinnersBracket = true) {
 
     const getPlayerData = (player, playerId) => {
         if (!playerId) {
-            // Show "Freilos" for any bye/skipped match in winners bracket, "TBD" for pending matches
-            const displayName = (isWinnersBracket && (isFirstRound || isByeOrSkipped)) ? 'Freilos' : 'TBD';
+            // Show "Freilos" for any bye/skipped match, "TBD" for pending matches waiting for a player
+            const displayName = isByeOrSkipped ? 'Freilos' : 'TBD';
             return { name: displayName, seed: null, elo: null, avatar: null, isBye: true };
         }
         const displayName = player?.display_name ||
@@ -172,7 +172,7 @@ function getRoundName(matchCount, isLosersBracket, roundIndex, bracketType) {
 }
 
 /**
- * Calculate the absolute top position of a match for proper alignment
+ * Calculate the absolute top position of a match for proper alignment (WB binary tree)
  */
 function calculateMatchTop(roundIndex, matchIndex) {
     if (roundIndex === 0) {
@@ -193,7 +193,68 @@ function calculateMatchTop(roundIndex, matchIndex) {
 }
 
 /**
- * Create SVG connector lines between matches
+ * Precompute match positions for Losers Bracket.
+ * LB has alternating round structure: same count, then halve.
+ * e.g., [4,4,2,2,1,1] for bracketSize=16
+ * - Same-count transitions (R1→R2, R3→R4, R5→R6): matches align at same Y positions
+ * - Halving transitions (R2→R3, R4→R5): center between pairs from previous level
+ */
+function precomputeLbPositions(rounds) {
+    if (!rounds || rounds.length === 0) return [];
+
+    const matchCounts = rounds.map(r => r.length);
+    const positions = [];
+
+    // Base positions for the first round (simple linear layout)
+    let currentPositions = [];
+    for (let i = 0; i < matchCounts[0]; i++) {
+        currentPositions.push(i * (MATCH_HEIGHT + BASE_GAP));
+    }
+    positions.push([...currentPositions]);
+
+    // Calculate positions for subsequent rounds
+    for (let r = 1; r < rounds.length; r++) {
+        if (matchCounts[r] < matchCounts[r - 1]) {
+            // Halving transition: center between pairs from current positions
+            const newPositions = [];
+            for (let i = 0; i < matchCounts[r]; i++) {
+                const p1 = currentPositions[i * 2] ?? 0;
+                const p2 = currentPositions[i * 2 + 1] ?? p1;
+                const center1 = p1 + MATCH_HEIGHT / 2;
+                const center2 = p2 + MATCH_HEIGHT / 2;
+                const newCenter = (center1 + center2) / 2;
+                newPositions.push(newCenter - MATCH_HEIGHT / 2);
+            }
+            currentPositions = newPositions;
+        }
+        // If same count → keep currentPositions (same Y positions)
+        positions.push([...currentPositions]);
+    }
+
+    return positions;
+}
+
+/**
+ * Create a simple horizontal connector SVG for LB same-count transitions
+ */
+function createHorizontalConnectorSVG(roundIndex, isCompleted, isLosersBracket) {
+    const lineColor = isCompleted
+        ? (isLosersBracket ? '#f97316' : '#10b981')
+        : '#d1d5db';
+    const strokeWidth = isCompleted ? 3 : 2;
+
+    return `
+        <svg class="bracket-connector-svg"
+             style="position: absolute; left: 100%; top: 50%; width: ${CONNECTOR_LENGTH}px; height: 2px; overflow: visible; pointer-events: none; z-index: 10; transform: translateY(-1px);">
+            <line x1="0" y1="0" x2="${CONNECTOR_LENGTH}" y2="0"
+                  stroke="${lineColor}" stroke-width="${strokeWidth}" stroke-linecap="round"
+                  class="bracket-connector-line" style="animation-delay: ${roundIndex * 0.1}s" />
+        </svg>
+    `;
+}
+
+/**
+ * Create SVG connector lines between matches (binary tree pairing)
  */
 function createConnectorSVG(roundIndex, matchIndex, totalHeight, meetingPointY, isCompleted, isLosersBracket) {
     const lineColor = isCompleted
@@ -369,6 +430,9 @@ function renderBracketSection(rounds, isLosersBracket) {
         `;
     }
 
+    // For LB, precompute positions with the alternating same-count/halving layout
+    const lbPositions = isLosersBracket ? precomputeLbPositions(rounds) : null;
+
     let html = `<div class="bracket-rounds-container flex gap-16 min-w-max p-6">`;
 
     rounds.forEach((round, roundIndex) => {
@@ -396,41 +460,91 @@ function renderBracketSection(rounds, isLosersBracket) {
         `;
 
         round.forEach((match, matchIndex) => {
-            const absoluteTop = calculateMatchTop(roundIndex, matchIndex);
+            // Calculate position based on bracket type
+            let absoluteTop;
+            if (isLosersBracket && lbPositions && lbPositions[roundIndex]) {
+                absoluteTop = lbPositions[roundIndex][matchIndex] ?? 0;
+            } else {
+                absoluteTop = calculateMatchTop(roundIndex, matchIndex);
+            }
+
             let marginTop = absoluteTop;
             if (matchIndex > 0) {
-                const prevAbsoluteTop = calculateMatchTop(roundIndex, matchIndex - 1);
+                let prevAbsoluteTop;
+                if (isLosersBracket && lbPositions && lbPositions[roundIndex]) {
+                    prevAbsoluteTop = lbPositions[roundIndex][matchIndex - 1] ?? 0;
+                } else {
+                    prevAbsoluteTop = calculateMatchTop(roundIndex, matchIndex - 1);
+                }
                 marginTop = absoluteTop - (prevAbsoluteTop + MATCH_HEIGHT);
             }
 
-            const isTopOfPair = matchIndex % 2 === 0;
             const hasNextRound = roundIndex < rounds.length - 1;
-            const hasBottomMatch = matchIndex + 1 < round.length;
 
             html += `
                 <div class="bracket-match-wrapper relative" style="margin-top: ${marginTop}px;">
                     ${renderMatchCard(match, roundIndex, matchIndex, isLosersBracket)}
             `;
 
-            // Add connector lines for pairs
-            if (hasNextRound && isTopOfPair && hasBottomMatch) {
-                const topMatch = match;
-                const bottomMatch = round[matchIndex + 1];
+            // Add connector lines
+            if (hasNextRound) {
+                if (isLosersBracket && lbPositions) {
+                    // LB connector logic: depends on transition type
+                    const nextRoundMatchCount = rounds[roundIndex + 1].length;
+                    const thisRoundMatchCount = round.length;
 
-                const topMatchAbsoluteTop = calculateMatchTop(roundIndex, matchIndex);
-                const bottomMatchAbsoluteTop = calculateMatchTop(roundIndex, matchIndex + 1);
-                const nextMatchAbsoluteTop = calculateMatchTop(roundIndex + 1, Math.floor(matchIndex / 2));
+                    if (nextRoundMatchCount < thisRoundMatchCount) {
+                        // Halving transition: draw binary tree connector (pair → single)
+                        const isTopOfPair = matchIndex % 2 === 0;
+                        const hasBottomMatch = matchIndex + 1 < round.length;
 
-                const topMatchCenter = topMatchAbsoluteTop + MATCH_HEIGHT / 2;
-                const bottomMatchCenter = bottomMatchAbsoluteTop + MATCH_HEIGHT / 2;
-                const nextMatchCenter = nextMatchAbsoluteTop + MATCH_HEIGHT / 2;
+                        if (isTopOfPair && hasBottomMatch) {
+                            const topMatch = match;
+                            const bottomMatch = round[matchIndex + 1];
 
-                const meetingPointY = nextMatchCenter - topMatchCenter;
-                const totalHeight = bottomMatchCenter - topMatchCenter;
+                            const topPos = lbPositions[roundIndex][matchIndex];
+                            const bottomPos = lbPositions[roundIndex][matchIndex + 1];
+                            const nextPos = lbPositions[roundIndex + 1][Math.floor(matchIndex / 2)];
 
-                const isCompleted = topMatch.status === 'completed' && bottomMatch.status === 'completed';
+                            const topCenter = topPos + MATCH_HEIGHT / 2;
+                            const bottomCenter = bottomPos + MATCH_HEIGHT / 2;
+                            const nextCenter = nextPos + MATCH_HEIGHT / 2;
 
-                html += createConnectorSVG(roundIndex, matchIndex, totalHeight, meetingPointY, isCompleted, isLosersBracket);
+                            const meetingPointY = nextCenter - topCenter;
+                            const totalHeight = bottomCenter - topCenter;
+
+                            const isCompleted = topMatch.status === 'completed' && bottomMatch.status === 'completed';
+                            html += createConnectorSVG(roundIndex, matchIndex, totalHeight, meetingPointY, isCompleted, true);
+                        }
+                    } else {
+                        // Same-count transition: each match connects horizontally to corresponding match in next round
+                        const isMatchCompleted = match.status === 'completed';
+                        html += createHorizontalConnectorSVG(roundIndex, isMatchCompleted, true);
+                    }
+                } else {
+                    // WB connector logic: standard binary tree pairing
+                    const isTopOfPair = matchIndex % 2 === 0;
+                    const hasBottomMatch = matchIndex + 1 < round.length;
+
+                    if (isTopOfPair && hasBottomMatch) {
+                        const topMatch = match;
+                        const bottomMatch = round[matchIndex + 1];
+
+                        const topMatchAbsoluteTop = calculateMatchTop(roundIndex, matchIndex);
+                        const bottomMatchAbsoluteTop = calculateMatchTop(roundIndex, matchIndex + 1);
+                        const nextMatchAbsoluteTop = calculateMatchTop(roundIndex + 1, Math.floor(matchIndex / 2));
+
+                        const topMatchCenter = topMatchAbsoluteTop + MATCH_HEIGHT / 2;
+                        const bottomMatchCenter = bottomMatchAbsoluteTop + MATCH_HEIGHT / 2;
+                        const nextMatchCenter = nextMatchAbsoluteTop + MATCH_HEIGHT / 2;
+
+                        const meetingPointY = nextMatchCenter - topMatchCenter;
+                        const totalHeight = bottomMatchCenter - topMatchCenter;
+
+                        const isCompleted = topMatch.status === 'completed' && bottomMatch.status === 'completed';
+                        html += createConnectorSVG(roundIndex, matchIndex, totalHeight, meetingPointY, isCompleted, false);
+                    }
+                }
             }
 
             html += `</div>`;
