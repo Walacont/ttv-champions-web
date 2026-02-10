@@ -707,13 +707,15 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name
+        // Determine round name based on number of match slots
         let name;
         if (bracketType === 'winners') {
-            if (roundNum === totalRounds) name = 'Finale WB';
-            else if (roundNum === totalRounds - 1) name = 'Halbfinale';
-            else if (roundNum === totalRounds - 2) name = 'Viertelfinale';
-            else if (roundNum === totalRounds - 3) name = 'Achtelfinale';
+            const slotCount = roundMatches.length;
+            if (slotCount === 1) name = 'Finale';
+            else if (slotCount === 2) name = 'Halbfinale';
+            else if (slotCount === 4) name = 'Viertelfinale';
+            else if (slotCount === 8) name = 'Achtelfinale';
+            else if (slotCount === 16) name = 'Sechzehntelfinale';
             else name = `Runde ${roundNum}`;
         } else {
             name = `Runde ${roundNum}`;

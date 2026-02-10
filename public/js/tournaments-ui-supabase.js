@@ -722,15 +722,16 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name based on number of actual matches in the round
-        // Count only matches with at least one player (not empty placeholder slots)
+        // Determine round name based on number of match slots in the round
+        // Use roundMatches.length (total slots) to properly name rounds even when no players are assigned yet
         let name;
         if (bracketType === 'winners') {
-            const matchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
-            if (matchCount === 1) name = 'Finale WB';
-            else if (matchCount === 2) name = 'Halbfinale';
-            else if (matchCount === 4) name = 'Viertelfinale';
-            else if (matchCount === 8) name = 'Achtelfinale';
+            const slotCount = roundMatches.length;
+            if (slotCount === 1) name = 'Finale';
+            else if (slotCount === 2) name = 'Halbfinale';
+            else if (slotCount === 4) name = 'Viertelfinale';
+            else if (slotCount === 8) name = 'Achtelfinale';
+            else if (slotCount === 16) name = 'Sechzehntelfinale';
             else name = `Runde ${roundNum}`;
         } else {
             name = `Runde ${roundNum}`;
@@ -850,13 +851,14 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
     const lbRoundNums = Object.keys(lbRounds).sort((a, b) => a - b);
     const totalWbRounds = wbRoundNums.length;
 
-    // Get round name based on number of matches in the round
-    const getRoundName = (matchCount, bracketType, roundNum) => {
+    // Get round name based on number of match slots in the round
+    const getRoundName = (slotCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            if (matchCount === 1) return 'WB Finale';
-            if (matchCount === 2) return 'Halbfinale';
-            if (matchCount === 4) return 'Viertelfinale';
-            if (matchCount === 8) return 'Achtelfinale';
+            if (slotCount === 1) return 'WB Finale';
+            if (slotCount === 2) return 'Halbfinale';
+            if (slotCount === 4) return 'Viertelfinale';
+            if (slotCount === 8) return 'Achtelfinale';
+            if (slotCount === 16) return 'Sechzehntelfinale';
             return `Runde ${roundNum}`;
         }
         return `LB Runde ${roundNum}`;
@@ -910,11 +912,12 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
         let realRoundIdx = 0;
         wbRoundNums.forEach((roundNum) => {
             const roundMatches = wbRounds[roundNum] || [];
-            // Count only actual matches (with at least one player) for round name determination
+            // Count actual matches to determine if round should be displayed
             const actualMatchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
             // Skip rounds with no actual matches
             if (actualMatchCount === 0) return;
-            const roundName = getRoundName(actualMatchCount, 'winners', roundNum);
+            // Use total slot count for round name determination
+            const roundName = getRoundName(roundMatches.length, 'winners', roundNum);
             html += `
                 <div class="bracket-tree-round" style="--round-index: ${realRoundIdx};">
                     <div class="bracket-round-header">${roundName}</div>
@@ -2108,13 +2111,14 @@ function generateBracketTreeHtml(matches, participants) {
     const horizontalGap = isCompact ? 20 : 30;
     const connectorWidth = 15;
 
-    // Helper to get round name based on number of matches
-    const getRoundName = (matchCount, bracketType, roundNum) => {
+    // Helper to get round name based on number of match slots
+    const getRoundName = (slotCount, bracketType, roundNum) => {
         if (bracketType === 'winners') {
-            if (matchCount === 1) return 'Finale';
-            if (matchCount === 2) return 'Halbfinale';
-            if (matchCount === 4) return 'Viertelfinale';
-            if (matchCount === 8) return 'Achtelfinale';
+            if (slotCount === 1) return 'Finale';
+            if (slotCount === 2) return 'Halbfinale';
+            if (slotCount === 4) return 'Viertelfinale';
+            if (slotCount === 8) return 'Achtelfinale';
+            if (slotCount === 16) return 'Sechzehntelfinale';
             return `Runde ${roundNum}`;
         }
         return `Runde ${roundNum}`;
@@ -2198,9 +2202,10 @@ function generateBracketTreeHtml(matches, participants) {
 
         filteredRoundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            // Count only actual matches (with at least one player) for round name determination
+            // Count actual matches for display logic
             const actualMatchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
-            const roundName = getRoundName(actualMatchCount, bracketType, roundNum);
+            // Use total slot count for round name determination
+            const roundName = getRoundName(roundMatches.length, bracketType, roundNum);
             const isFirstRound = roundIdx === 0;
             const isLastRound = roundIdx === totalFilteredRounds - 1;
 
