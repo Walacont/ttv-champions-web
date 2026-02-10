@@ -2166,8 +2166,17 @@ export function showMatchConfirmationBottomSheet(requests) {
         });
 
         declineBtn?.addEventListener('click', async () => {
-            const reason = prompt('Warum möchtest du dieses Ergebnis ablehnen? (Optional)');
-            await handlePlayerConfirmation(requests[currentIndex].id, false, reason, requests[currentIndex].isDoubles);
+            const currentRequest = requests[currentIndex];
+            try {
+                // Use respondToMatchRequest if available (dashboard context) - it handles notifications
+                if (!currentRequest.isDoubles && window.respondToMatchRequest) {
+                    await window.respondToMatchRequest(currentRequest.id, false);
+                } else {
+                    await handlePlayerConfirmation(currentRequest.id, false, null, currentRequest.isDoubles);
+                }
+            } catch (err) {
+                console.error('[BottomSheet] Decline error:', err);
+            }
             requests.splice(currentIndex, 1);
             if (requests.length > 0) {
                 if (currentIndex >= requests.length) currentIndex = requests.length - 1;
@@ -2546,13 +2555,19 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 tournamentMatchId = reqData?.tournament_match_id;
             }
 
-            await supabase
+            const { error: rejectError } = await supabase
                 .from(table)
                 .update({
                     status: 'rejected',
-                    decline_reason: declineReason
+                    decline_reason: declineReason,
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', requestId);
+
+            if (rejectError) {
+                console.error('[Matches] Error rejecting match request:', rejectError);
+                throw new Error(`Ablehnung fehlgeschlagen: ${rejectError.message}`);
+            }
 
             // Also cancel linked tournament_match so it doesn't stay pending
             if (tournamentMatchId) {
