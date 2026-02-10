@@ -19,7 +19,7 @@ let currentUserId = null;
  * @param {number} weeksAhead - Wochen im Voraus für Termine
  * @returns {Array} Array of date strings (YYYY-MM-DD)
  */
-function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], weeksAhead = 4) {
+function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], weeksAhead = 4, leadTimeValue = null, leadTimeUnit = null) {
     const occurrences = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -54,9 +54,29 @@ function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, exclu
     while (currentDate <= windowEnd && maxIterations > 0) {
         if (endDate && currentDate > endDate) break;
 
+        // Lead-Time-Filter: Nur Termine einbeziehen bei denen das Vorlaufzeit-Fenster begonnen hat
+        // z.B. bei 3 Tage Vorlaufzeit: Termin am Mittwoch -> erst ab Sonntag sichtbar
+        let withinLeadTimeWindow = true;
+        if (leadTimeValue && leadTimeUnit) {
+            const leadTimeStart = new Date(currentDate);
+            switch (leadTimeUnit) {
+                case 'hours':
+                    leadTimeStart.setHours(leadTimeStart.getHours() - leadTimeValue);
+                    break;
+                case 'days':
+                    leadTimeStart.setDate(leadTimeStart.getDate() - leadTimeValue);
+                    break;
+                case 'weeks':
+                    leadTimeStart.setDate(leadTimeStart.getDate() - (leadTimeValue * 7));
+                    break;
+            }
+            leadTimeStart.setHours(0, 0, 0, 0);
+            withinLeadTimeWindow = today >= leadTimeStart;
+        }
+
         // Use local date to avoid timezone issues
         const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-        if (!excludedDates.includes(dateStr)) {
+        if (!excludedDates.includes(dateStr) && withinLeadTimeWindow) {
             occurrences.push(dateStr);
         }
 
@@ -98,13 +118,15 @@ async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
 
     const existingDates = new Set((existingInvitations || []).map(inv => inv.occurrence_date));
 
-    // Kommende Termine generieren
+    // Kommende Termine generieren (mit Lead-Time-Filter)
     const upcomingOccurrences = generateUpcomingOccurrences(
         event.start_date,
         event.repeat_type,
         event.repeat_end_date,
         event.excluded_dates || [],
-        4
+        4,
+        event.invitation_lead_time_value,
+        event.invitation_lead_time_unit
     );
 
     // Fehlende Einladungen finden
@@ -242,6 +264,8 @@ async function loadUpcomingEvents() {
                     repeat_type,
                     repeat_end_date,
                     excluded_dates,
+                    invitation_lead_time_value,
+                    invitation_lead_time_unit,
                     event_type
                 )
             `)
@@ -250,9 +274,33 @@ async function loadUpcomingEvents() {
         // Null-Events und vergangene Termine clientseitig herausfiltern
         // occurrence_date verwenden falls verfügbar, sonst auf start_date zurückfallen
         const nowTime = new Date();
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
         let validInvitations = (updatedInvitations || []).filter(inv => {
             if (!inv.events) return false;
             const displayDate = inv.occurrence_date || inv.events.start_date;
+
+            // Lead-Time-Filter: Bei wiederkehrenden Events mit Vorlaufzeit
+            // nur Einladungen anzeigen bei denen das Vorlaufzeit-Fenster begonnen hat
+            const ltValue = inv.events.invitation_lead_time_value;
+            const ltUnit = inv.events.invitation_lead_time_unit;
+            if (ltValue && ltUnit && inv.events.event_type === 'recurring') {
+                const eventDate = new Date(displayDate + 'T12:00:00');
+                const leadTimeStart = new Date(eventDate);
+                switch (ltUnit) {
+                    case 'hours':
+                        leadTimeStart.setHours(leadTimeStart.getHours() - ltValue);
+                        break;
+                    case 'days':
+                        leadTimeStart.setDate(leadTimeStart.getDate() - ltValue);
+                        break;
+                    case 'weeks':
+                        leadTimeStart.setDate(leadTimeStart.getDate() - (ltValue * 7));
+                        break;
+                }
+                leadTimeStart.setHours(0, 0, 0, 0);
+                if (todayDate < leadTimeStart) return false;
+            }
 
             // Falls Event in der Zukunft, einbeziehen
             if (displayDate > today) return true;
