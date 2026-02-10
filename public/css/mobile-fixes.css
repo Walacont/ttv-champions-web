@@ -67,6 +67,15 @@ html.plt-ios .sticky.top-0 {
 }
 
 /* ============================================
+   EXERCISE DETAIL FIXED HEADER - SAFE AREA
+   ============================================ */
+html.plt-capacitor #exercise-header,
+html.plt-android #exercise-header,
+html.plt-ios #exercise-header {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+}
+
+/* ============================================
    DASHBOARD FIXED NAVIGATION - SAFE AREA
    The dashboard uses #top-nav with fixed positioning
    ============================================ */
