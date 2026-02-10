@@ -629,15 +629,18 @@ function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'al
 
     let html = `<div class="bracket-tabs-container" id="${bracketId}" data-is-creator="${isCreator}">`;
 
-    // View Mode Toggle (List vs Tree)
+    // View Mode Label and Toggle (List vs Tree)
     html += `
-        <div class="bracket-view-toggle">
-            <button class="bracket-view-btn active" data-view="list" title="Listenansicht">
-                <i class="fas fa-list"></i> Liste
-            </button>
-            <button class="bracket-view-btn" data-view="tree" title="Baumansicht">
-                <i class="fas fa-sitemap"></i> Baum
-            </button>
+        <div class="bracket-view-controls">
+            <span class="bracket-view-label"><i class="fas fa-eye"></i> Ansicht wählen:</span>
+            <div class="bracket-view-toggle">
+                <button class="bracket-view-btn active" data-view="list" title="Listenansicht">
+                    <i class="fas fa-list"></i> Liste
+                </button>
+                <button class="bracket-view-btn" data-view="tree" title="Baumansicht - Zeigt den kompletten Turnierbaum">
+                    <i class="fas fa-sitemap"></i> Baum
+                </button>
+            </div>
         </div>
     `;
 
@@ -873,6 +876,7 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
     };
 
     let html = '<div class="bracket-tree-container">';
+    html += '<div class="bracket-scroll-info"><i class="fas fa-arrows-alt-h"></i> Horizontal scrollen um den gesamten Baum zu sehen</div>';
 
     // Winners Bracket
     if (wbRoundNums.length > 0) {

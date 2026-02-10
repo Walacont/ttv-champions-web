@@ -859,14 +859,37 @@ button:active,
     }
 }
 
+/* Bracket View Controls */
+.bracket-view-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.bracket-view-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bracket-view-label i {
+    color: #6366f1;
+}
+
 /* Bracket View Toggle */
 .bracket-view-toggle {
     display: flex;
     gap: 4px;
     padding: 4px;
-    background: #f3f4f6;
-    border-radius: 8px;
-    margin-bottom: 12px;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    border-radius: 10px;
+    border: 2px solid #a5b4fc;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 .bracket-view-btn {
@@ -1105,6 +1128,23 @@ button:active,
     gap: 24px;
 }
 
+.bracket-scroll-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #1e40af;
+    margin-bottom: 8px;
+}
+
+.bracket-scroll-info i {
+    font-size: 14px;
+}
+
 .tree-section {
     background: #fff;
     border-radius: 12px;
@@ -1119,6 +1159,7 @@ button:active,
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     align-items: flex-start;
+    position: relative;
 }
 
 .bracket-tree-wrapper.losers-tree {
@@ -1133,14 +1174,69 @@ button:active,
 .bracket-round-matches {
     display: flex;
     flex-direction: column;
-    gap: 8px;
     justify-content: space-around;
     min-height: 100px;
+    /* Use CSS variable for exponential spacing based on round index */
+    gap: calc(8px * pow(2, var(--round-index, 0)));
 }
+
+/* Fallback for browsers that don't support pow() - use fixed spacing per round */
+.bracket-tree-round[style*="--round-index: 0"] .bracket-round-matches { gap: 8px; }
+.bracket-tree-round[style*="--round-index: 1"] .bracket-round-matches { gap: 16px; }
+.bracket-tree-round[style*="--round-index: 2"] .bracket-round-matches { gap: 32px; }
+.bracket-tree-round[style*="--round-index: 3"] .bracket-round-matches { gap: 64px; }
+.bracket-tree-round[style*="--round-index: 4"] .bracket-round-matches { gap: 128px; }
 
 /* Match styling for tree view */
 .tree-match {
     width: 150px;
+    position: relative;
+}
+
+/* Connector lines between bracket rounds */
+.bracket-tree-round:not(:last-child) .tree-match::after {
+    content: '';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    width: 16px;
+    height: 2px;
+    background: #16a34a;
+}
+
+/* Vertical connectors - these connect pairs of matches */
+.bracket-tree-round[style*="--round-index: 0"]:not(:last-child) .bracket-round-matches > *:nth-child(odd)::before,
+.bracket-tree-round[style*="--round-index: 1"]:not(:last-child) .bracket-round-matches > *:nth-child(odd)::before,
+.bracket-tree-round[style*="--round-index: 2"]:not(:last-child) .bracket-round-matches > *:nth-child(odd)::before {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    width: 2px;
+    height: calc(100% + var(--connector-height, 16px));
+    background: #16a34a;
+}
+
+/* Scroll hint for wide brackets */
+.bracket-scroll-hint {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.95) 30%);
+    padding: 8px 12px 8px 24px;
+    font-size: 11px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: scrollHintPulse 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes scrollHintPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
 }
 
 .bracket-match.bye {
@@ -1191,10 +1287,6 @@ button:active,
 }
 
 /* View Toggle Button Enhancement */
-.bracket-view-toggle {
-    margin-bottom: 16px;
-}
-
 .bracket-view-btn {
     display: inline-flex;
     align-items: center;
