@@ -138,13 +138,14 @@ function transformMatch(match, isFirstRound = false, isWinnersBracket = true) {
 }
 
 /**
- * Get round name based on match count in the round
+ * Get round name based on position relative to the finals
  * @param {number} matchCount - Number of matches in this round
  * @param {boolean} isLosersBracket - Whether this is the losers bracket
- * @param {number} roundIndex - Index of the round (for losers bracket naming)
+ * @param {number} roundIndex - Index of the round (0-based)
  * @param {string} bracketType - Type of bracket (winners, losers, finals, grand_finals)
+ * @param {number} totalRegularRounds - Total number of regular rounds (excluding finals/grand_finals)
  */
-function getRoundName(matchCount, isLosersBracket, roundIndex, bracketType) {
+function getRoundName(matchCount, isLosersBracket, roundIndex, bracketType, totalRegularRounds) {
     // Special cases for finals
     if (bracketType === 'grand_finals') return 'Grand Finals';
     if (bracketType === 'finals') return 'Finale';
@@ -154,17 +155,14 @@ function getRoundName(matchCount, isLosersBracket, roundIndex, bracketType) {
         return `TR ${roundIndex + 1}`;
     }
 
-    // Winners/Hauptrunde naming based on match count
-    // matchCount = number of matches = number of players / 2
-    // 1 match = 2 players = Halbfinale (or Finale if it's the last)
-    // 2 matches = 4 players = Viertelfinale
-    // 4 matches = 8 players = Achtelfinale
-    // 8 matches = 16 players = Runde 1
-    if (matchCount === 1) return 'Halbfinale';
-    if (matchCount === 2) return 'Viertelfinale';
-    if (matchCount === 4) return 'Achtelfinale';
-    if (matchCount === 8) return 'Runde 1';
-    if (matchCount === 16) return 'Runde 1';
+    // Winners/Hauptrunde naming based on distance from the finals
+    // The last regular round before finals = Halbfinale
+    // Second to last = Viertelfinale, etc.
+    const roundsFromEnd = totalRegularRounds - 1 - roundIndex;
+
+    if (roundsFromEnd === 0) return 'Halbfinale';
+    if (roundsFromEnd === 1) return 'Viertelfinale';
+    if (roundsFromEnd === 2) return 'Achtelfinale';
     return `Runde ${roundIndex + 1}`;
 }
 
@@ -366,12 +364,18 @@ function renderBracketSection(rounds, isLosersBracket) {
         `;
     }
 
+    // Count regular rounds (not finals/grand_finals) for proper naming
+    const totalRegularRounds = rounds.filter(round => {
+        const bt = round[0]?.bracketType;
+        return bt !== 'finals' && bt !== 'grand_finals';
+    }).length;
+
     let html = `<div class="bracket-rounds-container flex gap-16 min-w-max p-6">`;
 
     rounds.forEach((round, roundIndex) => {
         const matchCount = round.length;
         const bracketType = round[0]?.bracketType || (isLosersBracket ? 'losers' : 'winners');
-        const roundName = getRoundName(matchCount, isLosersBracket, roundIndex, bracketType);
+        const roundName = getRoundName(matchCount, isLosersBracket, roundIndex, bracketType, totalRegularRounds);
         const isFinal = bracketType === 'finals' || bracketType === 'grand_finals' || roundIndex === rounds.length - 1;
 
         html += `

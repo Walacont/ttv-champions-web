@@ -363,11 +363,13 @@ function renderTournamentDetails(tournament) {
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
                         <div class="flex items-center gap-2">
+                            ${tournament.format === 'round_robin' ? `
                             <select id="coach-rounds-filter" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white">
                                 <option value="remaining" selected>Übrige Runden</option>
                                 <option value="completed">Abgeschlossene</option>
                                 <option value="all">Alle Runden</option>
                             </select>
+                            ` : ''}
                             ${tournament.status === 'in_progress' && isCreator ? `
                                 <button id="coach-quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
                                     <i class="fas fa-bolt mr-1"></i>Eintragen
@@ -376,7 +378,7 @@ function renderTournamentDetails(tournament) {
                         </div>
                     </div>
                     <div id="coach-matches-container">
-                        ${renderMatches(tournament.tournament_matches || [], isCreator, 'remaining')}
+                        ${renderMatches(tournament.tournament_matches || [], isCreator, tournament.format === 'round_robin' ? 'remaining' : 'all')}
                     </div>
                 </div>
             ` : ''}
@@ -1786,14 +1788,14 @@ function generateBracketTreeHtml(matches, participants) {
     const horizontalGap = isCompact ? 20 : 30;
     const connectorWidth = 15;
 
-    // Helper to get round name based on number of matches
-    const getRoundName = (matchCount, bracketType, roundNum) => {
+    // Helper to get round name based on position relative to finals
+    const getRoundName = (matchCount, bracketType, roundNum, roundIdx, totalRounds) => {
         if (bracketType === 'winners') {
-            if (matchCount === 1) return 'Finale';
-            if (matchCount === 2) return 'Halbfinale';
-            if (matchCount === 4) return 'Viertelfinale';
-            if (matchCount === 8) return 'Achtelfinale';
-            return `Runde ${roundNum}`;
+            const roundsFromEnd = totalRounds - 1 - roundIdx;
+            if (roundsFromEnd === 0) return 'Halbfinale';
+            if (roundsFromEnd === 1) return 'Viertelfinale';
+            if (roundsFromEnd === 2) return 'Achtelfinale';
+            return `Runde ${roundIdx + 1}`;
         }
         return `Runde ${roundNum}`;
     };
@@ -1869,7 +1871,7 @@ function generateBracketTreeHtml(matches, participants) {
 
         roundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            const roundName = getRoundName(roundMatches.length, bracketType, roundNum);
+            const roundName = getRoundName(roundMatches.length, bracketType, roundNum, roundIdx, total);
             const isFirstRound = roundIdx === 0;
             const isLastRound = roundIdx === roundNums.length - 1;
 

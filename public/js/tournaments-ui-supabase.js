@@ -295,6 +295,7 @@ function renderTournamentDetails(tournament, participating) {
     const statusName = getTournamentStatusName(tournament.status);
     const creatorName = getPlayerName(tournament.created_by_profile);
     const isCreator = tournament.created_by === getCurrentUserId();
+    const participantCount = tournament.tournament_participants?.length || 0;
 
     return `
         <div class="space-y-6">
@@ -312,10 +313,10 @@ function renderTournamentDetails(tournament, participating) {
                     <div><span class="text-gray-600">Modus:</span> <span class="font-medium ml-2">${formatName}</span></div>
                     <div><span class="text-gray-600">Spielmodus:</span> <span class="font-medium ml-2">${getMatchModeName(tournament.match_mode)}</span></div>
                     <div><span class="text-gray-600">Status:</span> <span class="font-medium ml-2">${statusName}</span></div>
-                    <div><span class="text-gray-600">Teilnehmer:</span> <span class="font-medium ml-2">${tournament.tournament_participants?.length || 0}/${tournament.max_participants}</span></div>
+                    <div><span class="text-gray-600">Teilnehmer:</span> <span class="font-medium ml-2">${participantCount}/${tournament.max_participants}</span></div>
                     <div><span class="text-gray-600">Erstellt von:</span> <span class="font-medium ml-2">${escapeHtml(creatorName)}</span></div>
                     ${tournament.with_handicap ? '<div><span class="text-gray-600">Handicap:</span> <span class="font-medium ml-2"><i class="fas fa-check text-green-500"></i> Aktiv</span></div>' : ''}
-                    ${!tournament.is_open && tournament.join_code && isCreator ? `<div><span class="text-gray-600">Code:</span> <span class="font-mono font-bold ml-2 text-indigo-600">${tournament.join_code}</span></div>` : ''}
+                    ${tournament.join_code && isCreator ? `<div><span class="text-gray-600">Code:</span> <span class="font-mono font-bold ml-2 text-indigo-600">${tournament.join_code}</span></div>` : ''}
                 </div>
                 <div class="mt-4 flex gap-2 flex-wrap">
                     ${renderActionButtons(tournament, participating)}
@@ -323,7 +324,9 @@ function renderTournamentDetails(tournament, participating) {
             </div>
 
             <div>
-                <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-users mr-2"></i>Teilnehmer</h4>
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-bold text-gray-800"><i class="fas fa-users mr-2"></i>Teilnehmer (${participantCount}/${tournament.max_participants})</h4>
+                </div>
                 ${renderParticipants(tournament.tournament_participants || [])}
             </div>
 
@@ -339,11 +342,13 @@ function renderTournamentDetails(tournament, participating) {
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
                         <div class="flex items-center gap-2">
+                            ${tournament.format === 'round_robin' ? `
                             <select id="rounds-filter" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white">
                                 <option value="remaining" selected>Übrige Runden</option>
                                 <option value="completed">Abgeschlossene</option>
                                 <option value="all">Alle Runden</option>
                             </select>
+                            ` : ''}
                             ${tournament.status === 'in_progress' && isCreator ? `
                                 <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
                                     <i class="fas fa-bolt mr-1"></i>Eintragen
@@ -352,7 +357,7 @@ function renderTournamentDetails(tournament, participating) {
                         </div>
                     </div>
                     <div id="matches-container">
-                        ${renderMatches(tournament.tournament_matches || [], isCreator, 'remaining')}
+                        ${renderMatches(tournament.tournament_matches || [], isCreator, tournament.format === 'round_robin' ? 'remaining' : 'all')}
                     </div>
                 </div>
             ` : ''}
