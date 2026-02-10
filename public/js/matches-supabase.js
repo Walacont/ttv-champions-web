@@ -1814,7 +1814,7 @@ export async function loadPendingPlayerConfirmations(userId) {
                 player_a:player_a_id(id, first_name, last_name, display_name, elo_rating),
                 player_b:player_b_id(id, first_name, last_name, display_name, elo_rating),
                 sports(id, display_name),
-                tournament_match:tournament_match_id(id, round_number, tournament:tournament_id(id, name))
+                tournament_match:tournament_match_id(id, round_number, tournament:tournament_id(id, name, status))
             `)
             .eq('status', 'pending_player')
             .eq('player_b_id', userId)
@@ -1822,8 +1822,19 @@ export async function loadPendingPlayerConfirmations(userId) {
 
         if (error) throw error;
 
-        console.log('[Matches] Loaded pending player confirmations:', requests?.length || 0);
-        return requests || [];
+        // Filter out requests linked to ended/cancelled tournaments
+        const filtered = (requests || []).filter(req => {
+            if (req.tournament_match?.tournament?.status) {
+                const tStatus = req.tournament_match.tournament.status;
+                if (tStatus === 'completed' || tStatus === 'cancelled') {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        console.log('[Matches] Loaded pending player confirmations:', filtered.length);
+        return filtered;
     } catch (error) {
         console.error('[Matches] Error loading pending confirmations:', error);
         return [];
@@ -2530,6 +2541,19 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     decline_reason: declineReason
                 })
                 .eq('id', requestId);
+
+            // Also cancel linked tournament_match so it doesn't stay pending
+            if (!isDoubles && request?.tournament_match_id) {
+                try {
+                    await supabase
+                        .from('tournament_matches')
+                        .update({ status: 'cancelled' })
+                        .eq('id', request.tournament_match_id);
+                    console.log('[Matches] Tournament match cancelled due to rejection');
+                } catch (tmError) {
+                    console.warn('[Matches] Error cancelling tournament match:', tmError);
+                }
+            }
 
             console.log(`[Matches] ${isDoubles ? 'Doubles ' : ''}Match declined`);
             showToast('Match abgelehnt', 'info');
