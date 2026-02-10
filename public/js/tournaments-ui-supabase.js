@@ -721,11 +721,11 @@ function prepareBracketData(bracketMatches, bracketType, filter) {
         if (filter === 'remaining' && isCompleted && !hasWaiting) return null;
         if (filter === 'completed' && !completed) return null;
 
-        // Determine round name based on number of matches in the round
-        // This is more reliable than counting from the end
+        // Determine round name based on number of actual matches in the round
+        // Count only matches with at least one player (not empty placeholder slots)
         let name;
         if (bracketType === 'winners') {
-            const matchCount = roundMatches.length;
+            const matchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
             if (matchCount === 1) name = 'Finale WB';
             else if (matchCount === 2) name = 'Halbfinale';
             else if (matchCount === 4) name = 'Viertelfinale';
@@ -905,17 +905,24 @@ function renderBracketTreeView(bracketId, bracketData, isCreator) {
                 <div class="bracket-tree-wrapper">
         `;
 
-        wbRoundNums.forEach((roundNum, idx) => {
+        // Filter out rounds with no actual matches and track real round index
+        let realRoundIdx = 0;
+        wbRoundNums.forEach((roundNum) => {
             const roundMatches = wbRounds[roundNum] || [];
-            const roundName = getRoundName(roundMatches.length, 'winners', roundNum);
+            // Count only actual matches (with at least one player) for round name determination
+            const actualMatchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
+            // Skip rounds with no actual matches
+            if (actualMatchCount === 0) return;
+            const roundName = getRoundName(actualMatchCount, 'winners', roundNum);
             html += `
-                <div class="bracket-tree-round" style="--round-index: ${idx};">
+                <div class="bracket-tree-round" style="--round-index: ${realRoundIdx};">
                     <div class="bracket-round-header">${roundName}</div>
                     <div class="bracket-round-matches">
                         ${roundMatches.map(m => renderTreeMatch(m)).join('')}
                     </div>
                 </div>
             `;
+            realRoundIdx++;
         });
 
         html += '</div></div>';
@@ -2042,11 +2049,20 @@ function generateBracketTreeHtml(matches, participants) {
                     <div style="display:flex; align-items:flex-start; gap:0; min-height:${treeHeight}px;">
         `;
 
-        roundNums.forEach((roundNum, roundIdx) => {
+        // Filter rounds to only include those with actual matches
+        const filteredRoundNums = roundNums.filter(rn => {
+            const matches = roundsMap[rn] || [];
+            return matches.some(m => m.player_a_id || m.player_b_id);
+        });
+        const totalFilteredRounds = filteredRoundNums.length;
+
+        filteredRoundNums.forEach((roundNum, roundIdx) => {
             const roundMatches = roundsMap[roundNum] || [];
-            const roundName = getRoundName(roundMatches.length, bracketType, roundNum);
+            // Count only actual matches (with at least one player) for round name determination
+            const actualMatchCount = roundMatches.filter(m => m.player_a_id || m.player_b_id).length;
+            const roundName = getRoundName(actualMatchCount, bracketType, roundNum);
             const isFirstRound = roundIdx === 0;
-            const isLastRound = roundIdx === roundNums.length - 1;
+            const isLastRound = roundIdx === totalFilteredRounds - 1;
 
             // Calculate vertical spacing for tree effect
             const spacingMultiplier = Math.pow(2, roundIdx);
