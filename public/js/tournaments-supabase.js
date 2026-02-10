@@ -955,33 +955,15 @@ async function dropToLosersBracket(tournamentId, completedMatch, loserId) {
 }
 
 /**
- * Prüft ob ein LB-Match ein Bye ist und verarbeitet es entsprechend
- * Ein Bye entsteht wenn einer der erwarteten Spieler aus dem WB nicht kommt (weil sein WB-Match ein Bye war)
+ * Prüft ob LB-Matches in einer Runde Byes sind und verarbeitet sie
+ * Prüft ALLE pending Matches in der Runde, nicht nur ein einzelnes
  */
 async function checkAndProcessLbMatchBye(tournamentId, matchId, lbRound) {
-    // Hole aktuellen Stand des Matches
-    const { data: match } = await supabase
-        .from('tournament_matches')
-        .select('*')
-        .eq('id', matchId)
-        .single();
-
-    if (!match || match.status !== 'pending') return;
-
-    const hasPlayerA = !!match.player_a_id;
-    const hasPlayerB = !!match.player_b_id;
-
-    // Wenn beide Spieler da sind, ist es kein Bye
-    if (hasPlayerA && hasPlayerB) return;
-
-    // Prüfe ob wir noch auf weitere Spieler warten müssen
-    // Für LB R1: Warten auf 2 WB R1 Verlierer
-    // Für LB R2, R4, R6 (gerade): Warten auf 1 LB-Gewinner + 1 WB-Verlierer
-    // Für LB R3, R5 (ungerade nach R1): Warten auf 2 LB-Gewinner
+    // Bestimme ob die Quellen für diese Runde alle fertig sind
+    let allSourcesDone = false;
 
     if (lbRound === 1) {
         // LB R1 braucht 2 Verlierer aus WB R1
-        // Prüfe ob alle WB R1 Matches abgeschlossen sind
         const { data: wbR1Matches } = await supabase
             .from('tournament_matches')
             .select('status')
@@ -989,21 +971,10 @@ async function checkAndProcessLbMatchBye(tournamentId, matchId, lbRound) {
             .eq('bracket_type', 'winners')
             .eq('round_number', 1);
 
-        const allWbR1Done = wbR1Matches?.every(m => m.status === 'completed' || m.status === 'skipped');
-
-        if (allWbR1Done && (hasPlayerA !== hasPlayerB)) {
-            // Alle WB R1 Matches sind fertig, aber nur ein Spieler im LB Match -> Bye!
-            const winnerId = hasPlayerA ? match.player_a_id : match.player_b_id;
-            await supabase
-                .from('tournament_matches')
-                .update({ status: 'completed', winner_id: winnerId })
-                .eq('id', matchId);
-            await advanceDoubleEliminationWinner(tournamentId, match, winnerId);
-        }
+        allSourcesDone = wbR1Matches?.every(m => m.status === 'completed' || m.status === 'skipped');
     } else if (lbRound % 2 === 0) {
-        // Gerade LB-Runde: LB-Gewinner vs WB-Verlierer
-        // Prüfe ob alle entsprechenden WB-Matches fertig sind
-        const wbRound = Math.floor(lbRound / 2) + 1; // LB R2 -> WB R2, LB R4 -> WB R3, LB R6 -> WB R4
+        // Gerade LB-Runde: LB-Gewinner + WB-Verlierer
+        const wbRound = Math.floor(lbRound / 2) + 1;
 
         const { data: wbMatches } = await supabase
             .from('tournament_matches')
@@ -1014,7 +985,6 @@ async function checkAndProcessLbMatchBye(tournamentId, matchId, lbRound) {
 
         const allWbDone = wbMatches?.every(m => m.status === 'completed' || m.status === 'skipped');
 
-        // Auch prüfen ob vorherige LB-Runde fertig ist
         const { data: prevLbMatches } = await supabase
             .from('tournament_matches')
             .select('status')
@@ -1024,16 +994,23 @@ async function checkAndProcessLbMatchBye(tournamentId, matchId, lbRound) {
 
         const allPrevLbDone = prevLbMatches?.every(m => m.status === 'completed' || m.status === 'skipped');
 
-        if (allWbDone && allPrevLbDone && (hasPlayerA !== hasPlayerB)) {
-            // Beide Quellen sind fertig, aber nur ein Spieler -> Bye!
-            const winnerId = hasPlayerA ? match.player_a_id : match.player_b_id;
-            await supabase
-                .from('tournament_matches')
-                .update({ status: 'completed', winner_id: winnerId })
-                .eq('id', matchId);
-            await advanceDoubleEliminationWinner(tournamentId, { ...match, round_number: lbRound, bracket_type: 'losers' }, winnerId);
-        }
+        allSourcesDone = allWbDone && allPrevLbDone;
+    } else {
+        // Ungerade LB-Runde (>1): 2 LB-Gewinner aus vorheriger Runde
+        const { data: prevLbMatches } = await supabase
+            .from('tournament_matches')
+            .select('status')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'losers')
+            .eq('round_number', lbRound - 1);
+
+        allSourcesDone = prevLbMatches?.every(m => m.status === 'completed' || m.status === 'skipped');
     }
+
+    if (!allSourcesDone) return;
+
+    // Alle Quellen fertig -> prüfe ALLE pending Matches in dieser LB-Runde
+    await processLosersBracketByes(tournamentId, lbRound);
 }
 
 /**
@@ -1050,36 +1027,80 @@ async function processLosersBracketByes(tournamentId, lbRound) {
         .eq('round_number', lbRound)
         .eq('status', 'pending');
 
-    if (!lbMatches) return;
+    if (!lbMatches || lbMatches.length === 0) return;
+
+    let processed = false;
 
     for (const match of lbMatches) {
         const hasPlayerA = !!match.player_a_id;
         const hasPlayerB = !!match.player_b_id;
 
-        // Bye: Nur ein Spieler vorhanden
         if (hasPlayerA && !hasPlayerB) {
-            // Player A gewinnt automatisch
+            // Player A gewinnt automatisch (Bye)
             await supabase
                 .from('tournament_matches')
-                .update({
-                    status: 'completed',
-                    winner_id: match.player_a_id
-                })
+                .update({ status: 'completed', winner_id: match.player_a_id })
                 .eq('id', match.id);
             await advanceDoubleEliminationWinner(tournamentId, match, match.player_a_id);
+            processed = true;
         } else if (!hasPlayerA && hasPlayerB) {
-            // Player B gewinnt automatisch
+            // Player B gewinnt automatisch (Bye)
             await supabase
                 .from('tournament_matches')
-                .update({
-                    status: 'completed',
-                    winner_id: match.player_b_id
-                })
+                .update({ status: 'completed', winner_id: match.player_b_id })
                 .eq('id', match.id);
             await advanceDoubleEliminationWinner(tournamentId, match, match.player_b_id);
+            processed = true;
+        } else if (!hasPlayerA && !hasPlayerB) {
+            // Beide Slots leer -> überspringen
+            await supabase
+                .from('tournament_matches')
+                .update({ status: 'skipped' })
+                .eq('id', match.id);
+            processed = true;
         }
-        // Beide Slots leer: wird später gefüllt oder Match wird geskippt
     }
+
+    // Kaskadierende Prüfung: Wenn Byes verarbeitet wurden, nächste Runde prüfen
+    if (processed) {
+        // Prüfe ob die nächste LB-Runde jetzt auch Byes hat
+        const { data: nextRoundMatches } = await supabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .eq('bracket_type', 'losers')
+            .eq('round_number', lbRound + 1)
+            .eq('status', 'pending');
+
+        if (nextRoundMatches && nextRoundMatches.length > 0) {
+            // Prüfe ob alle Quellen für die nächste Runde fertig sind
+            const allCurrentDone = await checkAllMatchesDone(tournamentId, 'losers', lbRound);
+            if (allCurrentDone) {
+                // Für ungerade LB-Runden brauchen wir nur LB-Überlebende
+                // Für gerade LB-Runden brauchen wir auch WB-Verlierer
+                const nextRound = lbRound + 1;
+                if (nextRound % 2 === 1 || nextRound === 1) {
+                    // Ungerade: nur LB-Quellen -> können wir direkt prüfen
+                    await processLosersBracketByes(tournamentId, nextRound);
+                }
+                // Gerade Runden: WB-Verlierer kommen erst wenn WB-Match gespielt wird
+            }
+        }
+    }
+}
+
+/**
+ * Helper: Prüft ob alle Matches eines Bracket-Typs in einer Runde abgeschlossen sind
+ */
+async function checkAllMatchesDone(tournamentId, bracketType, roundNumber) {
+    const { data: matches } = await supabase
+        .from('tournament_matches')
+        .select('status')
+        .eq('tournament_id', tournamentId)
+        .eq('bracket_type', bracketType)
+        .eq('round_number', roundNumber);
+
+    return matches?.every(m => m.status === 'completed' || m.status === 'skipped') || false;
 }
 
 export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
