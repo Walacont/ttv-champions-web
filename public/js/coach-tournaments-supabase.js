@@ -17,6 +17,8 @@ const supabase = getSupabase();
 
 let currentFilter = 'open';
 let selectedTournamentId = null;
+let currentDetailView = 'list'; // Track current view state (list/tree) across refreshes
+let currentDetailTournament = null; // Track current tournament for match click handlers
 let clubPlayersCache = [];
 let coachUserData = null;
 
@@ -768,8 +770,13 @@ function initBracketTabs(bracketId, defaultBracket) {
 
     const bracketData = JSON.parse(dataEl.textContent);
     const isCreator = container.dataset.isCreator === 'true';
-    let currentView = 'list';
+    let currentView = currentDetailView || 'list';
     let currentBracket = defaultBracket;
+
+    // Restore active view button state
+    container.querySelectorAll('.bracket-view-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === currentView);
+    });
 
     // View mode toggle (List vs Tree)
     container.querySelectorAll('.bracket-view-btn').forEach(btn => {
@@ -777,6 +784,7 @@ function initBracketTabs(bracketId, defaultBracket) {
             container.querySelectorAll('.bracket-view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentView = btn.dataset.view;
+            currentDetailView = currentView; // Persist across refreshes
 
             // Toggle visibility of bracket type buttons and round tabs
             const bracketTypeToggle = container.querySelector('.bracket-type-toggle');
@@ -804,8 +812,18 @@ function initBracketTabs(bracketId, defaultBracket) {
         });
     });
 
-    // Initial render
-    renderBracketRoundTabs(bracketId, defaultBracket, bracketData, isCreator);
+    // Initial render based on current view state
+    const bracketTypeToggle = container.querySelector('.bracket-type-toggle');
+    const roundTabs = container.querySelector('.bracket-round-tabs');
+    if (currentView === 'tree') {
+        if (bracketTypeToggle) bracketTypeToggle.style.display = 'none';
+        if (roundTabs) roundTabs.style.display = 'none';
+        renderBracketTreeView(bracketId, bracketData, isCreator);
+    } else {
+        if (bracketTypeToggle) bracketTypeToggle.style.display = 'flex';
+        if (roundTabs) roundTabs.style.display = 'flex';
+        renderBracketRoundTabs(bracketId, defaultBracket, bracketData, isCreator);
+    }
 }
 
 // Render full bracket tree view (interactive version with SVG connectors)
@@ -956,9 +974,10 @@ function renderBracketMatch(match, isCreator, showFreilos = false) {
     const aWon = match.winner_id === match.player_a_id;
     const bWon = match.winner_id === match.player_b_id;
     const showScores = isCompleted || isSkipped;
+    const isClickable = !isCompleted && !isSkipped && !isWaiting && isCreator;
 
     return `
-        <div class="bracket-match ${statusClass}" data-match-id="${match.id}">
+        <div class="bracket-match ${statusClass} ${isClickable ? 'match-clickable cursor-pointer hover:border-indigo-400 transition-all' : ''}" data-match-id="${match.id}">
             <div class="bracket-player ${showScores && aWon ? 'winner' : ''} ${showScores && !aWon && match.winner_id ? 'loser' : ''}">
                 <span class="bracket-player-name" title="${escapeHtml(playerA)}">
                     ${match.player_a_id ? escapeHtml(playerA) : `<span class="bracket-player-tbd">${missingPlayerText}</span>`}
@@ -985,8 +1004,9 @@ function renderMatchCard(match, isCreator) {
     const done = match.status === 'completed';
     const skipped = match.status === 'skipped';
     const finished = done || skipped;
+    const isClickable = !finished && isCreator && match.player_a_id && match.player_b_id;
 
-    return `<div class="bg-white border border-gray-200 rounded-lg p-3 ${skipped ? 'opacity-60' : ''}">
+    return `<div class="bg-white border border-gray-200 rounded-lg p-3 ${skipped ? 'opacity-60' : ''} ${isClickable ? 'match-clickable cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all' : ''}" data-match-id="${match.id}">
         <div class="flex items-center justify-between">
             <div class="flex-1">
                 <div class="flex items-center gap-2 mb-1">
@@ -1025,6 +1045,7 @@ function renderByeCard(match) {
 }
 
 function setupDetailEventListeners(tournament) {
+    currentDetailTournament = tournament; // Store for match click handlers
     const isCreator = tournament.created_by === getCurrentUserId();
 
     // Add players button
@@ -1126,6 +1147,24 @@ function setupDetailEventListeners(tournament) {
                 });
             }
         });
+    }
+
+    // Match click delegation for quick result entry (list view + tree view)
+    const detailContent = document.getElementById('coach-tournament-details-content');
+    if (detailContent && !detailContent._matchClickHandler) {
+        detailContent._matchClickHandler = (e) => {
+            if (!currentDetailTournament) return;
+            const isCreatorNow = currentDetailTournament.created_by === getCurrentUserId();
+            if (!isCreatorNow) return;
+            // Don't trigger if clicking on a button (e.g. correction button)
+            if (e.target.closest('button')) return;
+            const clickable = e.target.closest('.match-clickable, .bracket-match-clickable');
+            if (!clickable) return;
+            const matchId = clickable.dataset.matchId;
+            if (!matchId) return;
+            openQuickMatchEntryModal(currentDetailTournament, matchId);
+        };
+        detailContent.addEventListener('click', detailContent._matchClickHandler);
     }
 }
 
@@ -1269,7 +1308,7 @@ async function handleCreateTournament() {
 
 // ---- Quick Match Entry ----
 
-function openQuickMatchEntryModal(tournament) {
+function openQuickMatchEntryModal(tournament, preSelectedMatchId = null) {
     const pendingMatches = (tournament.tournament_matches || []).filter(m => m.status === 'pending' && m.player_b_id);
     if (!pendingMatches.length) { showToast('Keine offenen Matches', 'info'); return; }
 
@@ -1426,6 +1465,12 @@ function openQuickMatchEntryModal(tournament) {
             matchForm.classList.add('hidden');
         }
     });
+
+    // Auto-select match if preSelectedMatchId is provided
+    if (preSelectedMatchId) {
+        matchSelect.value = preSelectedMatchId;
+        matchSelect.dispatchEvent(new Event('change'));
+    }
 
     const closeModal = () => modal.remove();
     modal.querySelector('#close-coach-quick-match').addEventListener('click', closeModal);

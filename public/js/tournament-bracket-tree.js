@@ -404,8 +404,13 @@ function renderMatchCard(match, roundIndex, matchIndex, isLosersBracket) {
         footerContent = 'Ausstehend';
     }
 
+    // Determine if this match is clickable (pending with both players)
+    const isClickable = !isCompleted && !isTBD && match.player1.name !== 'Freilos' && match.player2.name !== 'Freilos'
+        && !match.player1.isBye && !match.player2.isBye;
+    const clickableClass = isClickable ? 'bracket-match-clickable cursor-pointer hover:border-indigo-400 hover:shadow-indigo-100 active:scale-[0.98]' : '';
+
     return `
-        <div class="bracket-match-card bg-white rounded-xl border-2 ${borderClass} ${shadowClass} overflow-hidden hover:shadow-lg transition-all duration-300"
+        <div class="bracket-match-card bg-white rounded-xl border-2 ${borderClass} ${shadowClass} ${clickableClass} overflow-hidden hover:shadow-lg transition-all duration-300"
              style="width: ${MATCH_WIDTH}px; height: ${MATCH_HEIGHT}px; animation: bracketMatchFadeIn 0.3s ease-out ${roundIndex * 0.15 + matchIndex * 0.05}s both;"
              data-match-id="${match.id}">
             ${renderPlayer(match.player1, 1, true)}
