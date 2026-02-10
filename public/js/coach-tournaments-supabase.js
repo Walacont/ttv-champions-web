@@ -6,7 +6,7 @@ import {
     initTournaments, createTournament, deleteTournament, startTournament,
     regeneratePairings, getTournaments, getTournamentDetails,
     getTournamentFormatName, getTournamentStatusName, getCurrentUserId,
-    recordTournamentMatchResult
+    recordTournamentMatchResult, checkAndCompleteTournament
 } from './tournaments-supabase.js';
 
 import { escapeHtml } from './utils/security.js';
@@ -285,7 +285,12 @@ async function openTournamentDetails(tournamentId) {
     content.innerHTML = '<p class="text-gray-500 text-center py-8">Lade Turnier-Details...</p>';
 
     try {
-        const tournament = await getTournamentDetails(tournamentId);
+        let tournament = await getTournamentDetails(tournamentId);
+        // Backwards compatibility: check if in_progress tournament should be completed
+        if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            await checkAndCompleteTournament(tournamentId);
+            tournament = await getTournamentDetails(tournamentId);
+        }
         content.innerHTML = renderTournamentDetails(tournament);
         setupDetailEventListeners(tournament);
     } catch (error) {
@@ -299,7 +304,12 @@ async function refreshDetailsView() {
     const content = document.getElementById('coach-tournament-details-content');
     if (!content) return;
     try {
-        const tournament = await getTournamentDetails(selectedTournamentId);
+        let tournament = await getTournamentDetails(selectedTournamentId);
+        // Backwards compatibility: check if in_progress tournament should be completed
+        if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            await checkAndCompleteTournament(selectedTournamentId);
+            tournament = await getTournamentDetails(selectedTournamentId);
+        }
         content.innerHTML = renderTournamentDetails(tournament);
         setupDetailEventListeners(tournament);
     } catch (error) {

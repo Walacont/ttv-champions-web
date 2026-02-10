@@ -1175,7 +1175,7 @@ export async function recordTournamentMatchResult(tournamentMatchId, matchId) {
     }
 }
 
-async function checkAndCompleteTournament(tournamentId) {
+export async function checkAndCompleteTournament(tournamentId) {
     try {
         // Fetch all matches once for efficient in-memory processing
         let { data: allMatches, error } = await supabase

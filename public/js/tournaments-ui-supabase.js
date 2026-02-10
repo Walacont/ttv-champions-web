@@ -6,7 +6,7 @@ import {
     deleteTournament, startTournament, regeneratePairings,
     getTournaments, getTournamentDetails, isParticipating,
     getTournamentFormatName, getTournamentStatusName, getCurrentUserId,
-    recordTournamentMatchResult
+    recordTournamentMatchResult, checkAndCompleteTournament
 } from './tournaments-supabase.js';
 
 import { escapeHtml } from './utils/security.js';
@@ -257,7 +257,12 @@ async function openTournamentDetails(tournamentId) {
     content.innerHTML = '<p class="text-gray-500 text-center py-8">Lade Turnier-Details...</p>';
 
     try {
-        const tournament = await getTournamentDetails(tournamentId);
+        let tournament = await getTournamentDetails(tournamentId);
+        // Backwards compatibility: check if in_progress tournament should be completed
+        if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            await checkAndCompleteTournament(tournamentId);
+            tournament = await getTournamentDetails(tournamentId);
+        }
         const participating = await isParticipating(tournamentId);
         content.innerHTML = renderTournamentDetails(tournament, participating);
         setupDetailEventListeners(tournament, participating);
@@ -278,7 +283,12 @@ async function refreshTournamentDetailsView(tournamentId) {
     const content = document.getElementById('tournament-details-content');
     if (!content) return;
     try {
-        const tournament = await getTournamentDetails(tournamentId);
+        let tournament = await getTournamentDetails(tournamentId);
+        // Backwards compatibility: check if in_progress tournament should be completed
+        if (tournament.status === 'in_progress' && tournament.tournament_matches?.length > 0) {
+            await checkAndCompleteTournament(tournamentId);
+            tournament = await getTournamentDetails(tournamentId);
+        }
         const participating = await isParticipating(tournamentId);
         content.innerHTML = renderTournamentDetails(tournament, participating);
         setupDetailEventListeners(tournament, participating);
