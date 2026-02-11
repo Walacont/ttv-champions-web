@@ -681,7 +681,7 @@ function updateInvitationsBox() {
         // Count items for the badge
         let count = 0;
         if (hasEvents) {
-            const eventCards = document.querySelectorAll('#upcoming-events-list > *');
+            const eventCards = document.querySelectorAll('.event-slide');
             count += eventCards.length;
         }
         if (hasTournaments) {

@@ -177,8 +177,8 @@ async function loadUpcomingEvents() {
     if (!currentUserId) return;
 
     const section = document.getElementById('upcoming-events-section');
-    const list = document.getElementById('upcoming-events-list');
-    if (!section || !list) return;
+    const slidesContainer = document.getElementById('events-carousel-slides');
+    if (!section || !slidesContainer) return;
 
     try {
         // Use local date to avoid timezone issues (toISOString uses UTC)
@@ -324,8 +324,11 @@ async function loadUpcomingEvents() {
             return false;
         });
 
-        // Nach Terminsdatum sortieren
+        // Sortierung: Pending zuerst, dann nach Datum (nächster Termin zuerst)
+        const statusOrder = { pending: 0, accepted: 1, rejected: 2 };
         validInvitations.sort((a, b) => {
+            const statusDiff = (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
+            if (statusDiff !== 0) return statusDiff;
             const dateA = a.occurrence_date || a.events.start_date;
             const dateB = b.occurrence_date || b.events.start_date;
             return dateA.localeCompare(dateB);
@@ -343,9 +346,7 @@ async function loadUpcomingEvents() {
         section.classList.remove('hidden');
 
         // Angenommen-Zähler für jede Event/Termin-Kombination abrufen
-        // Jetzt zählen wir pro occurrence_date, nicht nur pro Event
         const eventIds = validInvitations.map(inv => inv.events.id);
-        const occurrenceDates = validInvitations.map(inv => inv.occurrence_date).filter(Boolean);
 
         const { data: acceptedCounts } = await supabase
             .from('event_invitations')
@@ -360,11 +361,43 @@ async function loadUpcomingEvents() {
             countMap[key] = (countMap[key] || 0) + 1;
         });
 
-        // Events mit Pro-Termin-Zählern rendern
-        list.innerHTML = validInvitations.map(inv => {
+        // Pending-Badge aktualisieren
+        const pendingCount = validInvitations.filter(inv => inv.status === 'pending').length;
+        const pendingBadge = document.getElementById('events-pending-badge');
+        if (pendingBadge) {
+            if (pendingCount > 0) {
+                pendingBadge.textContent = `${pendingCount} offen`;
+                pendingBadge.classList.remove('hidden');
+            } else {
+                pendingBadge.classList.add('hidden');
+            }
+        }
+
+        // Events als Carousel-Slides rendern
+        slidesContainer.innerHTML = validInvitations.map((inv, index) => {
             const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
-            return renderEventCard(inv, countMap[key] || 0);
+            return `<div class="event-slide w-full flex-shrink-0" data-index="${index}">${renderEventCard(inv, countMap[key] || 0)}</div>`;
         }).join('');
+
+        // Dots und Navigation
+        const dotsContainer = document.getElementById('events-carousel-dots');
+        const prevBtn = document.getElementById('events-prev-btn');
+        const nextBtn = document.getElementById('events-next-btn');
+        const hasMultiple = validInvitations.length > 1;
+
+        if (prevBtn) prevBtn.classList.toggle('hidden', !hasMultiple);
+        if (nextBtn) nextBtn.classList.toggle('hidden', !hasMultiple);
+        if (dotsContainer) {
+            dotsContainer.classList.toggle('hidden', !hasMultiple);
+            dotsContainer.innerHTML = validInvitations.map((inv, index) => {
+                const dotColor = inv.status === 'pending' ? 'bg-orange-400' : 'bg-gray-300';
+                const activeColor = index === 0 ? 'bg-indigo-600' : dotColor;
+                return `<button class="event-carousel-dot w-2 h-2 rounded-full transition-colors ${activeColor}" data-index="${index}"></button>`;
+            }).join('');
+        }
+
+        // Carousel initialisieren
+        initEventsCarousel(validInvitations.length);
 
         // Event-Listener hinzufügen
         setupEventCardListeners();
@@ -1194,6 +1227,122 @@ function setupEventSubscription() {
     if (!window.playerEventsUnsubscribes) window.playerEventsUnsubscribes = [];
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
+}
+
+// ========== EVENTS CAROUSEL ==========
+
+let eventsCarouselIndex = 0;
+let eventsCarouselCount = 0;
+let eventsTouchStartX = 0;
+let eventsTouchEndX = 0;
+
+function initEventsCarousel(count) {
+    eventsCarouselCount = count;
+    eventsCarouselIndex = 0;
+
+    const slidesContainer = document.getElementById('events-carousel-slides');
+    const prevBtn = document.getElementById('events-prev-btn');
+    const nextBtn = document.getElementById('events-next-btn');
+    const dotsContainer = document.getElementById('events-carousel-dots');
+    const carousel = document.getElementById('events-carousel');
+
+    if (!slidesContainer || !carousel) return;
+
+    // Remove old listeners by cloning
+    const newCarousel = carousel.cloneNode(true);
+    carousel.parentNode.replaceChild(newCarousel, carousel);
+
+    const newPrev = document.getElementById('events-prev-btn');
+    const newNext = document.getElementById('events-next-btn');
+    const newDots = document.getElementById('events-carousel-dots');
+    const freshCarousel = document.getElementById('events-carousel');
+
+    // Arrow navigation
+    newPrev?.addEventListener('click', () => goToEventSlide(eventsCarouselIndex - 1));
+    newNext?.addEventListener('click', () => goToEventSlide(eventsCarouselIndex + 1));
+
+    // Dot navigation
+    newDots?.querySelectorAll('.event-carousel-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+            goToEventSlide(parseInt(dot.dataset.index));
+        });
+    });
+
+    // Touch/swipe support
+    freshCarousel.addEventListener('touchstart', (e) => {
+        eventsTouchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    freshCarousel.addEventListener('touchend', (e) => {
+        eventsTouchEndX = e.changedTouches[0].screenX;
+        const diff = eventsTouchStartX - eventsTouchEndX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) goToEventSlide(eventsCarouselIndex + 1);
+            else goToEventSlide(eventsCarouselIndex - 1);
+        }
+    }, { passive: true });
+
+    // Mouse drag support
+    let isDragging = false;
+    let dragStartX = 0;
+
+    freshCarousel.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        freshCarousel.style.cursor = 'grabbing';
+    });
+
+    freshCarousel.addEventListener('mousemove', (e) => {
+        if (isDragging) e.preventDefault();
+    });
+
+    freshCarousel.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        freshCarousel.style.cursor = 'grab';
+        const diff = dragStartX - e.clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) goToEventSlide(eventsCarouselIndex + 1);
+            else goToEventSlide(eventsCarouselIndex - 1);
+        }
+    });
+
+    freshCarousel.addEventListener('mouseleave', () => {
+        isDragging = false;
+        freshCarousel.style.cursor = '';
+    });
+
+    if (count > 1) {
+        freshCarousel.style.cursor = 'grab';
+    }
+}
+
+function goToEventSlide(index) {
+    if (index < 0) index = eventsCarouselCount - 1;
+    if (index >= eventsCarouselCount) index = 0;
+
+    eventsCarouselIndex = index;
+
+    const slidesContainer = document.getElementById('events-carousel-slides');
+    const dotsContainer = document.getElementById('events-carousel-dots');
+
+    if (slidesContainer) {
+        slidesContainer.style.transform = `translateX(-${index * 100}%)`;
+    }
+
+    if (dotsContainer) {
+        const dots = dotsContainer.querySelectorAll('.event-carousel-dot');
+        dots.forEach((dot, i) => {
+            // Get the slide to determine pending status for inactive dot color
+            const slide = document.querySelector(`.event-slide[data-index="${i}"]`);
+            const isPending = slide?.querySelector('.event-accept-btn:not(.event-cancel-btn)') && !slide?.querySelector('.px-2.py-1.rounded-full');
+            if (i === index) {
+                dot.className = 'event-carousel-dot w-2.5 h-2.5 rounded-full transition-colors bg-indigo-600';
+            } else {
+                dot.className = `event-carousel-dot w-2 h-2 rounded-full transition-colors ${isPending ? 'bg-orange-400' : 'bg-gray-300'}`;
+            }
+        });
+    }
 }
 
 // Export

@@ -494,8 +494,9 @@ function renderChildren() {
                         <i class="fas fa-calendar text-indigo-500"></i>
                         Anstehende Veranstaltungen
                         ${child.upcomingEvents && child.upcomingEvents.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.length}</span>` : ''}
+                        ${child.upcomingEvents && child.upcomingEvents.filter(i => i.status === 'pending').length > 0 ? `<span class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.filter(i => i.status === 'pending').length} offen</span>` : ''}
                     </p>
-                    <div class="max-h-48 overflow-y-auto">
+                    <div class="max-h-64 overflow-y-auto">
                         ${child.upcomingEvents && child.upcomingEvents.length > 0 ? child.upcomingEvents.map(inv => {
                             const ev = inv.events;
                             const date = new Date(ev.start_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -506,9 +507,28 @@ function renderChildren() {
                             const statusLabels = { accepted: 'Zugesagt', rejected: 'Abgesagt', pending: 'Offen' };
                             const statusClass = statusColors[inv.status] || statusColors.pending;
                             const statusLabel = statusLabels[inv.status] || 'Offen';
+
+                            let actionButtons = '';
+                            if (inv.status === 'pending') {
+                                actionButtons = `
+                                    <div class="flex gap-1 mt-1.5">
+                                        <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Zusagen</button>
+                                        <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-1 bg-gray-200 text-gray-600 rounded-md hover:bg-gray-300 transition-colors">Absagen</button>
+                                    </div>
+                                `;
+                            } else if (inv.status === 'accepted') {
+                                actionButtons = `
+                                    <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-500 hover:text-red-700 mt-1">Absagen</button>
+                                `;
+                            } else if (inv.status === 'rejected') {
+                                actionButtons = `
+                                    <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-500 hover:text-indigo-700 mt-1">Doch zusagen</button>
+                                `;
+                            }
+
                             return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
-                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0" id="guardian-event-${inv.id}">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
                                         <i class="fas ${categoryIcon} text-indigo-500 text-xs"></i>
                                     </div>
                                     <div class="flex-1 min-w-0">
@@ -518,6 +538,7 @@ function renderChildren() {
                                             ${timeStr ? `<span>${timeStr} Uhr</span>` : ''}
                                             ${ev.location ? `<span class="truncate">${escapeHtml(ev.location)}</span>` : ''}
                                         </div>
+                                        ${actionButtons}
                                     </div>
                                     <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusLabel}</span>
                                 </div>
@@ -638,6 +659,69 @@ window.deleteNotification = async function(notificationId, childId) {
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error deleting notification:', err);
         alert('Fehler beim Löschen der Mitteilung');
+    }
+};
+
+// Guardian responds to event invitation on behalf of child
+window.guardianRespondEvent = async function(invitationId, childId, status) {
+    try {
+        const btn = document.querySelector(`#guardian-event-${invitationId} button`);
+        if (btn) btn.disabled = true;
+
+        const { error } = await supabase
+            .from('event_invitations')
+            .update({
+                status,
+                response_at: new Date().toISOString(),
+                responded_by: currentUser.id
+            })
+            .eq('id', invitationId)
+            .eq('user_id', childId);
+
+        if (error) throw error;
+
+        // Lokalen State aktualisieren
+        const child = children.find(c => c.id === childId);
+        if (child && child.upcomingEvents) {
+            const inv = child.upcomingEvents.find(e => e.id === invitationId);
+            if (inv) inv.status = status;
+        }
+        renderChildren();
+
+        // Benachrichtigung an Event-Organisator senden
+        const { data: invitation } = await supabase
+            .from('event_invitations')
+            .select('event_id, events(title, start_date, organizer_id)')
+            .eq('id', invitationId)
+            .single();
+
+        if (invitation?.events?.organizer_id) {
+            const childData = children.find(c => c.id === childId);
+            const childName = childData ? `${childData.first_name} ${childData.last_name}` : 'Ein Spieler';
+            const formattedDate = new Date(invitation.events.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+                weekday: 'short', day: 'numeric', month: 'short'
+            });
+
+            await supabase.from('notifications').insert({
+                user_id: invitation.events.organizer_id,
+                type: status === 'accepted' ? 'event_response_accepted' : 'event_response_rejected',
+                title: status === 'accepted' ? 'Zusage erhalten' : 'Absage erhalten',
+                message: status === 'accepted'
+                    ? `${childName} hat für "${invitation.events.title}" am ${formattedDate} zugesagt (von Erziehungsberechtigtem)`
+                    : `${childName} hat für "${invitation.events.title}" am ${formattedDate} abgesagt (von Erziehungsberechtigtem)`,
+                data: {
+                    event_id: invitation.event_id,
+                    event_title: invitation.events.title,
+                    response_status: status,
+                    responded_by_guardian: true
+                },
+                is_read: false
+            });
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error responding to event:', err);
+        alert('Fehler beim Antworten auf die Veranstaltung. Bitte versuche es erneut.');
+        renderChildren();
     }
 };
 

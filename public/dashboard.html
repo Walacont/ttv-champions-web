@@ -533,10 +533,28 @@
                                     </div>
                                 </div>
 
-                                <!-- Upcoming Events -->
+                                <!-- Upcoming Events (Carousel) -->
                                 <div id="upcoming-events-section" class="hidden">
-                                    <div id="upcoming-events-list" class="space-y-3">
-                                        <!-- Events werden hier dynamisch eingefügt -->
+                                    <div class="relative">
+                                        <!-- Pending-Badge -->
+                                        <div id="events-pending-badge" class="hidden absolute -top-2 -right-2 z-20 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full"></div>
+                                        <!-- Carousel Container -->
+                                        <div id="events-carousel" class="overflow-hidden">
+                                            <div id="events-carousel-slides" class="flex transition-transform duration-300 ease-out">
+                                                <!-- Event slides werden hier dynamisch eingefügt -->
+                                            </div>
+                                        </div>
+                                        <!-- Navigation Arrows -->
+                                        <button id="events-prev-btn" class="hidden absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                            <i class="fas fa-chevron-left text-sm"></i>
+                                        </button>
+                                        <button id="events-next-btn" class="hidden absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-indigo-600 transition z-10">
+                                            <i class="fas fa-chevron-right text-sm"></i>
+                                        </button>
+                                        <!-- Dots Navigation -->
+                                        <div id="events-carousel-dots" class="hidden flex justify-center gap-2 mt-3">
+                                            <!-- Dots werden hier dynamisch eingefügt -->
+                                        </div>
                                     </div>
                                 </div>
                             </div>
