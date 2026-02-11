@@ -10,6 +10,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { uploadToR2, deleteFromR2 } from './r2-storage.js';
+import { compressImage } from './image-compressor.js';
 import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
@@ -414,11 +415,19 @@ async function handleLogoUpload(e) {
     progressBar.style.width = '30%';
 
     try {
-        const ext = file.name.split('.').pop();
+        // Club-Logo komprimieren (max 512px)
+        let fileToUpload = file;
+        try {
+            fileToUpload = await compressImage(file, { maxWidth: 512, maxHeight: 512, quality: 0.80 });
+        } catch (e) {
+            console.warn('[Club] Image compression failed, uploading original:', e);
+        }
+
+        const ext = fileToUpload.name.split('.').pop();
         const filename = `club-logo-${currentClub.id}.${ext}`;
         progressBar.style.width = '60%';
 
-        const result = await uploadToR2('profile-pictures', file, {
+        const result = await uploadToR2('profile-pictures', fileToUpload, {
             subfolder: `club-${currentClub.id}`,
             filename: filename
         });

@@ -5,6 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { uploadToR2 } from './r2-storage.js';
+import { compressImage } from './image-compressor.js';
 
 const supabase = getSupabase();
 
@@ -419,7 +420,15 @@ async function handleTextPostSubmit(e) {
             showFeedback(postFormFeedback, 'loading', `Lade ${selectedImageFiles.length} Bild(er) hoch...`);
 
             for (let i = 0; i < selectedImageFiles.length; i++) {
-                const file = selectedImageFiles[i];
+                let file = selectedImageFiles[i];
+
+                // Bild vor dem Upload komprimieren
+                try {
+                    file = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.82 });
+                } catch (e) {
+                    console.warn('[Posts] Image compression failed, uploading original:', e);
+                }
+
                 const fileExt = file.name.split('.').pop();
                 const fileName = `${Date.now()}_${i}.${fileExt}`;
 

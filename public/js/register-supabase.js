@@ -3,6 +3,7 @@
 import { getSupabase } from './supabase-init.js';
 import { calculateAge, validateRegistrationAge, validateGuardianAge, parseBirthdate } from './age-utils.js';
 import { uploadToR2 } from './r2-storage.js';
+import { compressImage } from './image-compressor.js';
 
 console.log('[REGISTER-SUPABASE] Script starting...');
 
@@ -1109,11 +1110,20 @@ registrationForm?.addEventListener('submit', async e => {
         if (selectedProfilePhoto && user) {
             try {
                 console.log('[REGISTER] Uploading profile photo...');
-                const fileExt = selectedProfilePhoto.name.split('.').pop();
+
+                // Profilbild komprimieren
+                let photoToUpload = selectedProfilePhoto;
+                try {
+                    photoToUpload = await compressImage(selectedProfilePhoto, { maxWidth: 512, maxHeight: 512, quality: 0.80 });
+                } catch (e) {
+                    console.warn('[REGISTER] Image compression failed, uploading original:', e);
+                }
+
+                const fileExt = photoToUpload.name.split('.').pop();
                 const fileName = `profile.${fileExt}`;
 
                 // Upload zu R2 (mit Fallback zu Supabase)
-                const uploadResult = await uploadToR2('profile-pictures', selectedProfilePhoto, {
+                const uploadResult = await uploadToR2('profile-pictures', photoToUpload, {
                     subfolder: user.id,
                     filename: fileName
                 });

@@ -238,7 +238,7 @@ function isAllowedContentType(contentType, folder) {
     const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
 
-    if (folder === 'training-videos') {
+    if (folder === 'training-videos' || folder === 'match-media') {
         return [...imageTypes, ...videoTypes].includes(contentType);
     }
 

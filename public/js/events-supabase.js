@@ -5,6 +5,7 @@
 import { getSupabase } from './supabase-init.js';
 import { createTrainingSummariesForAttendees, addPointsToTrainingSummary } from './training-summary-supabase.js';
 import { uploadToR2 } from './r2-storage.js';
+import { compressImage } from './image-compressor.js';
 
 const supabase = getSupabase();
 
@@ -3487,9 +3488,17 @@ window.saveNewExerciseFull = async function() {
         let imageUrl = null;
         if (imageFile) {
             try {
-                const fileName = `${Date.now()}_${imageFile.name}`;
+                // Bild vor dem Upload komprimieren
+                let compressedImage = imageFile;
+                try {
+                    compressedImage = await compressImage(imageFile, { maxWidth: 1280, maxHeight: 1280, quality: 0.80 });
+                } catch (e) {
+                    console.warn('[Events] Image compression failed, uploading original:', e);
+                }
+
+                const fileName = `${Date.now()}_${compressedImage.name}`;
                 // Upload zu R2 (mit Fallback zu Supabase)
-                const uploadResult = await uploadToR2('exercise-images', imageFile, {
+                const uploadResult = await uploadToR2('exercise-images', compressedImage, {
                     subfolder: 'exercises',
                     filename: fileName
                 });

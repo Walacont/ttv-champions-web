@@ -5,6 +5,9 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
+import { uploadToR2, deleteFromR2, getR2PublicUrl, storageGetPublicUrl } from './r2-storage.js';
+import { shouldCompressVideo, showCompressionDialog, compressVideo, showCompressionProgress, isCompressionAvailable } from './video-compressor.js';
+import { compressImage } from './image-compressor.js';
 
 const supabase = getSupabase();
 
@@ -399,7 +402,7 @@ export async function uploadMedia() {
         const remainingSlots = MAX_PHOTOS - (existingMedia?.length || 0);
         const filesToUpload = files.slice(0, remainingSlots);
 
-        for (const file of filesToUpload) {
+        for (let file of filesToUpload) {
             const isPhoto = ACCEPTED_PHOTO_TYPES.includes(file.type);
             const isVideo = ACCEPTED_VIDEO_TYPES.includes(file.type);
 
@@ -407,25 +410,55 @@ export async function uploadMedia() {
             if (isPhoto && file.size > MAX_PHOTO_SIZE) continue;
             if (isVideo && file.size > MAX_VIDEO_SIZE) continue;
 
+            // Bilder vor dem Upload komprimieren
+            if (isPhoto) {
+                try {
+                    file = await compressImage(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.82 });
+                    console.log(`[MatchMedia] Image compressed: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+                } catch (e) {
+                    console.warn('[MatchMedia] Image compression failed, uploading original:', e);
+                }
+            }
+
+            // Videos vor dem Upload komprimieren (wenn verfügbar und sinnvoll)
+            if (isVideo && isCompressionAvailable() && shouldCompressVideo(file)) {
+                try {
+                    const { compress } = await showCompressionDialog(file);
+                    if (compress) {
+                        const progress = showCompressionProgress(file);
+                        file = await compressVideo(file, {
+                            quality: 'medium',
+                            onProgress: (p) => progress.updateProgress(p),
+                            onStatus: (s) => progress.updateStatus(s)
+                        });
+                        progress.close();
+                    }
+                } catch (e) {
+                    console.warn('[MatchMedia] Video compression failed, uploading original:', e);
+                }
+            }
+
             // Eindeutigen Dateinamen generieren
             const timestamp = Date.now();
             const randomStr = Math.random().toString(36).substring(7);
             const ext = file.name.split('.').pop();
             const fileName = `${timestamp}-${randomStr}.${ext}`;
-            const filePath = `${currentUser.id}/${currentMatchType}/${currentMatchId}/${fileName}`;
+            const subfolder = `${currentUser.id}/${currentMatchType}/${currentMatchId}`;
 
-            // In Storage hochladen
-            const { error: uploadError } = await supabase.storage
-                .from('match-media')
-                .upload(filePath, file, {
-                    contentType: file.type,
-                    upsert: false
+            // Zu R2 hochladen (mit Fallback auf Supabase)
+            let uploadResult;
+            try {
+                uploadResult = await uploadToR2('match-media', file, {
+                    subfolder: subfolder,
+                    filename: fileName
                 });
-
-            if (uploadError) {
+            } catch (uploadError) {
                 console.error('Upload error:', uploadError);
                 throw uploadError;
             }
+
+            // file_path für DB: R2-Key ohne "match-media/" Prefix
+            const filePath = `${subfolder}/${fileName}`;
 
             // Metadaten in Datenbank speichern
             const { error: dbError } = await supabase
@@ -442,8 +475,12 @@ export async function uploadMedia() {
 
             if (dbError) {
                 console.error('Database error:', dbError);
-                // Hochgeladene Datei löschen versuchen
-                await supabase.storage.from('match-media').remove([filePath]);
+                // Hochgeladene Datei aus R2 löschen
+                try {
+                    await deleteFromR2(`match-media/${filePath}`);
+                } catch (e) {
+                    console.warn('[MatchMedia] Failed to cleanup R2 file:', e);
+                }
                 throw dbError;
             }
         }
@@ -647,15 +684,12 @@ function displayCurrentMedia() {
 
     const media = currentGalleryMedia[currentGalleryIndex];
 
-    // URL bestimmen: Bei Posts direkt URL, bei Matches aus Supabase Storage
+    // URL bestimmen: Bei Posts direkt URL, bei Matches aus R2
     let publicUrl;
     if (galleryMode === 'post') {
         publicUrl = media.url;
     } else {
-        const { data } = supabase.storage
-            .from('match-media')
-            .getPublicUrl(media.file_path);
-        publicUrl = data.publicUrl;
+        publicUrl = getR2PublicUrl(`match-media/${media.file_path}`);
     }
 
     if (media.file_type === 'photo') {
@@ -818,13 +852,11 @@ export async function deleteMedia(mediaId, filePath) {
 
         if (dbError) throw dbError;
 
-        // Aus Storage löschen
-        const { error: storageError } = await supabase.storage
-            .from('match-media')
-            .remove([filePath]);
-
-        if (storageError) {
-            console.error('Storage deletion error:', storageError);
+        // Aus R2 Storage löschen
+        try {
+            await deleteFromR2(`match-media/${filePath}`);
+        } catch (storageError) {
+            console.error('R2 deletion error:', storageError);
         }
 
         // Activity-Feed aktualisieren

@@ -1,7 +1,8 @@
 // SC Champions Service Worker
-const CACHE_NAME = 'sc-champions-v12';
-const STATIC_CACHE = 'sc-static-v12';
-const DYNAMIC_CACHE = 'sc-dynamic-v12';
+const CACHE_NAME = 'sc-champions-v13';
+const STATIC_CACHE = 'sc-static-v13';
+const DYNAMIC_CACHE = 'sc-dynamic-v13';
+const MEDIA_CACHE = 'sc-media-v1';
 
 const STATIC_ASSETS = [
     '/',
@@ -70,7 +71,8 @@ self.addEventListener('activate', (event) => {
                             return (
                                 name !== STATIC_CACHE &&
                                 name !== DYNAMIC_CACHE &&
-                                name !== CACHE_NAME
+                                name !== CACHE_NAME &&
+                                name !== MEDIA_CACHE
                             );
                         })
                         .map((name) => {
@@ -106,6 +108,10 @@ function isStaticAsset(url) {
     );
 }
 
+function isR2MediaUrl(url) {
+    return url.includes('sc-champions-storage') && url.includes('/file/');
+}
+
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
@@ -124,6 +130,24 @@ self.addEventListener('fetch', (event) => {
 
     event.respondWith(
         (async () => {
+            // R2 Media: Cache-First mit langem TTL (Medien sind immutable via Timestamp-Dateinamen)
+            if (isR2MediaUrl(url)) {
+                const cachedResponse = await caches.match(event.request);
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                try {
+                    const networkResponse = await fetch(event.request);
+                    if (networkResponse.ok) {
+                        const cache = await caches.open(MEDIA_CACHE);
+                        cache.put(event.request, networkResponse.clone());
+                    }
+                    return networkResponse;
+                } catch (error) {
+                    return new Response('Offline', { status: 503 });
+                }
+            }
+
             if (isStaticAsset(url)) {
                 const cachedResponse = await caches.match(event.request);
                 if (cachedResponse) {
