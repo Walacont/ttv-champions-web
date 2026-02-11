@@ -62,7 +62,7 @@ BEGIN
         WHERE cp.conversation_id = NEW.conversation_id
           AND cp.user_id != NEW.sender_id
           AND p.fcm_token IS NOT NULL
-          AND p.notifications_enabled = true
+          AND p.notifications_enabled IS NOT false
     LOOP
         -- Check if user has disabled chat_messages notifications
         IF v_participant.notification_preferences IS NOT NULL THEN
