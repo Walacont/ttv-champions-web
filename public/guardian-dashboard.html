@@ -92,9 +92,8 @@
                         <i class="fas fa-arrow-left text-lg"></i>
                     </a>
                     <h1 id="header-title" class="text-base font-semibold text-gray-900" data-i18n="guardian.dashboard">Eltern-Dashboard</h1>
-                    <button id="add-child-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen" data-i18n="[title]guardian.addChild">
-                        <i class="fas fa-plus text-lg"></i>
-                    </button>
+                    <!-- Spacer to keep header title centered -->
+                    <div class="p-1 w-7"></div>
                 </div>
             </header>
 
@@ -567,7 +566,7 @@
                         <i class="fas fa-user-plus text-2xl text-purple-600"></i>
                     </div>
                     <h2 class="text-xl font-bold text-gray-900" data-i18n="guardian.inviteGuardian">Vormund einladen</h2>
-                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1"></p>
                 </div>
 
                 <div id="invite-guardian-loading" class="text-center py-4">
@@ -579,8 +578,8 @@
                         Teile diesen Code mit dem anderen Vormund (z.B. Partner).
                         Der Vormund muss sich registrieren und den Code eingeben.
                     </p>
-                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
-                        <p id="invite-guardian-code" class="text-2xl font-mono font-bold text-purple-600 tracking-wider"></p>
+                    <div id="invite-guardian-codes" class="space-y-2 mb-4">
+                        <!-- Codes will be inserted here by JS -->
                     </div>
                     <p class="text-sm text-gray-600 text-center mb-4">
                         <i class="fas fa-clock mr-1"></i>

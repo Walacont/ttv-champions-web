@@ -97,7 +97,7 @@ const inviteGuardianModal = document.getElementById('invite-guardian-modal');
 const inviteGuardianChildName = document.getElementById('invite-guardian-child-name');
 const inviteGuardianLoading = document.getElementById('invite-guardian-loading');
 const inviteGuardianDisplay = document.getElementById('invite-guardian-display');
-const inviteGuardianCode = document.getElementById('invite-guardian-code');
+const inviteGuardianCodes = document.getElementById('invite-guardian-codes');
 const inviteGuardianValidity = document.getElementById('invite-guardian-validity');
 const inviteGuardianError = document.getElementById('invite-guardian-error');
 const inviteGuardianErrorText = document.getElementById('invite-guardian-error-text');
@@ -1715,37 +1715,51 @@ function showManualChildError(message) {
 // Invite Guardian Modal Functions
 // =====================================================
 
-async function showInviteGuardianModal(childId, childName) {
-    inviteGuardianChildName.textContent = `für ${childName}`;
+async function showInviteGuardianModal() {
+    const childNames = children.map(c => `${c.first_name} ${c.last_name}`).join(', ');
+    inviteGuardianChildName.textContent = children.length === 1 ? `für ${childNames}` : `für alle Kinder`;
     inviteGuardianLoading?.classList.remove('hidden');
     inviteGuardianDisplay?.classList.add('hidden');
     inviteGuardianError?.classList.add('hidden');
     inviteGuardianModal?.classList.remove('hidden');
 
     try {
-        // Generate guardian invite code via RPC
-        const { data, error } = await supabase.rpc('generate_guardian_invite_code', {
-            p_child_id: childId,
-            p_validity_minutes: 2880 // 48 hours
+        // Generate invite codes for all children in parallel
+        const results = await Promise.all(children.map(c =>
+            supabase.rpc('generate_guardian_invite_code', {
+                p_child_id: c.id,
+                p_validity_minutes: 2880 // 48 hours
+            })
+        ));
+
+        // Check for errors
+        const errors = results.filter(r => r.error || !r.data?.success);
+        if (errors.length === results.length) {
+            throw new Error(errors[0].error?.message || errors[0].data?.error || 'Fehler beim Generieren der Codes');
+        }
+
+        // Build codes HTML
+        let codesHtml = '';
+        results.forEach((r, i) => {
+            if (r.data?.success) {
+                const child = children[i];
+                codesHtml += `
+                    <div class="bg-gray-100 rounded-lg p-3 text-center">
+                        ${children.length > 1 ? `<p class="text-xs text-gray-500 mb-1">${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}</p>` : ''}
+                        <p class="text-2xl font-mono font-bold text-purple-600 tracking-wider" data-invite-code>${r.data.code}</p>
+                    </div>`;
+            }
         });
 
-        if (error) {
-            throw error;
-        }
-
-        if (!data?.success) {
-            throw new Error(data?.error || 'Fehler beim Generieren des Codes');
-        }
-
-        inviteGuardianCode.textContent = data.code;
+        if (inviteGuardianCodes) inviteGuardianCodes.innerHTML = codesHtml;
         inviteGuardianValidity.textContent = '48 Stunden';
         inviteGuardianLoading?.classList.add('hidden');
         inviteGuardianDisplay?.classList.remove('hidden');
 
     } catch (error) {
-        console.error('[GUARDIAN-DASHBOARD] Error generating guardian invite code:', error);
+        console.error('[GUARDIAN-DASHBOARD] Error generating guardian invite codes:', error);
         inviteGuardianLoading?.classList.add('hidden');
-        inviteGuardianErrorText.textContent = error.message || 'Fehler beim Generieren des Codes';
+        inviteGuardianErrorText.textContent = error.message || 'Fehler beim Generieren der Codes';
         inviteGuardianError?.classList.remove('hidden');
     }
 }
@@ -1995,19 +2009,7 @@ function setupEventListeners() {
                 alert('Bitte füge zuerst ein Kind hinzu.');
                 return;
             }
-            if (children.length === 1) {
-                const c = children[0];
-                showInviteGuardianModal(c.id, `${c.first_name} ${c.last_name}`);
-            } else {
-                // Let parent pick which child
-                const names = children.map((c, i) => `${i + 1}. ${c.first_name} ${c.last_name}`).join('\n');
-                const choice = prompt(`Für welches Kind?\n\n${names}\n\nBitte Nummer eingeben:`);
-                const idx = parseInt(choice) - 1;
-                if (idx >= 0 && idx < children.length) {
-                    const c = children[idx];
-                    showInviteGuardianModal(c.id, `${c.first_name} ${c.last_name}`);
-                }
-            }
+            showInviteGuardianModal();
         });
     }
 
@@ -2052,10 +2054,11 @@ function setupEventListeners() {
         if (e.target === inviteGuardianModal) inviteGuardianModal.classList.add('hidden');
     });
     copyInviteCodeBtn?.addEventListener('click', async () => {
-        const code = inviteGuardianCode?.textContent;
-        if (code) {
+        const codeEls = inviteGuardianCodes?.querySelectorAll('[data-invite-code]');
+        if (codeEls && codeEls.length > 0) {
             try {
-                await navigator.clipboard.writeText(code);
+                const codes = Array.from(codeEls).map(el => el.textContent.trim()).join('\n');
+                await navigator.clipboard.writeText(codes);
                 copyInviteCodeBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
                 setTimeout(() => {
                     copyInviteCodeBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Code kopieren';
