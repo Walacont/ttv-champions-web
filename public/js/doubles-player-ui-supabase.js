@@ -599,6 +599,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             opponent1Id: opponent1Id,
             opponent2Id: opponent2Id,
             sets: doublesSets,
+            winnerId: setValidation.winnerId || null,
             handicapUsed: handicapUsed,
             handicap: handicapData,
             matchMode: matchMode,

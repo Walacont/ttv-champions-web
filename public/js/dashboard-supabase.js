@@ -4142,7 +4142,6 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
                 winning_team: request.winning_team,
                 sets: request.sets || [],
                 club_id: request.club_id,
-                initiated_by: request.initiated_by,
                 sport_id: request.sport_id,
                 match_mode: request.match_mode || 'best-of-5',
                 handicap_used: request.handicap_used || false,
