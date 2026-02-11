@@ -92,7 +92,7 @@ BEGIN
                           AND (
                               v_event.target_type != 'subgroups'
                               OR v_event.target_subgroup_ids IS NULL
-                              OR p.subgroup_ids && v_event.target_subgroup_ids
+                              OR p.subgroup_ids::text[] && v_event.target_subgroup_ids::text[]
                           )
                     LOOP
                         -- Prüfen ob Einladung für diesen Termin existiert
