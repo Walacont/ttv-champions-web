@@ -301,7 +301,7 @@ async function loadChildStats(child) {
         const today = new Date().toISOString().split('T')[0];
         const { data: eventInvitations, error: evErr } = await supabase
             .from('event_invitations')
-            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, end_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
+            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
             .eq('user_id', child.id);
 
         if (evErr) {
