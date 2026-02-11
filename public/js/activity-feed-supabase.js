@@ -7,6 +7,7 @@ import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
 import { loadMatchMedia } from './match-media.js';
+import { getR2PublicUrl, getMediaUrlWithFallback } from './r2-storage.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
 import { isTrainingSummary, renderTrainingSummaryCard, parseTrainingSummaryContent } from './training-summary-supabase.js';
@@ -149,12 +150,17 @@ window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) 
             return;
         }
 
-        const { error: storageError } = await supabase.storage
-            .from('match-media')
-            .remove([filePath]);
-
-        if (storageError) {
-            console.error('Error deleting file from storage:', storageError);
+        // Aus R2 löschen (neue Dateien) + Supabase löschen (alte Dateien)
+        try {
+            const { deleteFromR2 } = await import('./r2-storage.js');
+            await deleteFromR2(`match-media/${filePath}`);
+        } catch (r2Error) {
+            console.warn('R2 deletion failed (may be old Supabase file):', r2Error);
+        }
+        try {
+            await supabase.storage.from('match-media').remove([filePath]);
+        } catch (sbError) {
+            console.warn('Supabase deletion failed (may be R2 file):', sbError);
         }
 
         await injectMatchMedia(matchId, matchType);
@@ -2093,9 +2099,7 @@ async function injectMatchMedia(matchId, matchType) {
         let carouselItems = '';
 
         media.forEach((item, index) => {
-            const { data: { publicUrl } } = supabase.storage
-                .from('match-media')
-                .getPublicUrl(item.file_path);
+            const { primaryUrl: publicUrl, fallbackUrl } = getMediaUrlWithFallback('match-media', item.file_path);
 
             // Löschen-Button für Teilnehmer
             const deleteButton = isParticipant ? `
@@ -2120,6 +2124,7 @@ async function injectMatchMedia(matchId, matchType) {
                                 playsinline
                                 preload="metadata"
                                 muted
+                                onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.querySelector('source').src='${fallbackUrl}#t=0.5';this.load()}"
                             >
                                 <source src="${publicUrl}#t=0.5" type="${item.mime_type || 'video/mp4'}">
                             </video>
@@ -2140,7 +2145,8 @@ async function injectMatchMedia(matchId, matchType) {
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGalleryWithContext('${matchId}', '${matchType}', ${index})">
                             ${deleteButton}
-                            <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover">
+                            <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover" loading="lazy"
+                                 onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${fallbackUrl}'}">
                         </div>
                     </div>
                 `;
@@ -3469,7 +3475,7 @@ function renderPostCard(activity, profileMap) {
                                 <div class="carousel-slide flex-shrink-0 w-full flex items-center justify-center">
                                     <img src="${url}" alt="Post image ${index + 1}"
                                          class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
-                                         style="max-height: 600px;"
+                                         style="max-height: 600px;" loading="lazy"
                                          onclick="openPostImageGallery('${postId}', ${imageUrlsJson}, ${index})">
                                 </div>
                             `).join('')}

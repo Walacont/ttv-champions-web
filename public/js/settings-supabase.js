@@ -2,6 +2,7 @@
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { uploadToR2 } from './r2-storage.js';
+import { compressImage } from './image-compressor.js';
 
 const supabase = getSupabase();
 
@@ -228,11 +229,19 @@ uploadPhotoForm.addEventListener('submit', async e => {
     uploadFeedback.className = 'mt-2 text-sm';
 
     try {
-        const fileExt = selectedFile.name.split('.').pop();
+        // Profilbild vor dem Upload komprimieren
+        let fileToUpload = selectedFile;
+        try {
+            fileToUpload = await compressImage(selectedFile, { maxWidth: 512, maxHeight: 512, quality: 0.80 });
+        } catch (e) {
+            console.warn('[Settings] Image compression failed, uploading original:', e);
+        }
+
+        const fileExt = fileToUpload.name.split('.').pop();
         const fileName = `profile.${fileExt}`;
 
         // Upload zu R2 (mit Fallback zu Supabase)
-        const uploadResult = await uploadToR2('profile-pictures', selectedFile, {
+        const uploadResult = await uploadToR2('profile-pictures', fileToUpload, {
             subfolder: currentUser.id,
             filename: fileName
         });

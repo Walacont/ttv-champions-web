@@ -5,6 +5,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { supabaseConfig } from './supabase-config.js';
 
 // Konfiguration - Worker URL nach Deployment anpassen!
 const R2_CONFIG = {
@@ -233,6 +234,122 @@ export function storageGetPublicUrl(bucket, path) {
             publicUrl: getR2PublicUrl(`${bucket}/${path}`)
         }
     };
+}
+
+/**
+ * Generiert die Supabase Storage Public URL für einen Bucket + Pfad
+ * Wird als Fallback für ältere Dateien verwendet, die noch nicht zu R2 migriert wurden.
+ */
+export function getSupabaseStorageUrl(bucket, path) {
+    return `${supabaseConfig.url}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+/**
+ * Generiert eine Media-URL mit Fallback-Logik für die Übergangsphase.
+ * Gibt ein Objekt mit primaryUrl (R2) und fallbackUrl (Supabase) zurück.
+ *
+ * @param {string} bucket - Der Storage-Bucket (z.B. 'match-media')
+ * @param {string} filePath - Der relative Dateipfad
+ * @returns {{ primaryUrl: string, fallbackUrl: string }}
+ */
+export function getMediaUrlWithFallback(bucket, filePath) {
+    return {
+        primaryUrl: getR2PublicUrl(`${bucket}/${filePath}`),
+        fallbackUrl: getSupabaseStorageUrl(bucket, filePath)
+    };
+}
+
+/**
+ * Migriert eine einzelne Datei von Supabase Storage zu R2.
+ * Lädt die Datei von Supabase herunter und lädt sie zu R2 hoch.
+ *
+ * @param {string} bucket - Der Storage-Bucket (z.B. 'match-media')
+ * @param {string} filePath - Der relative Dateipfad
+ * @returns {Promise<{success: boolean, r2Url: string}>}
+ */
+export async function migrateFileToR2(bucket, filePath) {
+    const supabaseUrl = getSupabaseStorageUrl(bucket, filePath);
+
+    // Datei von Supabase herunterladen
+    const response = await fetch(supabaseUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to download from Supabase: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const fileName = filePath.split('/').pop();
+    const file = new File([blob], fileName, { type: blob.type });
+
+    // Subfolder aus filePath ableiten (alles vor dem Dateinamen)
+    const parts = filePath.split('/');
+    const subfolder = parts.slice(0, -1).join('/');
+
+    // Zu R2 hochladen
+    const result = await uploadToR2(bucket, file, {
+        subfolder: subfolder,
+        filename: fileName
+    });
+
+    return { success: true, r2Url: result.url };
+}
+
+/**
+ * Migriert alle Match-Media-Dateien von Supabase zu R2.
+ * Liest alle Einträge aus der match_media-Tabelle und migriert sie.
+ *
+ * Aufruf über Browser-Konsole:
+ *   import('/js/r2-storage.js').then(m => m.migrateAllMatchMedia())
+ *
+ * @param {Function} onProgress - Callback(current, total, filePath)
+ * @returns {Promise<{migrated: number, failed: number, errors: Array}>}
+ */
+export async function migrateAllMatchMedia(onProgress) {
+    const supabase = getSupabase();
+    const { data: allMedia, error } = await supabase
+        .from('match_media')
+        .select('id, file_path')
+        .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    if (!allMedia || allMedia.length === 0) {
+        console.log('[Migration] Keine Match-Media-Dateien gefunden.');
+        return { migrated: 0, failed: 0, errors: [] };
+    }
+
+    console.log(`[Migration] ${allMedia.length} Dateien zu migrieren...`);
+
+    let migrated = 0;
+    let failed = 0;
+    const errors = [];
+
+    for (let i = 0; i < allMedia.length; i++) {
+        const item = allMedia[i];
+        try {
+            // Prüfen ob Datei bereits auf R2 existiert
+            const r2Url = getR2PublicUrl(`match-media/${item.file_path}`);
+            const headCheck = await fetch(r2Url, { method: 'HEAD' });
+
+            if (headCheck.ok) {
+                console.log(`[Migration] ${i + 1}/${allMedia.length} Bereits auf R2: ${item.file_path}`);
+                migrated++;
+            } else {
+                await migrateFileToR2('match-media', item.file_path);
+                migrated++;
+                console.log(`[Migration] ${i + 1}/${allMedia.length} Migriert: ${item.file_path}`);
+            }
+        } catch (err) {
+            failed++;
+            errors.push({ id: item.id, file_path: item.file_path, error: err.message });
+            console.error(`[Migration] ${i + 1}/${allMedia.length} Fehler: ${item.file_path}`, err);
+        }
+
+        if (onProgress) {
+            onProgress(i + 1, allMedia.length, item.file_path);
+        }
+    }
+
+    console.log(`[Migration] Fertig! ${migrated} migriert, ${failed} fehlgeschlagen.`);
+    return { migrated, failed, errors };
 }
 
 // Export default config
