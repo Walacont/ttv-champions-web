@@ -1125,6 +1125,9 @@ async function fetchActivities(userIds) {
     // Nur mehr abrufen wenn mehr Aktivitäten benötigt
     const needToFetch = allActivities.length < ACTIVITIES_PER_PAGE * 2;
 
+    // privacyMap im Funktions-Scope deklarieren (wird im else-if Block befüllt, aber auch außerhalb referenziert)
+    let privacyMap = {};
+
     // Child mode: use RPC to fetch activities (direct queries don't work without auth.uid())
     if (isChildMode && needToFetch) {
         const { activities: childActivities } = await fetchActivitiesForChildRaw();
@@ -1294,7 +1297,6 @@ async function fetchActivities(userIds) {
         });
 
         // Datenschutzeinstellungen + Profildaten in einem Query laden (statt 2 separate)
-        let privacyMap = {};
         if (matchPlayerIds.size > 0) {
             const { data: privacyProfiles } = await supabase
                 .from('profiles')
