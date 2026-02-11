@@ -586,7 +586,7 @@ function setupEventCardListeners() {
     // Annehmen-Buttons
     document.querySelectorAll('.event-accept-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await respondToEvent(invitationId, 'accepted');
         });
     });
@@ -594,7 +594,7 @@ function setupEventCardListeners() {
     // Ablehnen-Buttons
     document.querySelectorAll('.event-reject-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await showRejectModal(invitationId);
         });
     });
@@ -602,7 +602,7 @@ function setupEventCardListeners() {
     // Absagen-Buttons (für bereits angenommene)
     document.querySelectorAll('.event-cancel-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await showRejectModal(invitationId);
         });
     });
@@ -610,7 +610,7 @@ function setupEventCardListeners() {
     // Details-Buttons
     document.querySelectorAll('.event-details-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const eventId = e.target.dataset.eventId;
+            const eventId = e.currentTarget.dataset.eventId;
             await showEventDetails(eventId);
         });
     });
