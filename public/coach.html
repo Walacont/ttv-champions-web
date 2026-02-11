@@ -153,6 +153,31 @@
                 background-color: #eef2ff; /* indigo-50 */
                 border-right: 3px solid #4f46e5; /* indigo-600 */
             }
+
+            /* Bottom Navigation */
+            #bottom-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                -webkit-transform: translateZ(0);
+                transform: translateZ(0);
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            body.standalone-mode #bottom-nav {
+                padding-bottom: env(safe-area-inset-bottom, 0) !important;
+            }
+            .bottom-tab-button {
+                cursor: pointer;
+                touch-action: manipulation;
+            }
+            .bottom-tab-button.tab-active {
+                color: #4f46e5 !important;
+            }
+            .bottom-tab-button.tab-active .text-lg,
+            .bottom-tab-button.tab-active i {
+                color: #4f46e5 !important;
+            }
         </style>
     </head>
     <body class="bg-gray-100 text-gray-800">
@@ -334,77 +359,42 @@
                 </button>
             </div>
 
-            <div class="mb-6 border-b border-gray-200">
-                <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="statistics"
-                    >
-                        Startseite
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="dashboard"
-                    >
-                        Rangliste
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="attendance"
-                    >
-                        Kalender & Anwesenheit
-                    </button>
-                    <!-- Trainingsplan tab temporarily hidden - will be re-enabled with recurring trainings later
-                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="schedule">
-                    📅 Trainingsplan
-                </button>
-                -->
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="matches"
-                    >
-                        Wettkampf
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="points"
-                    >
-                        Punkte vergeben
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="challenges"
-                    >
-                        Challenges
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="exercises"
-                    >
-                        Übungen
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="video-analysis"
-                    >
-                        Video-Analyse
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="subgroups"
-                    >
-                        Gruppen
-                    </button>
-                </nav>
+            <!-- Sub-Tab Navigation (per JS ein/ausgeblendet je nach aktivem Bottom-Tab) -->
+            <div id="subtab-nav-start" class="coach-subtab-nav mb-4">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px overflow-x-auto">
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-indigo-600 text-indigo-600" data-group="start" data-subtab="overview">Übersicht</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="start" data-subtab="stats">Statistiken</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="start" data-subtab="leaderboard">Rangliste</button>
+                    </nav>
+                </div>
+            </div>
+            <div id="subtab-nav-training" class="coach-subtab-nav mb-4 hidden">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px overflow-x-auto">
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-indigo-600 text-indigo-600" data-group="training" data-subtab="attendance">Anwesenheit</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="training" data-subtab="points">Punkte</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="training" data-subtab="challenges">Challenges</button>
+                    </nav>
+                </div>
+            </div>
+            <div id="subtab-nav-more" class="coach-subtab-nav mb-4 hidden">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px overflow-x-auto">
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-indigo-600 text-indigo-600" data-group="more" data-subtab="exercises">Übungen</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="more" data-subtab="videos">Videos</button>
+                        <button class="coach-sub-tab whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-group="more" data-subtab="groups">Gruppen</button>
+                    </nav>
+                </div>
             </div>
 
-            <main>
-                <div id="tab-content-dashboard" class="tab-content">
+            <main class="pb-16">
+                <div id="tab-content-dashboard" class="coach-panel">
                     <!-- Upcoming Events Widget for Coaches -->
                     <div id="coach-upcoming-events" class="max-w-3xl mx-auto mb-6"></div>
                 </div>
 
-                <div id="tab-content-attendance" class="tab-content hidden">
+                <div id="tab-content-attendance" class="coach-panel hidden">
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                         <div class="flex justify-between items-center mb-4">
                             <button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200">
@@ -453,7 +443,7 @@
                 </div>
 
                 <!-- Trainingsplan tab content - hidden for now, will be re-enabled with recurring trainings later
-            <div id="tab-content-schedule" class="tab-content hidden">
+            <div id="tab-content-schedule" class="coach-panel hidden">
                 <div class="bg-white p-6 rounded-xl shadow-md max-w-4xl mx-auto">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold">Wiederkehrende Trainings</h2>
@@ -476,7 +466,7 @@
             </div>
             -->
 
-                <div id="tab-content-matches" class="tab-content hidden">
+                <div id="tab-content-matches" class="coach-panel hidden">
                     <div class="bg-white rounded-xl shadow-md overflow-hidden">
                         <!-- Sub-Tab Navigation: Wettkampf / Turniere -->
                         <div class="border-b border-gray-200">
@@ -788,7 +778,7 @@
                     </div>
                 </div>
 
-                <div id="tab-content-points" class="tab-content hidden">
+                <div id="tab-content-points" class="coach-panel hidden">
                     <details class="mb-6 bg-white rounded-xl shadow-md">
                         <summary class="flex justify-between items-center cursor-pointer p-6">
                             <h2 class="text-xl font-semibold text-gray-900">
@@ -2013,7 +2003,7 @@
                     </div>
                 </div>
 
-                <div id="tab-content-challenges" class="tab-content hidden">
+                <div id="tab-content-challenges" class="coach-panel hidden">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Neue Challenge erstellen</h2>
@@ -2270,7 +2260,7 @@
                     </div>
                 </div>
 
-                <div id="tab-content-exercises" class="tab-content hidden">
+                <div id="tab-content-exercises" class="coach-panel hidden">
                     <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md">
                             <!-- Header mit Suche und Filter -->
                             <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -2322,7 +2312,7 @@
                     </div>
                 </div>
 
-                <div id="tab-content-statistics" class="tab-content hidden">
+                <div id="tab-content-statistics-overview" class="coach-panel hidden">
                     <div class="space-y-8">
                         <!-- Season Countdown - Klickbar für Head-Coach -->
                         <div
@@ -2427,7 +2417,11 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
+                <div id="tab-content-statistics-stats" class="coach-panel hidden">
+                    <div class="space-y-8">
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-2xl font-bold mb-6 flex items-center">
                                 <span class="mr-3">📈</span> Trainingsanwesenheiten
@@ -2587,7 +2581,7 @@
                 </div>
 
                 <!-- Video-Analyse Tab -->
-                <div id="tab-content-video-analysis" class="tab-content hidden">
+                <div id="tab-content-video-analysis" class="coach-panel hidden">
                     <div class="max-w-6xl mx-auto">
                         <!-- Header mit Upload-Button -->
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -2881,7 +2875,7 @@
                     </div>
                 </div>
 
-                <div id="tab-content-subgroups" class="tab-content hidden">
+                <div id="tab-content-subgroups" class="coach-panel hidden">
                     <div class="max-w-6xl mx-auto">
                         <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <h2 class="text-lg font-semibold text-blue-900 mb-2">
@@ -3036,6 +3030,28 @@
                     </div>
                 </div>
             </main>
+
+            <!-- Bottom Navigation -->
+            <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;">
+                <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
+                    <button class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors" data-tab="start" data-title="Start" onclick="handleCoachBottomTab('start', 'Start')">
+                        <i class="fas fa-home text-lg"></i>
+                        <span class="text-[10px] mt-0.5">Start</span>
+                    </button>
+                    <button class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors" data-tab="training" data-title="Training" onclick="handleCoachBottomTab('training', 'Training')">
+                        <i class="fas fa-calendar-check text-lg"></i>
+                        <span class="text-[10px] mt-0.5">Training</span>
+                    </button>
+                    <button class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors" data-tab="matches" data-title="Wettkampf" onclick="handleCoachBottomTab('matches', 'Wettkampf')">
+                        <i class="fas fa-table-tennis-paddle-ball text-lg"></i>
+                        <span class="text-[10px] mt-0.5">Wettkampf</span>
+                    </button>
+                    <button class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors" data-tab="more" data-title="Mehr" onclick="handleCoachBottomTab('more', 'Mehr')">
+                        <i class="fas fa-th-large text-lg"></i>
+                        <span class="text-[10px] mt-0.5">Mehr</span>
+                    </button>
+                </div>
+            </nav>
         </div>
 
         <div
@@ -5652,6 +5668,173 @@
 
         <!-- Table Tennis Exercise Builder for animation playback -->
         <script src="/js/table-tennis-exercise-builder.js"></script>
+
+        <!-- Coach Bottom Tab Navigation System -->
+        <script>
+            // Panel-Gruppen: Bottom-Tab -> zugehörige Panel-IDs
+            var coachTabGroups = {
+                start: {
+                    subtabs: {
+                        overview: 'tab-content-statistics-overview',
+                        stats: 'tab-content-statistics-stats',
+                        leaderboard: 'tab-content-dashboard'
+                    },
+                    defaultSubtab: 'overview',
+                    subtabNavId: 'subtab-nav-start'
+                },
+                training: {
+                    subtabs: {
+                        attendance: 'tab-content-attendance',
+                        points: 'tab-content-points',
+                        challenges: 'tab-content-challenges'
+                    },
+                    defaultSubtab: 'attendance',
+                    subtabNavId: 'subtab-nav-training'
+                },
+                matches: {
+                    subtabs: {
+                        default: 'tab-content-matches'
+                    },
+                    defaultSubtab: 'default',
+                    subtabNavId: null
+                },
+                more: {
+                    subtabs: {
+                        exercises: 'tab-content-exercises',
+                        videos: 'tab-content-video-analysis',
+                        groups: 'tab-content-subgroups'
+                    },
+                    defaultSubtab: 'exercises',
+                    subtabNavId: 'subtab-nav-more'
+                }
+            };
+
+            var currentCoachTab = 'start';
+            var currentSubtabs = { start: 'overview', training: 'attendance', matches: 'default', more: 'exercises' };
+
+            function handleCoachBottomTab(tabId, tabTitle) {
+                currentCoachTab = tabId;
+
+                // Bottom-Tab Active States aktualisieren
+                var allBtns = document.querySelectorAll('.bottom-tab-button');
+                for (var i = 0; i < allBtns.length; i++) {
+                    allBtns[i].classList.remove('tab-active');
+                    allBtns[i].classList.add('text-gray-400');
+                    if (allBtns[i].getAttribute('data-tab') === tabId) {
+                        allBtns[i].classList.add('tab-active');
+                        allBtns[i].classList.remove('text-gray-400');
+                    }
+                }
+
+                // Alle Panels und Sub-Tab-Navs ausblenden
+                var allPanels = document.querySelectorAll('.coach-panel');
+                for (var j = 0; j < allPanels.length; j++) {
+                    allPanels[j].classList.add('hidden');
+                }
+                var allSubNavs = document.querySelectorAll('.coach-subtab-nav');
+                for (var k = 0; k < allSubNavs.length; k++) {
+                    allSubNavs[k].classList.add('hidden');
+                }
+
+                // Sub-Tab-Nav fuer aktiven Tab einblenden
+                var group = coachTabGroups[tabId];
+                if (group && group.subtabNavId) {
+                    var subNav = document.getElementById(group.subtabNavId);
+                    if (subNav) subNav.classList.remove('hidden');
+                }
+
+                // Aktiven Sub-Tab-Panel einblenden
+                var activeSubtab = currentSubtabs[tabId] || group.defaultSubtab;
+                var panelId = group.subtabs[activeSubtab];
+                if (panelId) {
+                    var panel = document.getElementById(panelId);
+                    if (panel) panel.classList.remove('hidden');
+                }
+
+                // Header-Titel aktualisieren
+                var headerTitle = document.getElementById('header-title');
+                if (headerTitle) headerTitle.textContent = tabTitle;
+
+                // Event fuer JS-Module dispatchen
+                window.dispatchEvent(new CustomEvent('coachTabChanged', {
+                    detail: { tab: tabId, subtab: activeSubtab }
+                }));
+            }
+
+            function handleCoachSubTab(group, subtab) {
+                currentSubtabs[group] = subtab;
+                var groupConfig = coachTabGroups[group];
+                if (!groupConfig) return;
+
+                // Alle Panels dieser Gruppe ausblenden
+                var subtabs = groupConfig.subtabs;
+                for (var key in subtabs) {
+                    var panel = document.getElementById(subtabs[key]);
+                    if (panel) panel.classList.add('hidden');
+                }
+
+                // Gewaehltes Panel einblenden
+                var targetPanel = document.getElementById(subtabs[subtab]);
+                if (targetPanel) targetPanel.classList.remove('hidden');
+
+                // Sub-Tab Button States aktualisieren
+                var subNavId = groupConfig.subtabNavId;
+                if (subNavId) {
+                    var buttons = document.querySelectorAll('#' + subNavId + ' .coach-sub-tab');
+                    for (var i = 0; i < buttons.length; i++) {
+                        var btn = buttons[i];
+                        if (btn.getAttribute('data-subtab') === subtab) {
+                            btn.classList.add('border-indigo-600', 'text-indigo-600');
+                            btn.classList.remove('border-transparent', 'text-gray-500');
+                        } else {
+                            btn.classList.remove('border-indigo-600', 'text-indigo-600');
+                            btn.classList.add('border-transparent', 'text-gray-500');
+                        }
+                    }
+                }
+
+                // Event fuer JS-Module dispatchen
+                window.dispatchEvent(new CustomEvent('coachSubtabChanged', {
+                    detail: { tab: group, subtab: subtab }
+                }));
+            }
+
+            // Sub-Tab Click-Handler initialisieren
+            document.addEventListener('DOMContentLoaded', function() {
+                // PWA Standalone-Modus erkennen
+                if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                    document.body.classList.add('standalone-mode');
+                }
+
+                // Sub-Tab Buttons mit Click-Handlern versehen
+                var subTabButtons = document.querySelectorAll('.coach-sub-tab');
+                for (var i = 0; i < subTabButtons.length; i++) {
+                    subTabButtons[i].addEventListener('click', function() {
+                        var group = this.getAttribute('data-group');
+                        var subtab = this.getAttribute('data-subtab');
+                        handleCoachSubTab(group, subtab);
+                    });
+                }
+
+                // Bottom-Nav an body-Ende verschieben (Safari PWA Fix)
+                var bottomNav = document.getElementById('bottom-nav');
+                if (bottomNav) {
+                    document.body.appendChild(bottomNav);
+                    bottomNav.style.position = 'fixed';
+                    bottomNav.style.bottom = '0';
+                    bottomNav.style.left = '0';
+                    bottomNav.style.right = '0';
+                    bottomNav.style.zIndex = '99999';
+                    bottomNav.style.background = 'white';
+                    bottomNav.style.borderTop = '1px solid #e5e7eb';
+                }
+
+                // Start-Tab als Default anzeigen
+                setTimeout(function() {
+                    handleCoachBottomTab('start', 'Start');
+                }, 50);
+            });
+        </script>
 
         <!-- Safety timeout: show content even if CDN modules fail to load -->
         <script>

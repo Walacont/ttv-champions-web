@@ -90,7 +90,7 @@ import {
     setDoublesSetScoreInput,
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
+import { updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -351,18 +351,14 @@ async function initializeCoachPage(userData) {
         userData: userData, // Für Tab-Sichtbarkeits-Präferenzen
     });
 
-    setupTabs('statistics');
     setupLeaderboardTabs(userData);
     setupLeaderboardToggle(userData);
 
     // Gespeicherte Paarungen und Turniere laden, wenn Wettkampf-Tab geöffnet wird
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const tabName = button.dataset.tab;
-            if (tabName === 'matches') {
-                loadSavedPairings(supabase, userData.clubId);
-            }
-        });
+    window.addEventListener('coachTabChanged', (e) => {
+        if (e.detail.tab === 'matches') {
+            loadSavedPairings(supabase, userData.clubId);
+        }
     });
 
     // Supabase-Instanz statt auth/functions übergeben
@@ -390,22 +386,18 @@ async function initializeCoachPage(userData) {
     // Veranstaltungen-Navigation initialisieren (einmalig)
     initEventsNavigation(userData, supabase);
 
-    const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
-    if (statisticsTabButton) {
-        statisticsTabButton.addEventListener('click', () => {
+    // Statistiken neu laden wenn Sub-Tab gewechselt wird
+    window.addEventListener('coachSubtabChanged', (e) => {
+        if (e.detail.tab === 'start' && e.detail.subtab === 'stats') {
             loadStatistics(userData, supabase, currentSubgroupFilter);
-        });
-    }
-
-    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
-    if (subgroupsTabButton) {
-        subgroupsTabButton.addEventListener('click', () => {
+        }
+        if (e.detail.tab === 'more' && e.detail.subtab === 'groups') {
             loadSubgroupsList(userData.clubId, supabase, unsub => {
                 if (unsubscribeSubgroups) unsubscribeSubgroups();
                 unsubscribeSubgroups = unsub;
             });
-        });
-    }
+        }
+    });
 
     loadPlayersForDropdown(userData.clubId, supabase, userData.activeSportId);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
@@ -1142,7 +1134,7 @@ function handleSubgroupFilterChange(userData) {
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
 
     // Statistik neu laden falls Tab aktiv
-    const statisticsTab = document.getElementById('tab-content-statistics');
+    const statisticsTab = document.getElementById('tab-content-statistics-stats');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, supabase, currentSubgroupFilter);
     }
