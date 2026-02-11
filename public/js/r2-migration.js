@@ -475,7 +475,7 @@ export async function migrateMatchMedia(options = {}) {
 
     const { data: allMedia, error } = await supabase
         .from('match_media')
-        .select('id, file_path, thumbnail_path')
+        .select('id, file_path')
         .order('created_at', { ascending: true });
 
     if (error) throw error;
@@ -517,20 +517,7 @@ export async function migrateMatchMedia(options = {}) {
             migrated++;
             log('MatchMedia', `${i + 1}/${allMedia.length} Migriert: ${item.file_path}`);
 
-            // Thumbnail auch migrieren falls vorhanden
-            if (item.thumbnail_path) {
-                try {
-                    const thumbUrl = `${supabaseConfig.url}/storage/v1/object/public/match-media/${item.thumbnail_path}`;
-                    const thumbFile = await downloadFile(thumbUrl);
-                    const thumbParts = item.thumbnail_path.split('/');
-                    await uploadToR2('match-media', thumbFile, {
-                        subfolder: thumbParts.slice(0, -1).join('/'),
-                        filename: thumbParts[thumbParts.length - 1]
-                    });
-                } catch (thumbErr) {
-                    log('MatchMedia', `Thumbnail-Migration fehlgeschlagen für ${item.id}:`, thumbErr.message);
-                }
-            }
+            // Note: thumbnail_path column does not exist in production DB (never created/populated)
         } catch (err) {
             failed++;
             errors.push({ id: item.id, file_path: item.file_path, error: err.message });
