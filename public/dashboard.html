@@ -372,23 +372,24 @@
         <!-- Fixed Top Bar (like Instagram) - Outside main-content for proper fixed positioning -->
         <header id="top-nav" style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
             <div class="flex justify-between items-center h-12 px-4 max-w-7xl mx-auto">
-                <!-- Left: Search Icon (opens Community) -->
-                <button
-                    id="open-community-btn"
-                    class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
-                    title="Community suchen"
-                >
-                    <i class="fas fa-search text-lg"></i>
-                </button>
-                <!-- Chat Button -->
-                <button
-                    id="open-chat-btn"
-                    class="relative text-gray-600 hover:text-indigo-600 transition-colors p-1"
-                    title="Chat"
-                >
-                    <i class="far fa-comment-dots text-lg"></i>
-                    <span id="chat-unread-badge" class="hidden absolute -top-0.5 -right-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
-                </button>
+                <!-- Left: Search + Chat -->
+                <div class="flex items-center space-x-1">
+                    <button
+                        id="open-community-btn"
+                        class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
+                        title="Community suchen"
+                    >
+                        <i class="fas fa-search text-lg"></i>
+                    </button>
+                    <button
+                        id="open-chat-btn"
+                        class="relative text-gray-600 hover:text-indigo-600 transition-colors p-1"
+                        title="Chat"
+                    >
+                        <i class="far fa-comment-dots text-lg"></i>
+                        <span id="chat-unread-badge" class="hidden absolute -top-0.5 -right-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </button>
+                </div>
 
                 <!-- Center: Profile Photo, Title and Role Switcher -->
                 <div class="flex items-center gap-2">
