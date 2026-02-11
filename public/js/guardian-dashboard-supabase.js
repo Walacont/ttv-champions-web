@@ -444,6 +444,17 @@ function getNotificationIcon(type) {
     return icons[type] || 'fas fa-bell';
 }
 
+// Toggle a guardian section (for collapsible areas)
+window.toggleGuardianSection = function(sectionId) {
+    const content = document.getElementById(`gsec-content-${sectionId}`);
+    const chevron = document.getElementById(`gsec-chevron-${sectionId}`);
+    if (content && chevron) {
+        const isHidden = content.classList.contains('hidden');
+        content.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+    }
+};
+
 // Render children list
 function renderChildren() {
     if (children.length === 0) {
@@ -455,312 +466,329 @@ function renderChildren() {
     childrenList.classList.remove('hidden');
     noChildrenMessage.classList.add('hidden');
 
+    // Update greeting
+    const greetingEl = document.getElementById('guardian-greeting');
+    if (greetingEl && currentProfile) {
+        const hour = new Date().getHours();
+        const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
+        const name = currentProfile.first_name || currentProfile.display_name || '';
+        greetingEl.textContent = name ? `${greeting}, ${name}!` : `${greeting}!`;
+    }
+
     childrenList.innerHTML = children.map(child => {
         const age = child.age || calculateAge(child.birthdate);
         const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=6366f1&color=fff`;
+        const childSafeFirst = escapeHtml(child.first_name || '');
+        const childSafeLast = escapeHtml(child.last_name || '');
+        const childFullName = `${childSafeFirst} ${childSafeLast}`.trim();
 
-        // Format points history
-        let pointsHistoryHtml = '';
-        if (child.pointsHistory && child.pointsHistory.length > 0) {
-            pointsHistoryHtml = child.pointsHistory.slice(0, 5).map(entry => {
-                const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                const reason = entry.reason || entry.description || 'Punkte';
-                const points = entry.points || 0;
-                const xp = entry.xp !== undefined ? entry.xp : points;
-                const elo = entry.elo_change || 0;
+        // Calculate badges for attention items
+        const pendingEvents = (child.upcomingEvents || []).filter(i => i.status === 'pending');
+        const unreadNotifs = (child.notifications || []).filter(n => !n.is_read);
+        const hasCredentials = child.username && child.has_pin;
 
-                return `
-                    <div class="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                        <div class="flex-1 min-w-0">
-                            <span class="text-gray-700 text-xs">${escapeHtml(reason)}</span>
-                            <span class="text-[10px] text-gray-400 ml-1">${date}</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] flex-shrink-0">
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">Elo</div>
-                                <div class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</div>
-                            </div>
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">XP</div>
-                                <div class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp}</div>
-                            </div>
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">Pkt</div>
-                                <div class="${getColorClass(points)} font-semibold">${getSign(points)}${points}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            pointsHistoryHtml = '<p class="text-xs text-gray-400 py-2">Keine Einträge</p>';
-        }
+        // --- Events section ---
+        const eventsHtml = buildEventsSection(child, pendingEvents);
 
-        // Format notifications
-        let notificationsHtml = '';
-        const unreadCount = (child.notifications || []).filter(n => !n.is_read).length;
-        if (child.notifications && child.notifications.length > 0) {
-            notificationsHtml = child.notifications.slice(0, 5).map(notif => {
-                const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                const isUnread = !notif.is_read;
-                const icon = getNotificationIcon(notif.type);
+        // --- Stats section ---
+        const statsHtml = buildStatsSection(child);
 
-                return `
-                    <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0 ${isUnread ? 'bg-indigo-50 -mx-2 px-2 rounded' : ''}" data-notification-id="${notif.id}">
-                        <i class="${icon} text-xs mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-400'}"></i>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-700'}">${escapeHtml(notif.title || '')}</p>
-                            <p class="text-[10px] text-gray-500 line-clamp-2">${escapeHtml(notif.message || '')}</p>
-                            <p class="text-[10px] text-gray-400">${date}</p>
-                        </div>
-                        <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-400 hover:text-red-500 p-1 -mr-1" title="Löschen">
-                            <i class="fas fa-times text-xs"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            notificationsHtml = '<p class="text-xs text-gray-400 py-2">Keine Mitteilungen</p>';
+        // --- Activity section (points + notifications + videos combined) ---
+        const activityHtml = buildActivitySection(child, unreadNotifs);
+
+        // --- Attention bar (pending events / missing credentials) ---
+        let attentionHtml = '';
+        if (pendingEvents.length > 0 || !hasCredentials) {
+            const items = [];
+            if (pendingEvents.length > 0) {
+                items.push(`<span class="text-orange-600"><i class="fas fa-clock mr-0.5"></i>${pendingEvents.length} Event${pendingEvents.length > 1 ? 's' : ''} offen</span>`);
+            }
+            if (!hasCredentials) {
+                items.push(`<span class="text-blue-600"><i class="fas fa-key mr-0.5"></i>Login einrichten</span>`);
+            }
+            attentionHtml = `
+                <div class="flex items-center gap-3 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] font-medium">
+                    ${items.join('<span class="text-gray-300">|</span>')}
+                </div>`;
         }
 
         return `
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <!-- Header with basic info -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <!-- Child Header -->
                 <div class="p-4">
                     <div class="flex items-center gap-3">
-                        <img
-                            src="${escapeHtml(avatarUrl)}"
-                            alt="${escapeHtml(child.first_name)}"
-                            class="w-12 h-12 rounded-full object-cover"
-                        />
+                        <img src="${escapeHtml(avatarUrl)}" alt="${childSafeFirst}" class="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100" />
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-gray-900 truncate">
-                                ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
-                            </h3>
-                            <p class="text-sm text-gray-500">${age} Jahre</p>
+                            <h3 class="font-semibold text-gray-900 text-[15px] truncate">${childFullName}</h3>
+                            <p class="text-xs text-gray-400">${age} Jahre</p>
                         </div>
-                        <a
-                            href="/settings.html?child_id=${child.id}"
-                            class="text-gray-500 hover:text-gray-700 p-2"
-                            title="Einstellungen für ${escapeHtml(child.first_name)}"
-                        >
-                            <i class="fas fa-cog"></i>
-                        </a>
-                        <button
-                            onclick="showCredentialsModal('${child.id}', '${escapeHtml(child.first_name)}', '${child.username || ''}')"
-                            class="${child.username && child.has_pin ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'} p-2"
-                            title="${child.username && child.has_pin ? 'Zugangsdaten ändern' : 'Zugangsdaten einrichten'}"
-                        >
-                            <i class="fas ${child.username && child.has_pin ? 'fa-check-circle' : 'fa-user-lock'}"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Stats -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <div class="grid grid-cols-4 gap-2 text-center text-xs">
-                        <div>
-                            <p class="font-bold text-gray-900">${child.elo_rating || 800}</p>
-                            <p class="text-gray-500">Elo</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-gray-900">${child.xp || 0}</p>
-                            <p class="text-gray-500">XP</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-gray-900">${child.totalMatches || 0}</p>
-                            <p class="text-gray-500">Spiele</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-green-600">${child.wins || 0}</p>
-                            <p class="text-gray-500">Siege</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Upcoming Events (Compact Collapsible) -->
-                ${(() => {
-                    const events = child.upcomingEvents || [];
-                    const pendingEvents = events.filter(i => i.status === 'pending');
-                    const acceptedEvents = events.filter(i => i.status === 'accepted');
-                    const rejectedEvents = events.filter(i => i.status === 'rejected');
-                    const hasPending = pendingEvents.length > 0;
-
-                    const renderCompactEvent = (inv, showActions) => {
-                        const ev = inv.events;
-                        const displayDate = inv.occurrence_date || ev.start_date;
-                        const dateObj = new Date(displayDate + 'T12:00:00');
-                        const dayStr = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
-                        const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                        const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
-                        const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
-                        const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
-
-                        let actions = '';
-                        if (showActions && inv.status === 'pending') {
-                            actions = `
-                                <div class="flex gap-1 ml-auto flex-shrink-0">
-                                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Zusagen</button>
-                                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded hover:bg-gray-300">Absagen</button>
-                                </div>`;
-                        } else if (showActions && inv.status === 'accepted') {
-                            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-400 hover:text-red-600 ml-auto flex-shrink-0">Absagen</button>`;
-                        } else if (showActions && inv.status === 'rejected') {
-                            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-400 hover:text-indigo-600 ml-auto flex-shrink-0">Zusagen</button>`;
-                        }
-
-                        return `
-                            <div class="flex items-center gap-2 py-1.5 ${inv.status === 'pending' ? '' : 'border-b border-gray-50 last:border-0'}" id="guardian-event-${inv.id}">
-                                <i class="fas ${categoryIcon} text-[10px] ${inv.status === 'pending' ? 'text-indigo-500' : 'text-gray-400'} w-3 text-center flex-shrink-0"></i>
-                                <span class="text-[10px] text-gray-400 w-16 flex-shrink-0">${dayStr} ${dateStr}</span>
-                                <span class="text-xs ${inv.status === 'pending' ? 'text-gray-800 font-medium' : 'text-gray-600'} truncate">${escapeHtml(ev.title)}</span>
-                                ${timeStr ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${timeStr}</span>` : ''}
-                                ${actions}
-                            </div>`;
-                    };
-
-                    if (events.length === 0) {
-                        return `
-                            <div class="px-4 pb-2 border-t border-gray-100 pt-2">
-                                <p class="text-xs text-gray-400 flex items-center gap-2">
-                                    <i class="fas fa-calendar text-gray-300"></i>
-                                    Keine Veranstaltungen
-                                </p>
-                            </div>`;
-                    }
-
-                    // Pending events always visible
-                    let pendingHtml = '';
-                    if (hasPending) {
-                        pendingHtml = `
-                            <div class="px-4 pb-2 border-t border-gray-100 pt-2">
-                                <p class="text-[10px] text-orange-600 font-semibold uppercase tracking-wide mb-1">
-                                    <i class="fas fa-clock mr-1"></i>${pendingEvents.length} Antwort${pendingEvents.length > 1 ? 'en' : ''} ausstehend
-                                </p>
-                                ${pendingEvents.map(inv => renderCompactEvent(inv, true)).join('')}
-                            </div>`;
-                    }
-
-                    // Responded events in collapsible section
-                    const respondedEvents = [...acceptedEvents, ...rejectedEvents];
-                    let respondedHtml = '';
-                    if (respondedEvents.length > 0) {
-                        respondedHtml = `
-                            <div class="px-4 pb-2 ${hasPending ? '' : 'border-t border-gray-100 pt-2'}">
-                                <button onclick="toggleEventsSection('${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
-                                    <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-${child.id}"></i>
-                                    <span class="text-[10px] text-gray-500 font-medium">
-                                        ${acceptedEvents.length > 0 ? `<span class="text-green-600">${acceptedEvents.length} zugesagt</span>` : ''}
-                                        ${acceptedEvents.length > 0 && rejectedEvents.length > 0 ? ' · ' : ''}
-                                        ${rejectedEvents.length > 0 ? `<span class="text-red-500">${rejectedEvents.length} abgesagt</span>` : ''}
-                                    </span>
-                                    <i class="fas fa-calendar text-gray-300 text-[10px] ml-auto"></i>
-                                </button>
-                                <div class="hidden max-h-40 overflow-y-auto" id="events-list-${child.id}">
-                                    ${respondedEvents.map(inv => renderCompactEvent(inv, true)).join('')}
-                                </div>
-                            </div>`;
-                    }
-
-                    // If no pending but has events, show summary header
-                    if (!hasPending && respondedEvents.length > 0) {
-                        return respondedHtml;
-                    }
-
-                    return pendingHtml + respondedHtml;
-                })()}
-
-                <!-- Points History -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium">Punkte-Historie</p>
-                    <div class="max-h-40 overflow-y-auto">
-                        ${pointsHistoryHtml}
-                    </div>
-                </div>
-
-                <!-- Notifications -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <div class="flex items-center justify-between mb-1">
-                        <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
-                            Mitteilungen
-                            ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">${unreadCount}</span>` : ''}
-                        </p>
-                        ${child.notifications && child.notifications.length > 0 ? `
-                            <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500" title="Alle löschen">
-                                <i class="fas fa-trash-alt mr-1"></i>Alle löschen
+                        <div class="flex items-center gap-1">
+                            <button onclick="showCredentialsModal('${child.id}', '${childSafeFirst}', '${child.username || ''}')"
+                                class="${hasCredentials ? 'text-green-500' : 'text-blue-500'} hover:bg-gray-100 rounded-lg p-2 transition-colors"
+                                title="${hasCredentials ? 'Zugangsdaten ändern' : 'Zugangsdaten einrichten'}">
+                                <i class="fas ${hasCredentials ? 'fa-check-circle' : 'fa-key'} text-sm"></i>
                             </button>
-                        ` : ''}
-                    </div>
-                    <div class="max-h-40 overflow-y-auto">
-                        ${notificationsHtml}
-                    </div>
-                </div>
-
-                <!-- Video Analysen -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
-                        <i class="fas fa-video text-indigo-500"></i>
-                        Videoanalysen
-                        ${child.videos && child.videos.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.videos.length}</span>` : ''}
-                    </p>
-                    <div class="max-h-48 overflow-y-auto">
-                        ${child.videos && child.videos.length > 0 ? child.videos.map(video => {
-                            const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                            const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-                            const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Ausstehend';
-                            const title = video.title || video.exercise_name || 'Video';
-                            const thumbnailUrl = video.thumbnail_url || '';
-                            return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
-                                    ${thumbnailUrl ? `
-                                        <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
-                                            <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
-                                            <div class="absolute inset-0 flex items-center justify-center bg-black/30">
-                                                <i class="fas fa-play text-white text-[8px]"></i>
-                                            </div>
-                                        </div>
-                                    ` : `
-                                        <div class="w-12 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                            <i class="fas fa-play text-gray-400 text-xs"></i>
-                                        </div>
-                                    `}
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-700 truncate">${escapeHtml(title)}</p>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] text-gray-400">${date}</span>
-                                            ${video.uploader_name ? `<span class="text-[10px] text-gray-400">von ${escapeHtml(video.uploader_name)}</span>` : ''}
-                                        </div>
-                                    </div>
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
-                                    ${video.comment_count > 0 ? `<span class="text-[10px] text-gray-400 flex-shrink-0"><i class="fas fa-comment text-xs"></i> ${video.comment_count}</span>` : ''}
-                                </div>
-                            `;
-                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine Videoanalysen</p>'}
+                            <a href="/settings.html?child_id=${child.id}" class="text-gray-400 hover:bg-gray-100 rounded-lg p-2 transition-colors" title="Einstellungen">
+                                <i class="fas fa-cog text-sm"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
-                    <button
-                        onclick="showInviteGuardianModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
-                        class="w-full bg-purple-100 text-purple-700 text-xs font-medium py-2 px-3 rounded-lg hover:bg-purple-200 transition-colors"
-                    >
-                        <i class="fas fa-user-plus mr-1"></i>
-                        Weiteren Vormund einladen
+                ${attentionHtml}
+
+                <!-- Sections -->
+                <div class="divide-y divide-gray-100">
+                    ${eventsHtml}
+                    ${statsHtml}
+                    ${activityHtml}
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="px-4 py-3 bg-gray-50 flex gap-2">
+                    <button onclick="showInviteGuardianModal('${child.id}', '${childFullName}')"
+                        class="flex-1 text-[11px] text-purple-600 font-medium py-1.5 px-2 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors text-center">
+                        <i class="fas fa-user-plus mr-1"></i>Vormund einladen
                     </button>
                     ${age >= 16 ? `
-                        <button
-                            onclick="showUpgradeModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
-                            class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-xs font-medium py-2 px-3 rounded-lg hover:from-green-600 hover:to-teal-600 transition-colors"
-                        >
-                            <i class="fas fa-graduation-cap mr-1"></i>
-                            Eigenen Account erstellen (16+)
+                        <button onclick="showUpgradeModal('${child.id}', '${childFullName}')"
+                            class="flex-1 text-[11px] text-teal-700 font-medium py-1.5 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 transition-colors text-center">
+                            <i class="fas fa-graduation-cap mr-1"></i>Eigener Account (16+)
                         </button>
                     ` : ''}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+// Build events section for a child card
+function buildEventsSection(child, pendingEvents) {
+    const events = child.upcomingEvents || [];
+    const acceptedEvents = events.filter(i => i.status === 'accepted');
+    const rejectedEvents = events.filter(i => i.status === 'rejected');
+    const secId = `events-${child.id}`;
+
+    const renderEventRow = (inv) => {
+        const ev = inv.events;
+        const displayDate = inv.occurrence_date || ev.start_date;
+        const dateObj = new Date(displayDate + 'T12:00:00');
+        const dayStr = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
+        const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
+        const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
+        const catIcon = categoryIcons[ev.event_category] || 'fa-calendar';
+
+        let actions = '';
+        if (inv.status === 'pending') {
+            actions = `
+                <div class="flex gap-1 ml-auto flex-shrink-0">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Zusagen</button>
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded hover:bg-gray-300">Absagen</button>
+                </div>`;
+        } else if (inv.status === 'accepted') {
+            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-400 hover:text-red-600 ml-auto flex-shrink-0">Absagen</button>`;
+        } else {
+            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-400 hover:text-indigo-600 ml-auto flex-shrink-0">Zusagen</button>`;
+        }
+
+        return `
+            <div class="flex items-center gap-2 py-1.5" id="guardian-event-${inv.id}">
+                <i class="fas ${catIcon} text-[10px] ${inv.status === 'pending' ? 'text-indigo-500' : 'text-gray-300'} w-3 text-center flex-shrink-0"></i>
+                <span class="text-[10px] text-gray-400 w-16 flex-shrink-0">${dayStr} ${dateStr}</span>
+                <span class="text-xs ${inv.status === 'pending' ? 'text-gray-800 font-medium' : 'text-gray-500'} truncate">${escapeHtml(ev.title)}</span>
+                ${timeStr ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${timeStr}</span>` : ''}
+                ${actions}
+            </div>`;
+    };
+
+    if (events.length === 0) {
+        return `
+            <div class="px-4 py-3">
+                <div class="flex items-center gap-2 text-xs text-gray-400">
+                    <i class="fas fa-calendar-day"></i>
+                    <span>Keine anstehenden Termine</span>
+                </div>
+            </div>`;
+    }
+
+    let html = '';
+
+    // Pending events always visible
+    if (pendingEvents.length > 0) {
+        html += `
+            <div class="px-4 py-2.5">
+                <p class="text-[10px] text-orange-600 font-semibold uppercase tracking-wider mb-1.5">
+                    <i class="fas fa-clock mr-1"></i>${pendingEvents.length} Antwort${pendingEvents.length > 1 ? 'en' : ''} ausstehend
+                </p>
+                <div class="space-y-0.5">${pendingEvents.map(inv => renderEventRow(inv)).join('')}</div>
+            </div>`;
+    }
+
+    // Responded events collapsible
+    const responded = [...acceptedEvents, ...rejectedEvents];
+    if (responded.length > 0) {
+        html += `
+            <div class="px-4 py-2">
+                <button onclick="toggleEventsSection('${child.id}')" class="flex items-center gap-2 w-full text-left py-0.5 group">
+                    <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-${child.id}"></i>
+                    <span class="text-[11px] text-gray-500 font-medium">
+                        ${acceptedEvents.length > 0 ? `<span class="text-green-600"><i class="fas fa-check mr-0.5"></i>${acceptedEvents.length}</span>` : ''}
+                        ${acceptedEvents.length > 0 && rejectedEvents.length > 0 ? ' · ' : ''}
+                        ${rejectedEvents.length > 0 ? `<span class="text-red-400"><i class="fas fa-times mr-0.5"></i>${rejectedEvents.length}</span>` : ''}
+                        <span class="text-gray-400 ml-1">Termine</span>
+                    </span>
+                </button>
+                <div class="hidden mt-1 space-y-0.5 max-h-40 overflow-y-auto" id="events-list-${child.id}">
+                    ${responded.map(inv => renderEventRow(inv)).join('')}
+                </div>
+            </div>`;
+    }
+
+    return html;
+}
+
+// Build stats section for a child card
+function buildStatsSection(child) {
+    const secId = `stats-${child.id}`;
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-chart-bar mr-1 text-indigo-400"></i>Statistiken</span>
+                <span class="ml-auto text-[11px] text-gray-400 font-medium">${child.elo_rating || 800} Elo · ${child.totalMatches || 0} Spiele</span>
+            </button>
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.elo_rating || 800}</p>
+                        <p class="text-[10px] text-gray-400">Elo</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.xp || 0}</p>
+                        <p class="text-[10px] text-gray-400">XP</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.totalMatches || 0}</p>
+                        <p class="text-[10px] text-gray-400">Spiele</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-green-600">${child.wins || 0}</p>
+                        <p class="text-[10px] text-gray-400">Siege</p>
+                    </div>
+                </div>
+                ${child.pointsHistory && child.pointsHistory.length > 0 ? `
+                    <div class="mt-2 max-h-32 overflow-y-auto">
+                        ${child.pointsHistory.slice(0, 5).map(entry => {
+                            const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                            const reason = entry.reason || entry.description || 'Punkte';
+                            const points = entry.points || 0;
+                            const xp = entry.xp !== undefined ? entry.xp : points;
+                            const elo = entry.elo_change || 0;
+                            return `
+                                <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
+                                        <span class="text-[10px] text-gray-400 ml-1">${date}</span>
+                                    </div>
+                                    <div class="flex gap-2 text-[10px] flex-shrink-0">
+                                        <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</span>
+                                        <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
+                                    </div>
+                                </div>`;
+                        }).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>`;
+}
+
+// Build activity section (notifications + videos)
+function buildActivitySection(child, unreadNotifs) {
+    const secId = `activity-${child.id}`;
+    const notifCount = (child.notifications || []).length;
+    const videoCount = (child.videos || []).length;
+    const unreadCount = unreadNotifs.length;
+    const totalBadge = unreadCount + videoCount;
+
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-stream mr-1 text-indigo-400"></i>Aktivität</span>
+                ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">${unreadCount}</span>` : ''}
+                <span class="ml-auto text-[11px] text-gray-400">${notifCount} Mitteilungen · ${videoCount} Videos</span>
+            </button>
+            <div class="hidden mt-2 space-y-3" id="gsec-content-${secId}">
+                <!-- Notifications -->
+                ${notifCount > 0 ? `
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Mitteilungen</p>
+                            <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500">
+                                <i class="fas fa-trash-alt"></i> Alle löschen
+                            </button>
+                        </div>
+                        <div class="max-h-32 overflow-y-auto space-y-1">
+                            ${child.notifications.slice(0, 5).map(notif => {
+                                const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                                const isUnread = !notif.is_read;
+                                const icon = getNotificationIcon(notif.type);
+                                return `
+                                    <div class="flex items-start gap-2 py-1.5 ${isUnread ? 'bg-indigo-50 rounded-lg px-2 -mx-1' : ''}">
+                                        <i class="${icon} text-[10px] mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-300'} flex-shrink-0"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[11px] ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-600'} leading-snug">${escapeHtml(notif.title || '')}</p>
+                                            <p class="text-[10px] text-gray-400">${date}</p>
+                                        </div>
+                                        <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-300 hover:text-red-500 p-0.5 flex-shrink-0" title="Löschen">
+                                            <i class="fas fa-times text-[10px]"></i>
+                                        </button>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : `<p class="text-[11px] text-gray-400">Keine Mitteilungen</p>`}
+
+                <!-- Videos -->
+                ${videoCount > 0 ? `
+                    <div>
+                        <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">
+                            <i class="fas fa-video text-indigo-400 mr-1"></i>Videoanalysen
+                        </p>
+                        <div class="max-h-32 overflow-y-auto space-y-1">
+                            ${child.videos.map(video => {
+                                const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                                const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+                                const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Offen';
+                                const title = video.title || video.exercise_name || 'Video';
+                                const thumbUrl = video.thumbnail_url || '';
+                                return `
+                                    <div class="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
+                                        ${thumbUrl ? `
+                                            <div class="w-10 h-7 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
+                                                <img src="${escapeHtml(thumbUrl)}" alt="" class="w-full h-full object-cover">
+                                                <div class="absolute inset-0 flex items-center justify-center bg-black/30">
+                                                    <i class="fas fa-play text-white text-[7px]"></i>
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div class="w-10 h-7 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-play text-gray-300 text-[10px]"></i>
+                                            </div>
+                                        `}
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[11px] text-gray-700 truncate">${escapeHtml(title)}</p>
+                                            <span class="text-[10px] text-gray-400">${date}</span>
+                                        </div>
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>`;
 }
 
 // Delete a single notification

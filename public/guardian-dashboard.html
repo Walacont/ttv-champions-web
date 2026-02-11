@@ -167,26 +167,38 @@
             </div>
 
             <!-- Content with top padding for fixed header -->
-            <div class="container mx-auto px-4 pt-16 pb-6 max-w-4xl">
+            <div class="container mx-auto px-4 pt-14 pb-6 max-w-lg">
+                <!-- Welcome Section -->
+                <div id="guardian-welcome" class="py-4">
+                    <p id="guardian-greeting" class="text-lg font-semibold text-gray-900">Hallo!</p>
+                    <p class="text-sm text-gray-500 mt-0.5">Hier siehst du alles Wichtige auf einen Blick.</p>
+                </div>
+
                 <!-- Children List -->
-                <div id="children-list" class="space-y-3">
+                <div id="children-list" class="space-y-4">
                     <!-- Loading state -->
-                    <div class="bg-white rounded-lg p-6 text-center text-gray-500">
-                        <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
-                        <p data-i18n="common.loading">Lade...</p>
+                    <div class="bg-white rounded-xl p-8 text-center text-gray-400 border border-gray-100">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-3"></i>
+                        <p class="text-sm" data-i18n="common.loading">Lade...</p>
                     </div>
                 </div>
 
                 <!-- Empty State (hidden by default) -->
-                <div id="no-children-message" class="hidden bg-white rounded-lg p-6 text-center">
-                    <p class="text-gray-600 mb-4" data-i18n="guardian.noChildrenYet">Noch keine Kinder verknüpft</p>
-                    <a
-                        href="/guardian-onboarding.html"
-                        class="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm"
-                    >
-                        <i class="fas fa-plus"></i>
-                        <span data-i18n="guardian.addChild">Kind hinzufügen</span>
-                    </a>
+                <div id="no-children-message" class="hidden">
+                    <div class="bg-white rounded-xl p-8 text-center border border-gray-100">
+                        <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-child text-2xl text-indigo-400"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Noch keine Kinder verknüpft</h3>
+                        <p class="text-sm text-gray-500 mb-5">Füge dein Kind hinzu, um Events, Aktivitäten und mehr zu sehen.</p>
+                        <a
+                            href="/guardian-onboarding.html"
+                            class="inline-flex items-center gap-2 bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl hover:bg-indigo-700 transition text-sm shadow-sm"
+                        >
+                            <i class="fas fa-plus"></i>
+                            <span data-i18n="guardian.addChild">Kind hinzufügen</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
