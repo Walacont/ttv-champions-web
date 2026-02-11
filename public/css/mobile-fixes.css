@@ -102,6 +102,13 @@ html.plt-ios #community-fullscreen > .sticky {
     padding-top: env(safe-area-inset-top, 0px) !important;
 }
 
+/* Chat fullscreen panel - needs safe area padding */
+html.plt-capacitor #chat-fullscreen,
+html.plt-android #chat-fullscreen,
+html.plt-ios #chat-fullscreen {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+}
+
 /* Make sure touch events work */
 html.plt-capacitor header *,
 html.plt-android header *,

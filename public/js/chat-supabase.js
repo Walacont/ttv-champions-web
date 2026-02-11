@@ -387,10 +387,15 @@ async function openConversation(conversationId, readOnly = false) {
     const title = isGroup
         ? (conv?.conversation_name || 'Gruppe')
         : ((conv?.participant_names && conv.participant_names[0]) || 'Chat');
+    const avatar = !isGroup && conv?.participant_avatars && conv.participant_avatars[0]
+        ? conv.participant_avatars[0]
+        : null;
 
     renderHeader({
         title: title,
         subtitle: isGroup ? `${(conv?.participant_names?.length || 0) + 1} Mitglieder` : null,
+        avatar: avatar,
+        isGroup: isGroup,
         showBack: true,
         showClose: true,
         onBack: () => {
@@ -1185,7 +1190,7 @@ window._chatOpenConvReadonly = (id) => openConversation(id, true);
 
 // --- Header Rendering ---
 
-function renderHeader({ title, subtitle, showBack, showClose, onBack, rightAction, leftAction }) {
+function renderHeader({ title, subtitle, showBack, showClose, onBack, rightAction, leftAction, avatar, isGroup }) {
     const header = document.getElementById('chat-header');
     if (!header) return;
 
@@ -1202,8 +1207,20 @@ function renderHeader({ title, subtitle, showBack, showClose, onBack, rightActio
         rightHtml = `<button class="chat-header-btn" id="chat-right-action" title="${escapeAttr(rightAction.title || '')}"><i class="${rightAction.icon}"></i></button>` + rightHtml;
     }
 
+    // Avatar
+    let avatarHtml = '';
+    if (avatar) {
+        const initials = getInitials(title);
+        avatarHtml = `<img class="chat-header-avatar" src="${escapeAttr(avatar)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="chat-header-avatar-placeholder" style="display:none">${escapeHtml(initials)}</div>`;
+    } else if (isGroup) {
+        avatarHtml = `<div class="chat-header-avatar-group"><i class="fas fa-users"></i></div>`;
+    } else if (title) {
+        avatarHtml = `<div class="chat-header-avatar-placeholder">${escapeHtml(getInitials(title))}</div>`;
+    }
+
     header.innerHTML = `
         ${leftHtml}
+        ${avatarHtml}
         <div class="chat-header-title">
             ${escapeHtml(title)}
             ${subtitle ? `<div class="chat-header-subtitle">${escapeHtml(subtitle)}</div>` : ''}
