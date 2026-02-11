@@ -177,8 +177,7 @@ async function loadUpcomingEvents() {
     if (!currentUserId) return;
 
     const section = document.getElementById('upcoming-events-section');
-    const slidesContainer = document.getElementById('events-carousel-slides');
-    if (!section || !slidesContainer) return;
+    if (!section) return;
 
     try {
         // Use local date to avoid timezone issues (toISOString uses UTC)
@@ -198,6 +197,7 @@ async function loadUpcomingEvents() {
                     id,
                     title,
                     description,
+                    event_category,
                     start_date,
                     start_time,
                     end_time,
@@ -254,6 +254,7 @@ async function loadUpcomingEvents() {
                     id,
                     title,
                     description,
+                    event_category,
                     start_date,
                     start_time,
                     end_time,
@@ -345,6 +346,9 @@ async function loadUpcomingEvents() {
         // Sektion anzeigen
         section.classList.remove('hidden');
 
+        const listContainer = document.getElementById('events-list-container');
+        if (!listContainer) return;
+
         // Angenommen-Zähler für jede Event/Termin-Kombination abrufen
         const eventIds = validInvitations.map(inv => inv.events.id);
 
@@ -361,43 +365,64 @@ async function loadUpcomingEvents() {
             countMap[key] = (countMap[key] || 0) + 1;
         });
 
-        // Pending-Badge aktualisieren
-        const pendingCount = validInvitations.filter(inv => inv.status === 'pending').length;
-        const pendingBadge = document.getElementById('events-pending-badge');
-        if (pendingBadge) {
-            if (pendingCount > 0) {
-                pendingBadge.textContent = `${pendingCount} offen`;
-                pendingBadge.classList.remove('hidden');
-            } else {
-                pendingBadge.classList.add('hidden');
-            }
+        // Nach Status gruppieren
+        const pendingInvs = validInvitations.filter(inv => inv.status === 'pending');
+        const acceptedInvs = validInvitations.filter(inv => inv.status === 'accepted');
+        const rejectedInvs = validInvitations.filter(inv => inv.status === 'rejected');
+
+        let html = '';
+
+        // Pending Events (brauchen Aufmerksamkeit)
+        if (pendingInvs.length > 0) {
+            html += `
+                <div class="mb-3">
+                    <p class="text-[11px] text-orange-600 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                        <i class="fas fa-clock"></i>${pendingInvs.length} Antwort${pendingInvs.length > 1 ? 'en' : ''} ausstehend
+                    </p>
+                    <div class="space-y-2">
+                        ${pendingInvs.map(inv => {
+                            const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
+                            return renderEventRow(inv, countMap[key] || 0);
+                        }).join('')}
+                    </div>
+                </div>`;
         }
 
-        // Events als Carousel-Slides rendern
-        slidesContainer.innerHTML = validInvitations.map((inv, index) => {
-            const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
-            return `<div class="event-slide w-full flex-shrink-0" data-index="${index}">${renderEventCard(inv, countMap[key] || 0)}</div>`;
-        }).join('');
-
-        // Dots und Navigation
-        const dotsContainer = document.getElementById('events-carousel-dots');
-        const prevBtn = document.getElementById('events-prev-btn');
-        const nextBtn = document.getElementById('events-next-btn');
-        const hasMultiple = validInvitations.length > 1;
-
-        if (prevBtn) prevBtn.classList.toggle('hidden', !hasMultiple);
-        if (nextBtn) nextBtn.classList.toggle('hidden', !hasMultiple);
-        if (dotsContainer) {
-            dotsContainer.classList.toggle('hidden', !hasMultiple);
-            dotsContainer.innerHTML = validInvitations.map((inv, index) => {
-                const dotColor = inv.status === 'pending' ? 'bg-orange-400' : 'bg-gray-300';
-                const activeColor = index === 0 ? 'bg-indigo-600' : dotColor;
-                return `<button class="event-carousel-dot w-2 h-2 rounded-full transition-colors ${activeColor}" data-index="${index}"></button>`;
-            }).join('');
+        // Zugesagte Events
+        if (acceptedInvs.length > 0) {
+            html += `
+                <div class="${pendingInvs.length > 0 ? 'border-t border-gray-100 pt-2' : ''}">
+                    <button onclick="window.togglePlayerEventsSection('accepted')" class="flex items-center gap-1.5 w-full text-left py-1 group">
+                        <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-accepted"></i>
+                        <span class="text-[11px] text-green-600 font-medium"><i class="fas fa-check mr-0.5"></i>${acceptedInvs.length} zugesagt</span>
+                    </button>
+                    <div class="hidden space-y-1.5 mt-1" id="player-events-list-accepted">
+                        ${acceptedInvs.map(inv => {
+                            const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
+                            return renderEventRow(inv, countMap[key] || 0);
+                        }).join('')}
+                    </div>
+                </div>`;
         }
 
-        // Carousel initialisieren
-        initEventsCarousel(validInvitations.length);
+        // Abgesagte Events
+        if (rejectedInvs.length > 0) {
+            html += `
+                <div class="${pendingInvs.length > 0 || acceptedInvs.length > 0 ? 'border-t border-gray-100 pt-2 mt-2' : ''}">
+                    <button onclick="window.togglePlayerEventsSection('rejected')" class="flex items-center gap-1.5 w-full text-left py-1 group">
+                        <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-rejected"></i>
+                        <span class="text-[11px] text-red-500 font-medium"><i class="fas fa-times mr-0.5"></i>${rejectedInvs.length} abgesagt</span>
+                    </button>
+                    <div class="hidden space-y-1.5 mt-1" id="player-events-list-rejected">
+                        ${rejectedInvs.map(inv => {
+                            const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
+                            return renderEventRow(inv, countMap[key] || 0);
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+
+        listContainer.innerHTML = html;
 
         // Event-Listener hinzufügen
         setupEventCardListeners();
@@ -463,132 +488,91 @@ function getNextOccurrence(event, afterDate) {
 }
 
 /**
- * Render a single event card
+ * Toggle collapsed events section for player
+ */
+window.togglePlayerEventsSection = function(sectionId) {
+    const list = document.getElementById(`player-events-list-${sectionId}`);
+    const chevron = document.getElementById(`player-events-chevron-${sectionId}`);
+    if (list && chevron) {
+        const isHidden = list.classList.contains('hidden');
+        list.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+    }
+};
+
+/**
+ * Render a compact event row
  * @param {Object} invitation - Event-Einladung mit Event-Daten
- * @param {number} acceptedCount - Anzahl akzeptierter Einladungen für diesen Termin
+ * @param {number} acceptedCount - Anzahl akzeptierter Einladungen
  * @returns {string} HTML string
  */
-function renderEventCard(invitation, acceptedCount) {
+function renderEventRow(invitation, acceptedCount) {
     const event = invitation.events;
     const status = invitation.status;
+    const displayDate = invitation.occurrence_date || event.start_date;
 
-    // occurrence_date aus Einladung verwenden (für Pro-Termin-Tracking)
-    // Auf displayDate oder start_date zurückfallen für Abwärtskompatibilität
-    const displayDate = invitation.occurrence_date || event.displayDate || event.start_date;
-
-    // Datum formatieren
     const [year, month, day] = displayDate.split('-');
     const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
     const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
+    const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
     const dayNum = dateObj.getDate();
-    const monthName = dateObj.toLocaleDateString('de-DE', { month: 'short' });
 
-    // Wiederkehrend-Indikator anzeigen
+    const startTime = event.start_time?.slice(0, 5) || '';
     const isRecurring = event.repeat_type && event.repeat_type !== 'none';
 
-    // Uhrzeit formatieren
-    const startTime = event.start_time?.slice(0, 5) || '';
-    const endTime = event.end_time?.slice(0, 5) || '';
-    const timeDisplay = endTime ? `${startTime} - ${endTime}` : startTime;
+    const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
+    const categoryIcon = categoryIcons[event.event_category] || 'fa-calendar';
 
-    // Participants display
-    const maxParticipants = event.max_participants;
-    const participantsDisplay = maxParticipants
-        ? `${acceptedCount}/${maxParticipants} Teilnehmer`
-        : `${acceptedCount} Teilnehmer`;
+    const maxP = event.max_participants;
+    const participantsStr = maxP ? `${acceptedCount}/${maxP}` : `${acceptedCount}`;
 
-    // Status styling
-    let statusBadge = '';
-    let actionButtons = '';
-
-    if (status === 'accepted') {
-        statusBadge = `
-            <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                <i class="fas fa-check mr-1"></i>Zugesagt
-            </span>
-        `;
-        actionButtons = `
-            <button class="event-cancel-btn text-sm text-red-600 hover:text-red-800 font-medium" data-invitation-id="${invitation.id}">
-                Absagen
-            </button>
-        `;
-    } else if (status === 'rejected') {
-        statusBadge = `
-            <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                <i class="fas fa-times mr-1"></i>Abgesagt
-            </span>
-        `;
-        actionButtons = `
-            <button class="event-accept-btn text-sm text-indigo-600 hover:text-indigo-800 font-medium" data-invitation-id="${invitation.id}">
-                Doch zusagen
-            </button>
-        `;
-    } else {
-        // Pending
-        actionButtons = `
-            <div class="flex gap-2">
-                <button class="event-accept-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
+    let actionHtml = '';
+    if (status === 'pending') {
+        actionHtml = `
+            <div class="flex gap-1.5 mt-2">
+                <button class="event-accept-btn flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
                     Zusagen
                 </button>
-                <button class="event-reject-btn px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
+                <button class="event-reject-btn flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
                     Absagen
                 </button>
-            </div>
-        `;
+            </div>`;
+    } else if (status === 'accepted') {
+        actionHtml = `
+            <button class="event-cancel-btn text-[11px] text-red-500 hover:text-red-700 mt-1" data-invitation-id="${invitation.id}">Absagen</button>`;
+    } else {
+        actionHtml = `
+            <button class="event-accept-btn text-[11px] text-indigo-500 hover:text-indigo-700 mt-1" data-invitation-id="${invitation.id}">Doch zusagen</button>`;
     }
 
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-            <div class="flex">
-                <!-- Date Badge -->
-                <div class="w-20 bg-gradient-to-b from-indigo-500 to-purple-600 text-white flex flex-col items-center justify-center py-4">
-                    <span class="text-xs uppercase font-medium opacity-80">${dayName}</span>
-                    <span class="text-2xl font-bold">${dayNum}</span>
-                    <span class="text-xs uppercase font-medium opacity-80">${monthName}</span>
+        <div class="bg-white rounded-lg border ${status === 'pending' ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} p-2.5 hover:shadow-sm transition-shadow">
+            <div class="flex items-start gap-2.5">
+                <!-- Compact Date -->
+                <div class="w-10 h-10 rounded-lg ${status === 'pending' ? 'bg-indigo-600' : 'bg-gray-100'} flex flex-col items-center justify-center flex-shrink-0">
+                    <span class="text-[9px] uppercase font-medium ${status === 'pending' ? 'text-indigo-200' : 'text-gray-400'} leading-none">${dayName}</span>
+                    <span class="text-sm font-bold ${status === 'pending' ? 'text-white' : 'text-gray-700'} leading-tight">${dayNum}</span>
                 </div>
 
                 <!-- Content -->
-                <div class="flex-1 p-4">
-                    <div class="flex items-start justify-between mb-2">
-                        <div>
-                            <h3 class="font-semibold text-gray-900">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">
                                 ${escapeHtml(event.title)}
-                                ${isRecurring ? '<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend"></i>' : ''}
-                            </h3>
-                            <p class="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                ${timeDisplay}
+                                ${isRecurring ? '<i class="fas fa-redo text-[9px] text-indigo-400 ml-0.5"></i>' : ''}
                             </p>
-                            ${event.location ? `
-                                <p class="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                    </svg>
-                                    ${escapeHtml(event.location)}
-                                </p>
-                            ` : ''}
+                            <div class="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
+                                ${startTime ? `<span><i class="far fa-clock mr-0.5"></i>${startTime}</span>` : ''}
+                                ${event.location ? `<span class="truncate"><i class="fas fa-map-marker-alt mr-0.5"></i>${escapeHtml(event.location)}</span>` : ''}
+                                <span><i class="fas fa-users mr-0.5"></i>${participantsStr}</span>
+                            </div>
                         </div>
-                        ${statusBadge}
-                    </div>
-
-                    <!-- Participants -->
-                    <div class="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
-                        <span>${participantsDisplay}</span>
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="flex items-center justify-between">
-                        ${actionButtons}
-                        <button class="event-details-btn text-sm text-gray-500 hover:text-gray-700" data-event-id="${event.id}">
-                            Details <i class="fas fa-chevron-right ml-1"></i>
+                        <button class="event-details-btn text-gray-400 hover:text-indigo-600 p-1 flex-shrink-0" data-event-id="${event.id}" title="Details">
+                            <i class="fas fa-info-circle text-sm"></i>
                         </button>
                     </div>
+                    ${actionHtml}
                 </div>
             </div>
         </div>
@@ -1227,122 +1211,6 @@ function setupEventSubscription() {
     if (!window.playerEventsUnsubscribes) window.playerEventsUnsubscribes = [];
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
     window.playerEventsUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
-}
-
-// ========== EVENTS CAROUSEL ==========
-
-let eventsCarouselIndex = 0;
-let eventsCarouselCount = 0;
-let eventsTouchStartX = 0;
-let eventsTouchEndX = 0;
-
-function initEventsCarousel(count) {
-    eventsCarouselCount = count;
-    eventsCarouselIndex = 0;
-
-    const slidesContainer = document.getElementById('events-carousel-slides');
-    const prevBtn = document.getElementById('events-prev-btn');
-    const nextBtn = document.getElementById('events-next-btn');
-    const dotsContainer = document.getElementById('events-carousel-dots');
-    const carousel = document.getElementById('events-carousel');
-
-    if (!slidesContainer || !carousel) return;
-
-    // Remove old listeners by cloning
-    const newCarousel = carousel.cloneNode(true);
-    carousel.parentNode.replaceChild(newCarousel, carousel);
-
-    const newPrev = document.getElementById('events-prev-btn');
-    const newNext = document.getElementById('events-next-btn');
-    const newDots = document.getElementById('events-carousel-dots');
-    const freshCarousel = document.getElementById('events-carousel');
-
-    // Arrow navigation
-    newPrev?.addEventListener('click', () => goToEventSlide(eventsCarouselIndex - 1));
-    newNext?.addEventListener('click', () => goToEventSlide(eventsCarouselIndex + 1));
-
-    // Dot navigation
-    newDots?.querySelectorAll('.event-carousel-dot').forEach(dot => {
-        dot.addEventListener('click', () => {
-            goToEventSlide(parseInt(dot.dataset.index));
-        });
-    });
-
-    // Touch/swipe support
-    freshCarousel.addEventListener('touchstart', (e) => {
-        eventsTouchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    freshCarousel.addEventListener('touchend', (e) => {
-        eventsTouchEndX = e.changedTouches[0].screenX;
-        const diff = eventsTouchStartX - eventsTouchEndX;
-        if (Math.abs(diff) > 50) {
-            if (diff > 0) goToEventSlide(eventsCarouselIndex + 1);
-            else goToEventSlide(eventsCarouselIndex - 1);
-        }
-    }, { passive: true });
-
-    // Mouse drag support
-    let isDragging = false;
-    let dragStartX = 0;
-
-    freshCarousel.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        dragStartX = e.clientX;
-        freshCarousel.style.cursor = 'grabbing';
-    });
-
-    freshCarousel.addEventListener('mousemove', (e) => {
-        if (isDragging) e.preventDefault();
-    });
-
-    freshCarousel.addEventListener('mouseup', (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        freshCarousel.style.cursor = 'grab';
-        const diff = dragStartX - e.clientX;
-        if (Math.abs(diff) > 50) {
-            if (diff > 0) goToEventSlide(eventsCarouselIndex + 1);
-            else goToEventSlide(eventsCarouselIndex - 1);
-        }
-    });
-
-    freshCarousel.addEventListener('mouseleave', () => {
-        isDragging = false;
-        freshCarousel.style.cursor = '';
-    });
-
-    if (count > 1) {
-        freshCarousel.style.cursor = 'grab';
-    }
-}
-
-function goToEventSlide(index) {
-    if (index < 0) index = eventsCarouselCount - 1;
-    if (index >= eventsCarouselCount) index = 0;
-
-    eventsCarouselIndex = index;
-
-    const slidesContainer = document.getElementById('events-carousel-slides');
-    const dotsContainer = document.getElementById('events-carousel-dots');
-
-    if (slidesContainer) {
-        slidesContainer.style.transform = `translateX(-${index * 100}%)`;
-    }
-
-    if (dotsContainer) {
-        const dots = dotsContainer.querySelectorAll('.event-carousel-dot');
-        dots.forEach((dot, i) => {
-            // Get the slide to determine pending status for inactive dot color
-            const slide = document.querySelector(`.event-slide[data-index="${i}"]`);
-            const isPending = slide?.querySelector('.event-accept-btn:not(.event-cancel-btn)') && !slide?.querySelector('.px-2.py-1.rounded-full');
-            if (i === index) {
-                dot.className = 'event-carousel-dot w-2.5 h-2.5 rounded-full transition-colors bg-indigo-600';
-            } else {
-                dot.className = `event-carousel-dot w-2 h-2 rounded-full transition-colors ${isPending ? 'bg-orange-400' : 'bg-gray-300'}`;
-            }
-        });
-    }
 }
 
 // Export
