@@ -246,6 +246,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Push notifications not available:', e);
     }
 
+    // Chat initialisieren (dynamisch geladen, nicht blockierend)
+    try {
+        const chatModule = await import('./chat-supabase.js');
+        if (chatModule.initChat) {
+            chatModule.initChat(currentUser.id);
+        }
+        window._chatModule = chatModule;
+    } catch (e) {
+        console.warn('Chat not available:', e);
+    }
+
     // Auth-Änderungen beobachten - nur bei explizitem Logout weiterleiten
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
@@ -265,6 +276,7 @@ function applyKidsModeUI() {
         '#open-community-btn',           // Community search button
         '#desktop-notifications-btn',     // Notifications (parents get them)
         'a[href="/settings.html"]',       // Settings link
+        '#open-chat-btn',                // Chat button (parents get notified)
     ];
 
     // Elements to hide for all minors (< 16)
@@ -374,6 +386,11 @@ function cleanupSubscriptions() {
     // Benachrichtigungs-Subscriptions aufräumen (falls verfügbar)
     if (notificationsModule && notificationsModule.cleanupNotifications) {
         notificationsModule.cleanupNotifications();
+    }
+
+    // Chat-Subscriptions aufräumen
+    if (window._chatModule && window._chatModule.cleanupChat) {
+        window._chatModule.cleanupChat();
     }
 
     realtimeSubscriptions.forEach(sub => {
