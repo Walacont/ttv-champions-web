@@ -848,11 +848,11 @@ async function showNewChatView() {
         <div class="chat-search-bar">
             <div class="chat-search-wrapper">
                 <i class="fas fa-search chat-search-icon"></i>
-                <input type="text" class="chat-search-input" id="chat-friend-search" placeholder="Freunde suchen...">
+                <input type="text" class="chat-search-input" id="chat-friend-search" placeholder="Kontakte suchen...">
             </div>
         </div>
         <div class="chat-conversation-list" id="chat-contact-list">
-            <div class="chat-loading"><div class="chat-spinner"></div> Freunde laden...</div>
+            <div class="chat-loading"><div class="chat-spinner"></div> Kontakte laden...</div>
         </div>
     `;
 
@@ -921,29 +921,29 @@ async function loadFriends(searchQuery) {
     if (!db || !currentUserId) return;
 
     try {
-        const { data, error } = await db.rpc('get_friends', {
+        const { data, error } = await db.rpc('get_chat_contacts', {
             current_user_id: currentUserId
         });
 
         if (error) throw error;
 
-        let friends = data || [];
-        window._chatFriendsList = friends;
+        let contacts = data || [];
+        window._chatFriendsList = contacts;
 
         if (searchQuery && searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
-            friends = friends.filter(f =>
+            contacts = contacts.filter(f =>
                 (f.first_name + ' ' + f.last_name).toLowerCase().includes(q)
             );
         }
 
-        renderContactList(friends);
+        renderContactList(contacts);
     } catch (err) {
-        console.error('[CHAT] Error loading friends:', err);
+        console.error('[CHAT] Error loading contacts:', err);
         const list = document.getElementById('chat-contact-list');
         if (list) {
             list.innerHTML = `<div class="chat-empty-state">
-                <div class="chat-empty-text">Fehler beim Laden der Freunde</div>
+                <div class="chat-empty-text">Fehler beim Laden der Kontakte</div>
             </div>`;
         }
     }
@@ -957,8 +957,8 @@ function renderContactList(friends) {
         list.innerHTML = `
             <div class="chat-empty-state">
                 <div class="chat-empty-icon"><i class="fas fa-user-friends"></i></div>
-                <div class="chat-empty-title">Keine Freunde gefunden</div>
-                <div class="chat-empty-text">Füge zuerst Freunde hinzu, um zu chatten.</div>
+                <div class="chat-empty-title">Keine Kontakte gefunden</div>
+                <div class="chat-empty-text">Folge anderen Spielern oder tritt einem Verein bei, um zu chatten.</div>
             </div>`;
         return;
     }
@@ -969,7 +969,7 @@ function renderContactList(friends) {
         const name = escapeHtml((f.first_name || '') + ' ' + (f.last_name || ''));
         const initials = getInitials(f.first_name + ' ' + f.last_name);
         const isSelected = selectedGroupMembers.some(m => m.id === f.id);
-        const club = f.club_name ? escapeHtml(f.club_name) : '';
+        const subtitle = f.club_name ? escapeHtml(f.club_name) : '';
 
         return `
             <div class="chat-contact-item ${isSelected ? 'selected' : ''}" onclick="window._chatSelectContact('${f.id}', '${escapeAttr(f.first_name)}', '${escapeAttr(f.last_name)}')">
@@ -979,7 +979,7 @@ function renderContactList(friends) {
                 }
                 <div class="chat-conv-content">
                     <div class="chat-conv-name" style="font-size:0.875rem">${name}</div>
-                    ${club ? `<div class="chat-conv-preview" style="font-size:0.75rem">${club}</div>` : ''}
+                    ${subtitle ? `<div class="chat-conv-preview" style="font-size:0.75rem">${subtitle}</div>` : ''}
                 </div>
                 ${isGroupMode ? `<div class="chat-contact-check">${isSelected ? '<i class="fas fa-check" style="font-size:0.625rem"></i>' : ''}</div>` : ''}
             </div>`;
