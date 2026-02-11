@@ -299,16 +299,28 @@ async function loadChildStats(child) {
 
         // Load upcoming event invitations for child
         const today = new Date().toISOString().split('T')[0];
-        const { data: eventInvitations } = await supabase
+        const { data: eventInvitations, error: evErr } = await supabase
             .from('event_invitations')
-            .select('id, status, event_id, events(id, title, event_category, start_date, end_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
-            .eq('user_id', child.id)
-            .or('cancelled.eq.false,cancelled.is.null', { foreignTable: 'events' });
+            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, end_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
+            .eq('user_id', child.id);
 
-        // Filter to upcoming events only (start_date >= today)
+        if (evErr) {
+            console.error('[GUARDIAN-DASHBOARD] Error loading event invitations for child:', child.id, evErr);
+        }
+
+        // Filter to upcoming events only, use occurrence_date if available
         const upcomingEvents = (eventInvitations || [])
-            .filter(inv => inv.events && inv.events.start_date >= today && !inv.events.cancelled)
-            .sort((a, b) => a.events.start_date.localeCompare(b.events.start_date));
+            .filter(inv => {
+                if (!inv.events) return false;
+                if (inv.events.cancelled) return false;
+                const displayDate = inv.occurrence_date || inv.events.start_date;
+                return displayDate >= today;
+            })
+            .sort((a, b) => {
+                const dateA = a.occurrence_date || a.events.start_date;
+                const dateB = b.occurrence_date || b.events.start_date;
+                return dateA.localeCompare(dateB);
+            });
 
         child.upcomingEvents = upcomingEvents.slice(0, 10);
 
@@ -499,7 +511,8 @@ function renderChildren() {
                     <div class="max-h-64 overflow-y-auto">
                         ${child.upcomingEvents && child.upcomingEvents.length > 0 ? child.upcomingEvents.map(inv => {
                             const ev = inv.events;
-                            const date = new Date(ev.start_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                            const displayDate = inv.occurrence_date || ev.start_date;
+                            const date = new Date(displayDate + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
                             const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
                             const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
                             const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
