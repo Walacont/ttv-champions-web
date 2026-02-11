@@ -331,22 +331,52 @@ async function loadChildren() {
 // Load stats and recent activity for a child
 async function loadChildStats(child) {
     try {
-        // Load match stats
-        const { data: matches } = await supabase
-            .from('matches')
-            .select('id, winner_id, created_at, player_a_id, player_b_id')
-            .or(`player_a_id.eq.${child.id},player_b_id.eq.${child.id}`)
-            .order('created_at', { ascending: false })
-            .limit(10);
+        // Load season points from user_sport_stats (preferred) or profiles.points (fallback)
+        const sportId = child.sport_id;
+        if (sportId) {
+            const { data: sportStats } = await supabase
+                .from('user_sport_stats')
+                .select('points, elo_rating, xp, wins, losses, matches_played')
+                .eq('user_id', child.id)
+                .eq('sport_id', sportId)
+                .single();
 
-        if (matches) {
-            child.totalMatches = matches.length;
-            child.wins = matches.filter(m => m.winner_id === child.id).length;
-            child.recentMatches = matches.slice(0, 5);
-        } else {
-            child.totalMatches = 0;
-            child.wins = 0;
-            child.recentMatches = [];
+            if (sportStats) {
+                child.points = sportStats.points || 0;
+                child.elo_rating = sportStats.elo_rating || child.elo_rating || 800;
+                child.xp = sportStats.xp || child.xp || 0;
+                child.totalMatches = sportStats.matches_played || 0;
+                child.wins = sportStats.wins || 0;
+            }
+        }
+
+        // Fallback: if no sport-specific stats, load from profiles
+        if (child.points === undefined || child.points === null) {
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('points')
+                .eq('id', child.id)
+                .single();
+
+            child.points = profileData?.points || 0;
+        }
+
+        // Load match stats (only if not already set from sport stats)
+        if (child.totalMatches === undefined) {
+            const { data: matches } = await supabase
+                .from('matches')
+                .select('id, winner_id, created_at, player_a_id, player_b_id')
+                .or(`player_a_id.eq.${child.id},player_b_id.eq.${child.id}`)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (matches) {
+                child.totalMatches = matches.length;
+                child.wins = matches.filter(m => m.winner_id === child.id).length;
+            } else {
+                child.totalMatches = 0;
+                child.wins = 0;
+            }
         }
 
         // Load points history (only 3 initially, more loaded on demand)
@@ -404,9 +434,9 @@ async function loadChildStats(child) {
 
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
-        child.totalMatches = 0;
-        child.wins = 0;
-        child.recentMatches = [];
+        child.points = child.points || 0;
+        child.totalMatches = child.totalMatches || 0;
+        child.wins = child.wins || 0;
         child.pointsHistory = [];
         child.notifications = [];
         child.videos = [];
