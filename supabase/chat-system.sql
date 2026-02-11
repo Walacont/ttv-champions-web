@@ -85,14 +85,61 @@ ALTER TABLE chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
+-- ============================================
+-- HELPER FUNCTIONS (SECURITY DEFINER to avoid RLS recursion)
+-- ============================================
+
+CREATE OR REPLACE FUNCTION public.is_chat_participant(p_conversation_id UUID)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM chat_participants
+    WHERE conversation_id = p_conversation_id AND user_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_chat_admin(p_conversation_id UUID)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM chat_participants
+    WHERE conversation_id = p_conversation_id AND user_id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_guardian_of_participant(p_conversation_id UUID)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM guardian_links gl
+    JOIN chat_participants cp ON cp.conversation_id = p_conversation_id AND cp.user_id = gl.child_id
+    WHERE gl.guardian_id = auth.uid()
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_chat_participant(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_chat_admin(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_guardian_of_participant(UUID) TO authenticated;
+
+-- ============================================
+-- CONVERSATION POLICIES
+-- ============================================
+
 -- Konversationen: Nur sichtbar für Teilnehmer
 CREATE POLICY chat_conversations_select ON chat_conversations FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = chat_conversations.id AND cp.user_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_chat_participant(chat_conversations.id));
 
 -- Konversationen: Jeder authentifizierte Nutzer kann erstellen
 CREATE POLICY chat_conversations_insert ON chat_conversations FOR INSERT
@@ -102,20 +149,16 @@ CREATE POLICY chat_conversations_insert ON chat_conversations FOR INSERT
 CREATE POLICY chat_conversations_update ON chat_conversations FOR UPDATE
     USING (
         created_by = (SELECT auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = chat_conversations.id AND cp.user_id = (SELECT auth.uid()) AND cp.role = 'admin'
-        )
+        OR public.is_chat_admin(chat_conversations.id)
     );
+
+-- ============================================
+-- PARTICIPANT POLICIES
+-- ============================================
 
 -- Teilnehmer: Sichtbar für alle Teilnehmer derselben Konversation
 CREATE POLICY chat_participants_select ON chat_participants FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM chat_participants cp2
-            WHERE cp2.conversation_id = conversation_id AND cp2.user_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_chat_participant(conversation_id));
 
 -- Teilnehmer: Ersteller/Admin kann Teilnehmer hinzufügen
 CREATE POLICY chat_participants_insert ON chat_participants FOR INSERT
@@ -124,15 +167,13 @@ CREATE POLICY chat_participants_insert ON chat_participants FOR INSERT
         AND (
             -- Sich selbst hinzufügen (beim Erstellen)
             user_id = (SELECT auth.uid())
-            -- Oder Admin/Ersteller der Konversation
+            -- Oder Ersteller der Konversation
             OR EXISTS (
                 SELECT 1 FROM chat_conversations cc
                 WHERE cc.id = conversation_id AND cc.created_by = (SELECT auth.uid())
             )
-            OR EXISTS (
-                SELECT 1 FROM chat_participants cp
-                WHERE cp.conversation_id = conversation_id AND cp.user_id = (SELECT auth.uid()) AND cp.role = 'admin'
-            )
+            -- Oder Admin der Konversation
+            OR public.is_chat_admin(conversation_id)
         )
     );
 
@@ -140,29 +181,22 @@ CREATE POLICY chat_participants_insert ON chat_participants FOR INSERT
 CREATE POLICY chat_participants_delete ON chat_participants FOR DELETE
     USING (
         user_id = (SELECT auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = conversation_id AND cp.user_id = (SELECT auth.uid()) AND cp.role = 'admin'
-        )
+        OR public.is_chat_admin(conversation_id)
     );
+
+-- ============================================
+-- MESSAGE POLICIES
+-- ============================================
 
 -- Nachrichten: Sichtbar für Teilnehmer der Konversation
 CREATE POLICY chat_messages_select ON chat_messages FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = conversation_id AND cp.user_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_chat_participant(conversation_id));
 
 -- Nachrichten: Nur Teilnehmer können senden
 CREATE POLICY chat_messages_insert ON chat_messages FOR INSERT
     WITH CHECK (
         sender_id = (SELECT auth.uid())
-        AND EXISTS (
-            SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = conversation_id AND cp.user_id = (SELECT auth.uid())
-        )
+        AND public.is_chat_participant(conversation_id)
     );
 
 -- Nachrichten: Nur eigene Nachrichten bearbeiten
@@ -180,33 +214,15 @@ CREATE POLICY chat_messages_delete ON chat_messages FOR DELETE
 
 -- Guardians sehen Konversationen ihrer Kinder
 CREATE POLICY chat_conversations_guardian_select ON chat_conversations FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM guardian_links gl
-            JOIN chat_participants cp ON cp.conversation_id = chat_conversations.id AND cp.user_id = gl.child_id
-            WHERE gl.guardian_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_guardian_of_participant(chat_conversations.id));
 
 -- Guardians sehen Teilnehmer der Konversationen ihrer Kinder
 CREATE POLICY chat_participants_guardian_select ON chat_participants FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM guardian_links gl
-            JOIN chat_participants cp2 ON cp2.conversation_id = conversation_id AND cp2.user_id = gl.child_id
-            WHERE gl.guardian_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_guardian_of_participant(conversation_id));
 
 -- Guardians sehen Nachrichten der Konversationen ihrer Kinder
 CREATE POLICY chat_messages_guardian_select ON chat_messages FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM guardian_links gl
-            JOIN chat_participants cp ON cp.conversation_id = conversation_id AND cp.user_id = gl.child_id
-            WHERE gl.guardian_id = (SELECT auth.uid())
-        )
-    );
+    USING (public.is_guardian_of_participant(conversation_id));
 
 -- ============================================
 -- REALTIME
