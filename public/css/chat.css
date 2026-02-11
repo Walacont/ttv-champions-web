@@ -3,6 +3,15 @@
    Fullscreen slide-in panel for real-time chat
    ============================================ */
 
+/* --- Panel Root (clipping container) --- */
+#chat-panel-root {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 100000;
+}
+
 /* --- Fullscreen Panel --- */
 #chat-fullscreen {
     position: fixed;
@@ -14,10 +23,13 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    visibility: hidden;
 }
 
 #chat-fullscreen.chat-open {
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
 }
 
 /* Safe area for PWA standalone */

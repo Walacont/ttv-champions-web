@@ -203,6 +203,8 @@ function showChatPanel() {
     }
 
     // Panel öffnen (mit Animation)
+    const panelRoot = document.getElementById('chat-panel-root');
+    if (panelRoot) panelRoot.style.pointerEvents = 'auto';
     requestAnimationFrame(() => {
         panel.classList.add('chat-open');
     });
@@ -225,6 +227,8 @@ function hideChatPanel() {
     if (panel) {
         panel.classList.remove('chat-open');
     }
+    const panelRoot = document.getElementById('chat-panel-root');
+    if (panelRoot) panelRoot.style.pointerEvents = 'none';
 }
 
 function createChatPanel() {
