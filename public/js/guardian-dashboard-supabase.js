@@ -501,14 +501,14 @@ function renderChildren() {
         if (pendingEvents.length > 0 || !hasCredentials) {
             const items = [];
             if (pendingEvents.length > 0) {
-                items.push(`<span class="text-orange-600"><i class="fas fa-clock mr-0.5"></i>${pendingEvents.length} Event${pendingEvents.length > 1 ? 's' : ''} offen</span>`);
+                items.push(`<span class="text-orange-700"><i class="fas fa-bell mr-1"></i>${pendingEvents.length} ${pendingEvents.length === 1 ? 'Termin wartet auf Antwort' : 'Termine warten auf Antwort'}</span>`);
             }
             if (!hasCredentials) {
-                items.push(`<span class="text-blue-600"><i class="fas fa-key mr-0.5"></i>Login einrichten</span>`);
+                items.push(`<span class="text-blue-600"><i class="fas fa-key mr-1"></i>Login-Daten noch nicht eingerichtet</span>`);
             }
             attentionHtml = `
-                <div class="flex items-center gap-3 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] font-medium">
-                    ${items.join('<span class="text-gray-300">|</span>')}
+                <div class="px-4 py-2.5 bg-amber-50 border-b border-amber-100 space-y-1">
+                    ${items.map(i => `<p class="text-xs font-medium">${i}</p>`).join('')}
                 </div>`;
         }
 
@@ -567,80 +567,130 @@ function buildEventsSection(child, pendingEvents) {
     const events = child.upcomingEvents || [];
     const acceptedEvents = events.filter(i => i.status === 'accepted');
     const rejectedEvents = events.filter(i => i.status === 'rejected');
-    const secId = `events-${child.id}`;
 
-    const renderEventRow = (inv) => {
+    const categoryLabels = { training: 'Training', competition: 'Wettkampf', meeting: 'Besprechung', social: 'Vereins-Event', other: 'Termin' };
+    const categoryColors = { training: 'bg-blue-100 text-blue-700', competition: 'bg-amber-100 text-amber-700', meeting: 'bg-purple-100 text-purple-700', social: 'bg-pink-100 text-pink-700', other: 'bg-gray-100 text-gray-600' };
+
+    const renderEventCard = (inv) => {
         const ev = inv.events;
         const displayDate = inv.occurrence_date || ev.start_date;
         const dateObj = new Date(displayDate + 'T12:00:00');
-        const dayStr = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
-        const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-        const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
-        const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
-        const catIcon = categoryIcons[ev.event_category] || 'fa-calendar';
+        const dateNice = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+        const startTime = ev.start_time ? ev.start_time.slice(0, 5) : '';
+        const endTime = ev.end_time ? ev.end_time.slice(0, 5) : '';
+        const timeStr = endTime ? `${startTime} – ${endTime} Uhr` : (startTime ? `${startTime} Uhr` : '');
+        const catLabel = categoryLabels[ev.event_category] || 'Termin';
+        const catColor = categoryColors[ev.event_category] || categoryColors.other;
 
-        let actions = '';
+        let statusHtml = '';
+        let actionsHtml = '';
+
         if (inv.status === 'pending') {
-            actions = `
-                <div class="flex gap-1 ml-auto flex-shrink-0">
-                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Zusagen</button>
-                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded hover:bg-gray-300">Absagen</button>
+            actionsHtml = `
+                <div class="flex gap-2 mt-3">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')"
+                        class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                        Zusagen
+                    </button>
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')"
+                        class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                        Absagen
+                    </button>
                 </div>`;
         } else if (inv.status === 'accepted') {
-            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-400 hover:text-red-600 ml-auto flex-shrink-0">Absagen</button>`;
+            statusHtml = `<span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full"><i class="fas fa-check text-[10px]"></i>Zugesagt</span>`;
+            actionsHtml = `
+                <div class="mt-2">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')"
+                        class="text-xs text-red-500 hover:text-red-700 font-medium">Doch absagen</button>
+                </div>`;
         } else {
-            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-400 hover:text-indigo-600 ml-auto flex-shrink-0">Zusagen</button>`;
+            statusHtml = `<span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><i class="fas fa-times text-[10px]"></i>Abgesagt</span>`;
+            actionsHtml = `
+                <div class="mt-2">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')"
+                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Doch zusagen</button>
+                </div>`;
         }
 
+        const isPending = inv.status === 'pending';
+
         return `
-            <div class="flex items-center gap-2 py-1.5" id="guardian-event-${inv.id}">
-                <i class="fas ${catIcon} text-[10px] ${inv.status === 'pending' ? 'text-indigo-500' : 'text-gray-300'} w-3 text-center flex-shrink-0"></i>
-                <span class="text-[10px] text-gray-400 w-16 flex-shrink-0">${dayStr} ${dateStr}</span>
-                <span class="text-xs ${inv.status === 'pending' ? 'text-gray-800 font-medium' : 'text-gray-500'} truncate">${escapeHtml(ev.title)}</span>
-                ${timeStr ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${timeStr}</span>` : ''}
-                ${actions}
+            <div class="${isPending ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'} border rounded-xl p-3" id="guardian-event-${inv.id}">
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${catColor}">${catLabel}</span>
+                    ${statusHtml}
+                </div>
+                <h4 class="font-semibold text-gray-900 text-sm leading-snug">${escapeHtml(ev.title)}</h4>
+                <div class="mt-2 space-y-1">
+                    <p class="text-sm text-gray-600 flex items-center gap-2">
+                        <i class="far fa-calendar-alt text-gray-400 w-4 text-center"></i>
+                        ${dateNice}
+                    </p>
+                    ${timeStr ? `
+                        <p class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="far fa-clock text-gray-400 w-4 text-center"></i>
+                            ${timeStr}
+                        </p>
+                    ` : ''}
+                    ${ev.location ? `
+                        <p class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt text-gray-400 w-4 text-center"></i>
+                            ${escapeHtml(ev.location)}
+                        </p>
+                    ` : ''}
+                </div>
+                ${actionsHtml}
             </div>`;
     };
 
     if (events.length === 0) {
         return `
-            <div class="px-4 py-3">
-                <div class="flex items-center gap-2 text-xs text-gray-400">
-                    <i class="fas fa-calendar-day"></i>
-                    <span>Keine anstehenden Termine</span>
+            <div class="px-4 py-4">
+                <div class="flex items-center gap-3 text-gray-400">
+                    <i class="far fa-calendar text-lg"></i>
+                    <span class="text-sm">Keine anstehenden Termine</span>
                 </div>
             </div>`;
     }
 
     let html = '';
 
-    // Pending events always visible
+    // Pending events - always visible, prominent
     if (pendingEvents.length > 0) {
         html += `
-            <div class="px-4 py-2.5">
-                <p class="text-[10px] text-orange-600 font-semibold uppercase tracking-wider mb-1.5">
-                    <i class="fas fa-clock mr-1"></i>${pendingEvents.length} Antwort${pendingEvents.length > 1 ? 'en' : ''} ausstehend
+            <div class="px-4 py-3">
+                <p class="text-xs text-orange-600 font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-bell"></i>${pendingEvents.length} ${pendingEvents.length === 1 ? 'Termin braucht eine Antwort' : 'Termine brauchen eine Antwort'}
                 </p>
-                <div class="space-y-0.5">${pendingEvents.map(inv => renderEventRow(inv)).join('')}</div>
+                <div class="space-y-2">${pendingEvents.map(inv => renderEventCard(inv)).join('')}</div>
             </div>`;
     }
 
-    // Responded events collapsible
-    const responded = [...acceptedEvents, ...rejectedEvents];
-    if (responded.length > 0) {
+    // Accepted events - visible but compact
+    if (acceptedEvents.length > 0) {
         html += `
             <div class="px-4 py-2">
-                <button onclick="toggleEventsSection('${child.id}')" class="flex items-center gap-2 w-full text-left py-0.5 group">
-                    <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-${child.id}"></i>
-                    <span class="text-[11px] text-gray-500 font-medium">
-                        ${acceptedEvents.length > 0 ? `<span class="text-green-600"><i class="fas fa-check mr-0.5"></i>${acceptedEvents.length}</span>` : ''}
-                        ${acceptedEvents.length > 0 && rejectedEvents.length > 0 ? ' · ' : ''}
-                        ${rejectedEvents.length > 0 ? `<span class="text-red-400"><i class="fas fa-times mr-0.5"></i>${rejectedEvents.length}</span>` : ''}
-                        <span class="text-gray-400 ml-1">Termine</span>
-                    </span>
+                <button onclick="toggleEventsSection('accepted-${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-accepted-${child.id}"></i>
+                    <span class="text-xs text-green-600 font-medium"><i class="fas fa-check mr-1"></i>${acceptedEvents.length} ${acceptedEvents.length === 1 ? 'Termin zugesagt' : 'Termine zugesagt'}</span>
                 </button>
-                <div class="hidden mt-1 space-y-0.5 max-h-40 overflow-y-auto" id="events-list-${child.id}">
-                    ${responded.map(inv => renderEventRow(inv)).join('')}
+                <div class="hidden mt-2 space-y-2" id="events-list-accepted-${child.id}">
+                    ${acceptedEvents.map(inv => renderEventCard(inv)).join('')}
+                </div>
+            </div>`;
+    }
+
+    // Rejected events - collapsed
+    if (rejectedEvents.length > 0) {
+        html += `
+            <div class="px-4 py-2">
+                <button onclick="toggleEventsSection('rejected-${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-rejected-${child.id}"></i>
+                    <span class="text-xs text-gray-400 font-medium"><i class="fas fa-times mr-1"></i>${rejectedEvents.length} abgesagt</span>
+                </button>
+                <div class="hidden mt-2 space-y-2" id="events-list-rejected-${child.id}">
+                    ${rejectedEvents.map(inv => renderEventCard(inv)).join('')}
                 </div>
             </div>`;
     }
