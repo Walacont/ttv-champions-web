@@ -96,43 +96,49 @@ BEGIN
                           )
                     LOOP
                         -- Prüfen ob Einladung für diesen Termin existiert
+                        -- (mit oder ohne occurrence_date, da ältere Einladungen kein occurrence_date haben)
                         SELECT id, status, lead_time_notified_at
                         INTO v_existing_inv
                         FROM event_invitations
                         WHERE event_id = v_event.id
                           AND user_id = v_member.user_id
-                          AND occurrence_date = v_occurrence_date
+                          AND (occurrence_date = v_occurrence_date OR occurrence_date IS NULL)
                         LIMIT 1;
 
                         IF v_existing_inv IS NULL THEN
-                            -- Einladung erstellen
-                            INSERT INTO event_invitations (event_id, user_id, occurrence_date, status, created_at)
-                            VALUES (v_event.id, v_member.user_id, v_occurrence_date, 'pending', NOW())
-                            ON CONFLICT (event_id, user_id, occurrence_date) DO NOTHING
-                            RETURNING id INTO v_inv_id;
+                            -- Einladung erstellen (mit Exception-Handler für ältere unique constraints)
+                            BEGIN
+                                INSERT INTO event_invitations (event_id, user_id, occurrence_date, status, created_at)
+                                VALUES (v_event.id, v_member.user_id, v_occurrence_date, 'pending', NOW())
+                                RETURNING id INTO v_inv_id;
 
-                            v_invitations_created := v_invitations_created + 1;
+                                v_invitations_created := v_invitations_created + 1;
+                            EXCEPTION WHEN unique_violation THEN
+                                -- Einladung existiert bereits (alter Constraint ohne occurrence_date)
+                                v_inv_id := NULL;
+                            END;
 
-                            -- Benachrichtigung erstellen (Trigger sendet Push automatisch)
-                            INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at)
-                            VALUES (
-                                v_member.user_id,
-                                'event_reminder',
-                                v_event.title,
-                                'Du wurdest zu "' || v_event.title || '" am ' || v_event_date_formatted || ' eingeladen. Bitte sage zu oder ab.',
-                                jsonb_build_object('event_id', v_event.id, 'occurrence_date', v_occurrence_date::text),
-                                false,
-                                NOW()
-                            );
+                            -- Nur benachrichtigen wenn Einladung neu erstellt oder noch nicht benachrichtigt
+                            IF v_inv_id IS NOT NULL THEN
+                                -- Benachrichtigung erstellen (Trigger sendet Push automatisch)
+                                INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at)
+                                VALUES (
+                                    v_member.user_id,
+                                    'event_reminder',
+                                    v_event.title,
+                                    'Du wurdest zu "' || v_event.title || '" am ' || v_event_date_formatted || ' eingeladen. Bitte sage zu oder ab.',
+                                    jsonb_build_object('event_id', v_event.id, 'occurrence_date', v_occurrence_date::text),
+                                    false,
+                                    NOW()
+                                );
 
-                            -- Tracking-Spalte setzen
-                            UPDATE event_invitations
-                            SET lead_time_notified_at = NOW()
-                            WHERE event_id = v_event.id
-                              AND user_id = v_member.user_id
-                              AND occurrence_date = v_occurrence_date;
+                                -- Tracking-Spalte setzen
+                                UPDATE event_invitations
+                                SET lead_time_notified_at = NOW()
+                                WHERE id = v_inv_id;
 
-                            v_notifications_sent := v_notifications_sent + 1;
+                                v_notifications_sent := v_notifications_sent + 1;
+                            END IF;
 
                         ELSIF v_existing_inv.lead_time_notified_at IS NULL
                               AND v_existing_inv.status = 'pending' THEN
