@@ -147,12 +147,16 @@ export async function migrateProfilePictures(options = {}) {
         try {
             const newUrl = await migrateSingleUrl(profile.avatar_url);
 
-            const { error: updateError } = await supabase
+            const { data: updated, error: updateError } = await supabase
                 .from('profiles')
                 .update({ avatar_url: newUrl })
-                .eq('id', profile.id);
+                .eq('id', profile.id)
+                .select('id');
 
             if (updateError) throw updateError;
+            if (!updated || updated.length === 0) {
+                throw new Error('DB-Update fehlgeschlagen (0 Zeilen betroffen - vermutlich RLS-Policy). Bitte per SQL updaten.');
+            }
 
             migrated++;
             log('Profiles', `${i + 1}/${profiles.length} Migriert: ${profile.id}`);
@@ -253,12 +257,16 @@ export async function migratePostImages(options = {}) {
             }
 
             if (Object.keys(updateData).length > 0) {
-                const { error: updateError } = await supabase
+                const { data: updated, error: updateError } = await supabase
                     .from('community_posts')
                     .update(updateData)
-                    .eq('id', post.id);
+                    .eq('id', post.id)
+                    .select('id');
 
                 if (updateError) throw updateError;
+                if (!updated || updated.length === 0) {
+                    throw new Error('DB-Update fehlgeschlagen (0 Zeilen betroffen - vermutlich RLS-Policy). Bitte per SQL updaten.');
+                }
             }
 
             migrated++;
@@ -310,12 +318,16 @@ export async function migrateExerciseImages(options = {}) {
         try {
             const newUrl = await migrateSingleUrl(exercise.image_url);
 
-            const { error: updateError } = await supabase
+            const { data: updated, error: updateError } = await supabase
                 .from('exercises')
                 .update({ image_url: newUrl })
-                .eq('id', exercise.id);
+                .eq('id', exercise.id)
+                .select('id');
 
             if (updateError) throw updateError;
+            if (!updated || updated.length === 0) {
+                throw new Error('DB-Update fehlgeschlagen (0 Zeilen betroffen - vermutlich RLS-Policy). Bitte per SQL updaten.');
+            }
 
             migrated++;
             log('Exercises', `${i + 1}/${exercises.length} Migriert: ${exercise.id}`);
@@ -366,12 +378,16 @@ export async function migrateClubLogos(options = {}) {
         try {
             const newUrl = await migrateSingleUrl(club.logo_url);
 
-            const { error: updateError } = await supabase
+            const { data: updated, error: updateError } = await supabase
                 .from('clubs')
                 .update({ logo_url: newUrl })
-                .eq('id', club.id);
+                .eq('id', club.id)
+                .select('id');
 
             if (updateError) throw updateError;
+            if (!updated || updated.length === 0) {
+                throw new Error('DB-Update fehlgeschlagen (0 Zeilen betroffen - vermutlich RLS-Policy). Bitte per SQL updaten.');
+            }
 
             migrated++;
             log('Clubs', `${i + 1}/${clubs.length} Migriert: ${club.id}`);
@@ -457,12 +473,16 @@ export async function migrateVideoAnalyses(options = {}) {
             }
 
             if (Object.keys(updateData).length > 0) {
-                const { error: updateError } = await supabase
+                const { data: updated, error: updateError } = await supabase
                     .from('video_analyses')
                     .update(updateData)
-                    .eq('id', video.id);
+                    .eq('id', video.id)
+                    .select('id');
 
                 if (updateError) throw updateError;
+                if (!updated || updated.length === 0) {
+                    throw new Error('DB-Update fehlgeschlagen (0 Zeilen betroffen - vermutlich RLS-Policy). Bitte per SQL updaten.');
+                }
             }
 
             migrated++;
