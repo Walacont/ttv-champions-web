@@ -28,7 +28,7 @@ let selectedGroupMembers = [];
 let newChatTab = 'direct'; // 'direct' | 'group'
 const MESSAGE_LIMIT = 50;
 const MAX_CONTENT_LENGTH = 5000;
-const UNREAD_SYNC_INTERVAL = 60000; // 60s
+const UNREAD_SYNC_INTERVAL = 120000; // 120s
 
 // --- Exports ---
 
@@ -43,7 +43,9 @@ export async function initChat(userId) {
     setupChatButtonHandler();
     await updateChatBadge();
     setupRealtimeSubscriptions();
-    unreadSyncInterval = setInterval(() => updateChatBadge(), UNREAD_SYNC_INTERVAL);
+    unreadSyncInterval = setInterval(() => {
+        if (document.visibilityState === 'visible') updateChatBadge();
+    }, UNREAD_SYNC_INTERVAL);
 
     // Deep-link: ?openChat=<conversation_id> from push notification
     const urlParams = new URLSearchParams(window.location.search);

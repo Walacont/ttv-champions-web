@@ -1414,7 +1414,7 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
 
         el.innerHTML = `
             <div class="flex items-center space-x-3">
-                <img src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
+                <img loading="lazy" src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
                      class="h-12 w-12 rounded-full object-cover border-2 border-orange-400"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div>
@@ -1776,7 +1776,7 @@ function renderRanksList() {
                         const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
                         return `
                         <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
-                            <img src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div class="flex-grow">
                                 <p class="text-sm">${playerName}</p>
                             </div>
@@ -2120,7 +2120,7 @@ function renderLeaderboardList() {
             <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors ${clickableClass}" ${dataAttr}>
                 <div class="flex items-center gap-3">
                     <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-gray-500'}">${medal}</span>
-                    <img src="${player.avatar_url || DEFAULT_AVATAR}"
+                    <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}"
                          class="w-10 h-10 rounded-full object-cover border-2 ${isCurrentUser ? 'border-indigo-400' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
@@ -2147,7 +2147,7 @@ function renderLeaderboardList() {
                 <div class="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border-2 border-indigo-300">
                     <div class="flex items-center gap-3">
                         <span class="w-8 text-center font-bold text-gray-500">${currentUserRank}.</span>
-                        <img src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
+                        <img loading="lazy" src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
                              class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
@@ -2617,7 +2617,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
         <div id="match-request-${req.id}" class="p-3 bg-white rounded-lg border mb-2 transition-all duration-300">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
-                    <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
+                    <img loading="lazy" src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
                          class="w-10 h-10 rounded-full object-cover"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
@@ -2916,10 +2916,10 @@ async function initSeasonCountdown() {
     updateSeasonCountdownDisplay();
     // Anzeige jede Sekunde aktualisieren (effizient - keine async Aufrufe)
     setInterval(updateSeasonCountdownDisplay, 1000);
-    // Saison-Daten alle 5 Minuten aktualisieren falls sie sich ändern
+    // Saison-Daten alle 60 Minuten aktualisieren (ändert sich selten)
     setInterval(async () => {
         seasonEndDate = await fetchSeasonEndDate();
-    }, 5 * 60 * 1000);
+    }, 60 * 60 * 1000);
 }
 
 // Effizienter Countdown-Update (synchron, keine DB-Aufrufe)
@@ -3123,14 +3123,14 @@ function handleSubscriptionStatus(channelName, status, err) {
  */
 function startPollingFallback() {
     if (pollingInterval) return;
-    console.log('[Realtime] Starting polling fallback (every 15s)');
+    console.log('[Realtime] Starting polling fallback (every 30s)');
     pollingInterval = setInterval(() => {
         if (document.visibilityState === 'visible' && currentUser) {
             loadMatchRequests();
             loadPendingRequests();
             checkPendingMatchConfirmations(currentUser.id);
         }
-    }, 15000);
+    }, 30000);
 }
 
 function stopPollingFallback() {
@@ -4512,7 +4512,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
         <div id="pending-match-request-${req.id}" class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-3">
-                    <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <img loading="lazy" src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium">${isPlayerA ? t('dashboard.requestTo') : t('dashboard.requestFrom')} ${otherPlayerName}</p>
                         ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
@@ -4814,7 +4814,7 @@ async function loadMatchSuggestions() {
             return `
                 <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2 hover:border-indigo-300 transition-colors">
                     <div class="flex items-center gap-3">
-                        <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
                             <p class="font-medium text-sm">${player.display_name || player.first_name}</p>
                             <p class="text-xs text-gray-500">${player.elo_rating || 800} Elo ${player.eloDiff > 0 ? `(${myElo > player.elo_rating ? '+' : ''}${myElo - (player.elo_rating || 800)})` : ''}</p>

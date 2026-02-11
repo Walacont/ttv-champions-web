@@ -6,7 +6,7 @@
 import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
-import { loadMatchMedia } from './match-media.js';
+import { loadMatchMedia, loadMatchMediaBatch } from './match-media.js';
 import { getR2PublicUrl, getMediaUrlWithFallback } from './r2-storage.js';
 import { initComments, openComments } from './activity-comments.js';
 import { escapeHtml } from './utils/security.js';
@@ -445,7 +445,7 @@ async function showLikesModal(activityId, activityType) {
 
             return `
                 <a href="/profile.html?id=${like.user_id}" class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="flex-1 min-w-0">
@@ -774,13 +774,29 @@ async function loadMatchMediaForActivities(activities) {
         return;
     }
 
-    activities.forEach(activity => {
-        if (activity.activityType === 'singles' || activity.matchType === 'singles') {
-            injectMatchMedia(activity.id, 'singles');
-        } else if (activity.activityType === 'doubles' || activity.matchType === 'doubles') {
-            injectMatchMedia(activity.id, 'doubles');
-        }
-    });
+    // Match-Aktivitäten sammeln
+    const matchActivities = activities.filter(a =>
+        a.activityType === 'singles' || a.activityType === 'doubles' ||
+        a.matchType === 'singles' || a.matchType === 'doubles'
+    );
+
+    if (matchActivities.length === 0) return;
+
+    // Batch-Query: alle Media in einem Request laden
+    const matchEntries = matchActivities.map(a => ({
+        id: a.id,
+        type: a.activityType || a.matchType
+    }));
+
+    const mediaMap = await loadMatchMediaBatch(matchEntries);
+
+    // Ergebnisse in die DOM-Container injizieren
+    for (const activity of matchActivities) {
+        const type = activity.activityType || activity.matchType;
+        const key = `${type}-${activity.id}`;
+        const media = mediaMap.get(key) || [];
+        injectMatchMediaFromCache(activity.id, type, media);
+    }
 }
 
 /**
@@ -1277,12 +1293,12 @@ async function fetchActivities(userIds) {
             }
         });
 
-        // Datenschutzeinstellungen für alle an Matches beteiligten Spieler laden
+        // Datenschutzeinstellungen + Profildaten in einem Query laden (statt 2 separate)
         let privacyMap = {};
         if (matchPlayerIds.size > 0) {
             const { data: privacyProfiles } = await supabase
                 .from('profiles')
-                .select('id, privacy_settings, club_id')
+                .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings')
                 .in('id', [...matchPlayerIds]);
 
             (privacyProfiles || []).forEach(p => {
@@ -1290,9 +1306,11 @@ async function fetchActivities(userIds) {
             });
         }
 
-        // Abonnenten-Liste des Betrachters für Datenschutzprüfungen abrufen
+        // Abonnenten-Liste aus Cache wiederverwenden (bereits in getUserIdsForFilter geladen)
         let viewerFollowingIds = new Set();
-        if (currentUser) {
+        if (followingIdsCache && followingIdsCache.length > 0) {
+            followingIdsCache.forEach(id => viewerFollowingIds.add(id));
+        } else if (currentUser) {
             const { data: following } = await supabase
                 .from('friendships')
                 .select('addressee_id')
@@ -1403,11 +1421,14 @@ async function fetchActivities(userIds) {
         // Für Events (club_join, rank_up) sind Benutzerdaten in event_data
     });
 
-    // Spielerprofile abrufen
+    // Spielerprofile abrufen - privacyMap wiederverwenden wenn möglich
     let profiles = [];
     const filteredPlayerIds = [...playerIds].filter(Boolean);
 
-    if (filteredPlayerIds.length > 0) {
+    // IDs die noch nicht im privacyMap sind (z.B. Post/Poll user_ids)
+    const missingIds = filteredPlayerIds.filter(id => !privacyMap[id]);
+
+    if (missingIds.length > 0) {
         if (isChildMode) {
             // Child mode: use RPC to bypass RLS
             const sessionToken = getSessionToken();
@@ -1415,7 +1436,7 @@ async function fetchActivities(userIds) {
                 try {
                     const { data, error } = await supabase.rpc('get_profiles_for_child_session', {
                         p_session_token: sessionToken,
-                        p_profile_ids: filteredPlayerIds
+                        p_profile_ids: missingIds
                     });
 
                     if (error) {
@@ -1431,18 +1452,22 @@ async function fetchActivities(userIds) {
                 }
             }
         } else {
-            // Normal mode: direct query
+            // Normal mode: nur fehlende Profile laden
             const { data } = await supabase
                 .from('profiles')
                 .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
-                .in('id', filteredPlayerIds);
+                .in('id', missingIds);
             profiles = data || [];
         }
     }
 
+    // Beide Quellen (privacyMap + neue Profiles) zusammenführen
     const profileMap = {};
-    (profiles || []).forEach(p => {
+    Object.values(privacyMap).forEach(p => {
         profileMap[p.id] = p;
+    });
+    (profiles || []).forEach(p => {
+        profileMap[p.id] = { ...profileMap[p.id], ...p };
     });
 
     // Club-Daten für "Als Verein" gepostete Beiträge laden
@@ -2065,14 +2090,21 @@ function renderMatchMediaPlaceholder(matchId, matchType) {
 }
 
 /**
+ * Inject pre-loaded media into the DOM (used by batch loader)
+ */
+async function injectMatchMediaFromCache(matchId, matchType, media) {
+    return injectMatchMedia(matchId, matchType, media);
+}
+
+/**
  * Load and inject match media into the DOM - Strava style horizontal carousel
  */
-async function injectMatchMedia(matchId, matchType) {
+async function injectMatchMedia(matchId, matchType, preloadedMedia = null) {
     const container = document.getElementById(`media-${matchType}-${matchId}`);
     if (!container) return;
 
     try {
-        const media = await loadMatchMedia(matchId, matchType);
+        const media = preloadedMedia || await loadMatchMedia(matchId, matchType);
 
         if (!media || media.length === 0) {
             // Keine Medien - nichts oder Upload-Button für Teilnehmer anzeigen
@@ -2145,7 +2177,7 @@ async function injectMatchMedia(matchId, matchType) {
                     <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGalleryWithContext('${matchId}', '${matchType}', ${index})">
                             ${deleteButton}
-                            <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover" loading="lazy"
+                            <img loading="lazy" src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover" loading="lazy"
                                  onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${fallbackUrl}'}">
                         </div>
                     </div>
@@ -2361,7 +2393,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
-                            <img src="${winnerAvatar}" alt="${winnerName}"
+                            <img loading="lazy" src="${winnerAvatar}" alt="${winnerName}"
                                  class="w-10 h-10 rounded-full object-cover"
                                  onerror="this.src='${DEFAULT_AVATAR}'">
                         </a>
@@ -2420,11 +2452,11 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
             <!-- Elo Changes -->
             <div class="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-sm">
                 <div class="flex items-center gap-1">
-                    <img src="${winnerAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <img loading="lazy" src="${winnerAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <span class="text-green-600 font-medium">+${winnerEloChange}</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <img src="${loserAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <img loading="lazy" src="${loserAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <span class="text-red-600 font-medium">-${loserEloChange}</span>
                 </div>
             </div>
@@ -2543,10 +2575,10 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="flex -space-x-2">
-                            <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
+                            <img loading="lazy" src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
                                  class="w-9 h-9 rounded-full object-cover border-2 border-white"
                                  onerror="this.src='${DEFAULT_AVATAR}'">
-                            <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
+                            <img loading="lazy" src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
                                  class="w-9 h-9 rounded-full object-cover border-2 border-white"
                                  onerror="this.src='${DEFAULT_AVATAR}'">
                         </div>
@@ -2600,16 +2632,16 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
             <div class="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-sm">
                 <div class="flex items-center gap-2">
                     <div class="flex -space-x-1">
-                        <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
                     <span class="text-green-600 font-medium">${t('common.winner')}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-red-600 font-medium">${t('common.loser')}</span>
                     <div class="flex -space-x-1">
-                        <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
                 </div>
             </div>
@@ -2669,7 +2701,7 @@ function renderClubJoinCard(activity) {
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-blue-100">
             <div class="flex items-start gap-3">
                 <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-blue-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
@@ -2731,7 +2763,7 @@ function renderClubLeaveCard(activity) {
         <div class="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-200">
             <div class="flex items-start gap-3">
                 <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-gray-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
@@ -2787,7 +2819,7 @@ function renderRankUpCard(activity) {
         <div class="bg-gradient-to-r from-${colorScheme}-50 to-${colorScheme}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colorScheme}-200">
             <div class="flex items-start gap-3">
                 <a href="/profile.html?id=${safeUserId}" class="flex-shrink-0 relative">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-${colorScheme}-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="absolute -bottom-1 -right-1 bg-${colorScheme}-500 rounded-full p-1">
@@ -2961,7 +2993,7 @@ function renderClubRankingChangeCard(activity) {
         <div class="bg-gradient-to-r from-${colors.bg}-50 to-${colors.bg}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colors.border}-200">
             <div class="flex items-start gap-3">
                 <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-${colors.border}-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
@@ -3050,7 +3082,7 @@ function renderGlobalRankingChangeCard(activity) {
         <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-purple-200">
             <div class="flex items-start gap-3">
                 <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-purple-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
@@ -3424,7 +3456,7 @@ function renderPostCard(activity, profileMap) {
             <!-- Post Header -->
             <div class="flex items-start gap-3 mb-3">
                 <a href="${profileLink}" class="flex-shrink-0">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 ${isClubPost ? 'border-indigo-300' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
@@ -3473,7 +3505,7 @@ function renderPostCard(activity, profileMap) {
                         <div class="carousel-track flex transition-transform duration-300" data-current-index="0">
                             ${imageUrls.map((url, index) => `
                                 <div class="carousel-slide flex-shrink-0 w-full flex items-center justify-center">
-                                    <img src="${url}" alt="Post image ${index + 1}"
+                                    <img loading="lazy" src="${url}" alt="Post image ${index + 1}"
                                          class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
                                          style="max-height: 600px;" loading="lazy"
                                          onclick="openPostImageGallery('${postId}', ${imageUrlsJson}, ${index})">
@@ -3561,7 +3593,7 @@ function renderPollCard(activity, profileMap) {
             <!-- Poll Header -->
             <div class="flex items-start gap-3 mb-3">
                 <a href="${profileLink}" class="flex-shrink-0">
-                    <img src="${avatarUrl}" alt="${displayName}"
+                    <img loading="lazy" src="${avatarUrl}" alt="${displayName}"
                          class="w-12 h-12 rounded-full object-cover border-2 ${isClubPoll ? 'border-indigo-300' : 'border-purple-300'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
@@ -3632,7 +3664,7 @@ function renderPollCard(activity, profileMap) {
                                 <div class="flex items-center -space-x-2">
                                     ${option.voters.slice(0, 5).map(voter => `
                                         <a href="/profile.html?id=${voter.id}" title="${voter.name}" class="block">
-                                            <img src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
+                                            <img loading="lazy" src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
                                                  class="w-6 h-6 rounded-full border-2 border-white object-cover"
                                                  onerror="this.src='${DEFAULT_AVATAR}'">
                                         </a>
@@ -4026,7 +4058,7 @@ async function refreshPollCard(pollId) {
                                 <div class="flex items-center -space-x-2">
                                     ${option.voters.slice(0, 5).map(voter => `
                                         <a href="/profile.html?id=${voter.id}" title="${voter.name}" class="block">
-                                            <img src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
+                                            <img loading="lazy" src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
                                                  class="w-6 h-6 rounded-full border-2 border-white object-cover"
                                                  onerror="this.src='${DEFAULT_AVATAR}'">
                                         </a>
