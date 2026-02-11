@@ -731,32 +731,33 @@ function buildEventsSection(child, pendingEvents) {
     return html;
 }
 
+// Render a single history item (used by buildStatsSection and loadMoreHistory)
+function renderHistoryItem(entry) {
+    const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    const reason = entry.reason || entry.description || 'Punkte';
+    const points = entry.points || 0;
+    const xp = entry.xp !== undefined ? entry.xp : points;
+    const elo = entry.elo_change || 0;
+    return `
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+            <div class="flex-1 min-w-0">
+                <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
+                <span class="text-[10px] text-gray-400 ml-1">${date}</span>
+            </div>
+            <div class="flex gap-2 text-[10px] flex-shrink-0">
+                <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo} Elo</span>
+                <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
+                <span class="${getColorClass(points)} font-semibold">${getSign(points)}${points} Pkt</span>
+            </div>
+        </div>`;
+}
+
 // Build stats section for a child card
 function buildStatsSection(child) {
     const secId = `stats-${child.id}`;
     const seasonPts = child.points || 0;
     const historyCount = (child.pointsHistory || []).length;
     const initialItems = 3;
-
-    const renderHistoryItem = (entry) => {
-        const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-        const reason = entry.reason || entry.description || 'Punkte';
-        const points = entry.points || 0;
-        const xp = entry.xp !== undefined ? entry.xp : points;
-        const elo = entry.elo_change || 0;
-        return `
-            <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
-                <div class="flex-1 min-w-0">
-                    <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
-                    <span class="text-[10px] text-gray-400 ml-1">${date}</span>
-                </div>
-                <div class="flex gap-2 text-[10px] flex-shrink-0">
-                    <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo} Elo</span>
-                    <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
-                    <span class="${getColorClass(points)} font-semibold">${getSign(points)}${points} Pkt</span>
-                </div>
-            </div>`;
-    };
 
     return `
         <div class="px-4 py-2.5">
@@ -791,29 +792,23 @@ function buildStatsSection(child) {
                 ${historyCount > 0 ? `
                     <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Letzte Aktivitäten</p>
                     <div id="history-list-${child.id}">
-                        ${child.pointsHistory.slice(0, initialItems).map(renderHistoryItem).join('')}
+                        ${child.pointsHistory.map(renderHistoryItem).join('')}
                     </div>
-                    ${historyCount > initialItems ? `
-                        <button id="history-more-${child.id}" onclick="loadMoreHistory('${child.id}')"
-                            class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
-                            Mehr anzeigen (${historyCount - initialItems} weitere geladen, ältere nachladen)
-                        </button>
-                    ` : `
-                        <button onclick="loadMoreHistory('${child.id}')"
-                            class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
-                            Ältere Einträge laden
-                        </button>
-                    `}
+                    <button id="history-more-${child.id}" onclick="loadMoreHistory('${child.id}')"
+                        class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
+                        Ältere Einträge laden
+                    </button>
                 ` : '<p class="text-[11px] text-gray-400 py-1">Noch keine Aktivitäten</p>'}
             </div>
         </div>`;
 }
 
-// Lazy-load more points history for a child
+// Lazy-load more points history for a child (updates DOM directly, no re-render)
 window.loadMoreHistory = async function(childId) {
     const child = children.find(c => c.id === childId);
     if (!child) return;
 
+    const listEl = document.getElementById(`history-list-${childId}`);
     const btn = document.getElementById(`history-more-${childId}`) || document.querySelector(`#gsec-content-stats-${childId} button[onclick*="loadMoreHistory"]`);
     if (btn) {
         btn.disabled = true;
@@ -833,10 +828,23 @@ window.loadMoreHistory = async function(childId) {
 
         if (moreHistory && moreHistory.length > 0) {
             child.pointsHistory = [...(child.pointsHistory || []), ...moreHistory];
+
+            // Append new items directly to the DOM
+            if (listEl) {
+                listEl.innerHTML = child.pointsHistory.map(renderHistoryItem).join('');
+            }
         }
 
-        // Re-render just this child's history
-        renderChildren();
+        // Update or remove the "load more" button
+        if (btn) {
+            if (!moreHistory || moreHistory.length < 20) {
+                // No more data to load
+                btn.remove();
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Noch ältere Einträge laden';
+            }
+        }
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading more history:', err);
         if (btn) {
