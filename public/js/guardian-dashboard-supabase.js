@@ -349,13 +349,13 @@ async function loadChildStats(child) {
             child.recentMatches = [];
         }
 
-        // Load points history
+        // Load points history (only 3 initially, more loaded on demand)
         const { data: pointsHistory } = await supabase
             .from('points_history')
             .select('*')
             .eq('user_id', child.id)
             .order('timestamp', { ascending: false })
-            .limit(10);
+            .limit(3);
 
         child.pointsHistory = pointsHistory || [];
 
@@ -493,8 +493,11 @@ function renderChildren() {
         // --- Stats section ---
         const statsHtml = buildStatsSection(child);
 
-        // --- Activity section (points + notifications + videos combined) ---
-        const activityHtml = buildActivitySection(child, unreadNotifs);
+        // --- Notifications section ---
+        const notificationsHtml = buildNotificationsSection(child, unreadNotifs);
+
+        // --- Videos section ---
+        const videosHtml = buildVideosSection(child);
 
         // --- Attention bar (pending events / missing credentials) ---
         let attentionHtml = '';
@@ -541,22 +544,19 @@ function renderChildren() {
                 <div class="divide-y divide-gray-100">
                     ${eventsHtml}
                     ${statsHtml}
-                    ${activityHtml}
+                    ${notificationsHtml}
+                    ${videosHtml}
                 </div>
 
+                ${age >= 16 ? `
                 <!-- Quick Actions -->
-                <div class="px-4 py-3 bg-gray-50 flex gap-2">
-                    <button onclick="showInviteGuardianModal('${child.id}', '${childFullName}')"
-                        class="flex-1 text-[11px] text-purple-600 font-medium py-1.5 px-2 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors text-center">
-                        <i class="fas fa-user-plus mr-1"></i>Vormund einladen
+                <div class="px-4 py-3 bg-gray-50">
+                    <button onclick="showUpgradeModal('${child.id}', '${childFullName}')"
+                        class="w-full text-[11px] text-teal-700 font-medium py-1.5 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 transition-colors text-center">
+                        <i class="fas fa-graduation-cap mr-1"></i>Eigenen Account erstellen (16+)
                     </button>
-                    ${age >= 16 ? `
-                        <button onclick="showUpgradeModal('${child.id}', '${childFullName}')"
-                            class="flex-1 text-[11px] text-teal-700 font-medium py-1.5 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 transition-colors text-center">
-                            <i class="fas fa-graduation-cap mr-1"></i>Eigener Account (16+)
-                        </button>
-                    ` : ''}
                 </div>
+                ` : ''}
             </div>
         `;
     }).join('');
@@ -621,7 +621,10 @@ function buildEventsSection(child, pendingEvents) {
                     <span class="text-xs font-medium px-2 py-0.5 rounded-full ${catColor}">${catLabel}</span>
                     ${statusHtml}
                 </div>
-                <h4 class="font-semibold text-gray-900 text-sm leading-snug">${escapeHtml(ev.title)}</h4>
+                <h4 class="font-semibold text-gray-900 text-sm leading-snug cursor-pointer hover:text-indigo-700 transition-colors" onclick="event.stopPropagation(); showGuardianEventDetail('${ev.id}')">
+                    ${escapeHtml(ev.title)}
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 ml-1"></i>
+                </h4>
                 <div class="mt-2 space-y-1">
                     <p class="text-sm text-gray-600 flex items-center gap-2">
                         <i class="far fa-calendar-alt text-gray-400 w-4 text-center"></i>
@@ -701,15 +704,43 @@ function buildEventsSection(child, pendingEvents) {
 // Build stats section for a child card
 function buildStatsSection(child) {
     const secId = `stats-${child.id}`;
+    const seasonPts = child.points || 0;
+    const historyCount = (child.pointsHistory || []).length;
+    const initialItems = 3;
+
+    const renderHistoryItem = (entry) => {
+        const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        const reason = entry.reason || entry.description || 'Punkte';
+        const points = entry.points || 0;
+        const xp = entry.xp !== undefined ? entry.xp : points;
+        const elo = entry.elo_change || 0;
+        return `
+            <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+                <div class="flex-1 min-w-0">
+                    <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
+                    <span class="text-[10px] text-gray-400 ml-1">${date}</span>
+                </div>
+                <div class="flex gap-2 text-[10px] flex-shrink-0">
+                    <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo} Elo</span>
+                    <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
+                    <span class="${getColorClass(points)} font-semibold">${getSign(points)}${points} Pkt</span>
+                </div>
+            </div>`;
+    };
+
     return `
         <div class="px-4 py-2.5">
             <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
                 <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
                 <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-chart-bar mr-1 text-indigo-400"></i>Statistiken</span>
-                <span class="ml-auto text-[11px] text-gray-400 font-medium">${child.elo_rating || 800} Elo · ${child.totalMatches || 0} Spiele</span>
+                <span class="ml-auto text-[11px] text-gray-400 font-medium">${seasonPts} Saison-Pkt · ${child.totalMatches || 0} Spiele</span>
             </button>
             <div class="hidden mt-2" id="gsec-content-${secId}">
-                <div class="grid grid-cols-4 gap-2 text-center">
+                <div class="grid grid-cols-5 gap-1.5 text-center mb-3">
+                    <div class="bg-indigo-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-indigo-700">${seasonPts}</p>
+                        <p class="text-[10px] text-indigo-400">Saison</p>
+                    </div>
                     <div class="bg-gray-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-gray-900">${child.elo_rating || 800}</p>
                         <p class="text-[10px] text-gray-400">Elo</p>
@@ -727,116 +758,156 @@ function buildStatsSection(child) {
                         <p class="text-[10px] text-gray-400">Siege</p>
                     </div>
                 </div>
-                ${child.pointsHistory && child.pointsHistory.length > 0 ? `
-                    <div class="mt-2 max-h-32 overflow-y-auto">
-                        ${child.pointsHistory.slice(0, 5).map(entry => {
-                            const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                            const reason = entry.reason || entry.description || 'Punkte';
-                            const points = entry.points || 0;
-                            const xp = entry.xp !== undefined ? entry.xp : points;
-                            const elo = entry.elo_change || 0;
-                            return `
-                                <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
-                                        <span class="text-[10px] text-gray-400 ml-1">${date}</span>
-                                    </div>
-                                    <div class="flex gap-2 text-[10px] flex-shrink-0">
-                                        <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</span>
-                                        <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
-                                    </div>
-                                </div>`;
-                        }).join('')}
+                ${historyCount > 0 ? `
+                    <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Letzte Aktivitäten</p>
+                    <div id="history-list-${child.id}">
+                        ${child.pointsHistory.slice(0, initialItems).map(renderHistoryItem).join('')}
                     </div>
-                ` : ''}
+                    ${historyCount > initialItems ? `
+                        <button id="history-more-${child.id}" onclick="loadMoreHistory('${child.id}')"
+                            class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
+                            Mehr anzeigen (${historyCount - initialItems} weitere geladen, ältere nachladen)
+                        </button>
+                    ` : `
+                        <button onclick="loadMoreHistory('${child.id}')"
+                            class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
+                            Ältere Einträge laden
+                        </button>
+                    `}
+                ` : '<p class="text-[11px] text-gray-400 py-1">Noch keine Aktivitäten</p>'}
             </div>
         </div>`;
 }
 
-// Build activity section (notifications + videos)
-function buildActivitySection(child, unreadNotifs) {
-    const secId = `activity-${child.id}`;
+// Lazy-load more points history for a child
+window.loadMoreHistory = async function(childId) {
+    const child = children.find(c => c.id === childId);
+    if (!child) return;
+
+    const btn = document.getElementById(`history-more-${childId}`) || document.querySelector(`#gsec-content-stats-${childId} button[onclick*="loadMoreHistory"]`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Lade...';
+    }
+
+    try {
+        const offset = (child.pointsHistory || []).length;
+        const { data: moreHistory, error } = await supabase
+            .from('points_history')
+            .select('*')
+            .eq('user_id', childId)
+            .order('timestamp', { ascending: false })
+            .range(offset, offset + 19);
+
+        if (error) throw error;
+
+        if (moreHistory && moreHistory.length > 0) {
+            child.pointsHistory = [...(child.pointsHistory || []), ...moreHistory];
+        }
+
+        // Re-render just this child's history
+        renderChildren();
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading more history:', err);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Fehler - nochmal versuchen';
+        }
+    }
+};
+
+// Build notifications section
+function buildNotificationsSection(child, unreadNotifs) {
+    const secId = `notifs-${child.id}`;
     const notifCount = (child.notifications || []).length;
-    const videoCount = (child.videos || []).length;
     const unreadCount = unreadNotifs.length;
-    const totalBadge = unreadCount + videoCount;
+
+    if (notifCount === 0 && unreadCount === 0) {
+        return '';
+    }
 
     return `
         <div class="px-4 py-2.5">
             <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
                 <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
-                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-stream mr-1 text-indigo-400"></i>Aktivität</span>
-                ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">${unreadCount}</span>` : ''}
-                <span class="ml-auto text-[11px] text-gray-400">${notifCount} Mitteilungen · ${videoCount} Videos</span>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-bell mr-1 text-indigo-400"></i>Mitteilungen</span>
+                ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">${unreadCount} neu</span>` : ''}
+                <span class="ml-auto text-[11px] text-gray-400">${notifCount}</span>
             </button>
-            <div class="hidden mt-2 space-y-3" id="gsec-content-${secId}">
-                <!-- Notifications -->
-                ${notifCount > 0 ? `
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Mitteilungen</p>
-                            <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500">
-                                <i class="fas fa-trash-alt"></i> Alle löschen
-                            </button>
-                        </div>
-                        <div class="max-h-32 overflow-y-auto space-y-1">
-                            ${child.notifications.slice(0, 5).map(notif => {
-                                const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                                const isUnread = !notif.is_read;
-                                const icon = getNotificationIcon(notif.type);
-                                return `
-                                    <div class="flex items-start gap-2 py-1.5 ${isUnread ? 'bg-indigo-50 rounded-lg px-2 -mx-1' : ''}">
-                                        <i class="${icon} text-[10px] mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-300'} flex-shrink-0"></i>
-                                        <div class="flex-1 min-w-0">
-                                            <p class="text-[11px] ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-600'} leading-snug">${escapeHtml(notif.title || '')}</p>
-                                            <p class="text-[10px] text-gray-400">${date}</p>
-                                        </div>
-                                        <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-300 hover:text-red-500 p-0.5 flex-shrink-0" title="Löschen">
-                                            <i class="fas fa-times text-[10px]"></i>
-                                        </button>
-                                    </div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                ` : `<p class="text-[11px] text-gray-400">Keine Mitteilungen</p>`}
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="flex justify-end mb-1">
+                    <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500">
+                        <i class="fas fa-trash-alt mr-0.5"></i>Alle löschen
+                    </button>
+                </div>
+                <div class="max-h-48 overflow-y-auto space-y-1">
+                    ${child.notifications.slice(0, 10).map(notif => {
+                        const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                        const isUnread = !notif.is_read;
+                        const icon = getNotificationIcon(notif.type);
+                        return `
+                            <div class="flex items-start gap-2 py-1.5 ${isUnread ? 'bg-indigo-50 rounded-lg px-2 -mx-1' : ''}">
+                                <i class="${icon} text-[10px] mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-300'} flex-shrink-0"></i>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[11px] ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-600'} leading-snug">${escapeHtml(notif.title || '')}</p>
+                                    ${notif.message ? `<p class="text-[10px] text-gray-500 line-clamp-2 mt-0.5">${escapeHtml(notif.message)}</p>` : ''}
+                                    <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
+                                </div>
+                                <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-300 hover:text-red-500 p-0.5 flex-shrink-0" title="Löschen">
+                                    <i class="fas fa-times text-[10px]"></i>
+                                </button>
+                            </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
+}
 
-                <!-- Videos -->
-                ${videoCount > 0 ? `
-                    <div>
-                        <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">
-                            <i class="fas fa-video text-indigo-400 mr-1"></i>Videoanalysen
-                        </p>
-                        <div class="max-h-32 overflow-y-auto space-y-1">
-                            ${child.videos.map(video => {
-                                const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                                const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-                                const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Offen';
-                                const title = video.title || video.exercise_name || 'Video';
-                                const thumbUrl = video.thumbnail_url || '';
-                                return `
-                                    <div class="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
-                                        ${thumbUrl ? `
-                                            <div class="w-10 h-7 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
-                                                <img src="${escapeHtml(thumbUrl)}" alt="" class="w-full h-full object-cover">
-                                                <div class="absolute inset-0 flex items-center justify-center bg-black/30">
-                                                    <i class="fas fa-play text-white text-[7px]"></i>
-                                                </div>
-                                            </div>
-                                        ` : `
-                                            <div class="w-10 h-7 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                <i class="fas fa-play text-gray-300 text-[10px]"></i>
-                                            </div>
-                                        `}
-                                        <div class="flex-1 min-w-0">
-                                            <p class="text-[11px] text-gray-700 truncate">${escapeHtml(title)}</p>
-                                            <span class="text-[10px] text-gray-400">${date}</span>
+// Build videos section
+function buildVideosSection(child) {
+    const secId = `videos-${child.id}`;
+    const videoCount = (child.videos || []).length;
+
+    if (videoCount === 0) return '';
+
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-video mr-1 text-indigo-400"></i>Videoanalysen</span>
+                <span class="ml-auto text-[11px] text-gray-400">${videoCount}</span>
+            </button>
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="max-h-48 overflow-y-auto space-y-1">
+                    ${child.videos.map(video => {
+                        const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                        const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+                        const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Offen';
+                        const title = video.title || video.exercise_name || 'Video';
+                        const thumbUrl = video.thumbnail_url || '';
+                        return `
+                            <div class="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
+                                ${thumbUrl ? `
+                                    <div class="w-10 h-7 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
+                                        <img src="${escapeHtml(thumbUrl)}" alt="" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 flex items-center justify-center bg-black/30">
+                                            <i class="fas fa-play text-white text-[7px]"></i>
                                         </div>
-                                        <span class="text-[9px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
-                                    </div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                ` : ''}
+                                    </div>
+                                ` : `
+                                    <div class="w-10 h-7 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-play text-gray-300 text-[10px]"></i>
+                                    </div>
+                                `}
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[11px] text-gray-700 truncate">${escapeHtml(title)}</p>
+                                    <span class="text-[10px] text-gray-400">${date}</span>
+                                </div>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
+                                ${video.comment_count > 0 ? `<span class="text-[10px] text-gray-400 flex-shrink-0"><i class="fas fa-comment text-[9px]"></i> ${video.comment_count}</span>` : ''}
+                            </div>`;
+                    }).join('')}
+                </div>
             </div>
         </div>`;
 }
@@ -923,6 +994,182 @@ window.guardianRespondEvent = async function(invitationId, childId, status) {
         console.error('[GUARDIAN-DASHBOARD] Error responding to event:', err);
         alert('Fehler beim Antworten auf die Veranstaltung. Bitte versuche es erneut.');
         renderChildren();
+    }
+};
+
+// Show event detail modal for guardians (read-only, with comments)
+window.showGuardianEventDetail = async function(eventId) {
+    // Show loading overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'guardian-event-detail-modal';
+    overlay.className = 'fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-12';
+    overlay.innerHTML = '<div class="bg-white rounded-xl p-8 text-center"><i class="fas fa-spinner fa-spin text-xl text-indigo-600"></i></div>';
+    document.body.appendChild(overlay);
+
+    try {
+        // Load full event details
+        const { data: event, error } = await supabase
+            .from('events')
+            .select(`*, organizer:organizer_id (first_name, last_name)`)
+            .eq('id', eventId)
+            .single();
+
+        if (error) throw error;
+
+        // Load participants
+        const { data: participants } = await supabase
+            .from('event_invitations')
+            .select(`status, user:user_id (first_name, last_name)`)
+            .eq('event_id', eventId);
+
+        const accepted = (participants || []).filter(p => p.status === 'accepted');
+        const rejected = (participants || []).filter(p => p.status === 'rejected');
+        const pending = (participants || []).filter(p => p.status === 'pending');
+
+        // Load comments
+        let commentsHtml = '';
+        if (event.comments_enabled) {
+            const { data: comments } = await supabase
+                .from('event_comments')
+                .select(`id, content, created_at, user_id, profiles:user_id (first_name, last_name)`)
+                .eq('event_id', eventId)
+                .order('created_at', { ascending: true });
+
+            if (comments && comments.length > 0) {
+                commentsHtml = `
+                    <div class="border-t border-gray-100 pt-4">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Kommentare (${comments.length})</h3>
+                        <div class="space-y-3 max-h-48 overflow-y-auto">
+                            ${comments.map(c => {
+                                const name = c.profiles ? `${c.profiles.first_name} ${c.profiles.last_name}` : 'Unbekannt';
+                                const time = new Date(c.created_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                                return `
+                                    <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                        <div class="flex items-center gap-2 mb-0.5">
+                                            <span class="text-xs font-semibold text-gray-700">${escapeHtml(name)}</span>
+                                            <span class="text-[10px] text-gray-400">${time}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+            } else {
+                commentsHtml = `
+                    <div class="border-t border-gray-100 pt-4">
+                        <p class="text-sm text-gray-400 text-center py-2">Noch keine Kommentare</p>
+                    </div>`;
+            }
+        }
+
+        // Format date nicely
+        const [year, month, day] = event.start_date.split('-');
+        const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
+        const dateDisplay = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+        const startTime = event.start_time?.slice(0, 5) || '';
+        const endTime = event.end_time?.slice(0, 5) || '';
+        const meetingTime = event.meeting_time?.slice(0, 5) || '';
+
+        const categoryLabels = { training: 'Training', competition: 'Wettkampf', meeting: 'Besprechung', social: 'Vereins-Event', other: 'Termin' };
+        const catLabel = categoryLabels[event.event_category] || 'Termin';
+
+        overlay.innerHTML = `
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs text-indigo-200 font-medium">${catLabel}</span>
+                            <h2 class="text-lg font-bold text-white mt-0.5">${escapeHtml(event.title)}</h2>
+                            <p class="text-indigo-200 text-sm mt-1">${dateDisplay}</p>
+                        </div>
+                        <button id="close-guardian-event-detail" class="text-white/80 hover:text-white p-1">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-5">
+                    ${event.description ? `
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Beschreibung</h3>
+                            <p class="text-sm text-gray-700">${escapeHtml(event.description)}</p>
+                        </div>
+                    ` : ''}
+
+                    <!-- Details -->
+                    <div class="space-y-2.5">
+                        <div class="flex items-center gap-3 text-sm text-gray-700">
+                            <i class="far fa-clock text-gray-400 w-5 text-center"></i>
+                            <div>
+                                <p class="font-medium">${startTime}${endTime ? ` – ${endTime}` : ''} Uhr</p>
+                                ${meetingTime ? `<p class="text-xs text-gray-500">Treffpunkt: ${meetingTime} Uhr</p>` : ''}
+                            </div>
+                        </div>
+                        ${event.location ? `
+                            <div class="flex items-center gap-3 text-sm text-gray-700">
+                                <i class="fas fa-map-marker-alt text-gray-400 w-5 text-center"></i>
+                                <p class="font-medium">${escapeHtml(event.location)}</p>
+                            </div>
+                        ` : ''}
+                        ${event.organizer ? `
+                            <div class="flex items-center gap-3 text-sm text-gray-700">
+                                <i class="fas fa-user text-gray-400 w-5 text-center"></i>
+                                <p>Organisiert von <span class="font-medium">${escapeHtml(event.organizer.first_name)} ${escapeHtml(event.organizer.last_name)}</span></p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Participants -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                            Teilnehmer (${accepted.length}${event.max_participants ? ` von ${event.max_participants}` : ''})
+                        </h3>
+                        ${accepted.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-[11px] font-medium text-green-600 mb-1.5"><i class="fas fa-check mr-1"></i>Zugesagt (${accepted.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${accepted.map(p => `<span class="px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${rejected.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-[11px] font-medium text-red-500 mb-1.5"><i class="fas fa-times mr-1"></i>Abgesagt (${rejected.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${rejected.map(p => `<span class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${pending.length > 0 ? `
+                            <div>
+                                <p class="text-[11px] font-medium text-gray-500 mb-1.5"><i class="fas fa-clock mr-1"></i>Ausstehend (${pending.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${pending.map(p => `<span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${commentsHtml}
+                </div>
+            </div>
+        `;
+
+        // Close handlers
+        document.getElementById('close-guardian-event-detail').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading event details:', err);
+        overlay.innerHTML = `
+            <div class="bg-white rounded-xl p-6 text-center max-w-sm">
+                <p class="text-red-600 mb-3">Fehler beim Laden der Details</p>
+                <button onclick="this.closest('.fixed').remove()" class="text-sm text-indigo-600 hover:text-indigo-800">Schließen</button>
+            </div>`;
     }
 };
 
@@ -1701,6 +1948,29 @@ function setupEventListeners() {
         menuBackdrop?.addEventListener('click', closeMenu);
         becomePlayerBtn?.addEventListener('click', showSportSelectionModal);
         logoutBtn?.addEventListener('click', logout);
+
+        // Invite guardian from sidebar menu
+        const menuInviteBtn = document.getElementById('menu-invite-guardian-btn');
+        menuInviteBtn?.addEventListener('click', () => {
+            closeMenu();
+            if (children.length === 0) {
+                alert('Bitte füge zuerst ein Kind hinzu.');
+                return;
+            }
+            if (children.length === 1) {
+                const c = children[0];
+                showInviteGuardianModal(c.id, `${c.first_name} ${c.last_name}`);
+            } else {
+                // Let parent pick which child
+                const names = children.map((c, i) => `${i + 1}. ${c.first_name} ${c.last_name}`).join('\n');
+                const choice = prompt(`Für welches Kind?\n\n${names}\n\nBitte Nummer eingeben:`);
+                const idx = parseInt(choice) - 1;
+                if (idx >= 0 && idx < children.length) {
+                    const c = children[idx];
+                    showInviteGuardianModal(c.id, `${c.first_name} ${c.last_name}`);
+                }
+            }
+        });
     }
 
     // Add Child Modal events
