@@ -5,7 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { t } from './i18n.js';
-import { uploadToR2, deleteFromR2, getR2PublicUrl, storageGetPublicUrl } from './r2-storage.js';
+import { uploadToR2, deleteFromR2, getR2PublicUrl, getMediaUrlWithFallback } from './r2-storage.js';
 import { shouldCompressVideo, showCompressionDialog, compressVideo, showCompressionProgress, isCompressionAvailable } from './video-compressor.js';
 import { compressImage } from './image-compressor.js';
 
@@ -684,21 +684,30 @@ function displayCurrentMedia() {
 
     const media = currentGalleryMedia[currentGalleryIndex];
 
-    // URL bestimmen: Bei Posts direkt URL, bei Matches aus R2
-    let publicUrl;
+    // URL bestimmen: Bei Posts direkt URL, bei Matches aus R2 (mit Supabase-Fallback)
+    let publicUrl, fallbackUrl;
     if (galleryMode === 'post') {
         publicUrl = media.url;
+        fallbackUrl = null;
     } else {
-        publicUrl = getR2PublicUrl(`match-media/${media.file_path}`);
+        const urls = getMediaUrlWithFallback('match-media', media.file_path);
+        publicUrl = urls.primaryUrl;
+        fallbackUrl = urls.fallbackUrl;
     }
 
     if (media.file_type === 'photo') {
+        const fallbackAttr = fallbackUrl
+            ? `onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${fallbackUrl}'}"`
+            : '';
         content.innerHTML = `
-            <img src="${publicUrl}" alt="Media" class="max-w-full max-h-full object-contain select-none" draggable="false">
+            <img src="${publicUrl}" alt="Media" class="max-w-full max-h-full object-contain select-none" draggable="false" ${fallbackAttr}>
         `;
     } else {
+        const fallbackAttr = fallbackUrl
+            ? `onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.querySelector('source').src='${fallbackUrl}';this.load()}"`
+            : '';
         content.innerHTML = `
-            <video controls playsinline class="max-w-full max-h-full">
+            <video controls playsinline class="max-w-full max-h-full" ${fallbackAttr}>
                 <source src="${publicUrl}" type="${media.mime_type || 'video/mp4'}">
             </video>
         `;
