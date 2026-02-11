@@ -64,6 +64,7 @@ BEGIN
             WHEN 'points_deducted' THEN 'points_awarded'
             WHEN 'ranking_change' THEN 'ranking_changes'
             WHEN 'training_reminder' THEN 'training_reminders'
+            WHEN 'event_reminder' THEN 'training_reminders'
             ELSE NULL
         END;
 

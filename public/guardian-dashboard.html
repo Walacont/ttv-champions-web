@@ -92,9 +92,8 @@
                         <i class="fas fa-arrow-left text-lg"></i>
                     </a>
                     <h1 id="header-title" class="text-base font-semibold text-gray-900" data-i18n="guardian.dashboard">Eltern-Dashboard</h1>
-                    <button id="add-child-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors p-1" title="Kind hinzufügen" data-i18n="[title]guardian.addChild">
-                        <i class="fas fa-plus text-lg"></i>
-                    </button>
+                    <!-- Spacer to keep header title centered -->
+                    <div class="p-1 w-7"></div>
                 </div>
             </header>
 
@@ -133,6 +132,11 @@
                             <i class="fas fa-cog w-5 text-center"></i>
                             <span data-i18n="nav.settings">Einstellungen</span>
                         </a>
+                        <!-- Invite Guardian -->
+                        <button id="menu-invite-guardian-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-user-friends w-5 text-center"></i>
+                            <span>Vormund einladen</span>
+                        </button>
                         <!-- FAQ -->
                         <a href="/guardian-faq.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100">
                             <i class="fas fa-question-circle w-5 text-center"></i>
@@ -167,26 +171,38 @@
             </div>
 
             <!-- Content with top padding for fixed header -->
-            <div class="container mx-auto px-4 pt-16 pb-6 max-w-4xl">
+            <div class="container mx-auto px-4 pt-14 pb-6 max-w-lg">
+                <!-- Welcome Section -->
+                <div id="guardian-welcome" class="py-4">
+                    <p id="guardian-greeting" class="text-lg font-semibold text-gray-900">Hallo!</p>
+                    <p class="text-sm text-gray-500 mt-0.5">Hier siehst du alles Wichtige auf einen Blick.</p>
+                </div>
+
                 <!-- Children List -->
-                <div id="children-list" class="space-y-3">
+                <div id="children-list" class="space-y-4">
                     <!-- Loading state -->
-                    <div class="bg-white rounded-lg p-6 text-center text-gray-500">
-                        <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
-                        <p data-i18n="common.loading">Lade...</p>
+                    <div class="bg-white rounded-xl p-8 text-center text-gray-400 border border-gray-100">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-3"></i>
+                        <p class="text-sm" data-i18n="common.loading">Lade...</p>
                     </div>
                 </div>
 
                 <!-- Empty State (hidden by default) -->
-                <div id="no-children-message" class="hidden bg-white rounded-lg p-6 text-center">
-                    <p class="text-gray-600 mb-4" data-i18n="guardian.noChildrenYet">Noch keine Kinder verknüpft</p>
-                    <a
-                        href="/guardian-onboarding.html"
-                        class="inline-flex items-center gap-2 bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm"
-                    >
-                        <i class="fas fa-plus"></i>
-                        <span data-i18n="guardian.addChild">Kind hinzufügen</span>
-                    </a>
+                <div id="no-children-message" class="hidden">
+                    <div class="bg-white rounded-xl p-8 text-center border border-gray-100">
+                        <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-child text-2xl text-indigo-400"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Noch keine Kinder verknüpft</h3>
+                        <p class="text-sm text-gray-500 mb-5">Füge dein Kind hinzu, um Events, Aktivitäten und mehr zu sehen.</p>
+                        <a
+                            href="/guardian-onboarding.html"
+                            class="inline-flex items-center gap-2 bg-indigo-600 text-white font-semibold py-2.5 px-5 rounded-xl hover:bg-indigo-700 transition text-sm shadow-sm"
+                        >
+                            <i class="fas fa-plus"></i>
+                            <span data-i18n="guardian.addChild">Kind hinzufügen</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -550,7 +566,7 @@
                         <i class="fas fa-user-plus text-2xl text-purple-600"></i>
                     </div>
                     <h2 class="text-xl font-bold text-gray-900" data-i18n="guardian.inviteGuardian">Vormund einladen</h2>
-                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1">für Max Mustermann</p>
+                    <p id="invite-guardian-child-name" class="text-gray-600 text-sm mt-1"></p>
                 </div>
 
                 <div id="invite-guardian-loading" class="text-center py-4">
@@ -562,8 +578,8 @@
                         Teile diesen Code mit dem anderen Vormund (z.B. Partner).
                         Der Vormund muss sich registrieren und den Code eingeben.
                     </p>
-                    <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
-                        <p id="invite-guardian-code" class="text-2xl font-mono font-bold text-purple-600 tracking-wider"></p>
+                    <div id="invite-guardian-codes" class="space-y-2 mb-4">
+                        <!-- Codes will be inserted here by JS -->
                     </div>
                     <p class="text-sm text-gray-600 text-center mb-4">
                         <i class="fas fa-clock mr-1"></i>

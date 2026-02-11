@@ -198,6 +198,15 @@ class TableTennisExerciseBuilder {
         ctx.moveTo(tableX, netY);
         ctx.lineTo(tableX + tableWidth, netY);
         ctx.stroke();
+
+        // Draw watermark
+        ctx.save();
+        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('www.sc-champions.de', tableX + tableWidth - 6, tableY + tableHeight - 6);
+        ctx.restore();
     }
 
     getPositionCoords(position, isPlayerA, previousStepWasShort = false) {

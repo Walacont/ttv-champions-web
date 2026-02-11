@@ -97,7 +97,7 @@ const inviteGuardianModal = document.getElementById('invite-guardian-modal');
 const inviteGuardianChildName = document.getElementById('invite-guardian-child-name');
 const inviteGuardianLoading = document.getElementById('invite-guardian-loading');
 const inviteGuardianDisplay = document.getElementById('invite-guardian-display');
-const inviteGuardianCode = document.getElementById('invite-guardian-code');
+const inviteGuardianCodes = document.getElementById('invite-guardian-codes');
 const inviteGuardianValidity = document.getElementById('invite-guardian-validity');
 const inviteGuardianError = document.getElementById('invite-guardian-error');
 const inviteGuardianErrorText = document.getElementById('invite-guardian-error-text');
@@ -178,6 +178,9 @@ async function initializeWithUser(user) {
         // Setup event listeners
         setupEventListeners();
 
+        // Setup realtime subscriptions for event invitation changes
+        setupRealtimeSubscriptions();
+
         // Show main content
         pageLoader.classList.add('hidden');
         mainContent.classList.remove('hidden');
@@ -190,6 +193,81 @@ async function initializeWithUser(user) {
                 <a href="/index.html" class="text-indigo-600 underline mt-2 block">Zur Startseite</a>
             </div>
         `;
+    }
+}
+
+// Realtime subscriptions for live updates
+let realtimeChannel = null;
+let realtimeDebounce = null;
+
+function setupRealtimeSubscriptions() {
+    // Clean up existing subscription
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
+
+    // Get all child IDs to watch
+    const childIds = children.map(c => c.id);
+    if (childIds.length === 0) return;
+
+    // Subscribe to event_invitations changes for all children
+    realtimeChannel = supabase
+        .channel('guardian_event_invitations')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'event_invitations'
+        }, (payload) => {
+            // Only reload if the change is for one of our children
+            const userId = payload.new?.user_id || payload.old?.user_id;
+            if (!userId || !childIds.includes(userId)) return;
+
+            console.log('[GUARDIAN-DASHBOARD] Realtime: invitation changed for child', userId);
+
+            // Debounce to avoid rapid reloads
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => {
+                reloadChildEvents(userId);
+            }, 1500);
+        })
+        .subscribe();
+}
+
+// Reload events for a single child without full page reload
+async function reloadChildEvents(childId) {
+    const child = children.find(c => c.id === childId);
+    if (!child) return;
+
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: eventInvitations, error } = await supabase
+            .from('event_invitations')
+            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, start_time, end_time, location, cancelled)')
+            .eq('user_id', childId);
+
+        if (error) {
+            console.error('[GUARDIAN-DASHBOARD] Realtime reload error:', error);
+            return;
+        }
+
+        const upcomingEvents = (eventInvitations || [])
+            .filter(inv => {
+                if (!inv.events) return false;
+                if (inv.events.cancelled) return false;
+                const displayDate = inv.occurrence_date || inv.events.start_date;
+                return displayDate >= today;
+            })
+            .sort((a, b) => {
+                const dateA = a.occurrence_date || a.events.start_date;
+                const dateB = b.occurrence_date || b.events.start_date;
+                return dateA.localeCompare(dateB);
+            });
+
+        child.upcomingEvents = upcomingEvents.slice(0, 10);
+        renderChildren();
+        console.log('[GUARDIAN-DASHBOARD] Realtime: updated events for child', childId);
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Realtime reload failed:', err);
     }
 }
 
@@ -253,31 +331,61 @@ async function loadChildren() {
 // Load stats and recent activity for a child
 async function loadChildStats(child) {
     try {
-        // Load match stats
-        const { data: matches } = await supabase
-            .from('matches')
-            .select('id, winner_id, created_at, player_a_id, player_b_id')
-            .or(`player_a_id.eq.${child.id},player_b_id.eq.${child.id}`)
-            .order('created_at', { ascending: false })
-            .limit(10);
+        // Load season points from user_sport_stats (preferred) or profiles.points (fallback)
+        const sportId = child.sport_id;
+        if (sportId) {
+            const { data: sportStats } = await supabase
+                .from('user_sport_stats')
+                .select('points, elo_rating, xp, wins, losses, matches_played')
+                .eq('user_id', child.id)
+                .eq('sport_id', sportId)
+                .single();
 
-        if (matches) {
-            child.totalMatches = matches.length;
-            child.wins = matches.filter(m => m.winner_id === child.id).length;
-            child.recentMatches = matches.slice(0, 5);
-        } else {
-            child.totalMatches = 0;
-            child.wins = 0;
-            child.recentMatches = [];
+            if (sportStats) {
+                child.points = sportStats.points || 0;
+                child.elo_rating = sportStats.elo_rating || child.elo_rating || 800;
+                child.xp = sportStats.xp || child.xp || 0;
+                child.totalMatches = sportStats.matches_played || 0;
+                child.wins = sportStats.wins || 0;
+            }
         }
 
-        // Load points history
+        // Fallback: if no sport-specific stats, load from profiles
+        if (child.points === undefined || child.points === null) {
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('points')
+                .eq('id', child.id)
+                .single();
+
+            child.points = profileData?.points || 0;
+        }
+
+        // Load match stats (only if not already set from sport stats)
+        if (child.totalMatches === undefined) {
+            const { data: matches } = await supabase
+                .from('matches')
+                .select('id, winner_id, created_at, player_a_id, player_b_id')
+                .or(`player_a_id.eq.${child.id},player_b_id.eq.${child.id}`)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (matches) {
+                child.totalMatches = matches.length;
+                child.wins = matches.filter(m => m.winner_id === child.id).length;
+            } else {
+                child.totalMatches = 0;
+                child.wins = 0;
+            }
+        }
+
+        // Load points history (only 3 initially, more loaded on demand)
         const { data: pointsHistory } = await supabase
             .from('points_history')
             .select('*')
             .eq('user_id', child.id)
             .order('timestamp', { ascending: false })
-            .limit(10);
+            .limit(3);
 
         child.pointsHistory = pointsHistory || [];
 
@@ -299,24 +407,36 @@ async function loadChildStats(child) {
 
         // Load upcoming event invitations for child
         const today = new Date().toISOString().split('T')[0];
-        const { data: eventInvitations } = await supabase
+        const { data: eventInvitations, error: evErr } = await supabase
             .from('event_invitations')
-            .select('id, status, event_id, events(id, title, event_category, start_date, end_date, start_time, end_time, meeting_time, location, description, created_by, cancelled)')
-            .eq('user_id', child.id)
-            .or('cancelled.eq.false,cancelled.is.null', { foreignTable: 'events' });
+            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, start_time, end_time, location, cancelled)')
+            .eq('user_id', child.id);
 
-        // Filter to upcoming events only (start_date >= today)
+        if (evErr) {
+            console.error('[GUARDIAN-DASHBOARD] Error loading event invitations for child:', child.id, evErr);
+        }
+
+        // Filter to upcoming events only, use occurrence_date if available
         const upcomingEvents = (eventInvitations || [])
-            .filter(inv => inv.events && inv.events.start_date >= today && !inv.events.cancelled)
-            .sort((a, b) => a.events.start_date.localeCompare(b.events.start_date));
+            .filter(inv => {
+                if (!inv.events) return false;
+                if (inv.events.cancelled) return false;
+                const displayDate = inv.occurrence_date || inv.events.start_date;
+                return displayDate >= today;
+            })
+            .sort((a, b) => {
+                const dateA = a.occurrence_date || a.events.start_date;
+                const dateB = b.occurrence_date || b.events.start_date;
+                return dateA.localeCompare(dateB);
+            });
 
         child.upcomingEvents = upcomingEvents.slice(0, 10);
 
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error loading child stats:', err);
-        child.totalMatches = 0;
-        child.wins = 0;
-        child.recentMatches = [];
+        child.points = child.points || 0;
+        child.totalMatches = child.totalMatches || 0;
+        child.wins = child.wins || 0;
         child.pointsHistory = [];
         child.notifications = [];
         child.videos = [];
@@ -354,6 +474,17 @@ function getNotificationIcon(type) {
     return icons[type] || 'fas fa-bell';
 }
 
+// Toggle a guardian section (for collapsible areas)
+window.toggleGuardianSection = function(sectionId) {
+    const content = document.getElementById(`gsec-content-${sectionId}`);
+    const chevron = document.getElementById(`gsec-chevron-${sectionId}`);
+    if (content && chevron) {
+        const isHidden = content.classList.contains('hidden');
+        content.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+    }
+};
+
 // Render children list
 function renderChildren() {
     if (children.length === 0) {
@@ -365,258 +496,458 @@ function renderChildren() {
     childrenList.classList.remove('hidden');
     noChildrenMessage.classList.add('hidden');
 
+    // Update greeting
+    const greetingEl = document.getElementById('guardian-greeting');
+    if (greetingEl && currentProfile) {
+        const hour = new Date().getHours();
+        const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
+        const name = currentProfile.first_name || currentProfile.display_name || '';
+        greetingEl.textContent = name ? `${greeting}, ${name}!` : `${greeting}!`;
+    }
+
     childrenList.innerHTML = children.map(child => {
         const age = child.age || calculateAge(child.birthdate);
         const avatarUrl = child.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(child.first_name || 'K')}&background=6366f1&color=fff`;
+        const childSafeFirst = escapeHtml(child.first_name || '');
+        const childSafeLast = escapeHtml(child.last_name || '');
+        const childFullName = `${childSafeFirst} ${childSafeLast}`.trim();
 
-        // Format points history
-        let pointsHistoryHtml = '';
-        if (child.pointsHistory && child.pointsHistory.length > 0) {
-            pointsHistoryHtml = child.pointsHistory.slice(0, 5).map(entry => {
-                const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                const reason = entry.reason || entry.description || 'Punkte';
-                const points = entry.points || 0;
-                const xp = entry.xp !== undefined ? entry.xp : points;
-                const elo = entry.elo_change || 0;
+        // Calculate badges for attention items
+        const pendingEvents = (child.upcomingEvents || []).filter(i => i.status === 'pending');
+        const unreadNotifs = (child.notifications || []).filter(n => !n.is_read);
+        const hasCredentials = child.username && child.has_pin;
 
-                return `
-                    <div class="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                        <div class="flex-1 min-w-0">
-                            <span class="text-gray-700 text-xs">${escapeHtml(reason)}</span>
-                            <span class="text-[10px] text-gray-400 ml-1">${date}</span>
-                        </div>
-                        <div class="flex gap-2 text-[10px] flex-shrink-0">
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">Elo</div>
-                                <div class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</div>
-                            </div>
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">XP</div>
-                                <div class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp}</div>
-                            </div>
-                            <div class="text-center min-w-[28px]">
-                                <div class="text-gray-400 leading-tight">Pkt</div>
-                                <div class="${getColorClass(points)} font-semibold">${getSign(points)}${points}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            pointsHistoryHtml = '<p class="text-xs text-gray-400 py-2">Keine Einträge</p>';
-        }
+        // --- Events section ---
+        const eventsHtml = buildEventsSection(child, pendingEvents);
 
-        // Format notifications
-        let notificationsHtml = '';
-        const unreadCount = (child.notifications || []).filter(n => !n.is_read).length;
-        if (child.notifications && child.notifications.length > 0) {
-            notificationsHtml = child.notifications.slice(0, 5).map(notif => {
-                const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                const isUnread = !notif.is_read;
-                const icon = getNotificationIcon(notif.type);
+        // --- Stats section ---
+        const statsHtml = buildStatsSection(child);
 
-                return `
-                    <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0 ${isUnread ? 'bg-indigo-50 -mx-2 px-2 rounded' : ''}" data-notification-id="${notif.id}">
-                        <i class="${icon} text-xs mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-400'}"></i>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-700'}">${escapeHtml(notif.title || '')}</p>
-                            <p class="text-[10px] text-gray-500 line-clamp-2">${escapeHtml(notif.message || '')}</p>
-                            <p class="text-[10px] text-gray-400">${date}</p>
-                        </div>
-                        <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-400 hover:text-red-500 p-1 -mr-1" title="Löschen">
-                            <i class="fas fa-times text-xs"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            notificationsHtml = '<p class="text-xs text-gray-400 py-2">Keine Mitteilungen</p>';
+        // --- Notifications section ---
+        const notificationsHtml = buildNotificationsSection(child, unreadNotifs);
+
+        // --- Videos section ---
+        const videosHtml = buildVideosSection(child);
+
+        // --- Attention bar (pending events / missing credentials) ---
+        let attentionHtml = '';
+        if (pendingEvents.length > 0 || !hasCredentials) {
+            const items = [];
+            if (pendingEvents.length > 0) {
+                items.push(`<span class="text-orange-700"><i class="fas fa-bell mr-1"></i>${pendingEvents.length} ${pendingEvents.length === 1 ? 'Termin wartet auf Antwort' : 'Termine warten auf Antwort'}</span>`);
+            }
+            if (!hasCredentials) {
+                items.push(`<span class="text-blue-600"><i class="fas fa-key mr-1"></i>Login-Daten noch nicht eingerichtet</span>`);
+            }
+            attentionHtml = `
+                <div class="px-4 py-2.5 bg-amber-50 border-b border-amber-100 space-y-1">
+                    ${items.map(i => `<p class="text-xs font-medium">${i}</p>`).join('')}
+                </div>`;
         }
 
         return `
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <!-- Header with basic info -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <!-- Child Header -->
                 <div class="p-4">
                     <div class="flex items-center gap-3">
-                        <img
-                            src="${escapeHtml(avatarUrl)}"
-                            alt="${escapeHtml(child.first_name)}"
-                            class="w-12 h-12 rounded-full object-cover"
-                        />
+                        <img src="${escapeHtml(avatarUrl)}" alt="${childSafeFirst}" class="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100" />
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-gray-900 truncate">
-                                ${escapeHtml(child.first_name || '')} ${escapeHtml(child.last_name || '')}
-                            </h3>
-                            <p class="text-sm text-gray-500">${age} Jahre</p>
+                            <h3 class="font-semibold text-gray-900 text-[15px] truncate">${childFullName}</h3>
+                            <p class="text-xs text-gray-400">${age} Jahre</p>
                         </div>
-                        <a
-                            href="/settings.html?child_id=${child.id}"
-                            class="text-gray-500 hover:text-gray-700 p-2"
-                            title="Einstellungen für ${escapeHtml(child.first_name)}"
-                        >
-                            <i class="fas fa-cog"></i>
-                        </a>
-                        <button
-                            onclick="showCredentialsModal('${child.id}', '${escapeHtml(child.first_name)}', '${child.username || ''}')"
-                            class="${child.username && child.has_pin ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'} p-2"
-                            title="${child.username && child.has_pin ? 'Zugangsdaten ändern' : 'Zugangsdaten einrichten'}"
-                        >
-                            <i class="fas ${child.username && child.has_pin ? 'fa-check-circle' : 'fa-user-lock'}"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Stats -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <div class="grid grid-cols-4 gap-2 text-center text-xs">
-                        <div>
-                            <p class="font-bold text-gray-900">${child.elo_rating || 800}</p>
-                            <p class="text-gray-500">Elo</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-gray-900">${child.xp || 0}</p>
-                            <p class="text-gray-500">XP</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-gray-900">${child.totalMatches || 0}</p>
-                            <p class="text-gray-500">Spiele</p>
-                        </div>
-                        <div>
-                            <p class="font-bold text-green-600">${child.wins || 0}</p>
-                            <p class="text-gray-500">Siege</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Upcoming Events -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
-                        <i class="fas fa-calendar text-indigo-500"></i>
-                        Anstehende Veranstaltungen
-                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.length}</span>` : ''}
-                    </p>
-                    <div class="max-h-48 overflow-y-auto">
-                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? child.upcomingEvents.map(inv => {
-                            const ev = inv.events;
-                            const date = new Date(ev.start_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                            const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
-                            const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
-                            const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
-                            const statusColors = { accepted: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', pending: 'bg-yellow-100 text-yellow-700' };
-                            const statusLabels = { accepted: 'Zugesagt', rejected: 'Abgesagt', pending: 'Offen' };
-                            const statusClass = statusColors[inv.status] || statusColors.pending;
-                            const statusLabel = statusLabels[inv.status] || 'Offen';
-                            return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
-                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                        <i class="fas ${categoryIcon} text-indigo-500 text-xs"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-700 font-medium truncate">${escapeHtml(ev.title)}</p>
-                                        <div class="flex items-center gap-2 text-[10px] text-gray-400">
-                                            <span>${date}</span>
-                                            ${timeStr ? `<span>${timeStr} Uhr</span>` : ''}
-                                            ${ev.location ? `<span class="truncate">${escapeHtml(ev.location)}</span>` : ''}
-                                        </div>
-                                    </div>
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusLabel}</span>
-                                </div>
-                            `;
-                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine anstehenden Veranstaltungen</p>'}
-                    </div>
-                </div>
-
-                <!-- Points History -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium">Punkte-Historie</p>
-                    <div class="max-h-40 overflow-y-auto">
-                        ${pointsHistoryHtml}
-                    </div>
-                </div>
-
-                <!-- Notifications -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <div class="flex items-center justify-between mb-1">
-                        <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
-                            Mitteilungen
-                            ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">${unreadCount}</span>` : ''}
-                        </p>
-                        ${child.notifications && child.notifications.length > 0 ? `
-                            <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500" title="Alle löschen">
-                                <i class="fas fa-trash-alt mr-1"></i>Alle löschen
+                        <div class="flex items-center gap-1">
+                            <button onclick="showCredentialsModal('${child.id}', '${childSafeFirst}', '${child.username || ''}')"
+                                class="${hasCredentials ? 'text-green-500' : 'text-blue-500'} hover:bg-gray-100 rounded-lg p-2 transition-colors"
+                                title="${hasCredentials ? 'Zugangsdaten ändern' : 'Zugangsdaten einrichten'}">
+                                <i class="fas ${hasCredentials ? 'fa-check-circle' : 'fa-key'} text-sm"></i>
                             </button>
-                        ` : ''}
-                    </div>
-                    <div class="max-h-40 overflow-y-auto">
-                        ${notificationsHtml}
-                    </div>
-                </div>
-
-                <!-- Video Analysen -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
-                        <i class="fas fa-video text-indigo-500"></i>
-                        Videoanalysen
-                        ${child.videos && child.videos.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.videos.length}</span>` : ''}
-                    </p>
-                    <div class="max-h-48 overflow-y-auto">
-                        ${child.videos && child.videos.length > 0 ? child.videos.map(video => {
-                            const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                            const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-                            const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Ausstehend';
-                            const title = video.title || video.exercise_name || 'Video';
-                            const thumbnailUrl = video.thumbnail_url || '';
-                            return `
-                                <div class="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
-                                    ${thumbnailUrl ? `
-                                        <div class="w-12 h-8 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
-                                            <img src="${escapeHtml(thumbnailUrl)}" alt="" class="w-full h-full object-cover">
-                                            <div class="absolute inset-0 flex items-center justify-center bg-black/30">
-                                                <i class="fas fa-play text-white text-[8px]"></i>
-                                            </div>
-                                        </div>
-                                    ` : `
-                                        <div class="w-12 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                            <i class="fas fa-play text-gray-400 text-xs"></i>
-                                        </div>
-                                    `}
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-700 truncate">${escapeHtml(title)}</p>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] text-gray-400">${date}</span>
-                                            ${video.uploader_name ? `<span class="text-[10px] text-gray-400">von ${escapeHtml(video.uploader_name)}</span>` : ''}
-                                        </div>
-                                    </div>
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
-                                    ${video.comment_count > 0 ? `<span class="text-[10px] text-gray-400 flex-shrink-0"><i class="fas fa-comment text-xs"></i> ${video.comment_count}</span>` : ''}
-                                </div>
-                            `;
-                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine Videoanalysen</p>'}
+                            <a href="/settings.html?child_id=${child.id}" class="text-gray-400 hover:bg-gray-100 rounded-lg p-2 transition-colors" title="Einstellungen">
+                                <i class="fas fa-cog text-sm"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
-                    <button
-                        onclick="showInviteGuardianModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
-                        class="w-full bg-purple-100 text-purple-700 text-xs font-medium py-2 px-3 rounded-lg hover:bg-purple-200 transition-colors"
-                    >
-                        <i class="fas fa-user-plus mr-1"></i>
-                        Weiteren Vormund einladen
+                ${attentionHtml}
+
+                <!-- Sections -->
+                <div class="divide-y divide-gray-100">
+                    ${eventsHtml}
+                    ${statsHtml}
+                    ${notificationsHtml}
+                    ${videosHtml}
+                </div>
+
+                ${age >= 16 ? `
+                <!-- Quick Actions -->
+                <div class="px-4 py-3 bg-gray-50">
+                    <button onclick="showUpgradeModal('${child.id}', '${childFullName}')"
+                        class="w-full text-[11px] text-teal-700 font-medium py-1.5 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 transition-colors text-center">
+                        <i class="fas fa-graduation-cap mr-1"></i>Eigenen Account erstellen (16+)
                     </button>
-                    ${age >= 16 ? `
-                        <button
-                            onclick="showUpgradeModal('${child.id}', '${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}')"
-                            class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white text-xs font-medium py-2 px-3 rounded-lg hover:from-green-600 hover:to-teal-600 transition-colors"
-                        >
-                            <i class="fas fa-graduation-cap mr-1"></i>
-                            Eigenen Account erstellen (16+)
-                        </button>
-                    ` : ''}
                 </div>
+                ` : ''}
             </div>
         `;
     }).join('');
+}
+
+// Build events section for a child card
+function buildEventsSection(child, pendingEvents) {
+    const events = child.upcomingEvents || [];
+    const acceptedEvents = events.filter(i => i.status === 'accepted');
+    const rejectedEvents = events.filter(i => i.status === 'rejected');
+
+    const categoryLabels = { training: 'Training', competition: 'Wettkampf', meeting: 'Besprechung', social: 'Vereins-Event', other: 'Termin' };
+    const categoryColors = { training: 'bg-blue-100 text-blue-700', competition: 'bg-amber-100 text-amber-700', meeting: 'bg-purple-100 text-purple-700', social: 'bg-pink-100 text-pink-700', other: 'bg-gray-100 text-gray-600' };
+
+    const renderEventCard = (inv) => {
+        const ev = inv.events;
+        const displayDate = inv.occurrence_date || ev.start_date;
+        const dateObj = new Date(displayDate + 'T12:00:00');
+        const dateNice = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+        const startTime = ev.start_time ? ev.start_time.slice(0, 5) : '';
+        const endTime = ev.end_time ? ev.end_time.slice(0, 5) : '';
+        const timeStr = endTime ? `${startTime} – ${endTime} Uhr` : (startTime ? `${startTime} Uhr` : '');
+        const catLabel = categoryLabels[ev.event_category] || 'Termin';
+        const catColor = categoryColors[ev.event_category] || categoryColors.other;
+
+        let statusHtml = '';
+        let actionsHtml = '';
+
+        if (inv.status === 'pending') {
+            actionsHtml = `
+                <div class="flex gap-2 mt-3">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')"
+                        class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                        Zusagen
+                    </button>
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')"
+                        class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                        Absagen
+                    </button>
+                </div>`;
+        } else if (inv.status === 'accepted') {
+            statusHtml = `<span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full"><i class="fas fa-check text-[10px]"></i>Zugesagt</span>`;
+            actionsHtml = `
+                <div class="mt-2">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')"
+                        class="text-xs text-red-500 hover:text-red-700 font-medium">Doch absagen</button>
+                </div>`;
+        } else {
+            statusHtml = `<span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full"><i class="fas fa-times text-[10px]"></i>Abgesagt</span>`;
+            actionsHtml = `
+                <div class="mt-2">
+                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')"
+                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Doch zusagen</button>
+                </div>`;
+        }
+
+        const isPending = inv.status === 'pending';
+
+        return `
+            <div class="${isPending ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'} border rounded-xl p-3" id="guardian-event-${inv.id}">
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${catColor}">${catLabel}</span>
+                    ${statusHtml}
+                </div>
+                <h4 class="font-semibold text-gray-900 text-sm leading-snug cursor-pointer hover:text-indigo-700 transition-colors" onclick="event.stopPropagation(); showGuardianEventDetail('${ev.id}')">
+                    ${escapeHtml(ev.title)}
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 ml-1"></i>
+                </h4>
+                <div class="mt-2 space-y-1">
+                    <p class="text-sm text-gray-600 flex items-center gap-2">
+                        <i class="far fa-calendar-alt text-gray-400 w-4 text-center"></i>
+                        ${dateNice}
+                    </p>
+                    ${timeStr ? `
+                        <p class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="far fa-clock text-gray-400 w-4 text-center"></i>
+                            ${timeStr}
+                        </p>
+                    ` : ''}
+                    ${ev.location ? `
+                        <p class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt text-gray-400 w-4 text-center"></i>
+                            ${escapeHtml(ev.location)}
+                        </p>
+                    ` : ''}
+                </div>
+                ${actionsHtml}
+            </div>`;
+    };
+
+    if (events.length === 0) {
+        return `
+            <div class="px-4 py-4">
+                <div class="flex items-center gap-3 text-gray-400">
+                    <i class="far fa-calendar text-lg"></i>
+                    <span class="text-sm">Keine anstehenden Termine</span>
+                </div>
+            </div>`;
+    }
+
+    let html = '';
+
+    // Pending events - always visible, prominent
+    if (pendingEvents.length > 0) {
+        html += `
+            <div class="px-4 py-3">
+                <p class="text-xs text-orange-600 font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-bell"></i>${pendingEvents.length} ${pendingEvents.length === 1 ? 'Termin braucht eine Antwort' : 'Termine brauchen eine Antwort'}
+                </p>
+                <div class="space-y-2">${pendingEvents.map(inv => renderEventCard(inv)).join('')}</div>
+            </div>`;
+    }
+
+    // Accepted events - visible but compact
+    if (acceptedEvents.length > 0) {
+        html += `
+            <div class="px-4 py-2">
+                <button onclick="toggleEventsSection('accepted-${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-accepted-${child.id}"></i>
+                    <span class="text-xs text-green-600 font-medium"><i class="fas fa-check mr-1"></i>${acceptedEvents.length} ${acceptedEvents.length === 1 ? 'Termin zugesagt' : 'Termine zugesagt'}</span>
+                </button>
+                <div class="hidden mt-2 space-y-2" id="events-list-accepted-${child.id}">
+                    ${acceptedEvents.map(inv => renderEventCard(inv)).join('')}
+                </div>
+            </div>`;
+    }
+
+    // Rejected events - collapsed
+    if (rejectedEvents.length > 0) {
+        html += `
+            <div class="px-4 py-2">
+                <button onclick="toggleEventsSection('rejected-${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
+                    <i class="fas fa-chevron-right text-[9px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-rejected-${child.id}"></i>
+                    <span class="text-xs text-gray-400 font-medium"><i class="fas fa-times mr-1"></i>${rejectedEvents.length} abgesagt</span>
+                </button>
+                <div class="hidden mt-2 space-y-2" id="events-list-rejected-${child.id}">
+                    ${rejectedEvents.map(inv => renderEventCard(inv)).join('')}
+                </div>
+            </div>`;
+    }
+
+    return html;
+}
+
+// Render a single history item (used by buildStatsSection and loadMoreHistory)
+function renderHistoryItem(entry) {
+    const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    const reason = entry.reason || entry.description || 'Punkte';
+    const points = entry.points || 0;
+    const xp = entry.xp !== undefined ? entry.xp : points;
+    const elo = entry.elo_change || 0;
+    return `
+        <div class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+            <div class="flex-1 min-w-0">
+                <span class="text-gray-600 text-[11px]">${escapeHtml(reason)}</span>
+                <span class="text-[10px] text-gray-400 ml-1">${date}</span>
+            </div>
+            <div class="flex gap-2 text-[10px] flex-shrink-0">
+                <span class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo} Elo</span>
+                <span class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp} XP</span>
+                <span class="${getColorClass(points)} font-semibold">${getSign(points)}${points} Pkt</span>
+            </div>
+        </div>`;
+}
+
+// Build stats section for a child card
+function buildStatsSection(child) {
+    const secId = `stats-${child.id}`;
+    const seasonPts = child.points || 0;
+    const historyCount = (child.pointsHistory || []).length;
+    const initialItems = 3;
+
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-chart-bar mr-1 text-indigo-400"></i>Statistiken</span>
+                <span class="ml-auto text-[11px] text-gray-400 font-medium">${seasonPts} Saison-Pkt · ${child.totalMatches || 0} Spiele</span>
+            </button>
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="flex gap-1.5 text-center mb-3">
+                    <div class="flex-1 min-w-0 bg-indigo-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-indigo-700">${seasonPts}</p>
+                        <p class="text-[10px] text-indigo-400">Saison</p>
+                    </div>
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.elo_rating || 800}</p>
+                        <p class="text-[10px] text-gray-400">Elo</p>
+                    </div>
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.xp || 0}</p>
+                        <p class="text-[10px] text-gray-400">XP</p>
+                    </div>
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-gray-900">${child.totalMatches || 0}</p>
+                        <p class="text-[10px] text-gray-400">Spiele</p>
+                    </div>
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
+                        <p class="text-sm font-bold text-green-600">${child.wins || 0}</p>
+                        <p class="text-[10px] text-gray-400">Siege</p>
+                    </div>
+                </div>
+                ${historyCount > 0 ? `
+                    <p class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Letzte Aktivitäten</p>
+                    <div id="history-list-${child.id}">
+                        ${child.pointsHistory.map(renderHistoryItem).join('')}
+                    </div>
+                    <button id="history-more-${child.id}" onclick="loadMoreHistory('${child.id}')"
+                        class="w-full text-center text-xs text-indigo-600 hover:text-indigo-800 font-medium py-2 mt-1">
+                        Ältere Einträge laden
+                    </button>
+                ` : '<p class="text-[11px] text-gray-400 py-1">Noch keine Aktivitäten</p>'}
+            </div>
+        </div>`;
+}
+
+// Lazy-load more points history for a child (updates DOM directly, no re-render)
+window.loadMoreHistory = async function(childId) {
+    const child = children.find(c => c.id === childId);
+    if (!child) return;
+
+    const listEl = document.getElementById(`history-list-${childId}`);
+    const btn = document.getElementById(`history-more-${childId}`) || document.querySelector(`#gsec-content-stats-${childId} button[onclick*="loadMoreHistory"]`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Lade...';
+    }
+
+    try {
+        const offset = (child.pointsHistory || []).length;
+        const { data: moreHistory, error } = await supabase
+            .from('points_history')
+            .select('*')
+            .eq('user_id', childId)
+            .order('timestamp', { ascending: false })
+            .range(offset, offset + 19);
+
+        if (error) throw error;
+
+        if (moreHistory && moreHistory.length > 0) {
+            child.pointsHistory = [...(child.pointsHistory || []), ...moreHistory];
+
+            // Append new items directly to the DOM
+            if (listEl) {
+                listEl.innerHTML = child.pointsHistory.map(renderHistoryItem).join('');
+            }
+        }
+
+        // Update or remove the "load more" button
+        if (btn) {
+            if (!moreHistory || moreHistory.length < 20) {
+                // No more data to load
+                btn.remove();
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Noch ältere Einträge laden';
+            }
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading more history:', err);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Fehler - nochmal versuchen';
+        }
+    }
+};
+
+// Build notifications section
+function buildNotificationsSection(child, unreadNotifs) {
+    const secId = `notifs-${child.id}`;
+    const notifCount = (child.notifications || []).length;
+    const unreadCount = unreadNotifs.length;
+
+    if (notifCount === 0 && unreadCount === 0) {
+        return '';
+    }
+
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-bell mr-1 text-indigo-400"></i>Mitteilungen</span>
+                ${unreadCount > 0 ? `<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">${unreadCount} neu</span>` : ''}
+                <span class="ml-auto text-[11px] text-gray-400">${notifCount}</span>
+            </button>
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="flex justify-end mb-1">
+                    <button onclick="clearAllNotifications('${child.id}')" class="text-[10px] text-gray-400 hover:text-red-500">
+                        <i class="fas fa-trash-alt mr-0.5"></i>Alle löschen
+                    </button>
+                </div>
+                <div class="max-h-48 overflow-y-auto space-y-1">
+                    ${child.notifications.slice(0, 10).map(notif => {
+                        const date = new Date(notif.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                        const isUnread = !notif.is_read;
+                        const icon = getNotificationIcon(notif.type);
+                        return `
+                            <div class="flex items-start gap-2 py-1.5 ${isUnread ? 'bg-indigo-50 rounded-lg px-2 -mx-1' : ''}">
+                                <i class="${icon} text-[10px] mt-0.5 ${isUnread ? 'text-indigo-600' : 'text-gray-300'} flex-shrink-0"></i>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[11px] ${isUnread ? 'text-gray-900 font-medium' : 'text-gray-600'} leading-snug">${escapeHtml(notif.title || '')}</p>
+                                    ${notif.message ? `<p class="text-[10px] text-gray-500 line-clamp-2 mt-0.5">${escapeHtml(notif.message)}</p>` : ''}
+                                    <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
+                                </div>
+                                <button onclick="deleteNotification('${notif.id}', '${child.id}')" class="text-gray-300 hover:text-red-500 p-0.5 flex-shrink-0" title="Löschen">
+                                    <i class="fas fa-times text-[10px]"></i>
+                                </button>
+                            </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
+}
+
+// Build videos section
+function buildVideosSection(child) {
+    const secId = `videos-${child.id}`;
+    const videoCount = (child.videos || []).length;
+
+    if (videoCount === 0) return '';
+
+    return `
+        <div class="px-4 py-2.5">
+            <button onclick="toggleGuardianSection('${secId}')" class="flex items-center gap-2 w-full text-left group">
+                <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="gsec-chevron-${secId}"></i>
+                <span class="text-[11px] text-gray-500 font-medium"><i class="fas fa-video mr-1 text-indigo-400"></i>Videoanalysen</span>
+                <span class="ml-auto text-[11px] text-gray-400">${videoCount}</span>
+            </button>
+            <div class="hidden mt-2" id="gsec-content-${secId}">
+                <div class="max-h-48 overflow-y-auto space-y-1">
+                    ${child.videos.map(video => {
+                        const date = new Date(video.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                        const statusClass = video.status === 'reviewed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+                        const statusText = video.status === 'reviewed' ? 'Bewertet' : 'Offen';
+                        const title = video.title || video.exercise_name || 'Video';
+                        const thumbUrl = video.thumbnail_url || '';
+                        return `
+                            <div class="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors" onclick="openVideoPlayer('${escapeHtml(video.video_url || '')}', '${escapeHtml(title)}', '${video.id}')">
+                                ${thumbUrl ? `
+                                    <div class="w-10 h-7 rounded overflow-hidden flex-shrink-0 bg-gray-100 relative">
+                                        <img src="${escapeHtml(thumbUrl)}" alt="" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 flex items-center justify-center bg-black/30">
+                                            <i class="fas fa-play text-white text-[7px]"></i>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="w-10 h-7 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-play text-gray-300 text-[10px]"></i>
+                                    </div>
+                                `}
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[11px] text-gray-700 truncate">${escapeHtml(title)}</p>
+                                    <span class="text-[10px] text-gray-400">${date}</span>
+                                </div>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusText}</span>
+                                ${video.comment_count > 0 ? `<span class="text-[10px] text-gray-400 flex-shrink-0"><i class="fas fa-comment text-[9px]"></i> ${video.comment_count}</span>` : ''}
+                            </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
 }
 
 // Delete a single notification
@@ -638,6 +969,256 @@ window.deleteNotification = async function(notificationId, childId) {
     } catch (err) {
         console.error('[GUARDIAN-DASHBOARD] Error deleting notification:', err);
         alert('Fehler beim Löschen der Mitteilung');
+    }
+};
+
+// Guardian responds to event invitation on behalf of child
+window.guardianRespondEvent = async function(invitationId, childId, status) {
+    try {
+        const btn = document.querySelector(`#guardian-event-${invitationId} button`);
+        if (btn) btn.disabled = true;
+
+        const { error } = await supabase
+            .from('event_invitations')
+            .update({
+                status,
+                response_at: new Date().toISOString(),
+                responded_by: currentUser.id
+            })
+            .eq('id', invitationId)
+            .eq('user_id', childId);
+
+        if (error) throw error;
+
+        // Lokalen State aktualisieren
+        const child = children.find(c => c.id === childId);
+        if (child && child.upcomingEvents) {
+            const inv = child.upcomingEvents.find(e => e.id === invitationId);
+            if (inv) inv.status = status;
+        }
+        renderChildren();
+
+        // Benachrichtigung an Event-Organisator senden
+        const { data: invitation } = await supabase
+            .from('event_invitations')
+            .select('event_id, events(title, start_date, organizer_id)')
+            .eq('id', invitationId)
+            .single();
+
+        if (invitation?.events?.organizer_id) {
+            const childData = children.find(c => c.id === childId);
+            const childName = childData ? `${childData.first_name} ${childData.last_name}` : 'Ein Spieler';
+            const formattedDate = new Date(invitation.events.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+                weekday: 'short', day: 'numeric', month: 'short'
+            });
+
+            await supabase.from('notifications').insert({
+                user_id: invitation.events.organizer_id,
+                type: status === 'accepted' ? 'event_response_accepted' : 'event_response_rejected',
+                title: status === 'accepted' ? 'Zusage erhalten' : 'Absage erhalten',
+                message: status === 'accepted'
+                    ? `${childName} hat für "${invitation.events.title}" am ${formattedDate} zugesagt (von Erziehungsberechtigtem)`
+                    : `${childName} hat für "${invitation.events.title}" am ${formattedDate} abgesagt (von Erziehungsberechtigtem)`,
+                data: {
+                    event_id: invitation.event_id,
+                    event_title: invitation.events.title,
+                    response_status: status,
+                    responded_by_guardian: true
+                },
+                is_read: false
+            });
+        }
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error responding to event:', err);
+        alert('Fehler beim Antworten auf die Veranstaltung. Bitte versuche es erneut.');
+        renderChildren();
+    }
+};
+
+// Show event detail modal for guardians (read-only, with comments)
+window.showGuardianEventDetail = async function(eventId) {
+    // Show loading overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'guardian-event-detail-modal';
+    overlay.className = 'fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-12';
+    overlay.innerHTML = '<div class="bg-white rounded-xl p-8 text-center"><i class="fas fa-spinner fa-spin text-xl text-indigo-600"></i></div>';
+    document.body.appendChild(overlay);
+
+    try {
+        // Load full event details
+        const { data: event, error } = await supabase
+            .from('events')
+            .select(`*, organizer:organizer_id (first_name, last_name)`)
+            .eq('id', eventId)
+            .single();
+
+        if (error) throw error;
+
+        // Load participants
+        const { data: participants } = await supabase
+            .from('event_invitations')
+            .select(`status, user:user_id (first_name, last_name)`)
+            .eq('event_id', eventId);
+
+        const accepted = (participants || []).filter(p => p.status === 'accepted');
+        const rejected = (participants || []).filter(p => p.status === 'rejected');
+        const pending = (participants || []).filter(p => p.status === 'pending');
+
+        // Load comments
+        let commentsHtml = '';
+        if (event.comments_enabled) {
+            const { data: comments } = await supabase
+                .from('event_comments')
+                .select(`id, content, created_at, user_id, profiles:user_id (first_name, last_name)`)
+                .eq('event_id', eventId)
+                .order('created_at', { ascending: true });
+
+            if (comments && comments.length > 0) {
+                commentsHtml = `
+                    <div class="border-t border-gray-100 pt-4">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Kommentare (${comments.length})</h3>
+                        <div class="space-y-3 max-h-48 overflow-y-auto">
+                            ${comments.map(c => {
+                                const name = c.profiles ? `${c.profiles.first_name} ${c.profiles.last_name}` : 'Unbekannt';
+                                const time = new Date(c.created_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                                return `
+                                    <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                        <div class="flex items-center gap-2 mb-0.5">
+                                            <span class="text-xs font-semibold text-gray-700">${escapeHtml(name)}</span>
+                                            <span class="text-[10px] text-gray-400">${time}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-700">${escapeHtml(c.content)}</p>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+            } else {
+                commentsHtml = `
+                    <div class="border-t border-gray-100 pt-4">
+                        <p class="text-sm text-gray-400 text-center py-2">Noch keine Kommentare</p>
+                    </div>`;
+            }
+        }
+
+        // Format date nicely
+        const [year, month, day] = event.start_date.split('-');
+        const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
+        const dateDisplay = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+        const startTime = event.start_time?.slice(0, 5) || '';
+        const endTime = event.end_time?.slice(0, 5) || '';
+        const meetingTime = event.meeting_time?.slice(0, 5) || '';
+
+        const categoryLabels = { training: 'Training', competition: 'Wettkampf', meeting: 'Besprechung', social: 'Vereins-Event', other: 'Termin' };
+        const catLabel = categoryLabels[event.event_category] || 'Termin';
+
+        overlay.innerHTML = `
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs text-indigo-200 font-medium">${catLabel}</span>
+                            <h2 class="text-lg font-bold text-white mt-0.5">${escapeHtml(event.title)}</h2>
+                            <p class="text-indigo-200 text-sm mt-1">${dateDisplay}</p>
+                        </div>
+                        <button id="close-guardian-event-detail" class="text-white/80 hover:text-white p-1">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-5">
+                    ${event.description ? `
+                        <div>
+                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Beschreibung</h3>
+                            <p class="text-sm text-gray-700">${escapeHtml(event.description)}</p>
+                        </div>
+                    ` : ''}
+
+                    <!-- Details -->
+                    <div class="space-y-2.5">
+                        <div class="flex items-center gap-3 text-sm text-gray-700">
+                            <i class="far fa-clock text-gray-400 w-5 text-center"></i>
+                            <div>
+                                <p class="font-medium">${startTime}${endTime ? ` – ${endTime}` : ''} Uhr</p>
+                                ${meetingTime ? `<p class="text-xs text-gray-500">Treffpunkt: ${meetingTime} Uhr</p>` : ''}
+                            </div>
+                        </div>
+                        ${event.location ? `
+                            <div class="flex items-center gap-3 text-sm text-gray-700">
+                                <i class="fas fa-map-marker-alt text-gray-400 w-5 text-center"></i>
+                                <p class="font-medium">${escapeHtml(event.location)}</p>
+                            </div>
+                        ` : ''}
+                        ${event.organizer ? `
+                            <div class="flex items-center gap-3 text-sm text-gray-700">
+                                <i class="fas fa-user text-gray-400 w-5 text-center"></i>
+                                <p>Organisiert von <span class="font-medium">${escapeHtml(event.organizer.first_name)} ${escapeHtml(event.organizer.last_name)}</span></p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Participants -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                            Teilnehmer (${accepted.length}${event.max_participants ? ` von ${event.max_participants}` : ''})
+                        </h3>
+                        ${accepted.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-[11px] font-medium text-green-600 mb-1.5"><i class="fas fa-check mr-1"></i>Zugesagt (${accepted.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${accepted.map(p => `<span class="px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${rejected.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-[11px] font-medium text-red-500 mb-1.5"><i class="fas fa-times mr-1"></i>Abgesagt (${rejected.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${rejected.map(p => `<span class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${pending.length > 0 ? `
+                            <div>
+                                <p class="text-[11px] font-medium text-gray-500 mb-1.5"><i class="fas fa-clock mr-1"></i>Ausstehend (${pending.length})</p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${pending.map(p => `<span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">${escapeHtml(p.user?.first_name || '')} ${escapeHtml(p.user?.last_name || '')}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${commentsHtml}
+                </div>
+            </div>
+        `;
+
+        // Close handlers
+        document.getElementById('close-guardian-event-detail').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
+        document.addEventListener('keydown', escHandler);
+
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Error loading event details:', err);
+        overlay.innerHTML = `
+            <div class="bg-white rounded-xl p-6 text-center max-w-sm">
+                <p class="text-red-600 mb-3">Fehler beim Laden der Details</p>
+                <button onclick="this.closest('.fixed').remove()" class="text-sm text-indigo-600 hover:text-indigo-800">Schließen</button>
+            </div>`;
+    }
+};
+
+// Toggle collapsed events section for a child
+window.toggleEventsSection = function(childId) {
+    const list = document.getElementById(`events-list-${childId}`);
+    const chevron = document.getElementById(`events-chevron-${childId}`);
+    if (list && chevron) {
+        const isHidden = list.classList.contains('hidden');
+        list.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
     }
 };
 
@@ -1134,37 +1715,51 @@ function showManualChildError(message) {
 // Invite Guardian Modal Functions
 // =====================================================
 
-async function showInviteGuardianModal(childId, childName) {
-    inviteGuardianChildName.textContent = `für ${childName}`;
+async function showInviteGuardianModal() {
+    const childNames = children.map(c => `${c.first_name} ${c.last_name}`).join(', ');
+    inviteGuardianChildName.textContent = children.length === 1 ? `für ${childNames}` : `für alle Kinder`;
     inviteGuardianLoading?.classList.remove('hidden');
     inviteGuardianDisplay?.classList.add('hidden');
     inviteGuardianError?.classList.add('hidden');
     inviteGuardianModal?.classList.remove('hidden');
 
     try {
-        // Generate guardian invite code via RPC
-        const { data, error } = await supabase.rpc('generate_guardian_invite_code', {
-            p_child_id: childId,
-            p_validity_minutes: 2880 // 48 hours
+        // Generate invite codes for all children in parallel
+        const results = await Promise.all(children.map(c =>
+            supabase.rpc('generate_guardian_invite_code', {
+                p_child_id: c.id,
+                p_validity_minutes: 2880 // 48 hours
+            })
+        ));
+
+        // Check for errors
+        const errors = results.filter(r => r.error || !r.data?.success);
+        if (errors.length === results.length) {
+            throw new Error(errors[0].error?.message || errors[0].data?.error || 'Fehler beim Generieren der Codes');
+        }
+
+        // Build codes HTML
+        let codesHtml = '';
+        results.forEach((r, i) => {
+            if (r.data?.success) {
+                const child = children[i];
+                codesHtml += `
+                    <div class="bg-gray-100 rounded-lg p-3 text-center">
+                        ${children.length > 1 ? `<p class="text-xs text-gray-500 mb-1">${escapeHtml(child.first_name)} ${escapeHtml(child.last_name)}</p>` : ''}
+                        <p class="text-2xl font-mono font-bold text-purple-600 tracking-wider" data-invite-code>${r.data.code}</p>
+                    </div>`;
+            }
         });
 
-        if (error) {
-            throw error;
-        }
-
-        if (!data?.success) {
-            throw new Error(data?.error || 'Fehler beim Generieren des Codes');
-        }
-
-        inviteGuardianCode.textContent = data.code;
+        if (inviteGuardianCodes) inviteGuardianCodes.innerHTML = codesHtml;
         inviteGuardianValidity.textContent = '48 Stunden';
         inviteGuardianLoading?.classList.add('hidden');
         inviteGuardianDisplay?.classList.remove('hidden');
 
     } catch (error) {
-        console.error('[GUARDIAN-DASHBOARD] Error generating guardian invite code:', error);
+        console.error('[GUARDIAN-DASHBOARD] Error generating guardian invite codes:', error);
         inviteGuardianLoading?.classList.add('hidden');
-        inviteGuardianErrorText.textContent = error.message || 'Fehler beim Generieren des Codes';
+        inviteGuardianErrorText.textContent = error.message || 'Fehler beim Generieren der Codes';
         inviteGuardianError?.classList.remove('hidden');
     }
 }
@@ -1405,6 +2000,17 @@ function setupEventListeners() {
         menuBackdrop?.addEventListener('click', closeMenu);
         becomePlayerBtn?.addEventListener('click', showSportSelectionModal);
         logoutBtn?.addEventListener('click', logout);
+
+        // Invite guardian from sidebar menu
+        const menuInviteBtn = document.getElementById('menu-invite-guardian-btn');
+        menuInviteBtn?.addEventListener('click', () => {
+            closeMenu();
+            if (children.length === 0) {
+                alert('Bitte füge zuerst ein Kind hinzu.');
+                return;
+            }
+            showInviteGuardianModal();
+        });
     }
 
     // Add Child Modal events
@@ -1448,10 +2054,11 @@ function setupEventListeners() {
         if (e.target === inviteGuardianModal) inviteGuardianModal.classList.add('hidden');
     });
     copyInviteCodeBtn?.addEventListener('click', async () => {
-        const code = inviteGuardianCode?.textContent;
-        if (code) {
+        const codeEls = inviteGuardianCodes?.querySelectorAll('[data-invite-code]');
+        if (codeEls && codeEls.length > 0) {
             try {
-                await navigator.clipboard.writeText(code);
+                const codes = Array.from(codeEls).map(el => el.textContent.trim()).join('\n');
+                await navigator.clipboard.writeText(codes);
                 copyInviteCodeBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
                 setTimeout(() => {
                     copyInviteCodeBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Code kopieren';
