@@ -44,6 +44,23 @@ export async function initChat(userId) {
     await updateChatBadge();
     setupRealtimeSubscriptions();
     unreadSyncInterval = setInterval(() => updateChatBadge(), UNREAD_SYNC_INTERVAL);
+
+    // Deep-link: ?openChat=<conversation_id> from push notification
+    const urlParams = new URLSearchParams(window.location.search);
+    const openChatId = urlParams.get('openChat');
+    if (openChatId) {
+        // Remove param from URL to avoid re-opening on refresh
+        urlParams.delete('openChat');
+        const newUrl = urlParams.toString()
+            ? window.location.pathname + '?' + urlParams.toString()
+            : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+
+        // Load conversations first, then open the target conversation
+        await loadConversations();
+        showChatPanel();
+        openConversation(openChatId);
+    }
 }
 
 /**

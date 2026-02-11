@@ -237,7 +237,9 @@
 
     /** Navigiert basierend auf Notification-Daten */
     function handleNotificationAction(data) {
-        if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
+        if (data?.type === 'chat_message' && data?.conversation_id) {
+            window.location.href = '/dashboard.html?openChat=' + data.conversation_id;
+        } else if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
             window.location.href = '/dashboard.html?tab=matches&scrollTo=pending-requests-section';
         } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
             if (data?.requester_id) {

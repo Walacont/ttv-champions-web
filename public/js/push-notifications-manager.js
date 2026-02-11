@@ -275,7 +275,9 @@ function showInAppNotification(notification) {
         if (e.target.closest('button')) return;
 
         const data = notification.data;
-        if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
+        if (data?.type === 'chat_message' && data?.conversation_id) {
+            window.location.href = '/dashboard.html?openChat=' + data.conversation_id;
+        } else if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
             window.location.href = '/dashboard.html#matches';
         } else if (data?.type === 'follow_request' && data?.requester_id) {
             window.location.href = `/profile.html?id=${data.requester_id}`;
