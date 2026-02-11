@@ -62,7 +62,22 @@ async function downloadFile(url) {
     }
     const blob = await response.blob();
     const fileName = url.split('/').pop().split('?')[0];
-    return new File([blob], fileName, { type: blob.type });
+    // Fallback MIME-Type aus Extension ableiten, falls Server keinen sinnvollen liefert
+    const type = blob.type && blob.type !== 'application/octet-stream'
+        ? blob.type
+        : mimeFromExtension(fileName);
+    return new File([blob], fileName, { type });
+}
+
+function mimeFromExtension(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const map = {
+        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+        gif: 'image/gif', webp: 'image/webp', heic: 'image/heic',
+        heif: 'image/heif', mp4: 'video/mp4', webm: 'video/webm',
+        mov: 'video/quicktime',
+    };
+    return map[ext] || 'application/octet-stream';
 }
 
 /**
