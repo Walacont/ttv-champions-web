@@ -53,7 +53,7 @@ BEGIN
 
         UNION ALL
 
-        -- Club members (same club_id, excluding self)
+        -- Club members (same club_id, excluding self and offline players)
         SELECT
             p.id, p.first_name, p.last_name, p.avatar_url,
             p.club_id, c.name AS club_name, p.elo_rating,
@@ -63,6 +63,7 @@ BEGIN
         WHERE v_club_id IS NOT NULL
           AND p.club_id = v_club_id
           AND p.id != current_user_id
+          AND (p.is_offline IS NULL OR p.is_offline = false)
     ) combined
     GROUP BY combined.id, combined.first_name, combined.last_name,
              combined.avatar_url, combined.club_id, combined.club_name, combined.elo_rating
