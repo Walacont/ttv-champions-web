@@ -90,7 +90,7 @@ CREATE POLICY chat_conversations_select ON chat_conversations FOR SELECT
     USING (
         EXISTS (
             SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = id AND cp.user_id = (SELECT auth.uid())
+            WHERE cp.conversation_id = chat_conversations.id AND cp.user_id = (SELECT auth.uid())
         )
     );
 
@@ -104,7 +104,7 @@ CREATE POLICY chat_conversations_update ON chat_conversations FOR UPDATE
         created_by = (SELECT auth.uid())
         OR EXISTS (
             SELECT 1 FROM chat_participants cp
-            WHERE cp.conversation_id = id AND cp.user_id = (SELECT auth.uid()) AND cp.role = 'admin'
+            WHERE cp.conversation_id = chat_conversations.id AND cp.user_id = (SELECT auth.uid()) AND cp.role = 'admin'
         )
     );
 
@@ -183,7 +183,7 @@ CREATE POLICY chat_conversations_guardian_select ON chat_conversations FOR SELEC
     USING (
         EXISTS (
             SELECT 1 FROM guardian_links gl
-            JOIN chat_participants cp ON cp.conversation_id = id AND cp.user_id = gl.child_id
+            JOIN chat_participants cp ON cp.conversation_id = chat_conversations.id AND cp.user_id = gl.child_id
             WHERE gl.guardian_id = (SELECT auth.uid())
         )
     );
