@@ -51,13 +51,13 @@
         <style>
             body { font-family: 'Inter', sans-serif; }
 
-            /* Fixed Top Header */
+            /* Fixed Top Header (z-40, modals use z-50) */
             #top-nav {
                 position: fixed;
                 top: 0;
                 left: 0;
                 right: 0;
-                z-index: 9999;
+                z-index: 40;
                 background: white;
                 border-bottom: 1px solid #e5e7eb;
                 -webkit-transform: translateZ(0);
@@ -2272,9 +2272,15 @@
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
                                     <span class="text-lg">&#9203;</span>
-                                    <span class="text-sm font-semibold text-yellow-900">Saison-Ende</span>
+                                    <div>
+                                        <span class="text-sm font-semibold text-yellow-900">Saison-Ende</span>
+                                        <p class="text-[10px] text-yellow-700">Tippen für Saison-Verwaltung</p>
+                                    </div>
                                 </div>
-                                <p id="season-countdown-coach" class="text-sm font-bold text-yellow-900">Saisonpause</p>
+                                <div class="flex items-center gap-1">
+                                    <p id="season-countdown-coach" class="text-sm font-bold text-yellow-900">Saisonpause</p>
+                                    <i class="fas fa-chevron-right text-xs text-yellow-600"></i>
+                                </div>
                             </div>
                         </div>
 
@@ -2974,7 +2980,7 @@
             </main>
 
             <!-- Bottom Navigation -->
-            <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;">
+            <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 40; background: white; border-top: 1px solid #e5e7eb;">
                 <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
                     <button class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors" data-tab="start" data-title="Start" onclick="handleCoachBottomTab('start', 'Start')">
                         <i class="fas fa-home text-lg"></i>
@@ -5822,7 +5828,7 @@
                     bottomNav.style.bottom = '0';
                     bottomNav.style.left = '0';
                     bottomNav.style.right = '0';
-                    bottomNav.style.zIndex = '99999';
+                    bottomNav.style.zIndex = '40';
                     bottomNav.style.background = 'white';
                     bottomNav.style.borderTop = '1px solid #e5e7eb';
                 }
