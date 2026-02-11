@@ -178,6 +178,9 @@ async function initializeWithUser(user) {
         // Setup event listeners
         setupEventListeners();
 
+        // Setup realtime subscriptions for event invitation changes
+        setupRealtimeSubscriptions();
+
         // Show main content
         pageLoader.classList.add('hidden');
         mainContent.classList.remove('hidden');
@@ -190,6 +193,81 @@ async function initializeWithUser(user) {
                 <a href="/index.html" class="text-indigo-600 underline mt-2 block">Zur Startseite</a>
             </div>
         `;
+    }
+}
+
+// Realtime subscriptions for live updates
+let realtimeChannel = null;
+let realtimeDebounce = null;
+
+function setupRealtimeSubscriptions() {
+    // Clean up existing subscription
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
+
+    // Get all child IDs to watch
+    const childIds = children.map(c => c.id);
+    if (childIds.length === 0) return;
+
+    // Subscribe to event_invitations changes for all children
+    realtimeChannel = supabase
+        .channel('guardian_event_invitations')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'event_invitations'
+        }, (payload) => {
+            // Only reload if the change is for one of our children
+            const userId = payload.new?.user_id || payload.old?.user_id;
+            if (!userId || !childIds.includes(userId)) return;
+
+            console.log('[GUARDIAN-DASHBOARD] Realtime: invitation changed for child', userId);
+
+            // Debounce to avoid rapid reloads
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => {
+                reloadChildEvents(userId);
+            }, 1500);
+        })
+        .subscribe();
+}
+
+// Reload events for a single child without full page reload
+async function reloadChildEvents(childId) {
+    const child = children.find(c => c.id === childId);
+    if (!child) return;
+
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: eventInvitations, error } = await supabase
+            .from('event_invitations')
+            .select('id, status, event_id, occurrence_date, events(id, title, event_category, start_date, start_time, end_time, location, cancelled)')
+            .eq('user_id', childId);
+
+        if (error) {
+            console.error('[GUARDIAN-DASHBOARD] Realtime reload error:', error);
+            return;
+        }
+
+        const upcomingEvents = (eventInvitations || [])
+            .filter(inv => {
+                if (!inv.events) return false;
+                if (inv.events.cancelled) return false;
+                const displayDate = inv.occurrence_date || inv.events.start_date;
+                return displayDate >= today;
+            })
+            .sort((a, b) => {
+                const dateA = a.occurrence_date || a.events.start_date;
+                const dateB = b.occurrence_date || b.events.start_date;
+                return dateA.localeCompare(dateB);
+            });
+
+        child.upcomingEvents = upcomingEvents.slice(0, 10);
+        renderChildren();
+        console.log('[GUARDIAN-DASHBOARD] Realtime: updated events for child', childId);
+    } catch (err) {
+        console.error('[GUARDIAN-DASHBOARD] Realtime reload failed:', err);
     }
 }
 
@@ -500,65 +578,97 @@ function renderChildren() {
                     </div>
                 </div>
 
-                <!-- Upcoming Events -->
-                <div class="px-4 pb-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-500 mb-1 font-medium flex items-center gap-2">
-                        <i class="fas fa-calendar text-indigo-500"></i>
-                        Anstehende Veranstaltungen
-                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? `<span class="bg-indigo-100 text-indigo-600 text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.length}</span>` : ''}
-                        ${child.upcomingEvents && child.upcomingEvents.filter(i => i.status === 'pending').length > 0 ? `<span class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">${child.upcomingEvents.filter(i => i.status === 'pending').length} offen</span>` : ''}
-                    </p>
-                    <div class="max-h-64 overflow-y-auto">
-                        ${child.upcomingEvents && child.upcomingEvents.length > 0 ? child.upcomingEvents.map(inv => {
-                            const ev = inv.events;
-                            const displayDate = inv.occurrence_date || ev.start_date;
-                            const date = new Date(displayDate + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                            const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
-                            const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
-                            const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
-                            const statusColors = { accepted: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700', pending: 'bg-yellow-100 text-yellow-700' };
-                            const statusLabels = { accepted: 'Zugesagt', rejected: 'Abgesagt', pending: 'Offen' };
-                            const statusClass = statusColors[inv.status] || statusColors.pending;
-                            const statusLabel = statusLabels[inv.status] || 'Offen';
+                <!-- Upcoming Events (Compact Collapsible) -->
+                ${(() => {
+                    const events = child.upcomingEvents || [];
+                    const pendingEvents = events.filter(i => i.status === 'pending');
+                    const acceptedEvents = events.filter(i => i.status === 'accepted');
+                    const rejectedEvents = events.filter(i => i.status === 'rejected');
+                    const hasPending = pendingEvents.length > 0;
 
-                            let actionButtons = '';
-                            if (inv.status === 'pending') {
-                                actionButtons = `
-                                    <div class="flex gap-1 mt-1.5">
-                                        <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Zusagen</button>
-                                        <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-1 bg-gray-200 text-gray-600 rounded-md hover:bg-gray-300 transition-colors">Absagen</button>
-                                    </div>
-                                `;
-                            } else if (inv.status === 'accepted') {
-                                actionButtons = `
-                                    <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-500 hover:text-red-700 mt-1">Absagen</button>
-                                `;
-                            } else if (inv.status === 'rejected') {
-                                actionButtons = `
-                                    <button onclick="guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-500 hover:text-indigo-700 mt-1">Doch zusagen</button>
-                                `;
-                            }
+                    const renderCompactEvent = (inv, showActions) => {
+                        const ev = inv.events;
+                        const displayDate = inv.occurrence_date || ev.start_date;
+                        const dateObj = new Date(displayDate + 'T12:00:00');
+                        const dayStr = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
+                        const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                        const timeStr = ev.start_time ? ev.start_time.slice(0, 5) : '';
+                        const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
+                        const categoryIcon = categoryIcons[ev.event_category] || 'fa-calendar';
 
-                            return `
-                                <div class="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0" id="guardian-event-${inv.id}">
-                                    <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <i class="fas ${categoryIcon} text-indigo-500 text-xs"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-700 font-medium truncate">${escapeHtml(ev.title)}</p>
-                                        <div class="flex items-center gap-2 text-[10px] text-gray-400">
-                                            <span>${date}</span>
-                                            ${timeStr ? `<span>${timeStr} Uhr</span>` : ''}
-                                            ${ev.location ? `<span class="truncate">${escapeHtml(ev.location)}</span>` : ''}
-                                        </div>
-                                        ${actionButtons}
-                                    </div>
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusClass} flex-shrink-0">${statusLabel}</span>
+                        let actions = '';
+                        if (showActions && inv.status === 'pending') {
+                            actions = `
+                                <div class="flex gap-1 ml-auto flex-shrink-0">
+                                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded hover:bg-indigo-700">Zusagen</button>
+                                    <button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded hover:bg-gray-300">Absagen</button>
+                                </div>`;
+                        } else if (showActions && inv.status === 'accepted') {
+                            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'rejected')" class="text-[10px] text-red-400 hover:text-red-600 ml-auto flex-shrink-0">Absagen</button>`;
+                        } else if (showActions && inv.status === 'rejected') {
+                            actions = `<button onclick="event.stopPropagation(); guardianRespondEvent('${inv.id}', '${child.id}', 'accepted')" class="text-[10px] text-indigo-400 hover:text-indigo-600 ml-auto flex-shrink-0">Zusagen</button>`;
+                        }
+
+                        return `
+                            <div class="flex items-center gap-2 py-1.5 ${inv.status === 'pending' ? '' : 'border-b border-gray-50 last:border-0'}" id="guardian-event-${inv.id}">
+                                <i class="fas ${categoryIcon} text-[10px] ${inv.status === 'pending' ? 'text-indigo-500' : 'text-gray-400'} w-3 text-center flex-shrink-0"></i>
+                                <span class="text-[10px] text-gray-400 w-16 flex-shrink-0">${dayStr} ${dateStr}</span>
+                                <span class="text-xs ${inv.status === 'pending' ? 'text-gray-800 font-medium' : 'text-gray-600'} truncate">${escapeHtml(ev.title)}</span>
+                                ${timeStr ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${timeStr}</span>` : ''}
+                                ${actions}
+                            </div>`;
+                    };
+
+                    if (events.length === 0) {
+                        return `
+                            <div class="px-4 pb-2 border-t border-gray-100 pt-2">
+                                <p class="text-xs text-gray-400 flex items-center gap-2">
+                                    <i class="fas fa-calendar text-gray-300"></i>
+                                    Keine Veranstaltungen
+                                </p>
+                            </div>`;
+                    }
+
+                    // Pending events always visible
+                    let pendingHtml = '';
+                    if (hasPending) {
+                        pendingHtml = `
+                            <div class="px-4 pb-2 border-t border-gray-100 pt-2">
+                                <p class="text-[10px] text-orange-600 font-semibold uppercase tracking-wide mb-1">
+                                    <i class="fas fa-clock mr-1"></i>${pendingEvents.length} Antwort${pendingEvents.length > 1 ? 'en' : ''} ausstehend
+                                </p>
+                                ${pendingEvents.map(inv => renderCompactEvent(inv, true)).join('')}
+                            </div>`;
+                    }
+
+                    // Responded events in collapsible section
+                    const respondedEvents = [...acceptedEvents, ...rejectedEvents];
+                    let respondedHtml = '';
+                    if (respondedEvents.length > 0) {
+                        respondedHtml = `
+                            <div class="px-4 pb-2 ${hasPending ? '' : 'border-t border-gray-100 pt-2'}">
+                                <button onclick="toggleEventsSection('${child.id}')" class="flex items-center gap-2 w-full text-left py-1 group">
+                                    <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="events-chevron-${child.id}"></i>
+                                    <span class="text-[10px] text-gray-500 font-medium">
+                                        ${acceptedEvents.length > 0 ? `<span class="text-green-600">${acceptedEvents.length} zugesagt</span>` : ''}
+                                        ${acceptedEvents.length > 0 && rejectedEvents.length > 0 ? ' · ' : ''}
+                                        ${rejectedEvents.length > 0 ? `<span class="text-red-500">${rejectedEvents.length} abgesagt</span>` : ''}
+                                    </span>
+                                    <i class="fas fa-calendar text-gray-300 text-[10px] ml-auto"></i>
+                                </button>
+                                <div class="hidden max-h-40 overflow-y-auto" id="events-list-${child.id}">
+                                    ${respondedEvents.map(inv => renderCompactEvent(inv, true)).join('')}
                                 </div>
-                            `;
-                        }).join('') : '<p class="text-xs text-gray-400 py-2">Keine anstehenden Veranstaltungen</p>'}
-                    </div>
-                </div>
+                            </div>`;
+                    }
+
+                    // If no pending but has events, show summary header
+                    if (!hasPending && respondedEvents.length > 0) {
+                        return respondedHtml;
+                    }
+
+                    return pendingHtml + respondedHtml;
+                })()}
 
                 <!-- Points History -->
                 <div class="px-4 pb-3 border-t border-gray-100 pt-3">
@@ -735,6 +845,17 @@ window.guardianRespondEvent = async function(invitationId, childId, status) {
         console.error('[GUARDIAN-DASHBOARD] Error responding to event:', err);
         alert('Fehler beim Antworten auf die Veranstaltung. Bitte versuche es erneut.');
         renderChildren();
+    }
+};
+
+// Toggle collapsed events section for a child
+window.toggleEventsSection = function(childId) {
+    const list = document.getElementById(`events-list-${childId}`);
+    const chevron = document.getElementById(`events-chevron-${childId}`);
+    if (list && chevron) {
+        const isHidden = list.classList.contains('hidden');
+        list.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
     }
 };
 
