@@ -767,24 +767,24 @@ function buildStatsSection(child) {
                 <span class="ml-auto text-[11px] text-gray-400 font-medium">${seasonPts} Saison-Pkt · ${child.totalMatches || 0} Spiele</span>
             </button>
             <div class="hidden mt-2" id="gsec-content-${secId}">
-                <div class="grid grid-cols-5 gap-1.5 text-center mb-3">
-                    <div class="bg-indigo-50 rounded-lg py-2">
+                <div class="flex gap-1.5 text-center mb-3">
+                    <div class="flex-1 min-w-0 bg-indigo-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-indigo-700">${seasonPts}</p>
                         <p class="text-[10px] text-indigo-400">Saison</p>
                     </div>
-                    <div class="bg-gray-50 rounded-lg py-2">
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-gray-900">${child.elo_rating || 800}</p>
                         <p class="text-[10px] text-gray-400">Elo</p>
                     </div>
-                    <div class="bg-gray-50 rounded-lg py-2">
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-gray-900">${child.xp || 0}</p>
                         <p class="text-[10px] text-gray-400">XP</p>
                     </div>
-                    <div class="bg-gray-50 rounded-lg py-2">
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-gray-900">${child.totalMatches || 0}</p>
                         <p class="text-[10px] text-gray-400">Spiele</p>
                     </div>
-                    <div class="bg-gray-50 rounded-lg py-2">
+                    <div class="flex-1 min-w-0 bg-gray-50 rounded-lg py-2">
                         <p class="text-sm font-bold text-green-600">${child.wins || 0}</p>
                         <p class="text-[10px] text-gray-400">Siege</p>
                     </div>
