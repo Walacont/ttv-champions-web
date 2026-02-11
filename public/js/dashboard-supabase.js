@@ -4085,7 +4085,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         // Zuerst prüfen ob Anfrage noch existiert und nicht bereits verarbeitet
         const { data: request, error: fetchError } = await supabase
             .from('doubles_match_requests')
-            .select('id, team_a, team_b, status, created_at')
+            .select('*')
             .eq('id', requestId)
             .single();
 
@@ -4132,29 +4132,115 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Angenommen - Genehmigungen aktualisieren und genehmigen
-        // Genehmigungen parsen
+        // Angenommen - Doppel-Match erstellen und Request genehmigen
+        // 1. doubles_matches-Eintrag erstellen
+        const { data: match, error: matchError } = await supabase
+            .from('doubles_matches')
+            .insert({
+                team_a: request.team_a,
+                team_b: request.team_b,
+                winning_team: request.winning_team,
+                sets: request.sets || [],
+                club_id: request.club_id,
+                initiated_by: request.initiated_by,
+                sport_id: request.sport_id,
+                match_mode: request.match_mode || 'best-of-5',
+                handicap_used: request.handicap_used || false,
+                played_at: request.created_at || new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (matchError) {
+            console.error('[Doubles] Match creation error:', matchError);
+            throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message}`);
+        }
+
+        // 2. Request-Status aktualisieren
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
-
-        // Genehmigung des aktuellen Benutzers markieren
         approvals[currentUser.id] = true;
-
-        // Bei Doppel automatisch genehmigen wenn ein Gegner bestätigt
-        const newStatus = 'approved';
 
         const { error: updateError } = await supabase
             .from('doubles_match_requests')
             .update({
-                status: newStatus,
+                status: 'approved',
                 approvals: approvals,
                 updated_at: new Date().toISOString()
             })
             .eq('id', requestId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+            console.error('[Doubles] Status update error:', updateError);
+        }
+
+        // 3. Points-History für alle 4 Spieler erstellen
+        try {
+            const teamA = request.team_a || {};
+            const teamB = request.team_b || {};
+            const winningTeam = request.winning_team;
+            const winningTeamIds = winningTeam === 'A'
+                ? [teamA.player1_id, teamA.player2_id].filter(Boolean)
+                : [teamB.player1_id, teamB.player2_id].filter(Boolean);
+            const losingTeamIds = winningTeam === 'A'
+                ? [teamB.player1_id, teamB.player2_id].filter(Boolean)
+                : [teamA.player1_id, teamA.player2_id].filter(Boolean);
+
+            const allPlayerIds = [...winningTeamIds, ...losingTeamIds];
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, display_name')
+                .in('id', allPlayerIds);
+
+            const nameMap = {};
+            (playersData || []).forEach(p => {
+                nameMap[p.id] = p.display_name || `${p.first_name} ${p.last_name}`;
+            });
+
+            let setsA = 0, setsB = 0;
+            (request.sets || []).forEach(s => {
+                const a = s.teamA ?? s.team_a ?? s.a ?? 0;
+                const b = s.teamB ?? s.team_b ?? s.b ?? 0;
+                if (a > b) setsA++; else if (b > a) setsB++;
+            });
+            const setsDisplay = `${setsA}:${setsB}`;
+            const matchType = request.handicap_used ? 'Handicap-Doppel' : 'Doppel';
+            const playedAt = match.played_at || new Date().toISOString();
+
+            for (const winnerId of winningTeamIds) {
+                const partnerId = winningTeamIds.find(id => id !== winnerId);
+                const partnerName = nameMap[partnerId] || 'Partner';
+                const opponentNames = losingTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                await supabase.from('points_history').insert({
+                    user_id: winnerId,
+                    points: 15,
+                    xp: 15,
+                    elo_change: 0,
+                    reason: `Sieg im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+            }
+
+            for (const loserId of losingTeamIds) {
+                const partnerId = losingTeamIds.find(id => id !== loserId);
+                const partnerName = nameMap[partnerId] || 'Partner';
+                const opponentNames = winningTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                await supabase.from('points_history').insert({
+                    user_id: loserId,
+                    points: 0,
+                    xp: 0,
+                    elo_change: 0,
+                    reason: `Niederlage im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+            }
+        } catch (histErr) {
+            console.warn('[Doubles] Points history error:', histErr);
+        }
 
         // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
         setTimeout(() => {
