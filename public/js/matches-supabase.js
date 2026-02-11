@@ -1908,10 +1908,15 @@ export function showMatchConfirmationBottomSheet(requests) {
             const teamA = request.team_a || {};
             const teamB = request.team_b || {};
 
-            playerA = 'Team A';
-            playerB = 'Team B (Du)';
+            const teamAName1 = teamA.player1_name || 'Spieler 1';
+            const teamAName2 = teamA.player2_name || 'Spieler 2';
+            const teamBName1 = teamB.player1_name || 'Spieler 1';
+            const teamBName2 = teamB.player2_name || 'Spieler 2';
 
-            winnerName = request.winning_team === 'A' ? 'Team A' : 'Team B';
+            playerA = `${teamAName1} & ${teamAName2}`;
+            playerB = `${teamBName1} & ${teamBName2}`;
+
+            winnerName = request.winning_team === 'A' ? playerA : playerB;
 
             setsA = 0;
             setsB = 0;
@@ -2355,7 +2360,6 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         winning_team: request.winning_team,
                         sets: request.sets || [],
                         club_id: request.club_id,
-                        initiated_by: request.initiated_by,
                         sport_id: request.sport_id,
                         match_mode: request.match_mode || 'best-of-5',
                         handicap_used: request.handicap_used || false,
@@ -2378,6 +2382,72 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     console.error('[Matches] Error updating doubles request status:', statusError);
                     // Match wurde bereits erstellt - Status-Update kritisch
                     throw new Error(`Match erstellt, aber Status-Update fehlgeschlagen: ${statusError.message}`);
+                }
+
+                // Points-History für alle 4 Spieler erstellen
+                try {
+                    const teamA = request.team_a || {};
+                    const teamB = request.team_b || {};
+                    const winningTeam = request.winning_team;
+                    const winningTeamIds = winningTeam === 'A'
+                        ? [teamA.player1_id, teamA.player2_id].filter(Boolean)
+                        : [teamB.player1_id, teamB.player2_id].filter(Boolean);
+                    const losingTeamIds = winningTeam === 'A'
+                        ? [teamB.player1_id, teamB.player2_id].filter(Boolean)
+                        : [teamA.player1_id, teamA.player2_id].filter(Boolean);
+
+                    const allPlayerIds = [...winningTeamIds, ...losingTeamIds];
+                    const { data: playersData } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, display_name')
+                        .in('id', allPlayerIds);
+
+                    const nameMap = {};
+                    (playersData || []).forEach(p => {
+                        nameMap[p.id] = p.display_name || `${p.first_name} ${p.last_name}`;
+                    });
+
+                    let setsA = 0, setsB = 0;
+                    (request.sets || []).forEach(s => {
+                        const a = s.teamA ?? s.team_a ?? s.a ?? 0;
+                        const b = s.teamB ?? s.team_b ?? s.b ?? 0;
+                        if (a > b) setsA++; else if (b > a) setsB++;
+                    });
+                    const setsDisplay = `${setsA}:${setsB}`;
+                    const matchType = request.handicap_used ? 'Handicap-Doppel' : 'Doppel';
+                    const playedAt = match.played_at || new Date().toISOString();
+
+                    for (const winnerId of winningTeamIds) {
+                        const partnerId = winningTeamIds.find(id => id !== winnerId);
+                        const partnerName = nameMap[partnerId] || 'Partner';
+                        const opponentNames = losingTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                        await supabase.from('points_history').insert({
+                            user_id: winnerId,
+                            points: 15,
+                            xp: 15,
+                            elo_change: 0,
+                            reason: `Sieg im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                            timestamp: playedAt,
+                            awarded_by: 'System (Wettkampf)'
+                        });
+                    }
+
+                    for (const loserId of losingTeamIds) {
+                        const partnerId = losingTeamIds.find(id => id !== loserId);
+                        const partnerName = nameMap[partnerId] || 'Partner';
+                        const opponentNames = winningTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                        await supabase.from('points_history').insert({
+                            user_id: loserId,
+                            points: 0,
+                            xp: 0,
+                            elo_change: 0,
+                            reason: `Niederlage im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                            timestamp: playedAt,
+                            awarded_by: 'System (Wettkampf)'
+                        });
+                    }
+                } catch (histErr) {
+                    console.warn('[Matches] Doubles points history error:', histErr);
                 }
 
                 console.log('[Matches] Doubles match confirmed and created');
@@ -2555,13 +2625,18 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                 tournamentMatchId = reqData?.tournament_match_id;
             }
 
+            const rejectPayload = {
+                status: 'rejected',
+                updated_at: new Date().toISOString()
+            };
+            // decline_reason nur bei singles (doubles_match_requests hat diese Spalte nicht)
+            if (!isDoubles && declineReason) {
+                rejectPayload.decline_reason = declineReason;
+            }
+
             const { error: rejectError } = await supabase
                 .from(table)
-                .update({
-                    status: 'rejected',
-                    decline_reason: declineReason,
-                    updated_at: new Date().toISOString()
-                })
+                .update(rejectPayload)
                 .eq('id', requestId);
 
             if (rejectError) {

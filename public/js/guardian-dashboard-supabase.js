@@ -181,6 +181,20 @@ async function initializeWithUser(user) {
         // Setup realtime subscriptions for event invitation changes
         setupRealtimeSubscriptions();
 
+        // Chat initialisieren (dynamisch geladen, nicht blockierend)
+        try {
+            const chatModule = await import('./chat-supabase.js');
+            if (chatModule.initChat) {
+                chatModule.initChat(currentUser.id);
+            }
+            if (chatModule.initGuardianChat) {
+                chatModule.initGuardianChat(currentUser.id, children);
+            }
+            window._chatModule = chatModule;
+        } catch (e) {
+            console.warn('Chat not available:', e);
+        }
+
         // Show main content
         pageLoader.classList.add('hidden');
         mainContent.classList.remove('hidden');
@@ -1985,6 +1999,9 @@ async function upgradeToPlayer(sportId) {
 // Logout
 async function logout() {
     try {
+        if (window._chatModule && window._chatModule.cleanupChat) {
+            window._chatModule.cleanupChat();
+        }
         await supabase.auth.signOut();
         window.location.href = '/index.html';
     } catch (err) {

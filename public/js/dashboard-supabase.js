@@ -246,6 +246,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Push notifications not available:', e);
     }
 
+    // Chat initialisieren (dynamisch geladen, nicht blockierend)
+    try {
+        const chatModule = await import('./chat-supabase.js');
+        if (chatModule.initChat) {
+            chatModule.initChat(currentUser.id);
+        }
+        window._chatModule = chatModule;
+    } catch (e) {
+        console.warn('Chat not available:', e);
+    }
+
     // Auth-Änderungen beobachten - nur bei explizitem Logout weiterleiten
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
@@ -265,6 +276,7 @@ function applyKidsModeUI() {
         '#open-community-btn',           // Community search button
         '#desktop-notifications-btn',     // Notifications (parents get them)
         'a[href="/settings.html"]',       // Settings link
+        '#open-chat-btn',                // Chat button (parents get notified)
     ];
 
     // Elements to hide for all minors (< 16)
@@ -374,6 +386,11 @@ function cleanupSubscriptions() {
     // Benachrichtigungs-Subscriptions aufräumen (falls verfügbar)
     if (notificationsModule && notificationsModule.cleanupNotifications) {
         notificationsModule.cleanupNotifications();
+    }
+
+    // Chat-Subscriptions aufräumen
+    if (window._chatModule && window._chatModule.cleanupChat) {
+        window._chatModule.cleanupChat();
     }
 
     realtimeSubscriptions.forEach(sub => {
@@ -1397,7 +1414,7 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
 
         el.innerHTML = `
             <div class="flex items-center space-x-3">
-                <img src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
+                <img loading="lazy" src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
                      class="h-12 w-12 rounded-full object-cover border-2 border-orange-400"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div>
@@ -1759,7 +1776,7 @@ function renderRanksList() {
                         const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
                         return `
                         <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
-                            <img src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div class="flex-grow">
                                 <p class="text-sm">${playerName}</p>
                             </div>
@@ -2103,7 +2120,7 @@ function renderLeaderboardList() {
             <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors ${clickableClass}" ${dataAttr}>
                 <div class="flex items-center gap-3">
                     <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-gray-500'}">${medal}</span>
-                    <img src="${player.avatar_url || DEFAULT_AVATAR}"
+                    <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}"
                          class="w-10 h-10 rounded-full object-cover border-2 ${isCurrentUser ? 'border-indigo-400' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
@@ -2130,7 +2147,7 @@ function renderLeaderboardList() {
                 <div class="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border-2 border-indigo-300">
                     <div class="flex items-center gap-3">
                         <span class="w-8 text-center font-bold text-gray-500">${currentUserRank}.</span>
-                        <img src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
+                        <img loading="lazy" src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
                              class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
@@ -2600,7 +2617,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
         <div id="match-request-${req.id}" class="p-3 bg-white rounded-lg border mb-2 transition-all duration-300">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
-                    <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
+                    <img loading="lazy" src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
                          class="w-10 h-10 rounded-full object-cover"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
@@ -2899,10 +2916,10 @@ async function initSeasonCountdown() {
     updateSeasonCountdownDisplay();
     // Anzeige jede Sekunde aktualisieren (effizient - keine async Aufrufe)
     setInterval(updateSeasonCountdownDisplay, 1000);
-    // Saison-Daten alle 5 Minuten aktualisieren falls sie sich ändern
+    // Saison-Daten alle 60 Minuten aktualisieren (ändert sich selten)
     setInterval(async () => {
         seasonEndDate = await fetchSeasonEndDate();
-    }, 5 * 60 * 1000);
+    }, 60 * 60 * 1000);
 }
 
 // Effizienter Countdown-Update (synchron, keine DB-Aufrufe)
@@ -3106,14 +3123,14 @@ function handleSubscriptionStatus(channelName, status, err) {
  */
 function startPollingFallback() {
     if (pollingInterval) return;
-    console.log('[Realtime] Starting polling fallback (every 15s)');
+    console.log('[Realtime] Starting polling fallback (every 30s)');
     pollingInterval = setInterval(() => {
         if (document.visibilityState === 'visible' && currentUser) {
             loadMatchRequests();
             loadPendingRequests();
             checkPendingMatchConfirmations(currentUser.id);
         }
-    }, 15000);
+    }, 30000);
 }
 
 function stopPollingFallback() {
@@ -4068,7 +4085,7 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         // Zuerst prüfen ob Anfrage noch existiert und nicht bereits verarbeitet
         const { data: request, error: fetchError } = await supabase
             .from('doubles_match_requests')
-            .select('id, team_a, team_b, status, created_at')
+            .select('*')
             .eq('id', requestId)
             .single();
 
@@ -4115,29 +4132,114 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Angenommen - Genehmigungen aktualisieren und genehmigen
-        // Genehmigungen parsen
+        // Angenommen - Doppel-Match erstellen und Request genehmigen
+        // 1. doubles_matches-Eintrag erstellen
+        const { data: match, error: matchError } = await supabase
+            .from('doubles_matches')
+            .insert({
+                team_a: request.team_a,
+                team_b: request.team_b,
+                winning_team: request.winning_team,
+                sets: request.sets || [],
+                club_id: request.club_id,
+                sport_id: request.sport_id,
+                match_mode: request.match_mode || 'best-of-5',
+                handicap_used: request.handicap_used || false,
+                played_at: request.created_at || new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (matchError) {
+            console.error('[Doubles] Match creation error:', matchError);
+            throw new Error(`Fehler beim Erstellen des Doppel-Matches: ${matchError.message}`);
+        }
+
+        // 2. Request-Status aktualisieren
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
-
-        // Genehmigung des aktuellen Benutzers markieren
         approvals[currentUser.id] = true;
-
-        // Bei Doppel automatisch genehmigen wenn ein Gegner bestätigt
-        const newStatus = 'approved';
 
         const { error: updateError } = await supabase
             .from('doubles_match_requests')
             .update({
-                status: newStatus,
+                status: 'approved',
                 approvals: approvals,
                 updated_at: new Date().toISOString()
             })
             .eq('id', requestId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+            console.error('[Doubles] Status update error:', updateError);
+        }
+
+        // 3. Points-History für alle 4 Spieler erstellen
+        try {
+            const teamA = request.team_a || {};
+            const teamB = request.team_b || {};
+            const winningTeam = request.winning_team;
+            const winningTeamIds = winningTeam === 'A'
+                ? [teamA.player1_id, teamA.player2_id].filter(Boolean)
+                : [teamB.player1_id, teamB.player2_id].filter(Boolean);
+            const losingTeamIds = winningTeam === 'A'
+                ? [teamB.player1_id, teamB.player2_id].filter(Boolean)
+                : [teamA.player1_id, teamA.player2_id].filter(Boolean);
+
+            const allPlayerIds = [...winningTeamIds, ...losingTeamIds];
+            const { data: playersData } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, display_name')
+                .in('id', allPlayerIds);
+
+            const nameMap = {};
+            (playersData || []).forEach(p => {
+                nameMap[p.id] = p.display_name || `${p.first_name} ${p.last_name}`;
+            });
+
+            let setsA = 0, setsB = 0;
+            (request.sets || []).forEach(s => {
+                const a = s.teamA ?? s.team_a ?? s.a ?? 0;
+                const b = s.teamB ?? s.team_b ?? s.b ?? 0;
+                if (a > b) setsA++; else if (b > a) setsB++;
+            });
+            const setsDisplay = `${setsA}:${setsB}`;
+            const matchType = request.handicap_used ? 'Handicap-Doppel' : 'Doppel';
+            const playedAt = match.played_at || new Date().toISOString();
+
+            for (const winnerId of winningTeamIds) {
+                const partnerId = winningTeamIds.find(id => id !== winnerId);
+                const partnerName = nameMap[partnerId] || 'Partner';
+                const opponentNames = losingTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                await supabase.from('points_history').insert({
+                    user_id: winnerId,
+                    points: 15,
+                    xp: 15,
+                    elo_change: 0,
+                    reason: `Sieg im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+            }
+
+            for (const loserId of losingTeamIds) {
+                const partnerId = losingTeamIds.find(id => id !== loserId);
+                const partnerName = nameMap[partnerId] || 'Partner';
+                const opponentNames = winningTeamIds.map(id => nameMap[id] || 'Gegner').join(' & ');
+                await supabase.from('points_history').insert({
+                    user_id: loserId,
+                    points: 0,
+                    xp: 0,
+                    elo_change: 0,
+                    reason: `Niederlage im ${matchType} mit ${partnerName} gegen ${opponentNames} (${setsDisplay})`,
+                    timestamp: playedAt,
+                    awarded_by: 'System (Wettkampf)'
+                });
+            }
+        } catch (histErr) {
+            console.warn('[Doubles] Points history error:', histErr);
+        }
 
         // Verzögertes Neuladen damit optimistisches UI-Update abgeschlossen ist
         setTimeout(() => {
@@ -4409,7 +4511,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
         <div id="pending-match-request-${req.id}" class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-3">
-                    <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <img loading="lazy" src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium">${isPlayerA ? t('dashboard.requestTo') : t('dashboard.requestFrom')} ${otherPlayerName}</p>
                         ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
@@ -4711,7 +4813,7 @@ async function loadMatchSuggestions() {
             return `
                 <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2 hover:border-indigo-300 transition-colors">
                     <div class="flex items-center gap-3">
-                        <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img loading="lazy" src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
                             <p class="font-medium text-sm">${player.display_name || player.first_name}</p>
                             <p class="text-xs text-gray-500">${player.elo_rating || 800} Elo ${player.eloDiff > 0 ? `(${myElo > player.elo_rating ? '+' : ''}${myElo - (player.elo_rating || 800)})` : ''}</p>

@@ -44,6 +44,7 @@
         />
         <link rel="stylesheet" href="/vendor/fonts/inter.css" />
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <link rel="stylesheet" href="/css/chat.css" />
         <style>
             body {
                 font-family: 'Inter', sans-serif;
@@ -92,8 +93,15 @@
                         <i class="fas fa-arrow-left text-lg"></i>
                     </a>
                     <h1 id="header-title" class="text-base font-semibold text-gray-900" data-i18n="guardian.dashboard">Eltern-Dashboard</h1>
-                    <!-- Spacer to keep header title centered -->
-                    <div class="p-1 w-7"></div>
+                    <!-- Chat Button -->
+                    <button
+                        id="open-chat-btn"
+                        class="relative text-gray-600 hover:text-indigo-600 transition-colors p-1"
+                        title="Chat"
+                    >
+                        <i class="far fa-comment-dots text-lg"></i>
+                        <span id="chat-unread-badge" class="hidden absolute -top-0.5 -right-0.5 bg-indigo-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </button>
                 </div>
             </header>
 
@@ -723,5 +731,7 @@
             setupAutoTranslate();
         </script>
         <script>if(window.trackView)window.trackView('guardian_dashboard');</script>
+        <!-- Chat Panel Anchor -->
+        <div id="chat-panel-root"></div>
     </body>
 </html>

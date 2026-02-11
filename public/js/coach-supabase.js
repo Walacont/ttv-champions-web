@@ -537,6 +537,17 @@ async function initializeCoachPage(userData) {
         console.warn('Push notifications not available:', e);
     }
 
+    // Chat initialisieren (dynamisch geladen, nicht blockierend)
+    try {
+        const chatModule = await import('./chat-supabase.js');
+        if (chatModule.initChat) {
+            chatModule.initChat(userData.id);
+        }
+        window._chatModule = chatModule;
+    } catch (e) {
+        console.warn('Chat not available:', e);
+    }
+
     // --- Event Listeners ---
     const logoutBtn = document.getElementById('logout-button');
     if (logoutBtn) {
@@ -544,6 +555,9 @@ async function initializeCoachPage(userData) {
             try {
                 if (notificationsModule && notificationsModule.cleanupNotifications) {
                     notificationsModule.cleanupNotifications();
+                }
+                if (window._chatModule && window._chatModule.cleanupChat) {
+                    window._chatModule.cleanupChat();
                 }
                 await supabase.auth.signOut();
                 // SPA-Cache leeren um Zurück-Navigation zu verhindern

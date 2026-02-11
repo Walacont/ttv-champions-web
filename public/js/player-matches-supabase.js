@@ -101,7 +101,16 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        await submitMatchRequest(currentUser, currentUserData, callbacks);
+
+        const doublesToggle = document.getElementById('player-doubles-toggle');
+        const isDoublesMode = doublesToggle && doublesToggle.classList.contains('active');
+
+        if (isDoublesMode) {
+            const { handleDoublesPlayerMatchRequest } = await import('./doubles-player-ui-supabase.js');
+            await handleDoublesPlayerMatchRequest(e, supabase, currentUserData);
+        } else {
+            await submitMatchRequest(currentUser, currentUserData, callbacks);
+        }
     });
 
     setupMatchSuggestions(currentUser, currentUserData);

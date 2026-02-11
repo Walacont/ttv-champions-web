@@ -580,6 +580,43 @@ export async function loadMatchMedia(matchId, matchType) {
 }
 
 /**
+ * Batch-Load media for multiple matches in a single query
+ * Returns a Map: matchKey → media[]
+ */
+export async function loadMatchMediaBatch(matchEntries) {
+    const isAvailable = await checkMatchMediaAvailable();
+    if (!isAvailable || !matchEntries || matchEntries.length === 0) {
+        return new Map();
+    }
+
+    try {
+        const matchIds = matchEntries.map(e => String(e.id));
+        const { data, error } = await supabase
+            .from('match_media')
+            .select('id, match_id, match_type, uploaded_by, file_type, file_path, file_size, mime_type, created_at')
+            .in('match_id', matchIds)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error batch loading match media:', error);
+            return new Map();
+        }
+
+        const mediaMap = new Map();
+        (data || []).forEach(item => {
+            const key = `${item.match_type}-${item.match_id}`;
+            if (!mediaMap.has(key)) mediaMap.set(key, []);
+            mediaMap.get(key).push(item);
+        });
+
+        return mediaMap;
+    } catch (err) {
+        console.error('Error batch loading match media:', err);
+        return new Map();
+    }
+}
+
+/**
  * Open media gallery
  */
 let currentGalleryIndex = 0;

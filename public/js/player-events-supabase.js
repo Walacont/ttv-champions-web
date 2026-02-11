@@ -375,11 +375,11 @@ async function loadUpcomingEvents() {
         // Pending Events (brauchen Aufmerksamkeit)
         if (pendingInvs.length > 0) {
             html += `
-                <div class="mb-3">
-                    <p class="text-[11px] text-orange-600 font-semibold uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <div class="mb-4">
+                    <p class="text-xs text-orange-600 font-semibold uppercase tracking-wide mb-2 flex items-center gap-1.5">
                         <i class="fas fa-clock"></i>${pendingInvs.length} Antwort${pendingInvs.length > 1 ? 'en' : ''} ausstehend
                     </p>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         ${pendingInvs.map(inv => {
                             const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
                             return renderEventRow(inv, countMap[key] || 0);
@@ -391,12 +391,12 @@ async function loadUpcomingEvents() {
         // Zugesagte Events
         if (acceptedInvs.length > 0) {
             html += `
-                <div class="${pendingInvs.length > 0 ? 'border-t border-gray-100 pt-2' : ''}">
-                    <button onclick="window.togglePlayerEventsSection('accepted')" class="flex items-center gap-1.5 w-full text-left py-1 group">
-                        <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-accepted"></i>
-                        <span class="text-[11px] text-green-600 font-medium"><i class="fas fa-check mr-0.5"></i>${acceptedInvs.length} zugesagt</span>
+                <div class="${pendingInvs.length > 0 ? 'border-t border-gray-200 pt-3' : ''}">
+                    <button onclick="window.togglePlayerEventsSection('accepted')" class="flex items-center gap-2 w-full text-left py-1 group">
+                        <i class="fas fa-chevron-right text-xs text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-accepted"></i>
+                        <span class="text-xs text-green-600 font-semibold"><i class="fas fa-check mr-1"></i>${acceptedInvs.length} zugesagt</span>
                     </button>
-                    <div class="hidden space-y-1.5 mt-1" id="player-events-list-accepted">
+                    <div class="hidden space-y-3 mt-2" id="player-events-list-accepted">
                         ${acceptedInvs.map(inv => {
                             const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
                             return renderEventRow(inv, countMap[key] || 0);
@@ -408,12 +408,12 @@ async function loadUpcomingEvents() {
         // Abgesagte Events
         if (rejectedInvs.length > 0) {
             html += `
-                <div class="${pendingInvs.length > 0 || acceptedInvs.length > 0 ? 'border-t border-gray-100 pt-2 mt-2' : ''}">
-                    <button onclick="window.togglePlayerEventsSection('rejected')" class="flex items-center gap-1.5 w-full text-left py-1 group">
-                        <i class="fas fa-chevron-right text-[8px] text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-rejected"></i>
-                        <span class="text-[11px] text-red-500 font-medium"><i class="fas fa-times mr-0.5"></i>${rejectedInvs.length} abgesagt</span>
+                <div class="${pendingInvs.length > 0 || acceptedInvs.length > 0 ? 'border-t border-gray-200 pt-3 mt-3' : ''}">
+                    <button onclick="window.togglePlayerEventsSection('rejected')" class="flex items-center gap-2 w-full text-left py-1 group">
+                        <i class="fas fa-chevron-right text-xs text-gray-400 transition-transform group-hover:text-gray-600" id="player-events-chevron-rejected"></i>
+                        <span class="text-xs text-red-500 font-semibold"><i class="fas fa-times mr-1"></i>${rejectedInvs.length} abgesagt</span>
                     </button>
-                    <div class="hidden space-y-1.5 mt-1" id="player-events-list-rejected">
+                    <div class="hidden space-y-3 mt-2" id="player-events-list-rejected">
                         ${rejectedInvs.map(inv => {
                             const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
                             return renderEventRow(inv, countMap[key] || 0);
@@ -514,65 +514,81 @@ function renderEventRow(invitation, acceptedCount) {
     const [year, month, day] = displayDate.split('-');
     const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
     const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
-    const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
     const dayNum = dateObj.getDate();
+    const monthName = dateObj.toLocaleDateString('de-DE', { month: 'short' });
 
     const startTime = event.start_time?.slice(0, 5) || '';
+    const endTime = event.end_time?.slice(0, 5) || '';
+    const timeDisplay = endTime ? `${startTime} – ${endTime}` : startTime;
     const isRecurring = event.repeat_type && event.repeat_type !== 'none';
-
-    const categoryIcons = { training: 'fa-dumbbell', competition: 'fa-trophy', meeting: 'fa-users', social: 'fa-glass-cheers', other: 'fa-calendar' };
-    const categoryIcon = categoryIcons[event.event_category] || 'fa-calendar';
 
     const maxP = event.max_participants;
     const participantsStr = maxP ? `${acceptedCount}/${maxP}` : `${acceptedCount}`;
 
+    let statusBadge = '';
+    if (status === 'accepted') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>Zugesagt</span>`;
+    } else if (status === 'rejected') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"><i class="fas fa-times mr-1"></i>Abgesagt</span>`;
+    }
+
     let actionHtml = '';
     if (status === 'pending') {
         actionHtml = `
-            <div class="flex gap-1.5 mt-2">
-                <button class="event-accept-btn flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
+            <div class="flex gap-2 mt-3">
+                <button class="event-accept-btn flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
                     Zusagen
                 </button>
-                <button class="event-reject-btn flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
+                <button class="event-reject-btn flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors" data-invitation-id="${invitation.id}">
                     Absagen
                 </button>
             </div>`;
     } else if (status === 'accepted') {
         actionHtml = `
-            <button class="event-cancel-btn text-[11px] text-red-500 hover:text-red-700 mt-1" data-invitation-id="${invitation.id}">Absagen</button>`;
+            <button class="event-cancel-btn text-xs text-red-500 hover:text-red-700 font-medium mt-2" data-invitation-id="${invitation.id}">
+                <i class="fas fa-times mr-1"></i>Absagen
+            </button>`;
     } else {
         actionHtml = `
-            <button class="event-accept-btn text-[11px] text-indigo-500 hover:text-indigo-700 mt-1" data-invitation-id="${invitation.id}">Doch zusagen</button>`;
+            <button class="event-accept-btn text-xs text-indigo-600 hover:text-indigo-800 font-medium mt-2" data-invitation-id="${invitation.id}">
+                <i class="fas fa-check mr-1"></i>Doch zusagen
+            </button>`;
     }
 
     return `
-        <div class="bg-white rounded-lg border ${status === 'pending' ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} p-2.5 hover:shadow-sm transition-shadow">
-            <div class="flex items-start gap-2.5">
-                <!-- Compact Date -->
-                <div class="w-10 h-10 rounded-lg ${status === 'pending' ? 'bg-indigo-600' : 'bg-gray-100'} flex flex-col items-center justify-center flex-shrink-0">
-                    <span class="text-[9px] uppercase font-medium ${status === 'pending' ? 'text-indigo-200' : 'text-gray-400'} leading-none">${dayName}</span>
-                    <span class="text-sm font-bold ${status === 'pending' ? 'text-white' : 'text-gray-700'} leading-tight">${dayNum}</span>
+        <div class="bg-white rounded-xl shadow-sm border ${status === 'pending' ? 'border-orange-200' : 'border-gray-100'} overflow-hidden hover:shadow-md transition-shadow">
+            <div class="flex">
+                <!-- Date Badge -->
+                <div class="w-16 ${status === 'pending' ? 'bg-gradient-to-b from-indigo-500 to-purple-600' : 'bg-gradient-to-b from-gray-400 to-gray-500'} text-white flex flex-col items-center justify-center py-3 flex-shrink-0">
+                    <span class="text-[10px] uppercase font-medium opacity-80">${dayName}</span>
+                    <span class="text-xl font-bold leading-tight">${dayNum}</span>
+                    <span class="text-[10px] uppercase font-medium opacity-80">${monthName}</span>
                 </div>
 
                 <!-- Content -->
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 p-3 min-w-0">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">
+                            <h3 class="text-sm font-semibold text-gray-900 truncate">
                                 ${escapeHtml(event.title)}
-                                ${isRecurring ? '<i class="fas fa-redo text-[9px] text-indigo-400 ml-0.5"></i>' : ''}
-                            </p>
-                            <div class="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
-                                ${startTime ? `<span><i class="far fa-clock mr-0.5"></i>${startTime}</span>` : ''}
-                                ${event.location ? `<span class="truncate"><i class="fas fa-map-marker-alt mr-0.5"></i>${escapeHtml(event.location)}</span>` : ''}
-                                <span><i class="fas fa-users mr-0.5"></i>${participantsStr}</span>
+                                ${isRecurring ? '<i class="fas fa-redo text-[10px] text-indigo-400 ml-1" title="Wiederkehrend"></i>' : ''}
+                            </h3>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-1">
+                                ${timeDisplay ? `<span class="flex items-center gap-1"><i class="far fa-clock"></i>${timeDisplay}</span>` : ''}
+                                ${event.location ? `<span class="flex items-center gap-1 truncate"><i class="fas fa-map-marker-alt"></i>${escapeHtml(event.location)}</span>` : ''}
+                                <span class="flex items-center gap-1"><i class="fas fa-users"></i>${participantsStr}</span>
                             </div>
                         </div>
-                        <button class="event-details-btn text-gray-400 hover:text-indigo-600 p-1 flex-shrink-0" data-event-id="${event.id}" title="Details">
-                            <i class="fas fa-info-circle text-sm"></i>
+                        ${statusBadge}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center justify-between">
+                        ${actionHtml}
+                        <button class="event-details-btn text-xs text-gray-400 hover:text-indigo-600 font-medium ml-auto" data-event-id="${event.id}">
+                            Details <i class="fas fa-chevron-right text-[10px] ml-0.5"></i>
                         </button>
                     </div>
-                    ${actionHtml}
                 </div>
             </div>
         </div>
@@ -586,7 +602,7 @@ function setupEventCardListeners() {
     // Annehmen-Buttons
     document.querySelectorAll('.event-accept-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await respondToEvent(invitationId, 'accepted');
         });
     });
@@ -594,7 +610,7 @@ function setupEventCardListeners() {
     // Ablehnen-Buttons
     document.querySelectorAll('.event-reject-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await showRejectModal(invitationId);
         });
     });
@@ -602,7 +618,7 @@ function setupEventCardListeners() {
     // Absagen-Buttons (für bereits angenommene)
     document.querySelectorAll('.event-cancel-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const invitationId = e.target.dataset.invitationId;
+            const invitationId = e.currentTarget.dataset.invitationId;
             await showRejectModal(invitationId);
         });
     });
@@ -610,7 +626,7 @@ function setupEventCardListeners() {
     // Details-Buttons
     document.querySelectorAll('.event-details-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            const eventId = e.target.dataset.eventId;
+            const eventId = e.currentTarget.dataset.eventId;
             await showEventDetails(eventId);
         });
     });
