@@ -67,7 +67,7 @@ BEGIN
         WHILE v_occurrence_date <= v_window_end LOOP
             -- Prüfen ob Datum nicht ausgeschlossen ist
             IF v_event.excluded_dates IS NULL
-               OR NOT (v_event.excluded_dates @> to_jsonb(v_occurrence_date::text)) THEN
+               OR NOT (v_occurrence_date::text = ANY(v_event.excluded_dates)) THEN
 
                 -- Vorlaufzeit-Startdatum berechnen
                 v_lead_time_start := CASE v_event.invitation_lead_time_unit
