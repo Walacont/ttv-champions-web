@@ -709,6 +709,9 @@ async function sendMessage() {
 
         // Konversationsliste im Hintergrund aktualisieren
         updateConversationInList(currentConversationId, content, currentUserId, new Date().toISOString());
+
+        // Push-Notification an andere Teilnehmer senden
+        sendChatPushNotification(currentConversationId, content);
     } catch (err) {
         console.error('[CHAT] Error sending message:', err);
         showToast('Nachricht konnte nicht gesendet werden');
@@ -717,6 +720,50 @@ async function sendMessage() {
         const tempEl = document.querySelector(`[data-msg-id="${tempId}"]`);
         if (tempEl) tempEl.remove();
         currentMessages = currentMessages.filter(m => m.message_id !== tempId);
+    }
+}
+
+/**
+ * Sendet Push-Notification an alle anderen Teilnehmer einer Konversation
+ */
+async function sendChatPushNotification(conversationId, messageContent) {
+    try {
+        const conv = conversations.find(c => c.conversation_id === conversationId);
+        if (!conv || !conv.participant_ids) return;
+
+        // Alle Teilnehmer außer dem Sender
+        const recipientIds = conv.participant_ids.filter(id => id !== currentUserId);
+        if (recipientIds.length === 0) return;
+
+        // Sender-Name aus dem Profil holen
+        const { data: profile } = await db.from('profiles')
+            .select('display_name, first_name')
+            .eq('id', currentUserId)
+            .single();
+        const senderName = profile?.display_name || profile?.first_name || 'Jemand';
+
+        const isGroup = conv.conversation_type === 'group';
+        const title = isGroup ? (conv.conversation_name || 'Gruppenchat') : senderName;
+        const body = isGroup
+            ? `${senderName}: ${messageContent.substring(0, 100)}`
+            : messageContent.substring(0, 100);
+
+        await db.functions.invoke('send-push-notification', {
+            body: {
+                user_ids: recipientIds,
+                title,
+                body,
+                notification_type: 'chat_message',
+                data: {
+                    type: 'chat_message',
+                    conversation_id: conversationId,
+                    sender_id: currentUserId
+                }
+            }
+        });
+    } catch (err) {
+        // Push-Fehler nicht an den User weitergeben
+        console.warn('[CHAT] Push notification failed:', err);
     }
 }
 
