@@ -1,6 +1,7 @@
 /**
  * Video AI Toolbar - UI-Controls für KI-Videoanalyse
  * Erstellt einen KI-Analyse-Button und ein Floating-Panel.
+ * Integriert: Skelett-Overlay, Schlag-Klassifizierung, Bewegungsqualität.
  */
 
 import {
@@ -14,9 +15,12 @@ import {
     clearCache
 } from './video-ai-engine.js';
 import { VideoAIOverlay } from './video-ai-overlay.js';
+import { classifyShots, renderShotStats, saveShotLabels } from './video-ai-shot-classifier.js';
+import { analyzeBallMachineSession, renderConsistencyTimeline, renderMovementSummary } from './video-ai-movement-quality.js';
 
 let aiOverlay = null;
 let abortController = null;
+let lastAnalysisResults = null; // Cached results for panel re-open
 
 /**
  * Initialisiert die AI-Toolbar für ein Video im Detail-Modal.
@@ -41,6 +45,7 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
         aiOverlay.destroy();
         aiOverlay = null;
     }
+    lastAnalysisResults = null;
 
     // Neues Overlay erstellen
     aiOverlay = new VideoAIOverlay(videoPlayer);
@@ -63,6 +68,9 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
             if (saved && saved.frames && saved.frames.length > 0) {
                 aiOverlay.setSavedFrames(saved.frames);
                 updatePanelStatus('saved', saved.analysis.frames_analyzed);
+
+                // Sofort Shot-Klassifizierung + Movement Quality auf gespeicherten Frames
+                runPostAnalysis(saved.frames, context, videoId);
             }
         } catch (e) {
             console.warn('[AI Toolbar] Could not load saved results:', e);
@@ -97,6 +105,8 @@ function createAIPanel() {
         z-index: 25;
         min-width: 280px;
         max-width: 95%;
+        max-height: 70vh;
+        overflow-y: auto;
         box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         color: white;
         font-size: 13px;
@@ -130,7 +140,7 @@ function createAIPanel() {
         </div>
 
         <!-- Toggles -->
-        <div class="flex flex-col gap-2 mb-3">
+        <div id="ai-toggles" class="flex flex-col gap-2 mb-3">
             <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="ai-toggle-skeleton" checked
                        class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0">
@@ -148,8 +158,11 @@ function createAIPanel() {
             </label>
         </div>
 
+        <!-- Ergebnis-Bereich (wird nach Analyse gefüllt) -->
+        <div id="ai-results" class="hidden"></div>
+
         <!-- Aktions-Buttons -->
-        <div class="flex flex-col gap-2">
+        <div id="ai-actions" class="flex flex-col gap-2">
             <button id="ai-analyze-frame-btn"
                     class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                 <i class="fas fa-camera"></i>
@@ -323,15 +336,16 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
 
         if (frames.length > 0) {
             // Overlay mit Ergebnissen füttern
+            const savedFormat = frames.map(f => ({
+                timestamp_seconds: f.timestamp,
+                poses: f.landmarks.map((lm, idx) => ({
+                    landmarks: lm,
+                    worldLandmarks: f.worldLandmarks[idx] || null
+                })),
+                player_count: f.playerCount
+            }));
+
             if (aiOverlay) {
-                const savedFormat = frames.map(f => ({
-                    timestamp_seconds: f.timestamp,
-                    poses: f.landmarks.map((lm, idx) => ({
-                        landmarks: lm,
-                        worldLandmarks: f.worldLandmarks[idx] || null
-                    })),
-                    player_count: f.playerCount
-                }));
                 aiOverlay.setSavedFrames(savedFormat);
                 aiOverlay.activate();
 
@@ -344,14 +358,16 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
                 try {
                     updatePanelStatus('saving');
                     await saveAnalysisResults(context.db, videoId, context.userId, frames);
-                    updatePanelStatus('done', frames.length);
                 } catch (saveError) {
                     console.error('[AI Toolbar] Save failed:', saveError);
-                    updatePanelStatus('done_not_saved', frames.length);
                 }
-            } else {
-                updatePanelStatus('done', frames.length);
             }
+
+            // Shot-Klassifizierung + Movement Quality
+            updatePanelStatus('classifying');
+            await runPostAnalysis(savedFormat, context, videoId);
+
+            updatePanelStatus('done', frames.length);
 
             // UX: Video zum Anfang seeken, Panel minimieren, abspielen
             videoPlayer.currentTime = 0;
@@ -372,6 +388,104 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
         }
         hideProgress();
     }
+}
+
+/**
+ * Führt Shot-Klassifizierung und Movement Quality nach der Pose-Analyse durch.
+ */
+async function runPostAnalysis(savedFrames, context, videoId) {
+    const resultsDiv = document.getElementById('ai-results');
+    if (!resultsDiv) return;
+
+    try {
+        // 1. Shot-Klassifizierung
+        const shotAnalysis = classifyShots(savedFrames);
+
+        // 2. Bewegungsqualität (Balleimertraining-Erkennung)
+        const movementAnalysis = analyzeBallMachineSession(savedFrames);
+
+        // Ergebnisse cachen
+        lastAnalysisResults = { shotAnalysis, movementAnalysis };
+
+        // 3. Shot-Labels in DB speichern
+        if (context.db && context.userId && shotAnalysis.shots.length > 0) {
+            try {
+                await saveShotLabels(
+                    context.db, videoId, context.userId,
+                    context.clubId || null,
+                    shotAnalysis.shots
+                );
+            } catch (e) {
+                console.warn('[AI Toolbar] Shot labels save failed:', e);
+            }
+        }
+
+        // 4. UI aktualisieren
+        renderResults(resultsDiv, shotAnalysis, movementAnalysis);
+    } catch (e) {
+        console.error('[AI Toolbar] Post-analysis failed:', e);
+    }
+}
+
+/**
+ * Rendert die Analyse-Ergebnisse ins Panel.
+ */
+function renderResults(container, shotAnalysis, movementAnalysis) {
+    container.classList.remove('hidden');
+
+    let html = '';
+
+    // Tabs für verschiedene Ansichten
+    html += `<div class="flex gap-1 mb-3 border-b border-gray-700 pb-2">
+        <button class="ai-result-tab active text-xs px-2 py-1 rounded-t transition-colors bg-gray-700 text-white" data-tab="shots">
+            <i class="fas fa-table-tennis mr-1"></i>Schläge
+        </button>`;
+
+    if (movementAnalysis && movementAnalysis.summary) {
+        html += `<button class="ai-result-tab text-xs px-2 py-1 rounded-t transition-colors text-gray-400 hover:text-white" data-tab="quality">
+            <i class="fas fa-chart-line mr-1"></i>Qualität
+        </button>`;
+    }
+
+    html += `</div>`;
+
+    // Shot-Statistik Tab
+    html += `<div id="ai-tab-shots" class="ai-tab-content">`;
+    if (shotAnalysis && shotAnalysis.stats) {
+        html += renderShotStats(shotAnalysis);
+    } else {
+        html += '<p class="text-sm text-gray-500">Keine Schläge erkannt</p>';
+    }
+    html += `</div>`;
+
+    // Movement Quality Tab
+    if (movementAnalysis && movementAnalysis.summary) {
+        html += `<div id="ai-tab-quality" class="ai-tab-content hidden">`;
+        html += renderMovementSummary(movementAnalysis);
+        html += `<div class="mt-3">
+            <span class="text-xs text-gray-400 mb-1 block">Konsistenz pro Wiederholung:</span>
+            ${renderConsistencyTimeline(movementAnalysis.repetitions)}
+        </div>`;
+        html += `</div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Tab-Wechsel
+    container.querySelectorAll('.ai-result-tab').forEach(tab => {
+        tab.onclick = () => {
+            container.querySelectorAll('.ai-result-tab').forEach(t => {
+                t.classList.remove('active', 'bg-gray-700', 'text-white');
+                t.classList.add('text-gray-400');
+            });
+            tab.classList.add('active', 'bg-gray-700', 'text-white');
+            tab.classList.remove('text-gray-400');
+
+            container.querySelectorAll('.ai-tab-content').forEach(c => c.classList.add('hidden'));
+            const target = document.getElementById(`ai-tab-${tab.dataset.tab}`);
+            if (target) target.classList.remove('hidden');
+        };
+    });
 }
 
 /**
@@ -397,9 +511,10 @@ function updatePanelStatus(status, count, extra) {
         analyzing_frame: '<i class="fas fa-spinner fa-spin mr-1"></i> Analysiere Frame...',
         analyzing_video: '<i class="fas fa-spinner fa-spin mr-1"></i> Video wird analysiert...',
         analyzing_progress: `<i class="fas fa-spinner fa-spin mr-1"></i> Analysiere... ${extra || ''}`,
+        classifying: '<i class="fas fa-spinner fa-spin mr-1"></i> Schläge werden klassifiziert...',
         saving: '<i class="fas fa-spinner fa-spin mr-1"></i> Ergebnisse werden gespeichert...',
         frame_done: `<i class="fas fa-check text-green-400 mr-1"></i> ${count || 0} Person(en) erkannt`,
-        done: `<i class="fas fa-check text-green-400 mr-1"></i> ${count || 0} Frames analysiert und gespeichert`,
+        done: `<i class="fas fa-check text-green-400 mr-1"></i> ${count || 0} Frames analysiert`,
         done_not_saved: `<i class="fas fa-check text-yellow-400 mr-1"></i> ${count || 0} Frames analysiert (nicht gespeichert)`,
         saved: `<i class="fas fa-database text-blue-400 mr-1"></i> ${count || 0} gespeicherte Frames geladen`,
         no_pose: '<i class="fas fa-exclamation-triangle text-yellow-400 mr-1"></i> Keine Person erkannt',
@@ -453,6 +568,7 @@ export function cleanupAIToolbar() {
         abortController.abort();
         abortController = null;
     }
+    lastAnalysisResults = null;
     clearCache();
 
     const panel = document.getElementById('ai-analysis-panel');
