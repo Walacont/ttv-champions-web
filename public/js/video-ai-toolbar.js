@@ -657,12 +657,13 @@ async function autoCompareWithExerciseReference(context, videoId) {
     if (!context.exerciseId || !context.db || !context.clubId) return;
 
     try {
-        // Musterbeispiel-Videos für diese Übung laden
+        // Musterbeispiel-Videos für diese Übung laden (nur Uploads, keine YouTube)
         const { data: examples, error } = await context.db
             .from('exercise_example_videos')
-            .select('video_id')
+            .select('video_id, source_type')
             .eq('exercise_id', context.exerciseId)
             .eq('club_id', context.clubId)
+            .not('video_id', 'is', null)
             .order('sort_order', { ascending: true });
 
         if (error || !examples || examples.length === 0) return;

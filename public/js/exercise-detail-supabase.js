@@ -666,6 +666,46 @@ function formatRecordValue(count, unit, timeDirection) {
     return `${count} ${unit}`;
 }
 
+/**
+ * Rendert eine YouTube-Musterbeispiel-Karte mit DSGVO-konformem Two-Click-Embedding.
+ * Zeigt erst ein Vorschaubild + Play-Button. Erst bei Klick wird der YouTube-iFrame geladen.
+ */
+function renderYouTubeExampleCard(video) {
+    const ytId = escapeHtml(video.youtube_id);
+    const title = escapeHtml(video.title || 'YouTube Musterbeispiel');
+    // Thumbnail von YouTube (mqdefault = 320x180, gute Qualität)
+    const thumbUrl = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+
+    return `
+        <div class="rounded-lg overflow-hidden border border-gray-200 bg-white">
+            <div class="youtube-embed-container" style="position:relative; aspect-ratio:16/9;">
+                <div class="youtube-two-click cursor-pointer w-full h-full relative group"
+                     data-youtube-id="${ytId}">
+                    <img src="${thumbUrl}" alt="${title}"
+                         class="w-full h-full object-cover" loading="lazy">
+                    <!-- Play-Button Overlay -->
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                        <div class="w-14 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg group-hover:bg-red-700 transition-colors">
+                            <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <!-- DSGVO-Hinweis -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
+                        <p class="text-white text-[10px] leading-tight opacity-80">
+                            Klicke zum Laden. Es werden Daten an YouTube (Google) übermittelt.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-3 py-2 flex items-center gap-2">
+                <i class="fab fa-youtube text-red-600 text-sm"></i>
+                <span class="text-gray-700 text-sm font-medium truncate">${title}</span>
+            </div>
+        </div>`;
+}
+
 async function loadExampleVideos() {
     try {
         const clubId = currentUserData?.club_id;
@@ -716,7 +756,13 @@ async function loadExampleVideos() {
         const list = document.getElementById('example-videos-list');
 
         list.innerHTML = videos
-            .map(video => `
+            .map(video => {
+                if (video.source_type === 'youtube' && video.youtube_id) {
+                    // YouTube: DSGVO-konformes Two-Click-Embedding
+                    return renderYouTubeExampleCard(video);
+                }
+                // Upload: Bestehende Logik (Link zum Video)
+                return `
                 <a href="${escapeHtml(video.video_url)}" target="_blank" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                     <div class="w-16 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
                         ${video.thumbnail_url
@@ -725,9 +771,30 @@ async function loadExampleVideos() {
                     </div>
                     <span class="text-gray-700 font-medium truncate">${escapeHtml(video.title || 'Musterbeispiel')}</span>
                     <i class="fas fa-external-link-alt text-gray-400 ml-auto"></i>
-                </a>
-            `)
+                </a>`;
+            })
             .join('');
+
+        // YouTube Two-Click Handler initialisieren
+        list.querySelectorAll('.youtube-two-click').forEach(el => {
+            el.addEventListener('click', () => {
+                const ytId = el.dataset.youtubeId;
+                const container = el.closest('.youtube-embed-container');
+                if (container && ytId) {
+                    container.innerHTML = `
+                        <iframe
+                            width="100%"
+                            height="100%"
+                            src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1"
+                            title="YouTube Video"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen
+                            class="rounded-lg">
+                        </iframe>`;
+                }
+            });
+        });
 
         section.classList.remove('hidden');
 
