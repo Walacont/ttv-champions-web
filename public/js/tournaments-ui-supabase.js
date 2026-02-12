@@ -377,7 +377,7 @@ function renderTournamentDetails(tournament, participating) {
                         </div>
                     </div>
                     <div id="matches-container">
-                        ${renderMatches(tournament.tournament_matches || [], isCreator, tournament.format === 'round_robin' ? 'remaining' : 'all')}
+                        ${renderMatches(tournament.tournament_matches || [], isCreator, tournament.format === 'round_robin' ? 'remaining' : 'all', tournament.format)}
                     </div>
                 </div>
             ` : ''}
@@ -582,13 +582,16 @@ function renderWinnerPodium(standings) {
     </div>`;
 }
 
-function renderMatches(matches, isCreator = false, filter = 'all') {
+function renderMatches(matches, isCreator = false, filter = 'all', format = null) {
     if (!matches.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
 
     // Check if this is a Double Elimination tournament (has bracket_type)
-    const hasDoubleElim = matches.some(m => m.bracket_type && m.bracket_type !== 'winners');
-    if (hasDoubleElim || matches.some(m => m.bracket_type === 'winners')) {
-        return renderDoubleEliminationMatches(matches, isCreator, filter);
+    // Round Robin also uses bracket_type 'winners' but should NOT use the bracket view
+    if (format !== 'round_robin') {
+        const hasDoubleElim = matches.some(m => m.bracket_type && m.bracket_type !== 'winners');
+        if (hasDoubleElim || matches.some(m => m.bracket_type === 'winners')) {
+            return renderDoubleEliminationMatches(matches, isCreator, filter);
+        }
     }
 
     const byRound = {};
@@ -1210,7 +1213,7 @@ function setupDetailEventListeners(tournament, participating) {
             const filter = roundsFilter.value;
             const container = document.getElementById('matches-container');
             if (container) {
-                container.innerHTML = renderMatches(tournament.tournament_matches || [], isCreator, filter);
+                container.innerHTML = renderMatches(tournament.tournament_matches || [], isCreator, filter, tournament.format);
                 // Re-attach correction button listeners
                 document.querySelectorAll('.correct-match-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
