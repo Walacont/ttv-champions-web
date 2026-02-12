@@ -223,6 +223,20 @@
                                 <i class="fas fa-times mr-1"></i>Abbrechen
                             </button>
                         </div>
+                        <!-- Spieler-Zuordnung (erscheint nach Analyse) -->
+                        <div id="ai-players" class="hidden mt-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <h4 class="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                                <i class="fas fa-users text-gray-500"></i>
+                                Spieler-Zuordnung
+                            </h4>
+                            <div id="ai-players-list" class="space-y-2">
+                                <!-- Wird dynamisch befüllt -->
+                            </div>
+                            <button id="ai-reclassify-btn" class="mt-2 w-full bg-cyan-100 hover:bg-cyan-200 text-cyan-700 text-xs font-medium py-1.5 px-3 rounded transition-colors">
+                                <i class="fas fa-sync-alt mr-1"></i>Neu klassifizieren
+                            </button>
+                        </div>
+
                         <!-- KI-Vorschläge Liste -->
                         <div id="ai-suggestions" class="hidden mt-3">
                             <div class="flex items-center justify-between mb-2">
@@ -454,6 +468,8 @@
         let selectedExerciseId = null;
         let aiSuggestions = []; // KI-erkannte Schläge (noch nicht übernommen)
         let aiAbortController = null;
+        let aiFormattedFrames = null; // Gespeicherte Frames für Neu-Klassifizierung
+        let aiDetectedPlayers = []; // [{idx, side:'left'|'right', avgX, spielhand:'right'|'left'|null}]
 
         // Video type labels
         const videoTypeLabels = {
@@ -844,6 +860,8 @@
             currentVideo = video;
             currentShots = [];
             aiSuggestions = [];
+            aiFormattedFrames = null;
+            aiDetectedPlayers = [];
             selectedVideoType = video.video_type || null;
             selectedExerciseId = video.exercise_id || null;
 
@@ -972,6 +990,7 @@
             // KI-Vorschläge UI zurücksetzen
             document.getElementById('ai-suggestions').classList.add('hidden');
             document.getElementById('ai-progress').classList.add('hidden');
+            document.getElementById('ai-players').classList.add('hidden');
         }
 
         function setupEventListeners() {
@@ -983,6 +1002,8 @@
                 currentVideo = null;
                 currentShots = [];
                 aiSuggestions = [];
+                aiFormattedFrames = null;
+                aiDetectedPlayers = [];
                 selectedVideoType = null;
                 selectedExerciseId = null;
             });
@@ -1030,6 +1051,9 @@
                 renderAISuggestions();
                 renderTimeline();
                 showToast('KI-Vorschläge verworfen', 'info');
+            });
+            document.getElementById('ai-reclassify-btn').addEventListener('click', () => {
+                reclassifyWithPlayers();
             });
 
             // "Von" position buttons
@@ -1242,9 +1266,13 @@
                         ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-1 rounded" title="KI-erkannt, korrigiert">KI✎</span>'
                         : '<span class="text-xs bg-cyan-100 text-cyan-700 px-1 rounded" title="KI-erkannt">KI</span>')
                     : '';
+                const playerTag = shot.playerNum
+                    ? `<span class="text-xs px-1 rounded ${shot.playerSide === 'left' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">S${shot.playerNum}</span>`
+                    : '';
                 return `
                 <div class="shot-item flex items-center justify-between p-2 ${shot.aiGenerated ? 'bg-cyan-50' : 'bg-gray-50'} rounded-lg group">
                     <div class="flex items-center gap-2 flex-wrap">
+                        ${playerTag}
                         <span class="text-xs font-mono text-gray-500">${formatTime(shot.startTime)}-${formatTime(shot.endTime)}</span>
                         <span class="text-sm font-medium ${shot.shotType.startsWith('backhand') ? 'text-purple-600' : 'text-indigo-600'}">
                             ${shotTypeLabels[shot.shotType] || shot.shotType}
@@ -1426,6 +1454,143 @@
 
         // ===== KI-Voranalyse =====
 
+        // Berechnet stabile Spieler-Positionen aus den Pose-Daten.
+        // Nutzt die durchschnittliche X-Position der Schultern pro Spieler-Index
+        // und ordnet Spieler konsistent nach links/rechts im Bild zu.
+        function identifyPlayers(formattedFrames) {
+            const maxPlayers = Math.max(...formattedFrames.map(f => f.poses?.length || 0));
+            if (maxPlayers === 0) return [];
+
+            // Durchschnittliche X-Position pro playerIdx berechnen
+            const playerStats = [];
+            for (let pIdx = 0; pIdx < maxPlayers; pIdx++) {
+                let totalX = 0;
+                let count = 0;
+
+                for (const frame of formattedFrames) {
+                    if (!frame.poses || frame.poses.length <= pIdx) continue;
+                    const lm = frame.poses[pIdx].landmarks;
+                    if (!lm) continue;
+
+                    // Schulter-Mittelpunkt als stabile Position
+                    const ls = lm[11]; // LEFT_SHOULDER
+                    const rs = lm[12]; // RIGHT_SHOULDER
+                    if (ls && rs && (ls.visibility || 0) > 0.3 && (rs.visibility || 0) > 0.3) {
+                        totalX += (ls.x + rs.x) / 2;
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    playerStats.push({
+                        idx: pIdx,
+                        avgX: totalX / count,
+                        frameCount: count
+                    });
+                }
+            }
+
+            // Nach X-Position sortieren: links im Bild = kleinere X
+            playerStats.sort((a, b) => a.avgX - b.avgX);
+
+            return playerStats.map((p, i) => ({
+                idx: p.idx,
+                side: i === 0 ? 'left' : 'right', // Erster = links im Bild
+                avgX: p.avgX,
+                frameCount: p.frameCount,
+                spielhand: null // Vom Labeler zu setzen
+            }));
+        }
+
+        function renderPlayerPanel() {
+            const panel = document.getElementById('ai-players');
+            const list = document.getElementById('ai-players-list');
+
+            if (aiDetectedPlayers.length === 0) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            panel.classList.remove('hidden');
+
+            list.innerHTML = aiDetectedPlayers.map((player, i) => {
+                const sideLabel = player.side === 'left' ? '⬅ Links im Bild' : '➡ Rechts im Bild';
+                const posPercent = Math.round(player.avgX * 100);
+
+                return `
+                <div class="flex items-center gap-2 p-2 rounded-lg ${player.side === 'left' ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1 mb-1">
+                            <span class="text-xs font-bold ${player.side === 'left' ? 'text-blue-700' : 'text-orange-700'}">
+                                Spieler ${i + 1}
+                            </span>
+                            <span class="text-xs text-gray-500">${sideLabel}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1 mb-1" title="Position im Bild: ${posPercent}%">
+                            <div class="h-1 rounded-full ${player.side === 'left' ? 'bg-blue-400' : 'bg-orange-400'}" style="width: ${posPercent}%; margin-left: 0;"></div>
+                        </div>
+                    </div>
+                    <select class="ai-player-hand text-xs border rounded px-1 py-1" data-player-index="${i}">
+                        <option value=""${!player.spielhand ? ' selected' : ''}>Auto</option>
+                        <option value="right"${player.spielhand === 'right' ? ' selected' : ''}>Rechtsh.</option>
+                        <option value="left"${player.spielhand === 'left' ? ' selected' : ''}>Linksh.</option>
+                    </select>
+                </div>
+            `}).join('');
+
+            // Spielhand-Änderung Event-Handler
+            list.querySelectorAll('.ai-player-hand').forEach(select => {
+                select.addEventListener('change', () => {
+                    const idx = parseInt(select.dataset.playerIndex);
+                    aiDetectedPlayers[idx].spielhand = select.value || null;
+                });
+            });
+        }
+
+        // Klassifizierung mit aktuellen Spieler-Einstellungen neu ausführen
+        function reclassifyWithPlayers() {
+            if (!aiFormattedFrames || aiDetectedPlayers.length === 0) return;
+
+            const duration = videoPlayer?.duration || 1;
+            aiSuggestions = [];
+
+            // Für jeden erkannten Spieler die Schläge klassifizieren
+            aiDetectedPlayers.forEach((player, playerNum) => {
+                const options = {};
+                if (player.spielhand) options.spielhand = player.spielhand;
+
+                const analysis = classifyShots(aiFormattedFrames, player.idx, options);
+                if (!analysis.shots || analysis.shots.length === 0) return;
+
+                // Vorschläge mit Spieler-Info erstellen
+                analysis.shots.forEach((shot, i) => {
+                    aiSuggestions.push({
+                        id: `ai-p${playerNum}-${i}`,
+                        startTime: Math.max(0, shot.timestamp - 0.3),
+                        endTime: Math.min(duration, shot.timestamp + 0.3),
+                        shotType: shot.shotType,
+                        confidence: shot.confidence,
+                        shotFrom: null,
+                        shotTo: null,
+                        shotResult: 'hit',
+                        accepted: false,
+                        correctedType: null,
+                        playerNum: playerNum + 1,
+                        playerSide: player.side
+                    });
+                });
+            });
+
+            // Nach Zeitstempel sortieren
+            aiSuggestions.sort((a, b) => a.startTime - b.startTime);
+
+            renderAISuggestions();
+            renderTimeline();
+
+            const totalShots = aiSuggestions.length;
+            showToast(`${totalShots} Schläge erkannt (${aiDetectedPlayers.length} Spieler)`, 'success');
+        }
+
         async function runAIAnalysis() {
             if (!videoPlayer || !currentVideo) return;
 
@@ -1492,8 +1657,8 @@
                     return;
                 }
 
-                // 4. Frames ins richtige Format konvertieren
-                const formattedFrames = rawFrames.map(f => ({
+                // 4. Frames ins richtige Format konvertieren und speichern
+                aiFormattedFrames = rawFrames.map(f => ({
                     timestamp_seconds: f.timestamp,
                     poses: f.landmarks.map((lm, idx) => ({
                         landmarks: lm,
@@ -1502,39 +1667,14 @@
                     player_count: f.playerCount
                 }));
 
-                // 5. Shot-Klassifizierung (ohne Spielhand -> Auto-Erkennung)
+                // 5. Spieler identifizieren (nach Position im Bild)
+                progressText.textContent = 'Erkenne Spieler...';
+                aiDetectedPlayers = identifyPlayers(aiFormattedFrames);
+                renderPlayerPanel();
+
+                // 6. Schläge klassifizieren (für alle Spieler)
                 progressText.textContent = 'Klassifiziere Schläge...';
-                const analysis = classifyShots(formattedFrames, 0);
-
-                if (!analysis.shots || analysis.shots.length === 0) {
-                    showToast('Keine Schläge erkannt', 'warning');
-                    progressDiv.classList.add('hidden');
-                    analyzeBtn.disabled = false;
-                    analyzeBtn.classList.remove('opacity-50');
-                    return;
-                }
-
-                // 6. Vorschläge erstellen
-                // Jeder Schlag bekommt ein Zeitfenster: timestamp ± 0.3s
-                aiSuggestions = analysis.shots.map((shot, i) => ({
-                    id: `ai-${i}`,
-                    startTime: Math.max(0, shot.timestamp - 0.3),
-                    endTime: Math.min(duration, shot.timestamp + 0.3),
-                    shotType: shot.shotType,
-                    confidence: shot.confidence,
-                    shotFrom: null,
-                    shotTo: null,
-                    shotResult: 'hit',
-                    accepted: false,
-                    correctedType: null // Falls Labeler den Typ ändert
-                }));
-
-                renderAISuggestions();
-                renderTimeline();
-
-                const handInfo = analysis.meta?.handSource === 'profile' ? 'Profil' : 'Auto-erkannt';
-                const sideInfo = analysis.meta?.dominantSide === 'right' ? 'Rechtshänder' : 'Linkshänder';
-                showToast(`${analysis.shots.length} Schläge erkannt (${sideInfo}, ${handInfo})`, 'success');
+                reclassifyWithPlayers();
 
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -1565,12 +1705,16 @@
                 const isBackhand = displayType.startsWith('backhand');
                 const confPercent = Math.round(sug.confidence * 100);
                 const confColor = confPercent >= 70 ? 'text-green-600' : confPercent >= 50 ? 'text-yellow-600' : 'text-red-600';
+                const playerBadge = sug.playerNum
+                    ? `<span class="text-xs px-1 rounded ${sug.playerSide === 'left' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}" title="Spieler ${sug.playerNum} (${sug.playerSide === 'left' ? 'links' : 'rechts'})">S${sug.playerNum}</span>`
+                    : '';
 
                 return `
                 <div class="ai-sug-item flex items-center gap-1 p-1.5 rounded-lg ${sug.accepted ? 'bg-green-50 border border-green-200' : 'bg-cyan-50 border border-cyan-200'}" data-index="${index}">
                     <button class="ai-sug-jump text-xs text-gray-400 hover:text-cyan-600 px-1" data-time="${sug.startTime}" title="Zum Zeitpunkt springen">
                         <i class="fas fa-play"></i>
                     </button>
+                    ${playerBadge}
                     <span class="text-xs font-mono text-gray-500 w-16 shrink-0">${formatTime(sug.startTime)}</span>
                     <select class="ai-sug-type text-xs border rounded px-1 py-0.5 flex-1 ${isBackhand ? 'text-purple-700 bg-purple-50' : 'text-indigo-700 bg-indigo-50'}" data-index="${index}">
                         <option value="forehand_serve"${displayType === 'forehand_serve' ? ' selected' : ''}>VH Aufschlag</option>
@@ -1643,7 +1787,9 @@
                 saved: false,
                 aiGenerated: true,
                 aiOriginalType: sug.shotType,
-                aiCorrected: sug.correctedType !== null && sug.correctedType !== sug.shotType
+                aiCorrected: sug.correctedType !== null && sug.correctedType !== sug.shotType,
+                playerNum: sug.playerNum || null,
+                playerSide: sug.playerSide || null
             });
 
             sug.accepted = true;
