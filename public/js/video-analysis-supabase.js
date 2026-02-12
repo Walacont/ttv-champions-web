@@ -2394,9 +2394,11 @@ let shotTypesChart = null;
 let timelineChart = null;
 
 // Schlagtyp-Labels und Farben
+// Aufschläge werden zusammengefasst (VH/RH-Aufschlag ist technisch nicht trennbar)
 const SHOT_TYPE_LABELS = {
-    forehand_serve: 'VH Aufschlag',
-    backhand_serve: 'RH Aufschlag',
+    serve: 'Aufschlag',
+    forehand_serve: 'Aufschlag',
+    backhand_serve: 'Aufschlag',
     forehand_topspin: 'VH Topspin',
     backhand_topspin: 'RH Topspin',
     forehand_push: 'VH Schupf',
@@ -2407,8 +2409,9 @@ const SHOT_TYPE_LABELS = {
 };
 
 const SHOT_TYPE_COLORS = {
-    forehand_serve: '#6366f1',    // Indigo
-    backhand_serve: '#8b5cf6',    // Violet
+    serve: '#6366f1',             // Indigo
+    forehand_serve: '#6366f1',
+    backhand_serve: '#6366f1',
     forehand_topspin: '#ef4444',  // Rot
     backhand_topspin: '#f97316',  // Orange
     forehand_push: '#22c55e',     // Grün
@@ -2417,6 +2420,14 @@ const SHOT_TYPE_COLORS = {
     backhand_block: '#06b6d4',    // Cyan
     other: '#9ca3af',             // Grau
 };
+
+/**
+ * Normalisiert Schlagtyp: forehand_serve/backhand_serve → serve
+ */
+function normalizeShotType(type) {
+    if (type === 'forehand_serve' || type === 'backhand_serve') return 'serve';
+    return type;
+}
 
 /**
  * Lädt und rendert die Schlagstatistiken
@@ -2431,7 +2442,7 @@ async function loadShotStatistics() {
     if (playerFilter && playerFilter.options.length <= 1) {
         const playersOnly = clubPlayers.filter(p => p.role === 'player');
         playersOnly.forEach(p => {
-            const name = p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
+            const name = `${p.firstName || ''} ${p.lastName || ''}`.trim();
             if (name) {
                 const option = document.createElement('option');
                 option.value = p.id;
@@ -2440,26 +2451,34 @@ async function loadShotStatistics() {
             }
         });
 
+        // Ersten Spieler automatisch auswählen
+        if (playerFilter.options.length > 1) {
+            playerFilter.selectedIndex = 1;
+        }
+
         // Event-Listener für Filter
         playerFilter.addEventListener('change', () => loadShotStatistics());
         const timeFilter = document.getElementById('stats-time-filter');
         if (timeFilter) timeFilter.addEventListener('change', () => loadShotStatistics());
     }
 
-    const selectedPlayer = playerFilter?.value || 'all';
+    const selectedPlayer = playerFilter?.value;
     const selectedTime = document.getElementById('stats-time-filter')?.value || 'all';
+
+    // Kein Spieler ausgewählt → Hinweis anzeigen
+    if (!selectedPlayer) {
+        renderStatsEmpty();
+        return;
+    }
 
     // Labels aus der Datenbank laden
     let query = db
         .from('video_labels')
         .select('shot_type, shot_quality, is_verified, created_at, player_id, video_id, timestamp_start')
         .eq('club_id', clubId)
+        .eq('player_id', selectedPlayer)
         .not('shot_type', 'is', null)
         .eq('event_type', 'shot');
-
-    if (selectedPlayer !== 'all') {
-        query = query.eq('player_id', selectedPlayer);
-    }
 
     if (selectedTime !== 'all') {
         const daysAgo = new Date();
@@ -2471,12 +2490,12 @@ async function loadShotStatistics() {
 
     if (error) {
         console.error('Fehler beim Laden der Schlagstatistiken:', error);
-        renderStatsEmpty(container);
+        renderStatsEmpty();
         return;
     }
 
     if (!labels || labels.length === 0) {
-        renderStatsEmpty(container);
+        renderStatsEmpty();
         return;
     }
 
@@ -2496,10 +2515,12 @@ function computeShotStats(labels) {
     const byType = {};
     let totalVh = 0;
     let totalRh = 0;
+    let totalServe = 0;
     let totalVerified = 0;
 
     labels.forEach(l => {
-        const type = l.shot_type;
+        const rawType = l.shot_type;
+        const type = normalizeShotType(rawType);
         if (!byType[type]) {
             byType[type] = { count: 0, verified: 0, qualities: [] };
         }
@@ -2512,14 +2533,17 @@ function computeShotStats(labels) {
             byType[type].qualities.push(l.shot_quality);
         }
 
-        if (type.startsWith('forehand')) totalVh++;
-        else if (type.startsWith('backhand')) totalRh++;
+        // Aufschläge separat zählen, nicht als VH/RH
+        if (type === 'serve') totalServe++;
+        else if (rawType.startsWith('forehand')) totalVh++;
+        else if (rawType.startsWith('backhand')) totalRh++;
     });
 
     return {
         total: labels.length,
         totalVh,
         totalRh,
+        totalServe,
         totalVerified,
         byType,
         videoCount: new Set(labels.map(l => l.video_id)).size,
@@ -2595,14 +2619,15 @@ function renderVhRhChart(stats) {
 
     const vhPct = stats.total > 0 ? Math.round(stats.totalVh / stats.total * 100) : 0;
     const rhPct = stats.total > 0 ? Math.round(stats.totalRh / stats.total * 100) : 0;
+    const servePct = stats.total > 0 ? Math.round(stats.totalServe / stats.total * 100) : 0;
 
     vhRhChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: [`Vorhand (${vhPct}%)`, `Rückhand (${rhPct}%)`],
+            labels: [`Vorhand (${vhPct}%)`, `Rückhand (${rhPct}%)`, `Aufschlag (${servePct}%)`],
             datasets: [{
-                data: [stats.totalVh, stats.totalRh],
-                backgroundColor: ['#ef4444', '#3b82f6'],
+                data: [stats.totalVh, stats.totalRh, stats.totalServe],
+                backgroundColor: ['#ef4444', '#3b82f6', '#6366f1'],
                 borderWidth: 2,
                 borderColor: '#ffffff',
             }],
@@ -2677,9 +2702,11 @@ function renderTimelineChart(labels) {
         const key = weekStart.toISOString().slice(0, 10);
 
         if (!weekMap[key]) {
-            weekMap[key] = { vh: 0, rh: 0 };
+            weekMap[key] = { vh: 0, rh: 0, serve: 0 };
         }
-        if (l.shot_type.startsWith('forehand')) weekMap[key].vh++;
+        const normalized = normalizeShotType(l.shot_type);
+        if (normalized === 'serve') weekMap[key].serve++;
+        else if (l.shot_type.startsWith('forehand')) weekMap[key].vh++;
         else if (l.shot_type.startsWith('backhand')) weekMap[key].rh++;
     });
 
@@ -2704,6 +2731,12 @@ function renderTimelineChart(labels) {
                     label: 'Rückhand',
                     data: weeks.map(w => weekMap[w].rh),
                     backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderRadius: 3,
+                },
+                {
+                    label: 'Aufschlag',
+                    data: weeks.map(w => weekMap[w].serve),
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
                     borderRadius: 3,
                 },
             ],
@@ -2815,11 +2848,12 @@ async function loadVideoShotStats(videoId) {
     container.classList.remove('hidden');
     if (total) total.textContent = `${labels.length} Schläge erkannt`;
 
-    // Schläge gruppieren
+    // Schläge gruppieren (Aufschläge zusammenfassen)
     const byType = {};
     labels.forEach(l => {
-        if (!byType[l.shot_type]) byType[l.shot_type] = [];
-        byType[l.shot_type].push(l);
+        const type = normalizeShotType(l.shot_type);
+        if (!byType[type]) byType[type] = [];
+        byType[type].push(l);
     });
 
     // Als klickbare Badges rendern
