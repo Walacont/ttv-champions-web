@@ -107,7 +107,11 @@ export function classifyShots(frames, playerIdx = 0, options = {}) {
                 side,
                 type: isServe ? 'serve' : type,
                 confidence: event.confidence,
-                wristSpeed: event.speed
+                wristSpeed: event.speed,
+                // Phasen der Schlagbewegung
+                backswingTimestamp: event.backswingTimestamp,
+                contactTimestamp: event.contactTimestamp,
+                followThroughTimestamp: event.followThroughTimestamp
             };
         });
 
@@ -154,6 +158,7 @@ function detectDominantSide(playerFrames) {
 
 /**
  * Erkennt Schlag-Events anhand der Handgelenk-Geschwindigkeit.
+ * Findet zusätzlich Ausholphase (backswing) und Ausschwungphase (follow-through).
  */
 function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
     const events = [];
@@ -185,6 +190,7 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
             let peakIdx = i;
             let strokeFrames = 1;
             let totalSpeed = speed;
+            let strokeEndIdx = i;
 
             for (let j = i + 1; j < Math.min(i + 8, playerFrames.length); j++) {
                 const nextPrev = playerFrames[j - 1].landmarks[wristIdx];
@@ -197,6 +203,7 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
                 if (ns >= speedThreshold * 0.4) {
                     strokeFrames++;
                     totalSpeed += ns;
+                    strokeEndIdx = j;
                     if (ns > peakSpeed) {
                         peakSpeed = ns;
                         peakIdx = j;
@@ -215,6 +222,38 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
 
                 const confidence = Math.min(1.0, peakSpeed / (speedThreshold * 3));
 
+                // Ausholphase: Rückwärts suchen bis Geschwindigkeit unter 20% Threshold fällt
+                let backswingIdx = i;
+                for (let b = i - 1; b >= Math.max(0, i - 10); b--) {
+                    const bPrev = b > 0 ? playerFrames[b - 1].landmarks[wristIdx] : null;
+                    const bCurr = playerFrames[b].landmarks[wristIdx];
+                    if (!bPrev || !bCurr || bPrev.visibility < 0.3 || bCurr.visibility < 0.3) break;
+                    const bs = Math.sqrt(
+                        Math.pow(bCurr.x - bPrev.x, 2) + Math.pow(bCurr.y - bPrev.y, 2)
+                    );
+                    if (bs >= speedThreshold * 0.2) {
+                        backswingIdx = b;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Ausschwungphase: Vorwärts suchen nach dem Schlag-Ende
+                let followThroughIdx = strokeEndIdx;
+                for (let f = strokeEndIdx + 1; f < Math.min(strokeEndIdx + 8, playerFrames.length); f++) {
+                    const fPrev = playerFrames[f - 1].landmarks[wristIdx];
+                    const fCurr = playerFrames[f].landmarks[wristIdx];
+                    if (!fPrev || !fCurr || fPrev.visibility < 0.3 || fCurr.visibility < 0.3) break;
+                    const fs = Math.sqrt(
+                        Math.pow(fCurr.x - fPrev.x, 2) + Math.pow(fCurr.y - fPrev.y, 2)
+                    );
+                    if (fs >= speedThreshold * 0.15) {
+                        followThroughIdx = f;
+                    } else {
+                        break;
+                    }
+                }
+
                 events.push({
                     frameIndex: peakIdx,
                     timestamp: playerFrames[peakIdx].timestamp,
@@ -223,7 +262,11 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
                     confidence: Math.round(confidence * 100) / 100,
                     // Richtung des Schlags
                     directionX: dx,
-                    directionY: dy
+                    directionY: dy,
+                    // Phasen-Zeitstempel
+                    backswingTimestamp: playerFrames[backswingIdx].timestamp,
+                    contactTimestamp: playerFrames[peakIdx].timestamp,
+                    followThroughTimestamp: playerFrames[followThroughIdx].timestamp
                 });
 
                 cooldown = STROKE_COOLDOWN_FRAMES;

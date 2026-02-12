@@ -211,6 +211,15 @@
                             <i class="fas fa-magic"></i>
                             Video analysieren
                         </button>
+                        <button id="ai-table-ball-btn"
+                                class="w-full mt-2 bg-teal-600 hover:bg-teal-700 text-white font-medium py-1.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm">
+                            <i class="fas fa-table-tennis"></i>
+                            Tisch &amp; Ball erkennen
+                        </button>
+                        <div id="ai-table-ball-info" class="hidden mt-2 p-2 bg-teal-50 rounded-lg border border-teal-200 text-xs">
+                            <div id="ai-table-info" class="text-gray-600"></div>
+                            <div id="ai-ball-info" class="text-gray-600 mt-1"></div>
+                        </div>
                         <div id="ai-progress" class="hidden mt-3">
                             <div class="flex justify-between text-xs text-gray-600 mb-1">
                                 <span id="ai-progress-text">Lade KI-Modell...</span>
@@ -455,7 +464,7 @@
 
     <script type="module">
         import { getSupabase } from './js/supabase-init.js';
-        import { isAIAvailable, loadModels, analyzeFrameRange } from './js/video-ai-engine.js';
+        import { isAIAvailable, loadModels, loadObjectDetector, analyzeFrameRange, analyzeTableAndBall } from './js/video-ai-engine.js';
         import { classifyShots } from './js/video-ai-shot-classifier.js';
 
         let supabase;
@@ -470,6 +479,8 @@
         let aiAbortController = null;
         let aiFormattedFrames = null; // Gespeicherte Frames für Neu-Klassifizierung
         let aiDetectedPlayers = []; // [{idx, side:'left'|'right', avgX, spielhand:'right'|'left'|null}]
+        let aiTableBox = null;  // {x, y, width, height, confidence}
+        let aiBallTrack = [];   // [{time, x, y, score}]
 
         // Video type labels
         const videoTypeLabels = {
@@ -1042,6 +1053,7 @@
 
             // KI-Analyse Buttons
             document.getElementById('ai-analyze-btn').addEventListener('click', runAIAnalysis);
+            document.getElementById('ai-table-ball-btn').addEventListener('click', runTableBallDetection);
             document.getElementById('ai-cancel-btn').addEventListener('click', () => {
                 if (aiAbortController) aiAbortController.abort();
             });
@@ -1217,6 +1229,10 @@
                 return;
             }
 
+            // Wenn wir einen KI-Vorschlag bearbeiten, als akzeptiert markieren
+            const isAIEdit = editingAISuggestionIndex !== null;
+            const aiIdx = editingAISuggestionIndex;
+
             // Add shot
             currentShots.push({
                 id: Date.now().toString(),
@@ -1226,8 +1242,20 @@
                 shotFrom,
                 shotTo,
                 shotResult,
-                saved: false
+                saved: false,
+                aiGenerated: isAIEdit,
+                aiOriginalType: isAIEdit ? aiSuggestions[aiIdx]?.shotType : undefined,
+                aiCorrected: isAIEdit,
+                playerNum: isAIEdit ? aiSuggestions[aiIdx]?.playerNum : undefined,
+                playerSide: isAIEdit ? aiSuggestions[aiIdx]?.playerSide : undefined
             });
+
+            // KI-Vorschlag als akzeptiert markieren
+            if (isAIEdit && aiSuggestions[aiIdx]) {
+                aiSuggestions[aiIdx].accepted = true;
+                renderAISuggestions();
+            }
+            resetEditMode();
 
             // Reset form
             document.querySelectorAll('.from-btn, .to-btn, .shot-type-btn').forEach(btn => {
@@ -1648,10 +1676,19 @@
 
                 // Vorschläge mit Spieler-Info erstellen
                 analysis.shots.forEach((shot, i) => {
+                    // Phasen-Timestamps nutzen falls verfügbar, sonst Fallback ±0.3s
+                    const phaseStart = shot.backswingTimestamp != null
+                        ? Math.max(0, shot.backswingTimestamp - 0.05)
+                        : Math.max(0, shot.timestamp - 0.3);
+                    const phaseEnd = shot.followThroughTimestamp != null
+                        ? Math.min(duration, shot.followThroughTimestamp + 0.05)
+                        : Math.min(duration, shot.timestamp + 0.3);
+
                     rawSuggestions.push({
                         id: `ai-p${playerNum}-${i}`,
-                        startTime: Math.max(0, shot.timestamp - 0.3),
-                        endTime: Math.min(duration, shot.timestamp + 0.3),
+                        startTime: phaseStart,
+                        endTime: phaseEnd,
+                        contactTime: shot.contactTimestamp || shot.timestamp,
                         shotType: shot.shotType,
                         confidence: shot.confidence,
                         shotFrom: null,
@@ -1659,6 +1696,7 @@
                         shotResult: 'hit',
                         accepted: false,
                         correctedType: null,
+                        dismissed: false,
                         playerNum: playerNum + 1,
                         playerSide: player.side
                     });
@@ -1777,6 +1815,64 @@
             }
         }
 
+        async function runTableBallDetection() {
+            if (!videoPlayer || !currentVideo) return;
+
+            const btn = document.getElementById('ai-table-ball-btn');
+            const infoDiv = document.getElementById('ai-table-ball-info');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade Objekterkennung...';
+
+            try {
+                await loadObjectDetector((pct) => {
+                    if (pct > 50) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysiere Video...';
+                });
+
+                const duration = videoPlayer.duration || 1;
+                const result = await analyzeTableAndBall(
+                    videoPlayer, 0, duration, 2, // 2 FPS reicht für Tisch/Ball
+                    (done, total) => {
+                        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${done}/${total} Frames...`;
+                    },
+                    aiAbortController?.signal
+                );
+
+                aiTableBox = result.table;
+                aiBallTrack = result.ballTrack;
+
+                // Ergebnis anzeigen
+                infoDiv.classList.remove('hidden');
+                const tableInfo = document.getElementById('ai-table-info');
+                const ballInfo = document.getElementById('ai-ball-info');
+
+                if (aiTableBox) {
+                    const conf = Math.round(aiTableBox.confidence * 100);
+                    tableInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>Tisch erkannt</strong> (${conf}% der Frames) — Position: ${Math.round(aiTableBox.x * 100)}%, ${Math.round(aiTableBox.y * 100)}%`;
+                } else {
+                    tableInfo.innerHTML = '<i class="fas fa-times-circle text-red-400"></i> Kein Tisch erkannt';
+                }
+
+                if (aiBallTrack.length > 0) {
+                    ballInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>Ball erkannt</strong> in ${aiBallTrack.length} Frames`;
+                } else {
+                    ballInfo.innerHTML = '<i class="fas fa-info-circle text-yellow-500"></i> Kein Ball erkannt (Tischtennisbälle sind sehr klein — Erkennung ist experimentell)';
+                }
+
+                renderTimeline();
+                showToast('Tisch- & Ballerkennung abgeschlossen', 'success');
+
+            } catch (error) {
+                console.error('Table/Ball detection error:', error);
+                showToast('Objekterkennung fehlgeschlagen: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                btn.innerHTML = '<i class="fas fa-table-tennis"></i> Tisch & Ball erkennen';
+            }
+        }
+
         function renderAISuggestions() {
             const container = document.getElementById('ai-suggestions');
             const list = document.getElementById('ai-suggestions-list');
@@ -1807,8 +1903,11 @@
                 const toVal = sug.shotTo || '';
                 const resultVal = sug.shotResult || 'hit';
 
+                const dismissedClass = sug.dismissed ? 'opacity-50 line-through' : '';
+                const bgClass = sug.dismissed ? 'bg-gray-100 border border-gray-300' : sug.accepted ? 'bg-green-50 border border-green-200' : 'bg-cyan-50 border border-cyan-200';
+
                 return `
-                <div class="ai-sug-item rounded-lg ${sug.accepted ? 'bg-green-50 border border-green-200' : 'bg-cyan-50 border border-cyan-200'}" data-index="${index}">
+                <div class="ai-sug-item rounded-lg ${bgClass} ${dismissedClass}" data-index="${index}">
                     <div class="flex items-center gap-1 p-1.5">
                         <button class="ai-sug-jump text-xs text-gray-400 hover:text-cyan-600 px-1" data-time="${sug.startTime}" title="Zum Zeitpunkt springen">
                             <i class="fas fa-play"></i>
@@ -1827,8 +1926,14 @@
                             <option value="backhand_block"${displayType === 'backhand_block' ? ' selected' : ''}>RH Block</option>
                         </select>
                         <span class="text-xs ${confColor} w-7 text-right" title="Konfidenz">${confPercent}%</span>
+                        <button class="ai-sug-edit text-xs px-1 py-0.5 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200" data-index="${index}" title="Im Formular bearbeiten">
+                            <i class="fas fa-pen"></i>
+                        </button>
                         <button class="ai-sug-accept text-xs px-1.5 py-0.5 rounded ${sug.accepted ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}" data-index="${index}" title="${sug.accepted ? 'Übernommen' : 'Übernehmen'}">
                             <i class="fas fa-check"></i>
+                        </button>
+                        <button class="ai-sug-dismiss text-xs px-1 py-0.5 rounded ${sug.dismissed ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}" data-index="${index}" title="Falsch erkannt (kein Schlag)">
+                            <i class="fas fa-ban"></i>
                         </button>
                         <button class="ai-sug-delete text-xs text-red-400 hover:text-red-600 px-1" data-index="${index}" title="Verwerfen">
                             <i class="fas fa-times"></i>
@@ -1916,10 +2021,29 @@
                 });
             });
 
+            list.querySelectorAll('.ai-sug-edit').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    editAISuggestionInForm(idx);
+                });
+            });
+
             list.querySelectorAll('.ai-sug-accept').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const idx = parseInt(btn.dataset.index);
                     acceptAISuggestion(idx);
+                });
+            });
+
+            list.querySelectorAll('.ai-sug-dismiss').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    const sug = aiSuggestions[idx];
+                    if (!sug) return;
+                    sug.dismissed = !sug.dismissed;
+                    if (sug.dismissed) sug.accepted = false;
+                    renderAISuggestions();
+                    renderTimeline();
                 });
             });
 
@@ -1933,9 +2057,92 @@
             });
         }
 
+        // Suggestion in die "Schlag markieren"-Form laden zum Bearbeiten
+        let editingAISuggestionIndex = null;
+
+        function editAISuggestionInForm(index) {
+            const sug = aiSuggestions[index];
+            if (!sug) return;
+
+            editingAISuggestionIndex = index;
+            const displayType = sug.correctedType || sug.shotType;
+
+            // Video zum Zeitpunkt springen
+            if (videoPlayer) videoPlayer.currentTime = sug.startTime;
+
+            // Startzeit setzen
+            document.getElementById('shot-start-min').value = Math.floor(sug.startTime / 60);
+            document.getElementById('shot-start-sec').value = Math.floor(sug.startTime % 60);
+            document.getElementById('shot-start-ms').value = Math.floor((sug.startTime % 1) * 1000);
+
+            // Endzeit setzen
+            document.getElementById('shot-end-min').value = Math.floor(sug.endTime / 60);
+            document.getElementById('shot-end-sec').value = Math.floor(sug.endTime % 60);
+            document.getElementById('shot-end-ms').value = Math.floor((sug.endTime % 1) * 1000);
+
+            // Schlagtyp-Button aktivieren
+            document.querySelectorAll('.shot-type-btn').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white', 'border-indigo-600', 'border-purple-600');
+            });
+            const matchingBtn = document.querySelector(`.shot-type-btn[data-type="${displayType}"]`);
+            if (matchingBtn) {
+                const isBackhand = displayType.startsWith('backhand');
+                matchingBtn.classList.add(isBackhand ? 'bg-purple-600' : 'bg-indigo-600', 'text-white');
+            }
+
+            // Von-Position setzen
+            document.querySelectorAll('.from-btn').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white');
+            });
+            if (sug.shotFrom) {
+                const fromBtn = document.querySelector(`.from-btn[data-from="${sug.shotFrom}"]`);
+                if (fromBtn) fromBtn.classList.add('bg-indigo-600', 'text-white');
+            }
+
+            // Nach-Position setzen
+            document.querySelectorAll('.to-btn').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'bg-purple-600', 'text-white');
+            });
+            if (sug.shotTo) {
+                const toBtn = document.querySelector(`.to-btn[data-to="${sug.shotTo}"]`);
+                if (toBtn) toBtn.classList.add('bg-indigo-600', 'text-white');
+            }
+
+            // Ergebnis setzen
+            document.querySelectorAll('.result-btn').forEach(b => {
+                b.classList.remove('bg-green-600', 'bg-orange-500', 'bg-red-500', 'bg-gray-500', 'text-white');
+                b.classList.add('bg-white');
+            });
+            const resultVal = sug.shotResult || 'hit';
+            const resultBtn = document.querySelector(`.result-btn[data-result="${resultVal}"]`);
+            if (resultBtn) {
+                const colors = { 'hit': 'bg-green-600', 'net': 'bg-orange-500', 'out': 'bg-red-500', 'miss': 'bg-gray-500' };
+                resultBtn.classList.remove('bg-white');
+                resultBtn.classList.add(colors[resultVal], 'text-white');
+            }
+
+            // Hinweis anzeigen dass wir im Bearbeitungsmodus sind
+            const addBtn = document.getElementById('add-shot-btn');
+            addBtn.innerHTML = '<i class="fas fa-save"></i> KI-Vorschlag übernehmen (bearbeitet)';
+            addBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            addBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+
+            // Zum Formular scrollen
+            addBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast('KI-Vorschlag im Formular geladen - bearbeiten und übernehmen', 'info');
+        }
+
+        function resetEditMode() {
+            editingAISuggestionIndex = null;
+            const addBtn = document.getElementById('add-shot-btn');
+            addBtn.innerHTML = '<i class="fas fa-plus"></i> Schlag hinzufügen';
+            addBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+            addBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+        }
+
         function acceptAISuggestion(index) {
             const sug = aiSuggestions[index];
-            if (!sug || sug.accepted) return;
+            if (!sug || sug.accepted || sug.dismissed) return;
 
             const finalType = sug.correctedType || sug.shotType;
 
@@ -1963,12 +2170,16 @@
         }
 
         function acceptAllAISuggestions() {
+            let count = 0;
             aiSuggestions.forEach((sug, i) => {
-                if (!sug.accepted) {
+                if (!sug.accepted && !sug.dismissed) {
                     acceptAISuggestion(i);
+                    count++;
                 }
             });
-            showToast(`${aiSuggestions.length} Vorschläge übernommen`, 'success');
+            const dismissedCount = aiSuggestions.filter(s => s.dismissed).length;
+            const dismissedInfo = dismissedCount > 0 ? `, ${dismissedCount} als falsch markiert` : '';
+            showToast(`${count} Vorschläge übernommen${dismissedInfo}`, 'success');
         }
 
         function formatTime(seconds) {

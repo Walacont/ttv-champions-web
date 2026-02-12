@@ -5,8 +5,11 @@
 
 // MediaPipe wird lazy geladen wenn benötigt
 let poseLandmarker = null;
+let objectDetector = null;
 let mediapipeLoaded = false;
 let mediapipeLoading = false;
+let objectDetectorLoaded = false;
+let objectDetectorLoading = false;
 
 // Cache für Analyse-Ergebnisse (videoId:timestamp -> result)
 const poseCache = new Map();
@@ -97,6 +100,190 @@ export async function loadModels(onProgress) {
     } finally {
         mediapipeLoading = false;
     }
+}
+
+/**
+ * Lädt MediaPipe ObjectDetector für Tisch- und Ballerkennung.
+ * Nutzt EfficientDet-Lite0 (COCO-Datensatz: erkennt "dining table", "sports ball").
+ * @param {Function} [onProgress] - Fortschritts-Callback (0-100)
+ */
+export async function loadObjectDetector(onProgress) {
+    if (objectDetectorLoaded && objectDetector) return objectDetector;
+
+    if (!isAIAvailable()) {
+        throw new Error('KI-Analyse ist auf dieser Plattform nicht verfügbar.');
+    }
+
+    if (objectDetectorLoading) {
+        while (objectDetectorLoading) {
+            await new Promise(r => setTimeout(r, 100));
+        }
+        return objectDetector;
+    }
+
+    objectDetectorLoading = true;
+
+    try {
+        if (onProgress) onProgress(10);
+
+        const vision = await import('https://esm.sh/@mediapipe/tasks-vision@0.10.18');
+        const { ObjectDetector, FilesetResolver } = vision;
+
+        if (onProgress) onProgress(40);
+
+        const wasmFileset = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
+        );
+
+        if (onProgress) onProgress(70);
+
+        objectDetector = await ObjectDetector.createFromOptions(wasmFileset, {
+            baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite',
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            maxResults: 10,
+            scoreThreshold: 0.3,
+            categoryAllowlist: ['dining table', 'sports ball']
+        });
+
+        objectDetectorLoaded = true;
+        if (onProgress) onProgress(100);
+        console.log('[AI Engine] MediaPipe ObjectDetector loaded (table + ball)');
+
+        return objectDetector;
+    } catch (error) {
+        console.error('[AI Engine] Failed to load ObjectDetector:', error);
+        objectDetectorLoading = false;
+        throw error;
+    } finally {
+        objectDetectorLoading = false;
+    }
+}
+
+/**
+ * Erkennt Objekte (Tisch, Ball) im aktuellen Video-Frame.
+ * @param {HTMLVideoElement} videoElement
+ * @returns {Object|null} - { table: {x,y,width,height,score}|null, balls: [{x,y,width,height,score}] }
+ */
+export function detectObjects(videoElement) {
+    if (!objectDetector || !objectDetectorLoaded) return null;
+    if (videoElement.readyState < 2) return null;
+
+    try {
+        mediapipeTimestampCounter += 1;
+        const result = objectDetector.detectForVideo(videoElement, mediapipeTimestampCounter);
+
+        let table = null;
+        const balls = [];
+
+        if (result && result.detections) {
+            for (const det of result.detections) {
+                if (!det.categories || !det.categories[0]) continue;
+                const cat = det.categories[0];
+                const bb = det.boundingBox;
+                if (!bb) continue;
+
+                const box = {
+                    x: bb.originX / videoElement.videoWidth,
+                    y: bb.originY / videoElement.videoHeight,
+                    width: bb.width / videoElement.videoWidth,
+                    height: bb.height / videoElement.videoHeight,
+                    score: cat.score
+                };
+
+                if (cat.categoryName === 'dining table') {
+                    if (!table || cat.score > table.score) {
+                        table = box;
+                    }
+                } else if (cat.categoryName === 'sports ball') {
+                    balls.push(box);
+                }
+            }
+        }
+
+        return { table, balls };
+    } catch (error) {
+        console.error('[AI Engine] Object detection failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Analysiert einen Zeitbereich und erkennt Tisch + Ball pro Frame.
+ * @param {HTMLVideoElement} videoElement
+ * @param {number} startTime
+ * @param {number} endTime
+ * @param {number} fps - Frames pro Sekunde
+ * @param {Function} [onProgress]
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<Object>} - { table: {x,y,w,h}|null, ballTrack: [{time,x,y}] }
+ */
+export async function analyzeTableAndBall(videoElement, startTime, endTime, fps = 3, onProgress, signal) {
+    if (!objectDetector || !objectDetectorLoaded) {
+        throw new Error('ObjectDetector not loaded. Call loadObjectDetector() first.');
+    }
+
+    const interval = 1 / fps;
+    const totalFrames = Math.ceil((endTime - startTime) * fps);
+    const tableCandidates = [];
+    const ballTrack = [];
+
+    const wasMuted = videoElement.muted;
+    const wasPaused = videoElement.paused;
+    videoElement.muted = true;
+    videoElement.pause();
+
+    try {
+        let frameIndex = 0;
+        for (let time = startTime; time <= endTime; time += interval) {
+            if (signal && signal.aborted) break;
+
+            await seekTo(videoElement, time);
+            const result = detectObjects(videoElement);
+
+            if (result) {
+                if (result.table) {
+                    tableCandidates.push(result.table);
+                }
+                for (const ball of result.balls) {
+                    ballTrack.push({
+                        time,
+                        x: ball.x + ball.width / 2,
+                        y: ball.y + ball.height / 2,
+                        score: ball.score
+                    });
+                }
+            }
+
+            frameIndex++;
+            if (onProgress) onProgress(frameIndex, totalFrames);
+        }
+    } finally {
+        videoElement.muted = wasMuted;
+        if (!wasPaused) videoElement.play();
+    }
+
+    // Stabile Tisch-Bounding-Box: Median aller Erkennungen
+    let table = null;
+    if (tableCandidates.length >= 3) {
+        const sorted = (arr) => [...arr].sort((a, b) => a - b);
+        const median = (arr) => arr[Math.floor(arr.length / 2)];
+        table = {
+            x: median(sorted(tableCandidates.map(t => t.x))),
+            y: median(sorted(tableCandidates.map(t => t.y))),
+            width: median(sorted(tableCandidates.map(t => t.width))),
+            height: median(sorted(tableCandidates.map(t => t.height))),
+            confidence: tableCandidates.length / totalFrames
+        };
+    }
+
+    return { table, ballTrack };
+}
+
+export function isObjectDetectorLoaded() {
+    return objectDetectorLoaded && !!objectDetector;
 }
 
 /**
@@ -255,8 +442,14 @@ export function destroyEngine() {
         poseLandmarker.close();
         poseLandmarker = null;
     }
+    if (objectDetector) {
+        objectDetector.close();
+        objectDetector = null;
+    }
     mediapipeLoaded = false;
     mediapipeLoading = false;
+    objectDetectorLoaded = false;
+    objectDetectorLoading = false;
     mediapipeTimestampCounter = 0;
     poseCache.clear();
 }
@@ -581,10 +774,14 @@ function normalizePose(landmarks) {
 window.videoAIEngine = {
     isAIAvailable,
     loadModels,
+    loadObjectDetector,
     detectPose,
+    detectObjects,
     analyzeFrameRange,
+    analyzeTableAndBall,
     clearCache,
     isModelLoaded,
+    isObjectDetectorLoaded,
     destroyEngine,
     saveAnalysisResults,
     loadAnalysisResults,
@@ -597,10 +794,14 @@ window.videoAIEngine = {
 export default {
     isAIAvailable,
     loadModels,
+    loadObjectDetector,
     detectPose,
+    detectObjects,
     analyzeFrameRange,
+    analyzeTableAndBall,
     clearCache,
     isModelLoaded,
+    isObjectDetectorLoaded,
     destroyEngine,
     saveAnalysisResults,
     loadAnalysisResults,
