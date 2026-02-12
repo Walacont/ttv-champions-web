@@ -1205,9 +1205,13 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 <div class="flex items-center gap-4">
                     <div>
                         <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Spielhand</h5>
-                        <span class="inline-block bg-gray-100 text-gray-800 rounded-full px-3 py-1 text-xs font-semibold">
-                            ${player.spielhand === 'left' ? '🫲 Linkshänder' : player.spielhand === 'right' ? '🫱 Rechtshänder' : 'Nicht angegeben'}
-                        </span>
+                        <select id="player-detail-spielhand" data-player-id="${player.id}"
+                            class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <option value=""${!player.spielhand ? ' selected' : ''}>Nicht angegeben</option>
+                            <option value="right"${player.spielhand === 'right' ? ' selected' : ''}>🫱 Rechtshänder</option>
+                            <option value="left"${player.spielhand === 'left' ? ' selected' : ''}>🫲 Linkshänder</option>
+                        </select>
+                        <span id="player-spielhand-feedback" class="text-xs ml-1"></span>
                     </div>
                 </div>
 
@@ -1271,6 +1275,32 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 ${guardianCodeHtml}
             </div>
         `;
+
+    // Spielhand-Dropdown: Auto-Save bei Änderung
+    const spielhandSelect = detailContent.querySelector('#player-detail-spielhand');
+    if (spielhandSelect && supabase) {
+        spielhandSelect.addEventListener('change', async () => {
+            const feedback = detailContent.querySelector('#player-spielhand-feedback');
+            const newValue = spielhandSelect.value || null;
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ spielhand: newValue })
+                    .eq('id', spielhandSelect.dataset.playerId);
+                if (error) throw error;
+                if (feedback) {
+                    feedback.textContent = '✓';
+                    feedback.className = 'text-xs ml-1 text-green-600';
+                    setTimeout(() => { feedback.textContent = ''; }, 2000);
+                }
+            } catch (e) {
+                if (feedback) {
+                    feedback.textContent = 'Fehler';
+                    feedback.className = 'text-xs ml-1 text-red-600';
+                }
+            }
+        });
+    }
 }
 
 /**
@@ -1402,7 +1432,7 @@ export async function loadSubgroupsForPlayerForm(clubId, supabase, containerId, 
  * @param {Object} supabase - Supabase-Instanz
  * @param {string} clubId - Die ID des Vereins
  */
-export async function openEditPlayerModal(player, supabase, clubId) {
+export function openEditPlayerModal(player, supabase, clubId) {
     const modal = document.getElementById('edit-player-modal');
     if (!modal) return;
 
@@ -1415,22 +1445,6 @@ export async function openEditPlayerModal(player, supabase, clubId) {
 
     // Feedback-Text zurücksetzen
     document.getElementById('edit-player-feedback').textContent = '';
-
-    // Spielhand laden und setzen
-    const spielhandSelect = document.getElementById('edit-player-spielhand');
-    if (spielhandSelect) {
-        spielhandSelect.value = '';
-        try {
-            const { data } = await supabase
-                .from('profiles')
-                .select('spielhand')
-                .eq('id', player.id)
-                .single();
-            if (data?.spielhand) {
-                spielhandSelect.value = data.spielhand;
-            }
-        } catch (_) { /* spielhand not available */ }
-    }
 
     // Checkboxen laden und vorab ankreuzen
     const existingSubgroups = player.subgroupIDs || [];
@@ -1466,14 +1480,10 @@ export async function handleSavePlayerSubgroups(supabase) {
         // 2. Erstelle ein Array aus den Werten (den subgroupIDs)
         const newSubgroupIDs = Array.from(checkedBoxes).map(cb => cb.value);
 
-        // Spielhand auslesen
-        const spielhandSelect = document.getElementById('edit-player-spielhand');
-        const spielhand = spielhandSelect ? spielhandSelect.value || null : null;
-
         // 3. Aktualisiere das Spieler-Dokument
         const { error } = await supabase
             .from('profiles')
-            .update({ subgroup_ids: newSubgroupIDs, spielhand })
+            .update({ subgroup_ids: newSubgroupIDs })
             .eq('id', playerId);
 
         if (error) throw error;
