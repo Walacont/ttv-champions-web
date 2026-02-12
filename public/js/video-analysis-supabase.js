@@ -12,6 +12,7 @@ import {
 } from './video-compressor.js';
 import { VideoDrawingTool } from './video-drawing-tool.js';
 import { uploadToR2 } from './r2-storage.js';
+import { setupAIToolbar, cleanupAIToolbar } from './video-ai-toolbar.js';
 
 let videoAnalysisContext = {
     db: null,
@@ -615,6 +616,9 @@ async function openVideoDetailModal(videoId) {
     // Store current video data for Musterbeispiel feature
     modal.dataset.currentVideoId = videoId;
     modal.dataset.currentVideoExerciseId = video.exercise_id || '';
+
+    // KI-Analyse-Toolbar initialisieren
+    setupAIToolbar(videoPlayer, videoId, videoAnalysisContext);
 
     // Kommentare laden
     await loadVideoComments(videoId);
@@ -1542,6 +1546,8 @@ function closeVideoDetailModal() {
         drawingTool.destroy();
         drawingTool = null;
     }
+    // Cleanup AI toolbar
+    cleanupAIToolbar();
     // Reset draw button style
     const drawBtn = document.getElementById('draw-on-video-btn');
     if (drawBtn) {
