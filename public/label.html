@@ -199,6 +199,48 @@
                         </div>
                     </div>
 
+                    <!-- KI-Voranalyse -->
+                    <div class="bg-white rounded-xl shadow-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <i class="fas fa-robot text-cyan-500"></i>
+                            KI-Voranalyse
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-3">KI erkennt automatisch Schläge. Du korrigierst falsche Erkennungen - das verbessert die KI.</p>
+                        <button id="ai-analyze-btn"
+                                class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-magic"></i>
+                            Video analysieren
+                        </button>
+                        <div id="ai-progress" class="hidden mt-3">
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span id="ai-progress-text">Lade KI-Modell...</span>
+                                <span id="ai-progress-percent">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="ai-progress-bar" class="bg-cyan-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <button id="ai-cancel-btn" class="mt-2 text-xs text-red-500 hover:text-red-700">
+                                <i class="fas fa-times mr-1"></i>Abbrechen
+                            </button>
+                        </div>
+                        <!-- KI-Vorschläge Liste -->
+                        <div id="ai-suggestions" class="hidden mt-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-medium text-gray-600">KI-Vorschläge</span>
+                                <div class="flex gap-1">
+                                    <button id="ai-accept-all-btn" class="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-0.5 rounded">
+                                        Alle übernehmen
+                                    </button>
+                                    <button id="ai-clear-btn" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-0.5 rounded">
+                                        Verwerfen
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="ai-suggestions-list" class="space-y-1 max-h-64 overflow-y-auto">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Neuen Schlag hinzufügen -->
                     <div class="bg-white rounded-xl shadow-lg p-4">
                         <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -399,6 +441,8 @@
 
     <script type="module">
         import { getSupabase } from './js/supabase-init.js';
+        import { isAIAvailable, loadModels, analyzeFrameRange } from './js/video-ai-engine.js';
+        import { classifyShots } from './js/video-ai-shot-classifier.js';
 
         let supabase;
         let currentUser;
@@ -408,6 +452,8 @@
         let exercisesList = [];
         let selectedVideoType = null;
         let selectedExerciseId = null;
+        let aiSuggestions = []; // KI-erkannte Schläge (noch nicht übernommen)
+        let aiAbortController = null;
 
         // Video type labels
         const videoTypeLabels = {
@@ -797,6 +843,7 @@
         async function openLabelingInterface(video) {
             currentVideo = video;
             currentShots = [];
+            aiSuggestions = [];
             selectedVideoType = video.video_type || null;
             selectedExerciseId = video.exercise_id || null;
 
@@ -921,6 +968,10 @@
 
             renderShotsList();
             renderTimeline();
+
+            // KI-Vorschläge UI zurücksetzen
+            document.getElementById('ai-suggestions').classList.add('hidden');
+            document.getElementById('ai-progress').classList.add('hidden');
         }
 
         function setupEventListeners() {
@@ -928,8 +979,10 @@
             document.getElementById('back-to-feed').addEventListener('click', () => {
                 document.getElementById('labeling-interface').classList.add('hidden');
                 document.getElementById('video-feed').classList.remove('hidden');
+                if (aiAbortController) aiAbortController.abort();
                 currentVideo = null;
                 currentShots = [];
+                aiSuggestions = [];
                 selectedVideoType = null;
                 selectedExerciseId = null;
             });
@@ -964,6 +1017,19 @@
             // Exercise dropdown
             document.getElementById('exercise-select').addEventListener('change', (e) => {
                 selectedExerciseId = e.target.value || null;
+            });
+
+            // KI-Analyse Buttons
+            document.getElementById('ai-analyze-btn').addEventListener('click', runAIAnalysis);
+            document.getElementById('ai-cancel-btn').addEventListener('click', () => {
+                if (aiAbortController) aiAbortController.abort();
+            });
+            document.getElementById('ai-accept-all-btn').addEventListener('click', acceptAllAISuggestions);
+            document.getElementById('ai-clear-btn').addEventListener('click', () => {
+                aiSuggestions = [];
+                renderAISuggestions();
+                renderTimeline();
+                showToast('KI-Vorschläge verworfen', 'info');
             });
 
             // "Von" position buttons
@@ -1170,13 +1236,20 @@
             const posLabels = { vh: 'VH', mitte: 'M', rh: 'RH' };
             const resultLabels = { hit: '✓', net: '🥅', out: '↗', miss: '✗' };
             const resultColors = { hit: 'text-green-600', net: 'text-orange-500', out: 'text-red-500', miss: 'text-gray-500' };
-            container.innerHTML = currentShots.map((shot, index) => `
-                <div class="shot-item flex items-center justify-between p-2 bg-gray-50 rounded-lg group">
+            container.innerHTML = currentShots.map((shot, index) => {
+                const aiTag = shot.aiGenerated
+                    ? (shot.aiCorrected
+                        ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-1 rounded" title="KI-erkannt, korrigiert">KI✎</span>'
+                        : '<span class="text-xs bg-cyan-100 text-cyan-700 px-1 rounded" title="KI-erkannt">KI</span>')
+                    : '';
+                return `
+                <div class="shot-item flex items-center justify-between p-2 ${shot.aiGenerated ? 'bg-cyan-50' : 'bg-gray-50'} rounded-lg group">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs font-mono text-gray-500">${formatTime(shot.startTime)}-${formatTime(shot.endTime)}</span>
                         <span class="text-sm font-medium ${shot.shotType.startsWith('backhand') ? 'text-purple-600' : 'text-indigo-600'}">
                             ${shotTypeLabels[shot.shotType] || shot.shotType}
                         </span>
+                        ${aiTag}
                         ${shot.shotFrom || shot.shotTo ? `<span class="text-xs text-gray-400">(${posLabels[shot.shotFrom] || '?'} → ${posLabels[shot.shotTo] || '?'})</span>` : ''}
                         <span class="${resultColors[shot.shotResult] || 'text-green-600'}" title="${shot.shotResult}">${resultLabels[shot.shotResult] || '✓'}</span>
                     </div>
@@ -1184,7 +1257,7 @@
                         <i class="fas fa-trash text-xs"></i>
                     </button>
                 </div>
-            `).join('');
+            `}).join('');
 
             // Delete handlers
             container.querySelectorAll('.delete-shot').forEach(btn => {
@@ -1222,6 +1295,26 @@
 
                 timeline.appendChild(marker);
             });
+
+            // KI-Vorschläge als hellere Marker anzeigen (noch nicht übernommen)
+            aiSuggestions.filter(s => !s.accepted).forEach(sug => {
+                const displayType = sug.correctedType || sug.shotType;
+                const startPercent = (sug.startTime / duration) * 100;
+                const widthPercent = Math.max(0.5, ((sug.endTime - sug.startTime) / duration) * 100);
+                const isBackhand = displayType.startsWith('backhand');
+
+                const marker = document.createElement('div');
+                marker.className = `shot-marker absolute top-0 h-full ${isBackhand ? 'bg-purple-300' : 'bg-cyan-300'} opacity-40 hover:opacity-70 cursor-pointer border-t-2 ${isBackhand ? 'border-purple-500' : 'border-cyan-500'}`;
+                marker.style.left = `${startPercent}%`;
+                marker.style.width = `${widthPercent}%`;
+                marker.title = `KI: ${shotTypeLabels[displayType] || displayType} (${Math.round(sug.confidence * 100)}%)`;
+
+                marker.addEventListener('click', () => {
+                    videoPlayer.currentTime = sug.startTime;
+                });
+
+                timeline.appendChild(marker);
+            });
         }
 
         function updateTimelineMarker() {
@@ -1238,21 +1331,37 @@
                 // Save new shots to video_labels
                 const newShots = currentShots.filter(s => !s.saved);
                 if (newShots.length > 0) {
-                    const labelsToInsert = newShots.map(shot => ({
-                        video_id: currentVideo.id,
-                        labeled_by: currentUser.id,
-                        club_id: currentVideo.club_id,
-                        timestamp_start: shot.startTime,
-                        timestamp_end: shot.endTime,
-                        event_type: 'shot',
-                        shot_type: shot.shotType,
-                        shot_from: shot.shotFrom,
-                        shot_to: shot.shotTo,
-                        shot_result: shot.shotResult,
-                        confidence: 'certain',
-                        is_verified: true,
-                        verified_by: currentUser.id
-                    }));
+                    const labelsToInsert = newShots.map(shot => {
+                        // Konfidenz: KI-korrigierte Schläge = 'certain' (menschlich überprüft),
+                        // KI-unverändert = 'probable', manuell = 'certain'
+                        let confidence = 'certain';
+                        if (shot.aiGenerated && !shot.aiCorrected) confidence = 'probable';
+
+                        const label = {
+                            video_id: currentVideo.id,
+                            labeled_by: currentUser.id,
+                            club_id: currentVideo.club_id,
+                            timestamp_start: shot.startTime,
+                            timestamp_end: shot.endTime,
+                            event_type: 'shot',
+                            shot_type: shot.shotType,
+                            shot_from: shot.shotFrom,
+                            shot_to: shot.shotTo,
+                            shot_result: shot.shotResult,
+                            confidence,
+                            is_verified: true,
+                            verified_by: currentUser.id
+                        };
+
+                        // KI-Metadaten als Notiz speichern (für späteres Retraining)
+                        if (shot.aiGenerated) {
+                            label.notes = shot.aiCorrected
+                                ? `AI-detected: ${shot.aiOriginalType}, corrected to: ${shot.shotType}`
+                                : `AI-detected: ${shot.shotType}, confirmed`;
+                        }
+
+                        return label;
+                    });
 
                     const { error: insertError } = await supabase
                         .from('video_labels')
@@ -1313,6 +1422,243 @@
                 console.error('Error skipping:', error);
                 showToast('Fehler beim Überspringen', 'error');
             }
+        }
+
+        // ===== KI-Voranalyse =====
+
+        async function runAIAnalysis() {
+            if (!videoPlayer || !currentVideo) return;
+
+            const analyzeBtn = document.getElementById('ai-analyze-btn');
+            const progressDiv = document.getElementById('ai-progress');
+            const progressText = document.getElementById('ai-progress-text');
+            const progressPercent = document.getElementById('ai-progress-percent');
+            const progressBar = document.getElementById('ai-progress-bar');
+
+            // Prüfen ob KI verfügbar
+            if (!isAIAvailable()) {
+                showToast('KI-Analyse ist auf dieser Plattform nicht verfügbar', 'error');
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.classList.add('opacity-50');
+            progressDiv.classList.remove('hidden');
+
+            aiAbortController = new AbortController();
+
+            try {
+                // 1. Modell laden
+                progressText.textContent = 'Lade KI-Modell...';
+                await loadModels((pct) => {
+                    progressPercent.textContent = `${Math.round(pct)}%`;
+                    progressBar.style.width = `${pct}%`;
+                });
+
+                // 2. Sicherstellen dass Video geladen ist
+                if (videoPlayer.readyState < 2) {
+                    progressText.textContent = 'Warte auf Video...';
+                    await new Promise((resolve, reject) => {
+                        const handler = () => { videoPlayer.removeEventListener('loadeddata', handler); resolve(); };
+                        videoPlayer.addEventListener('loadeddata', handler);
+                        setTimeout(() => reject(new Error('Video Timeout')), 10000);
+                    });
+                }
+
+                const duration = videoPlayer.duration;
+                if (!duration || duration <= 0) {
+                    showToast('Video-Dauer nicht verfügbar', 'error');
+                    return;
+                }
+
+                // 3. Video analysieren (5 FPS)
+                progressText.textContent = 'Analysiere Video...';
+                progressBar.style.width = '0%';
+
+                const rawFrames = await analyzeFrameRange(
+                    videoPlayer, 0, duration, 5,
+                    currentVideo.id,
+                    (done, total) => {
+                        const pct = Math.round((done / total) * 100);
+                        progressPercent.textContent = `${pct}%`;
+                        progressBar.style.width = `${pct}%`;
+                        progressText.textContent = `Frame ${done}/${total}`;
+                    },
+                    aiAbortController.signal
+                );
+
+                if (aiAbortController.signal.aborted) {
+                    showToast('Analyse abgebrochen', 'info');
+                    return;
+                }
+
+                // 4. Frames ins richtige Format konvertieren
+                const formattedFrames = rawFrames.map(f => ({
+                    timestamp_seconds: f.timestamp,
+                    poses: f.landmarks.map((lm, idx) => ({
+                        landmarks: lm,
+                        worldLandmarks: f.worldLandmarks?.[idx] || null
+                    })),
+                    player_count: f.playerCount
+                }));
+
+                // 5. Shot-Klassifizierung (ohne Spielhand -> Auto-Erkennung)
+                progressText.textContent = 'Klassifiziere Schläge...';
+                const analysis = classifyShots(formattedFrames, 0);
+
+                if (!analysis.shots || analysis.shots.length === 0) {
+                    showToast('Keine Schläge erkannt', 'warning');
+                    progressDiv.classList.add('hidden');
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.classList.remove('opacity-50');
+                    return;
+                }
+
+                // 6. Vorschläge erstellen
+                // Jeder Schlag bekommt ein Zeitfenster: timestamp ± 0.3s
+                aiSuggestions = analysis.shots.map((shot, i) => ({
+                    id: `ai-${i}`,
+                    startTime: Math.max(0, shot.timestamp - 0.3),
+                    endTime: Math.min(duration, shot.timestamp + 0.3),
+                    shotType: shot.shotType,
+                    confidence: shot.confidence,
+                    shotFrom: null,
+                    shotTo: null,
+                    shotResult: 'hit',
+                    accepted: false,
+                    correctedType: null // Falls Labeler den Typ ändert
+                }));
+
+                renderAISuggestions();
+                renderTimeline();
+
+                const handInfo = analysis.meta?.handSource === 'profile' ? 'Profil' : 'Auto-erkannt';
+                const sideInfo = analysis.meta?.dominantSide === 'right' ? 'Rechtshänder' : 'Linkshänder';
+                showToast(`${analysis.shots.length} Schläge erkannt (${sideInfo}, ${handInfo})`, 'success');
+
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('AI analysis error:', error);
+                    showToast('KI-Analyse fehlgeschlagen: ' + error.message, 'error');
+                }
+            } finally {
+                progressDiv.classList.add('hidden');
+                analyzeBtn.disabled = false;
+                analyzeBtn.classList.remove('opacity-50');
+                aiAbortController = null;
+            }
+        }
+
+        function renderAISuggestions() {
+            const container = document.getElementById('ai-suggestions');
+            const list = document.getElementById('ai-suggestions-list');
+
+            if (aiSuggestions.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+
+            list.innerHTML = aiSuggestions.map((sug, index) => {
+                const displayType = sug.correctedType || sug.shotType;
+                const isBackhand = displayType.startsWith('backhand');
+                const confPercent = Math.round(sug.confidence * 100);
+                const confColor = confPercent >= 70 ? 'text-green-600' : confPercent >= 50 ? 'text-yellow-600' : 'text-red-600';
+
+                return `
+                <div class="ai-sug-item flex items-center gap-1 p-1.5 rounded-lg ${sug.accepted ? 'bg-green-50 border border-green-200' : 'bg-cyan-50 border border-cyan-200'}" data-index="${index}">
+                    <button class="ai-sug-jump text-xs text-gray-400 hover:text-cyan-600 px-1" data-time="${sug.startTime}" title="Zum Zeitpunkt springen">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <span class="text-xs font-mono text-gray-500 w-16 shrink-0">${formatTime(sug.startTime)}</span>
+                    <select class="ai-sug-type text-xs border rounded px-1 py-0.5 flex-1 ${isBackhand ? 'text-purple-700 bg-purple-50' : 'text-indigo-700 bg-indigo-50'}" data-index="${index}">
+                        <option value="forehand_serve"${displayType === 'forehand_serve' ? ' selected' : ''}>VH Aufschlag</option>
+                        <option value="forehand_topspin"${displayType === 'forehand_topspin' ? ' selected' : ''}>VH Topspin</option>
+                        <option value="forehand_push"${displayType === 'forehand_push' ? ' selected' : ''}>VH Schupf</option>
+                        <option value="forehand_block"${displayType === 'forehand_block' ? ' selected' : ''}>VH Block</option>
+                        <option value="backhand_serve"${displayType === 'backhand_serve' ? ' selected' : ''}>RH Aufschlag</option>
+                        <option value="backhand_topspin"${displayType === 'backhand_topspin' ? ' selected' : ''}>RH Topspin</option>
+                        <option value="backhand_push"${displayType === 'backhand_push' ? ' selected' : ''}>RH Schupf</option>
+                        <option value="backhand_block"${displayType === 'backhand_block' ? ' selected' : ''}>RH Block</option>
+                    </select>
+                    <span class="text-xs ${confColor} w-8 text-right" title="Konfidenz">${confPercent}%</span>
+                    <button class="ai-sug-accept text-xs px-1.5 py-0.5 rounded ${sug.accepted ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}" data-index="${index}" title="${sug.accepted ? 'Übernommen' : 'Übernehmen'}">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="ai-sug-delete text-xs text-red-400 hover:text-red-600 px-1" data-index="${index}" title="Verwerfen">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `}).join('');
+
+            // Event-Handler für Vorschläge
+            list.querySelectorAll('.ai-sug-jump').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    videoPlayer.currentTime = parseFloat(btn.dataset.time);
+                });
+            });
+
+            list.querySelectorAll('.ai-sug-type').forEach(select => {
+                select.addEventListener('change', () => {
+                    const idx = parseInt(select.dataset.index);
+                    aiSuggestions[idx].correctedType = select.value;
+                    renderAISuggestions();
+                    renderTimeline();
+                });
+            });
+
+            list.querySelectorAll('.ai-sug-accept').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    acceptAISuggestion(idx);
+                });
+            });
+
+            list.querySelectorAll('.ai-sug-delete').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    aiSuggestions.splice(idx, 1);
+                    renderAISuggestions();
+                    renderTimeline();
+                });
+            });
+        }
+
+        function acceptAISuggestion(index) {
+            const sug = aiSuggestions[index];
+            if (!sug || sug.accepted) return;
+
+            const finalType = sug.correctedType || sug.shotType;
+
+            // In die Schlag-Liste übernehmen
+            currentShots.push({
+                id: `ai-accepted-${Date.now()}-${index}`,
+                startTime: sug.startTime,
+                endTime: sug.endTime,
+                shotType: finalType,
+                shotFrom: sug.shotFrom,
+                shotTo: sug.shotTo,
+                shotResult: sug.shotResult,
+                saved: false,
+                aiGenerated: true,
+                aiOriginalType: sug.shotType,
+                aiCorrected: sug.correctedType !== null && sug.correctedType !== sug.shotType
+            });
+
+            sug.accepted = true;
+            renderShotsList();
+            renderAISuggestions();
+            renderTimeline();
+        }
+
+        function acceptAllAISuggestions() {
+            aiSuggestions.forEach((sug, i) => {
+                if (!sug.accepted) {
+                    acceptAISuggestion(i);
+                }
+            });
+            showToast(`${aiSuggestions.length} Vorschläge übernommen`, 'success');
         }
 
         function formatTime(seconds) {
