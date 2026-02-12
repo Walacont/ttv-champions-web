@@ -512,16 +512,27 @@ async function runPostAnalysis(savedFrames, context, videoId, playerIdx = 0) {
 function renderResults(container, shotAnalysis, movementAnalysis, maxPlayers = 1, currentPlayerIdx = 0) {
     container.classList.remove('hidden');
 
-    // Große Aktions-Buttons durch kompakten "Erneut analysieren" ersetzen
+    // Große Aktions-Buttons durch kompakten "Erneut analysieren" + Claude ersetzen
     const actionsDiv = document.getElementById('ai-actions');
     if (actionsDiv) {
         actionsDiv.innerHTML = `
+            <button id="ai-technique-btn"
+                    class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-brain"></i>
+                <span>Detailanalyse (Claude)</span>
+            </button>
             <button id="ai-reanalyze-btn"
                     class="w-full text-xs text-gray-400 hover:text-blue-400 py-1 transition-colors flex items-center justify-center gap-1">
                 <i class="fas fa-redo text-[10px]"></i>
                 <span>Erneut analysieren</span>
             </button>
         `;
+        // Claude-Button Handler neu einrichten
+        const techniqueBtn = actionsDiv.querySelector('#ai-technique-btn');
+        if (techniqueBtn && window._aiToolbarContext) {
+            const { videoPlayer: vp, videoId: vid, context: ctx } = window._aiToolbarContext;
+            techniqueBtn.onclick = () => runClaudeTechniqueAnalysis(vp, vid, ctx);
+        }
     }
 
     let html = '';
@@ -642,6 +653,11 @@ function renderResults(container, shotAnalysis, movementAnalysis, maxPlayers = 1
                             class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-film"></i>
                         <span>Video analysieren</span>
+                    </button>
+                    <button id="ai-technique-btn"
+                            class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-brain"></i>
+                        <span>Detailanalyse (Claude)</span>
                     </button>
                 `;
             }
