@@ -617,8 +617,12 @@ async function openVideoDetailModal(videoId) {
     modal.dataset.currentVideoId = videoId;
     modal.dataset.currentVideoExerciseId = video.exercise_id || '';
 
-    // KI-Analyse-Toolbar initialisieren
-    setupAIToolbar(videoPlayer, videoId, videoAnalysisContext);
+    // KI-Analyse-Toolbar initialisieren (mit exercise_id für auto-Referenz-Vergleich)
+    setupAIToolbar(videoPlayer, videoId, {
+        ...videoAnalysisContext,
+        exerciseId: video.exercise_id || null,
+        exerciseName: video.exercise?.name || null
+    });
 
     // Kommentare laden
     await loadVideoComments(videoId);

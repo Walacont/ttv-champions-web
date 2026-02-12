@@ -76,6 +76,12 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
 
                 // Sofort Shot-Klassifizierung + Movement Quality auf gespeicherten Frames
                 runPostAnalysis(saved.frames, context, videoId);
+
+                // Auto-Referenz: Wenn Video einer Übung zugewiesen ist,
+                // automatisch Musterbeispiel laden und vergleichen
+                if (context.exerciseId) {
+                    autoCompareWithExerciseReference(context, videoId);
+                }
             }
         } catch (e) {
             console.warn('[AI Toolbar] Could not load saved results:', e);
@@ -375,6 +381,11 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
             updatePanelStatus('classifying');
             await runPostAnalysis(savedFormat, context, videoId);
 
+            // Auto-Referenz-Vergleich mit Musterbeispiel (wenn Übung zugewiesen)
+            if (context.exerciseId) {
+                autoCompareWithExerciseReference(context, videoId);
+            }
+
             updatePanelStatus('done', frames.length);
 
             // UX: Video zum Anfang seeken, Panel minimieren, abspielen
@@ -636,6 +647,129 @@ function updateProgress(percent) {
     const text = document.getElementById('ai-progress-text');
     if (bar) bar.style.width = `${percent}%`;
     if (text) text.textContent = `${percent}%`;
+}
+
+/**
+ * Sucht automatisch das Musterbeispiel der zugewiesenen Übung und vergleicht.
+ * Wird aufgerufen wenn ein Video einer Übung zugewiesen ist UND bereits analysiert wurde.
+ */
+async function autoCompareWithExerciseReference(context, videoId) {
+    if (!context.exerciseId || !context.db || !context.clubId) return;
+
+    try {
+        // Musterbeispiel-Videos für diese Übung laden
+        const { data: examples, error } = await context.db
+            .from('exercise_example_videos')
+            .select('video_id')
+            .eq('exercise_id', context.exerciseId)
+            .eq('club_id', context.clubId)
+            .order('sort_order', { ascending: true });
+
+        if (error || !examples || examples.length === 0) return;
+
+        // Prüfen ob eines der Musterbeispiele eine KI-Analyse hat
+        for (const example of examples) {
+            if (example.video_id === videoId) continue; // Sich selbst nicht vergleichen
+
+            const refFrames = await loadReferenceAnalysis(context.db, example.video_id);
+            if (refFrames && refFrames.length > 0) {
+                // Gefunden! Automatisch vergleichen
+                console.log(`[AI Toolbar] Auto-comparing with exercise reference video: ${example.video_id}`);
+
+                // Vergleich-Tab mit Ergebnis füllen
+                const currentFrames = aiOverlay?.savedFrames;
+                if (!currentFrames || currentFrames.length === 0) return;
+
+                const comparisons = [];
+                for (const frame of currentFrames) {
+                    if (!frame.poses || frame.poses.length === 0) continue;
+                    const playerPose = frame.poses[0].landmarks;
+
+                    let closest = refFrames[0];
+                    let minDiff = Math.abs(closest.timestamp_seconds - frame.timestamp_seconds);
+                    for (const ref of refFrames) {
+                        const diff = Math.abs(ref.timestamp_seconds - frame.timestamp_seconds);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closest = ref;
+                        }
+                    }
+
+                    if (closest.poses && closest.poses.length > 0 && minDiff < 1.0) {
+                        const refPose = closest.poses[0].landmarks;
+                        const result = comparePoses(playerPose, refPose);
+                        if (result) {
+                            comparisons.push({ timestamp: frame.timestamp_seconds, ...result });
+                        }
+                    }
+                }
+
+                if (comparisons.length === 0) return;
+
+                const avgOverall = Math.round(comparisons.reduce((s, c) => s + c.overallScore, 0) / comparisons.length);
+                const avgArm = Math.round(comparisons.reduce((s, c) => s + c.groups.arm, 0) / comparisons.length);
+                const avgTorso = Math.round(comparisons.reduce((s, c) => s + c.groups.torso, 0) / comparisons.length);
+                const avgLegs = Math.round(comparisons.reduce((s, c) => s + c.groups.legs, 0) / comparisons.length);
+
+                const scoreColor = (s) => s >= 80 ? 'text-green-400' : s >= 50 ? 'text-yellow-400' : 'text-red-400';
+                const exerciseName = context.exerciseName || 'Übung';
+
+                // Vergleich-Tab befüllen (verzögert warten bis DOM bereit)
+                const fillCompareTab = () => {
+                    const resultsDiv = document.getElementById('ai-compare-results');
+                    if (!resultsDiv) return;
+
+                    resultsDiv.innerHTML = `
+                        <div class="bg-purple-900/30 rounded-lg p-2 mb-2">
+                            <div class="flex items-center gap-1 text-purple-300 text-xs mb-1">
+                                <i class="fas fa-star"></i>
+                                <span class="font-medium">Musterbeispiel: ${exerciseName}</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">Gesamt:</span>
+                                <span class="font-bold ${scoreColor(avgOverall)}">${avgOverall}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">Arme:</span>
+                                <span class="font-medium text-xs ${scoreColor(avgArm)}">${avgArm}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">Oberkörper:</span>
+                                <span class="font-medium text-xs ${scoreColor(avgTorso)}">${avgTorso}%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">Beine:</span>
+                                <span class="font-medium text-xs ${scoreColor(avgLegs)}">${avgLegs}%</span>
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-1">${comparisons.length} Frames verglichen</p>
+                            <button class="ai-ref-change-btn w-full text-xs text-gray-400 hover:text-purple-400 py-1 transition-colors">
+                                <i class="fas fa-exchange-alt mr-1"></i>Andere Referenz wählen
+                            </button>
+                        </div>
+                    `;
+
+                    const changeBtn = resultsDiv.querySelector('.ai-ref-change-btn');
+                    if (changeBtn) {
+                        changeBtn.onclick = () => showReferenceVideoSelector();
+                    }
+
+                    // Vergleich-Tab mit Badge markieren
+                    const compareTabBtn = document.querySelector('[data-tab="compare"]');
+                    if (compareTabBtn) {
+                        compareTabBtn.innerHTML = `<i class="fas fa-balance-scale mr-1"></i>Vergleich <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-400 ml-1"></span>`;
+                    }
+                };
+
+                // Kurz warten bis renderResults() das DOM aufgebaut hat
+                setTimeout(fillCompareTab, 300);
+                return; // Erstes Musterbeispiel reicht
+            }
+        }
+    } catch (e) {
+        console.warn('[AI Toolbar] Auto-compare with exercise reference failed:', e);
+    }
 }
 
 /**
