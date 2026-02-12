@@ -2183,7 +2183,7 @@
                         <!-- Quick Actions Grid -->
                         <div>
                             <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Schnellaktionen</h3>
-                            <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                            <div class="grid grid-cols-4 gap-2">
                                 <div class="quick-action-card" onclick="handleCoachBottomTab('training','Training'); setTimeout(function(){handleCoachSubTab('training','attendance')},50);">
                                     <div class="quick-action-icon bg-green-100 text-green-600"><i class="fas fa-clipboard-check"></i></div>
                                     <span class="quick-action-label">Anwesenheit</span>
@@ -2207,6 +2207,14 @@
                                 <div class="quick-action-card" id="quick-action-add-offline" onclick="document.getElementById('add-offline-player-button') && document.getElementById('add-offline-player-button').click();">
                                     <div class="quick-action-icon bg-emerald-100 text-emerald-600"><i class="fas fa-user-plus"></i></div>
                                     <span class="quick-action-label">Spieler hinzufügen</span>
+                                </div>
+                                <div class="quick-action-card" onclick="handleCoachBottomTab('more','Mehr'); setTimeout(function(){handleCoachSubTab('more','exercises')},50);">
+                                    <div class="quick-action-icon bg-orange-100 text-orange-600"><i class="fas fa-dumbbell"></i></div>
+                                    <span class="quick-action-label">Übungen</span>
+                                </div>
+                                <div class="quick-action-card" onclick="handleCoachBottomTab('more','Mehr'); setTimeout(function(){handleCoachSubTab('more','videos')},50);">
+                                    <div class="quick-action-icon bg-rose-100 text-rose-600"><i class="fas fa-video"></i></div>
+                                    <span class="quick-action-label">Videoanalysen</span>
                                 </div>
                             </div>
                         </div>
@@ -2473,6 +2481,7 @@
 
                 <!-- Video-Analyse Tab -->
                 <div id="tab-content-video-analysis" class="coach-panel hidden">
+                    <div class="max-w-4xl mx-auto px-2 sm:px-4">
                         <!-- Header mit Upload-Button -->
                         <div class="flex justify-end mb-4">
                             <button id="open-video-upload-btn"
@@ -2509,6 +2518,7 @@
                                 <!-- Wird dynamisch gefüllt -->
                             </div>
                         </div>
+                    </div>
                 </div>
 
                 <!-- Video Upload Modal -->

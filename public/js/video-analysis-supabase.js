@@ -214,13 +214,19 @@ export async function initVideoAnalysis(db, userData, clubPlayers) {
     // Übungen für Dropdown laden
     await loadExercisesForVideoAnalysis();
 
-    // Event Listener für Haupt-Tab
-    const videoTabButton = document.querySelector('.tab-button[data-tab="video-analysis"]');
-    if (videoTabButton) {
-        videoTabButton.addEventListener('click', () => {
+    // Videos laden wenn der Video-Analysis Sub-Tab geöffnet wird
+    window.addEventListener('coachSubtabChanged', (e) => {
+        if (e.detail.subtab === 'videos') {
             loadPendingVideos();
-        });
-    }
+        }
+    });
+
+    // Auch beim Wechsel des Haupt-Tabs laden, falls Videos der aktive Sub-Tab ist
+    window.addEventListener('coachTabChanged', (e) => {
+        if (e.detail.subtab === 'videos') {
+            loadPendingVideos();
+        }
+    });
 
     // Sub-Tab Navigation
     setupVideoSubTabs();
