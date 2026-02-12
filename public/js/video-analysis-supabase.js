@@ -1883,121 +1883,6 @@ function setupExampleVideosUI() {
     closeBtn?.addEventListener('click', closeExampleVideoSelection);
     cancelBtn?.addEventListener('click', closeExampleVideoSelection);
     confirmBtn?.addEventListener('click', confirmExampleVideoSelection);
-
-    // YouTube-Musterbeispiel UI
-    setupYouTubeExampleUI();
-}
-
-/**
- * Extrahiert die YouTube-Video-ID aus verschiedenen URL-Formaten.
- * Unterstützt: youtube.com/watch?v=, youtu.be/, youtube.com/shorts/, youtube.com/embed/
- */
-function extractYouTubeId(url) {
-    if (!url) return null;
-    const patterns = [
-        /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-        /^([a-zA-Z0-9_-]{11})$/  // Bare ID
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1];
-    }
-    return null;
-}
-
-/**
- * Setup für YouTube-Musterbeispiel UI (Modal, Events)
- */
-function setupYouTubeExampleUI() {
-    const addBtn = document.getElementById('add-youtube-example-btn');
-    const closeBtn = document.getElementById('close-youtube-example-modal');
-    const cancelBtn = document.getElementById('cancel-youtube-example');
-    const confirmBtn = document.getElementById('confirm-youtube-example');
-    const urlInput = document.getElementById('youtube-example-url');
-
-    if (!addBtn) return;
-
-    addBtn.addEventListener('click', () => {
-        const modal = document.getElementById('add-youtube-example-modal');
-        if (!modal || !currentExampleExerciseId) return;
-        // Reset
-        if (urlInput) urlInput.value = '';
-        const titleInput = document.getElementById('youtube-example-title');
-        if (titleInput) titleInput.value = '';
-        const preview = document.getElementById('youtube-example-preview');
-        if (preview) preview.classList.add('hidden');
-        if (confirmBtn) confirmBtn.disabled = true;
-        modal.classList.remove('hidden');
-    });
-
-    closeBtn?.addEventListener('click', closeYouTubeExampleModal);
-    cancelBtn?.addEventListener('click', closeYouTubeExampleModal);
-    confirmBtn?.addEventListener('click', confirmYouTubeExample);
-
-    // Live-Vorschau beim Eintippen der URL
-    urlInput?.addEventListener('input', () => {
-        const ytId = extractYouTubeId(urlInput.value.trim());
-        const preview = document.getElementById('youtube-example-preview');
-        const thumb = document.getElementById('youtube-example-thumb');
-        const confirm = document.getElementById('confirm-youtube-example');
-
-        if (ytId && preview && thumb) {
-            thumb.src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
-            preview.classList.remove('hidden');
-            if (confirm) confirm.disabled = false;
-        } else {
-            if (preview) preview.classList.add('hidden');
-            if (confirm) confirm.disabled = true;
-        }
-    });
-}
-
-function closeYouTubeExampleModal() {
-    const modal = document.getElementById('add-youtube-example-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-async function confirmYouTubeExample() {
-    const { db, clubId, userId } = videoAnalysisContext;
-    const urlInput = document.getElementById('youtube-example-url');
-    const titleInput = document.getElementById('youtube-example-title');
-    const url = urlInput?.value?.trim();
-    const ytId = extractYouTubeId(url);
-
-    if (!ytId || !currentExampleExerciseId || !clubId || !userId) return;
-
-    try {
-        const { error } = await db
-            .from('exercise_example_videos')
-            .insert({
-                exercise_id: currentExampleExerciseId,
-                video_id: null,
-                added_by: userId,
-                club_id: clubId,
-                source_type: 'youtube',
-                youtube_url: url,
-                youtube_id: ytId,
-                title_override: titleInput?.value?.trim() || null,
-                sort_order: 0,
-            });
-
-        if (error) {
-            if (error.code === '23505') {
-                showToast('Dieses YouTube-Video ist bereits als Musterbeispiel verknüpft', 'info');
-            } else {
-                throw error;
-            }
-        } else {
-            showToast('YouTube-Musterbeispiel hinzugefügt', 'success');
-        }
-
-        closeYouTubeExampleModal();
-        await loadExerciseExampleVideos(currentExampleExerciseId);
-
-    } catch (error) {
-        console.error('Fehler beim Hinzufügen des YouTube-Musterbeispiels:', error);
-        showToast('Fehler beim Hinzufügen', 'error');
-    }
 }
 
 /**
@@ -2030,16 +1915,15 @@ export async function loadExerciseExampleVideos(exerciseId) {
 
         container.innerHTML = examples.map(ex => `
             <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg group" data-example-id="${ex.id}">
-                <div class="w-16 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0 relative">
+                <div class="w-16 h-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
                     ${ex.thumbnail_url
                         ? `<img src="${escapeHtml(ex.thumbnail_url)}" class="w-full h-full object-cover">`
                         : `<div class="w-full h-full flex items-center justify-center text-gray-400"><i class="fas fa-video"></i></div>`
                     }
-                    ${ex.source_type === 'youtube' ? `<div class="absolute bottom-0.5 right-0.5 bg-red-600 rounded px-1"><i class="fab fa-youtube text-white" style="font-size:8px"></i></div>` : ''}
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(ex.title || 'Video')}</p>
-                    <p class="text-xs text-gray-500">${ex.source_type === 'youtube' ? '<i class="fab fa-youtube text-red-500 mr-1"></i>YouTube' : escapeHtml(ex.uploader_name)}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml(ex.uploader_name)}</p>
                 </div>
                 <button class="remove-example-btn opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity p-1"
                         data-example-id="${ex.id}" title="Entfernen">

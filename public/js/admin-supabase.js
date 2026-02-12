@@ -86,6 +86,9 @@ let isAdminPageInitialized = false;
 let editingExerciseId = null;
 let editingExerciseImageUrl = null;
 
+// YouTube-Musterbeispiele für aktuelle Übung
+let exerciseYoutubeExamples = [];
+
 function showAuthError(message) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'none';
@@ -187,6 +190,9 @@ function initializeAdminPage(userData, user) {
 
         // Animation-Toggle für Übungserstellung
         initializeAnimationToggle();
+
+        // YouTube-Musterbeispiele verwalten
+        initializeYouTubeExamples();
 
         // Modal-Listener
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
@@ -977,7 +983,7 @@ async function startEditExercise(exerciseId) {
         // Übung aus der Datenbank laden
         const { data: exercise, error } = await supabase
             .from('exercises')
-            .select('id, title, name, description, description_content, image_url, tags, category, difficulty, xp_reward, sport_id, club_id, unit, tiered_points, points, player_type, time_direction, procedure, animation_steps, visibility, level, created_by, created_by_name, created_at')
+            .select('id, title, name, description, description_content, image_url, tags, category, difficulty, xp_reward, sport_id, club_id, unit, tiered_points, points, player_type, time_direction, procedure, animation_steps, visibility, level, created_by, created_by_name, created_at, youtube_examples')
             .eq('id', exerciseId)
             .single();
 
@@ -1059,6 +1065,10 @@ async function startEditExercise(exerciseId) {
             updateHandednessDropdown();
         }
 
+        // YouTube-Musterbeispiele laden
+        exerciseYoutubeExamples = Array.isArray(exercise.youtube_examples) ? [...exercise.youtube_examples] : [];
+        renderYouTubeExamplesList();
+
         // Submit-Button Text ändern
         const submitBtn = document.getElementById('create-exercise-submit');
         if (submitBtn) {
@@ -1138,6 +1148,10 @@ function resetExerciseFormToCreate() {
 
     // Animationen zurücksetzen
     resetExerciseAnimations();
+
+    // YouTube-Beispiele zurücksetzen
+    exerciseYoutubeExamples = [];
+    renderYouTubeExamplesList();
 
     // Submit-Button Text zurücksetzen
     const submitBtn = document.getElementById('create-exercise-submit');
@@ -2055,6 +2069,109 @@ async function handleDeletePlayer(playerId) {
     }
 }
 
+// ===== YouTube-Musterbeispiele Verwaltung =====
+
+/**
+ * Extrahiert die YouTube-Video-ID aus verschiedenen URL-Formaten.
+ */
+function extractYouTubeId(url) {
+    if (!url) return null;
+    const patterns = [
+        /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/
+    ];
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
+}
+
+function initializeYouTubeExamples() {
+    const addBtn = document.getElementById('add-youtube-example-btn');
+    const urlInput = document.getElementById('exercise-youtube-url-input');
+
+    if (!addBtn || !urlInput) return;
+
+    // Live-Vorschau beim Tippen
+    urlInput.addEventListener('input', () => {
+        const ytId = extractYouTubeId(urlInput.value.trim());
+        const preview = document.getElementById('youtube-url-preview');
+        const thumb = document.getElementById('youtube-url-preview-thumb');
+        const idLabel = document.getElementById('youtube-url-preview-id');
+
+        if (ytId && preview && thumb) {
+            thumb.src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+            if (idLabel) idLabel.textContent = `ID: ${ytId}`;
+            preview.classList.remove('hidden');
+        } else if (preview) {
+            preview.classList.add('hidden');
+        }
+    });
+
+    // Hinzufügen
+    addBtn.addEventListener('click', () => {
+        const url = urlInput.value.trim();
+        const titleInput = document.getElementById('exercise-youtube-title-input');
+        const title = titleInput?.value?.trim() || '';
+        const ytId = extractYouTubeId(url);
+
+        if (!ytId) {
+            showAdminNotification('Ungültige YouTube-URL', 'error');
+            return;
+        }
+
+        // Duplikat prüfen
+        if (exerciseYoutubeExamples.some(e => e.youtube_id === ytId)) {
+            showAdminNotification('Dieses YouTube-Video wurde bereits hinzugefügt', 'info');
+            return;
+        }
+
+        exerciseYoutubeExamples.push({ youtube_id: ytId, url, title: title || `YouTube Video` });
+        renderYouTubeExamplesList();
+
+        // Inputs zurücksetzen
+        urlInput.value = '';
+        if (titleInput) titleInput.value = '';
+        const preview = document.getElementById('youtube-url-preview');
+        if (preview) preview.classList.add('hidden');
+    });
+}
+
+function renderYouTubeExamplesList() {
+    const list = document.getElementById('exercise-youtube-list');
+    if (!list) return;
+
+    if (exerciseYoutubeExamples.length === 0) {
+        list.innerHTML = '';
+        return;
+    }
+
+    list.innerHTML = exerciseYoutubeExamples.map((ex, index) => `
+        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg group">
+            <img src="https://img.youtube.com/vi/${ex.youtube_id}/mqdefault.jpg"
+                 class="w-16 h-10 object-cover rounded flex-shrink-0" alt="">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">${ex.title}</p>
+                <p class="text-xs text-gray-400">${ex.youtube_id}</p>
+            </div>
+            <button type="button" class="remove-youtube-btn text-red-500 hover:text-red-700 p-1 opacity-60 hover:opacity-100 transition-opacity"
+                    data-index="${index}">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+
+    // Delete Handler
+    list.querySelectorAll('.remove-youtube-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.index);
+            exerciseYoutubeExamples.splice(idx, 1);
+            renderYouTubeExamplesList();
+        });
+    });
+}
+
 async function handleCreateExercise(e) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
@@ -2179,6 +2296,8 @@ async function handleCreateExercise(e) {
             club_id: exerciseClub || null,
             // Admin kann spezifische Sportart oder null für alle setzen
             sport_id: exerciseSport || null,
+            // YouTube-Musterbeispiele (global sichtbar)
+            youtube_examples: exerciseYoutubeExamples.length > 0 ? exerciseYoutubeExamples : [],
         };
 
         // Bild-URL: neues Bild oder bestehendes behalten (bei Bearbeitung)
@@ -2277,6 +2396,10 @@ async function handleCreateExercise(e) {
 
         // Animationen zurücksetzen
         resetExerciseAnimations();
+
+        // YouTube-Beispiele zurücksetzen
+        exerciseYoutubeExamples = [];
+        renderYouTubeExamplesList();
 
         // Beschreibung zurücksetzen
         descriptionEditor.clear();
