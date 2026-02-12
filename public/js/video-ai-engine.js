@@ -12,6 +12,11 @@ let mediapipeLoading = false;
 const poseCache = new Map();
 const MAX_CACHE_SIZE = 500;
 
+// MediaPipe erfordert strikt monoton steigende Timestamps.
+// Wir verwenden einen internen Zähler statt der Video-Zeit,
+// damit Re-Analysen und Rückwärts-Seeks keine Fehler verursachen.
+let mediapipeTimestampCounter = 0;
+
 /**
  * Prüft ob KI-Analyse im Browser verfügbar ist.
  * Auf nativen Apps ist MediaPipe WASM nicht zuverlässig nutzbar.
@@ -112,7 +117,11 @@ export function detectPose(videoElement, timestampMs, videoId) {
     }
 
     try {
-        const result = poseLandmarker.detectForVideo(videoElement, timestampMs);
+        // MediaPipe erfordert strikt monoton steigende Timestamps.
+        // Wir nutzen einen internen Zähler anstelle der Video-Zeit,
+        // da MediaPipe den Timestamp nur für interne Stream-Ordnung braucht.
+        mediapipeTimestampCounter += 1;
+        const result = poseLandmarker.detectForVideo(videoElement, mediapipeTimestampCounter);
 
         // Cache speichern
         if (cacheKey && result) {
@@ -248,6 +257,7 @@ export function destroyEngine() {
     }
     mediapipeLoaded = false;
     mediapipeLoading = false;
+    mediapipeTimestampCounter = 0;
     poseCache.clear();
 }
 
