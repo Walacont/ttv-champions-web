@@ -1245,11 +1245,128 @@ async function openPlayerVideoDetail(videoId) {
         p_video_id: videoId,
     });
 
+    // KI-Technikanalyse laden (falls vorhanden)
+    let aiAnalysis = null;
+    try {
+        const { data: analysis } = await db
+            .from('video_ai_analyses')
+            .select('results, created_at')
+            .eq('video_id', videoId)
+            .eq('analysis_type', 'claude_technique_analysis')
+            .eq('status', 'completed')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (analysis?.results) {
+            aiAnalysis = analysis;
+        }
+    } catch (e) {
+        // KI-Analyse ist optional
+    }
+
     // Modal erstellen und anzeigen
-    showPlayerVideoDetailModal(video, comments || []);
+    showPlayerVideoDetailModal(video, comments || [], aiAnalysis);
 }
 
-function showPlayerVideoDetailModal(video, comments) {
+/**
+ * Rendert die KI-Technikanalyse als read-only Block für Spieler.
+ */
+function renderPlayerAiAnalysis(aiAnalysis) {
+    const result = aiAnalysis.results;
+    if (!result) return '';
+
+    const ratingColor = result.overall_rating >= 7 ? 'text-green-600'
+        : result.overall_rating >= 4 ? 'text-yellow-600'
+        : 'text-red-600';
+
+    const bodyPartLabels = {
+        arm_technique: 'Armtechnik',
+        shoulder_rotation: 'Schulterrotation',
+        footwork: 'Beinarbeit',
+        body_posture: 'Körperhaltung',
+        racket_angle: 'Schlägerwinkel',
+    };
+
+    const bodyParts = result.body_parts || {};
+    const bodyPartHtml = Object.entries(bodyPartLabels)
+        .filter(([key]) => bodyParts[key])
+        .map(([key, label]) => {
+            const bp = bodyParts[key];
+            const barWidth = (bp.rating / 10) * 100;
+            const barColor = bp.rating >= 7 ? 'bg-green-500'
+                : bp.rating >= 4 ? 'bg-yellow-500'
+                : 'bg-red-500';
+            return `
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs mb-0.5">
+                        <span class="text-gray-600">${label}</span>
+                        <span class="font-medium">${bp.rating}/10</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        <div class="${barColor} h-1.5 rounded-full" style="width: ${barWidth}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(bp.feedback)}</p>
+                </div>
+            `;
+        }).join('');
+
+    const strengthsHtml = (result.strengths || [])
+        .map(s => `<li class="text-green-700 text-xs"><i class="fas fa-check-circle mr-1"></i>${escapeHtml(s)}</li>`)
+        .join('');
+
+    const improvementsHtml = (result.improvements || [])
+        .map(s => `<li class="text-yellow-700 text-xs"><i class="fas fa-arrow-up mr-1"></i>${escapeHtml(s)}</li>`)
+        .join('');
+
+    const drillsHtml = (result.drill_suggestions || [])
+        .map(s => `<li class="text-blue-700 text-xs"><i class="fas fa-dumbbell mr-1"></i>${escapeHtml(s)}</li>`)
+        .join('');
+
+    const date = aiAnalysis.created_at
+        ? new Date(aiAnalysis.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '';
+
+    return `
+        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-sm font-medium text-gray-800">
+                    <i class="fas fa-brain text-purple-500 mr-1"></i>KI Technik-Analyse
+                    <span class="text-xs font-normal text-purple-400 ml-1">(Beta)</span>
+                </span>
+                <span class="text-lg font-bold ${ratingColor}">${result.overall_rating}/10</span>
+            </div>
+
+            <p class="text-sm text-gray-700 mb-3">${escapeHtml(result.summary || '')}</p>
+
+            ${bodyPartHtml}
+
+            ${strengthsHtml ? `
+                <div class="mt-3">
+                    <span class="text-xs font-medium text-gray-600">Stärken:</span>
+                    <ul class="mt-1 space-y-0.5">${strengthsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${improvementsHtml ? `
+                <div class="mt-2">
+                    <span class="text-xs font-medium text-gray-600">Verbesserungen:</span>
+                    <ul class="mt-1 space-y-0.5">${improvementsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${drillsHtml ? `
+                <div class="mt-2">
+                    <span class="text-xs font-medium text-gray-600">Übungsempfehlungen:</span>
+                    <ul class="mt-1 space-y-0.5">${drillsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${date ? `<p class="text-[10px] text-gray-400 mt-3 text-right">Analyse vom ${date}</p>` : ''}
+        </div>
+    `;
+}
+
+function showPlayerVideoDetailModal(video, comments, aiAnalysis = null) {
     // Entferne eventuell existierendes Modal
     document.getElementById('player-video-detail-modal')?.remove();
 
@@ -1328,6 +1445,9 @@ function showPlayerVideoDetailModal(video, comments) {
                                     <i class="fas fa-dumbbell mr-1"></i>${escapeHtml(video.exercise_name || video.exercise?.name)}
                                 </p>
                             ` : ''}
+
+                            ${aiAnalysis ? renderPlayerAiAnalysis(aiAnalysis) : ''}
+
                             <h4 class="font-bold text-gray-800 mb-4">Coach-Feedback</h4>
                             <div class="space-y-2">${commentsHtml}</div>
                         </div>

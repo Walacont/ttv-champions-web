@@ -2727,29 +2727,32 @@
 
                         <!-- Content -->
                         <div class="flex-1 overflow-y-auto">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-3 sm:p-6">
-                                <!-- Video Player -->
-                                <div id="video-player-container" class="order-1">
-                                    <!-- Video wird dynamisch eingefügt -->
-                                </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 p-3 sm:p-6">
+                                <!-- Linke Spalte: Video + Schläge -->
+                                <div class="lg:col-span-3 space-y-4">
+                                    <!-- Video Player -->
+                                    <div id="video-player-container">
+                                        <!-- Video wird dynamisch eingefügt -->
+                                    </div>
 
-                                <!-- Erkannte Schläge (per Video) -->
-                                <div id="video-shot-stats" class="hidden lg:col-span-2 order-2">
-                                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <h4 class="font-bold text-gray-800 text-sm">
-                                                <i class="fas fa-table-tennis mr-1 text-indigo-500"></i>Erkannte Schläge
-                                            </h4>
-                                            <span id="video-shot-total" class="text-xs text-gray-500"></span>
-                                        </div>
-                                        <div id="video-shot-stats-content" class="flex flex-wrap gap-2">
-                                            <!-- Wird dynamisch gefüllt -->
+                                    <!-- Erkannte Schläge (per Video) -->
+                                    <div id="video-shot-stats" class="hidden">
+                                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <h4 class="font-bold text-gray-800 text-sm">
+                                                    <i class="fas fa-table-tennis mr-1 text-indigo-500"></i>Erkannte Schläge
+                                                </h4>
+                                                <span id="video-shot-total" class="text-xs text-gray-500"></span>
+                                            </div>
+                                            <div id="video-shot-stats-content" class="flex flex-wrap gap-2">
+                                                <!-- Wird dynamisch gefüllt -->
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Kommentare -->
-                                <div class="flex flex-col order-3">
+                                <!-- Rechte Spalte: Kommentare (immer neben Video auf Desktop) -->
+                                <div class="lg:col-span-2 flex flex-col">
                                     <h4 class="font-bold text-gray-800 mb-4">Kommentare & Feedback</h4>
 
                                     <!-- Kommentar-Eingabe -->
@@ -2774,7 +2777,7 @@
                                     </form>
 
                                     <!-- Kommentar-Liste -->
-                                    <div id="video-comments-list" class="flex-1 overflow-y-auto max-h-96">
+                                    <div id="video-comments-list" class="flex-1 overflow-y-auto max-h-96 lg:max-h-[60vh]">
                                         <!-- Kommentare werden dynamisch eingefügt -->
                                     </div>
                                 </div>
