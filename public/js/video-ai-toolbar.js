@@ -225,7 +225,7 @@ function createAIPanel() {
             <button id="ai-technique-btn"
                     class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                 <i class="fas fa-brain"></i>
-                <span>Detailanalyse (Claude)</span>
+                <span>Detailanalyse (Beta)</span>
             </button>
         </div>
 
@@ -519,7 +519,7 @@ function renderResults(container, shotAnalysis, movementAnalysis, maxPlayers = 1
             <button id="ai-technique-btn"
                     class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                 <i class="fas fa-brain"></i>
-                <span>Detailanalyse (Claude)</span>
+                <span>Detailanalyse (Beta)</span>
             </button>
             <button id="ai-reanalyze-btn"
                     class="w-full text-xs text-gray-400 hover:text-blue-400 py-1 transition-colors flex items-center justify-center gap-1">
@@ -657,7 +657,7 @@ function renderResults(container, shotAnalysis, movementAnalysis, maxPlayers = 1
                     <button id="ai-technique-btn"
                             class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-brain"></i>
-                        <span>Detailanalyse (Claude)</span>
+                        <span>Detailanalyse (Beta)</span>
                     </button>
                 `;
             }
@@ -1065,7 +1065,7 @@ export function cleanupAIToolbar() {
  * Extrahiert Schlüssel-Frames aus dem Video als Base64-JPEG.
  * Nimmt gleichmäßig verteilte Frames über die Videolänge.
  */
-function extractFramesAsBase64(videoPlayer, count = 5) {
+function extractFramesAsBase64(videoPlayer, count = 8) {
     return new Promise((resolve) => {
         const duration = videoPlayer.duration;
         if (!duration || duration <= 0) {
@@ -1075,7 +1075,7 @@ function extractFramesAsBase64(videoPlayer, count = 5) {
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = Math.min(640, videoPlayer.videoWidth);
+        canvas.width = Math.min(960, videoPlayer.videoWidth);
         canvas.height = Math.round(canvas.width * (videoPlayer.videoHeight / videoPlayer.videoWidth));
 
         const timestamps = [];
@@ -1107,7 +1107,7 @@ function extractFramesAsBase64(videoPlayer, count = 5) {
 
         videoPlayer.addEventListener('seeked', function onSeeked() {
             ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
             frames.push(base64);
             idx++;
             if (idx < timestamps.length) {
@@ -1148,7 +1148,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
 
     try {
         // 1. Frames extrahieren
-        const { frames: frameImages, timestamps } = await extractFramesAsBase64(videoPlayer, 5);
+        const { frames: frameImages, timestamps } = await extractFramesAsBase64(videoPlayer, 8);
 
         if (frameImages.length === 0) {
             throw new Error('Keine Frames extrahiert');
@@ -1157,7 +1157,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
         resultContainer.innerHTML = `
             <div class="text-xs text-gray-400 text-center py-2">
                 <i class="fas fa-spinner fa-spin mr-1"></i>
-                Claude analysiert ${frameImages.length} Frames...
+                KI analysiert ${frameImages.length} Frames...
             </div>
         `;
 
@@ -1218,7 +1218,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
         `;
     } finally {
         techniqueBtn.disabled = false;
-        techniqueBtn.innerHTML = '<i class="fas fa-brain"></i> <span>Detailanalyse (Claude)</span>';
+        techniqueBtn.innerHTML = '<i class="fas fa-brain"></i> <span>Detailanalyse (Beta)</span>';
     }
 }
 
@@ -1282,7 +1282,7 @@ function renderTechniqueResult(container, result) {
         <div class="border-t border-gray-700 pt-3">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-medium text-gray-300">
-                    <i class="fas fa-brain text-purple-400 mr-1"></i>Claude Technik-Analyse
+                    <i class="fas fa-brain text-purple-400 mr-1"></i>KI Technik-Analyse (Beta)
                 </span>
                 <span class="text-lg font-bold ${ratingColor}">${result.overall_rating}/10</span>
             </div>
@@ -1311,8 +1311,88 @@ function renderTechniqueResult(container, result) {
                     <ul class="text-xs mt-1 space-y-0.5">${drillsHtml}</ul>
                 </div>
             ` : ''}
+
+            <div class="mt-3 pt-2 border-t border-gray-700">
+                <button id="save-analysis-as-comment-btn"
+                    class="w-full text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition-colors">
+                    <i class="fas fa-comment-medical mr-1"></i>Als Kommentar speichern
+                </button>
+            </div>
         </div>
     `;
+
+    // "Als Kommentar speichern"-Button Handler
+    const saveBtn = container.querySelector('#save-analysis-as-comment-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => saveAnalysisAsComment(result));
+    }
+}
+
+/**
+ * Konvertiert das Analyse-Ergebnis in lesbaren Text und speichert es als Video-Kommentar.
+ */
+function saveAnalysisAsComment(result) {
+    if (!result) return;
+
+    const bodyPartLabels = {
+        arm_technique: 'Armtechnik',
+        shoulder_rotation: 'Schulterrotation',
+        footwork: 'Beinarbeit',
+        body_posture: 'Körperhaltung',
+        racket_angle: 'Schlägerwinkel',
+    };
+
+    // Analyse-Text zusammenbauen
+    let text = `🏓 KI-Technikanalyse (Beta) — Bewertung: ${result.overall_rating}/10\n\n`;
+
+    if (result.summary) {
+        text += `${result.summary}\n\n`;
+    }
+
+    // Körperteil-Bewertungen
+    const bodyParts = result.body_parts || {};
+    const bpEntries = Object.entries(bodyPartLabels)
+        .filter(([key]) => bodyParts[key])
+        .map(([key, label]) => `${label}: ${bodyParts[key].rating}/10 — ${bodyParts[key].feedback}`);
+    if (bpEntries.length) {
+        text += bpEntries.join('\n') + '\n\n';
+    }
+
+    if (result.strengths?.length) {
+        text += `✅ Stärken:\n${result.strengths.map(s => `• ${s}`).join('\n')}\n\n`;
+    }
+    if (result.improvements?.length) {
+        text += `⬆️ Verbesserungen:\n${result.improvements.map(s => `• ${s}`).join('\n')}\n\n`;
+    }
+    if (result.drill_suggestions?.length) {
+        text += `🏋️ Übungsempfehlungen:\n${result.drill_suggestions.map(s => `• ${s}`).join('\n')}`;
+    }
+
+    // Kommentar-Textarea befüllen, damit der Coach noch editieren kann
+    const commentInput = document.getElementById('video-comment-input');
+    if (commentInput) {
+        commentInput.value = text.trim();
+        commentInput.focus();
+        commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Visuelles Feedback
+        const btn = document.getElementById('save-analysis-as-comment-btn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check mr-1"></i>Im Kommentarfeld eingefügt';
+            btn.classList.replace('bg-indigo-600', 'bg-green-600');
+            btn.classList.replace('hover:bg-indigo-700', 'hover:bg-green-700');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fas fa-comment-medical mr-1"></i>Als Kommentar speichern';
+                btn.classList.replace('bg-green-600', 'bg-indigo-600');
+                btn.classList.replace('hover:bg-green-700', 'hover:bg-indigo-700');
+            }, 3000);
+        }
+    } else {
+        // Fallback: direkt speichern
+        if (window.videoAnalysis?.addVideoComment) {
+            window.videoAnalysis.addVideoComment(text.trim(), false);
+        }
+    }
 }
 
 // Export für globalen Zugriff
