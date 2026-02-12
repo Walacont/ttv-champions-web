@@ -1062,10 +1062,94 @@ export function cleanupAIToolbar() {
 // ============================================
 
 /**
- * Extrahiert Schlüssel-Frames aus dem Video als Base64-JPEG.
- * Nimmt gleichmäßig verteilte Frames über die Videolänge.
+ * Berechnet optimale Frame-Zeitpunkte basierend auf erkannten Schlägen und Videolänge.
+ * - Kurze Videos (<5s): Dichte Extraktion (alle ~0.3s)
+ * - Mit Schlag-Daten: Gezielt bei Backswing, Kontakt, Follow-Through jedes Schlags
+ * - Fallback: Gleichmäßig verteilt über 10-90% des Videos
  */
-function extractFramesAsBase64(videoPlayer, count = 8) {
+function computeSmartTimestamps(duration, count, shotLabels) {
+    // Kurze Videos (<5s): Dichte Extraktion
+    if (duration < 5) {
+        const step = Math.max(0.25, duration / (count + 1));
+        const timestamps = [];
+        for (let t = step; t < duration - 0.1 && timestamps.length < count; t += step) {
+            timestamps.push(t);
+        }
+        return { timestamps, mode: 'dense' };
+    }
+
+    // Schlagspezifische Extraktion wenn Shot-Labels vorhanden
+    if (shotLabels && shotLabels.length > 0) {
+        const shotTimestamps = new Set();
+
+        for (const shot of shotLabels) {
+            const contact = shot.timestamp || shot.contactTimestamp;
+            if (contact == null) continue;
+
+            // Drei Phasen pro Schlag: Vorbereitung, Kontakt, Ausschwung
+            const backswing = shot.backswingTimestamp || Math.max(0, contact - 0.3);
+            const followThrough = shot.followThroughTimestamp || Math.min(duration, contact + 0.3);
+
+            shotTimestamps.add(Math.round(backswing * 10) / 10);
+            shotTimestamps.add(Math.round(contact * 10) / 10);
+            shotTimestamps.add(Math.round(followThrough * 10) / 10);
+        }
+
+        let timestamps = [...shotTimestamps].sort((a, b) => a - b);
+
+        // Deduplizieren: Timestamps die zu nah beieinander liegen entfernen (<0.15s)
+        const deduped = [timestamps[0]];
+        for (let i = 1; i < timestamps.length; i++) {
+            if (timestamps[i] - deduped[deduped.length - 1] >= 0.15) {
+                deduped.push(timestamps[i]);
+            }
+        }
+        timestamps = deduped;
+
+        // Auf max count begrenzen (gleichmäßig ausdünnen)
+        if (timestamps.length > count) {
+            const step = timestamps.length / count;
+            const selected = [];
+            for (let i = 0; i < count; i++) {
+                selected.push(timestamps[Math.round(i * step)]);
+            }
+            timestamps = selected;
+        }
+
+        // Wenn zu wenige Shot-Frames, mit gleichmäßigen Frames auffüllen
+        if (timestamps.length < count) {
+            const start = duration * 0.1;
+            const end = duration * 0.9;
+            const fillStep = (end - start) / (count - timestamps.length + 1);
+            for (let t = start; timestamps.length < count; t += fillStep) {
+                const rounded = Math.round(t * 10) / 10;
+                // Nur hinzufügen wenn nicht zu nah an existierendem Timestamp
+                if (!timestamps.some(ts => Math.abs(ts - rounded) < 0.3)) {
+                    timestamps.push(rounded);
+                }
+            }
+            timestamps.sort((a, b) => a - b);
+        }
+
+        return { timestamps: timestamps.slice(0, count), mode: 'shot_specific' };
+    }
+
+    // Fallback: Gleichmäßig verteilt
+    const start = duration * 0.1;
+    const end = duration * 0.9;
+    const step = (end - start) / (count - 1);
+    const timestamps = [];
+    for (let i = 0; i < count; i++) {
+        timestamps.push(start + step * i);
+    }
+    return { timestamps, mode: 'uniform' };
+}
+
+/**
+ * Extrahiert Schlüssel-Frames aus dem Video als Base64-JPEG.
+ * Nutzt Smart-Timestamps basierend auf Schlag-Daten und Videolänge.
+ */
+function extractFramesAsBase64(videoPlayer, count = 8, shotLabels = null) {
     return new Promise((resolve) => {
         const duration = videoPlayer.duration;
         if (!duration || duration <= 0) {
@@ -1078,14 +1162,8 @@ function extractFramesAsBase64(videoPlayer, count = 8) {
         canvas.width = Math.min(960, videoPlayer.videoWidth);
         canvas.height = Math.round(canvas.width * (videoPlayer.videoHeight / videoPlayer.videoWidth));
 
-        const timestamps = [];
-        // Frames gleichmäßig verteilen, erste und letzte 10% überspringen
-        const start = duration * 0.1;
-        const end = duration * 0.9;
-        const step = (end - start) / (count - 1);
-        for (let i = 0; i < count; i++) {
-            timestamps.push(start + step * i);
-        }
+        const { timestamps, mode } = computeSmartTimestamps(duration, count, shotLabels);
+        console.log(`[AI Toolbar] Frame extraction mode: ${mode}, ${timestamps.length} frames`);
 
         const frames = [];
         let idx = 0;
@@ -1147,8 +1225,34 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
     `;
 
     try {
-        // 1. Frames extrahieren
-        const { frames: frameImages, timestamps } = await extractFramesAsBase64(videoPlayer, 8);
+        // 1. Shot-Labels als Kontext sammeln (auch für Smart-Frame-Extraktion)
+        let shotLabels = [];
+        let fullShotData = [];
+        if (lastAnalysisResults?.shotAnalysis?.shots) {
+            fullShotData = lastAnalysisResults.shotAnalysis.shots;
+            shotLabels = fullShotData.map(s => ({
+                type: s.shotType,
+                timestamp: s.timestamp,
+                confidence: s.confidence,
+            }));
+        }
+
+        // 2. Referenz-Vergleich als Kontext sammeln (wenn vorhanden)
+        let referenceComparison = null;
+        const compareResults = document.getElementById('ai-compare-results');
+        if (compareResults && compareResults.textContent.trim()) {
+            // Ergebnis aus dem DOM extrahieren
+            const scoreEls = compareResults.querySelectorAll('.font-bold, .font-medium');
+            if (scoreEls.length >= 1) {
+                referenceComparison = {
+                    exercise_name: context.exerciseName || null,
+                    overall_score: scoreEls[0]?.textContent?.trim() || null,
+                };
+            }
+        }
+
+        // 3. Smart-Frame-Extraktion (schlagspezifisch wenn möglich)
+        const { frames: frameImages, timestamps } = await extractFramesAsBase64(videoPlayer, 8, fullShotData);
 
         if (frameImages.length === 0) {
             throw new Error('Keine Frames extrahiert');
@@ -1161,19 +1265,8 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
             </div>
         `;
 
-        // 2. Shot-Labels als Kontext sammeln
-        let shotLabels = [];
-        if (lastAnalysisResults?.shotAnalysis?.shots) {
-            shotLabels = lastAnalysisResults.shotAnalysis.shots.map(s => ({
-                type: s.shotType,
-                timestamp: s.timestamp,
-                confidence: s.confidence,
-            }));
-        }
-
-        // 3. Edge Function aufrufen
+        // 4. Edge Function aufrufen
         const { db } = context;
-        const supabaseUrl = db.supabaseUrl || db._supabaseUrl || '';
 
         const response = await db.functions.invoke('analyze-video-ai', {
             body: {
@@ -1183,6 +1276,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
                 shot_labels: shotLabels,
                 player_name: context.playerName || null,
                 exercise_name: context.exerciseName || null,
+                reference_comparison: referenceComparison,
             },
         });
 
@@ -1206,6 +1300,9 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
 
         // 4. Ergebnis anzeigen
         renderTechniqueResult(resultContainer, data.result);
+
+        // 5. Analyse-Verlauf laden und anzeigen
+        loadAnalysisHistory(db, videoId, data.result.overall_rating);
 
     } catch (error) {
         console.error('[AI Toolbar] Claude technique analysis error:', error);
@@ -1325,6 +1422,95 @@ function renderTechniqueResult(container, result) {
     const saveBtn = container.querySelector('#save-analysis-as-comment-btn');
     if (saveBtn) {
         saveBtn.addEventListener('click', () => saveAnalysisAsComment(result));
+    }
+}
+
+/**
+ * Lädt frühere Technik-Analysen und zeigt den Fortschritts-Trend an.
+ */
+async function loadAnalysisHistory(db, currentVideoId, currentRating) {
+    if (!db) return;
+
+    try {
+        const { data: history, error } = await db
+            .from('video_ai_analyses')
+            .select('created_at, results, video_id')
+            .eq('analysis_type', 'claude_technique_analysis')
+            .eq('status', 'completed')
+            .order('created_at', { ascending: true })
+            .limit(10);
+
+        if (error || !history || history.length < 2) return;
+
+        // Container für den Verlauf finden/erstellen
+        const resultContainer = document.getElementById('ai-technique-result');
+        if (!resultContainer) return;
+
+        // Verlaufs-Daten aufbereiten
+        const entries = history
+            .filter(h => h.results?.overall_rating != null)
+            .map(h => ({
+                date: new Date(h.created_at),
+                rating: h.results.overall_rating,
+                isCurrent: h.video_id === currentVideoId,
+            }));
+
+        if (entries.length < 2) return;
+
+        // Trend berechnen
+        const ratings = entries.map(e => e.rating);
+        const latest = ratings[ratings.length - 1];
+        const previous = ratings[ratings.length - 2];
+        const trend = latest - previous;
+        const trendIcon = trend > 0 ? 'fa-arrow-up' : trend < 0 ? 'fa-arrow-down' : 'fa-minus';
+        const trendColor = trend > 0 ? 'text-green-400' : trend < 0 ? 'text-red-400' : 'text-gray-400';
+        const trendText = trend > 0 ? `+${trend.toFixed(1)}` : trend.toFixed(1);
+
+        // Mini-Sparkline aus Unicode-Blöcken
+        const min = Math.min(...ratings);
+        const max = Math.max(...ratings);
+        const range = max - min || 1;
+        const sparkChars = '▁▂▃▄▅▆▇█';
+        const sparkline = ratings.map(r => {
+            const idx = Math.round(((r - min) / range) * (sparkChars.length - 1));
+            return sparkChars[idx];
+        }).join('');
+
+        // Verlauf-HTML einfügen
+        const historyHtml = document.createElement('div');
+        historyHtml.className = 'border-t border-gray-700 mt-3 pt-2';
+        historyHtml.innerHTML = `
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-gray-400">
+                    <i class="fas fa-chart-line mr-1"></i>Verlauf (${entries.length} Analysen)
+                </span>
+                <span class="text-xs ${trendColor}">
+                    <i class="fas ${trendIcon} mr-0.5"></i>${trendText}
+                </span>
+            </div>
+            <div class="flex items-end gap-0.5 h-6 mb-1">
+                ${ratings.map((r, i) => {
+                    const height = Math.round(((r - min) / range) * 100) || 10;
+                    const barColor = entries[i].isCurrent ? 'bg-purple-500' : 'bg-gray-600';
+                    const dateStr = entries[i].date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                    return `<div class="${barColor} rounded-t flex-1" style="height: ${height}%" title="${dateStr}: ${r}/10"></div>`;
+                }).join('')}
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-500">
+                <span>${entries[0].date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
+                <span>${entries[entries.length - 1].date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
+            </div>
+        `;
+
+        // Vor dem "Als Kommentar speichern"-Button einfügen
+        const saveBtn = resultContainer.querySelector('#save-analysis-as-comment-btn')?.parentElement;
+        if (saveBtn) {
+            saveBtn.parentElement.insertBefore(historyHtml, saveBtn);
+        } else {
+            resultContainer.querySelector('.border-t.border-gray-700')?.appendChild(historyHtml);
+        }
+    } catch (e) {
+        console.warn('[AI Toolbar] Could not load analysis history:', e);
     }
 }
 

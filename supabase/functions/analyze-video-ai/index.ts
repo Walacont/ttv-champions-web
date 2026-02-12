@@ -21,13 +21,17 @@ const corsHeaders = {
 
 interface AnalysisRequest {
   video_id: string
-  video_url: string
+  video_url?: string
   frame_timestamps: number[]   // Sekunden-Zeitpunkte für Frame-Extraktion
   frame_images: string[]       // Base64-encodierte Frame-Bilder
   pose_data?: any              // Optionale Pose-Daten als Kontext
   shot_labels?: any[]          // Optionale Shot-Labels als Kontext
   player_name?: string
   exercise_name?: string
+  reference_comparison?: {     // Optionaler Vergleich mit Musterbeispiel
+    exercise_name?: string
+    overall_score?: string
+  }
 }
 
 interface TechniqueAnalysis {
@@ -174,6 +178,9 @@ async function callClaudeVision(
       .join(', ')
     contextText += ` Erkannte Schläge: ${shotSummary}.`
   }
+  if (payload.reference_comparison?.overall_score) {
+    contextText += ` Pose-Vergleich mit Musterbeispiel${payload.reference_comparison.exercise_name ? ` (${payload.reference_comparison.exercise_name})` : ''}: ${payload.reference_comparison.overall_score} Übereinstimmung.`
+  }
 
   // Frame-Bilder als Content-Blocks aufbauen
   const imageBlocks = payload.frame_images.map((base64, idx) => {
@@ -219,6 +226,7 @@ Wichtig:
 - Gib konkrete, umsetzbare Tipps (nicht "verbessere deine Technik" sondern "der Ellbogen sollte beim Topspin stärker gestreckt werden")
 - Berücksichtige dass es sich um Vereinsspieler handelt, nicht Profis
 - Wenn du etwas nicht erkennen kannst (z.B. Schlägerwinkel bei schlechter Auflösung), sage das ehrlich
+- Wenn ein Pose-Vergleich mit einem Musterbeispiel vorliegt, beziehe die Abweichungen in dein Feedback ein
 - Antworte NUR mit dem JSON, kein Text davor oder danach`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
