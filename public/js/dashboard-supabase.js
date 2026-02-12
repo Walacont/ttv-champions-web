@@ -1242,9 +1242,8 @@ function updateRankDisplay() {
     const rankInfo = document.getElementById('rank-info');
     if (!rankInfo) return;
 
-    const grundlagenCount = currentUserData.grundlagen_completed || 0;
-    const progress = getRankProgress(currentUserData.elo_rating, currentUserData.xp, grundlagenCount);
-    const { currentRank, nextRank, eloProgress, xpProgress, grundlagenProgress, eloNeeded, xpNeeded, grundlagenNeeded, isMaxRank } = progress;
+    const progress = getRankProgress(currentUserData.elo_rating, currentUserData.xp);
+    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, isMaxRank } = progress;
 
     let html = `
         <div class="flex items-center justify-center space-x-2 mb-2">
@@ -1287,19 +1286,6 @@ function updateRankDisplay() {
                     ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
                 </div>
 
-                <!-- Grundlagen Progress -->
-                ${nextRank.requiresGrundlagen ? `
-                <div>
-                    <div class="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
-                        <span>${grundlagenProgress}%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
-                    </div>
-                    ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
-                </div>
-                ` : ''}
             </div>
         `;
     } else {
@@ -1746,7 +1732,6 @@ function renderRanksList() {
         ...p,
         eloRating: p.elo_rating,
         xp: p.xp,
-        grundlagenCompleted: p.grundlagen_completed || 0
     })));
 
     let html = '';
@@ -1864,7 +1849,7 @@ async function fetchLeaderboardData() {
         if (effectiveClubId) {
             let clubQuery = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
+                .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
                 .in('role', ['player', 'coach', 'head_coach']);
 
             // Nach Sport filtern
@@ -1893,7 +1878,7 @@ async function fetchLeaderboardData() {
         // Globale Daten abrufen - ALLE Spieler im Sport (für Rangberechnung, aber nur Top 100 anzeigen)
         let globalQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
+            .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
             .in('role', ['player', 'coach', 'head_coach']);
 
         // Nach Sport filtern for global leaderboard

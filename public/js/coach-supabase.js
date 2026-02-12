@@ -90,13 +90,12 @@ import {
     setDoublesSetScoreInput,
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
+import { updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
     loadPlayerList,
     loadPlayersForDropdown,
-    updateCoachGrundlagenDisplay,
     loadSubgroupsForPlayerForm,
     openEditPlayerModal,
     handleSavePlayerSubgroups,
@@ -351,18 +350,14 @@ async function initializeCoachPage(userData) {
         userData: userData, // Für Tab-Sichtbarkeits-Präferenzen
     });
 
-    setupTabs('statistics');
     setupLeaderboardTabs(userData);
     setupLeaderboardToggle(userData);
 
     // Gespeicherte Paarungen und Turniere laden, wenn Wettkampf-Tab geöffnet wird
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const tabName = button.dataset.tab;
-            if (tabName === 'matches') {
-                loadSavedPairings(supabase, userData.clubId);
-            }
-        });
+    window.addEventListener('coachTabChanged', (e) => {
+        if (e.detail.tab === 'matches') {
+            loadSavedPairings(supabase, userData.clubId);
+        }
     });
 
     // Supabase-Instanz statt auth/functions übergeben
@@ -390,22 +385,18 @@ async function initializeCoachPage(userData) {
     // Veranstaltungen-Navigation initialisieren (einmalig)
     initEventsNavigation(userData, supabase);
 
-    const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
-    if (statisticsTabButton) {
-        statisticsTabButton.addEventListener('click', () => {
+    // Statistiken neu laden wenn Sub-Tab gewechselt wird
+    window.addEventListener('coachSubtabChanged', (e) => {
+        if (e.detail.tab === 'start' && e.detail.subtab === 'stats') {
             loadStatistics(userData, supabase, currentSubgroupFilter);
-        });
-    }
-
-    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
-    if (subgroupsTabButton) {
-        subgroupsTabButton.addEventListener('click', () => {
+        }
+        if (e.detail.tab === 'more' && e.detail.subtab === 'groups') {
             loadSubgroupsList(userData.clubId, supabase, unsub => {
                 if (unsubscribeSubgroups) unsubscribeSubgroups();
                 unsubscribeSubgroups = unsub;
             });
-        });
-    }
+        }
+    });
 
     loadPlayersForDropdown(userData.clubId, supabase, userData.activeSportId);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
@@ -984,9 +975,40 @@ async function initializeCoachPage(userData) {
         });
     });
 
-    document.getElementById('player-select').addEventListener('change', e => {
-        updateCoachGrundlagenDisplay(e.target.value, supabase);
-    });
+    // Multi-Select: Alle/Keine Buttons + Suche für Punkte-Spielerliste
+    const pointsSelectAll = document.getElementById('points-select-all');
+    const pointsSelectNone = document.getElementById('points-select-none');
+    const pointsPlayerSearch = document.getElementById('points-player-search');
+
+    if (pointsSelectAll) {
+        pointsSelectAll.addEventListener('click', () => {
+            document.querySelectorAll('.points-player-item:not([style*="display: none"]) .points-player-checkbox').forEach(cb => { cb.checked = true; });
+            const countEl = document.getElementById('points-player-count');
+            const checked = document.querySelectorAll('.points-player-checkbox:checked');
+            if (countEl) countEl.textContent = `${checked.length} ausgewählt`;
+            // Sync hidden select (clear when multiple)
+            const sel = document.getElementById('player-select');
+            if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change')); }
+        });
+    }
+    if (pointsSelectNone) {
+        pointsSelectNone.addEventListener('click', () => {
+            document.querySelectorAll('.points-player-checkbox').forEach(cb => { cb.checked = false; });
+            const countEl = document.getElementById('points-player-count');
+            if (countEl) countEl.textContent = '0 ausgewählt';
+            const sel = document.getElementById('player-select');
+            if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change')); }
+        });
+    }
+    if (pointsPlayerSearch) {
+        pointsPlayerSearch.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.points-player-item').forEach(item => {
+                const name = item.dataset.name || '';
+                item.style.display = name.includes(query) ? '' : 'none';
+            });
+        });
+    }
 
     populateSubgroupFilter(userData.clubId, supabase);
     document.getElementById('subgroup-filter').addEventListener('change', e => {
@@ -1142,7 +1164,7 @@ function handleSubgroupFilterChange(userData) {
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
 
     // Statistik neu laden falls Tab aktiv
-    const statisticsTab = document.getElementById('tab-content-statistics');
+    const statisticsTab = document.getElementById('tab-content-statistics-stats');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, supabase, currentSubgroupFilter);
     }

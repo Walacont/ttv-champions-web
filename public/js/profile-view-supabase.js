@@ -354,7 +354,6 @@ async function loadProfile() {
                     highest_elo,
                     points,
                     xp,
-                    grundlagen_completed,
                     club_id,
                     privacy_settings,
                     clubs (
@@ -1500,10 +1499,8 @@ async function renderOwnProfileExtras(profile) {
     const xp = profile.xp || 0;
     const elo = profile.elo_rating || 800;
     const points = profile.points || 0;
-    const grundlagenCount = profile.grundlagen_completed || 0;
-
-    const progress = getRankProgress(elo, xp, grundlagenCount);
-    const { currentRank, nextRank, eloProgress, xpProgress, grundlagenProgress, eloNeeded, xpNeeded, grundlagenNeeded, isMaxRank } = progress;
+    const progress = getRankProgress(elo, xp);
+    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, isMaxRank } = progress;
 
     let rankProgressHtml = `
         <div class="flex items-center justify-center space-x-3 mb-4">
@@ -1548,20 +1545,6 @@ async function renderOwnProfileExtras(profile) {
                         : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
                 </div>
 
-                ${nextRank.requiresGrundlagen ? `
-                <div>
-                    <div class="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
-                        <span>${grundlagenProgress}%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5">
-                        <div class="bg-green-600 h-2.5 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
-                    </div>
-                    ${grundlagenNeeded > 0
-                        ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>`
-                        : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
-                </div>
-                ` : ''}
             </div>
         `;
     } else {

@@ -3,7 +3,7 @@
 -- This complements the existing match-based activity feed
 --
 -- IMPORTANT: Ranks are NOT stored in the database!
--- Ranks are calculated dynamically from: elo_rating + xp + grundlagen_completed
+-- Ranks are calculated dynamically from: elo_rating + xp
 -- The calculate_rank() function mirrors the JavaScript logic in ranks.js
 --
 -- VISIBILITY RULES:
@@ -154,7 +154,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE activity_events;
 -- ============================================
 
 -- SQL function to mirror the JavaScript calculateRank logic
-CREATE OR REPLACE FUNCTION calculate_rank(p_elo INTEGER, p_xp INTEGER, p_grundlagen INTEGER)
+CREATE OR REPLACE FUNCTION calculate_rank(p_elo INTEGER, p_xp INTEGER)
 RETURNS TEXT AS $$
 BEGIN
     -- Champion: 1600 Elo, 1800 XP
@@ -177,8 +177,8 @@ BEGIN
         RETURN 'Silber';
     END IF;
 
-    -- Bronze: 850 Elo, 50 XP, 5 Grundlagen
-    IF p_elo >= 850 AND p_xp >= 50 AND p_grundlagen >= 5 THEN
+    -- Bronze: 850 Elo, 50 XP
+    IF p_elo >= 850 AND p_xp >= 50 THEN
         RETURN 'Bronze';
     END IF;
 
@@ -206,8 +206,7 @@ BEGIN
         -- Calculate current rank
         v_rank_name := calculate_rank(
             COALESCE(NEW.elo_rating, 800),
-            COALESCE(NEW.xp, 0),
-            COALESCE(NEW.grundlagen_completed, 0)
+            COALESCE(NEW.xp, 0)
         );
 
         -- Insert activity event
@@ -270,14 +269,12 @@ BEGIN
     -- Calculate old and new ranks from stats
     v_old_rank := calculate_rank(
         COALESCE(OLD.elo_rating, 800),
-        COALESCE(OLD.xp, 0),
-        COALESCE(OLD.grundlagen_completed, 0)
+        COALESCE(OLD.xp, 0)
     );
 
     v_new_rank := calculate_rank(
         COALESCE(NEW.elo_rating, 800),
-        COALESCE(NEW.xp, 0),
-        COALESCE(NEW.grundlagen_completed, 0)
+        COALESCE(NEW.xp, 0)
     );
 
     -- Only create event if rank actually increased
@@ -314,9 +311,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Drop existing trigger if it exists
 DROP TRIGGER IF EXISTS trigger_rank_up_event ON profiles;
 
--- Create trigger - fires when elo_rating, xp, or grundlagen_completed changes
+-- Create trigger - fires when elo_rating or xp changes
 CREATE TRIGGER trigger_rank_up_event
-    AFTER UPDATE OF elo_rating, xp, grundlagen_completed ON profiles
+    AFTER UPDATE OF elo_rating, xp ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION create_rank_up_event();
 

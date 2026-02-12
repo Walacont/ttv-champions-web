@@ -376,7 +376,7 @@ async function searchOpponents(query, resultsContainer) {
 
         let playersQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, is_offline, clubs(name)')
+            .select('id, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, active_sport_id, is_offline, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
             .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
@@ -391,8 +391,6 @@ async function searchOpponents(query, resultsContainer) {
 
         const filteredPlayers = (players || []).filter(player => {
             if (player.role === 'admin') return false;
-            if (player.is_match_ready !== true) return false;
-
             // Einzelspieler: Offline-Spieler ausschließen (können nur Doppel spielen)
             if (player.is_offline === true) return false;
 

@@ -84,118 +84,105 @@ describe('RANK_ORDER', () => {
 describe('calculateRank()', () => {
     describe('Rekrut (Starrang)', () => {
         test('sollte Rekrut für neue Spieler (800 Elo, 0 XP) zurückgeben', () => {
-            const rank = calculateRank(800, 0, 0);
+            const rank = calculateRank(800, 0);
             expect(rank.id).toBe(RANKS.REKRUT.id);
             expect(rank.name).toBe('Rekrut');
         });
 
         test('sollte Rekrut für null/undefined Werte zurückgeben', () => {
-            expect(calculateRank(null, null, 0).id).toBe(RANKS.REKRUT.id);
-            expect(calculateRank(undefined, undefined, 0).id).toBe(RANKS.REKRUT.id);
+            expect(calculateRank(null, null).id).toBe(RANKS.REKRUT.id);
+            expect(calculateRank(undefined, undefined).id).toBe(RANKS.REKRUT.id);
         });
 
         test('sollte Rekrut für niedrige Werte zurückgeben', () => {
-            expect(calculateRank(700, 0, 0).id).toBe(RANKS.REKRUT.id);
-            expect(calculateRank(800, 10, 0).id).toBe(RANKS.REKRUT.id);
+            expect(calculateRank(700, 0).id).toBe(RANKS.REKRUT.id);
+            expect(calculateRank(800, 10).id).toBe(RANKS.REKRUT.id);
         });
     });
 
-    describe('Bronze (benötigt Grundlagen)', () => {
-        test('sollte Bronze NICHT geben ohne genug Grundlagen', () => {
-            const rank = calculateRank(900, 100, 4); // Nur 4 Grundlagen
+    describe('Bronze', () => {
+        test('sollte Bronze geben mit ausreichend Elo und XP', () => {
+            const rank = calculateRank(900, 100);
+            expect(rank.id).toBe(RANKS.BRONZE.id);
+        });
+
+        test('sollte Bronze geben am Minimum (850 Elo, 50 XP)', () => {
+            const rank = calculateRank(850, 50);
+            expect(rank.id).toBe(RANKS.BRONZE.id);
+        });
+
+        test('sollte Rekrut bleiben wenn XP zu niedrig', () => {
+            const rank = calculateRank(900, 30);
             expect(rank.id).toBe(RANKS.REKRUT.id);
-        });
-
-        test('sollte Bronze geben mit 5+ Grundlagen und Elo/XP', () => {
-            const rank = calculateRank(900, 100, 5);
-            expect(rank.id).toBe(RANKS.BRONZE.id);
-        });
-
-        test('sollte Bronze geben am Minimum (850 Elo, 50 XP, 5 Grundlagen)', () => {
-            const rank = calculateRank(850, 50, 5);
-            expect(rank.id).toBe(RANKS.BRONZE.id);
-        });
-
-        test('sollte Silber geben auch wenn Grundlagen für Bronze fehlen (höhere Ränge brauchen keine Grundlagen)', () => {
-            // Silber (1000 Elo, 200 XP) braucht keine Grundlagen - direkter Aufstieg möglich
-            const rank = calculateRank(1000, 200, 3);
-            expect(rank.id).toBe(RANKS.SILBER.id);
         });
     });
 
     describe('Silber', () => {
         test('sollte Silber geben bei 1000 Elo und 200 XP', () => {
-            const rank = calculateRank(1000, 200, 5);
-            expect(rank.id).toBe(RANKS.SILBER.id);
-        });
-
-        test('sollte Silber geben auch ohne Grundlagen (nicht erforderlich)', () => {
-            // Silber braucht keine Grundlagen, aber man muss durch Bronze durch
-            // Da Bronze Grundlagen braucht, braucht man sie indirekt
-            const rank = calculateRank(1000, 200, 5);
+            const rank = calculateRank(1000, 200);
             expect(rank.id).toBe(RANKS.SILBER.id);
         });
 
         test('sollte Bronze bleiben wenn XP zu niedrig', () => {
-            const rank = calculateRank(1000, 100, 5); // Nur 100 XP
+            const rank = calculateRank(1000, 100); // Nur 100 XP
             expect(rank.id).toBe(RANKS.BRONZE.id);
         });
     });
 
     describe('Gold', () => {
         test('sollte Gold geben bei 1200 Elo und 500 XP', () => {
-            const rank = calculateRank(1200, 500, 5);
+            const rank = calculateRank(1200, 500);
             expect(rank.id).toBe(RANKS.GOLD.id);
         });
 
         test('sollte Silber bleiben wenn Elo zu niedrig', () => {
-            const rank = calculateRank(1100, 500, 5);
+            const rank = calculateRank(1100, 500);
             expect(rank.id).toBe(RANKS.SILBER.id);
         });
     });
 
     describe('Platin', () => {
         test('sollte Platin geben bei 1400 Elo und 1000 XP', () => {
-            const rank = calculateRank(1400, 1000, 5);
+            const rank = calculateRank(1400, 1000);
             expect(rank.id).toBe(RANKS.PLATIN.id);
         });
 
         test('sollte Gold bleiben wenn XP zu niedrig', () => {
-            const rank = calculateRank(1400, 800, 5);
+            const rank = calculateRank(1400, 800);
             expect(rank.id).toBe(RANKS.GOLD.id);
         });
     });
 
     describe('Champion (Höchster Rang)', () => {
         test('sollte Champion geben bei 1600 Elo und 1800 XP', () => {
-            const rank = calculateRank(1600, 1800, 5);
+            const rank = calculateRank(1600, 1800);
             expect(rank.id).toBe(RANKS.CHAMPION.id);
         });
 
         test('sollte Champion geben bei hohen Werten', () => {
-            const rank = calculateRank(2000, 5000, 10);
+            const rank = calculateRank(2000, 5000);
             expect(rank.id).toBe(RANKS.CHAMPION.id);
         });
 
         test('sollte Platin bleiben wenn XP zu niedrig', () => {
-            const rank = calculateRank(1600, 1500, 5);
+            const rank = calculateRank(1600, 1500);
             expect(rank.id).toBe(RANKS.PLATIN.id);
         });
     });
 
     describe('Edge Cases', () => {
         test('sollte mit 0 Elo funktionieren', () => {
-            const rank = calculateRank(0, 0, 0);
+            const rank = calculateRank(0, 0);
             expect(rank.id).toBe(RANKS.REKRUT.id);
         });
 
         test('sollte mit negativem Elo funktionieren', () => {
-            const rank = calculateRank(-100, 0, 0);
+            const rank = calculateRank(-100, 0);
             expect(rank.id).toBe(RANKS.REKRUT.id);
         });
 
         test('sollte mit sehr hohen Werten funktionieren', () => {
-            const rank = calculateRank(10000, 100000, 100);
+            const rank = calculateRank(10000, 100000);
             expect(rank.id).toBe(RANKS.CHAMPION.id);
         });
     });
@@ -204,29 +191,27 @@ describe('calculateRank()', () => {
 describe('getRankProgress()', () => {
     describe('Rekrut → Bronze Progress', () => {
         test('sollte korrekten Fortschritt für neuen Spieler zeigen', () => {
-            const progress = getRankProgress(800, 0, 0);
+            const progress = getRankProgress(800, 0);
 
             expect(progress.currentRank.id).toBe(RANKS.REKRUT.id);
             expect(progress.nextRank.id).toBe(RANKS.BRONZE.id);
             expect(progress.isMaxRank).toBe(false);
             expect(progress.eloNeeded).toBe(50); // 850 - 800
             expect(progress.xpNeeded).toBe(50); // 50 - 0
-            expect(progress.grundlagenNeeded).toBe(5); // 5 - 0
         });
 
         test('sollte teilweisen Fortschritt zeigen', () => {
-            const progress = getRankProgress(825, 25, 3);
+            const progress = getRankProgress(825, 25);
 
             expect(progress.currentRank.id).toBe(RANKS.REKRUT.id);
             expect(progress.eloNeeded).toBe(25); // 850 - 825
             expect(progress.xpNeeded).toBe(25); // 50 - 25
-            expect(progress.grundlagenNeeded).toBe(2); // 5 - 3
         });
     });
 
     describe('Champion (Max Rang)', () => {
         test('sollte isMaxRank=true für Champion zurückgeben', () => {
-            const progress = getRankProgress(1600, 1800, 5);
+            const progress = getRankProgress(1600, 1800);
 
             expect(progress.currentRank.id).toBe(RANKS.CHAMPION.id);
             expect(progress.nextRank).toBe(null);
@@ -240,9 +225,9 @@ describe('getRankProgress()', () => {
 
     describe('Fortschrittsberechnung', () => {
         test('sollte korrekten prozentualen Fortschritt berechnen', () => {
-            const progress = getRankProgress(1000, 100, 5);
+            const progress = getRankProgress(1000, 100);
 
-            // Aktueller Rang: Bronze (da Elo >= 850, XP >= 50, Grundlagen >= 5)
+            // Aktueller Rang: Bronze (da Elo >= 850, XP >= 50)
             expect(progress.currentRank.id).toBe(RANKS.BRONZE.id);
             expect(progress.nextRank.id).toBe(RANKS.SILBER.id);
 
@@ -252,7 +237,7 @@ describe('getRankProgress()', () => {
         });
 
         test('sollte gerundeten Fortschritt zurückgeben', () => {
-            const progress = getRankProgress(900, 66, 5);
+            const progress = getRankProgress(900, 66);
 
             // Fortschritt sollte gerundet sein
             expect(Number.isInteger(progress.eloProgress)).toBe(true);
@@ -262,19 +247,10 @@ describe('getRankProgress()', () => {
 
     describe('Edge Cases', () => {
         test('sollte mit null/undefined Werten funktionieren', () => {
-            const progress = getRankProgress(null, null, 0);
+            const progress = getRankProgress(null, null);
 
             expect(progress.currentRank.id).toBe(RANKS.REKRUT.id);
             expect(progress.eloNeeded).toBeGreaterThan(0);
-        });
-
-        test('sollte grundlagenProgress für Bronze berechnen', () => {
-            const progress = getRankProgress(800, 0, 2);
-
-            // Nächster Rang ist Bronze, der Grundlagen braucht
-            expect(progress.nextRank.id).toBe(RANKS.BRONZE.id);
-            expect(progress.grundlagenNeeded).toBe(3); // 5 - 2
-            expect(progress.grundlagenProgress).toBe(40); // 2/5 * 100
         });
     });
 });
@@ -354,9 +330,9 @@ describe('groupPlayersByRank()', () => {
 
     test('sollte Spieler nach Rang gruppieren', () => {
         const players = [
-            { id: 1, eloRating: 800, xp: 0, grundlagenCompleted: 0 },
-            { id: 2, eloRating: 900, xp: 100, grundlagenCompleted: 5 },
-            { id: 3, eloRating: 1200, xp: 600, grundlagenCompleted: 10 },
+            { id: 1, eloRating: 800, xp: 0 },
+            { id: 2, eloRating: 900, xp: 100 },
+            { id: 3, eloRating: 1200, xp: 600 },
         ];
 
         const grouped = groupPlayersByRank(players);
@@ -375,20 +351,20 @@ describe('groupPlayersByRank()', () => {
         expect(grouped[0][0].rank.id).toBe(RANKS.REKRUT.id);
     });
 
-    test('sollte fehlende grundlagenCompleted als 0 behandeln', () => {
-        const players = [{ id: 1, eloRating: 900, xp: 100 }]; // Kein grundlagenCompleted
+    test('sollte Bronze geben wenn Elo und XP ausreichend', () => {
+        const players = [{ id: 1, eloRating: 900, xp: 100 }];
 
         const grouped = groupPlayersByRank(players);
 
-        // Sollte Rekrut sein, da keine Grundlagen
-        expect(grouped[0]).toHaveLength(1);
+        // Sollte Bronze sein (Elo >= 850, XP >= 50)
+        expect(grouped[1]).toHaveLength(1);
     });
 
     test('sollte mehrere Spieler pro Rang gruppieren', () => {
         const players = [
-            { id: 1, eloRating: 800, xp: 0, grundlagenCompleted: 0 },
-            { id: 2, eloRating: 750, xp: 10, grundlagenCompleted: 1 },
-            { id: 3, eloRating: 820, xp: 20, grundlagenCompleted: 2 },
+            { id: 1, eloRating: 800, xp: 0 },
+            { id: 2, eloRating: 750, xp: 10 },
+            { id: 3, eloRating: 820, xp: 20 },
         ];
 
         const grouped = groupPlayersByRank(players);

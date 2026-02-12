@@ -402,7 +402,7 @@ BEGIN
 
     -- Get requested profile
     SELECT p.id, p.first_name, p.last_name, p.display_name, p.avatar_url,
-           p.elo_rating, p.highest_elo, p.points, p.xp, p.grundlagen_completed,
+           p.elo_rating, p.highest_elo, p.points, p.xp,
            p.club_id, p.privacy_settings, p.age_mode
     INTO v_profile
     FROM profiles p WHERE p.id = p_profile_id;
@@ -422,7 +422,7 @@ BEGIN
             'display_name', v_profile.display_name, 'avatar_url', v_profile.avatar_url,
             'elo_rating', v_profile.elo_rating, 'highest_elo', v_profile.highest_elo,
             'points', v_profile.points, 'xp', v_profile.xp,
-            'grundlagen_completed', v_profile.grundlagen_completed, 'club_id', v_profile.club_id,
+            'club_id', v_profile.club_id,
             'privacy_settings', v_profile.privacy_settings, 'age_mode', v_profile.age_mode,
             'clubs', CASE WHEN v_club.id IS NOT NULL THEN
                 json_build_object('id', v_club.id, 'name', v_club.name) ELSE NULL END

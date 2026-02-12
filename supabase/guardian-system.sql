@@ -307,7 +307,6 @@ BEGIN
         account_type,
         age_mode,
         is_offline,
-        is_match_ready,
         onboarding_complete,
         elo_rating,
         highest_elo,
@@ -329,7 +328,6 @@ BEGIN
         'child',
         v_age_mode,
         TRUE,  -- Children are like offline players (no auth account)
-        FALSE, -- Not match ready by default
         FALSE, -- Onboarding not complete
         800,
         800,

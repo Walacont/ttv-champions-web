@@ -11,9 +11,6 @@ import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayer
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { escapeHtml } from './utils/security.js';
 
-// Aktuellen Grundlagen-Listener verfolgen um Duplikate zu vermeiden
-let currentGrundlagenListener = null;
-
 // Modul-Speicher für Aktualisierungsfunktionalität
 let storedSupabase = null;
 let storedClubId = null;
@@ -53,13 +50,11 @@ function mapPlayerFromSupabase(player) {
         clubId: player.club_id,
         role: player.role,
         isOffline: player.is_offline,
-        isMatchReady: player.is_match_ready,
         onboardingComplete: player.onboarding_complete,
         points: player.points,
         eloRating: player.elo_rating,
         highestElo: player.highest_elo,
         xp: player.xp,
-        grundlagenCompleted: player.grundlagen_completed,
         subgroupIDs: player.subgroup_ids || [],
         qttrPoints: player.qttr_points,
         photoURL: player.avatar_url,
@@ -82,13 +77,11 @@ function mapPlayerToSupabase(playerData) {
     if (playerData.clubId !== undefined) mapped.club_id = playerData.clubId;
     if (playerData.role !== undefined) mapped.role = playerData.role;
     if (playerData.isOffline !== undefined) mapped.is_offline = playerData.isOffline;
-    if (playerData.isMatchReady !== undefined) mapped.is_match_ready = playerData.isMatchReady;
     if (playerData.onboardingComplete !== undefined) mapped.onboarding_complete = playerData.onboardingComplete;
     if (playerData.points !== undefined) mapped.points = playerData.points;
     if (playerData.eloRating !== undefined) mapped.elo_rating = playerData.eloRating;
     if (playerData.highestElo !== undefined) mapped.highest_elo = playerData.highestElo;
     if (playerData.xp !== undefined) mapped.xp = playerData.xp;
-    if (playerData.grundlagenCompleted !== undefined) mapped.grundlagen_completed = playerData.grundlagenCompleted;
     if (playerData.subgroupIDs !== undefined) mapped.subgroup_ids = playerData.subgroupIDs;
     if (playerData.qttrPoints !== undefined) mapped.qttr_points = playerData.qttrPoints;
     if (playerData.photoURL !== undefined) mapped.avatar_url = playerData.photoURL;
@@ -239,10 +232,6 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         .filter(cb => cb.checked || cb.disabled) // Aktivierte ODER deaktivierte einbeziehen (Hauptgruppe)
         .map(cb => cb.value);
 
-    // === Wettkampfsbereit-Checkbox auslesen ===
-    const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
-    const isMatchReady = isMatchReadyCheckbox ? isMatchReadyCheckbox.checked : false;
-
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
         // Button wieder aktivieren
@@ -302,15 +291,11 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             club_id: currentUserData.clubId,
             role: 'player',
             is_offline: true,
-            is_match_ready: isMatchReady,
             onboarding_complete: false,
             points: 0,
             elo_rating: initialElo,
             highest_elo: initialHighestElo,
-            // Wenn bereits wettkampfsbereit, vergebe 50 XP
-            xp: isMatchReady ? 50 : 0,
-            // Wenn bereits wettkampfsbereit, setze grundlagenCompleted auf 5 (erfüllt Anforderung)
-            grundlagen_completed: isMatchReady ? 5 : 0,
+            xp: 0,
             subgroup_ids: subgroupIDs,
         };
 
@@ -334,7 +319,6 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             p_last_name: lastName,
             p_club_id: currentUserData.clubId,
             p_subgroup_ids: subgroupIDs,
-            p_is_match_ready: isMatchReady,
             p_birthdate: birthdate || null,
             p_gender: gender || null,
             p_sport_id: currentUserData.activeSportId || null
@@ -382,7 +366,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
 }
 
 /**
- * Handles player list actions (toggle match-ready, send invite, delete, promote)
+ * Handles player list actions (send invite, delete, promote)
  * @param {Event} e - Klick-Event
  * @param {Object} supabase - Supabase-Client-Instanz
  * @param {Object} currentUserData - Aktuelle Benutzerdaten für Audit-Logging
@@ -407,29 +391,6 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('manage-invitation-btn')) {
         const playerEmail = button.dataset.email || '';
         openSendInvitationModal(playerId, playerName, playerEmail);
-        return;
-    }
-
-    // Spielbereit setzen-Button verarbeiten (+50 XP, nicht umkehrbar)
-    if (button.classList.contains('set-match-ready-btn')) {
-        if (confirm(`Möchten Sie "${playerName}" als wettkampfsbereit markieren?\n\nDer Spieler erhält 50 XP. Diese Aktion kann nicht rückgängig gemacht werden.`)) {
-            try {
-                // RPC-Funktion für Spielbereit-Setzen verwenden (umgeht RLS)
-                const { data, error } = await supabase.rpc('set_player_match_ready', {
-                    p_player_id: playerId
-                });
-
-                if (error) throw error;
-
-                alert(`${playerName} ist jetzt wettkampfsbereit und hat 50 XP erhalten!`);
-
-                // Panels schließen um Aktualisierung zu erzwingen
-                closePlayerDetailPanels();
-            } catch (error) {
-                console.error('Fehler beim Setzen der Wettkampfsbereitschaft:', error);
-                alert('Fehler: Die Wettkampfsbereitschaft konnte nicht gesetzt werden. ' + (error.message || ''));
-            }
-        }
         return;
     }
 
@@ -654,7 +615,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
             // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, display_name, email, role, club_id, active_sport_id, avatar_url, birthdate, gender, xp, points, elo_rating, highest_elo, wins, losses, grundlagen_completed, subgroup_ids, qttr_points, is_offline, is_match_ready, onboarding_complete, created_at')
+                .select('id, first_name, last_name, display_name, email, role, club_id, active_sport_id, avatar_url, birthdate, gender, xp, points, elo_rating, highest_elo, wins, losses, subgroup_ids, qttr_points, is_offline, onboarding_complete, created_at')
                 .eq('club_id', clubId)
                 .order('last_name');
 
@@ -729,8 +690,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
 
                         const rank = calculateRank(
                             player.eloRating,
-                            player.xp,
-                            player.grundlagenCompleted || 0
+                            player.xp
                         );
 
                         card.innerHTML = `
@@ -764,12 +724,6 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                             // --- Spieler Details Section ---
                             actionsHtml += '<div class="mb-4 pb-4 border-b border-gray-200">';
                             actionsHtml += '<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Spieler Details</h4>';
-
-                            // Wettkampfsbereit setzen (nur wenn noch nicht wettkampfsbereit)
-                            // Nur für Coaches, nicht rückgängig
-                            if (!player.isMatchReady && isCoachOrHigher) {
-                                actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="set-match-ready-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-green-600 hover:bg-green-100 hover:text-green-900"><i class="fas fa-check-circle w-5 mr-2"></i> Wettkampfsbereit setzen (+50 XP)</button>`;
-                            }
 
                             // Gruppen bearbeiten - für alle Coaches
                             actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="edit-subgroups-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"><i class="fas fa-users-cog w-5 mr-2"></i> Gruppen bearbeiten</button>`;
@@ -935,16 +889,16 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
 
             const players = (data || []).map(p => mapPlayerFromSupabase(p));
             select.innerHTML = '<option value="">Spieler wählen...</option>';
-            players
-                .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
-                .forEach(p => {
+            const sorted = players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+            sorted.forEach(p => {
                     const option = document.createElement('option');
                     option.value = p.id;
                     option.textContent = `${p.firstName} ${p.lastName}`;
-                    option.dataset.grundlagen = p.grundlagenCompleted || 0;
                     option.dataset.rank = p.rank || 'Rekrut';
                     select.appendChild(option);
                 });
+            // Render checkbox list for multi-select
+            renderPointsPlayerCheckboxList(sorted);
         } catch (error) {
             console.error('Fehler beim Laden der Spieler für das Dropdown:', error);
             select.innerHTML = '<option value="">Fehler beim Laden der Spieler</option>';
@@ -1011,14 +965,12 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
     const currentValue = select.value; // Auswahl falls möglich beibehalten
     select.innerHTML = '<option value="">Spieler wählen...</option>';
 
-    filteredPlayers
-        .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
-        .forEach(p => {
+    const sorted = filteredPlayers.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+    sorted.forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
             const offlineMarker = p.isOffline ? ' (Offline)' : '';
             option.textContent = `${p.firstName} ${p.lastName}${offlineMarker}`;
-            option.dataset.grundlagen = p.grundlagenCompleted || 0;
             option.dataset.rank = p.rank || 'Rekrut';
             select.appendChild(option);
         });
@@ -1027,6 +979,75 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
     if (currentValue && filteredPlayers.some(p => p.id === currentValue)) {
         select.value = currentValue;
     }
+
+    // Checkbox-Liste für Mehrfachauswahl rendern
+    renderPointsPlayerCheckboxList(sorted);
+}
+
+/**
+ * Rendert die Checkbox-Liste für Mehrfachauswahl im Punkte-Tab.
+ * Wird von loadPlayersForDropdown und updatePointsPlayerDropdown aufgerufen.
+ */
+export function renderPointsPlayerCheckboxList(players) {
+    const listContainer = document.getElementById('points-player-list');
+    if (!listContainer) return;
+
+    if (!players || players.length === 0) {
+        listContainer.innerHTML = '<p class="text-sm text-gray-400 py-2 text-center">Keine Spieler vorhanden</p>';
+        updatePointsPlayerCount();
+        return;
+    }
+
+    listContainer.innerHTML = '';
+    players.forEach(p => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm points-player-item';
+        label.dataset.name = `${p.firstName} ${p.lastName}`.toLowerCase();
+        const offlineMarker = p.isOffline ? ' (Offline)' : '';
+        label.innerHTML = `
+            <input type="checkbox" class="points-player-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                   value="${p.id}" data-name="${p.firstName} ${p.lastName}" data-rank="${p.rank || 'Rekrut'}">
+            <span class="flex-1 truncate">${p.firstName} ${p.lastName}${offlineMarker}</span>
+        `;
+        listContainer.appendChild(label);
+    });
+
+    // Checkbox-Event-Listener
+    listContainer.querySelectorAll('.points-player-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            updatePointsPlayerCount();
+            syncPlayerSelectFromCheckboxes();
+        });
+    });
+
+    updatePointsPlayerCount();
+}
+
+/** Aktualisiert den Zähler der ausgewählten Spieler */
+function updatePointsPlayerCount() {
+    const countEl = document.getElementById('points-player-count');
+    if (!countEl) return;
+    const checked = document.querySelectorAll('.points-player-checkbox:checked');
+    countEl.textContent = `${checked.length} ausgewählt`;
+}
+
+/** Synchronisiert die hidden <select> mit dem ersten ausgewählten Spieler */
+function syncPlayerSelectFromCheckboxes() {
+    const select = document.getElementById('player-select');
+    if (!select) return;
+    const checked = document.querySelectorAll('.points-player-checkbox:checked');
+    if (checked.length === 1) {
+        select.value = checked[0].value;
+    } else {
+        select.value = '';
+    }
+    select.dispatchEvent(new Event('change'));
+}
+
+/** Gibt Array der ausgewählten Spieler-IDs zurück */
+export function getSelectedPointsPlayerIds() {
+    const checkboxes = document.querySelectorAll('.points-player-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
 }
 
 /**
@@ -1040,8 +1061,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
 
     // Rangs-Modul-Funktionen importieren
     const { getRankProgress } = await import('./ranks.js');
-    const grundlagenCount = player.grundlagenCompleted || 0;
-    const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+    const progress = getRankProgress(player.eloRating, player.xp);
 
     // Load guardian info if player has one
     let guardianHtml = '';
@@ -1133,8 +1153,6 @@ export async function showPlayerDetails(player, detailContent, supabase) {
         xpProgress,
         eloNeeded,
         xpNeeded,
-        grundlagenNeeded,
-        grundlagenProgress,
         isMaxRank,
     } = progress;
 
@@ -1235,23 +1253,6 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                             </div>
                             ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP</p>` : `<p class="text-xs text-green-600 mt-1">✓ Erfüllt</p>`}
                         </div>
-
-                        ${
-                            nextRank.requiresGrundlagen
-                                ? `
-                            <div>
-                                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                    <span>Grundlagen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
-                                    <span>${grundlagenProgress}%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                    <div class="bg-green-600 h-2.5 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
-                                </div>
-                                ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''}</p>` : `<p class="text-xs text-green-600 mt-1">✓ Erfüllt</p>`}
-                            </div>
-                        `
-                                : ''
-                        }
                     </div>
                 `
                         : '<p class="text-sm text-green-600 font-semibold text-center"><i class="fas fa-trophy mr-1"></i>Höchster Rang erreicht!</p>'
@@ -1261,64 +1262,6 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                 ${guardianCodeHtml}
             </div>
         `;
-}
-
-/**
- * Updates the Grundlagen progress display for a selected player (coach view)
- * @param {string} playerId - The selected player ID
- */
-export function updateCoachGrundlagenDisplay(playerId) {
-    const grundlagenInfo = document.getElementById('coach-grundlagen-info');
-    const grundlagenText = document.getElementById('coach-grundlagen-text');
-    const grundlagenBar = document.getElementById('coach-grundlagen-bar');
-
-    if (currentGrundlagenListener) {
-        currentGrundlagenListener(); // Vorherigen Listener stoppen
-    }
-
-    if (!grundlagenInfo || !playerId) {
-        if (grundlagenInfo) grundlagenInfo.classList.add('hidden');
-        return;
-    }
-
-    // Daten von ausgewählter Option abrufen (als Fallback)
-    const select = document.getElementById('player-select');
-    const selectedOption = select.options[select.selectedIndex];
-
-    if (!selectedOption || !selectedOption.value) {
-        grundlagenInfo.classList.add('hidden');
-        return;
-    }
-
-    // === KORRIGIERTE LOGIK ===
-    // Wir verwenden die Original-Logik, die den Wert aus dem Dataset liest.
-    // Das ist effizienter, da die Daten bereits in `loadPlayersForDropdown` geladen wurden.
-
-    const grundlagenCount = parseInt(selectedOption.dataset.grundlagen) || 0;
-    const grundlagenRequired = 5;
-    const progress = (grundlagenCount / grundlagenRequired) * 100;
-
-    grundlagenInfo.classList.remove('hidden');
-
-    if (grundlagenCount >= grundlagenRequired) {
-        grundlagenText.innerHTML = `✅ <strong>${grundlagenCount}/${grundlagenRequired}</strong> - Grundlagen abgeschlossen! Wettkämpfe freigeschaltet.`;
-        grundlagenText.className = 'mt-1 text-sm text-green-700 font-semibold';
-    } else {
-        const remaining = grundlagenRequired - grundlagenCount;
-        grundlagenText.innerHTML = `<strong>${grundlagenCount}/${grundlagenRequired}</strong> - Noch <strong>${remaining}</strong> Grundlagen-Übung${remaining > 1 ? 'en' : ''} bis Wettkämpfe freigeschaltet werden.`;
-        grundlagenText.className = 'mt-1 text-sm text-blue-700';
-    }
-
-    if (grundlagenBar) {
-        grundlagenBar.style.width = `${progress}%`;
-        if (grundlagenCount >= grundlagenRequired) {
-            grundlagenBar.classList.remove('bg-blue-600');
-            grundlagenBar.classList.add('bg-green-600');
-        } else {
-            grundlagenBar.classList.remove('bg-green-600');
-            grundlagenBar.classList.add('bg-blue-600');
-        }
-    }
 }
 
 /**

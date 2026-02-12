@@ -44,8 +44,6 @@ BEGIN
         elo_rating = COALESCE(v_offline_player.elo_rating, 800),
         highest_elo = COALESCE(v_offline_player.highest_elo, 800),
         doubles_elo_rating = COALESCE(v_offline_player.doubles_elo_rating, 800),
-        is_match_ready = COALESCE(v_offline_player.is_match_ready, FALSE),
-        grundlagen_completed = COALESCE(v_offline_player.grundlagen_completed, 0),
         birthdate = COALESCE(v_offline_player.birthdate, birthdate),
         gender = COALESCE(v_offline_player.gender, gender),
         subgroup_ids = COALESCE(v_offline_player.subgroup_ids, '{}'),

@@ -26,11 +26,8 @@ const fieldMappings = {
 
     // Training/Statistiken
     qttrPoints: 'qttr_points',
-    grundlagenCompleted: 'grundlagen_completed',
-
     // Status-Flags
     isOffline: 'is_offline',
-    isMatchReady: 'is_match_ready',
     onboardingComplete: 'onboarding_complete',
 
     // Push-Benachrichtigungen
