@@ -113,6 +113,7 @@ ALTER TABLE video_ai_frames ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Eigene Videos + Coach/Admin sieht alle im Club
 -- (Folgt dem Pattern aus video-analysis.sql:205-223)
+DROP POLICY IF EXISTS "video_ai_analyses_select" ON video_ai_analyses;
 CREATE POLICY "video_ai_analyses_select"
     ON video_ai_analyses FOR SELECT
     USING (
@@ -137,6 +138,7 @@ CREATE POLICY "video_ai_analyses_select"
     );
 
 -- INSERT: Uploader oder Coach können Analysen erstellen
+DROP POLICY IF EXISTS "video_ai_analyses_insert" ON video_ai_analyses;
 CREATE POLICY "video_ai_analyses_insert"
     ON video_ai_analyses FOR INSERT
     WITH CHECK (
@@ -161,11 +163,13 @@ CREATE POLICY "video_ai_analyses_insert"
     );
 
 -- UPDATE: Nur der Ersteller kann aktualisieren
+DROP POLICY IF EXISTS "video_ai_analyses_update" ON video_ai_analyses;
 CREATE POLICY "video_ai_analyses_update"
     ON video_ai_analyses FOR UPDATE
     USING (created_by = auth.uid());
 
 -- Frame-Policies (gleiche Regeln wie Analysen)
+DROP POLICY IF EXISTS "Users see ai frames via analysis" ON video_ai_frames;
 CREATE POLICY "Users see ai frames via analysis"
     ON video_ai_frames FOR SELECT
     USING (
@@ -175,6 +179,7 @@ CREATE POLICY "Users see ai frames via analysis"
         )
     );
 
+DROP POLICY IF EXISTS "Users create ai frames" ON video_ai_frames;
 CREATE POLICY "Users create ai frames"
     ON video_ai_frames FOR INSERT
     WITH CHECK (

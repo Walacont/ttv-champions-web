@@ -2568,7 +2568,7 @@ function renderStatsEmpty() {
             <div class="text-center py-8 text-gray-500">
                 <i class="fas fa-chart-bar text-4xl mb-3 text-gray-300"></i>
                 <p class="font-medium">Noch keine Schlagdaten vorhanden</p>
-                <p class="text-sm mt-1">Labels können im <a href="label.html" class="text-indigo-600 hover:underline">Labeler</a> erstellt werden.</p>
+                <p class="text-sm mt-1">Sobald Videos analysiert werden, erscheinen hier die Schlagstatistiken.</p>
             </div>
         `;
     }
