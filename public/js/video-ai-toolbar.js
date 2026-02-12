@@ -73,6 +73,9 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
         }
     }
 
+    // Kontext speichern für Re-Analyze-Button und Claude-Button
+    window._aiToolbarContext = { videoPlayer, videoId, context };
+
     // Prüfen ob bereits gespeicherte Ergebnisse vorliegen
     if (context.db) {
         try {
@@ -122,9 +125,6 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
             // Nicht kritisch - Claude-Analyse ist optional
         }
     }
-
-    // Kontext speichern für Re-Analyze-Button
-    window._aiToolbarContext = { videoPlayer, videoId, context };
 
     // Button Click-Handler
     aiBtn.onclick = () => {
