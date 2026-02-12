@@ -12,6 +12,8 @@ import {
     isModelLoaded,
     saveAnalysisResults,
     loadAnalysisResults,
+    loadReferenceAnalysis,
+    comparePoses,
     clearCache
 } from './video-ai-engine.js';
 import { VideoAIOverlay } from './video-ai-overlay.js';
@@ -68,6 +70,8 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
             const saved = await loadAnalysisResults(context.db, videoId);
             if (saved && saved.frames && saved.frames.length > 0) {
                 aiOverlay.setSavedFrames(saved.frames);
+                // Overlay sofort aktivieren damit Skelett sichtbar ist
+                aiOverlay.activate();
                 updatePanelStatus('saved', saved.analysis.frames_analyzed);
 
                 // Sofort Shot-Klassifizierung + Movement Quality auf gespeicherten Frames
@@ -77,6 +81,9 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
             console.warn('[AI Toolbar] Could not load saved results:', e);
         }
     }
+
+    // Kontext speichern für Re-Analyze-Button
+    window._aiToolbarContext = { videoPlayer, videoId, context };
 
     // Button Click-Handler
     aiBtn.onclick = () => {
@@ -434,9 +441,17 @@ async function runPostAnalysis(savedFrames, context, videoId) {
 function renderResults(container, shotAnalysis, movementAnalysis) {
     container.classList.remove('hidden');
 
-    // Große Aktions-Buttons verstecken nach Analyse
+    // Große Aktions-Buttons durch kompakten "Erneut analysieren" ersetzen
     const actionsDiv = document.getElementById('ai-actions');
-    if (actionsDiv) actionsDiv.classList.add('hidden');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = `
+            <button id="ai-reanalyze-btn"
+                    class="w-full text-xs text-gray-400 hover:text-blue-400 py-1 transition-colors flex items-center justify-center gap-1">
+                <i class="fas fa-redo text-[10px]"></i>
+                <span>Erneut analysieren</span>
+            </button>
+        `;
+    }
 
     let html = '';
 
@@ -451,6 +466,10 @@ function renderResults(container, shotAnalysis, movementAnalysis) {
             <i class="fas fa-chart-line mr-1"></i>Qualität
         </button>`;
     }
+
+    html += `<button class="ai-result-tab text-xs px-2 py-1 rounded-t transition-colors text-gray-400 hover:text-white" data-tab="compare">
+        <i class="fas fa-balance-scale mr-1"></i>Vergleich
+    </button>`;
 
     html += `</div>`;
 
@@ -474,6 +493,19 @@ function renderResults(container, shotAnalysis, movementAnalysis) {
         html += `</div>`;
     }
 
+    // Referenz-Vergleich Tab
+    html += `<div id="ai-tab-compare" class="ai-tab-content hidden">
+        <div class="text-sm space-y-2">
+            <p class="text-gray-400 text-xs">Vergleiche die Pose mit einem Referenz-Video (z.B. Trainer-Demonstration).</p>
+            <button id="ai-select-reference-btn"
+                    class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-video"></i>
+                <span>Referenz-Video wählen</span>
+            </button>
+            <div id="ai-compare-results"></div>
+        </div>
+    </div>`;
+
     container.innerHTML = html;
 
     // Tab-Wechsel
@@ -491,6 +523,51 @@ function renderResults(container, shotAnalysis, movementAnalysis) {
             if (target) target.classList.remove('hidden');
         };
     });
+
+    // Referenz-Video-Auswahl
+    const selectRefBtn = document.getElementById('ai-select-reference-btn');
+    if (selectRefBtn) {
+        selectRefBtn.onclick = () => showReferenceVideoSelector();
+    }
+
+    // "Erneut analysieren" Button-Handler
+    const reanalyzeBtn = document.getElementById('ai-reanalyze-btn');
+    if (reanalyzeBtn) {
+        reanalyzeBtn.onclick = () => {
+            // Aktions-Buttons wiederherstellen
+            const actionsDiv = document.getElementById('ai-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = `
+                    <button id="ai-analyze-frame-btn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-camera"></i>
+                        <span>Einzelbild analysieren</span>
+                    </button>
+                    <button id="ai-analyze-video-btn"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-film"></i>
+                        <span>Video analysieren</span>
+                    </button>
+                `;
+            }
+            // Ergebnisse ausblenden
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            // Event-Handler neu einrichten (da die Buttons neu erstellt wurden)
+            const panel = document.getElementById('ai-analysis-panel');
+            if (panel && window._aiToolbarContext) {
+                const { videoPlayer, videoId, context } = window._aiToolbarContext;
+                const analyzeFrameBtn = panel.querySelector('#ai-analyze-frame-btn');
+                if (analyzeFrameBtn) {
+                    analyzeFrameBtn.onclick = () => analyzeCurrentFrame(videoPlayer, videoId);
+                }
+                const analyzeVideoBtn = panel.querySelector('#ai-analyze-video-btn');
+                if (analyzeVideoBtn) {
+                    analyzeVideoBtn.onclick = () => analyzeFullVideo(videoPlayer, videoId, context);
+                }
+            }
+        };
+    }
 }
 
 /**
@@ -562,6 +639,166 @@ function updateProgress(percent) {
 }
 
 /**
+ * Zeigt eine Auswahl der verfügbaren Videos als Referenz an.
+ * Lädt die Referenz-Analyse und vergleicht mit dem aktuellen Video.
+ */
+async function showReferenceVideoSelector() {
+    const ctx = window._aiToolbarContext;
+    if (!ctx || !ctx.context.db) return;
+
+    const resultsDiv = document.getElementById('ai-compare-results');
+    if (!resultsDiv) return;
+
+    resultsDiv.innerHTML = '<p class="text-xs text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>Videos werden geladen...</p>';
+
+    try {
+        // Andere analysierte Videos laden (die bereits KI-Analysen haben)
+        const { data: analyses, error } = await ctx.context.db
+            .from('video_ai_analyses')
+            .select('video_id, summary, created_at, video_analyses:video_id(title, video_url)')
+            .eq('analysis_type', 'pose_estimation')
+            .eq('status', 'completed')
+            .neq('video_id', ctx.videoId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (error || !analyses || analyses.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-xs text-gray-500">Keine anderen analysierten Videos gefunden. Analysiere zuerst ein Referenz-Video.</p>';
+            return;
+        }
+
+        let listHtml = '<div class="space-y-1 max-h-32 overflow-y-auto">';
+        for (const a of analyses) {
+            const title = a.video_analyses?.title || 'Unbenannt';
+            const frames = a.summary?.total_frames || '?';
+            listHtml += `
+                <button class="ai-ref-video-btn w-full text-left text-xs p-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors flex items-center gap-2"
+                        data-video-id="${a.video_id}">
+                    <i class="fas fa-video text-purple-400"></i>
+                    <span class="truncate flex-1">${title}</span>
+                    <span class="text-gray-500">${frames}F</span>
+                </button>
+            `;
+        }
+        listHtml += '</div>';
+
+        resultsDiv.innerHTML = listHtml;
+
+        // Click-Handler für jedes Video
+        resultsDiv.querySelectorAll('.ai-ref-video-btn').forEach(btn => {
+            btn.onclick = () => loadAndCompareReference(btn.dataset.videoId);
+        });
+
+    } catch (e) {
+        console.error('[AI Toolbar] Reference video load failed:', e);
+        resultsDiv.innerHTML = '<p class="text-xs text-red-400">Fehler beim Laden der Videos.</p>';
+    }
+}
+
+/**
+ * Lädt eine Referenz-Analyse und vergleicht sie mit dem aktuellen Video.
+ */
+async function loadAndCompareReference(referenceVideoId) {
+    const ctx = window._aiToolbarContext;
+    if (!ctx || !ctx.context.db) return;
+
+    const resultsDiv = document.getElementById('ai-compare-results');
+    if (!resultsDiv) return;
+
+    resultsDiv.innerHTML = '<p class="text-xs text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>Referenz wird geladen und verglichen...</p>';
+
+    try {
+        // Referenz-Frames laden
+        const refFrames = await loadReferenceAnalysis(ctx.context.db, referenceVideoId);
+        if (!refFrames || refFrames.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-xs text-red-400">Keine Frames in der Referenz gefunden.</p>';
+            return;
+        }
+
+        // Aktuelle Frames (aus savedFrames des Overlays)
+        const currentFrames = aiOverlay?.savedFrames;
+        if (!currentFrames || currentFrames.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-xs text-red-400">Aktuelles Video hat keine Analyse-Daten.</p>';
+            return;
+        }
+
+        // Frame-weise Vergleich (benutze Frames bei ähnlichen Zeitpunkten)
+        const comparisons = [];
+        for (const frame of currentFrames) {
+            if (!frame.poses || frame.poses.length === 0) continue;
+            const playerPose = frame.poses[0].landmarks;
+
+            // Nächsten Referenz-Frame finden
+            let closest = refFrames[0];
+            let minDiff = Math.abs(closest.timestamp_seconds - frame.timestamp_seconds);
+            for (const ref of refFrames) {
+                const diff = Math.abs(ref.timestamp_seconds - frame.timestamp_seconds);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = ref;
+                }
+            }
+
+            if (closest.poses && closest.poses.length > 0 && minDiff < 1.0) {
+                const refPose = closest.poses[0].landmarks;
+                const result = comparePoses(playerPose, refPose);
+                if (result) {
+                    comparisons.push({ timestamp: frame.timestamp_seconds, ...result });
+                }
+            }
+        }
+
+        if (comparisons.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-xs text-gray-500">Kein Vergleich möglich (zu wenig überlappende Frames).</p>';
+            return;
+        }
+
+        // Durchschnitt berechnen
+        const avgOverall = Math.round(comparisons.reduce((s, c) => s + c.overallScore, 0) / comparisons.length);
+        const avgArm = Math.round(comparisons.reduce((s, c) => s + c.groups.arm, 0) / comparisons.length);
+        const avgTorso = Math.round(comparisons.reduce((s, c) => s + c.groups.torso, 0) / comparisons.length);
+        const avgLegs = Math.round(comparisons.reduce((s, c) => s + c.groups.legs, 0) / comparisons.length);
+
+        const scoreColor = (s) => s >= 80 ? 'text-green-400' : s >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+        resultsDiv.innerHTML = `
+            <div class="space-y-2 mt-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-xs">Gesamt:</span>
+                    <span class="font-bold ${scoreColor(avgOverall)}">${avgOverall}%</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-xs">Arme:</span>
+                    <span class="font-medium text-xs ${scoreColor(avgArm)}">${avgArm}%</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-xs">Oberkörper:</span>
+                    <span class="font-medium text-xs ${scoreColor(avgTorso)}">${avgTorso}%</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400 text-xs">Beine:</span>
+                    <span class="font-medium text-xs ${scoreColor(avgLegs)}">${avgLegs}%</span>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-1">${comparisons.length} Frames verglichen</p>
+                <button class="ai-ref-change-btn w-full text-xs text-gray-400 hover:text-purple-400 py-1 transition-colors">
+                    <i class="fas fa-exchange-alt mr-1"></i>Andere Referenz wählen
+                </button>
+            </div>
+        `;
+
+        // "Andere Referenz wählen" Button
+        const changeBtn = resultsDiv.querySelector('.ai-ref-change-btn');
+        if (changeBtn) {
+            changeBtn.onclick = () => showReferenceVideoSelector();
+        }
+
+    } catch (e) {
+        console.error('[AI Toolbar] Comparison failed:', e);
+        resultsDiv.innerHTML = '<p class="text-xs text-red-400">Vergleich fehlgeschlagen.</p>';
+    }
+}
+
+/**
  * Räumt die AI-Toolbar auf (beim Schließen des Modals)
  */
 export function cleanupAIToolbar() {
@@ -574,6 +811,7 @@ export function cleanupAIToolbar() {
         abortController = null;
     }
     lastAnalysisResults = null;
+    window._aiToolbarContext = null;
     clearCache();
 
     const panel = document.getElementById('ai-analysis-panel');

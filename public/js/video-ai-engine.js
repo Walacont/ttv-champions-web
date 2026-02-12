@@ -262,6 +262,18 @@ export function destroyEngine() {
 export async function saveAnalysisResults(db, videoId, userId, frames) {
     const startTime = Date.now();
 
+    // Alte Analysen für dieses Video löschen (verhindert Duplikate)
+    // CASCADE löscht auch zugehörige video_ai_frames automatisch
+    try {
+        await db
+            .from('video_ai_analyses')
+            .delete()
+            .eq('video_id', videoId)
+            .eq('analysis_type', 'pose_estimation');
+    } catch (e) {
+        console.warn('[AI Engine] Could not delete old analyses:', e);
+    }
+
     // Analyse-Haupteintrag erstellen
     const { data: analysis, error: analysisError } = await db
         .from('video_ai_analyses')
@@ -451,6 +463,107 @@ export const POSE_CONNECTIONS = [
     [POSE_LANDMARKS.MOUTH_LEFT, POSE_LANDMARKS.MOUTH_RIGHT],
 ];
 
+/**
+ * Lädt Analyse eines anderen Videos als Referenz (z.B. Trainer-Demonstration).
+ * @param {Object} db - Supabase-Client
+ * @param {string} referenceVideoId - Video-ID der Referenz
+ * @returns {Promise<Array|null>} - Frames der Referenz-Analyse
+ */
+export async function loadReferenceAnalysis(db, referenceVideoId) {
+    const result = await loadAnalysisResults(db, referenceVideoId);
+    if (!result || !result.frames || result.frames.length === 0) return null;
+    return result.frames;
+}
+
+/**
+ * Vergleicht zwei Posen miteinander (Spieler vs. Referenz).
+ * Berechnet einen Ähnlichkeits-Score pro Keypoint-Gruppe.
+ * @param {Array} playerPose - Landmarks des Spielers (33 Keypoints)
+ * @param {Array} referencePose - Landmarks der Referenz (33 Keypoints)
+ * @returns {Object} - { overallScore, groups: { arm, torso, legs }, deviations }
+ */
+export function comparePoses(playerPose, referencePose) {
+    if (!playerPose || !referencePose) return null;
+
+    const groups = {
+        arm: [L.LEFT_SHOULDER, L.RIGHT_SHOULDER, L.LEFT_ELBOW, L.RIGHT_ELBOW, L.LEFT_WRIST, L.RIGHT_WRIST],
+        torso: [L.LEFT_SHOULDER, L.RIGHT_SHOULDER, L.LEFT_HIP, L.RIGHT_HIP],
+        legs: [L.LEFT_HIP, L.RIGHT_HIP, L.LEFT_KNEE, L.RIGHT_KNEE, L.LEFT_ANKLE, L.RIGHT_ANKLE]
+    };
+
+    // Posen normalisieren: Schulter-Zentrum als Ursprung, Schulterbreite als Maßstab
+    const normalizeP = normalizePose(playerPose);
+    const normalizeR = normalizePose(referencePose);
+
+    if (!normalizeP || !normalizeR) return null;
+
+    const results = {};
+    const deviations = [];
+    let totalScore = 0, totalCount = 0;
+
+    for (const [groupName, indices] of Object.entries(groups)) {
+        let similarity = 0, count = 0;
+
+        for (const idx of indices) {
+            const p = normalizeP[idx];
+            const r = normalizeR[idx];
+            if (!p || !r || p.visibility < 0.3 || r.visibility < 0.3) continue;
+
+            const dx = p.x - r.x;
+            const dy = p.y - r.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const score = Math.max(0, 1 - dist / 2.0); // Normalisiert auf Schulterbreite
+
+            similarity += score;
+            count++;
+
+            if (dist > 0.5) {
+                deviations.push({
+                    landmark: idx,
+                    group: groupName,
+                    distance: Math.round(dist * 100) / 100,
+                    direction: { x: dx, y: dy }
+                });
+            }
+        }
+
+        results[groupName] = count > 0 ? Math.round((similarity / count) * 100) : 0;
+        totalScore += similarity;
+        totalCount += count;
+    }
+
+    return {
+        overallScore: totalCount > 0 ? Math.round((totalScore / totalCount) * 100) : 0,
+        groups: results,
+        deviations: deviations.sort((a, b) => b.distance - a.distance).slice(0, 5)
+    };
+}
+
+/**
+ * Normalisiert eine Pose: Schulter-Zentrum als Ursprung, Schulterbreite = 1.
+ * Macht den Vergleich größen- und positionsunabhängig.
+ */
+function normalizePose(landmarks) {
+    const ls = landmarks[L.LEFT_SHOULDER];
+    const rs = landmarks[L.RIGHT_SHOULDER];
+    if (!ls || !rs || ls.visibility < 0.3 || rs.visibility < 0.3) return null;
+
+    const centerX = (ls.x + rs.x) / 2;
+    const centerY = (ls.y + rs.y) / 2;
+    const shoulderWidth = Math.abs(rs.x - ls.x);
+    if (shoulderWidth < 0.01) return null; // Zu klein zum Normalisieren
+
+    return landmarks.map(lm => {
+        if (!lm) return null;
+        return {
+            x: (lm.x - centerX) / shoulderWidth,
+            y: (lm.y - centerY) / shoulderWidth,
+            z: lm.z || 0,
+            visibility: lm.visibility
+        };
+    });
+}
+
 // Export für globalen Zugriff
 window.videoAIEngine = {
     isAIAvailable,
@@ -462,6 +575,8 @@ window.videoAIEngine = {
     destroyEngine,
     saveAnalysisResults,
     loadAnalysisResults,
+    loadReferenceAnalysis,
+    comparePoses,
     POSE_LANDMARKS,
     POSE_CONNECTIONS
 };
@@ -476,6 +591,8 @@ export default {
     destroyEngine,
     saveAnalysisResults,
     loadAnalysisResults,
+    loadReferenceAnalysis,
+    comparePoses,
     POSE_LANDMARKS,
     POSE_CONNECTIONS
 };
