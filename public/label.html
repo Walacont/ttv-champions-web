@@ -139,6 +139,23 @@
                             <button id="toggle-ball" class="overlay-toggle text-xs px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-colors" data-active="false">
                                 <i class="fas fa-circle mr-1"></i>Ball
                             </button>
+                            <div class="ml-auto">
+                                <button id="btn-calibrate-table" class="text-xs px-2 py-1 rounded border border-yellow-600 text-yellow-400 hover:text-yellow-200 hover:border-yellow-400 transition-colors">
+                                    <i class="fas fa-crosshairs mr-1"></i>Tisch kalibrieren
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Kalibrierungs-Anleitung (versteckt) -->
+                        <div id="calibration-bar" class="hidden px-4 py-2 bg-yellow-900/80 border-t border-yellow-700 flex items-center gap-3">
+                            <i class="fas fa-info-circle text-yellow-400"></i>
+                            <span id="calibration-instruction" class="text-xs text-yellow-200 flex-1">Klicke die 4 Ecken des Tisches im Uhrzeigersinn (oben-links zuerst)</span>
+                            <span id="calibration-count" class="text-xs text-yellow-400 font-mono">0/4</span>
+                            <button id="btn-calibration-undo" class="text-xs px-2 py-1 rounded border border-yellow-700 text-yellow-400 hover:text-yellow-200">
+                                <i class="fas fa-undo mr-1"></i>Zurück
+                            </button>
+                            <button id="btn-calibration-cancel" class="text-xs px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-200">
+                                <i class="fas fa-times mr-1"></i>Abbrechen
+                            </button>
                         </div>
 
                         <!-- Zeitleiste mit Markierungen -->
@@ -507,6 +524,11 @@
         let showSkeleton = false;
         let showTable = false;
         let showBall = false;
+
+        // Tisch-Kalibrierung (4-Ecken)
+        let calibrationMode = false;
+        let calibrationCorners = []; // [{x, y}] normalisiert (0-1), max 4
+        let savedTableCorners = null; // Gespeicherte 4 Ecken aus DB
 
         // Video type labels
         const videoTypeLabels = {
@@ -1061,6 +1083,27 @@
                 } catch (e) {
                     console.warn('[AI] Could not load saved table/ball data:', e);
                 }
+
+                // Gespeicherte Tisch-Kalibrierung laden
+                try {
+                    const corners = await loadTableCalibration(supabase, video.id);
+                    if (corners && corners.length === 4) {
+                        savedTableCorners = corners;
+                        console.log('[AI] Tisch-Kalibrierung aus DB geladen');
+                        // Tisch-Overlay automatisch aktivieren
+                        showTable = true;
+                        const tableBtn = document.getElementById('toggle-table');
+                        tableBtn.dataset.active = 'true';
+                        tableBtn.classList.remove('text-gray-400', 'border-gray-600');
+                        tableBtn.classList.add('bg-white', 'text-gray-800', 'border-white');
+                        // Kalibrieren-Button Text ändern
+                        document.getElementById('btn-calibrate-table').innerHTML =
+                            '<i class="fas fa-crosshairs mr-1"></i>Neu kalibrieren';
+                        drawOverlay();
+                    }
+                } catch (e) {
+                    console.warn('[AI] Could not load table calibration:', e);
+                }
             });
 
             renderShotsList();
@@ -1083,6 +1126,14 @@
                 aiSuggestions = [];
                 aiFormattedFrames = null;
                 aiDetectedPlayers = [];
+                aiTableBox = null;
+                aiBallTrack = [];
+                savedTableCorners = null;
+                calibrationCorners = [];
+                calibrationMode = false;
+                showSkeleton = false;
+                showTable = false;
+                showBall = false;
                 selectedVideoType = null;
                 selectedExerciseId = null;
             });
@@ -1148,6 +1199,13 @@
                 showBall = !showBall;
                 drawOverlay();
             });
+
+            // Tisch-Kalibrierung
+            document.getElementById('btn-calibrate-table').addEventListener('click', startCalibration);
+            document.getElementById('btn-calibration-cancel').addEventListener('click', cancelCalibration);
+            document.getElementById('btn-calibration-undo').addEventListener('click', undoCalibrationCorner);
+            document.getElementById('video-overlay').addEventListener('click', handleCalibrationClick);
+
             document.getElementById('ai-table-ball-btn').addEventListener('click', runTableBallDetection);
             document.getElementById('ai-cancel-btn').addEventListener('click', () => {
                 if (aiAbortController) aiAbortController.abort();
@@ -1979,6 +2037,147 @@
             }
         }
 
+        // ===== Tisch-Kalibrierung (4-Ecken) =====
+
+        function startCalibration() {
+            if (!videoPlayer || !overlayCanvas) return;
+            // Video pausieren für stabiles Bild
+            videoPlayer.pause();
+            calibrationMode = true;
+            calibrationCorners = [];
+            // Canvas klickbar machen
+            overlayCanvas.style.pointerEvents = 'auto';
+            overlayCanvas.style.cursor = 'crosshair';
+            // UI
+            document.getElementById('calibration-bar').classList.remove('hidden');
+            document.getElementById('btn-calibrate-table').classList.add('hidden');
+            updateCalibrationUI();
+            drawOverlay();
+        }
+
+        function cancelCalibration() {
+            calibrationMode = false;
+            calibrationCorners = [];
+            overlayCanvas.style.pointerEvents = 'none';
+            overlayCanvas.style.cursor = '';
+            document.getElementById('calibration-bar').classList.add('hidden');
+            document.getElementById('btn-calibrate-table').classList.remove('hidden');
+            drawOverlay();
+        }
+
+        function undoCalibrationCorner() {
+            if (calibrationCorners.length > 0) {
+                calibrationCorners.pop();
+                updateCalibrationUI();
+                drawOverlay();
+            }
+        }
+
+        function updateCalibrationUI() {
+            const count = calibrationCorners.length;
+            document.getElementById('calibration-count').textContent = `${count}/4`;
+            const labels = [
+                'Klicke Ecke 1: Oben-Links des Tisches',
+                'Klicke Ecke 2: Oben-Rechts des Tisches',
+                'Klicke Ecke 3: Unten-Rechts des Tisches',
+                'Klicke Ecke 4: Unten-Links des Tisches'
+            ];
+            document.getElementById('calibration-instruction').textContent =
+                count < 4 ? labels[count] : 'Alle 4 Ecken gesetzt!';
+        }
+
+        function handleCalibrationClick(e) {
+            if (!calibrationMode || calibrationCorners.length >= 4) return;
+
+            // Klick-Position in normalisierte Video-Koordinaten (0-1) umrechnen
+            const rect = overlayCanvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) / rect.width;
+            const clickY = (e.clientY - rect.top) / rect.height;
+
+            // Sicherstellen dass Klick im Bereich ist
+            if (clickX < 0 || clickX > 1 || clickY < 0 || clickY > 1) return;
+
+            calibrationCorners.push({ x: clickX, y: clickY });
+            updateCalibrationUI();
+            drawOverlay();
+
+            // Nach 4 Ecken: Kalibrierung abschließen
+            if (calibrationCorners.length === 4) {
+                finishCalibration();
+            }
+        }
+
+        async function finishCalibration() {
+            savedTableCorners = [...calibrationCorners];
+
+            // Kalibrierung beenden
+            calibrationMode = false;
+            overlayCanvas.style.pointerEvents = 'none';
+            overlayCanvas.style.cursor = '';
+            document.getElementById('calibration-bar').classList.add('hidden');
+            document.getElementById('btn-calibrate-table').classList.remove('hidden');
+            // Tisch-Overlay automatisch aktivieren
+            showTable = true;
+            const tableBtn = document.getElementById('toggle-table');
+            tableBtn.dataset.active = 'true';
+            tableBtn.classList.remove('text-gray-400', 'border-gray-600');
+            tableBtn.classList.add('bg-white', 'text-gray-800', 'border-white');
+            drawOverlay();
+
+            // In DB speichern
+            if (currentVideo && currentUser && supabase) {
+                try {
+                    await saveTableCalibration(supabase, currentVideo.id, currentUser.id, savedTableCorners);
+                    showToast('Tisch-Kalibrierung gespeichert', 'success');
+                } catch (err) {
+                    console.error('Failed to save calibration:', err);
+                    showToast('Kalibrierung konnte nicht gespeichert werden', 'error');
+                }
+            }
+        }
+
+        async function saveTableCalibration(db, videoId, userId, corners) {
+            // Alte Kalibrierung löschen
+            try {
+                await db.from('video_ai_analyses')
+                    .delete()
+                    .eq('video_id', videoId)
+                    .eq('analysis_type', 'table_calibration');
+            } catch (e) { /* ignore */ }
+
+            const { error } = await db.from('video_ai_analyses').insert({
+                video_id: videoId,
+                analysis_type: 'table_calibration',
+                status: 'completed',
+                processing_location: 'browser',
+                model_name: 'manual_calibration',
+                model_version: '1.0',
+                results: {
+                    corners: corners,
+                    corner_labels: ['top_left', 'top_right', 'bottom_right', 'bottom_left']
+                },
+                summary: { corners_count: corners.length },
+                created_by: userId
+            });
+
+            if (error) throw error;
+        }
+
+        async function loadTableCalibration(db, videoId) {
+            const { data, error } = await db
+                .from('video_ai_analyses')
+                .select('results')
+                .eq('video_id', videoId)
+                .eq('analysis_type', 'table_calibration')
+                .eq('status', 'completed')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error || !data) return null;
+            return data.results?.corners || null;
+        }
+
         // ===== Overlay-Zeichenfunktionen =====
 
         function drawOverlay() {
@@ -1989,10 +2188,17 @@
 
             overlayCtx.clearRect(0, 0, w, h);
 
-            if (!showSkeleton && !showTable && !showBall) return;
+            // Kalibrierungs-Modus: Ecken und Preview zeichnen
+            if (calibrationMode) {
+                drawCalibrationOverlay(w, h);
+            }
 
-            // Tisch zeichnen
-            if (showTable && aiTableBox) {
+            // Tisch-Polygon aus Kalibrierung (permanent)
+            if (showTable && savedTableCorners && savedTableCorners.length === 4) {
+                drawTablePolygon(w, h);
+            }
+            // Fallback: Auto-erkannte Tisch-Box
+            else if (showTable && aiTableBox) {
                 drawTableBox(w, h);
             }
 
@@ -2005,6 +2211,135 @@
             if (showSkeleton && aiFormattedFrames) {
                 drawSkeletons(w, h);
             }
+        }
+
+        function drawCalibrationOverlay(w, h) {
+            const corners = calibrationCorners;
+            const ctx = overlayCtx;
+
+            // Halbtransparenter Hintergrund
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(0, 0, w, h);
+
+            // Verbindungslinien zwischen gesetzten Ecken
+            if (corners.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(corners[0].x * w, corners[0].y * h);
+                for (let i = 1; i < corners.length; i++) {
+                    ctx.lineTo(corners[i].x * w, corners[i].y * h);
+                }
+                // Polygon schließen wenn 4 Ecken gesetzt
+                if (corners.length === 4) {
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.15)';
+                    ctx.fill();
+                }
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Ecken-Punkte zeichnen
+            const labels = ['OL', 'OR', 'UR', 'UL'];
+            for (let i = 0; i < corners.length; i++) {
+                const cx = corners[i].x * w;
+                const cy = corners[i].y * h;
+
+                // Punkt
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#facc15';
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labels[i], cx, cy);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+
+                // Nummer daneben
+                ctx.fillStyle = '#facc15';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(`${i + 1}`, cx + 12, cy - 8);
+            }
+
+            // Nächste erwartete Position andeuten
+            if (corners.length < 4 && corners.length > 0) {
+                const nextLabels = ['Oben-Rechts', 'Unten-Rechts', 'Unten-Links'];
+                const label = nextLabels[corners.length - 1];
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.5)';
+                ctx.font = '14px sans-serif';
+                ctx.fillText(`Nächste: ${label}`, 10, h - 10);
+            }
+        }
+
+        function drawTablePolygon(w, h) {
+            const corners = savedTableCorners;
+            const ctx = overlayCtx;
+
+            // Polygon füllen
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x * w, corners[0].y * h);
+            for (let i = 1; i < 4; i++) {
+                ctx.lineTo(corners[i].x * w, corners[i].y * h);
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+            ctx.fill();
+
+            // Rand zeichnen
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Mittellinie (zwischen Mitte oben und Mitte unten)
+            const midTop = {
+                x: (corners[0].x + corners[1].x) / 2 * w,
+                y: (corners[0].y + corners[1].y) / 2 * h
+            };
+            const midBot = {
+                x: (corners[3].x + corners[2].x) / 2 * w,
+                y: (corners[3].y + corners[2].y) / 2 * h
+            };
+            ctx.beginPath();
+            ctx.moveTo(midTop.x, midTop.y);
+            ctx.lineTo(midBot.x, midBot.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Ecken-Punkte
+            for (let i = 0; i < 4; i++) {
+                const cx = corners[i].x * w;
+                const cy = corners[i].y * h;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#22c55e';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Label
+            const labelX = corners[0].x * w;
+            const labelY = corners[0].y * h - 8;
+            ctx.fillStyle = '#22c55e';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+            ctx.lineWidth = 3;
+            ctx.strokeText('Tisch (kalibriert)', labelX, labelY);
+            ctx.fillText('Tisch (kalibriert)', labelX, labelY);
         }
 
         function drawTableBox(w, h) {
