@@ -108,51 +108,57 @@ CREATE INDEX IF NOT EXISTS idx_video_ai_frames_time
 ALTER TABLE video_ai_analyses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE video_ai_frames ENABLE ROW LEVEL SECURITY;
 
--- Coaches/Admins können alle Analysen im Club sehen
-CREATE POLICY "Coaches see club ai analyses"
+-- SELECT: Eigene Videos + Coach/Admin sieht alle im Club
+-- (Folgt dem Pattern aus video-analysis.sql:205-223)
+CREATE POLICY "video_ai_analyses_select"
     ON video_ai_analyses FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN club_players cp ON cp.club_id = va.club_id
-            WHERE va.id = video_ai_analyses.video_id
-              AND cp.player_id = auth.uid()
-              AND cp.role IN ('coach', 'head_coach', 'admin')
-        )
-    );
-
--- Spieler können eigene Video-Analysen sehen
-CREATE POLICY "Players see own ai analyses"
-    ON video_ai_analyses FOR SELECT
-    USING (
+        -- Eigene Analysen (selbst erstellt)
+        created_by = auth.uid()
+        OR
+        -- Video-Uploader kann KI-Analysen sehen
         EXISTS (
             SELECT 1 FROM video_analyses va
             WHERE va.id = video_ai_analyses.video_id
               AND va.uploaded_by = auth.uid()
-        )
-    );
-
--- Coaches können Analysen erstellen
-CREATE POLICY "Coaches create ai analyses"
-    ON video_ai_analyses FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM video_analyses va
-            JOIN club_players cp ON cp.club_id = va.club_id
-            WHERE va.id = video_ai_analyses.video_id
-              AND cp.player_id = auth.uid()
-              AND cp.role IN ('coach', 'head_coach', 'admin')
         )
         OR
+        -- Coach/Admin sieht alle Analysen im eigenen Club
         EXISTS (
             SELECT 1 FROM video_analyses va
+            JOIN profiles p ON p.id = auth.uid()
             WHERE va.id = video_ai_analyses.video_id
-              AND va.uploaded_by = auth.uid()
+              AND p.club_id = va.club_id
+              AND p.role IN ('coach', 'head_coach', 'admin')
         )
     );
 
--- Coaches können Status aktualisieren
-CREATE POLICY "Coaches update ai analyses"
+-- INSERT: Uploader oder Coach können Analysen erstellen
+CREATE POLICY "video_ai_analyses_insert"
+    ON video_ai_analyses FOR INSERT
+    WITH CHECK (
+        auth.uid() = created_by
+        AND (
+            -- Eigenes Video
+            EXISTS (
+                SELECT 1 FROM video_analyses va
+                WHERE va.id = video_ai_analyses.video_id
+                  AND va.uploaded_by = auth.uid()
+            )
+            OR
+            -- Coach/Admin im gleichen Club
+            EXISTS (
+                SELECT 1 FROM video_analyses va
+                JOIN profiles p ON p.id = auth.uid()
+                WHERE va.id = video_ai_analyses.video_id
+                  AND p.club_id = va.club_id
+                  AND p.role IN ('coach', 'head_coach', 'admin')
+            )
+        )
+    );
+
+-- UPDATE: Nur der Ersteller kann aktualisieren
+CREATE POLICY "video_ai_analyses_update"
     ON video_ai_analyses FOR UPDATE
     USING (created_by = auth.uid());
 
