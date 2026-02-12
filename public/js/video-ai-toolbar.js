@@ -23,6 +23,10 @@ import { analyzeBallMachineSession, renderConsistencyTimeline, renderMovementSum
 let aiOverlay = null;
 let abortController = null;
 let lastAnalysisResults = null; // Cached results for panel re-open
+let lastSavedFrames = null;    // Cached frames for player-switch re-analysis
+let lastContext = null;        // Cached context for re-analysis
+let lastVideoId = null;        // Cached videoId for re-analysis
+let selectedPlayerIdx = 0;     // Aktuell ausgewählter Spieler (0 oder 1)
 
 /**
  * Initialisiert die AI-Toolbar für ein Video im Detail-Modal.
@@ -412,16 +416,25 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
 /**
  * Führt Shot-Klassifizierung und Movement Quality nach der Pose-Analyse durch.
  */
-async function runPostAnalysis(savedFrames, context, videoId) {
+async function runPostAnalysis(savedFrames, context, videoId, playerIdx = 0) {
     const resultsDiv = document.getElementById('ai-results');
     if (!resultsDiv) return;
 
+    // Cache für Spieler-Wechsel
+    lastSavedFrames = savedFrames;
+    lastContext = context;
+    lastVideoId = videoId;
+    selectedPlayerIdx = playerIdx;
+
+    // Mehrere Spieler erkennen
+    const maxPlayers = Math.max(...savedFrames.map(f => f.poses?.length || 0));
+
     try {
-        // 1. Shot-Klassifizierung
-        const shotAnalysis = classifyShots(savedFrames);
+        // 1. Shot-Klassifizierung (Spielhand aus Profil übergeben falls vorhanden)
+        const shotAnalysis = classifyShots(savedFrames, playerIdx, { spielhand: context.spielhand || null });
 
         // 2. Bewegungsqualität (Balleimertraining-Erkennung)
-        const movementAnalysis = analyzeBallMachineSession(savedFrames);
+        const movementAnalysis = analyzeBallMachineSession(savedFrames, playerIdx);
 
         // Ergebnisse cachen
         lastAnalysisResults = { shotAnalysis, movementAnalysis };
@@ -439,8 +452,8 @@ async function runPostAnalysis(savedFrames, context, videoId) {
             }
         }
 
-        // 4. UI aktualisieren
-        renderResults(resultsDiv, shotAnalysis, movementAnalysis);
+        // 4. UI aktualisieren (mit Spieler-Auswahl wenn mehrere erkannt)
+        renderResults(resultsDiv, shotAnalysis, movementAnalysis, maxPlayers, playerIdx);
     } catch (e) {
         console.error('[AI Toolbar] Post-analysis failed:', e);
     }
@@ -449,7 +462,7 @@ async function runPostAnalysis(savedFrames, context, videoId) {
 /**
  * Rendert die Analyse-Ergebnisse ins Panel.
  */
-function renderResults(container, shotAnalysis, movementAnalysis) {
+function renderResults(container, shotAnalysis, movementAnalysis, maxPlayers = 1, currentPlayerIdx = 0) {
     container.classList.remove('hidden');
 
     // Große Aktions-Buttons durch kompakten "Erneut analysieren" ersetzen
@@ -465,6 +478,20 @@ function renderResults(container, shotAnalysis, movementAnalysis) {
     }
 
     let html = '';
+
+    // Spieler-Auswahl bei mehreren erkannten Personen
+    if (maxPlayers >= 2) {
+        html += `<div class="flex items-center gap-2 mb-2 p-1.5 bg-gray-800 rounded-lg">
+            <i class="fas fa-users text-xs text-gray-400"></i>
+            <span class="text-[10px] text-gray-400">Spieler:</span>
+            <button class="ai-player-select text-[10px] px-2 py-0.5 rounded transition-colors ${currentPlayerIdx === 0 ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}" data-player="0">
+                Person 1
+            </button>
+            <button class="ai-player-select text-[10px] px-2 py-0.5 rounded transition-colors ${currentPlayerIdx === 1 ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}" data-player="1">
+                Person 2
+            </button>
+        </div>`;
+    }
 
     // Tabs für verschiedene Ansichten
     html += `<div class="flex gap-1 mb-3 border-b border-gray-700 pb-2">
@@ -532,6 +559,16 @@ function renderResults(container, shotAnalysis, movementAnalysis) {
             container.querySelectorAll('.ai-tab-content').forEach(c => c.classList.add('hidden'));
             const target = document.getElementById(`ai-tab-${tab.dataset.tab}`);
             if (target) target.classList.remove('hidden');
+        };
+    });
+
+    // Spieler-Auswahl (bei 2+ Personen im Video)
+    container.querySelectorAll('.ai-player-select').forEach(btn => {
+        btn.onclick = () => {
+            const playerIdx = parseInt(btn.dataset.player, 10);
+            if (playerIdx !== selectedPlayerIdx && lastSavedFrames && lastContext && lastVideoId) {
+                runPostAnalysis(lastSavedFrames, lastContext, lastVideoId, playerIdx);
+            }
         };
     });
 
@@ -946,6 +983,10 @@ export function cleanupAIToolbar() {
         abortController = null;
     }
     lastAnalysisResults = null;
+    lastSavedFrames = null;
+    lastContext = null;
+    lastVideoId = null;
+    selectedPlayerIdx = 0;
     window._aiToolbarContext = null;
     clearCache();
 

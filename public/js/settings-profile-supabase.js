@@ -33,6 +33,7 @@ const emailFeedback = document.getElementById('email-feedback');
 const updatePersonalDataForm = document.getElementById('update-personal-data-form');
 const genderInput = document.getElementById('gender');
 const birthdateInput = document.getElementById('birthdate');
+const spielhandInput = document.getElementById('spielhand');
 const personalDataFeedback = document.getElementById('personal-data-feedback');
 
 const updatePasswordForm = document.getElementById('update-password-form');
@@ -134,6 +135,7 @@ async function initializeAuth() {
                 lastName: childProfile.last_name || '',
                 gender: childProfile.gender || null,
                 birthdate: childProfile.birthdate || null,
+                spielhand: childProfile.spielhand || null,
                 photoURL: childProfile.avatar_url || null,
             };
         } else {
@@ -154,6 +156,7 @@ async function initializeAuth() {
                     lastName: profile.last_name || '',
                     gender: profile.gender || null,
                     birthdate: profile.birthdate || null,
+                    spielhand: profile.spielhand || null,
                     photoURL: profile.avatar_url || null,
                 };
             }
@@ -171,6 +174,7 @@ async function initializeAuth() {
         lastNameInput.value = currentUserData.lastName || '';
         genderInput.value = currentUserData.gender || '';
         birthdateInput.value = currentUserData.birthdate || '';
+        if (spielhandInput) spielhandInput.value = currentUserData.spielhand || '';
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
@@ -425,6 +429,7 @@ updatePersonalDataForm.addEventListener('submit', async e => {
     e.preventDefault();
     const gender = genderInput.value;
     const birthdate = birthdateInput.value;
+    const spielhand = spielhandInput ? spielhandInput.value : null;
     personalDataFeedback.textContent = '';
 
     try {
@@ -433,6 +438,7 @@ updatePersonalDataForm.addEventListener('submit', async e => {
             .update({
                 gender: gender || null,
                 birthdate: birthdate || null,
+                spielhand: spielhand || null,
             })
             .eq('id', targetProfileId);
 

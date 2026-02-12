@@ -19,6 +19,7 @@ let videoAnalysisContext = {
     userId: null,
     userRole: null,
     clubId: null,
+    spielhand: null,
     clubPlayers: [],
     exercises: [],
 };
@@ -211,6 +212,20 @@ export function setVideoAnalysisContext(db, userId, userRole, clubId) {
 export async function initVideoAnalysis(db, userData, clubPlayers) {
     setVideoAnalysisContext(db, userData.id, userData.role, userData.clubId);
     videoAnalysisContext.clubPlayers = clubPlayers;
+
+    // Spielhand aus dem Profil laden (für KI-Analyse VH/RH-Erkennung)
+    try {
+        const { data: profile } = await db
+            .from('profiles')
+            .select('spielhand')
+            .eq('id', userData.id)
+            .single();
+        if (profile?.spielhand) {
+            videoAnalysisContext.spielhand = profile.spielhand;
+        }
+    } catch (e) {
+        // Spielhand nicht verfügbar - KI errät automatisch
+    }
 
     // Übungen für Dropdown laden
     await loadExercisesForVideoAnalysis();

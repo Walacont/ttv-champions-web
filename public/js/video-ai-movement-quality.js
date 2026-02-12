@@ -20,15 +20,16 @@ const STROKE_KEYPOINTS = [
 /**
  * Analysiert eine Balleimertraining-Session.
  * @param {Array} frames - Array von {timestamp_seconds, poses}
+ * @param {number} [playerIdx=0] - Welcher Spieler (0 oder 1)
  * @returns {Object} - Analyse-Ergebnisse
  */
-export function analyzeBallMachineSession(frames) {
+export function analyzeBallMachineSession(frames, playerIdx = 0) {
     if (!frames || frames.length < 5) {
         return { repetitions: [], summary: null, fatigueCurve: [] };
     }
 
-    // Nur den ersten Spieler analysieren (Trainierenden)
-    const playerFrames = extractPlayerFrames(frames, 0);
+    // Spieler-Frames extrahieren
+    const playerFrames = extractPlayerFrames(frames, playerIdx);
     if (playerFrames.length < 5) {
         return { repetitions: [], summary: null, fatigueCurve: [] };
     }
@@ -103,17 +104,30 @@ function detectRepetitions(playerFrames) {
     const wristY = leftVar > rightVar ? leftWristY : rightWristY;
     const dominantSide = leftVar > rightVar ? 'left' : 'right';
 
-    // Glättung (Moving Average mit Fenster 3)
-    const smoothed = movingAverage(wristY, 3);
+    // Stärkere Glättung (Moving Average mit Fenster 5 statt 3 → weniger Rauschen)
+    const smoothed = movingAverage(wristY, 5);
+
+    // Berechne dynamische Prominenz: 5% des Y-Ranges (statt fixe 2%)
+    const yMin = Math.min(...smoothed);
+    const yMax = Math.max(...smoothed);
+    const yRange = yMax - yMin;
+    const minProminence = Math.max(0.03, yRange * 0.05);
 
     // Peaks finden (lokale Minima = höchster Punkt des Schlags, da Y nach unten zunimmt)
-    const peaks = findPeaks(smoothed, 0.02); // Min 2% Unterschied
+    const peaks = findPeaks(smoothed, minProminence);
 
-    // Aus Peaks Wiederholungen bilden
+    // Mindestabstand zwischen Wiederholungen: 0.3 Sekunden (bei typischen 5 fps = ~1.5 Frames)
+    const MIN_REP_GAP_SECONDS = 0.3;
+
+    // Aus Peaks Wiederholungen bilden (mit Mindestabstand)
+    let lastTimestamp = -Infinity;
     for (let i = 0; i < peaks.length; i++) {
         const peakIdx = peaks[i];
         const frame = playerFrames[peakIdx];
         if (!frame) continue;
+
+        // Mindestabstand prüfen
+        if (frame.timestamp - lastTimestamp < MIN_REP_GAP_SECONDS) continue;
 
         repetitions.push({
             timestamp: frame.timestamp,
@@ -121,6 +135,7 @@ function detectRepetitions(playerFrames) {
             peakPose: frame.landmarks,
             dominantSide
         });
+        lastTimestamp = frame.timestamp;
     }
 
     return repetitions;
@@ -389,6 +404,11 @@ export function renderMovementSummary(analysis) {
 
     return `
         <div class="text-sm space-y-1.5">
+            <div class="text-[10px] text-gray-500 bg-gray-800 rounded p-1.5 mb-2">
+                <i class="fas fa-info-circle mr-1"></i>
+                Qualität = wie gleichmäßig deine Schlagbewegung über alle Wiederholungen ist.
+                100% = jede Wiederholung identisch zur Referenz (Durchschnitt deiner ersten 3 Schläge).
+            </div>
             <div class="flex justify-between">
                 <span class="text-gray-400">Wiederholungen:</span>
                 <span class="font-medium">${s.totalRepetitions}</span>

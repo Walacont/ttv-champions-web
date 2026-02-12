@@ -10,10 +10,11 @@ const L = POSE_LANDMARKS;
 
 // Basis-Schwellenwerte (kalibriert auf Erwachsene, Schulterbreite ~0.15 in normalisierten Coords)
 const REFERENCE_SHOULDER_WIDTH = 0.15;
-const BASE_STROKE_SPEED_THRESHOLD = 0.015;  // Min. Wrist-Geschwindigkeit pro Frame
-const STROKE_MIN_FRAMES = 2;               // Min. Frames für einen Schlag
-const STROKE_COOLDOWN_FRAMES = 3;          // Frames Pause zwischen Schlägen
+const BASE_STROKE_SPEED_THRESHOLD = 0.025;  // Min. Wrist-Geschwindigkeit pro Frame (erhöht von 0.015 → weniger Fehlerkennungen)
+const STROKE_MIN_FRAMES = 3;               // Min. Frames für einen Schlag (erhöht von 2 → filtert kurze Zufallsbewegungen)
+const STROKE_COOLDOWN_FRAMES = 8;          // Frames Pause zwischen Schlägen (erhöht von 3 → verhindert Doppelzählung bei Vor-/Rückschwung)
 const BASE_SERVE_TOSS_THRESHOLD = 0.03;    // Y-Bewegung der Nicht-Schlaghand
+const MIN_CONFIDENCE_THRESHOLD = 0.4;      // Min. Confidence um als Schlag zu zählen
 
 /**
  * Berechnet den Skalierungsfaktor basierend auf der sichtbaren Körpergröße.
@@ -49,9 +50,11 @@ function computeBodyScale(playerFrames) {
  * Klassifiziert Schläge aus analysierten Frames.
  * @param {Array} frames - Array von {timestamp_seconds, poses}
  * @param {number} [playerIdx=0] - Welcher Spieler (0 oder 1)
+ * @param {Object} [options] - Optionen
+ * @param {string} [options.spielhand] - Explizite Spielhand ('left'/'right') aus Profil, sonst Auto-Erkennung
  * @returns {Object} - { shots: [...], stats: {...} }
  */
-export function classifyShots(frames, playerIdx = 0) {
+export function classifyShots(frames, playerIdx = 0, options = {}) {
     if (!frames || frames.length < 5) {
         return { shots: [], stats: null };
     }
@@ -71,8 +74,9 @@ export function classifyShots(frames, playerIdx = 0) {
     // Körpergröße-Skalierung berechnen (passt Schwellenwerte an Kinder/Entfernung an)
     const bodyScale = computeBodyScale(playerFrames);
 
-    // Dominante Seite bestimmen
-    const dominantSide = detectDominantSide(playerFrames);
+    // Dominante Seite: explizit aus Profil oder Auto-Erkennung
+    const dominantSide = options.spielhand || detectDominantSide(playerFrames);
+    const handSource = options.spielhand ? 'profile' : 'auto';
 
     // Skalierte Schwellenwerte
     const strokeSpeedThreshold = BASE_STROKE_SPEED_THRESHOLD * bodyScale;
@@ -81,29 +85,31 @@ export function classifyShots(frames, playerIdx = 0) {
     // Schlag-Events erkennen (Momente hoher Wrist-Geschwindigkeit)
     const strokeEvents = detectStrokeEvents(playerFrames, dominantSide, strokeSpeedThreshold);
 
-    // Jeden Schlag klassifizieren
-    const shots = strokeEvents.map(event => {
-        const side = classifySide(event, playerFrames, dominantSide);
-        const type = classifyShotType(event, playerFrames, dominantSide, bodyScale);
-        const isServe = detectServe(event, playerFrames, dominantSide, serveTossThreshold);
+    // Jeden Schlag klassifizieren und nach Mindest-Confidence filtern
+    const shots = strokeEvents
+        .filter(event => event.confidence >= MIN_CONFIDENCE_THRESHOLD)
+        .map(event => {
+            const side = classifySide(event, playerFrames, dominantSide);
+            const type = classifyShotType(event, playerFrames, dominantSide, bodyScale);
+            const isServe = detectServe(event, playerFrames, dominantSide, serveTossThreshold);
 
-        let shotType;
-        if (isServe) {
-            shotType = side === 'forehand' ? 'forehand_serve' : 'backhand_serve';
-        } else {
-            shotType = `${side}_${type}`;
-        }
+            let shotType;
+            if (isServe) {
+                shotType = side === 'forehand' ? 'forehand_serve' : 'backhand_serve';
+            } else {
+                shotType = `${side}_${type}`;
+            }
 
-        return {
-            timestamp: event.timestamp,
-            frameIndex: event.frameIndex,
-            shotType,
-            side,
-            type: isServe ? 'serve' : type,
-            confidence: event.confidence,
-            wristSpeed: event.speed
-        };
-    });
+            return {
+                timestamp: event.timestamp,
+                frameIndex: event.frameIndex,
+                shotType,
+                side,
+                type: isServe ? 'serve' : type,
+                confidence: event.confidence,
+                wristSpeed: event.speed
+            };
+        });
 
     // Statistik berechnen
     const stats = computeShotStats(shots);
@@ -113,6 +119,7 @@ export function classifyShots(frames, playerIdx = 0) {
         stats,
         meta: {
             dominantSide,
+            handSource,
             bodyScale: Math.round(bodyScale * 100) / 100,
             strokeSpeedThreshold: Math.round(strokeSpeedThreshold * 10000) / 10000
         }
@@ -177,8 +184,9 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
             let peakSpeed = speed;
             let peakIdx = i;
             let strokeFrames = 1;
+            let totalSpeed = speed;
 
-            for (let j = i + 1; j < Math.min(i + 6, playerFrames.length); j++) {
+            for (let j = i + 1; j < Math.min(i + 8, playerFrames.length); j++) {
                 const nextPrev = playerFrames[j - 1].landmarks[wristIdx];
                 const next = playerFrames[j].landmarks[wristIdx];
                 if (!nextPrev || !next) break;
@@ -186,8 +194,9 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
                 const ns = Math.sqrt(
                     Math.pow(next.x - nextPrev.x, 2) + Math.pow(next.y - nextPrev.y, 2)
                 );
-                if (ns >= speedThreshold * 0.5) {
+                if (ns >= speedThreshold * 0.4) {
                     strokeFrames++;
+                    totalSpeed += ns;
                     if (ns > peakSpeed) {
                         peakSpeed = ns;
                         peakIdx = j;
@@ -198,6 +207,12 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
             }
 
             if (strokeFrames >= STROKE_MIN_FRAMES) {
+                // Durchschnitts-Geschwindigkeit muss über 60% des Schwellwerts liegen
+                const avgSpeed = totalSpeed / strokeFrames;
+                if (avgSpeed < speedThreshold * 0.6) {
+                    continue;
+                }
+
                 const confidence = Math.min(1.0, peakSpeed / (speedThreshold * 3));
 
                 events.push({
@@ -430,6 +445,7 @@ export function renderShotStats(analysis) {
 
     // Händigkeit und Skalierung anzeigen
     const handLabel = meta?.dominantSide === 'left' ? 'Linkshänder' : 'Rechtshänder';
+    const handSourceLabel = meta?.handSource === 'profile' ? '(Profil)' : '(Auto)';
     const scaleLabel = meta?.bodyScale
         ? (meta.bodyScale < 0.8 ? '(klein/weit)' : meta.bodyScale > 1.2 ? '(groß/nah)' : '')
         : '';
@@ -438,7 +454,7 @@ export function renderShotStats(analysis) {
         <div class="text-sm space-y-2">
             <div class="flex justify-between">
                 <span class="text-gray-400">Spieler:</span>
-                <span class="font-medium">${handLabel} <span class="text-gray-500 text-xs">${scaleLabel}</span></span>
+                <span class="font-medium">${handLabel} <span class="text-gray-500 text-xs">${handSourceLabel} ${scaleLabel}</span></span>
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-400">Schläge gesamt:</span>
