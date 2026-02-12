@@ -688,13 +688,18 @@ function loadYouTubeExamples(youtubeExamples) {
     list.querySelectorAll('.youtube-two-click').forEach(el => {
         el.addEventListener('click', () => {
             const ytId = el.dataset.youtubeId;
+            const startSec = el.dataset.start;
+            const endSec = el.dataset.end;
             const container = el.closest('.youtube-embed-container');
             if (container && ytId) {
+                let embedParams = 'autoplay=1';
+                if (startSec) embedParams += `&start=${startSec}`;
+                if (endSec) embedParams += `&end=${endSec}`;
                 container.innerHTML = `
                     <iframe
                         width="100%"
                         height="100%"
-                        src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1"
+                        src="https://www.youtube-nocookie.com/embed/${ytId}?${embedParams}"
                         title="YouTube Video"
                         frameborder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -717,11 +722,23 @@ function renderYouTubeExampleCard(video) {
     const title = escapeHtml(video.title || 'YouTube Musterbeispiel');
     const thumbUrl = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
 
+    // Start/End data attributes für Two-Click Handler
+    const startAttr = video.start != null ? `data-start="${video.start}"` : '';
+    const endAttr = video.end != null ? `data-end="${video.end}"` : '';
+
+    // Zeitbereich-Label
+    let timeLabel = '';
+    if (video.start != null || video.end != null) {
+        const fmtStart = video.start != null ? formatSecondsToMMSS(video.start) : '0:00';
+        const fmtEnd = video.end != null ? formatSecondsToMMSS(video.end) : 'Ende';
+        timeLabel = `<span class="text-xs text-purple-600 font-medium">${fmtStart} – ${fmtEnd}</span>`;
+    }
+
     return `
         <div class="rounded-lg overflow-hidden border border-gray-200 bg-white">
             <div class="youtube-embed-container" style="position:relative; aspect-ratio:16/9;">
                 <div class="youtube-two-click cursor-pointer w-full h-full relative group"
-                     data-youtube-id="${ytId}">
+                     data-youtube-id="${ytId}" ${startAttr} ${endAttr}>
                     <img src="${thumbUrl}" alt="${title}"
                          class="w-full h-full object-cover" loading="lazy">
                     <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
@@ -741,8 +758,19 @@ function renderYouTubeExampleCard(video) {
             <div class="px-3 py-2 flex items-center gap-2">
                 <i class="fab fa-youtube text-red-600 text-sm"></i>
                 <span class="text-gray-700 text-sm font-medium truncate">${title}</span>
+                ${timeLabel}
             </div>
         </div>`;
+}
+
+/**
+ * Formatiert Sekunden als "M:SS" String.
+ */
+function formatSecondsToMMSS(seconds) {
+    if (seconds == null || seconds < 0) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 async function loadExampleVideos() {

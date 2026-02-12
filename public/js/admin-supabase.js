@@ -2087,6 +2087,34 @@ function extractYouTubeId(url) {
     return null;
 }
 
+/**
+ * Parst einen Zeitstempel-String (z.B. "1:30", "90", "01:30") in Sekunden.
+ * Gibt null zurück bei leerem oder ungültigem Input.
+ */
+function parseTimestamp(input) {
+    if (!input || !input.trim()) return null;
+    const trimmed = input.trim();
+
+    // Format "M:SS" oder "MM:SS" oder "H:MM:SS"
+    const parts = trimmed.split(':').map(Number);
+    if (parts.some(isNaN)) return null;
+
+    if (parts.length === 1) return parts[0]; // Nur Sekunden
+    if (parts.length === 2) return parts[0] * 60 + parts[1]; // M:SS
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]; // H:MM:SS
+    return null;
+}
+
+/**
+ * Formatiert Sekunden als "M:SS" String.
+ */
+function formatTimestampForDisplay(seconds) {
+    if (seconds == null || seconds <= 0) return '';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function initializeYouTubeExamples() {
     const addBtn = document.getElementById('add-youtube-example-btn');
     const urlInput = document.getElementById('exercise-youtube-url-input');
@@ -2113,6 +2141,8 @@ function initializeYouTubeExamples() {
     addBtn.addEventListener('click', () => {
         const url = urlInput.value.trim();
         const titleInput = document.getElementById('exercise-youtube-title-input');
+        const startInput = document.getElementById('exercise-youtube-start-input');
+        const endInput = document.getElementById('exercise-youtube-end-input');
         const title = titleInput?.value?.trim() || '';
         const ytId = extractYouTubeId(url);
 
@@ -2127,12 +2157,27 @@ function initializeYouTubeExamples() {
             return;
         }
 
-        exerciseYoutubeExamples.push({ youtube_id: ytId, url, title: title || `YouTube Video` });
+        const startSeconds = parseTimestamp(startInput?.value);
+        const endSeconds = parseTimestamp(endInput?.value);
+
+        // Validierung: Ende muss nach Start sein
+        if (startSeconds != null && endSeconds != null && endSeconds <= startSeconds) {
+            showAdminNotification('Ende muss nach dem Start liegen', 'error');
+            return;
+        }
+
+        const entry = { youtube_id: ytId, url, title: title || 'YouTube Video' };
+        if (startSeconds != null) entry.start = startSeconds;
+        if (endSeconds != null) entry.end = endSeconds;
+
+        exerciseYoutubeExamples.push(entry);
         renderYouTubeExamplesList();
 
         // Inputs zurücksetzen
         urlInput.value = '';
         if (titleInput) titleInput.value = '';
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
         const preview = document.getElementById('youtube-url-preview');
         if (preview) preview.classList.add('hidden');
     });
@@ -2147,20 +2192,26 @@ function renderYouTubeExamplesList() {
         return;
     }
 
-    list.innerHTML = exerciseYoutubeExamples.map((ex, index) => `
+    list.innerHTML = exerciseYoutubeExamples.map((ex, index) => {
+        const startLabel = formatTimestampForDisplay(ex.start);
+        const endLabel = formatTimestampForDisplay(ex.end);
+        const timeRange = startLabel || endLabel
+            ? `<span class="text-xs text-purple-600 font-medium ml-1">${startLabel || '0:00'} – ${endLabel || 'Ende'}</span>`
+            : '';
+        return `
         <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg group">
             <img src="https://img.youtube.com/vi/${ex.youtube_id}/mqdefault.jpg"
                  class="w-16 h-10 object-cover rounded flex-shrink-0" alt="">
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">${ex.title}</p>
+                <p class="text-sm font-medium text-gray-900 truncate">${ex.title}${timeRange}</p>
                 <p class="text-xs text-gray-400">${ex.youtube_id}</p>
             </div>
             <button type="button" class="remove-youtube-btn text-red-500 hover:text-red-700 p-1 opacity-60 hover:opacity-100 transition-opacity"
                     data-index="${index}">
                 <i class="fas fa-times"></i>
             </button>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 
     // Delete Handler
     list.querySelectorAll('.remove-youtube-btn').forEach(btn => {
