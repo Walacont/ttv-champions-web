@@ -464,7 +464,7 @@
 
     <script type="module">
         import { getSupabase } from './js/supabase-init.js';
-        import { isAIAvailable, loadModels, loadObjectDetector, analyzeFrameRange, analyzeTableAndBall } from './js/video-ai-engine.js';
+        import { isAIAvailable, loadModels, analyzeFrameRange, analyzeTableAndBall } from './js/video-ai-engine.js';
         import { classifyShots } from './js/video-ai-shot-classifier.js';
 
         let supabase;
@@ -1823,18 +1823,16 @@
 
             btn.disabled = true;
             btn.classList.add('opacity-50');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade Objekterkennung...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysiere Farben...';
 
             try {
-                await loadObjectDetector((pct) => {
-                    if (pct > 50) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysiere Video...';
-                });
-
                 const duration = videoPlayer.duration || 1;
+                // Farbbasiert braucht kein ML-Modell, startet sofort
                 const result = await analyzeTableAndBall(
-                    videoPlayer, 0, duration, 2, // 2 FPS reicht für Tisch/Ball
+                    videoPlayer, 0, duration, 2,
                     (done, total) => {
-                        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${done}/${total} Frames...`;
+                        const pct = Math.round(done / total * 100);
+                        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${pct}% (${done}/${total})`;
                     },
                     aiAbortController?.signal
                 );
@@ -1849,15 +1847,20 @@
 
                 if (aiTableBox) {
                     const conf = Math.round(aiTableBox.confidence * 100);
-                    tableInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>Tisch erkannt</strong> (${conf}% der Frames) — Position: ${Math.round(aiTableBox.x * 100)}%, ${Math.round(aiTableBox.y * 100)}%`;
+                    const colorLabel = aiTableBox.color === 'blue' ? 'blauer' : aiTableBox.color === 'green' ? 'grüner' : '';
+                    const sourceLabel = aiTableBox.source === 'color' ? 'Farberkennung' : 'Objekterkennung';
+                    const w = Math.round(aiTableBox.width * 100);
+                    const h = Math.round(aiTableBox.height * 100);
+                    tableInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>${colorLabel} Tisch erkannt</strong> (${conf}% Frames, ${w}%x${h}% Bild, ${sourceLabel})`;
                 } else {
-                    tableInfo.innerHTML = '<i class="fas fa-times-circle text-red-400"></i> Kein Tisch erkannt';
+                    tableInfo.innerHTML = '<i class="fas fa-times-circle text-red-400"></i> Kein Tisch erkannt — Tisch muss blau oder grün sein und sichtbar im Bild';
                 }
 
-                if (aiBallTrack.length > 0) {
-                    ballInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>Ball erkannt</strong> in ${aiBallTrack.length} Frames`;
+                const uniqueBallFrames = new Set(aiBallTrack.map(b => Math.round(b.time * 10))).size;
+                if (uniqueBallFrames > 0) {
+                    ballInfo.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> <strong>Ball-Kandidaten</strong> in ${uniqueBallFrames} Frames gefunden (experimentell)`;
                 } else {
-                    ballInfo.innerHTML = '<i class="fas fa-info-circle text-yellow-500"></i> Kein Ball erkannt (Tischtennisbälle sind sehr klein — Erkennung ist experimentell)';
+                    ballInfo.innerHTML = '<i class="fas fa-info-circle text-yellow-500"></i> Kein Ball erkannt (TT-Bälle sind sehr klein, Erkennung experimentell)';
                 }
 
                 renderTimeline();
@@ -1865,7 +1868,7 @@
 
             } catch (error) {
                 console.error('Table/Ball detection error:', error);
-                showToast('Objekterkennung fehlgeschlagen: ' + error.message, 'error');
+                showToast('Erkennung fehlgeschlagen: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('opacity-50');

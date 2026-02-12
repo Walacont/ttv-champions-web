@@ -211,24 +211,250 @@ export function detectObjects(videoElement) {
 }
 
 /**
+ * Farbbasierte Tischerkennung: Sucht nach der dominanten blauen/grünen Fläche
+ * im Frame (Tischtennis-Tische sind immer blau oder grün).
+ * Nutzt Canvas-Pixel-Analyse statt ML-Modell.
+ * @param {HTMLVideoElement} videoElement
+ * @returns {Object|null} - {x, y, width, height, color:'blue'|'green', pixelRatio}
+ */
+function detectTableByColor(videoElement) {
+    const w = videoElement.videoWidth;
+    const h = videoElement.videoHeight;
+    if (!w || !h) return null;
+
+    // Canvas in reduzierter Auflösung für Performance
+    const scale = Math.min(1, 320 / w);
+    const sw = Math.round(w * scale);
+    const sh = Math.round(h * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(videoElement, 0, 0, sw, sh);
+    const imageData = ctx.getImageData(0, 0, sw, sh);
+    const data = imageData.data;
+
+    // Pixel als blau/grün/nichts klassifizieren
+    // Tischtennis-Blau: H≈200-230, S>30%, L=20-60%
+    // Tischtennis-Grün: H≈100-160, S>25%, L=20-55%
+    const mask = new Uint8Array(sw * sh); // 0=nothing, 1=blue, 2=green
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const l = (max + min) / 2;
+        const d = max - min;
+
+        if (d < 20 || l < 30 || l > 200) continue; // Zu grau, zu dunkel oder zu hell
+
+        const s = d / (255 - Math.abs(2 * l - 255));
+        if (s < 0.2) continue; // Zu wenig Sättigung
+
+        let hue = 0;
+        if (max === r) hue = ((g - b) / d) % 6;
+        else if (max === g) hue = (b - r) / d + 2;
+        else hue = (r - g) / d + 4;
+        hue = ((hue * 60) + 360) % 360;
+
+        const pIdx = i / 4;
+        if (hue >= 185 && hue <= 240 && s > 0.25 && l > 30 && l < 180) {
+            mask[pIdx] = 1; // Blau
+        } else if (hue >= 90 && hue <= 170 && s > 0.2 && l > 25 && l < 170) {
+            mask[pIdx] = 2; // Grün
+        }
+    }
+
+    // Zähle Blau vs Grün
+    let blueCount = 0, greenCount = 0;
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) blueCount++;
+        else if (mask[i] === 2) greenCount++;
+    }
+
+    const totalPixels = sw * sh;
+    const dominantColor = blueCount >= greenCount ? 1 : 2;
+    const dominantCount = Math.max(blueCount, greenCount);
+    const colorName = dominantColor === 1 ? 'blue' : 'green';
+
+    // Min 3% der Pixel müssen die Tischfarbe haben
+    if (dominantCount / totalPixels < 0.03) return null;
+
+    // Bounding Box der dominanten Farbe finden
+    let minX = sw, minY = sh, maxX = 0, maxY = 0;
+    for (let y = 0; y < sh; y++) {
+        for (let x = 0; x < sw; x++) {
+            if (mask[y * sw + x] === dominantColor) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+
+    // Box muss eine sinnvolle Mindestgröße haben (min 10% Breite)
+    const boxW = maxX - minX;
+    const boxH = maxY - minY;
+    if (boxW < sw * 0.1 || boxH < sh * 0.03) return null;
+
+    return {
+        x: minX / sw,
+        y: minY / sh,
+        width: boxW / sw,
+        height: boxH / sh,
+        color: colorName,
+        pixelRatio: dominantCount / totalPixels
+    };
+}
+
+/**
+ * Sucht nach kleinen weißen oder orangenen Objekten (Ball-Kandidaten).
+ * Tischtennisbälle sind weiß oder orange, ~40mm, im Video oft nur 3-8px.
+ * @param {HTMLVideoElement} videoElement
+ * @param {Object|null} tableBox - Bekannte Tischposition (Suche drumherum)
+ * @returns {Array} - [{x, y, score}]
+ */
+function detectBallByColor(videoElement, tableBox) {
+    const w = videoElement.videoWidth;
+    const h = videoElement.videoHeight;
+    if (!w || !h) return [];
+
+    const scale = Math.min(1, 480 / w);
+    const sw = Math.round(w * scale);
+    const sh = Math.round(h * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(videoElement, 0, 0, sw, sh);
+    const imageData = ctx.getImageData(0, 0, sw, sh);
+    const data = imageData.data;
+
+    // Suchbereich: Tisch ± 30% Höhe (Ball ist auf/über dem Tisch)
+    let searchMinY = 0, searchMaxY = sh;
+    if (tableBox) {
+        const tTop = Math.round(tableBox.y * sh);
+        const tBot = Math.round((tableBox.y + tableBox.height) * sh);
+        const tHeight = tBot - tTop;
+        searchMinY = Math.max(0, tTop - tHeight * 2);
+        searchMaxY = Math.min(sh, tBot + tHeight);
+    }
+
+    const candidates = [];
+
+    // Suche nach hellen, kleinen Blob-Zentren
+    // Weiß: R>200, G>200, B>200 (hohe Helligkeit, niedrige Sättigung)
+    // Orange: R>180, G>100-170, B<100 (TT-Ball Orange)
+    for (let y = searchMinY + 1; y < searchMaxY - 1; y++) {
+        for (let x = 1; x < sw - 1; x++) {
+            const idx = (y * sw + x) * 4;
+            const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+            let isBall = false;
+
+            // Weiß
+            if (r > 210 && g > 210 && b > 210) {
+                isBall = true;
+            }
+            // Orange
+            if (r > 190 && g > 100 && g < 180 && b < 100) {
+                isBall = true;
+            }
+
+            if (!isBall) continue;
+
+            // Prüfe ob es ein kleiner isolierter Punkt ist (nicht Teil einer großen Fläche)
+            // Zähle ähnliche Pixel in 5x5 Nachbarschaft
+            let neighborCount = 0;
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    const ni = ((y + dy) * sw + (x + dx)) * 4;
+                    if (ni < 0 || ni >= data.length) continue;
+                    const nr = data[ni], ng = data[ni + 1], nb = data[ni + 2];
+                    if ((nr > 210 && ng > 210 && nb > 210) ||
+                        (nr > 190 && ng > 100 && ng < 180 && nb < 100)) {
+                        neighborCount++;
+                    }
+                }
+            }
+
+            // Ball: 3-20 Pixel im 5x5 Fenster (nicht zu wenig = Rauschen, nicht zu viel = große Fläche)
+            if (neighborCount >= 3 && neighborCount <= 20) {
+                candidates.push({
+                    x: x / sw,
+                    y: y / sh,
+                    score: Math.min(1, neighborCount / 12)
+                });
+            }
+        }
+    }
+
+    // Cluster-Zentren finden (Kandidaten die nah beisammen liegen zusammenfassen)
+    const clusters = [];
+    const used = new Set();
+    const clusterRadius = 8 / sw; // ~8 Pixel Radius
+
+    for (let i = 0; i < candidates.length; i++) {
+        if (used.has(i)) continue;
+        let cx = candidates[i].x, cy = candidates[i].y, cs = candidates[i].score, count = 1;
+        used.add(i);
+
+        for (let j = i + 1; j < candidates.length; j++) {
+            if (used.has(j)) continue;
+            const dx = candidates[j].x - cx / count;
+            const dy = candidates[j].y - cy / count;
+            if (Math.sqrt(dx * dx + dy * dy) < clusterRadius) {
+                cx += candidates[j].x;
+                cy += candidates[j].y;
+                cs = Math.max(cs, candidates[j].score);
+                count++;
+                used.add(j);
+            }
+        }
+
+        clusters.push({
+            x: cx / count,
+            y: cy / count,
+            score: cs
+        });
+    }
+
+    // Top 3 Kandidaten nach Score
+    return clusters.sort((a, b) => b.score - a.score).slice(0, 3);
+}
+
+/**
  * Analysiert einen Zeitbereich und erkennt Tisch + Ball pro Frame.
+ * Hybrid-Ansatz: Farbbasierte Erkennung (zuverlässig für TT) + ObjectDetector als Fallback.
  * @param {HTMLVideoElement} videoElement
  * @param {number} startTime
  * @param {number} endTime
  * @param {number} fps - Frames pro Sekunde
  * @param {Function} [onProgress]
  * @param {AbortSignal} [signal]
- * @returns {Promise<Object>} - { table: {x,y,w,h}|null, ballTrack: [{time,x,y}] }
+ * @returns {Promise<Object>} - { table: {x,y,w,h,color}|null, ballTrack: [{time,x,y}] }
  */
 export async function analyzeTableAndBall(videoElement, startTime, endTime, fps = 3, onProgress, signal) {
-    if (!objectDetector || !objectDetectorLoaded) {
-        throw new Error('ObjectDetector not loaded. Call loadObjectDetector() first.');
-    }
-
     const interval = 1 / fps;
     const totalFrames = Math.ceil((endTime - startTime) * fps);
     const tableCandidates = [];
+    const objDetTableCandidates = [];
     const ballTrack = [];
+
+    // Probiere ObjectDetector zu laden (optional, Fallback)
+    let hasObjDetector = false;
+    if (objectDetectorLoaded && objectDetector) {
+        hasObjDetector = true;
+    } else {
+        try {
+            await loadObjectDetector();
+            hasObjDetector = true;
+        } catch (e) {
+            console.warn('[AI Engine] ObjectDetector not available, using color-only detection');
+        }
+    }
 
     const wasMuted = videoElement.muted;
     const wasPaused = videoElement.paused;
@@ -241,20 +467,43 @@ export async function analyzeTableAndBall(videoElement, startTime, endTime, fps 
             if (signal && signal.aborted) break;
 
             await seekTo(videoElement, time);
-            const result = detectObjects(videoElement);
 
-            if (result) {
-                if (result.table) {
-                    tableCandidates.push(result.table);
+            // 1. Farbbasierte Tischerkennung (primär)
+            const colorTable = detectTableByColor(videoElement);
+            if (colorTable) {
+                tableCandidates.push(colorTable);
+            }
+
+            // 2. ObjectDetector (Fallback/Ergänzung)
+            if (hasObjDetector) {
+                const objResult = detectObjects(videoElement);
+                if (objResult) {
+                    if (objResult.table) {
+                        objDetTableCandidates.push(objResult.table);
+                    }
+                    for (const ball of objResult.balls) {
+                        ballTrack.push({
+                            time,
+                            x: ball.x + ball.width / 2,
+                            y: ball.y + ball.height / 2,
+                            score: ball.score,
+                            source: 'detector'
+                        });
+                    }
                 }
-                for (const ball of result.balls) {
-                    ballTrack.push({
-                        time,
-                        x: ball.x + ball.width / 2,
-                        y: ball.y + ball.height / 2,
-                        score: ball.score
-                    });
-                }
+            }
+
+            // 3. Farbbasierte Ball-Suche (findet kleine weiße/orange Punkte)
+            const currentTableBox = colorTable || (tableCandidates.length > 0 ? tableCandidates[0] : null);
+            const colorBalls = detectBallByColor(videoElement, currentTableBox);
+            for (const cb of colorBalls) {
+                ballTrack.push({
+                    time,
+                    x: cb.x,
+                    y: cb.y,
+                    score: cb.score,
+                    source: 'color'
+                });
             }
 
             frameIndex++;
@@ -265,17 +514,21 @@ export async function analyzeTableAndBall(videoElement, startTime, endTime, fps 
         if (!wasPaused) videoElement.play();
     }
 
-    // Stabile Tisch-Bounding-Box: Median aller Erkennungen
+    // Stabile Tisch-Bounding-Box: Median über alle Farb-Erkennungen
     let table = null;
-    if (tableCandidates.length >= 3) {
+    const candidates = tableCandidates.length >= 2 ? tableCandidates : objDetTableCandidates;
+
+    if (candidates.length >= 2) {
         const sorted = (arr) => [...arr].sort((a, b) => a - b);
         const median = (arr) => arr[Math.floor(arr.length / 2)];
         table = {
-            x: median(sorted(tableCandidates.map(t => t.x))),
-            y: median(sorted(tableCandidates.map(t => t.y))),
-            width: median(sorted(tableCandidates.map(t => t.width))),
-            height: median(sorted(tableCandidates.map(t => t.height))),
-            confidence: tableCandidates.length / totalFrames
+            x: median(sorted(candidates.map(t => t.x))),
+            y: median(sorted(candidates.map(t => t.y))),
+            width: median(sorted(candidates.map(t => t.width))),
+            height: median(sorted(candidates.map(t => t.height))),
+            color: tableCandidates.length > 0 ? tableCandidates[0].color : 'unknown',
+            confidence: candidates.length / totalFrames,
+            source: tableCandidates.length >= 2 ? 'color' : 'detector'
         };
     }
 
