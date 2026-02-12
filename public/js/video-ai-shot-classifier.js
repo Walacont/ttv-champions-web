@@ -714,7 +714,7 @@ export function renderShotStats(analysis) {
 /**
  * Speichert klassifizierte Schläge in video_labels.
  */
-export async function saveShotLabels(db, videoId, userId, clubId, shots) {
+export async function saveShotLabels(db, videoId, userId, clubId, shots, playerId = null) {
     if (!db || !shots || shots.length === 0) return;
 
     // Alte KI-generierte Labels für dieses Video löschen (verhindert Duplikate)
@@ -733,6 +733,7 @@ export async function saveShotLabels(db, videoId, userId, clubId, shots) {
         video_id: videoId,
         labeled_by: userId,
         club_id: clubId || null,
+        player_id: playerId,
         timestamp_start: shot.timestamp,
         timestamp_end: null,
         event_type: 'shot',

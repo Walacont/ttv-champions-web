@@ -567,7 +567,7 @@ async function openVideoDetailModal(videoId) {
             *,
             uploader:profiles!uploaded_by(id, first_name, last_name, display_name, avatar_url, role),
             exercise:exercises(id, name),
-            assignments:video_assignments(status)
+            assignments:video_assignments(status, player_id)
         `)
         .eq('id', videoId)
         .single();
@@ -656,12 +656,18 @@ async function openVideoDetailModal(videoId) {
         } catch (_) { /* fallback to context spielhand */ }
     }
 
+    // Zugewiesene Spieler-IDs extrahieren
+    const assignedPlayerIds = (video.assignments || [])
+        .map(a => a.player_id)
+        .filter(Boolean);
+
     // KI-Analyse-Toolbar initialisieren (mit exercise_id für auto-Referenz-Vergleich)
     setupAIToolbar(videoPlayer, videoId, {
         ...videoAnalysisContext,
         spielhand: uploaderSpielhand,
         exerciseId: video.exercise_id || null,
-        exerciseName: video.exercise?.name || null
+        exerciseName: video.exercise?.name || null,
+        assignedPlayerIds
     });
 
     // Kommentare laden

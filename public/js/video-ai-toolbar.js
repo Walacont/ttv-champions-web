@@ -482,10 +482,12 @@ async function runPostAnalysis(savedFrames, context, videoId, playerIdx = 0) {
         // 3. Shot-Labels in DB speichern
         if (context.db && context.userId && shotAnalysis.shots.length > 0) {
             try {
+                const playerId = context.assignedPlayerIds?.[0] || null;
                 await saveShotLabels(
                     context.db, videoId, context.userId,
                     context.clubId || null,
-                    shotAnalysis.shots
+                    shotAnalysis.shots,
+                    playerId
                 );
             } catch (e) {
                 console.warn('[AI Toolbar] Shot labels save failed:', e);
