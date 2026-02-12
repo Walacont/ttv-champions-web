@@ -1595,16 +1595,20 @@
                             </div>
                             <form id="points-form" class="space-y-4">
                                 <div>
-                                    <label
-                                        for="player-select"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Spieler auswählen</label
-                                    >
-                                    <select
-                                        id="player-select"
-                                        required
-                                        class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                    >
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="block text-sm font-medium text-gray-700">Spieler auswählen (Mehrfachauswahl)</label>
+                                        <span id="points-player-count" class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">0 ausgewählt</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <button type="button" id="points-select-all" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded transition-colors">Alle</button>
+                                        <button type="button" id="points-select-none" class="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded transition-colors">Keine</button>
+                                        <input type="text" id="points-player-search" placeholder="Suche..." class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                    </div>
+                                    <div id="points-player-list" class="border border-gray-300 rounded-md p-1.5 max-h-36 overflow-y-auto space-y-0.5">
+                                        <p class="text-sm text-gray-400 py-2 text-center">Lade Spieler...</p>
+                                    </div>
+                                    <!-- Hidden select for backward compatibility (grundlagen, partner, completion status) -->
+                                    <select id="player-select" class="hidden">
                                         <option value="">Spieler wählen...</option>
                                     </select>
                                 </div>

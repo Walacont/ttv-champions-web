@@ -980,6 +980,41 @@ async function initializeCoachPage(userData) {
         updateCoachGrundlagenDisplay(e.target.value, supabase);
     });
 
+    // Multi-Select: Alle/Keine Buttons + Suche für Punkte-Spielerliste
+    const pointsSelectAll = document.getElementById('points-select-all');
+    const pointsSelectNone = document.getElementById('points-select-none');
+    const pointsPlayerSearch = document.getElementById('points-player-search');
+
+    if (pointsSelectAll) {
+        pointsSelectAll.addEventListener('click', () => {
+            document.querySelectorAll('.points-player-item:not([style*="display: none"]) .points-player-checkbox').forEach(cb => { cb.checked = true; });
+            const countEl = document.getElementById('points-player-count');
+            const checked = document.querySelectorAll('.points-player-checkbox:checked');
+            if (countEl) countEl.textContent = `${checked.length} ausgewählt`;
+            // Sync hidden select (clear when multiple)
+            const sel = document.getElementById('player-select');
+            if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change')); }
+        });
+    }
+    if (pointsSelectNone) {
+        pointsSelectNone.addEventListener('click', () => {
+            document.querySelectorAll('.points-player-checkbox').forEach(cb => { cb.checked = false; });
+            const countEl = document.getElementById('points-player-count');
+            if (countEl) countEl.textContent = '0 ausgewählt';
+            const sel = document.getElementById('player-select');
+            if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change')); }
+        });
+    }
+    if (pointsPlayerSearch) {
+        pointsPlayerSearch.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.points-player-item').forEach(item => {
+                const name = item.dataset.name || '';
+                item.style.display = name.includes(query) ? '' : 'none';
+            });
+        });
+    }
+
     populateSubgroupFilter(userData.clubId, supabase);
     document.getElementById('subgroup-filter').addEventListener('change', e => {
         currentSubgroupFilter = e.target.value;

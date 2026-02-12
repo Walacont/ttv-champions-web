@@ -234,19 +234,37 @@ export function populateHistoryFilterDropdown(clubPlayers) {
     });
 }
 
-/** Verarbeitet das Punkteformular (Trainer vergibt Punkte) */
+/** Verarbeitet das Punkteformular (Trainer vergibt Punkte) — unterstützt Mehrfachauswahl */
 export async function handlePointsFormSubmit(e, db, currentUserData, handleReasonChangeCallback) {
     e.preventDefault();
     const feedbackEl = document.getElementById('points-feedback');
-    const playerId = document.getElementById('player-select').value;
     const reasonType = document.getElementById('reason-select').value;
     feedbackEl.textContent = '';
 
-    if (!playerId || !reasonType) {
-        feedbackEl.textContent = 'Bitte Spieler und Grund auswählen.';
+    // Mehrfachauswahl: Spieler-IDs aus Checkboxen lesen
+    let { getSelectedPointsPlayerIds } = await import('./player-management-supabase.js');
+    let playerIds = getSelectedPointsPlayerIds();
+
+    // Fallback auf alte Einzelauswahl
+    if (playerIds.length === 0) {
+        const singleId = document.getElementById('player-select').value;
+        if (singleId) playerIds = [singleId];
+    }
+
+    if (playerIds.length === 0 || !reasonType) {
+        feedbackEl.textContent = 'Bitte mindestens einen Spieler und einen Grund auswählen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
+
+    // Bei mehreren Spielern: Batch-Modus
+    if (playerIds.length > 1) {
+        await handleBatchPointsSubmit(playerIds, reasonType, db, currentUserData, feedbackEl, handleReasonChangeCallback);
+        return;
+    }
+
+    // Einzelspieler: bestehende Logik
+    const playerId = playerIds[0];
 
     let points = 0;
     let xpChange = 0;
@@ -672,6 +690,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             : 'mt-3 text-sm font-medium text-center text-orange-600';
         e.target.reset();
 
+        // Reset checkboxes
+        document.querySelectorAll('.points-player-checkbox:checked').forEach(cb => { cb.checked = false; });
+        const countEl = document.getElementById('points-player-count');
+        if (countEl) countEl.textContent = '0 ausgewählt';
+
         const manualToggle = document.getElementById('manual-partner-toggle');
         const manualContainer = document.getElementById('manual-partner-container');
         const manualPercentage = document.getElementById('manual-partner-percentage');
@@ -689,6 +712,194 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     setTimeout(() => {
         feedbackEl.textContent = '';
     }, 4000);
+}
+
+/**
+ * Batch-Punktevergabe für mehrere Spieler gleichzeitig.
+ * Berechnet Punkte einmal und wendet sie auf alle ausgewählten Spieler an.
+ * Partner-System wird bei Mehrfachauswahl nicht unterstützt.
+ */
+async function handleBatchPointsSubmit(playerIds, reasonType, db, currentUserData, feedbackEl, handleReasonChangeCallback) {
+    let points = 0;
+    let xpChange = 0;
+    let reason = '';
+    let challengeId = null;
+    let exerciseId = null;
+
+    try {
+        // Punkte und Grund einmal berechnen (gleich für alle Spieler)
+        switch (reasonType) {
+            case 'challenge': {
+                const cSelect = document.getElementById('challenge-select');
+                const cOption = cSelect.options[cSelect.selectedIndex];
+                if (!cOption || !cOption.value) throw new Error('Bitte eine Challenge auswählen.');
+
+                if (cOption.dataset.hasMilestones === 'true') {
+                    const enteredCount = parseInt(document.getElementById('milestone-count-input')?.value);
+                    if (!enteredCount || enteredCount <= 0) throw new Error('Bitte Anzahl eingeben.');
+                    const milestones = JSON.parse(cOption.dataset.milestones || '[]');
+                    const achieved = milestones.filter(m => enteredCount >= m.count);
+                    if (achieved.length === 0) throw new Error('Kein Meilenstein erreicht.');
+                    points = achieved.reduce((sum, m) => sum + m.points, 0);
+                    reason = `Challenge: ${cOption.dataset.title} (${enteredCount}×)`;
+                } else {
+                    points = parseInt(cOption.dataset.points);
+                    reason = `Challenge: ${cOption.dataset.title}`;
+                }
+                xpChange = points;
+                challengeId = cOption.value;
+                break;
+            }
+            case 'exercise': {
+                const eSelect = document.getElementById('exercise-select');
+                const eOption = eSelect.options[eSelect.selectedIndex];
+                if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
+
+                if (eOption.dataset.hasMilestones === 'true') {
+                    const enteredCount = parseInt(document.getElementById('milestone-count-input')?.value);
+                    if (!enteredCount || enteredCount <= 0) throw new Error('Bitte Anzahl eingeben.');
+                    const milestones = JSON.parse(eOption.dataset.milestones || '[]');
+                    const achieved = milestones.filter(m => enteredCount >= m.count);
+                    if (achieved.length === 0) throw new Error('Kein Meilenstein erreicht.');
+                    points = achieved.reduce((sum, m) => sum + m.points, 0);
+                    reason = `Übung: ${eOption.dataset.title} (${enteredCount}×)`;
+                } else {
+                    points = parseInt(eOption.dataset.points);
+                    reason = `Übung: ${eOption.dataset.title}`;
+                }
+                xpChange = points;
+                exerciseId = eOption.value;
+                break;
+            }
+            case 'manual': {
+                points = parseInt(document.getElementById('manual-points').value);
+                xpChange = points;
+                reason = document.getElementById('manual-reason').value;
+                if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte angeben.');
+                break;
+            }
+        }
+
+        // Fortschrittsanzeige
+        feedbackEl.textContent = `Vergebe Punkte an ${playerIds.length} Spieler...`;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-indigo-600';
+
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+        const notifMod = await getNotificationsModule();
+
+        for (const playerId of playerIds) {
+            try {
+                const { data: playerData, error: playerError } = await db
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', playerId)
+                    .single();
+
+                if (playerError || !playerData) {
+                    errors.push('Spieler nicht gefunden');
+                    errorCount++;
+                    continue;
+                }
+
+                const currentPoints = playerData.points || 0;
+                const currentXP = playerData.xp || 0;
+                const actualPointsChange = Math.max(-currentPoints, points);
+                const actualXPChange = Math.max(-currentXP, xpChange);
+
+                const updateData = {
+                    points: currentPoints + actualPointsChange,
+                    xp: currentXP + actualXPChange,
+                    last_xp_update: new Date().toISOString(),
+                };
+
+                // Grundlagen-Tracking
+                if (exerciseId) {
+                    const { data: exData } = await db.from('exercises').select('category').eq('id', exerciseId).single();
+                    if (exData && (exData.category || '').toLowerCase().includes('grundlage')) {
+                        let gc = playerData.grundlagen_completed || 0;
+                        if (gc < 5) {
+                            gc++;
+                            updateData.grundlagen_completed = gc;
+                            if (gc >= 5) updateData.is_match_ready = true;
+                        }
+                    }
+                }
+
+                await db.from('profiles').update(updateData).eq('id', playerId);
+
+                // Points history
+                await db.from('points_history').insert({
+                    user_id: playerId,
+                    points: actualPointsChange,
+                    xp: actualXPChange,
+                    elo_change: 0,
+                    reason,
+                    timestamp: new Date().toISOString(),
+                    awarded_by: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                });
+
+                // Completed exercises/challenges
+                if (exerciseId) {
+                    await db.from('completed_exercises').upsert({
+                        user_id: playerId, exercise_id: exerciseId,
+                        completed_at: new Date().toISOString(), season_key: currentSeasonKey,
+                    });
+                }
+                if (challengeId) {
+                    await db.from('completed_challenges').upsert({
+                        user_id: playerId, challenge_id: challengeId,
+                        completed_at: new Date().toISOString(), season_key: currentSeasonKey,
+                    });
+                }
+
+                // Notification
+                if (notifMod && notifMod.createPointsNotification) {
+                    try {
+                        await notifMod.createPointsNotification(
+                            playerId, actualPointsChange, actualXPChange, 0, reason,
+                            `${currentUserData.firstName} ${currentUserData.lastName}`
+                        );
+                    } catch (_) { /* silent */ }
+                }
+
+                successCount++;
+                feedbackEl.textContent = `${successCount}/${playerIds.length} Spieler verarbeitet...`;
+            } catch (err) {
+                errorCount++;
+                errors.push(err.message);
+            }
+        }
+
+        // Ergebnis anzeigen
+        const sign = points >= 0 ? '+' : '';
+        if (errorCount === 0) {
+            feedbackEl.textContent = `${sign}${points} Punkte an ${successCount} Spieler vergeben!`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        } else {
+            feedbackEl.textContent = `${successCount} erfolgreich, ${errorCount} Fehler. ${errors[0] || ''}`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-orange-600';
+        }
+
+        // Form reset
+        const form = document.getElementById('points-form');
+        if (form) form.reset();
+        // Checkboxen deselektieren
+        document.querySelectorAll('.points-player-checkbox:checked').forEach(cb => { cb.checked = false; });
+        const countEl = document.getElementById('points-player-count');
+        if (countEl) countEl.textContent = '0 ausgewählt';
+
+        handleReasonChangeCallback();
+    } catch (error) {
+        console.error('Batch Punktevergabe Fehler:', error);
+        feedbackEl.textContent = `Fehler: ${error.message}`;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+    }
+
+    setTimeout(() => { feedbackEl.textContent = ''; }, 5000);
 }
 
 /** Verarbeitet Änderungen der Grundauswahl im Punkteformular */

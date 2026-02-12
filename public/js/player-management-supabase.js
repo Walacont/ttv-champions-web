@@ -935,9 +935,8 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
 
             const players = (data || []).map(p => mapPlayerFromSupabase(p));
             select.innerHTML = '<option value="">Spieler wählen...</option>';
-            players
-                .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
-                .forEach(p => {
+            const sorted = players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+            sorted.forEach(p => {
                     const option = document.createElement('option');
                     option.value = p.id;
                     option.textContent = `${p.firstName} ${p.lastName}`;
@@ -945,6 +944,8 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
                     option.dataset.rank = p.rank || 'Rekrut';
                     select.appendChild(option);
                 });
+            // Render checkbox list for multi-select
+            renderPointsPlayerCheckboxList(sorted);
         } catch (error) {
             console.error('Fehler beim Laden der Spieler für das Dropdown:', error);
             select.innerHTML = '<option value="">Fehler beim Laden der Spieler</option>';
@@ -1011,9 +1012,8 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
     const currentValue = select.value; // Auswahl falls möglich beibehalten
     select.innerHTML = '<option value="">Spieler wählen...</option>';
 
-    filteredPlayers
-        .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
-        .forEach(p => {
+    const sorted = filteredPlayers.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+    sorted.forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
             const offlineMarker = p.isOffline ? ' (Offline)' : '';
@@ -1027,6 +1027,75 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
     if (currentValue && filteredPlayers.some(p => p.id === currentValue)) {
         select.value = currentValue;
     }
+
+    // Checkbox-Liste für Mehrfachauswahl rendern
+    renderPointsPlayerCheckboxList(sorted);
+}
+
+/**
+ * Rendert die Checkbox-Liste für Mehrfachauswahl im Punkte-Tab.
+ * Wird von loadPlayersForDropdown und updatePointsPlayerDropdown aufgerufen.
+ */
+export function renderPointsPlayerCheckboxList(players) {
+    const listContainer = document.getElementById('points-player-list');
+    if (!listContainer) return;
+
+    if (!players || players.length === 0) {
+        listContainer.innerHTML = '<p class="text-sm text-gray-400 py-2 text-center">Keine Spieler vorhanden</p>';
+        updatePointsPlayerCount();
+        return;
+    }
+
+    listContainer.innerHTML = '';
+    players.forEach(p => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm points-player-item';
+        label.dataset.name = `${p.firstName} ${p.lastName}`.toLowerCase();
+        const offlineMarker = p.isOffline ? ' (Offline)' : '';
+        label.innerHTML = `
+            <input type="checkbox" class="points-player-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                   value="${p.id}" data-name="${p.firstName} ${p.lastName}" data-grundlagen="${p.grundlagenCompleted || 0}" data-rank="${p.rank || 'Rekrut'}">
+            <span class="flex-1 truncate">${p.firstName} ${p.lastName}${offlineMarker}</span>
+        `;
+        listContainer.appendChild(label);
+    });
+
+    // Checkbox-Event-Listener
+    listContainer.querySelectorAll('.points-player-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            updatePointsPlayerCount();
+            syncPlayerSelectFromCheckboxes();
+        });
+    });
+
+    updatePointsPlayerCount();
+}
+
+/** Aktualisiert den Zähler der ausgewählten Spieler */
+function updatePointsPlayerCount() {
+    const countEl = document.getElementById('points-player-count');
+    if (!countEl) return;
+    const checked = document.querySelectorAll('.points-player-checkbox:checked');
+    countEl.textContent = `${checked.length} ausgewählt`;
+}
+
+/** Synchronisiert die hidden <select> mit dem ersten ausgewählten Spieler (für Grundlagen-Info etc.) */
+function syncPlayerSelectFromCheckboxes() {
+    const select = document.getElementById('player-select');
+    if (!select) return;
+    const checked = document.querySelectorAll('.points-player-checkbox:checked');
+    if (checked.length === 1) {
+        select.value = checked[0].value;
+    } else {
+        select.value = '';
+    }
+    select.dispatchEvent(new Event('change'));
+}
+
+/** Gibt Array der ausgewählten Spieler-IDs zurück */
+export function getSelectedPointsPlayerIds() {
+    const checkboxes = document.querySelectorAll('.points-player-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
 }
 
 /**
