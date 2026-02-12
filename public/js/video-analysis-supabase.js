@@ -667,6 +667,7 @@ async function openVideoDetailModal(videoId) {
         spielhand: uploaderSpielhand,
         exerciseId: video.exercise_id || null,
         exerciseName: video.exercise?.name || null,
+        videoTags: video.tags || [],
         assignedPlayerIds
     });
 

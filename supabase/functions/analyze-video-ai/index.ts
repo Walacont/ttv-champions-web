@@ -19,6 +19,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+type TrainingType = 'schattentraining' | 'balleimer' | 'wettkampf' | 'uebung' | 'allgemein'
+
 interface AnalysisRequest {
   video_id: string
   video_url?: string
@@ -28,6 +30,7 @@ interface AnalysisRequest {
   shot_labels?: any[]          // Optionale Shot-Labels als Kontext
   player_name?: string
   exercise_name?: string
+  video_tags?: string[]        // Video-Tags (z.B. 'Wettkampf', 'Training')
   reference_comparison?: {     // Optionaler Vergleich mit Musterbeispiel
     exercise_name?: string
     overall_score?: string
@@ -158,12 +161,147 @@ serve(async (req: Request) => {
 })
 
 /**
+ * Erkennt die Trainingsform aus Übungsname und Video-Tags.
+ */
+function detectTrainingType(exerciseName?: string, videoTags?: string[]): TrainingType {
+  const name = (exerciseName || '').toLowerCase()
+  const tags = (videoTags || []).map(t => t.toLowerCase())
+
+  // Schattentraining: ohne Ball, Fokus auf Bewegungsablauf
+  if (name.includes('schatten') || name.includes('trocken') || name.includes('shadow')
+      || tags.includes('schattentraining')) {
+    return 'schattentraining'
+  }
+
+  // Wettkampf/Spiel
+  if (name.includes('wettkampf') || name.includes('match') || name.includes('spiel')
+      || name.includes('turnier') || tags.includes('wettkampf')) {
+    return 'wettkampf'
+  }
+
+  // Balleimer: eine Person, Ball wird zugespielt
+  if (name.includes('balleimer') || name.includes('ballmaschine') || name.includes('roboter')
+      || name.includes('multi') || name.includes('zusp') || tags.includes('balleimer')) {
+    return 'balleimer'
+  }
+
+  // Übungen: strukturiertes Training mit Partner
+  if (name.includes('übung') || name.includes('uebung') || name.includes('drill')
+      || tags.includes('training') || tags.includes('übung')) {
+    return 'uebung'
+  }
+
+  return 'allgemein'
+}
+
+/**
+ * Baut den trainingsform-spezifischen Prompt-Abschnitt.
+ */
+function getTrainingTypePromptSection(type: TrainingType): string {
+  switch (type) {
+    case 'schattentraining':
+      return `
+## TRAININGSFORM: Schattentraining
+Dieses Video zeigt Schattentraining (Trockentraining) — der Spieler übt den Bewegungsablauf OHNE Ball, möglicherweise auch ohne Schläger.
+
+### Schwerpunkte bei dieser Trainingsform:
+- **Schlagtechnik (40%)**: Fokus auf korrekte Schlagbewegung und Bewegungsablauf. Wird die Bewegung bis zum Ende durchgeführt? Stimmt der gedachte Treffpunkt? Wird die Ausholbewegung korrekt eingeleitet?
+- **Beinarbeit (30%)**: BESONDERS WICHTIG — werden die richtigen Schrittmuster trainiert? Sidesteps, Kreuzschritte? Timing der Beinarbeit zum Schlag?
+- **Körperhaltung (20%)**: Grundstellung, Schulterrotation, Schwerpunkt — alles gut erkennbar ohne Ball
+- **Taktik (0%)**: Nicht relevant bei Schattentraining — bewerte mit 5 und schreibe "Bei Schattentraining nicht beurteilbar"
+- **Mental (10%)**: Konzentration, Ernsthaftigkeit der Ausführung, Tempo der Bewegungsabfolge
+
+### Besondere Hinweise:
+- Kein Ball = Balltreffpunkt und Schlägerwinkel nicht direkt beurteilbar, aber der GEDACHTE Treffpunkt schon
+- Achte besonders auf Bewegungsrhythmus und -fluss
+- Rückkehr in die Grundstellung nach jedem Schlag ist hier besonders gut beobachtbar`
+
+    case 'balleimer':
+      return `
+## TRAININGSFORM: Balleimer / Ballmaschine
+Dieses Video zeigt Balleimer-Training — eine Person spielt, Bälle werden gleichmäßig zugespielt.
+
+### Schwerpunkte bei dieser Trainingsform:
+- **Schlagtechnik (30%)**: Fokus auf Ausführung unter leichtem Druck, Konstanz der Schlagbewegung
+- **Beinarbeit (25%)**: Bewegung zum Ball, Positionierung, Rückkehr in Grundstellung
+- **Körperhaltung (15%)**: Stabilität bei Wiederholungen, ermüdet der Spieler?
+- **Taktik (20%)**: HIER BESONDERS WICHTIG — bewerte PTRF:
+  - **P (Platzierung)**: Wohin werden die Bälle gespielt? Gezielt in Ecken oder wild? Abwechslung?
+  - **T (Tempo)**: Wird mit angemessenem Tempo gespielt? Ist der Spieler zu langsam/schnell?
+  - **R (Rotation/Spin)**: Wird aktiv Spin erzeugt? Ist der Spin dem Schlagtyp angemessen?
+  - **F (Flugkurve/Flugdauer)**: Wie ist die Ballflugkurve? Flach und aggressiv oder hoch und passiv?
+- **Mental (10%)**: Konzentration über die Wiederholungen hinweg, wird die Qualität gehalten?
+
+### Besondere Hinweise:
+- Bei Balleimer kann man Platzierung und Konstanz sehr gut beurteilen
+- Achte auf den Unterschied zwischen frischen und ermüdeten Wiederholungen`
+
+    case 'wettkampf':
+      return `
+## TRAININGSFORM: Wettkampf / Spiel
+Dieses Video zeigt eine Wettkampf- oder Spielsituation mit Gegner.
+
+### Schwerpunkte bei dieser Trainingsform:
+- **Schlagtechnik (20%)**: Wird die Technik unter Druck gehalten? Zerfällt die Technik in kritischen Situationen?
+- **Beinarbeit (15%)**: Bewegt sich der Spieler aktiv oder steht er oft zu passiv?
+- **Körperhaltung (10%)**: Grundstellung zwischen den Ballwechseln
+- **Taktik (35%)**: HAUPTFOKUS — bewerte:
+  - **Aufschlag**: Platzierung, Variation, Spin-Qualität. Kann der Gegner direkt angreifen?
+  - **Rückschlag**: Variabel? Passiv oder aktiv? Wird der Rückschlag als taktisches Mittel genutzt?
+  - **Platzierung im Spiel**: Werden Schwächen des Gegners gezielt angespielt? Ellbogen/Umschlagpunkt?
+  - **Sicherheit vs. Risiko**: Verhältnis Eigenfehler zu Punktgewinnen. Werden riskante Bälle zum richtigen Zeitpunkt gespielt?
+  - **Spielaufbau**: Wird Druck aufgebaut oder nur reagiert?
+  - **Reaktionsschnelligkeit**: Erkennt der Spieler frühzeitig die Schlagrichtung des Gegners?
+- **Mental (20%)**: BESONDERS WICHTIG im Wettkampf:
+  - Körpersprache zwischen den Ballwechseln: Aktiv/positiv oder frustriert/resigniert?
+  - Verhalten nach Fehlern: Kurz ärgern und weitermachen oder lang hadern?
+  - Konzentration in engen Situationen`
+
+    case 'uebung':
+      return `
+## TRAININGSFORM: Übung / Drill
+Dieses Video zeigt eine strukturierte Trainingsübung (mit Partner oder am Tisch).
+
+### Schwerpunkte bei dieser Trainingsform:
+- **Schlagtechnik (25%)**: Wird die Technik in der Übung korrekt ausgeführt? Konsistenz der Schläge?
+- **Beinarbeit (20%)**: Korrekte Positionierung und Bewegung zum Ball
+- **Körperhaltung (15%)**: Stabilität und Gleichgewicht während der Übung
+- **Taktik (30%)**: Bewerte PTRF — die vier Kernaspekte jedes Schlags:
+  - **P (Platzierung)**: Werden die Bälle dorthin gespielt wo sie sollen? Trifft der Spieler die Zielzone?
+  - **T (Tempo)**: Angemessenes Tempo für die Übung? Wird unter Zeitdruck sauber gespielt?
+  - **R (Rotation/Spin)**: Wird aktiv Spin erzeugt? Qualität des Spins?
+  - **F (Flugkurve/Flugdauer)**: Ballflugkurve flach oder hoch? Zu lang oder zu kurz?
+- **Mental (10%)**: Konzentration und Disziplin bei der Übungsausführung
+
+### Besondere Hinweise:
+- Bei Übungen ist Konsistenz wichtiger als einzelne Glanzschläge
+- Achte darauf ob die Übung KORREKT ausgeführt wird (richtige Schlagfolge, richtiger Rhythmus)`
+
+    default: // 'allgemein'
+      return `
+## TRAININGSFORM: Allgemein
+Die genaue Trainingsform konnte nicht erkannt werden. Verwende die Standard-Gewichtung.
+
+### Schwerpunkte:
+- **Schlagtechnik (35%)**: Griff, Schlägerwinkel, Balltreffpunkt, Armeinsatz, Rückhand-Technik
+- **Beinarbeit (25%)**: Grundstellung, Bewegung, Gewichtsverlagerung, Rückkehr in Grundstellung
+- **Körperhaltung (20%)**: Gesamthaltung, Schulterrotation, Körperschwerpunkt
+- **Taktik (10%)**: Platzierung, Aufschlag/Rückschlag, Risiko/Sicherheit (soweit erkennbar)
+- **Mental (10%)**: Körpersprache, Fokus (soweit erkennbar)`
+  }
+}
+
+/**
  * Ruft die Claude Vision API auf mit Frame-Bildern und Kontext.
  */
 async function callClaudeVision(
   apiKey: string,
   payload: AnalysisRequest
 ): Promise<TechniqueAnalysis> {
+  // Trainingsform erkennen
+  const trainingType = detectTrainingType(payload.exercise_name, payload.video_tags)
+  console.log(`[analyze-video-ai] Detected training type: ${trainingType}`)
+
   // Kontext-Text aufbauen
   let contextText = 'Du analysierst ein Tischtennis-Trainingsvideo.'
   if (payload.player_name) {
@@ -202,41 +340,40 @@ async function callClaudeVision(
     ]
   }).flat()
 
+  // Trainingsform-spezifischen Prompt-Abschnitt holen
+  const trainingTypeSection = getTrainingTypePromptSection(trainingType)
+
   const systemPrompt = `Du bist ein erfahrener Tischtennis-Trainer (A-Lizenz Niveau) und analysierst Video-Frames eines Vereinsspielers.
-Deine Aufgabe ist es, die Technik systematisch nach den folgenden Kriterien zu bewerten und konkretes, umsetzbares Feedback zu geben.
+Deine Aufgabe ist es, die Technik systematisch zu bewerten und konkretes, umsetzbares Feedback zu geben.
+${trainingTypeSection}
 
-## Bewertungskriterien
+## Detaillierte Bewertungskriterien
 
-### 1. Schlagtechnik (schlagtechnik)
-Bewerte folgende Aspekte:
+### Schlagtechnik (schlagtechnik)
 - **Schlägerhaltung und -winkel**: Ist der Griff korrekt (nicht zu verkrampft)? Ist der Schlägerwinkel beim Balltreffpunkt dem Schlag angepasst (z.B. offen beim Schupf, geschlossen beim Topspin)?
 - **Balltreffpunkt**: Wird der Ball optimal getroffen? (Vorderster Punkt in der Vorwärtsbewegung, Höhe des Treffpunkts)
 - **Treffpunkt am Körper**: Erfolgt der Treffpunkt vor dem Körper? Geht der Spieler "in die Bälle rein"?
 - **Armeinsatz**: Wird Unterarm und Handgelenk für Spin und Geschwindigkeit genutzt (kurze, knackige Bewegung statt ausladender Ausholbewegung)?
-- **Rückhand-Technik**: Wird bei der Rückhand das Handgelenk ausreichend genutzt? Wird der Ball nicht zu früh (zu weit vorne) angenommen?
+- **Rückhand-Technik**: Wird bei der Rückhand das Handgelenk ausreichend genutzt? Wird der Ball nicht zu früh angenommen?
 
-### 2. Beinarbeit und Körperposition (beinarbeit)
-Bewerte folgende Aspekte:
+### Beinarbeit (beinarbeit)
 - **Grundstellung**: Steht der Spieler aktiv in leichter Hockstellung, auf den Vorderfüßen, mit dem Schläger über Tischniveau?
-- **Bewegung zum Ball**: Bewegt sich der Spieler mit kleinen Schritten zum Ball (nicht große Ausfallschritte)?
+- **Bewegung zum Ball**: Bewegt sich der Spieler mit kleinen Schritten (nicht große Ausfallschritte)?
 - **Gewichtsverlagerung**: Findet eine Gewichtsverlagerung von hinten nach vorne beim Angriff statt?
 - **Rückkehr in Grundstellung**: Kehrt der Spieler nach dem Schlag schnellstmöglich in die neutrale Grundstellung zurück?
 
-### 3. Körperhaltung und Körpereinsatz (koerperhaltung)
-Bewerte folgende Aspekte:
+### Körperhaltung (koerperhaltung)
 - **Gesamthaltung**: Ist die Körperhaltung stabil und ausbalanciert?
 - **Schulterrotation**: Wird der Oberkörper bei Vorhand-Schlägen mitgedreht?
 - **Körperschwerpunkt**: Ist der Schwerpunkt tief genug und über den Füßen?
 
-### 4. Taktik und Spielintelligenz (taktik)
-Bewerte folgende Aspekte (soweit aus den Frames erkennbar):
-- **Aufschlag und Rückschlag**: Ist der Aufschlag so platziert, dass der Gegner keinen direkten Angriff starten kann? Ist der Rückschlag variabel?
-- **Platzierung**: Werden die Bälle taktisch klug platziert (z.B. in die weite Vorhand, Ellbogen/Umschlagpunkt)?
+### Taktik und Spielintelligenz (taktik)
+- **Platzierung**: Werden die Bälle gezielt platziert (z.B. in die weite Vorhand, Ellbogen/Umschlagpunkt)?
+- **Aufschlag und Rückschlag**: Platzierung, Variation, wird der Gegner unter Druck gesetzt?
 - **Sicherheit vs. Risiko**: Stimmt das Verhältnis von Fehlern zu Punktgewinnen?
-- **Reaktionsschnelligkeit**: Erkennt der Spieler frühzeitig, wohin der Ball kommt?
+- **PTRF**: Platzierung, Tempo, Rotation, Flugkurve — die vier Qualitätsmerkmale jedes Schlags
 
-### 5. Mentale Aspekte (mental)
-Bewerte folgende Aspekte (soweit aus den Frames erkennbar):
+### Mentale Aspekte (mental)
 - **Körpersprache**: Wirkt der Spieler aktiv und positiv oder frustriert/passiv?
 - **Fokus**: Konzentriert sich der Spieler auf den nächsten Ball?
 
@@ -245,13 +382,13 @@ Bewerte folgende Aspekte (soweit aus den Frames erkennbar):
 Antworte IMMER auf Deutsch und im folgenden JSON-Format:
 {
   "overall_rating": <Zahl 1-10>,
-  "summary": "<2-3 Sätze Gesamteindruck>",
+  "summary": "<2-3 Sätze Gesamteindruck, erwähne die erkannte Trainingsform>",
   "body_parts": {
-    "schlagtechnik": { "rating": <1-10>, "feedback": "<konkretes Feedback mit Bezug auf die Kriterien oben>" },
+    "schlagtechnik": { "rating": <1-10>, "feedback": "<konkretes Feedback>" },
     "beinarbeit": { "rating": <1-10>, "feedback": "<konkretes Feedback>" },
     "koerperhaltung": { "rating": <1-10>, "feedback": "<konkretes Feedback>" },
-    "taktik": { "rating": <1-10>, "feedback": "<konkretes Feedback, oder 'Aus den Frames nicht ausreichend beurteilbar' wenn nicht erkennbar>" },
-    "mental": { "rating": <1-10>, "feedback": "<konkretes Feedback, oder 'Aus den Frames nicht ausreichend beurteilbar' wenn nicht erkennbar>" }
+    "taktik": { "rating": <1-10>, "feedback": "<konkretes Feedback, oder 'Bei dieser Trainingsform nicht beurteilbar' wenn nicht relevant>" },
+    "mental": { "rating": <1-10>, "feedback": "<konkretes Feedback>" }
   },
   "strengths": ["<Stärke 1>", "<Stärke 2>", "<Stärke 3>"],
   "improvements": ["<Verbesserung 1>", "<Verbesserung 2>", "<Verbesserung 3>"],
@@ -263,9 +400,9 @@ Antworte IMMER auf Deutsch und im folgenden JSON-Format:
 - Gib KONKRETE, umsetzbare Tipps (NICHT "verbessere deine Technik" SONDERN "der Ellbogen sollte beim VH-Topspin näher am Körper bleiben, dann kommt mehr Spin")
 - Auch gelungene Aspekte erwähnen um Stärken zu festigen — nicht nur Fehler suchen
 - Berücksichtige dass es sich um Vereinsspieler handelt, nicht Profis
-- Wenn du etwas nicht erkennen kannst (z.B. bei schlechter Auflösung oder ungünstiger Kameraperspektive), sage das ehrlich statt zu raten
+- Wenn du etwas nicht erkennen kannst (z.B. bei schlechter Auflösung), sage das ehrlich statt zu raten
 - Wenn ein Pose-Vergleich mit einem Musterbeispiel vorliegt, beziehe die Abweichungen in dein Feedback ein
-- Die overall_rating soll der gewichtete Durchschnitt sein: Schlagtechnik 35%, Beinarbeit 25%, Körperhaltung 20%, Taktik 10%, Mental 10%
+- Die overall_rating soll der gewichtete Durchschnitt sein — NUTZE DIE GEWICHTUNG AUS DEM TRAININGSFORM-ABSCHNITT OBEN
 - Nutze die volle Skala 1-10 realistisch: 5 = solide Grundlagen aber deutliche Fehler, 7 = gute Vereinsebene, 9-10 = nahezu fehlerfreie Technik
 - Antworte NUR mit dem JSON, kein Text davor oder danach`
 

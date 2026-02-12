@@ -1276,6 +1276,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
                 shot_labels: shotLabels,
                 player_name: context.playerName || null,
                 exercise_name: context.exerciseName || null,
+                video_tags: context.videoTags || [],
                 reference_comparison: referenceComparison,
             },
         });
