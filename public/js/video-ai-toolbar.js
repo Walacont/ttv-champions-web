@@ -51,13 +51,14 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
     aiOverlay = new VideoAIOverlay(videoPlayer);
 
     // Panel erstellen (falls nicht vorhanden)
+    // Wird an den Modal-Container gehängt (nicht video-player-container),
+    // damit fixed-Positionierung nicht durch overflow:hidden abgeschnitten wird.
     let panel = document.getElementById('ai-analysis-panel');
     if (!panel) {
         panel = createAIPanel();
-        const videoContainer = document.getElementById('video-player-container');
-        if (videoContainer) {
-            videoContainer.style.position = 'relative';
-            videoContainer.appendChild(panel);
+        const modal = document.getElementById('video-detail-modal');
+        if (modal) {
+            modal.appendChild(panel);
         }
     }
 
@@ -94,18 +95,18 @@ function createAIPanel() {
     panel.id = 'ai-analysis-panel';
     panel.className = 'ai-analysis-panel';
     panel.style.cssText = `
-        position: absolute;
-        bottom: 70px;
+        position: fixed;
+        bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
         display: none;
         padding: 12px 16px;
         background: rgba(0, 0, 0, 0.92);
         border-radius: 16px;
-        z-index: 25;
+        z-index: 60;
         min-width: 280px;
-        max-width: 95%;
-        max-height: 70vh;
+        max-width: 360px;
+        max-height: 60vh;
         overflow-y: auto;
         box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         color: white;
@@ -139,22 +140,22 @@ function createAIPanel() {
             </div>
         </div>
 
-        <!-- Toggles -->
-        <div id="ai-toggles" class="flex flex-col gap-2 mb-3">
-            <label class="flex items-center gap-2 cursor-pointer">
+        <!-- Toggles (kompakt) -->
+        <div id="ai-toggles" class="flex items-center gap-3 mb-3 text-xs">
+            <label class="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" id="ai-toggle-skeleton" checked
-                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0">
-                <span class="text-sm">Skelett anzeigen</span>
+                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5">
+                <span>Skelett</span>
             </label>
-            <label class="flex items-center gap-2 cursor-pointer">
+            <label class="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" id="ai-toggle-player1" checked
-                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0">
-                <span class="text-sm">Spieler 1</span>
+                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5">
+                <span>P1</span>
             </label>
-            <label class="flex items-center gap-2 cursor-pointer">
+            <label class="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" id="ai-toggle-player2" checked
-                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0">
-                <span class="text-sm">Spieler 2</span>
+                       class="rounded text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5">
+                <span>P2</span>
             </label>
         </div>
 
@@ -432,6 +433,10 @@ async function runPostAnalysis(savedFrames, context, videoId) {
  */
 function renderResults(container, shotAnalysis, movementAnalysis) {
     container.classList.remove('hidden');
+
+    // Große Aktions-Buttons verstecken nach Analyse
+    const actionsDiv = document.getElementById('ai-actions');
+    if (actionsDiv) actionsDiv.classList.add('hidden');
 
     let html = '';
 
