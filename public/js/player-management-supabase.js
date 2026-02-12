@@ -66,7 +66,8 @@ function mapPlayerFromSupabase(player) {
         rank: player.rank,
         createdAt: player.created_at,
         birthdate: player.birthdate,
-        gender: player.gender
+        gender: player.gender,
+        spielhand: player.spielhand
     };
 }
 
@@ -654,7 +655,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
             // Profile direkt abfragen - nach Verein und Sport filtern
             let query = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, display_name, email, role, club_id, active_sport_id, avatar_url, birthdate, gender, xp, points, elo_rating, highest_elo, wins, losses, grundlagen_completed, subgroup_ids, qttr_points, is_offline, is_match_ready, onboarding_complete, created_at')
+                .select('id, first_name, last_name, display_name, email, role, club_id, active_sport_id, avatar_url, birthdate, gender, spielhand, xp, points, elo_rating, highest_elo, wins, losses, grundlagen_completed, subgroup_ids, qttr_points, is_offline, is_match_ready, onboarding_complete, created_at')
                 .eq('club_id', clubId)
                 .order('last_name');
 
@@ -1201,6 +1202,15 @@ export async function showPlayerDetails(player, detailContent, supabase) {
                     </div>
                 </div>
 
+                <div class="flex items-center gap-4">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Spielhand</h5>
+                        <span class="inline-block bg-gray-100 text-gray-800 rounded-full px-3 py-1 text-xs font-semibold">
+                            ${player.spielhand === 'left' ? '🫲 Linkshänder' : player.spielhand === 'right' ? '🫱 Rechtshänder' : 'Nicht angegeben'}
+                        </span>
+                    </div>
+                </div>
+
                 <div>
                     <h5 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Gruppen</h5>
                     <div class="flex flex-wrap">
@@ -1392,7 +1402,7 @@ export async function loadSubgroupsForPlayerForm(clubId, supabase, containerId, 
  * @param {Object} supabase - Supabase-Instanz
  * @param {string} clubId - Die ID des Vereins
  */
-export function openEditPlayerModal(player, supabase, clubId) {
+export async function openEditPlayerModal(player, supabase, clubId) {
     const modal = document.getElementById('edit-player-modal');
     if (!modal) return;
 
@@ -1405,6 +1415,22 @@ export function openEditPlayerModal(player, supabase, clubId) {
 
     // Feedback-Text zurücksetzen
     document.getElementById('edit-player-feedback').textContent = '';
+
+    // Spielhand laden und setzen
+    const spielhandSelect = document.getElementById('edit-player-spielhand');
+    if (spielhandSelect) {
+        spielhandSelect.value = '';
+        try {
+            const { data } = await supabase
+                .from('profiles')
+                .select('spielhand')
+                .eq('id', player.id)
+                .single();
+            if (data?.spielhand) {
+                spielhandSelect.value = data.spielhand;
+            }
+        } catch (_) { /* spielhand not available */ }
+    }
 
     // Checkboxen laden und vorab ankreuzen
     const existingSubgroups = player.subgroupIDs || [];
@@ -1440,10 +1466,14 @@ export async function handleSavePlayerSubgroups(supabase) {
         // 2. Erstelle ein Array aus den Werten (den subgroupIDs)
         const newSubgroupIDs = Array.from(checkedBoxes).map(cb => cb.value);
 
+        // Spielhand auslesen
+        const spielhandSelect = document.getElementById('edit-player-spielhand');
+        const spielhand = spielhandSelect ? spielhandSelect.value || null : null;
+
         // 3. Aktualisiere das Spieler-Dokument
         const { error } = await supabase
             .from('profiles')
-            .update({ subgroup_ids: newSubgroupIDs })
+            .update({ subgroup_ids: newSubgroupIDs, spielhand })
             .eq('id', playerId);
 
         if (error) throw error;

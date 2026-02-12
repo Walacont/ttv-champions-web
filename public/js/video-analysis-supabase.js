@@ -632,9 +632,25 @@ async function openVideoDetailModal(videoId) {
     modal.dataset.currentVideoId = videoId;
     modal.dataset.currentVideoExerciseId = video.exercise_id || '';
 
+    // Spielhand des Video-Uploaders laden (nicht des aktuellen Users, z.B. Coach)
+    let uploaderSpielhand = videoAnalysisContext.spielhand;
+    if (video.uploaded_by && video.uploaded_by !== videoAnalysisContext.userId) {
+        try {
+            const { data: uploaderProfile } = await db
+                .from('profiles')
+                .select('spielhand')
+                .eq('id', video.uploaded_by)
+                .single();
+            if (uploaderProfile?.spielhand) {
+                uploaderSpielhand = uploaderProfile.spielhand;
+            }
+        } catch (_) { /* fallback to context spielhand */ }
+    }
+
     // KI-Analyse-Toolbar initialisieren (mit exercise_id für auto-Referenz-Vergleich)
     setupAIToolbar(videoPlayer, videoId, {
         ...videoAnalysisContext,
+        spielhand: uploaderSpielhand,
         exerciseId: video.exercise_id || null,
         exerciseName: video.exercise?.name || null
     });
