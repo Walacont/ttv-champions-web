@@ -180,6 +180,20 @@ class VideoAIOverlay {
             if (this.isActive) this.render();
         };
         this.video.addEventListener('seeked', this._seekedHandler);
+
+        // Saved-Frame-Rendering während Wiedergabe
+        this._playHandler = () => {
+            if (this.isActive && this.savedFrames && !this.animationFrameId) {
+                this.startSavedFrameRendering();
+            }
+        };
+        this._pauseHandler = () => {
+            this.stopSavedFrameRendering();
+            if (this.isActive) this.render();
+        };
+        this.video.addEventListener('play', this._playHandler);
+        this.video.addEventListener('pause', this._pauseHandler);
+        this.video.addEventListener('ended', this._pauseHandler);
     }
 
     /**
@@ -354,6 +368,30 @@ class VideoAIOverlay {
     }
 
     /**
+     * Startet Rendering-Loop für gespeicherte Frames während Video-Wiedergabe.
+     * Leichtgewichtig: ruft nur render() auf (keine MediaPipe-Detection).
+     */
+    startSavedFrameRendering() {
+        this.stopSavedFrameRendering();
+        const loop = () => {
+            if (!this.isActive || this.video.paused || this.video.ended) return;
+            this.render();
+            this._savedFrameRAF = requestAnimationFrame(loop);
+        };
+        this._savedFrameRAF = requestAnimationFrame(loop);
+    }
+
+    /**
+     * Stoppt das Saved-Frame-Rendering.
+     */
+    stopSavedFrameRendering() {
+        if (this._savedFrameRAF) {
+            cancelAnimationFrame(this._savedFrameRAF);
+            this._savedFrameRAF = null;
+        }
+    }
+
+    /**
      * Aktiviert das Overlay
      */
     activate() {
@@ -361,6 +399,10 @@ class VideoAIOverlay {
         this.container.style.display = 'block';
         this.resizeCanvas();
         this.render();
+        // Wenn Video bereits läuft und saved Frames vorhanden → Rendering starten
+        if (!this.video.paused && this.savedFrames && !this.animationFrameId) {
+            this.startSavedFrameRendering();
+        }
     }
 
     /**
@@ -369,6 +411,7 @@ class VideoAIOverlay {
     deactivate() {
         this.isActive = false;
         this.stopLiveRendering();
+        this.stopSavedFrameRendering();
         this.container.style.display = 'none';
         const rect = this.video.getBoundingClientRect();
         this.ctx.clearRect(0, 0, rect.width, rect.height);
@@ -391,7 +434,11 @@ class VideoAIOverlay {
      */
     destroy() {
         this.stopLiveRendering();
+        this.stopSavedFrameRendering();
         this.video.removeEventListener('seeked', this._seekedHandler);
+        this.video.removeEventListener('play', this._playHandler);
+        this.video.removeEventListener('pause', this._pauseHandler);
+        this.video.removeEventListener('ended', this._pauseHandler);
         window.removeEventListener('resize', this._resizeHandler);
         if (this.container && this.container.parentElement) {
             this.container.parentElement.removeChild(this.container);
