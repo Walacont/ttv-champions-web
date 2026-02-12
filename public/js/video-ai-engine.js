@@ -239,8 +239,7 @@ function detectTableByColor(videoElement) {
     // TT-Tischfarben (ITTF: nur blau oder grün erlaubt):
     //   Grün (inkl. Teal/Petrol): H=80-195, z.B. DONIC, Tibhar grün
     //   Blau (reines Blau):       H=196-250, z.B. Butterfly, Cornilleau blau
-    // Viele "grüne" TT-Tische haben einen bläulich-grünen (Teal) Farbton
-    // bei H≈170-195, daher ziehen wir die Grenze großzügig für Grün.
+    // Strengere Filterung: höhere Sättigung, um Boden/Wände/Banden auszuschließen
     const mask = new Uint8Array(sw * sh); // 0=nothing, 1=blue, 2=green
 
     for (let i = 0; i < data.length; i += 4) {
@@ -249,11 +248,11 @@ function detectTableByColor(videoElement) {
         const l = (max + min) / 2;
         const d = max - min;
 
-        if (d < 15 || l < 25 || l > 210) continue; // Zu grau, zu dunkel oder zu hell
+        if (d < 15 || l < 30 || l > 200) continue; // Zu grau, zu dunkel oder zu hell
 
         const denom = 255 - Math.abs(2 * l - 255);
         const s = denom > 0 ? d / denom : 0;
-        if (s < 0.15) continue; // Zu wenig Sättigung
+        if (s < 0.25) continue; // Strengere Sättigung, filtert blasse Böden/Wände
 
         let hue = 0;
         if (max === r) hue = ((g - b) / d) % 6;
@@ -263,11 +262,11 @@ function detectTableByColor(videoElement) {
 
         const pIdx = i / 4;
         // Blau: reines Blau ohne Grünstich (H: 196-250)
-        if (hue >= 196 && hue <= 250 && s > 0.2 && l > 25 && l < 190) {
+        if (hue >= 196 && hue <= 250 && s > 0.3 && l > 30 && l < 180) {
             mask[pIdx] = 1; // Blau
         }
         // Grün: alles von Grasgrün bis Teal/Petrol (H: 80-195)
-        else if (hue >= 80 && hue <= 195 && s > 0.15 && l > 20 && l < 180) {
+        else if (hue >= 80 && hue <= 195 && s > 0.25 && l > 25 && l < 170) {
             mask[pIdx] = 2; // Grün (inkl. Teal)
         }
     }
@@ -284,30 +283,117 @@ function detectTableByColor(videoElement) {
     const dominantCount = Math.max(blueCount, greenCount);
     const colorName = dominantColor === 1 ? 'blue' : 'green';
 
-    // Min 3% der Pixel müssen die Tischfarbe haben
-    if (dominantCount / totalPixels < 0.03) return null;
+    // Min 1% der Pixel müssen die Tischfarbe haben
+    if (dominantCount / totalPixels < 0.01) return null;
 
-    // Bounding Box der dominanten Farbe finden
-    let minX = sw, minY = sh, maxX = 0, maxY = 0;
+    // ===== Grid-basierte Dichte-Analyse statt einfache Bounding Box =====
+    // Teile das Bild in Zellen und finde den dichtesten Bereich
+    const cellW = Math.max(4, Math.round(sw / 20));
+    const cellH = Math.max(4, Math.round(sh / 15));
+    const gridW = Math.ceil(sw / cellW);
+    const gridH = Math.ceil(sh / cellH);
+    const grid = new Float32Array(gridW * gridH);
+
+    // Dichte pro Zelle berechnen
     for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
             if (mask[y * sw + x] === dominantColor) {
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+                const gx = Math.min(gridW - 1, Math.floor(x / cellW));
+                const gy = Math.min(gridH - 1, Math.floor(y / cellH));
+                grid[gy * gridW + gx]++;
             }
         }
     }
 
-    // Box muss eine sinnvolle Mindestgröße haben (min 10% Breite)
-    const boxW = maxX - minX;
-    const boxH = maxY - minY;
-    if (boxW < sw * 0.1 || boxH < sh * 0.03) return null;
+    // Normalisiere Dichte (0-1 pro Zelle)
+    const maxCellPixels = cellW * cellH;
+    for (let i = 0; i < grid.length; i++) {
+        grid[i] /= maxCellPixels;
+    }
+
+    // Finde den dichtesten zusammenhängenden Bereich via Schwellwert + BFS
+    const densityThreshold = 0.15; // Mindestens 15% der Zelle gefärbt
+    const visited = new Uint8Array(gridW * gridH);
+    let bestCluster = null;
+    let bestClusterSize = 0;
+
+    for (let gy = 0; gy < gridH; gy++) {
+        for (let gx = 0; gx < gridW; gx++) {
+            const idx = gy * gridW + gx;
+            if (visited[idx] || grid[idx] < densityThreshold) continue;
+
+            // BFS um zusammenhängende dichte Zellen zu finden
+            const queue = [[gx, gy]];
+            visited[idx] = 1;
+            let cMinX = gx, cMaxX = gx, cMinY = gy, cMaxY = gy;
+            let clusterDensity = 0;
+            let clusterSize = 0;
+
+            while (queue.length > 0) {
+                const [cx, cy] = queue.shift();
+                const cIdx = cy * gridW + cx;
+                clusterDensity += grid[cIdx];
+                clusterSize++;
+                if (cx < cMinX) cMinX = cx;
+                if (cx > cMaxX) cMaxX = cx;
+                if (cy < cMinY) cMinY = cy;
+                if (cy > cMaxY) cMaxY = cy;
+
+                // 4-Nachbarn
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || nx >= gridW || ny < 0 || ny >= gridH) continue;
+                    const nIdx = ny * gridW + nx;
+                    if (visited[nIdx] || grid[nIdx] < densityThreshold) continue;
+                    visited[nIdx] = 1;
+                    queue.push([nx, ny]);
+                }
+            }
+
+            if (clusterSize > bestClusterSize) {
+                bestClusterSize = clusterSize;
+                bestCluster = { cMinX, cMaxX, cMinY, cMaxY, clusterDensity, clusterSize };
+            }
+        }
+    }
+
+    if (!bestCluster) return null;
+
+    // Pixelkoordinaten aus Grid-Koordinaten
+    let minX = bestCluster.cMinX * cellW;
+    let minY = bestCluster.cMinY * cellH;
+    let maxX = Math.min(sw, (bestCluster.cMaxX + 1) * cellW);
+    let maxY = Math.min(sh, (bestCluster.cMaxY + 1) * cellH);
+
+    // Verfeinere: exakte Bounding Box innerhalb des Cluster-Bereichs
+    let fMinX = maxX, fMinY = maxY, fMaxX = minX, fMaxY = minY;
+    for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+            if (mask[y * sw + x] === dominantColor) {
+                if (x < fMinX) fMinX = x;
+                if (x > fMaxX) fMaxX = x;
+                if (y < fMinY) fMinY = y;
+                if (y > fMaxY) fMaxY = y;
+            }
+        }
+    }
+
+    const boxW = fMaxX - fMinX;
+    const boxH = fMaxY - fMinY;
+    if (boxW < sw * 0.08 || boxH < sh * 0.02) return null;
+
+    // Seitenverhältnis-Check: TT-Tisch ist ca. 2.74:1 (274cm x 152.5cm)
+    // Aus der Kameraperspektive kann das variieren (1.5:1 bis 5:1 akzeptabel)
+    const aspectRatio = boxW / Math.max(1, boxH);
+    if (aspectRatio < 1.0 || aspectRatio > 8.0) return null;
+
+    // Box darf nicht mehr als 70% des Bildes einnehmen (Tisch ist nicht so groß)
+    const areaRatio = (boxW * boxH) / (sw * sh);
+    if (areaRatio > 0.55) return null;
 
     return {
-        x: minX / sw,
-        y: minY / sh,
+        x: fMinX / sw,
+        y: fMinY / sh,
         width: boxW / sw,
         height: boxH / sh,
         color: colorName,
@@ -339,14 +425,21 @@ function detectBallByColor(videoElement, tableBox) {
     const imageData = ctx.getImageData(0, 0, sw, sh);
     const data = imageData.data;
 
-    // Suchbereich: Tisch ± 30% Höhe (Ball ist auf/über dem Tisch)
+    // Suchbereich: Tisch ± großzügiger Bereich (Ball fliegt über dem Tisch)
     let searchMinY = 0, searchMaxY = sh;
+    let searchMinX = 0, searchMaxX = sw;
     if (tableBox) {
         const tTop = Math.round(tableBox.y * sh);
         const tBot = Math.round((tableBox.y + tableBox.height) * sh);
+        const tLeft = Math.round(tableBox.x * sw);
+        const tRight = Math.round((tableBox.x + tableBox.width) * sw);
         const tHeight = tBot - tTop;
-        searchMinY = Math.max(0, tTop - tHeight * 2);
+        const tWidth = tRight - tLeft;
+        // Ball kann weit über dem Tisch sein + etwas seitlich daneben
+        searchMinY = Math.max(0, tTop - tHeight * 3);
         searchMaxY = Math.min(sh, tBot + tHeight);
+        searchMinX = Math.max(0, tLeft - tWidth * 0.3);
+        searchMaxX = Math.min(sw, tRight + tWidth * 0.3);
     }
 
     const candidates = [];
@@ -355,18 +448,18 @@ function detectBallByColor(videoElement, tableBox) {
     // Weiß: R>200, G>200, B>200 (hohe Helligkeit, niedrige Sättigung)
     // Orange: R>180, G>100-170, B<100 (TT-Ball Orange)
     for (let y = searchMinY + 1; y < searchMaxY - 1; y++) {
-        for (let x = 1; x < sw - 1; x++) {
+        for (let x = searchMinX + 1; x < searchMaxX - 1; x++) {
             const idx = (y * sw + x) * 4;
             const r = data[idx], g = data[idx + 1], b = data[idx + 2];
 
             let isBall = false;
 
-            // Weiß
-            if (r > 210 && g > 210 && b > 210) {
+            // Weiß (Ball unter verschiedener Beleuchtung)
+            if (r > 195 && g > 195 && b > 195) {
                 isBall = true;
             }
-            // Orange
-            if (r > 190 && g > 100 && g < 180 && b < 100) {
+            // Orange (TT-Ball Orange)
+            if (r > 180 && g > 90 && g < 180 && b < 110) {
                 isBall = true;
             }
 
@@ -380,8 +473,8 @@ function detectBallByColor(videoElement, tableBox) {
                     const ni = ((y + dy) * sw + (x + dx)) * 4;
                     if (ni < 0 || ni >= data.length) continue;
                     const nr = data[ni], ng = data[ni + 1], nb = data[ni + 2];
-                    if ((nr > 210 && ng > 210 && nb > 210) ||
-                        (nr > 190 && ng > 100 && ng < 180 && nb < 100)) {
+                    if ((nr > 195 && ng > 195 && nb > 195) ||
+                        (nr > 180 && ng > 90 && ng < 180 && nb < 110)) {
                         neighborCount++;
                     }
                 }
