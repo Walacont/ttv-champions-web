@@ -1440,9 +1440,22 @@ function setupVideoDetailModal() {
                 const success = await addVideoComment(input.value, includeTimestamp);
                 if (success) {
                     input.value = '';
+                    // Textarea zurücksetzen
+                    input.style.height = 'auto';
                 }
             }
         });
+
+        // Ctrl+Enter / Cmd+Enter zum Senden in der Textarea
+        const commentInput = document.getElementById('video-comment-input');
+        if (commentInput) {
+            commentInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    commentForm.requestSubmit();
+                }
+            });
+        }
     }
 
     if (compareBtn) {

@@ -1558,6 +1558,11 @@ function saveAnalysisAsComment(result) {
     const commentInput = document.getElementById('video-comment-input');
     if (commentInput) {
         commentInput.value = text.trim();
+
+        // Auto-Resize der Textarea auslösen
+        commentInput.style.height = 'auto';
+        commentInput.style.height = Math.min(commentInput.scrollHeight, window.innerHeight * 0.4) + 'px';
+
         commentInput.focus();
         commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
 

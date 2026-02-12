@@ -2754,19 +2754,22 @@
 
                                     <!-- Kommentar-Eingabe -->
                                     <form id="video-comment-form" class="mb-4">
-                                        <div class="flex gap-2">
-                                            <input type="text" id="video-comment-input"
-                                                   placeholder="Feedback eingeben..."
-                                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
-                                                <i class="fas fa-paper-plane"></i>
+                                        <textarea id="video-comment-input"
+                                                  rows="2"
+                                                  placeholder="Feedback eingeben... (Strg+Enter zum Senden)"
+                                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none overflow-hidden text-sm leading-relaxed"
+                                                  style="min-height: 3rem; max-height: 40vh;"
+                                                  oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,window.innerHeight*0.4)+'px'"></textarea>
+                                        <div class="flex items-center justify-between mt-2">
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" id="include-timestamp-checkbox" checked class="rounded text-indigo-600">
+                                                <label for="include-timestamp-checkbox" class="text-sm text-gray-600">
+                                                    Video-Position anhängen
+                                                </label>
+                                            </div>
+                                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                                <i class="fas fa-paper-plane mr-1"></i>Senden
                                             </button>
-                                        </div>
-                                        <div class="flex items-center gap-2 mt-2">
-                                            <input type="checkbox" id="include-timestamp-checkbox" checked class="rounded text-indigo-600">
-                                            <label for="include-timestamp-checkbox" class="text-sm text-gray-600">
-                                                Aktuelle Video-Position anhängen
-                                            </label>
                                         </div>
                                     </form>
 
