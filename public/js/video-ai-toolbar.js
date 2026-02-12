@@ -1187,10 +1187,18 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
         });
 
         if (response.error) {
-            throw new Error(response.error.message || 'Edge Function Fehler');
+            // Versuche Details aus dem Fehler zu extrahieren
+            const errMsg = response.error.message || 'Edge Function Fehler';
+            const errContext = response.error.context ? JSON.stringify(response.error.context) : '';
+            console.error('[AI Toolbar] Edge Function error details:', response.error);
+            throw new Error(errContext || errMsg);
         }
 
         const data = response.data;
+
+        if (!data) {
+            throw new Error('Keine Antwort von der Edge Function');
+        }
 
         if (data.error) {
             throw new Error(data.error);

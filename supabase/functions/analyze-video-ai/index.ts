@@ -82,6 +82,7 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Analyse-Eintrag in DB erstellen (status: processing)
+    let analysisId: string | null = null
     const { data: analysis, error: insertError } = await supabase
       .from('video_ai_analyses')
       .insert({
@@ -96,14 +97,12 @@ serve(async (req: Request) => {
       .single()
 
     if (insertError) {
-      console.error('[analyze-video-ai] DB insert error:', insertError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create analysis record' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      // DB-Insert fehlgeschlagen (z.B. CHECK constraint) - trotzdem weitermachen
+      console.warn('[analyze-video-ai] DB insert failed (continuing without DB):', insertError.message)
+    } else {
+      analysisId = analysis.id
     }
 
-    const analysisId = analysis.id
     const startTime = Date.now()
 
     // Claude Vision API aufrufen
@@ -114,24 +113,26 @@ serve(async (req: Request) => {
 
     const processingTime = Date.now() - startTime
 
-    // Ergebnis in DB speichern
-    const { error: updateError } = await supabase
-      .from('video_ai_analyses')
-      .update({
-        status: 'completed',
-        results: claudeResult,
-        summary: {
-          overall_rating: claudeResult.overall_rating,
-          summary: claudeResult.summary,
-          strengths_count: claudeResult.strengths?.length || 0,
-          improvements_count: claudeResult.improvements?.length || 0,
-        },
-        processing_time_ms: processingTime,
-      })
-      .eq('id', analysisId)
+    // Ergebnis in DB speichern (nur wenn Insert erfolgreich war)
+    if (analysisId) {
+      const { error: updateError } = await supabase
+        .from('video_ai_analyses')
+        .update({
+          status: 'completed',
+          results: claudeResult,
+          summary: {
+            overall_rating: claudeResult.overall_rating,
+            summary: claudeResult.summary,
+            strengths_count: claudeResult.strengths?.length || 0,
+            improvements_count: claudeResult.improvements?.length || 0,
+          },
+          processing_time_ms: processingTime,
+        })
+        .eq('id', analysisId)
 
-    if (updateError) {
-      console.error('[analyze-video-ai] DB update error:', updateError)
+      if (updateError) {
+        console.error('[analyze-video-ai] DB update error:', updateError)
+      }
     }
 
     return new Response(
