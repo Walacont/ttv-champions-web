@@ -120,9 +120,26 @@
                                 <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
                             </div>
                         </div>
-                        <video id="label-video" class="w-full bg-black" controls crossorigin="anonymous" playsinline>
-                            <source src="" type="video/mp4">
-                        </video>
+                        <div class="relative">
+                            <video id="label-video" class="w-full bg-black" controls crossorigin="anonymous" playsinline>
+                                <source src="" type="video/mp4">
+                            </video>
+                            <canvas id="video-overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none" style="z-index:10"></canvas>
+                        </div>
+
+                        <!-- Overlay-Toggles -->
+                        <div class="flex items-center gap-2 px-4 py-2 bg-gray-800 border-t border-gray-700">
+                            <span class="text-xs text-gray-400 mr-1">Einblenden:</span>
+                            <button id="toggle-skeleton" class="overlay-toggle text-xs px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-colors" data-active="false">
+                                <i class="fas fa-walking mr-1"></i>Skelett
+                            </button>
+                            <button id="toggle-table" class="overlay-toggle text-xs px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-colors" data-active="false">
+                                <i class="fas fa-square mr-1"></i>Tisch
+                            </button>
+                            <button id="toggle-ball" class="overlay-toggle text-xs px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-colors" data-active="false">
+                                <i class="fas fa-circle mr-1"></i>Ball
+                            </button>
+                        </div>
 
                         <!-- Zeitleiste mit Markierungen -->
                         <div class="p-4 bg-gray-50 border-t">
@@ -466,7 +483,7 @@
 
     <script type="module">
         import { getSupabase } from './js/supabase-init.js';
-        import { isAIAvailable, loadModels, analyzeFrameRange, analyzeTableAndBall } from './js/video-ai-engine.js';
+        import { isAIAvailable, loadModels, analyzeFrameRange, analyzeTableAndBall, POSE_LANDMARKS, POSE_CONNECTIONS } from './js/video-ai-engine.js';
         import { classifyShots } from './js/video-ai-shot-classifier.js';
 
         let supabase;
@@ -483,6 +500,13 @@
         let aiDetectedPlayers = []; // [{idx, side:'left'|'right', avgX, spielhand:'right'|'left'|null}]
         let aiTableBox = null;  // {x, y, width, height, confidence}
         let aiBallTrack = [];   // [{time, x, y, score}]
+
+        // Overlay-Einstellungen
+        let overlayCanvas = null;
+        let overlayCtx = null;
+        let showSkeleton = false;
+        let showTable = false;
+        let showBall = false;
 
         // Video type labels
         const videoTypeLabels = {
@@ -995,6 +1019,16 @@
             videoPlayer.addEventListener('timeupdate', () => {
                 document.getElementById('current-time').textContent = formatTime(videoPlayer.currentTime);
                 updateTimelineMarker();
+                drawOverlay();
+            });
+            videoPlayer.addEventListener('seeked', drawOverlay);
+
+            // Canvas-Overlay initialisieren
+            overlayCanvas = document.getElementById('video-overlay');
+            overlayCtx = overlayCanvas.getContext('2d');
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                overlayCanvas.width = videoPlayer.videoWidth;
+                overlayCanvas.height = videoPlayer.videoHeight;
             });
 
             renderShotsList();
@@ -1055,6 +1089,33 @@
 
             // KI-Analyse Buttons
             document.getElementById('ai-analyze-btn').addEventListener('click', runAIAnalysis);
+
+            // Overlay-Toggle-Buttons
+            document.querySelectorAll('.overlay-toggle').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const isActive = btn.dataset.active === 'true';
+                    btn.dataset.active = isActive ? 'false' : 'true';
+                    if (isActive) {
+                        btn.classList.remove('bg-white', 'text-gray-800', 'border-white');
+                        btn.classList.add('text-gray-400', 'border-gray-600');
+                    } else {
+                        btn.classList.remove('text-gray-400', 'border-gray-600');
+                        btn.classList.add('bg-white', 'text-gray-800', 'border-white');
+                    }
+                });
+            });
+            document.getElementById('toggle-skeleton').addEventListener('click', () => {
+                showSkeleton = !showSkeleton;
+                drawOverlay();
+            });
+            document.getElementById('toggle-table').addEventListener('click', () => {
+                showTable = !showTable;
+                drawOverlay();
+            });
+            document.getElementById('toggle-ball').addEventListener('click', () => {
+                showBall = !showBall;
+                drawOverlay();
+            });
             document.getElementById('ai-table-ball-btn').addEventListener('click', runTableBallDetection);
             document.getElementById('ai-cancel-btn').addEventListener('click', () => {
                 if (aiAbortController) aiAbortController.abort();
@@ -1876,6 +1937,200 @@
                 btn.classList.remove('opacity-50');
                 btn.innerHTML = '<i class="fas fa-table-tennis"></i> Tisch & Ball erkennen';
             }
+        }
+
+        // ===== Overlay-Zeichenfunktionen =====
+
+        function drawOverlay() {
+            if (!overlayCtx || !overlayCanvas) return;
+            const w = overlayCanvas.width;
+            const h = overlayCanvas.height;
+            if (!w || !h) return;
+
+            overlayCtx.clearRect(0, 0, w, h);
+
+            if (!showSkeleton && !showTable && !showBall) return;
+
+            // Tisch zeichnen
+            if (showTable && aiTableBox) {
+                drawTableBox(w, h);
+            }
+
+            // Ball zeichnen
+            if (showBall && aiBallTrack.length > 0) {
+                drawBallPositions(w, h);
+            }
+
+            // Skelett zeichnen
+            if (showSkeleton && aiFormattedFrames) {
+                drawSkeletons(w, h);
+            }
+        }
+
+        function drawTableBox(w, h) {
+            const t = aiTableBox;
+            const x = t.x * w;
+            const y = t.y * h;
+            const bw = t.width * w;
+            const bh = t.height * h;
+
+            // Halbtransparenter Hintergrund
+            const color = t.color === 'green' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+            const borderColor = t.color === 'green' ? '#22c55e' : '#3b82f6';
+
+            overlayCtx.fillStyle = color;
+            overlayCtx.fillRect(x, y, bw, bh);
+
+            overlayCtx.strokeStyle = borderColor;
+            overlayCtx.lineWidth = 2;
+            overlayCtx.setLineDash([6, 4]);
+            overlayCtx.strokeRect(x, y, bw, bh);
+            overlayCtx.setLineDash([]);
+
+            // Label
+            overlayCtx.fillStyle = borderColor;
+            overlayCtx.font = 'bold 14px sans-serif';
+            overlayCtx.fillText('Tisch', x + 4, y - 4);
+        }
+
+        function drawBallPositions(w, h) {
+            if (!videoPlayer) return;
+            const currentTime = videoPlayer.currentTime;
+
+            // Ball-Positionen im Umkreis von ±0.3 Sekunden zum aktuellen Zeitpunkt anzeigen
+            const nearBalls = aiBallTrack.filter(b => Math.abs(b.time - currentTime) < 0.3);
+
+            for (let i = 0; i < nearBalls.length; i++) {
+                const b = nearBalls[i];
+                const bx = b.x * w;
+                const by = b.y * h;
+                const age = Math.abs(b.time - currentTime);
+                const alpha = Math.max(0.3, 1 - age / 0.3);
+
+                // Ball-Kreis
+                overlayCtx.beginPath();
+                overlayCtx.arc(bx, by, 8, 0, Math.PI * 2);
+                overlayCtx.fillStyle = `rgba(255, 165, 0, ${alpha * 0.6})`;
+                overlayCtx.fill();
+                overlayCtx.strokeStyle = `rgba(255, 165, 0, ${alpha})`;
+                overlayCtx.lineWidth = 2;
+                overlayCtx.stroke();
+
+                // Fadenkreuz
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(bx - 12, by);
+                overlayCtx.lineTo(bx + 12, by);
+                overlayCtx.moveTo(bx, by - 12);
+                overlayCtx.lineTo(bx, by + 12);
+                overlayCtx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.7})`;
+                overlayCtx.lineWidth = 1;
+                overlayCtx.stroke();
+            }
+
+            // Ball-Spur (letzte 1 Sekunde)
+            const trailBalls = aiBallTrack
+                .filter(b => b.time <= currentTime && b.time >= currentTime - 1.0)
+                .sort((a, b) => a.time - b.time);
+
+            if (trailBalls.length >= 2) {
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(trailBalls[0].x * w, trailBalls[0].y * h);
+                for (let i = 1; i < trailBalls.length; i++) {
+                    overlayCtx.lineTo(trailBalls[i].x * w, trailBalls[i].y * h);
+                }
+                overlayCtx.strokeStyle = 'rgba(255, 165, 0, 0.4)';
+                overlayCtx.lineWidth = 2;
+                overlayCtx.setLineDash([3, 3]);
+                overlayCtx.stroke();
+                overlayCtx.setLineDash([]);
+            }
+        }
+
+        function drawSkeletons(w, h) {
+            if (!videoPlayer || !aiFormattedFrames) return;
+            const currentTime = videoPlayer.currentTime;
+
+            // Nächsten Frame finden
+            let bestFrame = null;
+            let bestDist = Infinity;
+            for (const frame of aiFormattedFrames) {
+                const dist = Math.abs(frame.timestamp_seconds - currentTime);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestFrame = frame;
+                }
+            }
+
+            // Nur zeichnen wenn der nächste Frame < 0.3s entfernt ist
+            if (!bestFrame || bestDist > 0.3 || !bestFrame.poses) return;
+
+            // Farben für Spieler
+            const playerColors = ['#3b82f6', '#f97316']; // Blau, Orange
+
+            bestFrame.poses.forEach((pose, playerIdx) => {
+                if (!pose || !pose.landmarks) return;
+                const lm = pose.landmarks;
+                const color = playerColors[playerIdx] || '#ffffff';
+
+                // Verbindungen zeichnen (Skelett-Linien)
+                overlayCtx.strokeStyle = color;
+                overlayCtx.lineWidth = 3;
+                overlayCtx.globalAlpha = 0.8;
+
+                for (const [startIdx, endIdx] of POSE_CONNECTIONS) {
+                    const start = lm[startIdx];
+                    const end = lm[endIdx];
+                    if (!start || !end) continue;
+                    if (start.visibility < 0.3 || end.visibility < 0.3) continue;
+
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(start.x * w, start.y * h);
+                    overlayCtx.lineTo(end.x * w, end.y * h);
+                    overlayCtx.stroke();
+                }
+
+                // Keypoints zeichnen (Gelenke)
+                const importantJoints = [
+                    POSE_LANDMARKS.LEFT_SHOULDER, POSE_LANDMARKS.RIGHT_SHOULDER,
+                    POSE_LANDMARKS.LEFT_ELBOW, POSE_LANDMARKS.RIGHT_ELBOW,
+                    POSE_LANDMARKS.LEFT_WRIST, POSE_LANDMARKS.RIGHT_WRIST,
+                    POSE_LANDMARKS.LEFT_HIP, POSE_LANDMARKS.RIGHT_HIP,
+                    POSE_LANDMARKS.LEFT_KNEE, POSE_LANDMARKS.RIGHT_KNEE,
+                    POSE_LANDMARKS.LEFT_ANKLE, POSE_LANDMARKS.RIGHT_ANKLE,
+                    POSE_LANDMARKS.NOSE
+                ];
+
+                for (const idx of importantJoints) {
+                    const kp = lm[idx];
+                    if (!kp || kp.visibility < 0.3) continue;
+
+                    const kx = kp.x * w;
+                    const ky = kp.y * h;
+                    const isWrist = idx === POSE_LANDMARKS.LEFT_WRIST || idx === POSE_LANDMARKS.RIGHT_WRIST;
+                    const radius = isWrist ? 6 : 4;
+
+                    overlayCtx.beginPath();
+                    overlayCtx.arc(kx, ky, radius, 0, Math.PI * 2);
+                    overlayCtx.fillStyle = isWrist ? '#ffffff' : color;
+                    overlayCtx.fill();
+                    overlayCtx.strokeStyle = isWrist ? color : 'rgba(0,0,0,0.5)';
+                    overlayCtx.lineWidth = isWrist ? 3 : 1;
+                    overlayCtx.stroke();
+                }
+
+                // Spieler-Label
+                const nose = lm[POSE_LANDMARKS.NOSE];
+                if (nose && nose.visibility > 0.3) {
+                    overlayCtx.fillStyle = color;
+                    overlayCtx.font = 'bold 16px sans-serif';
+                    overlayCtx.strokeStyle = 'rgba(0,0,0,0.7)';
+                    overlayCtx.lineWidth = 3;
+                    overlayCtx.strokeText(`S${playerIdx + 1}`, nose.x * w - 10, nose.y * h - 15);
+                    overlayCtx.fillText(`S${playerIdx + 1}`, nose.x * w - 10, nose.y * h - 15);
+                }
+
+                overlayCtx.globalAlpha = 1.0;
+            });
         }
 
         function renderAISuggestions() {
