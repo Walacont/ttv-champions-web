@@ -235,9 +235,12 @@ function detectTableByColor(videoElement) {
     const imageData = ctx.getImageData(0, 0, sw, sh);
     const data = imageData.data;
 
-    // Pixel als blau/grün/nichts klassifizieren
-    // Tischtennis-Blau: H≈200-230, S>30%, L=20-60%
-    // Tischtennis-Grün: H≈100-160, S>25%, L=20-55%
+    // Pixel als blau/grün/nichts klassifizieren via HSV
+    // TT-Tischfarben (ITTF: nur blau oder grün erlaubt):
+    //   Grün (inkl. Teal/Petrol): H=80-195, z.B. DONIC, Tibhar grün
+    //   Blau (reines Blau):       H=196-250, z.B. Butterfly, Cornilleau blau
+    // Viele "grüne" TT-Tische haben einen bläulich-grünen (Teal) Farbton
+    // bei H≈170-195, daher ziehen wir die Grenze großzügig für Grün.
     const mask = new Uint8Array(sw * sh); // 0=nothing, 1=blue, 2=green
 
     for (let i = 0; i < data.length; i += 4) {
@@ -246,10 +249,11 @@ function detectTableByColor(videoElement) {
         const l = (max + min) / 2;
         const d = max - min;
 
-        if (d < 20 || l < 30 || l > 200) continue; // Zu grau, zu dunkel oder zu hell
+        if (d < 15 || l < 25 || l > 210) continue; // Zu grau, zu dunkel oder zu hell
 
-        const s = d / (255 - Math.abs(2 * l - 255));
-        if (s < 0.2) continue; // Zu wenig Sättigung
+        const denom = 255 - Math.abs(2 * l - 255);
+        const s = denom > 0 ? d / denom : 0;
+        if (s < 0.15) continue; // Zu wenig Sättigung
 
         let hue = 0;
         if (max === r) hue = ((g - b) / d) % 6;
@@ -258,10 +262,13 @@ function detectTableByColor(videoElement) {
         hue = ((hue * 60) + 360) % 360;
 
         const pIdx = i / 4;
-        if (hue >= 185 && hue <= 240 && s > 0.25 && l > 30 && l < 180) {
+        // Blau: reines Blau ohne Grünstich (H: 196-250)
+        if (hue >= 196 && hue <= 250 && s > 0.2 && l > 25 && l < 190) {
             mask[pIdx] = 1; // Blau
-        } else if (hue >= 90 && hue <= 170 && s > 0.2 && l > 25 && l < 170) {
-            mask[pIdx] = 2; // Grün
+        }
+        // Grün: alles von Grasgrün bis Teal/Petrol (H: 80-195)
+        else if (hue >= 80 && hue <= 195 && s > 0.15 && l > 20 && l < 180) {
+            mask[pIdx] = 2; // Grün (inkl. Teal)
         }
     }
 
