@@ -352,6 +352,12 @@ async function analyzeFullVideo(videoPlayer, videoId, context) {
             } else {
                 updatePanelStatus('done', frames.length);
             }
+
+            // UX: Video zum Anfang seeken, Panel minimieren, abspielen
+            videoPlayer.currentTime = 0;
+            const panel = document.getElementById('ai-analysis-panel');
+            if (panel) panel.style.display = 'none';
+            try { await videoPlayer.play(); } catch (_) { /* autoplay blocked */ }
         } else {
             updatePanelStatus('no_pose');
         }
