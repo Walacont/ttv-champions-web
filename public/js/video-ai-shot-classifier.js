@@ -585,11 +585,12 @@ function detectServe(event, playerFrames, dominantSide, tossThreshold) {
     const hasToss = maxUpwardMovement >= tossThreshold;
 
     // Hände waren vor dem Schlag beieinander (typische Aufschlag-Vorbereitung)
-    const handsWereClose = framesChecked > 0 && (handsCloseCount / framesChecked) > 0.3;
+    const handsWereClose = framesChecked > 0 && (handsCloseCount / framesChecked) > 0.4;
 
-    // Beide Indikatoren zusammen: sicher Aufschlag
-    // Nur Ballwurf: wahrscheinlich Aufschlag
-    return hasToss || handsWereClose;
+    // Aufschlag nur wenn Ballwurf erkannt UND Hände vorher zusammen waren
+    // Ballwurf allein reicht nicht (kann auch Geste sein)
+    // Hände zusammen allein reicht nicht (passiert bei vielen Schlägen)
+    return hasToss && handsWereClose;
 }
 
 /**
