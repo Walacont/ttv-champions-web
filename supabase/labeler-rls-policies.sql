@@ -138,19 +138,25 @@ CREATE POLICY "video_comments_select" ON video_comments
 -- 4. video_labels Policies für Labeler
 -- ============================================
 
--- SELECT: Labeler und Admins können Labels sehen
+-- SELECT: Coaches, Admins und Labeler können Labels sehen
+-- Coaches brauchen SELECT für KI-Analyse (eigene Labels + Club-Labels)
 DROP POLICY IF EXISTS "video_labels_select" ON video_labels;
 
 CREATE POLICY "video_labels_select" ON video_labels
     FOR SELECT USING (
+        -- Eigene Labels
+        labeled_by = auth.uid()
+        OR
+        -- Coach/Admin/Labeler können alle Labels sehen
         EXISTS (
             SELECT 1 FROM profiles p
             WHERE p.id = auth.uid()
-            AND p.role IN ('admin', 'labeler')
+            AND p.role IN ('admin', 'coach', 'head_coach', 'labeler')
         )
     );
 
--- INSERT: Labeler und Admins können Labels erstellen
+-- INSERT: Coaches, Admins und Labeler können Labels erstellen
+-- Coaches erstellen KI-generierte Shot-Labels bei Video-Analyse
 DROP POLICY IF EXISTS "video_labels_insert" ON video_labels;
 
 CREATE POLICY "video_labels_insert" ON video_labels
@@ -159,11 +165,11 @@ CREATE POLICY "video_labels_insert" ON video_labels
         AND EXISTS (
             SELECT 1 FROM profiles p
             WHERE p.id = auth.uid()
-            AND p.role IN ('admin', 'labeler')
+            AND p.role IN ('admin', 'coach', 'head_coach', 'labeler')
         )
     );
 
--- UPDATE: Nur eigene Labels oder Admin
+-- UPDATE: Eigene Labels oder Admin
 DROP POLICY IF EXISTS "video_labels_update" ON video_labels;
 
 CREATE POLICY "video_labels_update" ON video_labels
@@ -176,7 +182,8 @@ CREATE POLICY "video_labels_update" ON video_labels
         )
     );
 
--- DELETE: Nur eigene Labels oder Admin
+-- DELETE: Eigene Labels, Coach im Club, oder Admin
+-- Coaches müssen alte KI-Labels löschen können bevor neue erstellt werden
 DROP POLICY IF EXISTS "video_labels_delete" ON video_labels;
 
 CREATE POLICY "video_labels_delete" ON video_labels
@@ -185,7 +192,7 @@ CREATE POLICY "video_labels_delete" ON video_labels
         OR EXISTS (
             SELECT 1 FROM profiles p
             WHERE p.id = auth.uid()
-            AND p.role = 'admin'
+            AND p.role IN ('admin', 'coach', 'head_coach')
         )
     );
 
