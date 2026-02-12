@@ -1587,6 +1587,50 @@
             return merged;
         }
 
+        // Rally-Logik: Schläge sollten abwechselnd S1/S2 sein.
+        // Ausnahmen: Aufschlag-Wiederholungen (Netz-Aufschlag = gleicher Spieler nochmal).
+        // Algorithmus:
+        // 1. Erster Schlag setzt den Startspieler
+        // 2. Jeder folgende Schlag gehört dem anderen Spieler
+        // 3. Aufschlag nach Aufschlag = gleicher Spieler (Netz/Fehl-Aufschlag)
+        // 4. Aufschlag nach Nicht-Aufschlag = neuer Ballwechsel, Spieler ist wie erkannt
+        function applyRallyAlternation(shots) {
+            if (shots.length <= 1 || aiDetectedPlayers.length < 2) return shots;
+
+            const result = [...shots];
+            const p1Side = aiDetectedPlayers[0]?.side || 'left';
+            const p2Side = aiDetectedPlayers[1]?.side || 'right';
+
+            for (let i = 1; i < result.length; i++) {
+                const prev = result[i - 1];
+                const curr = result[i];
+                const prevType = prev.correctedType || prev.shotType;
+                const currType = curr.correctedType || curr.shotType;
+                const isServe = currType.includes('serve');
+                const prevIsServe = prevType.includes('serve');
+
+                if (isServe && prevIsServe && prev.playerNum === curr.playerNum) {
+                    // Aufschlag nach Aufschlag vom gleichen Spieler = Netz-Aufschlag, OK
+                    continue;
+                }
+
+                if (isServe) {
+                    // Neuer Ballwechsel: KI-Erkennung für den Aufschläger beibehalten
+                    continue;
+                }
+
+                // Normaler Schlag: muss den anderen Spieler haben als der vorherige
+                const expectedPlayer = prev.playerNum === 1 ? 2 : 1;
+                if (curr.playerNum !== expectedPlayer) {
+                    curr.playerNum = expectedPlayer;
+                    curr.playerSide = expectedPlayer === 1 ? p1Side : p2Side;
+                    curr.rallyAdjusted = true; // Markierung dass Rally-Logik geändert hat
+                }
+            }
+
+            return result;
+        }
+
         // Klassifizierung mit aktuellen Spieler-Einstellungen neu ausführen
         function reclassifyWithPlayers() {
             if (!aiFormattedFrames || aiDetectedPlayers.length === 0) return;
@@ -1622,12 +1666,15 @@
             });
 
             // Nahe Erkennungen zusammenführen (verhindert Doppelerkennung bei Aufschlägen etc.)
-            aiSuggestions = mergeNearbyShots(rawSuggestions);
+            const merged = mergeNearbyShots(rawSuggestions);
+
+            // Rally-Alternation anwenden (S1-S2-S1-S2...)
+            aiSuggestions = applyRallyAlternation(merged);
 
             renderAISuggestions();
             renderTimeline();
 
-            const mergedCount = rawSuggestions.length - aiSuggestions.length;
+            const mergedCount = rawSuggestions.length - merged.length;
             const mergeInfo = mergedCount > 0 ? `, ${mergedCount} zusammengeführt` : '';
             showToast(`${aiSuggestions.length} Schläge erkannt (${aiDetectedPlayers.length} Spieler${mergeInfo})`, 'success');
         }
@@ -1746,8 +1793,12 @@
                 const isBackhand = displayType.startsWith('backhand');
                 const confPercent = Math.round(sug.confidence * 100);
                 const confColor = confPercent >= 70 ? 'text-green-600' : confPercent >= 50 ? 'text-yellow-600' : 'text-red-600';
+                const hasMultiplePlayers = aiDetectedPlayers.length > 1;
+                const rallyIcon = sug.rallyAdjusted ? '<i class="fas fa-exchange-alt text-xs ml-0.5" title="Rally-Logik hat Spieler angepasst"></i>' : '';
                 const playerBadge = sug.playerNum
-                    ? `<span class="text-xs px-1 rounded ${sug.playerSide === 'left' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}" title="Spieler ${sug.playerNum} (${sug.playerSide === 'left' ? 'links' : 'rechts'})">S${sug.playerNum}</span>`
+                    ? (hasMultiplePlayers
+                        ? `<button class="ai-sug-player text-xs px-1 rounded cursor-pointer hover:ring-1 hover:ring-gray-400 ${sug.playerSide === 'left' ? 'bg-blue-200 text-blue-800' : 'bg-orange-200 text-orange-800'}" data-index="${index}" title="Klick: Spieler wechseln">S${sug.playerNum}${rallyIcon}</button>`
+                        : `<span class="text-xs px-1 rounded ${sug.playerSide === 'left' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">S${sug.playerNum}</span>`)
                     : '';
                 const durationMs = Math.round((sug.endTime - sug.startTime) * 1000);
 
@@ -1811,6 +1862,24 @@
             list.querySelectorAll('.ai-sug-jump').forEach(btn => {
                 btn.addEventListener('click', () => {
                     videoPlayer.currentTime = parseFloat(btn.dataset.time);
+                });
+            });
+
+            list.querySelectorAll('.ai-sug-player').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    const sug = aiSuggestions[idx];
+                    if (!sug || aiDetectedPlayers.length < 2) return;
+                    // Spieler umschalten: S1 <-> S2
+                    if (sug.playerNum === 1) {
+                        sug.playerNum = 2;
+                        sug.playerSide = aiDetectedPlayers[1]?.side || 'right';
+                    } else {
+                        sug.playerNum = 1;
+                        sug.playerSide = aiDetectedPlayers[0]?.side || 'left';
+                    }
+                    renderAISuggestions();
+                    renderTimeline();
                 });
             });
 
