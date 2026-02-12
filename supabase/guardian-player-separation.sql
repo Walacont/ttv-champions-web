@@ -102,12 +102,10 @@ BEGIN
     UPDATE profiles
     SET
         is_player = true,
-        is_match_ready = true,
         elo_rating = COALESCE(elo_rating, 800),
         highest_elo = COALESCE(highest_elo, 800),
         xp = COALESCE(xp, 0),
         points = COALESCE(points, 0),
-        grundlagen_completed = COALESCE(grundlagen_completed, 5),
         updated_at = now()
     WHERE id = v_user_id;
 

@@ -43,9 +43,7 @@ export function updateRankDisplay(userData) {
 
     if (!rankInfoEl) return;
 
-    const grundlagenCount = userData.grundlagenCompleted || 0;
-
-    const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
+    const progress = getRankProgress(userData.eloRating, userData.xp);
     const {
         currentRank,
         nextRank,
@@ -53,8 +51,6 @@ export function updateRankDisplay(userData) {
         xpProgress,
         eloNeeded,
         xpNeeded,
-        grundlagenNeeded,
-        grundlagenProgress,
         isMaxRank,
     } = progress;
 
@@ -99,22 +95,6 @@ export function updateRankDisplay(userData) {
                     ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">XP-Anforderung erfüllt</p>`}
                 </div>
 
-                ${
-                    nextRank.requiresGrundlagen
-                        ? `
-                    <div>
-                        <div class="flex justify-between text-xs text-gray-600 mb-1">
-                            <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
-                            <span>${grundlagenProgress}%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
-                        </div>
-                        ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
-                    </div>
-                `
-                        : ''
-                }
             </div>
         `
                 : '<p class="text-sm text-green-600 font-medium mt-2">Höchster Rang erreicht!</p>'
@@ -232,38 +212,6 @@ export function loadRivalData(userData, supabase, currentSubgroupFilter = 'club'
         .subscribe();
 
     return () => subscription.unsubscribe();
-}
-
-/** @deprecated Grundlagen werden jetzt in updateRankDisplay() angezeigt */
-export function updateGrundlagenDisplay(userData) {
-    const grundlagenCard = document.getElementById('grundlagen-card');
-    const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
-    const grundlagenStatus = document.getElementById('grundlagen-status');
-
-    if (!grundlagenCard) return;
-
-    const grundlagenCount = userData.grundlagenCompleted || 0;
-    const grundlagenRequired = 5;
-
-    if (grundlagenCount < grundlagenRequired) {
-        grundlagenCard.classList.remove('hidden');
-        const progress = (grundlagenCount / grundlagenRequired) * 100;
-
-        if (grundlagenProgressBar) {
-            grundlagenProgressBar.style.width = `${progress}%`;
-        }
-
-        if (grundlagenStatus) {
-            grundlagenStatus.textContent = `${grundlagenCount}/${grundlagenRequired} Grundlagen-Übungen absolviert`;
-
-            if (grundlagenCount > 0) {
-                grundlagenStatus.classList.remove('text-gray-600');
-                grundlagenStatus.classList.add('text-green-600', 'font-semibold');
-            }
-        }
-    } else {
-        grundlagenCard.classList.add('hidden');
-    }
 }
 
 /** Lädt Profildaten (Streaks mit Echtzeit-Updates und rendert Kalender) */

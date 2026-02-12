@@ -362,13 +362,6 @@ function renderTournamentDetails(tournament, participating) {
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="font-bold text-gray-800"><i class="fas fa-table-tennis-paddle-ball mr-2"></i>Spiele</h4>
                         <div class="flex items-center gap-2">
-                            ${tournament.format === 'round_robin' ? `
-                            <select id="rounds-filter" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white">
-                                <option value="remaining" selected>Übrige Runden</option>
-                                <option value="completed">Abgeschlossene</option>
-                                <option value="all">Alle Runden</option>
-                            </select>
-                            ` : ''}
                             ${tournament.status === 'in_progress' && isCreator ? `
                                 <button id="quick-match-entry-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-lg font-medium">
                                     <i class="fas fa-bolt mr-1"></i>Eintragen
@@ -377,7 +370,7 @@ function renderTournamentDetails(tournament, participating) {
                         </div>
                     </div>
                     <div id="matches-container">
-                        ${renderMatches(tournament.tournament_matches || [], isCreator, tournament.format === 'round_robin' ? 'remaining' : 'all')}
+                        ${renderMatches(tournament.tournament_matches || [], isCreator, 'all', tournament.format)}
                     </div>
                 </div>
             ` : ''}
@@ -582,8 +575,13 @@ function renderWinnerPodium(standings) {
     </div>`;
 }
 
-function renderMatches(matches, isCreator = false, filter = 'all') {
+function renderMatches(matches, isCreator = false, filter = 'all', format = null) {
     if (!matches.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
+
+    // Round Robin: use carousel view (no tree, no bracket type tabs)
+    if (format === 'round_robin') {
+        return renderRoundRobinMatches(matches, isCreator);
+    }
 
     // Check if this is a Double Elimination tournament (has bracket_type)
     const hasDoubleElim = matches.some(m => m.bracket_type && m.bracket_type !== 'winners');
@@ -632,6 +630,130 @@ function renderMatches(matches, isCreator = false, filter = 'all') {
             </div>
         </div>`;
     }).join('');
+}
+
+function renderRoundRobinMatches(matches, isCreator = false) {
+    // Group by round
+    const byRound = {};
+    matches.forEach(m => {
+        const r = m.round_number || 1;
+        if (!byRound[r]) byRound[r] = [];
+        byRound[r].push(m);
+    });
+
+    const allRounds = Object.keys(byRound).sort((a, b) => a - b);
+    if (!allRounds.length) return '<p class="text-gray-400 text-sm">Noch keine Spiele</p>';
+
+    const rounds = allRounds.map(round => {
+        const roundMatches = byRound[round];
+        const roundNum = parseInt(round);
+        const actual = roundMatches.filter(m => m.player_a_id && m.player_b_id);
+        const completed = actual.filter(m => m.status === 'completed' || m.status === 'skipped').length;
+        const isCompleted = completed === actual.length && actual.length > 0;
+
+        return {
+            number: roundNum,
+            name: `Runde ${roundNum}`,
+            matches: roundMatches,
+            completed: completed,
+            total: actual.length,
+            status: isCompleted ? 'completed' : (completed > 0 ? 'in-progress' : 'pending')
+        };
+    });
+
+    // Find first non-completed round to start on
+    let startIndex = rounds.findIndex(r => r.status !== 'completed');
+    if (startIndex === -1) startIndex = rounds.length - 1;
+
+    const bracketId = 'rr-' + Math.random().toString(36).substr(2, 9);
+
+    const bracketData = { rounds, isCreator };
+
+    let html = `<div class="bracket-tabs-container" id="${bracketId}" data-is-creator="${isCreator}">`;
+    html += `<script type="application/json" id="${bracketId}-data">${JSON.stringify(bracketData)}</script>`;
+    html += `<div class="bracket-round-tabs" id="${bracketId}-round-tabs"></div>`;
+    html += `<div class="bracket-content" id="${bracketId}-content"></div>`;
+    html += '</div>';
+
+    setTimeout(() => initRoundRobinCarousel(bracketId, startIndex), 0);
+
+    return html;
+}
+
+function initRoundRobinCarousel(bracketId, startIndex) {
+    const container = document.getElementById(bracketId);
+    if (!container) return;
+
+    const dataEl = document.getElementById(`${bracketId}-data`);
+    if (!dataEl) return;
+
+    const { rounds, isCreator } = JSON.parse(dataEl.textContent);
+    if (!rounds.length) return;
+
+    let currentRoundIndex = startIndex;
+
+    const tabsContainer = document.getElementById(`${bracketId}-round-tabs`);
+    const contentContainer = document.getElementById(`${bracketId}-content`);
+    if (!tabsContainer || !contentContainer) return;
+
+    const renderCarousel = () => {
+        const round = rounds[currentRoundIndex];
+        const matchCount = round.matches.filter(m => m.player_a_id || m.player_b_id).length;
+        const hasPrev = currentRoundIndex > 0;
+        const hasNext = currentRoundIndex < rounds.length - 1;
+
+        tabsContainer.innerHTML = `
+            <div class="bracket-carousel">
+                <button class="bracket-carousel-btn prev ${!hasPrev ? 'disabled' : ''}" ${!hasPrev ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="bracket-carousel-center">
+                    <h3 class="bracket-carousel-title">${round.name}</h3>
+                    <span class="bracket-carousel-count">${round.completed}/${round.total} abgeschlossen</span>
+                    <div class="bracket-carousel-dots">
+                        ${rounds.map((r, idx) => `<span class="bracket-carousel-dot ${idx === currentRoundIndex ? 'active' : ''} ${r.status === 'completed' ? 'dot-completed' : ''}" data-index="${idx}"></span>`).join('')}
+                    </div>
+                </div>
+                <button class="bracket-carousel-btn next ${!hasNext ? 'disabled' : ''}" ${!hasNext ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+
+        tabsContainer.querySelector('.bracket-carousel-btn.prev')?.addEventListener('click', () => {
+            if (currentRoundIndex > 0) { currentRoundIndex--; renderCarousel(); renderContent('prev'); }
+        });
+        tabsContainer.querySelector('.bracket-carousel-btn.next')?.addEventListener('click', () => {
+            if (currentRoundIndex < rounds.length - 1) { currentRoundIndex++; renderCarousel(); renderContent('next'); }
+        });
+        tabsContainer.querySelectorAll('.bracket-carousel-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const newIndex = parseInt(dot.dataset.index);
+                if (newIndex !== currentRoundIndex) {
+                    const direction = newIndex > currentRoundIndex ? 'next' : 'prev';
+                    currentRoundIndex = newIndex;
+                    renderCarousel();
+                    renderContent(direction);
+                }
+            });
+        });
+    };
+
+    const renderContent = (slideDirection = null) => {
+        const round = rounds[currentRoundIndex];
+        const slideClass = slideDirection === 'next' ? 'slide-from-right' : (slideDirection === 'prev' ? 'slide-from-left' : '');
+
+        contentContainer.innerHTML = `
+            <div class="bracket-round-content ${slideClass}">
+                <div class="bracket-matches-list">
+                    ${round.matches.map(m => renderBracketMatch(m, isCreator)).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    renderCarousel();
+    renderContent();
 }
 
 function renderDoubleEliminationMatches(matches, isCreator = false, filter = 'all') {
@@ -1201,28 +1323,6 @@ function setupDetailEventListeners(tournament, participating) {
             if (match) openCorrectMatchModal(match, tournament);
         });
     });
-
-    // Rounds filter dropdown
-    const roundsFilter = document.getElementById('rounds-filter');
-    if (roundsFilter) {
-        const isCreator = tournament.created_by === getCurrentUserId();
-        roundsFilter.addEventListener('change', () => {
-            const filter = roundsFilter.value;
-            const container = document.getElementById('matches-container');
-            if (container) {
-                container.innerHTML = renderMatches(tournament.tournament_matches || [], isCreator, filter);
-                // Re-attach correction button listeners
-                document.querySelectorAll('.correct-match-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const matchId = btn.dataset.matchId;
-                        const match = tournament.tournament_matches?.find(m => m.id === matchId);
-                        if (match) openCorrectMatchModal(match, tournament);
-                    });
-                });
-            }
-        });
-    }
 
     // Match click delegation for quick result entry (list view + tree view)
     const detailContent = document.getElementById('tournament-details-content');

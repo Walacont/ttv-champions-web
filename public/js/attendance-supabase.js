@@ -576,7 +576,6 @@ export async function openAttendanceModalForSession(
                 <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                 <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700 flex-1">${player.firstName} ${player.lastName}</label>
                 <span class="text-xs text-gray-400 mr-2" title="Anwesenheiten in den letzten 3 Monaten">${attendanceCount}x</span>
-                ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Nicht bereit</span>' : ''}
             `;
             playerListContainer.appendChild(div);
         }
@@ -1010,7 +1009,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed, elo_rating, birthdate, gender, doubles_elo_rating, is_offline')
+            .select('id, first_name, last_name, email, subgroup_ids, role, elo_rating, birthdate, gender, doubles_elo_rating, is_offline')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach', 'head_coach'])
             .order('last_name', { ascending: true })
@@ -1033,9 +1032,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
                 lastName: p.last_name,
                 email: p.email,
                 subgroupIDs: p.subgroup_ids || [],
-                isMatchReady: p.is_match_ready,
                 role: p.role,
-                grundlagenCompleted: p.grundlagen_completed || 0,
                 eloRating: p.elo_rating || 800,
                 birthdate: p.birthdate,
                 gender: p.gender,

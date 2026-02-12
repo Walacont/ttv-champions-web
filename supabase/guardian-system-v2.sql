@@ -359,7 +359,6 @@ BEGIN
         account_type,
         age_mode,
         is_offline,
-        is_match_ready,
         onboarding_complete,
         elo_rating,
         highest_elo,
@@ -379,7 +378,6 @@ BEGIN
         'child',
         v_age_mode,
         true,  -- Like offline player
-        false,
         false,
         800,
         800,

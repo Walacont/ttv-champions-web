@@ -13,14 +13,12 @@ DECLARE
 BEGIN
     v_old_rank := calculate_rank(
         COALESCE(OLD.elo_rating, 800),
-        COALESCE(OLD.xp, 0),
-        COALESCE(OLD.grundlagen_completed, 0)
+        COALESCE(OLD.xp, 0)
     );
 
     v_new_rank := calculate_rank(
         COALESCE(NEW.elo_rating, 800),
-        COALESCE(NEW.xp, 0),
-        COALESCE(NEW.grundlagen_completed, 0)
+        COALESCE(NEW.xp, 0)
     );
 
     IF v_old_rank != v_new_rank THEN

@@ -161,15 +161,10 @@ function clearDoublesSelections() {
  * @param {string} currentGenderFilter - Aktueller Geschlechter-Filter
  */
 export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
-    // Nur spielbereite Spieler filtern
-    let matchReadyPlayers = clubPlayers.filter(p => {
-        const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
-        return isMatchReady;
-    });
+    let matchReadyPlayers = [...clubPlayers];
 
     console.log('[Doubles] populateDoublesDropdowns:', {
         totalPlayers: clubPlayers.length,
-        matchReadyBefore: matchReadyPlayers.length,
         subgroupFilter: currentSubgroupFilter,
         genderFilter: currentGenderFilter,
         excludePlayerId

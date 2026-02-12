@@ -125,7 +125,6 @@ function mapPlayerFromSupabase(player) {
         clubId: player.club_id,
         eloRating: player.elo_rating,
         doublesEloRating: player.doubles_elo_rating,
-        grundlagenCompleted: player.grundlagen_completed,
         subgroupIDs: player.subgroup_ids || [],
         privacySettings: player.privacy_settings || {}
     };
@@ -148,9 +147,8 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
         // Berechtigte Spieler filtern (Spieler und Trainer)
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
-            const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
             const isPlayerOrCoach = p.role === 'player' || p.role === 'coach' || p.role === 'head_coach';
-            return isNotSelf && isMatchReady && isPlayerOrCoach;
+            return isNotSelf && isPlayerOrCoach;
         });
 
         // Alle Matches des aktuellen Benutzers abrufen
@@ -292,32 +290,6 @@ export async function loadMatchSuggestions(
             <p class="text-sm text-yellow-700">
               <strong>🔒 Match-Vorschläge nur für Vereinsmitglieder!</strong><br>
               Diese Funktion ist nur für Spieler verfügbar, die einem Verein angehören.
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
-        return; // Frühzeitig beenden
-    }
-
-    // Prüfen ob Spieler spielbereit ist
-    const isMatchReady = userData.isMatchReady === true || userData.is_match_ready === true;
-
-    if (!isMatchReady) {
-        container.innerHTML = `
-      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-            </svg>
-          </div>
-          <div class="ml-3">
-            <p class="text-sm text-yellow-700">
-              <strong>🔒 Match-Vorschläge gesperrt!</strong><br>
-              Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
-              Fortschritt: <strong>${grundlagenCompleted}/5</strong> abgeschlossen.
-              ${grundlagenCompleted > 0 ? `<br>Noch <strong>${5 - grundlagenCompleted}</strong> Übung${5 - grundlagenCompleted === 1 ? '' : 'en'} bis zur Freischaltung!` : ''}
             </p>
           </div>
         </div>

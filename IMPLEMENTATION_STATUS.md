@@ -9,7 +9,7 @@
 | **1. ELO-System**            | ✅ Fertig | Start bei 800, keine Gates (Elo kann frei fallen), Season Points = Elo×0.2 |
 | **2. Rang-System**           | ✅ Fertig | 6 Ränge, schnellere Progression (Rekrut 0-49 XP, Bronze 50-199 XP, etc.)              |
 | **3. Strafsystem**           | ✅ Fertig | Leicht (-10 Pkt, -5 XP), Mittel (-20 Pkt, -10 XP), Schwer (-30 Pkt, -20 XP)           |
-| **4. Wettkampf-Sperre**      | ✅ Fertig | Rekruten müssen 5 Grundlagen absolvieren, UI + Firestore Rules                        |
+| **4. Wettkampf-System**      | ✅ Fertig | Wettkampf-Matches mit Elo-Berechnung, UI + Firestore Rules                            |
 | **5. Anwesenheit + Streaks** | ✅ Fertig | 3/5/6 Punkte je nach Streak (1-2x / 3-4x / 5+x)                                       |
 | **6. Migrations-Script**     | ✅ Fertig | `migrate-elo-to-800.js` für bestehende Benutzer                                       |
 
@@ -52,12 +52,7 @@
     - Langfristige Konsequenzen für Fehlverhalten
     - Rang-Aufstieg verzögert sich
 
-4. **Wettkampf-Progression**
-    - Rekruten lernen zuerst Grundlagen (5 Übungen)
-    - Dann erst Matches freigeschaltet
-    - UI zeigt Fortschritt (X/5)
-
-5. **Streak-basiertes Anwesenheitssystem**
+4. **Streak-basiertes Anwesenheitssystem**
     - Basis: 3 Punkte + 3 XP
     - 3-4x Streak: 5 Punkte + 5 XP (⚡ Bonus!)
     - 5+x Streak: 6 Punkte + 6 XP (🔥 Super-Streak!)
@@ -114,7 +109,6 @@ firebase deploy --only hosting
 - ✅ Prüfe 5-10 Benutzer-Profile (ELO sollte ~800 höher sein)
 - ✅ Teste Anwesenheits-Tracking (neue Punktwerte)
 - ✅ Teste Strafen-Vergabe
-- ✅ Teste Rekrut-Sperre
 
 ---
 
@@ -159,7 +153,6 @@ firebase deploy --only hosting
 ✅ **ELO startet bei 800** (realistischer Scale)
 ✅ **Schnellerer Start** (Bronze in 6-10 Trainings)
 ✅ **Strafen mit XP-Abzug** (pädagogisch sinnvoll)
-✅ **Rekrut-Sperre** (Grundlagen zuerst)
 ✅ **Neue Anwesenheitspunkte** (3/5/6 statt 10/15/20)
 ✅ **Migrations-Script** (alte Daten bleiben erhalten)
 
@@ -192,8 +185,8 @@ functions/index.js                 # ELO-Konfiguration
 public/js/ranks.js                # Rang-Definitionen
 public/js/points-management.js    # Strafsystem
 public/js/attendance.js           # Anwesenheitspunkte
-public/js/player-matches.js       # Wettkampf-Sperre (Player)
-public/js/matches.js              # Wettkampf-Sperre (Coach)
+public/js/player-matches.js       # Wettkampf-Matches (Player)
+public/js/matches.js              # Wettkampf-Matches (Coach)
 public/coach.html                 # Strafen-UI + Übungen-Form
 firestore.rules                   # Sicherheitsregeln
 scripts/migrate-elo-to-800.js    # Migration (NEU)

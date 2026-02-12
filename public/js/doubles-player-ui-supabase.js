@@ -200,17 +200,12 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         privacySettings: p.privacy_settings,
                         isOffline: p.is_offline,
                         activeSportId: p.active_sport_id,
-                        isMatchReady: p.is_match_ready,
                     };
                 })
                 .filter(p => {
                     // Filter: nicht selbst
                     const isSelf = p.id === userData.id;
                     if (isSelf) return false;
-
-                    // Offline-Spieler sind im Doppel immer erlaubt (umgehen Match-Ready-Prüfung)
-                    // Online-Spieler müssen spielbereit sein
-                    if (!p.isOffline && !p.isMatchReady) return false;
 
                     // Sport-Filter: gleiche Sportart ODER Offline-Spieler (können jede Sportart)
                     if (userSportId && !p.isOffline) {
@@ -490,7 +485,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         return;
     }
 
-    // Validieren dass alle Spieler spielbereit sind (5+ Grundlagen)
+    // Spielerdaten laden
     let playersData;
     try {
         const { data: players, error } = await supabase
@@ -499,22 +494,6 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             .in('id', allPlayerIds);
 
         if (error) throw error;
-
-        const notReadyPlayers = [];
-        (players || []).forEach(player => {
-            const grundlagen = player.grundlagen_completed || 0;
-            if (grundlagen < 5) {
-                notReadyPlayers.push(player.first_name + ' ' + player.last_name);
-            }
-        });
-
-        if (notReadyPlayers.length > 0) {
-            feedbackEl.textContent = `Folgende Spieler haben noch nicht genug Grundlagen (min. 5): ${notReadyPlayers.join(', ')}`;
-            feedbackEl.className =
-                'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
-            feedbackEl.classList.remove('hidden');
-            return;
-        }
 
         // Map für schnellen Lookup erstellen
         playersData = new Map();
