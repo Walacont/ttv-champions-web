@@ -90,6 +90,32 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
         } catch (e) {
             console.warn('[AI Toolbar] Could not load saved results:', e);
         }
+
+        // Gespeicherte Claude-Technik-Analyse laden
+        try {
+            const { data: claudeAnalysis } = await context.db
+                .from('video_ai_analyses')
+                .select('results')
+                .eq('video_id', videoId)
+                .eq('analysis_type', 'claude_technique_analysis')
+                .eq('status', 'completed')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (claudeAnalysis?.results) {
+                // Ergebnis anzeigen nachdem Panel erstellt wurde
+                setTimeout(() => {
+                    const resultContainer = document.getElementById('ai-technique-result');
+                    if (resultContainer) {
+                        resultContainer.classList.remove('hidden');
+                        renderTechniqueResult(resultContainer, claudeAnalysis.results);
+                    }
+                }, 100);
+            }
+        } catch (e) {
+            // Nicht kritisch - Claude-Analyse ist optional
+        }
     }
 
     // Kontext speichern für Re-Analyze-Button
@@ -191,7 +217,15 @@ function createAIPanel() {
                 <i class="fas fa-film"></i>
                 <span>Video analysieren</span>
             </button>
+            <button id="ai-technique-btn"
+                    class="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-brain"></i>
+                <span>Detailanalyse (Claude)</span>
+            </button>
         </div>
+
+        <!-- Claude Technik-Analyse Ergebnis -->
+        <div id="ai-technique-result" class="hidden mt-3"></div>
     `;
 
     return panel;
@@ -254,6 +288,12 @@ function setupPanelEvents(panel, videoPlayer, videoId, context) {
     const analyzeVideoBtn = panel.querySelector('#ai-analyze-video-btn');
     if (analyzeVideoBtn) {
         analyzeVideoBtn.onclick = () => analyzeFullVideo(videoPlayer, videoId, context);
+    }
+
+    // Detailanalyse (Claude Vision)
+    const techniqueBtn = panel.querySelector('#ai-technique-btn');
+    if (techniqueBtn) {
+        techniqueBtn.onclick = () => runClaudeTechniqueAnalysis(videoPlayer, videoId, context);
     }
 
     // Abbrechen
@@ -992,6 +1032,256 @@ export function cleanupAIToolbar() {
 
     const panel = document.getElementById('ai-analysis-panel');
     if (panel) panel.remove();
+}
+
+// ============================================
+// CLAUDE VISION TECHNIK-ANALYSE (Phase 1A)
+// ============================================
+
+/**
+ * Extrahiert Schlüssel-Frames aus dem Video als Base64-JPEG.
+ * Nimmt gleichmäßig verteilte Frames über die Videolänge.
+ */
+function extractFramesAsBase64(videoPlayer, count = 5) {
+    return new Promise((resolve) => {
+        const duration = videoPlayer.duration;
+        if (!duration || duration <= 0) {
+            resolve([]);
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = Math.min(640, videoPlayer.videoWidth);
+        canvas.height = Math.round(canvas.width * (videoPlayer.videoHeight / videoPlayer.videoWidth));
+
+        const timestamps = [];
+        // Frames gleichmäßig verteilen, erste und letzte 10% überspringen
+        const start = duration * 0.1;
+        const end = duration * 0.9;
+        const step = (end - start) / (count - 1);
+        for (let i = 0; i < count; i++) {
+            timestamps.push(start + step * i);
+        }
+
+        const frames = [];
+        let idx = 0;
+
+        const originalTime = videoPlayer.currentTime;
+        const wasPaused = videoPlayer.paused;
+
+        function captureNext() {
+            if (idx >= timestamps.length) {
+                // Video-Position zurücksetzen
+                videoPlayer.currentTime = originalTime;
+                if (!wasPaused) videoPlayer.play();
+                resolve({ frames, timestamps });
+                return;
+            }
+
+            videoPlayer.currentTime = timestamps[idx];
+        }
+
+        videoPlayer.addEventListener('seeked', function onSeeked() {
+            ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+            frames.push(base64);
+            idx++;
+            if (idx < timestamps.length) {
+                videoPlayer.currentTime = timestamps[idx];
+            } else {
+                videoPlayer.removeEventListener('seeked', onSeeked);
+                videoPlayer.currentTime = originalTime;
+                if (!wasPaused) videoPlayer.play();
+                resolve({ frames, timestamps });
+            }
+        });
+
+        if (wasPaused) videoPlayer.pause();
+        captureNext();
+    });
+}
+
+/**
+ * Führt die Claude Vision Technik-Analyse durch.
+ */
+async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
+    const resultContainer = document.getElementById('ai-technique-result');
+    const techniqueBtn = document.getElementById('ai-technique-btn');
+
+    if (!resultContainer || !techniqueBtn) return;
+
+    // Button deaktivieren
+    techniqueBtn.disabled = true;
+    techniqueBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Analysiert...</span>';
+
+    resultContainer.classList.remove('hidden');
+    resultContainer.innerHTML = `
+        <div class="text-xs text-gray-400 text-center py-2">
+            <i class="fas fa-spinner fa-spin mr-1"></i>
+            Frames werden extrahiert...
+        </div>
+    `;
+
+    try {
+        // 1. Frames extrahieren
+        const { frames: frameImages, timestamps } = await extractFramesAsBase64(videoPlayer, 5);
+
+        if (frameImages.length === 0) {
+            throw new Error('Keine Frames extrahiert');
+        }
+
+        resultContainer.innerHTML = `
+            <div class="text-xs text-gray-400 text-center py-2">
+                <i class="fas fa-spinner fa-spin mr-1"></i>
+                Claude analysiert ${frameImages.length} Frames...
+            </div>
+        `;
+
+        // 2. Shot-Labels als Kontext sammeln
+        let shotLabels = [];
+        if (lastAnalysisResults?.shotAnalysis?.shots) {
+            shotLabels = lastAnalysisResults.shotAnalysis.shots.map(s => ({
+                type: s.shotType,
+                timestamp: s.timestamp,
+                confidence: s.confidence,
+            }));
+        }
+
+        // 3. Edge Function aufrufen
+        const { db } = context;
+        const supabaseUrl = db.supabaseUrl || db._supabaseUrl || '';
+
+        const response = await db.functions.invoke('analyze-video-ai', {
+            body: {
+                video_id: videoId,
+                frame_images: frameImages,
+                frame_timestamps: timestamps,
+                shot_labels: shotLabels,
+                player_name: context.playerName || null,
+                exercise_name: context.exerciseName || null,
+            },
+        });
+
+        if (response.error) {
+            throw new Error(response.error.message || 'Edge Function Fehler');
+        }
+
+        const data = response.data;
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // 4. Ergebnis anzeigen
+        renderTechniqueResult(resultContainer, data.result);
+
+    } catch (error) {
+        console.error('[AI Toolbar] Claude technique analysis error:', error);
+        resultContainer.innerHTML = `
+            <div class="text-xs text-red-400 text-center py-2">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                ${error.message || 'Analyse fehlgeschlagen'}
+                <p class="text-gray-500 mt-1">Stelle sicher dass ANTHROPIC_API_KEY konfiguriert ist.</p>
+            </div>
+        `;
+    } finally {
+        techniqueBtn.disabled = false;
+        techniqueBtn.innerHTML = '<i class="fas fa-brain"></i> <span>Detailanalyse (Claude)</span>';
+    }
+}
+
+/**
+ * Rendert das Claude-Technik-Analyse-Ergebnis.
+ */
+function renderTechniqueResult(container, result) {
+    if (!result) {
+        container.innerHTML = '<p class="text-xs text-gray-500">Kein Ergebnis</p>';
+        return;
+    }
+
+    const ratingColor = result.overall_rating >= 7 ? 'text-green-400'
+        : result.overall_rating >= 4 ? 'text-yellow-400'
+        : 'text-red-400';
+
+    const bodyParts = result.body_parts || {};
+    const bodyPartLabels = {
+        arm_technique: 'Armtechnik',
+        shoulder_rotation: 'Schulterrotation',
+        footwork: 'Beinarbeit',
+        body_posture: 'Körperhaltung',
+        racket_angle: 'Schlägerwinkel',
+    };
+
+    const bodyPartHtml = Object.entries(bodyPartLabels)
+        .map(([key, label]) => {
+            const bp = bodyParts[key];
+            if (!bp) return '';
+            const barWidth = (bp.rating / 10) * 100;
+            const barColor = bp.rating >= 7 ? 'bg-green-500'
+                : bp.rating >= 4 ? 'bg-yellow-500'
+                : 'bg-red-500';
+            return `
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs mb-0.5">
+                        <span class="text-gray-300">${label}</span>
+                        <span class="font-medium">${bp.rating}/10</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                        <div class="${barColor} h-1.5 rounded-full" style="width: ${barWidth}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">${bp.feedback}</p>
+                </div>
+            `;
+        }).join('');
+
+    const strengthsHtml = (result.strengths || [])
+        .map(s => `<li class="text-green-400"><i class="fas fa-check-circle mr-1"></i>${s}</li>`)
+        .join('');
+
+    const improvementsHtml = (result.improvements || [])
+        .map(s => `<li class="text-yellow-400"><i class="fas fa-arrow-up mr-1"></i>${s}</li>`)
+        .join('');
+
+    const drillsHtml = (result.drill_suggestions || [])
+        .map(s => `<li class="text-blue-400"><i class="fas fa-dumbbell mr-1"></i>${s}</li>`)
+        .join('');
+
+    container.innerHTML = `
+        <div class="border-t border-gray-700 pt-3">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-medium text-gray-300">
+                    <i class="fas fa-brain text-purple-400 mr-1"></i>Claude Technik-Analyse
+                </span>
+                <span class="text-lg font-bold ${ratingColor}">${result.overall_rating}/10</span>
+            </div>
+
+            <p class="text-xs text-gray-300 mb-3">${result.summary || ''}</p>
+
+            ${bodyPartHtml}
+
+            ${strengthsHtml ? `
+                <div class="mt-3">
+                    <span class="text-xs font-medium text-gray-400">Stärken:</span>
+                    <ul class="text-xs mt-1 space-y-0.5">${strengthsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${improvementsHtml ? `
+                <div class="mt-2">
+                    <span class="text-xs font-medium text-gray-400">Verbesserungen:</span>
+                    <ul class="text-xs mt-1 space-y-0.5">${improvementsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${drillsHtml ? `
+                <div class="mt-2">
+                    <span class="text-xs font-medium text-gray-400">Übungsempfehlungen:</span>
+                    <ul class="text-xs mt-1 space-y-0.5">${drillsHtml}</ul>
+                </div>
+            ` : ''}
+        </div>
+    `;
 }
 
 // Export für globalen Zugriff

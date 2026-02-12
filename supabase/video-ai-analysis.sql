@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS video_ai_analyses (
         'ball_tracking',         -- Ball-Tracking
         'match_analysis',        -- Match-Analyse (Fehler, Punkte)
         'movement_quality',      -- Bewegungsqualität (Balleimertraining)
-        'player_detection'       -- Spieler-Erkennung
+        'player_detection',      -- Spieler-Erkennung
+        'table_ball',            -- Tisch- und Ball-Erkennung
+        'table_calibration',     -- Manuelle Tisch-Kalibrierung
+        'claude_technique_analysis'  -- Claude Vision Technik-Analyse
     )),
 
     -- Status
