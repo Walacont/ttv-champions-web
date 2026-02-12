@@ -235,11 +235,7 @@ function detectTableByColor(videoElement) {
     const imageData = ctx.getImageData(0, 0, sw, sh);
     const data = imageData.data;
 
-    // Pixel als blau/grün/nichts klassifizieren via HSV
-    // TT-Tischfarben (ITTF: nur blau oder grün erlaubt):
-    //   Grün (inkl. Teal/Petrol): H=80-195, z.B. DONIC, Tibhar grün
-    //   Blau (reines Blau):       H=196-250, z.B. Butterfly, Cornilleau blau
-    // Strengere Filterung: höhere Sättigung, um Boden/Wände/Banden auszuschließen
+    // Pixel als blau/grün klassifizieren via HSV
     const mask = new Uint8Array(sw * sh); // 0=nothing, 1=blue, 2=green
 
     for (let i = 0; i < data.length; i += 4) {
@@ -248,11 +244,11 @@ function detectTableByColor(videoElement) {
         const l = (max + min) / 2;
         const d = max - min;
 
-        if (d < 15 || l < 30 || l > 200) continue; // Zu grau, zu dunkel oder zu hell
+        if (d < 15 || l < 25 || l > 210) continue;
 
         const denom = 255 - Math.abs(2 * l - 255);
         const s = denom > 0 ? d / denom : 0;
-        if (s < 0.25) continue; // Strengere Sättigung, filtert blasse Böden/Wände
+        if (s < 0.20) continue;
 
         let hue = 0;
         if (max === r) hue = ((g - b) / d) % 6;
@@ -261,13 +257,10 @@ function detectTableByColor(videoElement) {
         hue = ((hue * 60) + 360) % 360;
 
         const pIdx = i / 4;
-        // Blau: reines Blau ohne Grünstich (H: 196-250)
-        if (hue >= 196 && hue <= 250 && s > 0.3 && l > 30 && l < 180) {
+        if (hue >= 196 && hue <= 250 && s > 0.25 && l > 25 && l < 190) {
             mask[pIdx] = 1; // Blau
-        }
-        // Grün: alles von Grasgrün bis Teal/Petrol (H: 80-195)
-        else if (hue >= 80 && hue <= 195 && s > 0.25 && l > 25 && l < 170) {
-            mask[pIdx] = 2; // Grün (inkl. Teal)
+        } else if (hue >= 80 && hue <= 195 && s > 0.20 && l > 20 && l < 180) {
+            mask[pIdx] = 2; // Grün
         }
     }
 
@@ -283,18 +276,15 @@ function detectTableByColor(videoElement) {
     const dominantCount = Math.max(blueCount, greenCount);
     const colorName = dominantColor === 1 ? 'blue' : 'green';
 
-    // Min 1% der Pixel müssen die Tischfarbe haben
-    if (dominantCount / totalPixels < 0.01) return null;
+    if (dominantCount / totalPixels < 0.005) return null;
 
-    // ===== Grid-basierte Dichte-Analyse statt einfache Bounding Box =====
-    // Teile das Bild in Zellen und finde den dichtesten Bereich
-    const cellW = Math.max(4, Math.round(sw / 20));
-    const cellH = Math.max(4, Math.round(sh / 15));
+    // ===== Grid + Multi-Cluster mit Scoring =====
+    const cellW = Math.max(4, Math.round(sw / 24));
+    const cellH = Math.max(4, Math.round(sh / 18));
     const gridW = Math.ceil(sw / cellW);
     const gridH = Math.ceil(sh / cellH);
     const grid = new Float32Array(gridW * gridH);
 
-    // Dichte pro Zelle berechnen
     for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
             if (mask[y * sw + x] === dominantColor) {
@@ -305,24 +295,21 @@ function detectTableByColor(videoElement) {
         }
     }
 
-    // Normalisiere Dichte (0-1 pro Zelle)
     const maxCellPixels = cellW * cellH;
     for (let i = 0; i < grid.length; i++) {
         grid[i] /= maxCellPixels;
     }
 
-    // Finde den dichtesten zusammenhängenden Bereich via Schwellwert + BFS
-    const densityThreshold = 0.15; // Mindestens 15% der Zelle gefärbt
+    // Finde ALLE Cluster via BFS
+    const densityThreshold = 0.12;
     const visited = new Uint8Array(gridW * gridH);
-    let bestCluster = null;
-    let bestClusterSize = 0;
+    const allClusters = [];
 
     for (let gy = 0; gy < gridH; gy++) {
         for (let gx = 0; gx < gridW; gx++) {
             const idx = gy * gridW + gx;
             if (visited[idx] || grid[idx] < densityThreshold) continue;
 
-            // BFS um zusammenhängende dichte Zellen zu finden
             const queue = [[gx, gy]];
             visited[idx] = 1;
             let cMinX = gx, cMaxX = gx, cMinY = gy, cMaxY = gy;
@@ -331,15 +318,13 @@ function detectTableByColor(videoElement) {
 
             while (queue.length > 0) {
                 const [cx, cy] = queue.shift();
-                const cIdx = cy * gridW + cx;
-                clusterDensity += grid[cIdx];
+                clusterDensity += grid[cy * gridW + cx];
                 clusterSize++;
                 if (cx < cMinX) cMinX = cx;
                 if (cx > cMaxX) cMaxX = cx;
                 if (cy < cMinY) cMinY = cy;
                 if (cy > cMaxY) cMaxY = cy;
 
-                // 4-Nachbarn
                 for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
                     const nx = cx + dx, ny = cy + dy;
                     if (nx < 0 || nx >= gridW || ny < 0 || ny >= gridH) continue;
@@ -350,55 +335,119 @@ function detectTableByColor(videoElement) {
                 }
             }
 
-            if (clusterSize > bestClusterSize) {
-                bestClusterSize = clusterSize;
-                bestCluster = { cMinX, cMaxX, cMinY, cMaxY, clusterDensity, clusterSize };
+            // Mindestens 3 Zellen
+            if (clusterSize >= 3) {
+                allClusters.push({ cMinX, cMaxX, cMinY, cMaxY, clusterDensity, clusterSize });
             }
         }
     }
 
-    if (!bestCluster) return null;
+    if (allClusters.length === 0) return null;
 
-    // Pixelkoordinaten aus Grid-Koordinaten
-    let minX = bestCluster.cMinX * cellW;
-    let minY = bestCluster.cMinY * cellH;
-    let maxX = Math.min(sw, (bestCluster.cMaxX + 1) * cellW);
-    let maxY = Math.min(sh, (bestCluster.cMaxY + 1) * cellH);
+    // Für jeden Cluster: exakte Pixel-Box berechnen und nach Tisch-Eigenschaften bewerten
+    let bestResult = null;
+    let bestScore = -Infinity;
 
-    // Verfeinere: exakte Bounding Box innerhalb des Cluster-Bereichs
-    let fMinX = maxX, fMinY = maxY, fMaxX = minX, fMaxY = minY;
-    for (let y = minY; y < maxY; y++) {
-        for (let x = minX; x < maxX; x++) {
-            if (mask[y * sw + x] === dominantColor) {
-                if (x < fMinX) fMinX = x;
-                if (x > fMaxX) fMaxX = x;
-                if (y < fMinY) fMinY = y;
-                if (y > fMaxY) fMaxY = y;
+    for (const cluster of allClusters) {
+        const pxMinX = cluster.cMinX * cellW;
+        const pxMinY = cluster.cMinY * cellH;
+        const pxMaxX = Math.min(sw, (cluster.cMaxX + 1) * cellW);
+        const pxMaxY = Math.min(sh, (cluster.cMaxY + 1) * cellH);
+
+        // Exakte Bounding Box innerhalb des Clusters
+        let fMinX = pxMaxX, fMinY = pxMaxY, fMaxX = pxMinX, fMaxY = pxMinY;
+        let filledPixels = 0;
+        for (let y = pxMinY; y < pxMaxY; y++) {
+            for (let x = pxMinX; x < pxMaxX; x++) {
+                if (mask[y * sw + x] === dominantColor) {
+                    filledPixels++;
+                    if (x < fMinX) fMinX = x;
+                    if (x > fMaxX) fMaxX = x;
+                    if (y < fMinY) fMinY = y;
+                    if (y > fMaxY) fMaxY = y;
+                }
             }
+        }
+
+        const boxW = fMaxX - fMinX;
+        const boxH = fMaxY - fMinY;
+        if (boxW < sw * 0.06 || boxH < sh * 0.015) continue;
+
+        const aspectRatio = boxW / Math.max(1, boxH);
+        const areaRatio = (boxW * boxH) / (sw * sh);
+        const fillRatio = filledPixels / Math.max(1, boxW * boxH);
+
+        // Tisch-Scoring: höher = wahrscheinlicher ein TT-Tisch
+        let score = 0;
+
+        // 1. Seitenverhältnis: TT-Tisch ≈ 2.74:1 (Kamera: ~1.5 bis 5)
+        //    Quadratische Objekte (Matten!) bekommen Abzug
+        if (aspectRatio >= 1.5 && aspectRatio <= 6.0) {
+            // Bonus: je näher an 2.74, desto besser
+            const arDist = Math.abs(aspectRatio - 2.74);
+            score += Math.max(0, 30 - arDist * 8);
+        } else if (aspectRatio >= 1.2 && aspectRatio < 1.5) {
+            score += 5; // Leicht breit, könnte Perspektive sein
+        } else {
+            score -= 20; // Quadratisch oder hochkant = kein Tisch
+        }
+
+        // 2. Füllgrad: Tisch ist ein gefülltes Rechteck (>30%)
+        //    Unregelmäßige Formen (Wände, verstreute Pixel) haben niedrigen Füllgrad
+        if (fillRatio > 0.25) {
+            score += fillRatio * 25;
+        } else {
+            score -= 10;
+        }
+
+        // 3. Position: Tisch steht typisch in der Mitte oder unteren Hälfte
+        const centerY = (fMinY + fMaxY) / 2 / sh;
+        const centerX = (fMinX + fMaxX) / 2 / sw;
+        // Vertikale Mitte bevorzugen (0.3 - 0.8)
+        if (centerY >= 0.3 && centerY <= 0.8) {
+            score += 15;
+        } else if (centerY >= 0.2 && centerY <= 0.9) {
+            score += 5;
+        }
+        // Horizontale Mitte bevorzugen
+        if (centerX >= 0.2 && centerX <= 0.8) {
+            score += 10;
+        }
+
+        // 4. Größe: Tisch nimmt typisch 5-40% des Bildes ein
+        if (areaRatio >= 0.03 && areaRatio <= 0.35) {
+            score += 15;
+        } else if (areaRatio > 0.35 && areaRatio <= 0.50) {
+            score += 5;
+        } else if (areaRatio > 0.50) {
+            score -= 20; // Viel zu groß
+        }
+
+        // 5. Dichte des Clusters (mittlere Zelldichte)
+        const avgDensity = cluster.clusterDensity / cluster.clusterSize;
+        score += avgDensity * 10;
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestResult = {
+                x: fMinX / sw,
+                y: fMinY / sh,
+                width: boxW / sw,
+                height: boxH / sh,
+                color: colorName,
+                pixelRatio: dominantCount / totalPixels,
+                _score: score,
+                _aspect: aspectRatio,
+                _fill: fillRatio,
+                _area: areaRatio
+            };
         }
     }
 
-    const boxW = fMaxX - fMinX;
-    const boxH = fMaxY - fMinY;
-    if (boxW < sw * 0.08 || boxH < sh * 0.02) return null;
+    // Mindest-Score: unter 15 ist es wahrscheinlich kein Tisch
+    if (!bestResult || bestScore < 15) return null;
 
-    // Seitenverhältnis-Check: TT-Tisch ist ca. 2.74:1 (274cm x 152.5cm)
-    // Aus der Kameraperspektive kann das variieren (1.5:1 bis 5:1 akzeptabel)
-    const aspectRatio = boxW / Math.max(1, boxH);
-    if (aspectRatio < 1.0 || aspectRatio > 8.0) return null;
-
-    // Box darf nicht mehr als 70% des Bildes einnehmen (Tisch ist nicht so groß)
-    const areaRatio = (boxW * boxH) / (sw * sh);
-    if (areaRatio > 0.55) return null;
-
-    return {
-        x: fMinX / sw,
-        y: fMinY / sh,
-        width: boxW / sw,
-        height: boxH / sh,
-        color: colorName,
-        pixelRatio: dominantCount / totalPixels
-    };
+    return bestResult;
 }
 
 /**
@@ -480,14 +529,32 @@ function detectBallByColor(videoElement, tableBox) {
                 }
             }
 
-            // Ball: 3-20 Pixel im 5x5 Fenster (nicht zu wenig = Rauschen, nicht zu viel = große Fläche)
-            if (neighborCount >= 3 && neighborCount <= 20) {
-                candidates.push({
-                    x: x / sw,
-                    y: y / sh,
-                    score: Math.min(1, neighborCount / 12)
-                });
+            // Ball: 3-15 Pixel im 5x5 Fenster (nicht zu wenig = Rauschen, nicht zu viel = große Fläche)
+            if (neighborCount < 3 || neighborCount > 15) continue;
+
+            // Kontrast-Check: Der Ball muss sich von der Umgebung abheben
+            // Prüfe 9x9 Ring (äußere Pixel) - dort sollte es deutlich dunkler sein
+            let ringDark = 0, ringTotal = 0;
+            for (let dy = -4; dy <= 4; dy++) {
+                for (let dx = -4; dx <= 4; dx++) {
+                    if (Math.abs(dy) < 3 && Math.abs(dx) < 3) continue; // Inneren Bereich überspringen
+                    const ny2 = y + dy, nx2 = x + dx;
+                    if (ny2 < 0 || ny2 >= sh || nx2 < 0 || nx2 >= sw) continue;
+                    const ni = (ny2 * sw + nx2) * 4;
+                    const nr = data[ni], ng = data[ni + 1], nb = data[ni + 2];
+                    const brightness = (nr + ng + nb) / 3;
+                    ringTotal++;
+                    if (brightness < 160) ringDark++;
+                }
             }
+            // Mindestens 50% der Ring-Pixel müssen deutlich dunkler sein
+            if (ringTotal > 0 && ringDark / ringTotal < 0.5) continue;
+
+            candidates.push({
+                x: x / sw,
+                y: y / sh,
+                score: Math.min(1, neighborCount / 10)
+            });
         }
     }
 
@@ -521,8 +588,9 @@ function detectBallByColor(videoElement, tableBox) {
         });
     }
 
-    // Top 3 Kandidaten nach Score
-    return clusters.sort((a, b) => b.score - a.score).slice(0, 3);
+    // Nur bester Kandidat pro Frame (reduziert False Positives)
+    clusters.sort((a, b) => b.score - a.score);
+    return clusters.length > 0 ? [clusters[0]] : [];
 }
 
 /**
