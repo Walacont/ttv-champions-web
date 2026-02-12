@@ -2503,6 +2503,10 @@
                                         data-video-tab="all">
                                     Alle Videos
                                 </button>
+                                <button class="video-sub-tab whitespace-nowrap py-3 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700"
+                                        data-video-tab="stats">
+                                    <i class="fas fa-chart-bar mr-1"></i>Statistiken
+                                </button>
                             </nav>
                         </div>
 
@@ -2516,6 +2520,69 @@
                         <div id="video-tab-all" class="video-tab-content hidden">
                             <div id="video-analysis-all">
                                 <!-- Wird dynamisch gefüllt -->
+                            </div>
+                        </div>
+
+                        <div id="video-tab-stats" class="video-tab-content hidden">
+                            <div id="video-stats-container">
+                                <!-- Spieler-Filter -->
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+                                    <div class="flex items-center gap-2">
+                                        <label for="stats-player-filter" class="text-sm font-medium text-gray-700">Spieler:</label>
+                                        <select id="stats-player-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                            <option value="all">Alle Spieler</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <label for="stats-time-filter" class="text-sm font-medium text-gray-700">Zeitraum:</label>
+                                        <select id="stats-time-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                            <option value="all">Gesamt</option>
+                                            <option value="30">Letzte 30 Tage</option>
+                                            <option value="90">Letzte 90 Tage</option>
+                                            <option value="180">Letzte 6 Monate</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Übersichtskarten -->
+                                <div id="stats-summary-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                                    <!-- Wird dynamisch gefüllt -->
+                                </div>
+
+                                <!-- Charts -->
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                    <!-- VH vs. RH Verteilung -->
+                                    <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Vorhand vs. Rückhand</h4>
+                                        <div class="relative" style="height: 220px;">
+                                            <canvas id="stats-vh-rh-chart"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <!-- Schlagtypen -->
+                                    <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                                        <h4 class="text-sm font-semibold text-gray-700 mb-3">Schlagtypen</h4>
+                                        <div class="relative" style="height: 220px;">
+                                            <canvas id="stats-shot-types-chart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Zeitverlauf -->
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Schlagverteilung über Zeit</h4>
+                                    <div class="relative" style="height: 250px;">
+                                        <canvas id="stats-timeline-chart"></canvas>
+                                    </div>
+                                </div>
+
+                                <!-- Detaillierte Tabelle -->
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Schlagdetails</h4>
+                                    <div id="stats-detail-table" class="overflow-x-auto">
+                                        <!-- Wird dynamisch gefüllt -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2662,12 +2729,27 @@
                         <div class="flex-1 overflow-y-auto">
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-3 sm:p-6">
                                 <!-- Video Player -->
-                                <div id="video-player-container">
+                                <div id="video-player-container" class="order-1">
                                     <!-- Video wird dynamisch eingefügt -->
                                 </div>
 
+                                <!-- Erkannte Schläge (per Video) -->
+                                <div id="video-shot-stats" class="hidden lg:col-span-2 order-2">
+                                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="font-bold text-gray-800 text-sm">
+                                                <i class="fas fa-table-tennis mr-1 text-indigo-500"></i>Erkannte Schläge
+                                            </h4>
+                                            <span id="video-shot-total" class="text-xs text-gray-500"></span>
+                                        </div>
+                                        <div id="video-shot-stats-content" class="flex flex-wrap gap-2">
+                                            <!-- Wird dynamisch gefüllt -->
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Kommentare -->
-                                <div class="flex flex-col">
+                                <div class="flex flex-col order-3">
                                     <h4 class="font-bold text-gray-800 mb-4">Kommentare & Feedback</h4>
 
                                     <!-- Kommentar-Eingabe -->

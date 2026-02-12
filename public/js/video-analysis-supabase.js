@@ -295,6 +295,9 @@ function setupVideoSubTabs() {
                 case 'all':
                     loadAllVideos();
                     break;
+                case 'stats':
+                    loadShotStatistics();
+                    break;
             }
         });
     });
@@ -666,6 +669,9 @@ async function openVideoDetailModal(videoId) {
 
     // Realtime-Subscription für Kommentare
     subscribeToComments(videoId);
+
+    // Schlagstatistik für dieses Video laden
+    loadVideoShotStats(videoId);
 }
 
 /**
@@ -2378,6 +2384,477 @@ export async function openExerciseExamplesModal(exerciseId) {
     }
 }
 
+// ============================================
+// SCHLAGSTATISTIKEN (Phase 0A)
+// ============================================
+
+// Chart-Instanzen für Cleanup
+let vhRhChart = null;
+let shotTypesChart = null;
+let timelineChart = null;
+
+// Schlagtyp-Labels und Farben
+const SHOT_TYPE_LABELS = {
+    forehand_serve: 'VH Aufschlag',
+    backhand_serve: 'RH Aufschlag',
+    forehand_topspin: 'VH Topspin',
+    backhand_topspin: 'RH Topspin',
+    forehand_push: 'VH Schupf',
+    backhand_push: 'RH Schupf',
+    forehand_block: 'VH Block',
+    backhand_block: 'RH Block',
+    other: 'Sonstige',
+};
+
+const SHOT_TYPE_COLORS = {
+    forehand_serve: '#6366f1',    // Indigo
+    backhand_serve: '#8b5cf6',    // Violet
+    forehand_topspin: '#ef4444',  // Rot
+    backhand_topspin: '#f97316',  // Orange
+    forehand_push: '#22c55e',     // Grün
+    backhand_push: '#14b8a6',     // Teal
+    forehand_block: '#3b82f6',    // Blau
+    backhand_block: '#06b6d4',    // Cyan
+    other: '#9ca3af',             // Grau
+};
+
+/**
+ * Lädt und rendert die Schlagstatistiken
+ */
+async function loadShotStatistics() {
+    const { db, clubId, clubPlayers } = videoAnalysisContext;
+    const container = document.getElementById('video-stats-container');
+    if (!container) return;
+
+    // Spieler-Filter befüllen
+    const playerFilter = document.getElementById('stats-player-filter');
+    if (playerFilter && playerFilter.options.length <= 1) {
+        const playersOnly = clubPlayers.filter(p => p.role === 'player');
+        playersOnly.forEach(p => {
+            const name = p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
+            if (name) {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = name;
+                playerFilter.appendChild(option);
+            }
+        });
+
+        // Event-Listener für Filter
+        playerFilter.addEventListener('change', () => loadShotStatistics());
+        const timeFilter = document.getElementById('stats-time-filter');
+        if (timeFilter) timeFilter.addEventListener('change', () => loadShotStatistics());
+    }
+
+    const selectedPlayer = playerFilter?.value || 'all';
+    const selectedTime = document.getElementById('stats-time-filter')?.value || 'all';
+
+    // Labels aus der Datenbank laden
+    let query = db
+        .from('video_labels')
+        .select('shot_type, shot_quality, is_verified, created_at, player_id, video_id, timestamp_start')
+        .eq('club_id', clubId)
+        .not('shot_type', 'is', null)
+        .eq('event_type', 'shot');
+
+    if (selectedPlayer !== 'all') {
+        query = query.eq('player_id', selectedPlayer);
+    }
+
+    if (selectedTime !== 'all') {
+        const daysAgo = new Date();
+        daysAgo.setDate(daysAgo.getDate() - parseInt(selectedTime));
+        query = query.gte('created_at', daysAgo.toISOString());
+    }
+
+    const { data: labels, error } = await query.order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Fehler beim Laden der Schlagstatistiken:', error);
+        renderStatsEmpty(container);
+        return;
+    }
+
+    if (!labels || labels.length === 0) {
+        renderStatsEmpty(container);
+        return;
+    }
+
+    // Statistiken berechnen
+    const stats = computeShotStats(labels);
+    renderStatsSummary(stats);
+    renderVhRhChart(stats);
+    renderShotTypesChart(stats);
+    renderTimelineChart(labels);
+    renderStatsDetailTable(stats);
+}
+
+/**
+ * Berechnet die Schlagstatistiken aus Labels
+ */
+function computeShotStats(labels) {
+    const byType = {};
+    let totalVh = 0;
+    let totalRh = 0;
+    let totalVerified = 0;
+
+    labels.forEach(l => {
+        const type = l.shot_type;
+        if (!byType[type]) {
+            byType[type] = { count: 0, verified: 0, qualities: [] };
+        }
+        byType[type].count++;
+        if (l.is_verified) {
+            byType[type].verified++;
+            totalVerified++;
+        }
+        if (l.shot_quality) {
+            byType[type].qualities.push(l.shot_quality);
+        }
+
+        if (type.startsWith('forehand')) totalVh++;
+        else if (type.startsWith('backhand')) totalRh++;
+    });
+
+    return {
+        total: labels.length,
+        totalVh,
+        totalRh,
+        totalVerified,
+        byType,
+        videoCount: new Set(labels.map(l => l.video_id)).size,
+    };
+}
+
+/**
+ * Zeigt leeren Zustand
+ */
+function renderStatsEmpty() {
+    const cards = document.getElementById('stats-summary-cards');
+    if (cards) cards.innerHTML = '';
+
+    // Charts aufräumen
+    if (vhRhChart) { vhRhChart.destroy(); vhRhChart = null; }
+    if (shotTypesChart) { shotTypesChart.destroy(); shotTypesChart = null; }
+    if (timelineChart) { timelineChart.destroy(); timelineChart = null; }
+
+    const table = document.getElementById('stats-detail-table');
+    if (table) {
+        table.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-chart-bar text-4xl mb-3 text-gray-300"></i>
+                <p class="font-medium">Noch keine Schlagdaten vorhanden</p>
+                <p class="text-sm mt-1">Labels können im <a href="label.html" class="text-indigo-600 hover:underline">Labeler</a> erstellt werden.</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Rendert Übersichtskarten
+ */
+function renderStatsSummary(stats) {
+    const cards = document.getElementById('stats-summary-cards');
+    if (!cards) return;
+
+    const avgQuality = (() => {
+        const allQualities = [];
+        Object.values(stats.byType).forEach(t => allQualities.push(...t.qualities));
+        if (allQualities.length === 0) return '-';
+        return (allQualities.reduce((a, b) => a + b, 0) / allQualities.length).toFixed(1);
+    })();
+
+    cards.innerHTML = `
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-indigo-600">${stats.total}</div>
+            <div class="text-xs text-gray-500 mt-1">Schläge gesamt</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-green-600">${stats.videoCount}</div>
+            <div class="text-xs text-gray-500 mt-1">Videos analysiert</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-blue-600">${stats.totalVerified}</div>
+            <div class="text-xs text-gray-500 mt-1">Verifiziert</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-center">
+            <div class="text-2xl font-bold text-yellow-600">${avgQuality}</div>
+            <div class="text-xs text-gray-500 mt-1">Ø Qualität</div>
+        </div>
+    `;
+}
+
+/**
+ * VH vs. RH Doughnut-Chart
+ */
+function renderVhRhChart(stats) {
+    const ctx = document.getElementById('stats-vh-rh-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (vhRhChart) vhRhChart.destroy();
+
+    const vhPct = stats.total > 0 ? Math.round(stats.totalVh / stats.total * 100) : 0;
+    const rhPct = stats.total > 0 ? Math.round(stats.totalRh / stats.total * 100) : 0;
+
+    vhRhChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [`Vorhand (${vhPct}%)`, `Rückhand (${rhPct}%)`],
+            datasets: [{
+                data: [stats.totalVh, stats.totalRh],
+                backgroundColor: ['#ef4444', '#3b82f6'],
+                borderWidth: 2,
+                borderColor: '#ffffff',
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { size: 12 }, padding: 16 },
+                },
+            },
+        },
+    });
+}
+
+/**
+ * Schlagtypen Balkendiagramm
+ */
+function renderShotTypesChart(stats) {
+    const ctx = document.getElementById('stats-shot-types-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (shotTypesChart) shotTypesChart.destroy();
+
+    const types = Object.keys(stats.byType).sort((a, b) => stats.byType[b].count - stats.byType[a].count);
+    const labels = types.map(t => SHOT_TYPE_LABELS[t] || t);
+    const data = types.map(t => stats.byType[t].count);
+    const colors = types.map(t => SHOT_TYPE_COLORS[t] || '#9ca3af');
+
+    shotTypesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderRadius: 4,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1 } },
+                y: { ticks: { font: { size: 11 } } },
+            },
+        },
+    });
+}
+
+/**
+ * Zeitverlauf-Chart: Schlagverteilung pro Woche
+ */
+function renderTimelineChart(labels) {
+    const ctx = document.getElementById('stats-timeline-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (timelineChart) timelineChart.destroy();
+
+    // Labels nach Woche gruppieren
+    const weekMap = {};
+    labels.forEach(l => {
+        const d = new Date(l.created_at);
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay() + 1); // Montag
+        const key = weekStart.toISOString().slice(0, 10);
+
+        if (!weekMap[key]) {
+            weekMap[key] = { vh: 0, rh: 0 };
+        }
+        if (l.shot_type.startsWith('forehand')) weekMap[key].vh++;
+        else if (l.shot_type.startsWith('backhand')) weekMap[key].rh++;
+    });
+
+    const weeks = Object.keys(weekMap).sort();
+    const weekLabels = weeks.map(w => {
+        const d = new Date(w);
+        return `KW ${getISOWeekNumber(d)}`;
+    });
+
+    timelineChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: weekLabels,
+            datasets: [
+                {
+                    label: 'Vorhand',
+                    data: weeks.map(w => weekMap[w].vh),
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderRadius: 3,
+                },
+                {
+                    label: 'Rückhand',
+                    data: weeks.map(w => weekMap[w].rh),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderRadius: 3,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { size: 12 }, padding: 16 },
+                },
+            },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } },
+            },
+        },
+    });
+}
+
+/**
+ * ISO Wochennummer berechnen
+ */
+function getISOWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
+
+/**
+ * Detail-Tabelle mit allen Schlagtypen
+ */
+function renderStatsDetailTable(stats) {
+    const container = document.getElementById('stats-detail-table');
+    if (!container) return;
+
+    const types = Object.keys(stats.byType).sort((a, b) => stats.byType[b].count - stats.byType[a].count);
+
+    if (types.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Keine Daten</p>';
+        return;
+    }
+
+    const rows = types.map(type => {
+        const t = stats.byType[type];
+        const avgQ = t.qualities.length > 0
+            ? (t.qualities.reduce((a, b) => a + b, 0) / t.qualities.length).toFixed(1)
+            : '-';
+        const pct = stats.total > 0 ? Math.round(t.count / stats.total * 100) : 0;
+        const color = SHOT_TYPE_COLORS[type] || '#9ca3af';
+
+        return `
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-3">
+                    <span class="inline-block w-3 h-3 rounded-full mr-2" style="background:${color}"></span>
+                    <span class="text-sm font-medium">${SHOT_TYPE_LABELS[type] || type}</span>
+                </td>
+                <td class="py-2 px-3 text-sm text-right">${t.count}</td>
+                <td class="py-2 px-3 text-sm text-right text-gray-500">${pct}%</td>
+                <td class="py-2 px-3 text-sm text-right">${t.verified}/${t.count}</td>
+                <td class="py-2 px-3 text-sm text-right">${avgQ}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="w-full">
+            <thead>
+                <tr class="text-xs text-gray-500 border-b border-gray-200">
+                    <th class="py-2 px-3 text-left font-medium">Schlagtyp</th>
+                    <th class="py-2 px-3 text-right font-medium">Anzahl</th>
+                    <th class="py-2 px-3 text-right font-medium">Anteil</th>
+                    <th class="py-2 px-3 text-right font-medium">Verifiziert</th>
+                    <th class="py-2 px-3 text-right font-medium">Ø Qualität</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+/**
+ * Lädt und zeigt Schlagstatistik für ein einzelnes Video im Detail-Modal
+ */
+async function loadVideoShotStats(videoId) {
+    const { db, clubId } = videoAnalysisContext;
+    const container = document.getElementById('video-shot-stats');
+    const content = document.getElementById('video-shot-stats-content');
+    const total = document.getElementById('video-shot-total');
+    if (!container || !content) return;
+
+    const { data: labels, error } = await db
+        .from('video_labels')
+        .select('shot_type, timestamp_start, is_verified')
+        .eq('video_id', videoId)
+        .eq('club_id', clubId)
+        .not('shot_type', 'is', null)
+        .eq('event_type', 'shot')
+        .order('timestamp_start', { ascending: true });
+
+    if (error || !labels || labels.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    if (total) total.textContent = `${labels.length} Schläge erkannt`;
+
+    // Schläge gruppieren
+    const byType = {};
+    labels.forEach(l => {
+        if (!byType[l.shot_type]) byType[l.shot_type] = [];
+        byType[l.shot_type].push(l);
+    });
+
+    // Als klickbare Badges rendern
+    const badges = Object.entries(byType)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([type, items]) => {
+            const color = SHOT_TYPE_COLORS[type] || '#9ca3af';
+            const label = SHOT_TYPE_LABELS[type] || type;
+            return `
+                <button class="video-shot-badge inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white transition-opacity hover:opacity-80"
+                        style="background:${color}"
+                        data-shot-type="${type}"
+                        data-timestamps='${JSON.stringify(items.map(i => i.timestamp_start))}'>
+                    ${items.length}x ${label}
+                </button>
+            `;
+        }).join('');
+
+    content.innerHTML = badges;
+
+    // Klick auf Badge → springt zur ersten Stelle im Video
+    content.querySelectorAll('.video-shot-badge').forEach(badge => {
+        badge.addEventListener('click', () => {
+            const timestamps = JSON.parse(badge.dataset.timestamps);
+            if (timestamps.length > 0 && videoPlayer) {
+                // Zum nächsten Timestamp springen (zykl.)
+                const currentTime = videoPlayer.currentTime;
+                const next = timestamps.find(t => t > currentTime + 0.5) || timestamps[0];
+                videoPlayer.currentTime = next;
+                videoPlayer.play();
+            }
+        });
+    });
+}
+
 // Export für globalen Zugriff
 window.videoAnalysis = {
     loadPendingVideos,
@@ -2388,4 +2865,5 @@ window.videoAnalysis = {
     initExampleVideos,
     openAddExampleForVideoModal,
     openExerciseExamplesModal,
+    loadShotStatistics,
 };
