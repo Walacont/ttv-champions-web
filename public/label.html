@@ -483,7 +483,7 @@
 
     <script type="module">
         import { getSupabase } from './js/supabase-init.js';
-        import { isAIAvailable, loadModels, analyzeFrameRange, analyzeTableAndBall, POSE_LANDMARKS, POSE_CONNECTIONS } from './js/video-ai-engine.js';
+        import { isAIAvailable, loadModels, analyzeFrameRange, analyzeTableAndBall, saveTableBallResults, loadTableBallResults, POSE_LANDMARKS, POSE_CONNECTIONS } from './js/video-ai-engine.js';
         import { classifyShots } from './js/video-ai-shot-classifier.js';
 
         let supabase;
@@ -1026,9 +1026,41 @@
             // Canvas-Overlay initialisieren
             overlayCanvas = document.getElementById('video-overlay');
             overlayCtx = overlayCanvas.getContext('2d');
-            videoPlayer.addEventListener('loadedmetadata', () => {
+            videoPlayer.addEventListener('loadedmetadata', async () => {
                 overlayCanvas.width = videoPlayer.videoWidth;
                 overlayCanvas.height = videoPlayer.videoHeight;
+
+                // Gespeicherte Tisch/Ball-Daten aus DB laden
+                try {
+                    const saved = await loadTableBallResults(supabase, video.id);
+                    if (saved) {
+                        if (saved.table) {
+                            aiTableBox = saved.table;
+                            console.log('[AI] Tisch aus DB geladen:', aiTableBox.color);
+                        }
+                        if (saved.ballTrack && saved.ballTrack.length > 0) {
+                            aiBallTrack = saved.ballTrack;
+                            console.log('[AI] Ball-Track aus DB geladen:', aiBallTrack.length, 'Positionen');
+                        }
+                        // Info-Bereich aktualisieren falls Daten vorhanden
+                        if (aiTableBox || aiBallTrack.length > 0) {
+                            const infoDiv = document.getElementById('ai-table-ball-info');
+                            const tableInfo = document.getElementById('ai-table-info');
+                            const ballInfo = document.getElementById('ai-ball-info');
+                            infoDiv.classList.remove('hidden');
+                            if (aiTableBox) {
+                                const colorLabel = aiTableBox.color === 'blue' ? 'blauer' : aiTableBox.color === 'green' ? 'grüner' : '';
+                                tableInfo.innerHTML = `<i class="fas fa-database text-blue-400"></i> <strong>${colorLabel} Tisch</strong> (aus gespeicherter Analyse)`;
+                            }
+                            if (aiBallTrack.length > 0) {
+                                const frames = new Set(aiBallTrack.map(b => Math.round(b.time * 10))).size;
+                                ballInfo.innerHTML = `<i class="fas fa-database text-blue-400"></i> <strong>Ball-Track</strong> ${frames} Frames (aus gespeicherter Analyse)`;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[AI] Could not load saved table/ball data:', e);
+                }
             });
 
             renderShotsList();
@@ -1927,7 +1959,15 @@
                 }
 
                 renderTimeline();
-                showToast('Tisch- & Ballerkennung abgeschlossen', 'success');
+
+                // Ergebnisse in DB speichern (alte werden automatisch gelöscht)
+                try {
+                    await saveTableBallResults(supabase, currentVideo.id, currentUser.id, aiTableBox, aiBallTrack);
+                    showToast('Tisch- & Ballerkennung abgeschlossen und gespeichert', 'success');
+                } catch (saveErr) {
+                    console.warn('Could not save table/ball results to DB:', saveErr);
+                    showToast('Tisch- & Ballerkennung abgeschlossen (nicht gespeichert)', 'success');
+                }
 
             } catch (error) {
                 console.error('Table/Ball detection error:', error);

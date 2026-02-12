@@ -257,28 +257,35 @@ function detectTableByColor(videoElement) {
         hue = ((hue * 60) + 360) % 360;
 
         const pIdx = i / 4;
-        if (hue >= 196 && hue <= 250 && s > 0.25 && l > 25 && l < 190) {
-            mask[pIdx] = 1; // Blau
-        } else if (hue >= 80 && hue <= 195 && s > 0.20 && l > 20 && l < 180) {
-            mask[pIdx] = 2; // Grün
+        // Blau: reines Blau (H: 210-250) - eindeutig blau
+        if (hue >= 210 && hue <= 250 && s > 0.25 && l > 25 && l < 190) {
+            mask[pIdx] = 1;
+        }
+        // Grün: Grasgrün bis Teal/Petrol (H: 80-185)
+        else if (hue >= 80 && hue <= 185 && s > 0.20 && l > 20 && l < 180) {
+            mask[pIdx] = 2;
+        }
+        // Übergangszone Teal (H: 185-210): zähle als beides, wird pro Cluster entschieden
+        else if (hue > 185 && hue < 210 && s > 0.20 && l > 20 && l < 190) {
+            // Speichere als Teal (3), wird später dem passenden Cluster zugeordnet
+            mask[pIdx] = 3;
         }
     }
 
-    // Zähle Blau vs Grün
-    let blueCount = 0, greenCount = 0;
+    // Zähle Blau vs Grün (ohne Teal)
+    let blueCount = 0, greenCount = 0, tealCount = 0;
     for (let i = 0; i < mask.length; i++) {
         if (mask[i] === 1) blueCount++;
         else if (mask[i] === 2) greenCount++;
+        else if (mask[i] === 3) tealCount++;
     }
 
     const totalPixels = sw * sh;
-    const dominantColor = blueCount >= greenCount ? 1 : 2;
-    const dominantCount = Math.max(blueCount, greenCount);
-    const colorName = dominantColor === 1 ? 'blue' : 'green';
-
-    if (dominantCount / totalPixels < 0.005) return null;
+    const totalColored = blueCount + greenCount + tealCount;
+    if (totalColored / totalPixels < 0.005) return null;
 
     // ===== Grid + Multi-Cluster mit Scoring =====
+    // Grid trackt alle Farben (blau + grün + teal)
     const cellW = Math.max(4, Math.round(sw / 24));
     const cellH = Math.max(4, Math.round(sh / 18));
     const gridW = Math.ceil(sw / cellW);
@@ -287,7 +294,7 @@ function detectTableByColor(videoElement) {
 
     for (let y = 0; y < sh; y++) {
         for (let x = 0; x < sw; x++) {
-            if (mask[y * sw + x] === dominantColor) {
+            if (mask[y * sw + x] > 0) { // Alle Farben (blau, grün, teal)
                 const gx = Math.min(gridW - 1, Math.floor(x / cellW));
                 const gy = Math.min(gridH - 1, Math.floor(y / cellH));
                 grid[gy * gridW + gx]++;
@@ -354,13 +361,18 @@ function detectTableByColor(videoElement) {
         const pxMaxX = Math.min(sw, (cluster.cMaxX + 1) * cellW);
         const pxMaxY = Math.min(sh, (cluster.cMaxY + 1) * cellH);
 
-        // Exakte Bounding Box innerhalb des Clusters
+        // Exakte Bounding Box innerhalb des Clusters + Farbe bestimmen
         let fMinX = pxMaxX, fMinY = pxMaxY, fMaxX = pxMinX, fMaxY = pxMinY;
         let filledPixels = 0;
+        let cBlue = 0, cGreen = 0, cTeal = 0;
         for (let y = pxMinY; y < pxMaxY; y++) {
             for (let x = pxMinX; x < pxMaxX; x++) {
-                if (mask[y * sw + x] === dominantColor) {
+                const m = mask[y * sw + x];
+                if (m > 0) {
                     filledPixels++;
+                    if (m === 1) cBlue++;
+                    else if (m === 2) cGreen++;
+                    else if (m === 3) cTeal++;
                     if (x < fMinX) fMinX = x;
                     if (x > fMaxX) fMaxX = x;
                     if (y < fMinY) fMinY = y;
@@ -368,6 +380,11 @@ function detectTableByColor(videoElement) {
                 }
             }
         }
+        // Tisch-Farbe pro Cluster bestimmen:
+        // Teal zählt zu grün (DONIC/Tibhar Petrol-Grün Tische)
+        const clusterGreen = cGreen + cTeal;
+        const clusterBlue = cBlue;
+        const clusterColor = clusterGreen > clusterBlue ? 'green' : 'blue';
 
         const boxW = fMaxX - fMinX;
         const boxH = fMaxY - fMinY;
@@ -434,8 +451,8 @@ function detectTableByColor(videoElement) {
                 y: fMinY / sh,
                 width: boxW / sw,
                 height: boxH / sh,
-                color: colorName,
-                pixelRatio: dominantCount / totalPixels,
+                color: clusterColor,
+                pixelRatio: totalColored / totalPixels,
                 _score: score,
                 _aspect: aspectRatio,
                 _fill: fillRatio,
@@ -694,7 +711,12 @@ export async function analyzeTableAndBall(videoElement, startTime, endTime, fps 
             y: median(sorted(candidates.map(t => t.y))),
             width: median(sorted(candidates.map(t => t.width))),
             height: median(sorted(candidates.map(t => t.height))),
-            color: tableCandidates.length > 0 ? tableCandidates[0].color : 'unknown',
+            color: (() => {
+                if (tableCandidates.length === 0) return 'unknown';
+                const greenVotes = tableCandidates.filter(t => t.color === 'green').length;
+                const blueVotes = tableCandidates.filter(t => t.color === 'blue').length;
+                return greenVotes >= blueVotes ? 'green' : 'blue';
+            })(),
             confidence: candidates.length / totalFrames,
             source: tableCandidates.length >= 2 ? 'color' : 'detector'
         };
@@ -1003,6 +1025,119 @@ export async function loadAnalysisResults(db, videoId) {
     }
 
     return { analysis, frames };
+}
+
+/**
+ * Speichert Tisch- und Ball-Analyse-Ergebnisse in Supabase.
+ * Löscht alte Ergebnisse für dasselbe Video (kein Duplizieren).
+ */
+export async function saveTableBallResults(db, videoId, userId, tableBox, ballTrack) {
+    // Alte table_ball Analyse löschen
+    try {
+        await db
+            .from('video_ai_analyses')
+            .delete()
+            .eq('video_id', videoId)
+            .eq('analysis_type', 'table_ball_detection');
+    } catch (e) {
+        console.warn('[AI Engine] Could not delete old table/ball analyses:', e);
+    }
+
+    const { data: analysis, error } = await db
+        .from('video_ai_analyses')
+        .insert({
+            video_id: videoId,
+            analysis_type: 'table_ball_detection',
+            status: 'completed',
+            processing_location: 'browser',
+            model_name: 'color_detection_v2',
+            model_version: '2.0',
+            frames_analyzed: ballTrack ? ballTrack.length : 0,
+            results: {
+                table: tableBox,
+                ball_track_count: ballTrack ? ballTrack.length : 0
+            },
+            summary: {
+                table_detected: !!tableBox,
+                table_color: tableBox?.color || null,
+                ball_positions: ballTrack ? ballTrack.length : 0
+            },
+            created_by: userId
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('[AI Engine] Failed to save table/ball analysis:', error);
+        return null;
+    }
+
+    // Ball-Track in Batches als Frames speichern
+    if (ballTrack && ballTrack.length > 0) {
+        const batchSize = 100;
+        for (let i = 0; i < ballTrack.length; i += batchSize) {
+            const batch = ballTrack.slice(i, i + batchSize).map(b => ({
+                analysis_id: analysis.id,
+                video_id: videoId,
+                timestamp_seconds: b.time,
+                poses: null,
+                player_count: 0,
+                ball_x: Math.round(b.x * 10000) / 10000,
+                ball_y: Math.round(b.y * 10000) / 10000,
+                ball_confidence: Math.round((b.score || 0) * 1000) / 1000,
+                table_bounds: tableBox ? {
+                    x: tableBox.x, y: tableBox.y,
+                    width: tableBox.width, height: tableBox.height
+                } : null
+            }));
+
+            const { error: frameError } = await db
+                .from('video_ai_frames')
+                .insert(batch);
+
+            if (frameError) {
+                console.error('[AI Engine] Failed to save ball frames batch:', frameError);
+            }
+        }
+    }
+
+    return analysis;
+}
+
+/**
+ * Lädt gespeicherte Tisch/Ball-Ergebnisse aus Supabase.
+ */
+export async function loadTableBallResults(db, videoId) {
+    const { data: analysis, error } = await db
+        .from('video_ai_analyses')
+        .select('*')
+        .eq('video_id', videoId)
+        .eq('analysis_type', 'table_ball_detection')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (error || !analysis) return null;
+
+    const table = analysis.results?.table || null;
+
+    // Ball-Track laden
+    const { data: frames, error: framesError } = await db
+        .from('video_ai_frames')
+        .select('timestamp_seconds, ball_x, ball_y, ball_confidence')
+        .eq('analysis_id', analysis.id)
+        .not('ball_x', 'is', null)
+        .order('timestamp_seconds', { ascending: true });
+
+    const ballTrack = (frames || []).map(f => ({
+        time: f.timestamp_seconds,
+        x: f.ball_x,
+        y: f.ball_y,
+        score: f.ball_confidence
+    }));
+
+    return { table, ballTrack, analysis };
 }
 
 // MediaPipe Keypoint-Namen (33 Punkte)
