@@ -89,6 +89,9 @@
                     <button id="export-json-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg flex items-center gap-1">
                         <i class="fas fa-file-code"></i> JSON Export
                     </button>
+                    <button id="export-roboflow-btn" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg flex items-center gap-1" title="Frames + Bounding Boxes fur ML-Training exportieren">
+                        <i class="fas fa-brain"></i> ML-Training Export
+                    </button>
                 </div>
             </div>
         </div>
@@ -809,6 +812,151 @@
             showToast(`${data.length} Labels in ${Object.keys(videoMap).length} Videos exportiert!`, 'success');
         }
 
+        async function exportMLTraining() {
+            showToast('Erstelle ML-Training Export...', 'info');
+
+            // Get all labeled data with video info and AI analysis data
+            const { data: labels, error } = await supabase
+                .from('video_labels')
+                .select(`
+                    id,
+                    timestamp_start,
+                    timestamp_end,
+                    shot_type,
+                    shot_from,
+                    shot_to,
+                    shot_result,
+                    confidence,
+                    video:video_analyses(
+                        id,
+                        title,
+                        video_url,
+                        video_type
+                    )
+                `)
+                .order('created_at');
+
+            if (error) {
+                showToast('Export fehlgeschlagen: ' + error.message, 'error');
+                return;
+            }
+
+            if (!labels || labels.length === 0) {
+                showToast('Keine Daten zum Exportieren', 'warning');
+                return;
+            }
+
+            // Load table calibrations and ball tracks
+            const videoIds = [...new Set(labels.map(l => l.video?.id).filter(Boolean))];
+            const calibrations = {};
+            const ballTracks = {};
+
+            for (const videoId of videoIds) {
+                // Table calibration
+                const { data: calData } = await supabase
+                    .from('video_ai_analyses')
+                    .select('results')
+                    .eq('video_id', videoId)
+                    .eq('analysis_type', 'table_calibration')
+                    .eq('status', 'completed')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (calData?.results?.corners) {
+                    calibrations[videoId] = calData.results.corners;
+                }
+
+                // Ball track data
+                const { data: tbData } = await supabase
+                    .from('video_ai_analyses')
+                    .select('id')
+                    .eq('video_id', videoId)
+                    .eq('analysis_type', 'table_ball_detection')
+                    .eq('status', 'completed')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (tbData) {
+                    const { data: frames } = await supabase
+                        .from('video_ai_frames')
+                        .select('timestamp_seconds, ball_x, ball_y, ball_confidence')
+                        .eq('analysis_id', tbData.id)
+                        .not('ball_x', 'is', null)
+                        .order('timestamp_seconds');
+
+                    if (frames && frames.length > 0) {
+                        ballTracks[videoId] = frames.map(f => ({
+                            time: f.timestamp_seconds,
+                            x: f.ball_x,
+                            y: f.ball_y,
+                            conf: f.ball_confidence
+                        }));
+                    }
+                }
+            }
+
+            // Build ML training export
+            const exportData = {
+                format: 'tt-champions-ml-training',
+                version: '1.0',
+                export_date: new Date().toISOString(),
+                description: 'Tischtennis ML-Training Daten fuer RF-DETR / Custom Model',
+                stats: {
+                    total_labels: labels.length,
+                    total_videos: videoIds.length,
+                    videos_with_calibration: Object.keys(calibrations).length,
+                    videos_with_ball_track: Object.keys(ballTracks).length
+                },
+                // Instructions for using this data
+                instructions: {
+                    step1: 'Videos herunterladen (video_url)',
+                    step2: 'Frames extrahieren mit ffmpeg: ffmpeg -i video.mp4 -vf fps=5 frames/%04d.jpg',
+                    step3: 'Bounding Boxes in Roboflow zeichnen (ball, racket, table)',
+                    step4: 'Timestamps nutzen um relevante Frames zu finden',
+                    step5: 'Ball-Track Daten als Pre-Labels verwenden'
+                },
+                videos: videoIds.map(videoId => {
+                    const videoLabels = labels.filter(l => l.video?.id === videoId);
+                    const firstLabel = videoLabels[0];
+                    return {
+                        video_id: videoId,
+                        title: firstLabel?.video?.title || '',
+                        video_url: firstLabel?.video?.video_url || '',
+                        video_type: firstLabel?.video?.video_type || '',
+                        table_calibration: calibrations[videoId] || null,
+                        ball_track: ballTracks[videoId] || [],
+                        shot_labels: videoLabels.map(l => ({
+                            timestamp_start: l.timestamp_start,
+                            timestamp_end: l.timestamp_end,
+                            shot_type: l.shot_type,
+                            shot_from: l.shot_from,
+                            shot_to: l.shot_to,
+                            shot_result: l.shot_result || 'hit',
+                            confidence: l.confidence
+                        }))
+                    };
+                })
+            };
+
+            // Download
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tt-ml-training-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            const calCount = Object.keys(calibrations).length;
+            const ballCount = Object.keys(ballTracks).length;
+            showToast(
+                `ML-Export: ${labels.length} Labels, ${videoIds.length} Videos, ${calCount} Kalibrierungen, ${ballCount} Ball-Tracks`,
+                'success'
+            );
+        }
+
         async function loadExercises() {
             const { data: exercises } = await supabase
                 .from('exercises')
@@ -1141,6 +1289,7 @@
             // Export buttons
             document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
             document.getElementById('export-json-btn').addEventListener('click', exportJSON);
+            document.getElementById('export-roboflow-btn').addEventListener('click', exportMLTraining);
 
             // Video type buttons
             document.querySelectorAll('.vtype-btn').forEach(btn => {
