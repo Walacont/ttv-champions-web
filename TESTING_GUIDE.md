@@ -203,7 +203,7 @@ console.log(
 
 **Schritte**:
 
-1. Öffne Anwesenheit für eine Session mit ≥2 match-ready Spielern
+1. Öffne Anwesenheit für eine Session mit ≥2 Spielern
 2. Markiere Spieler als anwesend
 3. Klick auf "Paarungen erstellen"
 4. Überprüfe generierte Paarungen im Modal

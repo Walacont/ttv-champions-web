@@ -407,10 +407,9 @@ document.getElementById('opponent-search-input')?.addEventListener('input', asyn
     const snapshot = await getDocs(q);
     let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Filter: match-ready, name match, privacy
+    // Filter: name match, privacy
     players = players.filter(p =>
         p.id !== currentUser.uid && // Nicht sich selbst
-        p.grundlagenCompleted >= 5 && // Match-ready
         (p.firstName?.toLowerCase().includes(searchTerm) ||
          p.lastName?.toLowerCase().includes(searchTerm)) &&
         // Privacy check

@@ -96,7 +96,6 @@ import {
     handlePlayerListActions,
     loadPlayerList,
     loadPlayersForDropdown,
-    updateCoachGrundlagenDisplay,
     loadSubgroupsForPlayerForm,
     openEditPlayerModal,
     handleSavePlayerSubgroups,
@@ -974,10 +973,6 @@ async function initializeCoachPage(userData) {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
             unsubscribePointsHistory = unsub;
         });
-    });
-
-    document.getElementById('player-select').addEventListener('change', e => {
-        updateCoachGrundlagenDisplay(e.target.value, supabase);
     });
 
     // Multi-Select: Alle/Keine Buttons + Suche für Punkte-Spielerliste

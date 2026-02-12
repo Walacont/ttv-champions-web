@@ -9,9 +9,8 @@ export const RANKS = {
         color: '#9CA3AF',
         minElo: 800,
         minXP: 0,
-        description: 'Willkommen! Absolviere 5 Grundlagen-Übungen.',
+        description: 'Willkommen!',
         isOnboarding: true,
-        requiresGrundlagen: false,
     },
     BRONZE: {
         id: 1,
@@ -21,8 +20,6 @@ export const RANKS = {
         minElo: 850,
         minXP: 50,
         description: 'Du hast die Grundlagen gemeistert!',
-        requiresGrundlagen: true,
-        grundlagenRequired: 5,
     },
     SILBER: {
         id: 2,
@@ -32,7 +29,6 @@ export const RANKS = {
         minElo: 1000,
         minXP: 200,
         description: 'Du bist auf dem besten Weg!',
-        requiresGrundlagen: false,
     },
     GOLD: {
         id: 3,
@@ -42,7 +38,6 @@ export const RANKS = {
         minElo: 1200,
         minXP: 500,
         description: 'Ein echter Champion!',
-        requiresGrundlagen: false,
     },
     PLATIN: {
         id: 4,
@@ -52,7 +47,6 @@ export const RANKS = {
         minElo: 1400,
         minXP: 1000,
         description: 'Du gehörst zur Elite!',
-        requiresGrundlagen: false,
     },
     CHAMPION: {
         id: 5,
@@ -62,7 +56,6 @@ export const RANKS = {
         minElo: 1600,
         minXP: 1800,
         description: 'Der höchste Rang - du bist ein Vereinsmeister!',
-        requiresGrundlagen: false,
     },
 };
 
@@ -75,31 +68,22 @@ export const RANK_ORDER = [
     RANKS.CHAMPION,
 ];
 
-export function calculateRank(eloRating, xp, grundlagenCount = 0) {
+export function calculateRank(eloRating, xp) {
     const elo = eloRating ?? 800;
     const totalXP = xp || 0;
 
     for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
         const rank = RANK_ORDER[i];
-        const meetsBasicRequirements = elo >= rank.minElo && totalXP >= rank.minXP;
-
-        if (rank.requiresGrundlagen) {
-            const required = rank.grundlagenRequired || 5;
-            if (meetsBasicRequirements && grundlagenCount >= required) {
-                return rank;
-            }
-        } else {
-            if (meetsBasicRequirements) {
-                return rank;
-            }
+        if (elo >= rank.minElo && totalXP >= rank.minXP) {
+            return rank;
         }
     }
 
     return RANKS.REKRUT;
 }
 
-export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
-    const currentRank = calculateRank(eloRating, xp, grundlagenCount);
+export function getRankProgress(eloRating, xp) {
+    const currentRank = calculateRank(eloRating, xp);
     const currentIndex = RANK_ORDER.findIndex(r => r.id === currentRank.id);
 
     if (currentIndex === RANK_ORDER.length - 1) {
@@ -110,7 +94,6 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
             xpProgress: 100,
             eloNeeded: 0,
             xpNeeded: 0,
-            grundlagenNeeded: 0,
             isMaxRank: true,
         };
     }
@@ -121,10 +104,6 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
 
     const eloNeeded = Math.max(0, nextRank.minElo - elo);
     const xpNeeded = Math.max(0, nextRank.minXP - totalXP);
-    const grundlagenRequired = nextRank.grundlagenRequired || 5;
-    const grundlagenNeeded = nextRank.requiresGrundlagen
-        ? Math.max(0, grundlagenRequired - grundlagenCount)
-        : 0;
 
     const eloProgress =
         nextRank.minElo === 0 ? (elo > 0 ? 100 : 0) : Math.min(100, (elo / nextRank.minElo) * 100);
@@ -134,19 +113,14 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
                 ? 100
                 : 0
             : Math.min(100, (totalXP / nextRank.minXP) * 100);
-    const grundlagenProgress = nextRank.requiresGrundlagen
-        ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100)
-        : 100;
 
     return {
         currentRank,
         nextRank,
         eloProgress: Math.round(eloProgress),
         xpProgress: Math.round(xpProgress),
-        grundlagenProgress: Math.round(grundlagenProgress),
         eloNeeded,
         xpNeeded,
-        grundlagenNeeded,
         isMaxRank: false,
     };
 }
@@ -173,19 +147,10 @@ export function groupPlayersByRank(players) {
     });
 
     players.forEach(player => {
-        const playerWithGrundlagen = {
-            ...player,
-            grundlagenCompleted: player.grundlagenCompleted || 0,
-        };
-
-        const rank = calculateRank(
-            playerWithGrundlagen.eloRating,
-            playerWithGrundlagen.xp,
-            playerWithGrundlagen.grundlagenCompleted
-        );
+        const rank = calculateRank(player.eloRating, player.xp);
 
         grouped[rank.id].push({
-            ...playerWithGrundlagen,
+            ...player,
             rank,
         });
     });

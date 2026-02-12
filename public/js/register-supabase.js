@@ -772,8 +772,6 @@ registrationForm?.addEventListener('submit', async e => {
                         profileUpdates.points = offlinePlayer.points || 0;
                         profileUpdates.elo_rating = offlinePlayer.elo_rating || 800;
                         profileUpdates.highest_elo = offlinePlayer.highest_elo || 800;
-                        profileUpdates.is_match_ready = offlinePlayer.is_match_ready || false;
-                        profileUpdates.grundlagen_completed = offlinePlayer.grundlagen_completed || 0;
                         if (offlinePlayer.birthdate) profileUpdates.birthdate = offlinePlayer.birthdate;
                         if (offlinePlayer.gender) profileUpdates.gender = offlinePlayer.gender;
                         if (offlinePlayer.subgroup_ids) profileUpdates.subgroup_ids = offlinePlayer.subgroup_ids;
@@ -845,10 +843,8 @@ registrationForm?.addEventListener('submit', async e => {
                     profileUpdates.gender = invitationCodeData.gender;
                 }
                 // Neuer Spieler via Code (inkl. head_coach) - setze Standard-Werte
-                profileUpdates.is_match_ready = true;
                 profileUpdates.elo_rating = 800;
                 profileUpdates.highest_elo = 800;
-                profileUpdates.grundlagen_completed = 5;
                 profileUpdates.onboarding_complete = true; // Skip onboarding
                 profileUpdates.xp = 50; // Grant XP for completing registration
                 // Default privacy settings
@@ -860,11 +856,10 @@ registrationForm?.addEventListener('submit', async e => {
                     showElo: true,
                     showInLeaderboards: true
                 };
-                console.log('[REGISTER] Setting is_match_ready=true for new code registration (role:', invitationCodeData.role, ')');
             }
         }
 
-        // Bei No-Code-Registrierung: Automatisch wettkampfsbereit
+        // Bei No-Code-Registrierung
         if (registrationType === 'no-code') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
@@ -872,10 +867,8 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
             profileUpdates.is_player = true; // This is a player
-            profileUpdates.is_match_ready = true;
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
-            profileUpdates.grundlagen_completed = 5;
             profileUpdates.account_type = 'standard';
             profileUpdates.onboarding_complete = true; // Skip onboarding
 
@@ -910,7 +903,6 @@ registrationForm?.addEventListener('submit', async e => {
             // Grant 50 XP for completing registration
             profileUpdates.xp = 50;
 
-            console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
         }
 
         // Guardian-Registrierung (ohne Code)
@@ -925,7 +917,6 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.is_guardian = true;
             profileUpdates.is_player = false; // Pure guardian - not a player
             profileUpdates.role = 'player';
-            profileUpdates.is_match_ready = false; // Not a player yet
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
@@ -955,7 +946,6 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.is_guardian = true;
             profileUpdates.is_player = false; // Pure guardian - not a player
             profileUpdates.role = 'player';
-            profileUpdates.is_match_ready = false; // Not a player yet
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
 
@@ -992,7 +982,7 @@ registrationForm?.addEventListener('submit', async e => {
                 .from('profiles')
                 .update(profileUpdates)
                 .eq('id', user.id)
-                .select('id, role, active_sport_id, club_id, is_match_ready, grundlagen_completed')
+                .select('id, role, active_sport_id, club_id')
                 .single();
 
             if (updateError) {
@@ -1006,11 +996,6 @@ registrationForm?.addEventListener('submit', async e => {
                 }
                 if (profileUpdates.active_sport_id && updatedProfile.active_sport_id !== profileUpdates.active_sport_id) {
                     console.error('[REGISTER] Sport mismatch! Expected:', profileUpdates.active_sport_id, 'Got:', updatedProfile.active_sport_id);
-                }
-                if (profileUpdates.is_match_ready !== undefined && updatedProfile.is_match_ready !== profileUpdates.is_match_ready) {
-                    console.error('[REGISTER] is_match_ready mismatch! Expected:', profileUpdates.is_match_ready, 'Got:', updatedProfile.is_match_ready);
-                } else {
-                    console.log('[REGISTER] is_match_ready verified:', updatedProfile.is_match_ready);
                 }
             } else {
                 console.error('[REGISTER] Profile update returned no data - profile might not exist');

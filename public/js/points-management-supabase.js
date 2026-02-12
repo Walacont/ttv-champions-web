@@ -447,26 +447,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        let grundlagenMessage = '';
-        let grundlagenCount = playerData.grundlagen_completed || 0;
-        let isGrundlagenExercise = false;
-
-        if (exerciseId) {
-            const { data: exerciseData } = await db
-                .from('exercises')
-                .select('category')
-                .eq('id', exerciseId)
-                .single();
-
-            if (exerciseData) {
-                const category = exerciseData.category || '';
-                isGrundlagenExercise = category.toLowerCase().includes('grundlage');
-            }
-        } else if (reasonType === 'manual') {
-            const lowerReason = reason.toLowerCase();
-            isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
-        }
-
         const currentPoints = playerData.points || 0;
         const currentXP = playerData.xp || 0;
         const actualPointsChange = Math.max(-currentPoints, points);
@@ -477,19 +457,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             xp: currentXP + actualXPChange,
             last_xp_update: new Date().toISOString(),
         };
-
-        if (isGrundlagenExercise && grundlagenCount < 5) {
-            grundlagenCount++;
-            updateData.grundlagen_completed = grundlagenCount;
-
-            const remaining = 5 - grundlagenCount;
-            if (grundlagenCount >= 5) {
-                updateData.is_match_ready = true;
-                grundlagenMessage = ' 🎉 Grundlagen abgeschlossen - Wettkämpfe freigeschaltet!';
-            } else {
-                grundlagenMessage = ` (${grundlagenCount}/5 Grundlagen - noch ${remaining} bis Wettkämpfe)`;
-            }
-        }
 
         await db.from('profiles').update(updateData).eq('id', playerId);
 
@@ -682,8 +649,6 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         }
 
-        feedbackText += grundlagenMessage;
-
         feedbackEl.textContent = feedbackText;
         feedbackEl.className = actualPointsChange >= 0
             ? 'mt-3 text-sm font-medium text-center text-green-600'
@@ -815,19 +780,6 @@ async function handleBatchPointsSubmit(playerIds, reasonType, db, currentUserDat
                     xp: currentXP + actualXPChange,
                     last_xp_update: new Date().toISOString(),
                 };
-
-                // Grundlagen-Tracking
-                if (exerciseId) {
-                    const { data: exData } = await db.from('exercises').select('category').eq('id', exerciseId).single();
-                    if (exData && (exData.category || '').toLowerCase().includes('grundlage')) {
-                        let gc = playerData.grundlagen_completed || 0;
-                        if (gc < 5) {
-                            gc++;
-                            updateData.grundlagen_completed = gc;
-                            if (gc >= 5) updateData.is_match_ready = true;
-                        }
-                    }
-                }
 
                 await db.from('profiles').update(updateData).eq('id', playerId);
 

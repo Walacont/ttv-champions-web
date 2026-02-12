@@ -359,10 +359,8 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
-    // Nur Spieler paaren, die Grundlagen abgeschlossen haben (Fairness)
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
-        const grundlagen = player.grundlagenCompleted || 0;
-        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+        return presentPlayerIds.includes(player.id);
     });
 
     if (currentSubgroupFilter !== 'all') {
@@ -976,8 +974,7 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
     let eligiblePlayers = clubPlayers.filter(player => {
-        const isMatchReady = player.isMatchReady || player.is_match_ready;
-        return presentPlayerIds.includes(player.id) && isMatchReady === true;
+        return presentPlayerIds.includes(player.id);
     });
 
     if (currentSubgroupFilter !== 'all') {
@@ -1307,32 +1304,23 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     console.log('[Matches] All clubPlayers:', clubPlayers.map(p => ({
         id: p.id,
         name: `${p.firstName || p.first_name} ${p.lastName || p.last_name}`,
-        isMatchReady: p.isMatchReady,
-        is_match_ready: p.is_match_ready,
         isOffline: p.isOffline || p.is_offline
     })));
 
     let matchReadyPlayers = clubPlayers.filter(p => {
-        const isMatchReady = p.isMatchReady || p.is_match_ready;
         const isOffline = p.isOffline || p.is_offline;
         // Coach-Dashboard: Offline-Spieler einbeziehen
         // Spieler-Dashboard: Offline-Spieler ausschließen (nur Doppel)
         if (includeOfflinePlayers) {
-            return isMatchReady === true;
+            return true;
         }
-        return isMatchReady === true && !isOffline;
-    });
-
-    const lockedPlayers = clubPlayers.filter(p => {
-        const isMatchReady = p.isMatchReady || p.is_match_ready;
-        return isMatchReady !== true;
+        return !isOffline;
     });
 
     console.log('[Matches] populateMatchDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
         matchReadyPlayers: matchReadyPlayers.map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`),
-        lockedPlayers: lockedPlayers.map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`),
         subgroupFilter: currentSubgroupFilter,
         genderFilter: currentGenderFilter,
         excludePlayerId
@@ -1366,20 +1354,10 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     const handicapSuggestion = document.getElementById('handicap-suggestion');
     if (handicapSuggestion) {
         if (matchReadyPlayers.length < 2) {
-            let message =
+            const message =
                 currentSubgroupFilter !== 'all'
-                    ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
-                    : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
-
-            if (lockedPlayers.length > 0) {
-                const lockedNames = lockedPlayers
-                    .map(p => {
-                        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
-                        return `${p.firstName || p.first_name} (${grundlagen}/5 Grundlagen)`;
-                    })
-                    .join(', ');
-                message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
-            }
+                    ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe werden benötigt.</p>'
+                    : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler werden benötigt.</p>';
 
             handicapSuggestion.innerHTML = message;
             handicapSuggestion.classList.remove('hidden');

@@ -529,7 +529,6 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
             gender: p.gender,
             rankName: p.rank_name,
             subgroupIDs: p.subgroup_ids || [],
-            grundlagenCompleted: p.grundlagen_completed,
         }));
 
         if (currentSubgroupFilter !== 'all') {
@@ -766,7 +765,6 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
             lastName: p.last_name,
             email: p.email,
             subgroupIDs: p.subgroup_ids || [],
-            grundlagenCompleted: p.grundlagen_completed,
             rankName: p.rank_name,
         }));
 
@@ -822,8 +820,6 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
         renderInactivePlayers(inactivePlayers);
 
         await loadMatchActivity(userData, supabase);
-
-        calculateGrundlagenRate(players);
 
         calculateTeamProgress(players);
     } catch (error) {
@@ -958,15 +954,6 @@ async function loadMatchActivity(userData, supabase) {
         const el = document.getElementById('stats-matches-per-week');
         if (el) el.textContent = '0';
     }
-}
-
-function calculateGrundlagenRate(players) {
-    const matchReadyPlayers = players.filter(p => p.isMatchReady === true || p.is_match_ready === true);
-    const rate =
-        players.length > 0 ? Math.round((matchReadyPlayers.length / players.length) * 100) : 0;
-
-    const el = document.getElementById('stats-grundlagen-rate');
-    if (el) el.textContent = `${rate}%`;
 }
 
 function calculateTeamProgress(players) {

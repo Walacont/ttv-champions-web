@@ -13,6 +13,7 @@ DROP TRIGGER IF EXISTS trigger_rank_up_event ON profiles;
 DROP FUNCTION IF EXISTS create_club_join_event();
 DROP FUNCTION IF EXISTS create_rank_up_event();
 DROP FUNCTION IF EXISTS calculate_rank(INTEGER, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS calculate_rank(INTEGER, INTEGER);
 DROP FUNCTION IF EXISTS get_rank_order(TEXT);
 DROP FUNCTION IF EXISTS get_activity_events(UUID[], INT, INT);
 
@@ -53,14 +54,14 @@ ALTER TABLE activity_events ENABLE ROW LEVEL SECURITY;
 -- ============================================
 
 -- Calculate rank from stats (mirrors JavaScript ranks.js)
-CREATE OR REPLACE FUNCTION calculate_rank(p_elo INTEGER, p_xp INTEGER, p_grundlagen INTEGER)
+CREATE OR REPLACE FUNCTION calculate_rank(p_elo INTEGER, p_xp INTEGER)
 RETURNS TEXT AS $$
 BEGIN
     IF p_elo >= 1600 AND p_xp >= 1800 THEN RETURN 'Champion'; END IF;
     IF p_elo >= 1400 AND p_xp >= 1000 THEN RETURN 'Platin'; END IF;
     IF p_elo >= 1200 AND p_xp >= 500 THEN RETURN 'Gold'; END IF;
     IF p_elo >= 1000 AND p_xp >= 200 THEN RETURN 'Silber'; END IF;
-    IF p_elo >= 850 AND p_xp >= 50 AND p_grundlagen >= 5 THEN RETURN 'Bronze'; END IF;
+    IF p_elo >= 850 AND p_xp >= 50 THEN RETURN 'Bronze'; END IF;
     RETURN 'Rekrut';
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
@@ -191,8 +192,7 @@ BEGIN
 
         v_rank_name := calculate_rank(
             COALESCE(NEW.elo_rating, 800),
-            COALESCE(NEW.xp, 0),
-            COALESCE(NEW.grundlagen_completed, 0)
+            COALESCE(NEW.xp, 0)
         );
 
         INSERT INTO activity_events (user_id, club_id, event_type, event_data)
@@ -223,14 +223,12 @@ DECLARE
 BEGIN
     v_old_rank := calculate_rank(
         COALESCE(OLD.elo_rating, 800),
-        COALESCE(OLD.xp, 0),
-        COALESCE(OLD.grundlagen_completed, 0)
+        COALESCE(OLD.xp, 0)
     );
 
     v_new_rank := calculate_rank(
         COALESCE(NEW.elo_rating, 800),
-        COALESCE(NEW.xp, 0),
-        COALESCE(NEW.grundlagen_completed, 0)
+        COALESCE(NEW.xp, 0)
     );
 
     IF v_old_rank != v_new_rank THEN
@@ -270,7 +268,7 @@ CREATE TRIGGER trigger_club_join_event
     EXECUTE FUNCTION create_club_join_event();
 
 CREATE TRIGGER trigger_rank_up_event
-    AFTER UPDATE OF elo_rating, xp, grundlagen_completed ON profiles
+    AFTER UPDATE OF elo_rating, xp ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION create_rank_up_event();
 

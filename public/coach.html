@@ -810,12 +810,6 @@
                                                     stärkeren Gegner, verliert er nur wenige Punkte.
                                                 </li>
                                             </ul>
-                                            <p class="mt-2">
-                                                <strong>Wichtig für Rekruten:</strong> Als Rekrut
-                                                (niedrigster Rang) müssen Spieler erst
-                                                <strong>5 Grundlagen-Übungen</strong> abschließen,
-                                                bevor sie Wettkampf-Matches spielen dürfen!
-                                            </p>
                                         </div>
                                     </details>
 
@@ -1455,10 +1449,6 @@
                                                     <strong>Rang:</strong> Der Rang (Rekrut, Bronze,
                                                     Silber...) ist permanent
                                                 </li>
-                                                <li>
-                                                    <strong>Grundlagen-Abschlüsse:</strong> Die 5
-                                                    Grundlagen-Übungen bleiben abgeschlossen
-                                                </li>
                                             </ul>
 
                                             <p class="mt-3">
@@ -1507,16 +1497,11 @@
                                             <ul class="list-disc list-inside mt-2 space-y-2">
                                                 <li>
                                                     <strong>🥉 Rekrut (Start):</strong> 0-49 XP,
-                                                    800-849 Elo, 0 Grundlagen<br />
+                                                    800-849 Elo<br />
                                                     <em>Du startest hier mit 800 Elo und 0 XP.</em>
                                                 </li>
                                                 <li>
-                                                    <strong>🥉 Bronze:</strong> 50+ XP, 850+ Elo, 5
-                                                    Grundlagen<br />
-                                                    <em
-                                                        >Lerne erst die Basics, bevor du Matches
-                                                        spielen darfst!</em
-                                                    >
+                                                    <strong>🥉 Bronze:</strong> 50+ XP, 850+ Elo
                                                 </li>
                                                 <li>
                                                     <strong>🥈 Silber:</strong> 200+ XP, 900+ Elo
@@ -1540,8 +1525,7 @@
                                             <p class="mt-2">
                                                 <strong>Wichtig:</strong> Du musst immer
                                                 <strong>beide</strong> Anforderungen (Elo UND XP)
-                                                für den nächsten Rang erfüllen. Für Bronze musst du
-                                                zusätzlich 5 Grundlagen-Übungen abschließen.
+                                                für den nächsten Rang erfüllen.
                                             </p>
 
                                             <p class="mt-2">
@@ -1607,46 +1591,10 @@
                                     <div id="points-player-list" class="border border-gray-300 rounded-md p-1.5 max-h-36 overflow-y-auto space-y-0.5">
                                         <p class="text-sm text-gray-400 py-2 text-center">Lade Spieler...</p>
                                     </div>
-                                    <!-- Hidden select for backward compatibility (grundlagen, partner, completion status) -->
+                                    <!-- Hidden select for backward compatibility (partner, completion status) -->
                                     <select id="player-select" class="hidden">
                                         <option value="">Spieler wählen...</option>
                                     </select>
-                                </div>
-                                <div
-                                    id="coach-grundlagen-info"
-                                    class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg"
-                                >
-                                    <div class="flex items-start">
-                                        <div class="flex-shrink-0">
-                                            <svg
-                                                class="h-5 w-5 text-blue-400"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                            >
-                                                <path
-                                                    fill-rule="evenodd"
-                                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                                    clip-rule="evenodd"
-                                                />
-                                            </svg>
-                                        </div>
-                                        <div class="ml-3 flex-1">
-                                            <p class="text-sm font-medium text-blue-800">
-                                                📚 Grundlagen-Status
-                                            </p>
-                                            <p
-                                                id="coach-grundlagen-text"
-                                                class="mt-1 text-sm text-blue-700"
-                                            ></p>
-                                            <div class="mt-2 w-full bg-blue-200 rounded-full h-2">
-                                                <div
-                                                    id="coach-grundlagen-bar"
-                                                    class="bg-blue-600 h-2 rounded-full transition-all"
-                                                    style="width: 0%"
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                                 <div>
                                     <label
@@ -2504,15 +2452,6 @@
                                     <p class="text-sm text-gray-600 mb-1">Matches/Woche</p>
                                     <p
                                         id="stats-matches-per-week"
-                                        class="text-3xl font-bold text-gray-700"
-                                    >
-                                        -
-                                    </p>
-                                </div>
-                                <div class="bg-gray-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Grundlagen-Quote</p>
-                                    <p
-                                        id="stats-grundlagen-rate"
                                         class="text-3xl font-bold text-gray-700"
                                     >
                                         -
@@ -4551,30 +4490,6 @@
                         </div>
                     </div>
 
-                    <div class="border-t border-gray-200 pt-4 mt-4">
-                        <div class="flex items-start">
-                            <div class="flex items-center h-5">
-                                <input
-                                    id="is-match-ready-checkbox"
-                                    type="checkbox"
-                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                />
-                            </div>
-                            <div class="ml-3 text-sm">
-                                <label
-                                    for="is-match-ready-checkbox"
-                                    class="font-medium text-gray-700"
-                                >
-                                    Bereits wettkampfsbereit
-                                </label>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Spieler hat bereits Erfahrung und kann sofort Matches spielen
-                                    (überspringt Grundlagen-Übungen)
-                                </p>
-                            </div>
-                        </div>
-
-                    </div>
 
                     <div class="border-t border-gray-200 pt-4 mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-3"

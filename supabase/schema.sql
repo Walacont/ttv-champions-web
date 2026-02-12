@@ -96,11 +96,9 @@ CREATE TABLE profiles (
 
     -- Tischtennis-spezifisch
     qttr_points INTEGER,
-    grundlagen_completed INTEGER DEFAULT 0,
 
     -- Status Flags
     is_offline BOOLEAN DEFAULT false,
-    is_match_ready BOOLEAN DEFAULT false,
     onboarding_complete BOOLEAN DEFAULT false,
 
     -- Push Notifications (Firebase: fcmToken)

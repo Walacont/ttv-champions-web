@@ -1,61 +1,5 @@
 -- RPC functions for player management (bypasses RLS with proper authorization)
 
--- Function to set a player as match-ready (+ 50 XP)
-CREATE OR REPLACE FUNCTION set_player_match_ready(
-    p_player_id UUID
-)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_caller_id UUID;
-    v_caller_role TEXT;
-    v_player_club_id UUID;
-    v_current_xp INTEGER;
-    v_result JSON;
-BEGIN
-    v_caller_id := auth.uid();
-    IF v_caller_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-
-    -- Get player's club_id
-    SELECT club_id, xp INTO v_player_club_id, v_current_xp
-    FROM profiles WHERE id = p_player_id;
-
-    IF v_player_club_id IS NULL THEN
-        RAISE EXCEPTION 'Player not found';
-    END IF;
-
-    -- Check if caller is coach/head_coach/admin
-    SELECT role INTO v_caller_role FROM profiles WHERE id = v_caller_id;
-
-    IF v_caller_role NOT IN ('coach', 'head_coach', 'admin') THEN
-        SELECT pcs.role INTO v_caller_role
-        FROM profile_club_sports pcs
-        WHERE pcs.user_id = v_caller_id AND pcs.club_id = v_player_club_id
-          AND pcs.role IN ('coach', 'head_coach');
-
-        IF v_caller_role IS NULL THEN
-            RAISE EXCEPTION 'Not authorized';
-        END IF;
-    END IF;
-
-    -- Update the player
-    UPDATE profiles SET
-        is_match_ready = TRUE,
-        grundlagen_completed = 5,
-        xp = COALESCE(v_current_xp, 0) + 50,
-        updated_at = NOW()
-    WHERE id = p_player_id;
-
-    SELECT json_build_object('success', TRUE, 'new_xp', COALESCE(v_current_xp, 0) + 50) INTO v_result;
-    RETURN v_result;
-END;
-$$;
-
 -- Function to delete an offline player
 CREATE OR REPLACE FUNCTION delete_offline_player(
     p_offline_player_id UUID
@@ -224,7 +168,6 @@ END;
 $$;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION set_player_match_ready TO authenticated;
 GRANT EXECUTE ON FUNCTION delete_offline_player TO authenticated;
 GRANT EXECUTE ON FUNCTION promote_to_coach TO authenticated;
 GRANT EXECUTE ON FUNCTION demote_to_player TO authenticated;
