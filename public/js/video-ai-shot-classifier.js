@@ -59,12 +59,13 @@ export function classifyShots(frames, playerIdx = 0, options = {}) {
         return { shots: [], stats: null };
     }
 
-    // Player-Frames extrahieren
+    // Player-Frames extrahieren (inkl. worldLandmarks für 3D-Analyse)
     const playerFrames = frames
         .filter(f => f.poses && f.poses.length > playerIdx)
         .map(f => ({
             timestamp: f.timestamp_seconds,
-            landmarks: f.poses[playerIdx].landmarks
+            landmarks: f.poses[playerIdx].landmarks,
+            worldLandmarks: f.poses[playerIdx].worldLandmarks || null
         }));
 
     if (playerFrames.length < 5) {
@@ -95,7 +96,9 @@ export function classifyShots(frames, playerIdx = 0, options = {}) {
 
             let shotType;
             if (isServe) {
-                shotType = side === 'forehand' ? 'forehand_serve' : 'backhand_serve';
+                // Aufschläge sind nicht sinnvoll in VH/RH trennbar
+                // (VH-Aufschlag kann aus der RH gespielt werden und umgekehrt)
+                shotType = 'forehand_serve';
             } else {
                 shotType = `${side}_${type}`;
             }
@@ -154,6 +157,99 @@ function detectDominantSide(playerFrames) {
     }
 
     return leftActivity > rightActivity ? 'left' : 'right';
+}
+
+/**
+ * Berechnet den Winkel (in Grad) zwischen drei Punkten.
+ * Der Winkel wird am mittleren Punkt (B) gemessen.
+ * @returns {number} Winkel in Grad (0-180)
+ */
+function angleBetweenPoints(a, b, c) {
+    const ba = { x: a.x - b.x, y: a.y - b.y };
+    const bc = { x: c.x - b.x, y: c.y - b.y };
+    const dot = ba.x * bc.x + ba.y * bc.y;
+    const magBA = Math.sqrt(ba.x * ba.x + ba.y * ba.y);
+    const magBC = Math.sqrt(bc.x * bc.x + bc.y * bc.y);
+    if (magBA === 0 || magBC === 0) return 180;
+    const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
+    return Math.acos(cosAngle) * (180 / Math.PI);
+}
+
+/**
+ * Berechnet den Ellbogen-Winkel (Schulter-Ellbogen-Handgelenk).
+ * @returns {number|null} Winkel in Grad oder null wenn nicht berechenbar
+ */
+function getElbowAngle(landmarks, dominantSide) {
+    const shoulderIdx = dominantSide === 'left' ? L.LEFT_SHOULDER : L.RIGHT_SHOULDER;
+    const elbowIdx = dominantSide === 'left' ? L.LEFT_ELBOW : L.RIGHT_ELBOW;
+    const wristIdx = dominantSide === 'left' ? L.LEFT_WRIST : L.RIGHT_WRIST;
+
+    const shoulder = landmarks[shoulderIdx];
+    const elbow = landmarks[elbowIdx];
+    const wrist = landmarks[wristIdx];
+
+    if (!shoulder || !elbow || !wrist) return null;
+    if (shoulder.visibility < 0.3 || elbow.visibility < 0.3 || wrist.visibility < 0.3) return null;
+
+    return angleBetweenPoints(shoulder, elbow, wrist);
+}
+
+/**
+ * Berechnet die Schulterrotation aus den z-Koordinaten der worldLandmarks.
+ * Positiver Wert = dominante Schulter weiter vorne (Rotation in Schlagrichtung).
+ * @returns {number|null} Delta-Z oder null
+ */
+function getShoulderRotation(worldLandmarks, dominantSide) {
+    if (!worldLandmarks) return null;
+    const ls = worldLandmarks[L.LEFT_SHOULDER];
+    const rs = worldLandmarks[L.RIGHT_SHOULDER];
+    if (!ls || !rs || ls.visibility < 0.3 || rs.visibility < 0.3) return null;
+
+    // Positive = dominante Schulter weiter vorne (näher zur Kamera)
+    if (dominantSide === 'right') {
+        return ls.z - rs.z; // Positiv wenn rechte Schulter vorne
+    } else {
+        return rs.z - ls.z; // Positiv wenn linke Schulter vorne
+    }
+}
+
+/**
+ * Analysiert die Trajektorie-Krümmung des Handgelenks über einen Schlag-Fenster.
+ * Topspin hat eine Aufwärts-Kurve, Push ist flach/linear, Block ist minimal.
+ * @returns {{ curvature: number, verticalRange: number, isUpwardArc: boolean }}
+ */
+function analyzeTrajectory(playerFrames, startIdx, endIdx, wristIdx) {
+    const points = [];
+    for (let i = startIdx; i <= endIdx && i < playerFrames.length; i++) {
+        const w = playerFrames[i]?.landmarks[wristIdx];
+        if (w && w.visibility > 0.3) {
+            points.push({ x: w.x, y: w.y, idx: i });
+        }
+    }
+
+    if (points.length < 3) {
+        return { curvature: 0, verticalRange: 0, isUpwardArc: false };
+    }
+
+    // Vertikale Spanne
+    const ys = points.map(p => p.y);
+    const verticalRange = Math.max(...ys) - Math.min(...ys);
+
+    // Krümmung: Vergleiche mittlere Y-Position mit linearer Interpolation
+    // Wenn Mitte höher liegt als Linie Start→End → Aufwärtsbogen
+    const midIdx = Math.floor(points.length / 2);
+    const startY = points[0].y;
+    const endY = points[points.length - 1].y;
+    const expectedMidY = (startY + endY) / 2;
+    const actualMidY = points[midIdx].y;
+
+    // Negative curvature = Mitte liegt über der Linie (höher = kleiner y in Bildkoords)
+    const curvature = expectedMidY - actualMidY;
+
+    // Ist es ein Aufwärtsbogen? (y sinkt = aufwärts in Bildkoords)
+    const isUpwardArc = curvature > 0 && endY < startY;
+
+    return { curvature, verticalRange, isUpwardArc };
 }
 
 /**
@@ -278,7 +374,8 @@ function detectStrokeEvents(playerFrames, dominantSide, speedThreshold) {
 }
 
 /**
- * Klassifiziert VH/RH anhand der Handgelenk-Position relativ zur Körpermitte.
+ * Klassifiziert VH/RH anhand der Handgelenk-Position relativ zur Körpermitte
+ * und Schulterrotation (z-Koordinaten aus worldLandmarks).
  */
 function classifySide(event, playerFrames, dominantSide) {
     const frame = playerFrames[event.frameIndex];
@@ -299,19 +396,36 @@ function classifySide(event, playerFrames, dominantSide) {
 
     if (!wrist || wrist.visibility < 0.3) return 'forehand';
 
-    // Vorhand: Schlagarm auf der gleichen Seite wie die dominante Hand
-    // Rückhand: Schlagarm kreuzt die Körpermitte
+    // Feature 1: Handgelenk-Position relativ zur Körpermitte (bestehend)
+    let wristSide;
     if (dominantSide === 'right') {
-        // Rechtshänder: Wrist rechts von Mitte = Vorhand, links = Rückhand
-        return wrist.x > centerX ? 'forehand' : 'backhand';
+        wristSide = wrist.x > centerX ? 'forehand' : 'backhand';
     } else {
-        // Linkshänder: Wrist links von Mitte = Vorhand, rechts = Rückhand
-        return wrist.x < centerX ? 'forehand' : 'backhand';
+        wristSide = wrist.x < centerX ? 'forehand' : 'backhand';
     }
+
+    // Feature 2: Schulterrotation aus z-Koordinaten (neu)
+    // Bei VH rotiert die dominante Schulter nach vorne
+    // Bei RH bleibt der Körper eher frontal oder rotiert entgegengesetzt
+    const rotation = getShoulderRotation(frame.worldLandmarks, dominantSide);
+
+    if (rotation !== null) {
+        // Starke Rotation in Schlagrichtung unterstützt VH-Erkennung
+        if (rotation > 0.03 && wristSide === 'forehand') {
+            return 'forehand';  // Beides deutet auf VH
+        }
+        if (rotation < -0.02 && wristSide === 'backhand') {
+            return 'backhand';  // Beides deutet auf RH
+        }
+        // Bei Widerspruch: Handgelenk-Position wiegt stärker
+    }
+
+    return wristSide;
 }
 
 /**
  * Klassifiziert den Schlag-Typ (topspin/push/block).
+ * Nutzt: Vertikale Bewegung, Amplitude, Ellbogen-Winkel, Trajektorie-Krümmung.
  */
 function classifyShotType(event, playerFrames, dominantSide, bodyScale = 1.0) {
     const idx = event.frameIndex;
@@ -327,7 +441,7 @@ function classifyShotType(event, playerFrames, dominantSide, bodyScale = 1.0) {
     const wristAt = at.landmarks[wristIdx];
     if (!wristAt || wristAt.visibility < 0.3) return 'topspin';
 
-    // Vertikale Bewegung analysieren
+    // --- Feature 1: Vertikale Bewegung (bestehend) ---
     let verticalMovement = 0;
     let amplitude = 0;
 
@@ -346,44 +460,103 @@ function classifyShotType(event, playerFrames, dominantSide, bodyScale = 1.0) {
         }
     }
 
-    // Skalierte Schwellenwerte (Kinder/weiter entfernte Spieler haben kleinere Bewegungen)
-    const topspinVerticalThreshold = 0.02 * bodyScale;
-    const topspinAmplitudeThreshold = 0.03 * bodyScale;
-    const blockAmplitudeThreshold = 0.02 * bodyScale;
-    const pushAmplitudeThreshold = 0.04 * bodyScale;
+    // --- Feature 2: Ellbogen-Winkel (neu) ---
+    // Topspin: Arm streckt sich im Follow-through (>130°)
+    // Push: Arm bleibt kompakt (<120°)
+    // Block: sehr kompakt (<100°)
+    const elbowAngleAt = getElbowAngle(at.landmarks, dominantSide);
+    const elbowAngleAfter = after ? getElbowAngle(after.landmarks, dominantSide) : null;
+    const elbowExtension = (elbowAngleAt && elbowAngleAfter)
+        ? elbowAngleAfter - elbowAngleAt  // Positiv = Arm streckt sich
+        : 0;
 
-    // Topspin: große Aufwärtsbewegung (Wrist geht hoch = Y sinkt)
-    if (verticalMovement > topspinVerticalThreshold && amplitude > topspinAmplitudeThreshold) {
+    // --- Feature 3: Trajektorie-Krümmung (neu) ---
+    // Topspin: Aufwärtsbogen, Push: flach, Block: minimal
+    const backswingStart = Math.max(0, idx - 4);
+    const followEnd = Math.min(playerFrames.length - 1, idx + 4);
+    const trajectory = analyzeTrajectory(playerFrames, backswingStart, followEnd, wristIdx);
+
+    // --- Scoring-basierte Klassifizierung ---
+    let topspinScore = 0;
+    let pushScore = 0;
+    let blockScore = 0;
+
+    // Skalierte Schwellenwerte
+    const scaledThreshold = 0.02 * bodyScale;
+
+    // Vertikale Bewegung (stark gewichtet)
+    if (verticalMovement > scaledThreshold) {
+        topspinScore += 3;  // Deutliche Aufwärtsbewegung → Topspin
+    } else if (verticalMovement < -scaledThreshold * 0.5) {
+        pushScore += 2;     // Leichte Abwärtsbewegung → Push
+    }
+
+    // Amplitude
+    if (amplitude > 0.04 * bodyScale) {
+        topspinScore += 2;  // Große Amplitude → Topspin
+    } else if (amplitude < 0.02 * bodyScale) {
+        blockScore += 2;    // Kleine Amplitude → Block
+    } else {
+        pushScore += 1;     // Mittlere Amplitude → Push
+    }
+
+    // Ellbogen-Extension
+    if (elbowExtension > 10) {
+        topspinScore += 2;  // Arm streckt sich deutlich → Topspin
+    } else if (elbowAngleAt !== null && elbowAngleAt < 100) {
+        blockScore += 2;    // Sehr kompakter Arm → Block
+    } else if (elbowAngleAt !== null && elbowAngleAt < 130) {
+        pushScore += 1;     // Moderater Arm → Push
+    }
+
+    // Trajektorie-Krümmung
+    if (trajectory.isUpwardArc && trajectory.curvature > 0.005 * bodyScale) {
+        topspinScore += 2;  // Aufwärtsbogen → Topspin
+    } else if (trajectory.verticalRange < 0.015 * bodyScale) {
+        blockScore += 1;    // Kaum Vertikalbewegung → Block
+    }
+
+    // Schlag-Dauer
+    if (event.strokeFrames <= 3) {
+        blockScore += 1;    // Kurze Dauer → Block
+    } else if (event.strokeFrames >= 5) {
+        topspinScore += 1;  // Längere Bewegung → Topspin
+    }
+
+    // Entscheidung nach höchstem Score
+    if (blockScore > topspinScore && blockScore > pushScore) {
+        return 'block';
+    }
+    if (pushScore > topspinScore && pushScore > blockScore) {
+        return 'push';
+    }
+    if (topspinScore > 0) {
         return 'topspin';
     }
 
-    // Block: kleine Amplitude, kompakte Bewegung
-    if (amplitude < blockAmplitudeThreshold && event.strokeFrames <= 3) {
-        return 'block';
-    }
-
-    // Push/Schupf: moderate Bewegung, eher horizontal
-    if (amplitude < pushAmplitudeThreshold) {
-        return 'push';
-    }
-
-    // Default: Topspin (häufigster Schlag)
+    // Default
     return 'topspin';
 }
 
 /**
  * Erkennt ob ein Schlag ein Aufschlag ist.
- * Aufschlag-Indikator: Die Nicht-Schlaghand bewegt sich kurz vor dem Schlag nach oben (Ballwurf).
+ * Indikatoren:
+ * 1. Nicht-Schlaghand bewegt sich nach oben (Ballwurf)
+ * 2. Beide Hände sind nahe beieinander vor dem Schlag (Ball auf offener Hand)
+ * 3. Geringe Geschwindigkeit vor dem Schlag (Spieler steht still, bereitet sich vor)
  */
 function detectServe(event, playerFrames, dominantSide, tossThreshold) {
     const idx = event.frameIndex;
     const nonDominantWristIdx = dominantSide === 'left' ? L.RIGHT_WRIST : L.LEFT_WRIST;
+    const dominantWristIdx = dominantSide === 'left' ? L.LEFT_WRIST : L.RIGHT_WRIST;
 
-    // 3-5 Frames vor dem Schlag prüfen
-    const checkStart = Math.max(0, idx - 5);
+    // Check 1: Nicht-Schlaghand bewegt sich nach oben (Ballwurf)
+    const checkStart = Math.max(0, idx - 6);
     const checkEnd = Math.max(0, idx - 1);
 
     let maxUpwardMovement = 0;
+    let handsCloseCount = 0;
+    let framesChecked = 0;
 
     for (let i = checkStart + 1; i <= checkEnd; i++) {
         const prev = playerFrames[i - 1]?.landmarks[nonDominantWristIdx];
@@ -396,9 +569,27 @@ function detectServe(event, playerFrames, dominantSide, tossThreshold) {
         if (upward > maxUpwardMovement) {
             maxUpwardMovement = upward;
         }
+
+        // Check 2: Hände nahe beieinander (Ball auf offener Hand vor dem Wurf)
+        const domWrist = playerFrames[i]?.landmarks[dominantWristIdx];
+        if (domWrist && domWrist.visibility > 0.3) {
+            const handDist = Math.sqrt(
+                Math.pow(curr.x - domWrist.x, 2) + Math.pow(curr.y - domWrist.y, 2)
+            );
+            if (handDist < 0.08) handsCloseCount++;
+        }
+        framesChecked++;
     }
 
-    return maxUpwardMovement >= tossThreshold;
+    // Ballwurf erkannt
+    const hasToss = maxUpwardMovement >= tossThreshold;
+
+    // Hände waren vor dem Schlag beieinander (typische Aufschlag-Vorbereitung)
+    const handsWereClose = framesChecked > 0 && (handsCloseCount / framesChecked) > 0.3;
+
+    // Beide Indikatoren zusammen: sicher Aufschlag
+    // Nur Ballwurf: wahrscheinlich Aufschlag
+    return hasToss || handsWereClose;
 }
 
 /**
@@ -441,8 +632,8 @@ export function renderShotStats(analysis) {
 
     // Shot-Type Labels (deutsch)
     const shotLabels = {
-        forehand_serve: 'VH Aufschlag',
-        backhand_serve: 'RH Aufschlag',
+        forehand_serve: 'Aufschlag',
+        backhand_serve: 'Aufschlag',
         forehand_topspin: 'VH Topspin',
         backhand_topspin: 'RH Topspin',
         forehand_push: 'VH Schupf',
@@ -452,8 +643,8 @@ export function renderShotStats(analysis) {
     };
 
     const shotColors = {
-        forehand_serve: 'bg-purple-500',
-        backhand_serve: 'bg-purple-400',
+        forehand_serve: 'bg-indigo-500',
+        backhand_serve: 'bg-indigo-500',
         forehand_topspin: 'bg-red-500',
         backhand_topspin: 'bg-red-400',
         forehand_push: 'bg-blue-500',
