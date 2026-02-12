@@ -1279,19 +1279,28 @@ function renderPlayerAiAnalysis(aiAnalysis) {
         : result.overall_rating >= 4 ? 'text-yellow-600'
         : 'text-red-600';
 
-    const bodyPartLabels = {
-        arm_technique: 'Armtechnik',
-        shoulder_rotation: 'Schulterrotation',
-        footwork: 'Beinarbeit',
-        body_posture: 'Körperhaltung',
-        racket_angle: 'Schlägerwinkel',
-    };
+    const bodyParts_raw = result.body_parts || {};
+    // Neue Kategorien + Rückwärtskompatibilität
+    const bodyPartLabels = bodyParts_raw.schlagtechnik
+        ? {
+            schlagtechnik: 'Schlagtechnik',
+            beinarbeit: 'Beinarbeit',
+            koerperhaltung: 'Körperhaltung',
+            taktik: 'Taktik & Spielintelligenz',
+            mental: 'Mentale Aspekte',
+        }
+        : {
+            arm_technique: 'Armtechnik',
+            shoulder_rotation: 'Schulterrotation',
+            footwork: 'Beinarbeit',
+            body_posture: 'Körperhaltung',
+            racket_angle: 'Schlägerwinkel',
+        };
 
-    const bodyParts = result.body_parts || {};
     const bodyPartHtml = Object.entries(bodyPartLabels)
-        .filter(([key]) => bodyParts[key])
+        .filter(([key]) => bodyParts_raw[key])
         .map(([key, label]) => {
-            const bp = bodyParts[key];
+            const bp = bodyParts_raw[key];
             const barWidth = (bp.rating / 10) * 100;
             const barColor = bp.rating >= 7 ? 'bg-green-500'
                 : bp.rating >= 4 ? 'bg-yellow-500'

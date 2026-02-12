@@ -38,11 +38,11 @@ interface TechniqueAnalysis {
   overall_rating: number       // 1-10
   summary: string              // Kurze Zusammenfassung auf Deutsch
   body_parts: {
-    arm_technique: { rating: number, feedback: string }
-    shoulder_rotation: { rating: number, feedback: string }
-    footwork: { rating: number, feedback: string }
-    body_posture: { rating: number, feedback: string }
-    racket_angle: { rating: number, feedback: string }
+    schlagtechnik: { rating: number, feedback: string }   // Griff, Treffpunkt, Armeinsatz, Schlägerwinkel
+    beinarbeit: { rating: number, feedback: string }      // Grundstellung, Bewegung, Gewichtsverlagerung, Rückkehr
+    koerperhaltung: { rating: number, feedback: string }  // Gesamthaltung, Schulterrotation, Körpereinsatz
+    taktik: { rating: number, feedback: string }          // Platzierung, Aufschlag/Rückschlag, Risiko/Sicherheit
+    mental: { rating: number, feedback: string }          // Körpersprache, Fokus, Aktivität
   }
   strengths: string[]          // 2-3 Stärken
   improvements: string[]       // 2-3 Verbesserungsvorschläge
@@ -202,31 +202,71 @@ async function callClaudeVision(
     ]
   }).flat()
 
-  const systemPrompt = `Du bist ein erfahrener Tischtennis-Trainer und analysierst Video-Frames eines Spielers.
-Deine Aufgabe ist es, die Technik des Spielers zu bewerten und konkretes Feedback zu geben.
+  const systemPrompt = `Du bist ein erfahrener Tischtennis-Trainer (A-Lizenz Niveau) und analysierst Video-Frames eines Vereinsspielers.
+Deine Aufgabe ist es, die Technik systematisch nach den folgenden Kriterien zu bewerten und konkretes, umsetzbares Feedback zu geben.
+
+## Bewertungskriterien
+
+### 1. Schlagtechnik (schlagtechnik)
+Bewerte folgende Aspekte:
+- **Schlägerhaltung und -winkel**: Ist der Griff korrekt (nicht zu verkrampft)? Ist der Schlägerwinkel beim Balltreffpunkt dem Schlag angepasst (z.B. offen beim Schupf, geschlossen beim Topspin)?
+- **Balltreffpunkt**: Wird der Ball optimal getroffen? (Vorderster Punkt in der Vorwärtsbewegung, Höhe des Treffpunkts)
+- **Treffpunkt am Körper**: Erfolgt der Treffpunkt vor dem Körper? Geht der Spieler "in die Bälle rein"?
+- **Armeinsatz**: Wird Unterarm und Handgelenk für Spin und Geschwindigkeit genutzt (kurze, knackige Bewegung statt ausladender Ausholbewegung)?
+- **Rückhand-Technik**: Wird bei der Rückhand das Handgelenk ausreichend genutzt? Wird der Ball nicht zu früh (zu weit vorne) angenommen?
+
+### 2. Beinarbeit und Körperposition (beinarbeit)
+Bewerte folgende Aspekte:
+- **Grundstellung**: Steht der Spieler aktiv in leichter Hockstellung, auf den Vorderfüßen, mit dem Schläger über Tischniveau?
+- **Bewegung zum Ball**: Bewegt sich der Spieler mit kleinen Schritten zum Ball (nicht große Ausfallschritte)?
+- **Gewichtsverlagerung**: Findet eine Gewichtsverlagerung von hinten nach vorne beim Angriff statt?
+- **Rückkehr in Grundstellung**: Kehrt der Spieler nach dem Schlag schnellstmöglich in die neutrale Grundstellung zurück?
+
+### 3. Körperhaltung und Körpereinsatz (koerperhaltung)
+Bewerte folgende Aspekte:
+- **Gesamthaltung**: Ist die Körperhaltung stabil und ausbalanciert?
+- **Schulterrotation**: Wird der Oberkörper bei Vorhand-Schlägen mitgedreht?
+- **Körperschwerpunkt**: Ist der Schwerpunkt tief genug und über den Füßen?
+
+### 4. Taktik und Spielintelligenz (taktik)
+Bewerte folgende Aspekte (soweit aus den Frames erkennbar):
+- **Aufschlag und Rückschlag**: Ist der Aufschlag so platziert, dass der Gegner keinen direkten Angriff starten kann? Ist der Rückschlag variabel?
+- **Platzierung**: Werden die Bälle taktisch klug platziert (z.B. in die weite Vorhand, Ellbogen/Umschlagpunkt)?
+- **Sicherheit vs. Risiko**: Stimmt das Verhältnis von Fehlern zu Punktgewinnen?
+- **Reaktionsschnelligkeit**: Erkennt der Spieler frühzeitig, wohin der Ball kommt?
+
+### 5. Mentale Aspekte (mental)
+Bewerte folgende Aspekte (soweit aus den Frames erkennbar):
+- **Körpersprache**: Wirkt der Spieler aktiv und positiv oder frustriert/passiv?
+- **Fokus**: Konzentriert sich der Spieler auf den nächsten Ball?
+
+## Antwort-Format
 
 Antworte IMMER auf Deutsch und im folgenden JSON-Format:
 {
   "overall_rating": <Zahl 1-10>,
   "summary": "<2-3 Sätze Gesamteindruck>",
   "body_parts": {
-    "arm_technique": { "rating": <1-10>, "feedback": "<konkretes Feedback zur Armtechnik>" },
-    "shoulder_rotation": { "rating": <1-10>, "feedback": "<Feedback zur Schulterrotation>" },
-    "footwork": { "rating": <1-10>, "feedback": "<Feedback zur Beinarbeit>" },
-    "body_posture": { "rating": <1-10>, "feedback": "<Feedback zur Körperhaltung>" },
-    "racket_angle": { "rating": <1-10>, "feedback": "<Feedback zum Schlägerwinkel>" }
+    "schlagtechnik": { "rating": <1-10>, "feedback": "<konkretes Feedback mit Bezug auf die Kriterien oben>" },
+    "beinarbeit": { "rating": <1-10>, "feedback": "<konkretes Feedback>" },
+    "koerperhaltung": { "rating": <1-10>, "feedback": "<konkretes Feedback>" },
+    "taktik": { "rating": <1-10>, "feedback": "<konkretes Feedback, oder 'Aus den Frames nicht ausreichend beurteilbar' wenn nicht erkennbar>" },
+    "mental": { "rating": <1-10>, "feedback": "<konkretes Feedback, oder 'Aus den Frames nicht ausreichend beurteilbar' wenn nicht erkennbar>" }
   },
-  "strengths": ["<Stärke 1>", "<Stärke 2>"],
+  "strengths": ["<Stärke 1>", "<Stärke 2>", "<Stärke 3>"],
   "improvements": ["<Verbesserung 1>", "<Verbesserung 2>", "<Verbesserung 3>"],
-  "drill_suggestions": ["<Übung 1>", "<Übung 2>"]
+  "drill_suggestions": ["<konkrete Übung 1>", "<konkrete Übung 2>"]
 }
 
-Wichtig:
-- Sei konstruktiv und ermutigend, aber ehrlich
-- Gib konkrete, umsetzbare Tipps (nicht "verbessere deine Technik" sondern "der Ellbogen sollte beim Topspin stärker gestreckt werden")
+## Wichtige Regeln
+- Sei konstruktiv und ermutigend, aber ehrlich — beschönige nichts
+- Gib KONKRETE, umsetzbare Tipps (NICHT "verbessere deine Technik" SONDERN "der Ellbogen sollte beim VH-Topspin näher am Körper bleiben, dann kommt mehr Spin")
+- Auch gelungene Aspekte erwähnen um Stärken zu festigen — nicht nur Fehler suchen
 - Berücksichtige dass es sich um Vereinsspieler handelt, nicht Profis
-- Wenn du etwas nicht erkennen kannst (z.B. Schlägerwinkel bei schlechter Auflösung), sage das ehrlich
+- Wenn du etwas nicht erkennen kannst (z.B. bei schlechter Auflösung oder ungünstiger Kameraperspektive), sage das ehrlich statt zu raten
 - Wenn ein Pose-Vergleich mit einem Musterbeispiel vorliegt, beziehe die Abweichungen in dein Feedback ein
+- Die overall_rating soll der gewichtete Durchschnitt sein: Schlagtechnik 35%, Beinarbeit 25%, Körperhaltung 20%, Taktik 10%, Mental 10%
+- Nutze die volle Skala 1-10 realistisch: 5 = solide Grundlagen aber deutliche Fehler, 7 = gute Vereinsebene, 9-10 = nahezu fehlerfreie Technik
 - Antworte NUR mit dem JSON, kein Text davor oder danach`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -287,11 +327,11 @@ Wichtig:
       overall_rating: 5,
       summary: textContent.substring(0, 500),
       body_parts: {
-        arm_technique: { rating: 5, feedback: 'Analyse konnte nicht strukturiert werden.' },
-        shoulder_rotation: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
-        footwork: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
-        body_posture: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
-        racket_angle: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
+        schlagtechnik: { rating: 5, feedback: 'Analyse konnte nicht strukturiert werden.' },
+        beinarbeit: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
+        koerperhaltung: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
+        taktik: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
+        mental: { rating: 5, feedback: 'Siehe Zusammenfassung.' },
       },
       strengths: [],
       improvements: [textContent.substring(0, 200)],

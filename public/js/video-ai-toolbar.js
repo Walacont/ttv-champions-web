@@ -1333,13 +1333,22 @@ function renderTechniqueResult(container, result) {
         : 'text-red-400';
 
     const bodyParts = result.body_parts || {};
-    const bodyPartLabels = {
-        arm_technique: 'Armtechnik',
-        shoulder_rotation: 'Schulterrotation',
-        footwork: 'Beinarbeit',
-        body_posture: 'Körperhaltung',
-        racket_angle: 'Schlägerwinkel',
-    };
+    // Neue Kategorien + Rückwärtskompatibilität mit alten Analysen
+    const bodyPartLabels = bodyParts.schlagtechnik
+        ? {
+            schlagtechnik: 'Schlagtechnik',
+            beinarbeit: 'Beinarbeit',
+            koerperhaltung: 'Körperhaltung',
+            taktik: 'Taktik & Spielintelligenz',
+            mental: 'Mentale Aspekte',
+        }
+        : {
+            arm_technique: 'Armtechnik',
+            shoulder_rotation: 'Schulterrotation',
+            footwork: 'Beinarbeit',
+            body_posture: 'Körperhaltung',
+            racket_angle: 'Schlägerwinkel',
+        };
 
     const bodyPartHtml = Object.entries(bodyPartLabels)
         .map(([key, label]) => {
@@ -1520,13 +1529,22 @@ async function loadAnalysisHistory(db, currentVideoId, currentRating) {
 function saveAnalysisAsComment(result) {
     if (!result) return;
 
-    const bodyPartLabels = {
-        arm_technique: 'Armtechnik',
-        shoulder_rotation: 'Schulterrotation',
-        footwork: 'Beinarbeit',
-        body_posture: 'Körperhaltung',
-        racket_angle: 'Schlägerwinkel',
-    };
+    const bodyParts_raw = result.body_parts || {};
+    const bodyPartLabels = bodyParts_raw.schlagtechnik
+        ? {
+            schlagtechnik: 'Schlagtechnik',
+            beinarbeit: 'Beinarbeit',
+            koerperhaltung: 'Körperhaltung',
+            taktik: 'Taktik & Spielintelligenz',
+            mental: 'Mentale Aspekte',
+        }
+        : {
+            arm_technique: 'Armtechnik',
+            shoulder_rotation: 'Schulterrotation',
+            footwork: 'Beinarbeit',
+            body_posture: 'Körperhaltung',
+            racket_angle: 'Schlägerwinkel',
+        };
 
     // Analyse-Text zusammenbauen
     let text = `🏓 KI-Technikanalyse (Beta) — Bewertung: ${result.overall_rating}/10\n\n`;
