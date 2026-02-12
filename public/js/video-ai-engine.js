@@ -463,6 +463,9 @@ export const POSE_CONNECTIONS = [
     [POSE_LANDMARKS.MOUTH_LEFT, POSE_LANDMARKS.MOUTH_RIGHT],
 ];
 
+// Alias für kürzeren Zugriff (verwendet in comparePoses/normalizePose)
+const L = POSE_LANDMARKS;
+
 /**
  * Lädt Analyse eines anderen Videos als Referenz (z.B. Trainer-Demonstration).
  * @param {Object} db - Supabase-Client
