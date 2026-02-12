@@ -54,7 +54,12 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
     lastAnalysisResults = null;
 
     // Neues Overlay erstellen
-    aiOverlay = new VideoAIOverlay(videoPlayer);
+    try {
+        aiOverlay = new VideoAIOverlay(videoPlayer);
+    } catch (e) {
+        console.warn('[AI Toolbar] Could not create overlay:', e);
+        aiOverlay = null;
+    }
 
     // Panel erstellen (falls nicht vorhanden)
     // Wird an den Modal-Container gehängt (nicht video-player-container),
@@ -72,7 +77,7 @@ export async function setupAIToolbar(videoPlayer, videoId, context) {
     if (context.db) {
         try {
             const saved = await loadAnalysisResults(context.db, videoId);
-            if (saved && saved.frames && saved.frames.length > 0) {
+            if (saved && saved.frames && saved.frames.length > 0 && aiOverlay) {
                 aiOverlay.setSavedFrames(saved.frames);
                 // Overlay sofort aktivieren damit Skelett sichtbar ist
                 aiOverlay.activate();
