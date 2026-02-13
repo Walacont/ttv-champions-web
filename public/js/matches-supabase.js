@@ -1277,15 +1277,20 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         const tournamentInfo = document.getElementById('coach-tournament-match-info');
         if (tournamentInfo) tournamentInfo.classList.add('hidden');
 
+        // "Speichern & Weiter": Chips zurücksetzen, Formular bereit für nächstes Match
+        handlePostMatchSave();
+
     } catch (error) {
         console.error('Error saving match:', error);
         if (feedbackEl) {
             feedbackEl.textContent = 'Fehler beim Speichern: ' + error.message;
             feedbackEl.classList.add('text-red-600');
         }
+        // Bei Fehler: matchSaveAndContinue Flag zurücksetzen
+        matchSaveAndContinue = false;
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Match speichern';
+        submitBtn.textContent = 'Speichern';
     }
 }
 
@@ -2660,4 +2665,268 @@ function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+// ============================================================
+// Player Quick-Select Chips für Einzel-Wettkampf
+// ============================================================
+
+let chipPlayerAId = null;
+let chipPlayerBId = null;
+let chipPlayers = []; // Cached players for chips
+
+export function getChipSelectedPlayers() {
+    return { playerAId: chipPlayerAId, playerBId: chipPlayerBId };
+}
+
+export function resetChipSelection() {
+    chipPlayerAId = null;
+    chipPlayerBId = null;
+    updateChipStates();
+    updateSelectedPlayersDisplay();
+    // Sync hidden selects
+    const selA = document.getElementById('player-a-select');
+    const selB = document.getElementById('player-b-select');
+    if (selA) selA.value = '';
+    if (selB) selB.value = '';
+}
+
+function updateChipStates() {
+    const container = document.getElementById('match-player-chips');
+    if (!container) return;
+
+    container.querySelectorAll('[data-player-id]').forEach(chip => {
+        const pid = chip.dataset.playerId;
+        chip.classList.remove(
+            'bg-blue-500', 'text-white', 'border-blue-600', 'ring-2', 'ring-blue-300',
+            'bg-red-500', 'border-red-600', 'ring-red-300',
+            'bg-white', 'border-gray-300', 'text-gray-700', 'hover:bg-gray-100'
+        );
+
+        if (pid === chipPlayerAId) {
+            chip.classList.add('bg-blue-500', 'text-white', 'border-blue-600', 'ring-2', 'ring-blue-300');
+        } else if (pid === chipPlayerBId) {
+            chip.classList.add('bg-red-500', 'text-white', 'border-red-600', 'ring-2', 'ring-red-300');
+        } else {
+            chip.classList.add('bg-white', 'border-gray-300', 'text-gray-700', 'hover:bg-gray-100');
+        }
+    });
+}
+
+function updateSelectedPlayersDisplay() {
+    const nameA = document.getElementById('match-player-a-name');
+    const nameB = document.getElementById('match-player-b-name');
+    if (!nameA || !nameB) return;
+
+    if (chipPlayerAId) {
+        const p = chipPlayers.find(pl => pl.id === chipPlayerAId);
+        nameA.textContent = p ? `${p.firstName || p.first_name || ''} ${p.lastName || p.last_name || ''}`.trim() : '?';
+    } else {
+        nameA.textContent = '-- antippen --';
+    }
+
+    if (chipPlayerBId) {
+        const p = chipPlayers.find(pl => pl.id === chipPlayerBId);
+        nameB.textContent = p ? `${p.firstName || p.first_name || ''} ${p.lastName || p.last_name || ''}`.trim() : '?';
+    } else {
+        nameB.textContent = '-- antippen --';
+    }
+}
+
+function syncHiddenSelects() {
+    const selA = document.getElementById('player-a-select');
+    const selB = document.getElementById('player-b-select');
+    if (selA) selA.value = chipPlayerAId || '';
+    if (selB) selB.value = chipPlayerBId || '';
+    // Trigger change events for handicap calculation etc.
+    selA?.dispatchEvent(new Event('change'));
+    selB?.dispatchEvent(new Event('change'));
+}
+
+function handleChipClick(playerId) {
+    if (chipPlayerAId === playerId) {
+        // Deselect A
+        chipPlayerAId = null;
+    } else if (chipPlayerBId === playerId) {
+        // Deselect B
+        chipPlayerBId = null;
+    } else if (!chipPlayerAId) {
+        chipPlayerAId = playerId;
+    } else if (!chipPlayerBId) {
+        chipPlayerBId = playerId;
+    } else {
+        // Both selected - replace B
+        chipPlayerBId = playerId;
+    }
+
+    updateChipStates();
+    updateSelectedPlayersDisplay();
+    syncHiddenSelects();
+}
+
+export function renderPlayerChips(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all', includeOfflinePlayers = false) {
+    const container = document.getElementById('match-player-chips');
+    if (!container) return;
+
+    let players = clubPlayers.filter(p => {
+        const isOffline = p.isOffline || p.is_offline;
+        if (includeOfflinePlayers) return true;
+        return !isOffline;
+    });
+
+    if (currentSubgroupFilter !== 'all') {
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            players = filterPlayersByAgeGroup(players, currentSubgroupFilter);
+        } else if (!isGenderFilter(currentSubgroupFilter)) {
+            players = players.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
+    }
+
+    if (currentGenderFilter && currentGenderFilter !== 'all' && currentGenderFilter !== 'gender_all') {
+        players = filterPlayersByGender(players, currentGenderFilter);
+    }
+
+    if (excludePlayerId) {
+        players = players.filter(p => p.id !== excludePlayerId);
+    }
+
+    chipPlayers = players;
+    container.innerHTML = '';
+
+    players.forEach(player => {
+        const firstName = player.firstName || player.first_name || '';
+        const lastName = player.lastName || player.last_name || '';
+        const elo = Math.round(player.eloRating || player.elo_rating || 0);
+
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.dataset.playerId = player.id;
+        chip.dataset.playerName = `${firstName} ${lastName}`.toLowerCase();
+        chip.className = 'px-3 py-1.5 text-sm font-medium rounded-full border transition-all cursor-pointer select-none bg-white border-gray-300 text-gray-700 hover:bg-gray-100';
+        chip.innerHTML = `${escapeHtml(firstName)} ${escapeHtml(lastName)} <span class="text-xs opacity-70">${elo}</span>`;
+        chip.addEventListener('click', () => handleChipClick(player.id));
+        container.appendChild(chip);
+    });
+
+    // Reset selection
+    chipPlayerAId = null;
+    chipPlayerBId = null;
+    updateSelectedPlayersDisplay();
+
+    // Swap button
+    const swapBtn = document.getElementById('match-swap-players');
+    if (swapBtn) {
+        const freshSwap = swapBtn.cloneNode(true);
+        swapBtn.parentNode.replaceChild(freshSwap, swapBtn);
+        freshSwap.addEventListener('click', () => {
+            const tmp = chipPlayerAId;
+            chipPlayerAId = chipPlayerBId;
+            chipPlayerBId = tmp;
+            updateChipStates();
+            updateSelectedPlayersDisplay();
+            syncHiddenSelects();
+        });
+    }
+
+    // Search in chips
+    const searchInput = document.getElementById('match-player-search');
+    const searchClear = document.getElementById('match-player-search-clear');
+
+    if (searchInput) {
+        searchInput.value = '';
+        if (searchClear) searchClear.classList.add('hidden');
+
+        const newSearch = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearch, searchInput);
+
+        newSearch.addEventListener('input', () => {
+            const query = newSearch.value.toLowerCase().trim();
+            const clearBtn = document.getElementById('match-player-search-clear');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+
+            container.querySelectorAll('[data-player-id]').forEach(chip => {
+                const name = chip.dataset.playerName || '';
+                chip.style.display = name.includes(query) ? '' : 'none';
+            });
+        });
+
+        const newClear = document.getElementById('match-player-search-clear');
+        if (newClear) {
+            const freshClear = newClear.cloneNode(true);
+            newClear.parentNode.replaceChild(freshClear, newClear);
+            freshClear.addEventListener('click', () => {
+                const si = document.getElementById('match-player-search');
+                if (si) {
+                    si.value = '';
+                    si.dispatchEvent(new Event('input'));
+                    si.focus();
+                }
+            });
+        }
+    }
+}
+
+// ============================================================
+// "Speichern & Nächstes Match" Logik
+// ============================================================
+
+let matchSaveAndContinue = false;
+
+export function isMatchSaveAndContinue() {
+    return matchSaveAndContinue;
+}
+
+export function setMatchSaveAndContinue(val) {
+    matchSaveAndContinue = val;
+}
+
+export function initMatchSaveNextButton(formSubmitHandler) {
+    const btn = document.getElementById('match-save-next-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        matchSaveAndContinue = true;
+        // Trigger form submit
+        const form = document.getElementById('match-form');
+        if (form) form.requestSubmit();
+    });
+}
+
+export function handlePostMatchSave() {
+    if (matchSaveAndContinue) {
+        matchSaveAndContinue = false;
+        // Reset player chips but keep match mode
+        resetChipSelection();
+        // Scroll to player chips for next entry
+        const chipsContainer = document.getElementById('match-player-chips-container');
+        if (chipsContainer) {
+            chipsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // Brief success flash on selected players display
+        const selected = document.getElementById('match-selected-players');
+        if (selected) {
+            selected.classList.add('ring-2', 'ring-green-400', 'rounded-lg');
+            setTimeout(() => {
+                selected.classList.remove('ring-2', 'ring-green-400', 'rounded-lg');
+            }, 1500);
+        }
+        // Hide winner display
+        const winnerInfo = document.getElementById('coach-match-winner-info');
+        if (winnerInfo) winnerInfo.classList.add('hidden');
+        // Clear handicap
+        const handicapSuggestion = document.getElementById('handicap-suggestion');
+        if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
+        const handicapToggleContainer = document.getElementById('handicap-toggle-container');
+        if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
+        // Clear feedback after short delay
+        const feedbackEl = document.getElementById('match-feedback');
+        if (feedbackEl) {
+            setTimeout(() => {
+                feedbackEl.textContent = '';
+                feedbackEl.classList.remove('text-green-600', 'text-red-600');
+            }, 2000);
+        }
+    }
 }

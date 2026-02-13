@@ -81,6 +81,8 @@ import {
     loadSavedPairings,
     initializeHandicapToggle,
     setCurrentSport,
+    renderPlayerChips,
+    initMatchSaveNextButton,
 } from './matches-supabase.js';
 import {
     initializeDoublesCoachUI,
@@ -411,6 +413,7 @@ async function initializeCoachPage(userData) {
     loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
+        renderPlayerChips(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // Quick-Select Chips
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Coach ausschließen
@@ -488,6 +491,7 @@ async function initializeCoachPage(userData) {
             clubPlayers = players;
             console.log('[Coach] clubPlayers refreshed with', players.length, 'players');
             populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
+            renderPlayerChips(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true);
             populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
             updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
             updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
@@ -662,6 +666,7 @@ async function initializeCoachPage(userData) {
             await handleMatchSave(e, supabase, userData, clubPlayers);
         }
     });
+    initMatchSaveNextButton();
 
     // Empfehlungen basierend auf Dauer
     setupChallengePointRecommendations();
@@ -1156,6 +1161,7 @@ function handleSubgroupFilterChange(userData) {
 
     // Coach aus Dropdown ausschließen, beide Filter anwenden
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
+    renderPlayerChips(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true);
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 
     // Coach aus Dropdown ausschließen
@@ -1183,6 +1189,7 @@ function handleGenderFilterChange(userData) {
 
     // Mit aktuellem Untergruppen-Filter kombinieren
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // inkl. Offline-Spieler
+    renderPlayerChips(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true);
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 }
 

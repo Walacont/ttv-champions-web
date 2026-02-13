@@ -580,6 +580,46 @@ export async function openAttendanceModalForSession(
             playerListContainer.appendChild(div);
         }
 
+        // Spieler-Suchfeld initialisieren
+        const searchInput = document.getElementById('attendance-player-search');
+        const searchClear = document.getElementById('attendance-search-clear');
+        if (searchInput) {
+            searchInput.value = '';
+            if (searchClear) searchClear.classList.add('hidden');
+
+            // Alten Listener entfernen
+            const newSearch = searchInput.cloneNode(true);
+            searchInput.parentNode.replaceChild(newSearch, searchInput);
+
+            newSearch.addEventListener('input', () => {
+                const query = newSearch.value.toLowerCase().trim();
+                const clearBtn = document.getElementById('attendance-search-clear');
+                if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+
+                const items = playerListContainer.querySelectorAll('.flex.items-center');
+                items.forEach(item => {
+                    const label = item.querySelector('label');
+                    if (!label) return;
+                    const name = label.textContent.toLowerCase();
+                    item.style.display = name.includes(query) ? '' : 'none';
+                });
+            });
+
+            const newClear = document.getElementById('attendance-search-clear');
+            if (newClear) {
+                const freshClear = newClear.cloneNode(true);
+                newClear.parentNode.replaceChild(freshClear, newClear);
+                freshClear.addEventListener('click', () => {
+                    const si = document.getElementById('attendance-player-search');
+                    if (si) {
+                        si.value = '';
+                        si.dispatchEvent(new Event('input'));
+                        si.focus();
+                    }
+                });
+            }
+        }
+
         modal.classList.remove('hidden');
 
         if (currentUpdateAttendanceCount) currentUpdateAttendanceCount();

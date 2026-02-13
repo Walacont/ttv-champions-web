@@ -476,30 +476,47 @@
                                 <!-- Singles Players (default) -->
                                 <div
                                     id="singles-players-container"
-                                    class="grid grid-cols-1 md:grid-cols-2 gap-4"
+                                    class="space-y-3"
                                 >
-                                    <div>
-                                        <label
-                                            for="player-a-select"
-                                            class="block text-sm font-medium text-gray-700"
-                                            >Spieler A</label
-                                        >
-                                        <select
-                                            id="player-a-select"
-                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                        ></select>
+                                    <!-- Player Quick-Select Chips -->
+                                    <div id="match-player-chips-container">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-sm font-medium text-gray-700">Spieler antippen</label>
+                                            <div class="flex items-center gap-3 text-xs">
+                                                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Spieler A</span>
+                                                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Spieler B</span>
+                                            </div>
+                                        </div>
+                                        <div class="relative mb-2">
+                                            <input type="text" id="match-player-search" placeholder="Spieler suchen..."
+                                                class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                autocomplete="off">
+                                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                                            <button type="button" id="match-player-search-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                                                <i class="fas fa-times text-sm"></i>
+                                            </button>
+                                        </div>
+                                        <div id="match-player-chips" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg bg-gray-50"></div>
                                     </div>
-                                    <div>
-                                        <label
-                                            for="player-b-select"
-                                            class="block text-sm font-medium text-gray-700"
-                                            >Spieler B</label
-                                        >
-                                        <select
-                                            id="player-b-select"
-                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                                        ></select>
+                                    <!-- Selected Players Display -->
+                                    <div id="match-selected-players" class="grid grid-cols-2 gap-3">
+                                        <div class="border-2 border-blue-200 bg-blue-50 rounded-lg p-3 text-center min-h-[60px] flex flex-col justify-center">
+                                            <span class="text-xs text-blue-600 font-medium">Spieler A</span>
+                                            <span id="match-player-a-name" class="text-sm font-bold text-blue-800 mt-1">-- antippen --</span>
+                                        </div>
+                                        <div class="border-2 border-red-200 bg-red-50 rounded-lg p-3 text-center min-h-[60px] flex flex-col justify-center">
+                                            <span class="text-xs text-red-600 font-medium">Spieler B</span>
+                                            <span id="match-player-b-name" class="text-sm font-bold text-red-800 mt-1">-- antippen --</span>
+                                        </div>
                                     </div>
+                                    <div class="flex justify-center">
+                                        <button type="button" id="match-swap-players" class="text-xs text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                                            <i class="fas fa-exchange-alt"></i> Spieler tauschen
+                                        </button>
+                                    </div>
+                                    <!-- Hidden selects for compatibility -->
+                                    <select id="player-a-select" class="hidden"></select>
+                                    <select id="player-b-select" class="hidden"></select>
                                 </div>
 
                                 <!-- Doubles Players (hidden by default) -->
@@ -644,12 +661,21 @@
                                     <p id="coach-match-winner-text" class="text-lg text-green-700 font-bold"></p>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
-                                >
-                                    Match-Ergebnis speichern
-                                </button>
+                                <div class="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+                                    >
+                                        Speichern
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="match-save-next-btn"
+                                        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg"
+                                    >
+                                        Speichern & Weiter
+                                    </button>
+                                </div>
                                 <p
                                     id="match-feedback"
                                     class="mt-3 text-sm font-medium text-center"
@@ -3194,6 +3220,16 @@
                             </button>
                             <button type="button" id="deselect-all-players-btn" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors">
                                 Keine
+                            </button>
+                        </div>
+                        <!-- Spieler-Suche -->
+                        <div class="relative mb-2">
+                            <input type="text" id="attendance-player-search" placeholder="Spieler suchen..."
+                                class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                autocomplete="off">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <button type="button" id="attendance-search-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                                <i class="fas fa-times text-sm"></i>
                             </button>
                         </div>
                         <div
