@@ -1058,6 +1058,161 @@ export function cleanupAIToolbar() {
 }
 
 // ============================================
+// REFERENZ-FRAMES (Muster-Technik-Vergleich)
+// ============================================
+
+/**
+ * Mapping von Schlagtypen zu Technik-Schlüsseln für Referenz-Frames.
+ * Wird benutzt um die richtigen Musterbilder zu laden.
+ */
+const TECHNIQUE_MAP = {
+    'forehand_topspin': { key: 'forehand_topspin', label: 'VH Topspin', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'forehand_drive': { key: 'forehand_topspin', label: 'VH Topspin', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'forehand_push': { key: 'forehand_push', label: 'VH Schupf', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'forehand_block': { key: 'forehand_block', label: 'VH Block', phases: ['Bereitschaft', 'Treffpunkt', 'Rückkehr'] },
+    'forehand_serve': { key: 'forehand_serve', label: 'VH Aufschlag', phases: ['Ballwurf', 'Treffpunkt', 'Ausschwung'] },
+    'forehand_flip': { key: 'forehand_flip', label: 'VH Flip', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'backhand_topspin': { key: 'backhand_topspin', label: 'RH Topspin', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'backhand_drive': { key: 'backhand_topspin', label: 'RH Topspin', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'backhand_push': { key: 'backhand_push', label: 'RH Schupf', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+    'backhand_block': { key: 'backhand_block', label: 'RH Block', phases: ['Bereitschaft', 'Treffpunkt', 'Rückkehr'] },
+    'backhand_serve': { key: 'backhand_serve', label: 'RH Aufschlag', phases: ['Ballwurf', 'Treffpunkt', 'Ausschwung'] },
+    'backhand_flip': { key: 'backhand_flip', label: 'RH Flip', phases: ['Ausholphase', 'Treffpunkt', 'Ausschwung'] },
+};
+
+/**
+ * Lädt Referenz-Frames (Muster-Technik-Bilder) aus Supabase Storage.
+ * Erkennt automatisch welche Techniken im Video vorkommen und lädt passende Muster.
+ *
+ * Storage-Struktur:
+ *   reference-techniques/
+ *     forehand_topspin/
+ *       1_ausholphase.jpg
+ *       2_treffpunkt.jpg
+ *       3_ausschwung.jpg
+ *     backhand_topspin/
+ *       1_ausholphase.jpg
+ *       ...
+ *
+ * @param {Object} db - Supabase client
+ * @param {Array} shotLabels - Erkannte Schläge [{type: 'forehand_topspin', ...}]
+ * @param {Object} context - Analysis context
+ * @returns {Promise<Array|null>} - Reference frames for Claude API
+ */
+async function loadReferenceFramesForAnalysis(db, shotLabels, context) {
+    // Bestimme welche Techniken im Video vorkommen
+    const techniques = new Set();
+
+    if (shotLabels && shotLabels.length > 0) {
+        for (const shot of shotLabels) {
+            const type = shot.type || shot.shotType;
+            if (type && TECHNIQUE_MAP[type]) {
+                techniques.add(TECHNIQUE_MAP[type].key);
+            }
+        }
+    }
+
+    // Wenn keine Schläge erkannt: Übungsname als Hinweis nutzen
+    if (techniques.size === 0 && context.exerciseName) {
+        const name = context.exerciseName.toLowerCase();
+        if (name.includes('topspin') && name.includes('rh')) techniques.add('backhand_topspin');
+        else if (name.includes('topspin') || name.includes('vht')) techniques.add('forehand_topspin');
+        if (name.includes('schupf')) {
+            techniques.add('forehand_push');
+            techniques.add('backhand_push');
+        }
+        if (name.includes('aufschlag')) techniques.add('forehand_serve');
+        if (name.includes('block')) techniques.add('forehand_block');
+        if (name.includes('flip')) techniques.add('forehand_flip');
+    }
+
+    // Maximal 2 Techniken laden (sonst zu viele Bilder für API)
+    const selectedTechniques = [...techniques].slice(0, 2);
+    if (selectedTechniques.length === 0) return null;
+
+    const referenceFrames = [];
+
+    for (const techKey of selectedTechniques) {
+        const techInfo = Object.values(TECHNIQUE_MAP).find(t => t.key === techKey);
+        if (!techInfo) continue;
+
+        try {
+            // Referenz-Frames aus Storage laden
+            const { data: files, error: listError } = await db.storage
+                .from('reference-techniques')
+                .list(techKey, { limit: 5, sortBy: { column: 'name', order: 'asc' } });
+
+            if (listError || !files || files.length === 0) {
+                console.log(`[AI Toolbar] No reference frames for ${techKey}`);
+                continue;
+            }
+
+            // Nur JPG/PNG Dateien
+            const imageFiles = files.filter(f =>
+                f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') || f.name.endsWith('.png')
+            ).slice(0, 3); // Max 3 Frames pro Technik
+
+            if (imageFiles.length === 0) continue;
+
+            const frames = [];
+            const frameLabels = [];
+
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
+                const { data: urlData } = db.storage
+                    .from('reference-techniques')
+                    .getPublicUrl(`${techKey}/${file.name}`);
+
+                if (!urlData?.publicUrl) continue;
+
+                // Bild als Base64 laden
+                try {
+                    const imgResp = await fetch(urlData.publicUrl);
+                    if (!imgResp.ok) continue;
+                    const blob = await imgResp.blob();
+                    const base64 = await blobToBase64(blob);
+                    frames.push(base64);
+                    frameLabels.push(techInfo.phases[i] || `Phase ${i + 1}`);
+                } catch (fetchErr) {
+                    console.warn(`[AI Toolbar] Failed to fetch reference frame: ${file.name}`, fetchErr);
+                }
+            }
+
+            if (frames.length > 0) {
+                referenceFrames.push({
+                    technique: techKey,
+                    technique_label: `${techInfo.label} (Muster)`,
+                    frames,
+                    frame_labels: frameLabels,
+                });
+                console.log(`[AI Toolbar] Loaded ${frames.length} reference frames for ${techInfo.label}`);
+            }
+        } catch (err) {
+            console.warn(`[AI Toolbar] Error loading reference frames for ${techKey}:`, err);
+        }
+    }
+
+    return referenceFrames.length > 0 ? referenceFrames : null;
+}
+
+/**
+ * Konvertiert einen Blob zu Base64 (ohne data:... Prefix).
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result;
+            // Remove "data:image/jpeg;base64," prefix
+            const base64 = result.split(',')[1] || result;
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+// ============================================
 // CLAUDE VISION TECHNIK-ANALYSE (Phase 1A)
 // ============================================
 
@@ -1265,9 +1420,25 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
             </div>
         `;
 
-        // 4. Edge Function aufrufen
+        // 4. Referenz-Frames laden (Musterbilder für Technik-Vergleich)
         const { db } = context;
+        let referenceFrames = null;
+        try {
+            referenceFrames = await loadReferenceFramesForAnalysis(db, shotLabels, context);
+            if (referenceFrames && referenceFrames.length > 0) {
+                const totalRefFrames = referenceFrames.reduce((s, r) => s + r.frames.length, 0);
+                resultContainer.innerHTML = `
+                    <div class="text-xs text-gray-400 text-center py-2">
+                        <i class="fas fa-spinner fa-spin mr-1"></i>
+                        KI analysiert ${frameImages.length} Frames + ${totalRefFrames} Muster-Frames...
+                    </div>
+                `;
+            }
+        } catch (refErr) {
+            console.warn('[AI Toolbar] Could not load reference frames:', refErr);
+        }
 
+        // 5. Edge Function aufrufen
         const response = await db.functions.invoke('analyze-video-ai', {
             body: {
                 video_id: videoId,
@@ -1278,6 +1449,7 @@ async function runClaudeTechniqueAnalysis(videoPlayer, videoId, context) {
                 exercise_name: context.exerciseName || null,
                 video_tags: context.videoTags || [],
                 reference_comparison: referenceComparison,
+                reference_frames: referenceFrames,
             },
         });
 
@@ -1416,6 +1588,15 @@ function renderTechniqueResult(container, result) {
                 <div class="mt-2">
                     <span class="text-xs font-medium text-gray-400">Übungsempfehlungen:</span>
                     <ul class="text-xs mt-1 space-y-0.5">${drillsHtml}</ul>
+                </div>
+            ` : ''}
+
+            ${result.reference_comparison ? `
+                <div class="mt-3 p-2 bg-purple-900/30 rounded-lg border border-purple-700/50">
+                    <span class="text-xs font-medium text-purple-300">
+                        <i class="fas fa-star mr-1"></i>Vergleich mit Muster-Technik:
+                    </span>
+                    <p class="text-xs text-purple-200 mt-1">${result.reference_comparison}</p>
                 </div>
             ` : ''}
 
@@ -1570,7 +1751,10 @@ function saveAnalysisAsComment(result) {
         text += `⬆️ Verbesserungen:\n${result.improvements.map(s => `• ${s}`).join('\n')}\n\n`;
     }
     if (result.drill_suggestions?.length) {
-        text += `🏋️ Übungsempfehlungen:\n${result.drill_suggestions.map(s => `• ${s}`).join('\n')}`;
+        text += `🏋️ Übungsempfehlungen:\n${result.drill_suggestions.map(s => `• ${s}`).join('\n')}\n\n`;
+    }
+    if (result.reference_comparison) {
+        text += `⭐ Vergleich mit Muster-Technik:\n${result.reference_comparison}`;
     }
 
     // Kommentar-Textarea befüllen, damit der Coach noch editieren kann

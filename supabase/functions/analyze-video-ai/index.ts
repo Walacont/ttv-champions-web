@@ -35,6 +35,12 @@ interface AnalysisRequest {
     exercise_name?: string
     overall_score?: string
   }
+  reference_frames?: {         // Muster-Frames (z.B. DTTB-Videos) als visueller Vergleich
+    technique: string          // z.B. 'forehand_topspin', 'backhand_block'
+    technique_label: string    // z.B. 'VH Topspin (DTTB)'
+    frames: string[]           // Base64-JPEG Referenz-Frames
+    frame_labels?: string[]    // z.B. ['Ausholphase', 'Treffpunkt', 'Ausschwung']
+  }[]
 }
 
 interface TechniqueAnalysis {
@@ -320,10 +326,49 @@ async function callClaudeVision(
     contextText += ` Pose-Vergleich mit Musterbeispiel${payload.reference_comparison.exercise_name ? ` (${payload.reference_comparison.exercise_name})` : ''}: ${payload.reference_comparison.overall_score} Übereinstimmung.`
   }
 
+  // Referenz-Frames (Musterbilder) als Content-Blocks aufbauen
+  const referenceBlocks: any[] = []
+  if (payload.reference_frames && payload.reference_frames.length > 0) {
+    referenceBlocks.push({
+      type: 'text',
+      text: '=== MUSTER-TECHNIK (so sollte es aussehen) ===',
+    })
+
+    for (const ref of payload.reference_frames) {
+      referenceBlocks.push({
+        type: 'text',
+        text: `Muster: ${ref.technique_label}`,
+      })
+
+      for (let i = 0; i < ref.frames.length; i++) {
+        const label = ref.frame_labels?.[i] || `Phase ${i + 1}`
+        referenceBlocks.push(
+          {
+            type: 'text',
+            text: `Muster ${ref.technique_label} - ${label}:`,
+          },
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: 'image/jpeg',
+              data: ref.frames[i],
+            },
+          }
+        )
+      }
+    }
+
+    referenceBlocks.push({
+      type: 'text',
+      text: '=== SPIELER-VIDEO (zu analysieren) ===',
+    })
+  }
+
   // Frame-Bilder als Content-Blocks aufbauen
   const imageBlocks = payload.frame_images.map((base64, idx) => {
     const timestamp = payload.frame_timestamps?.[idx]
-    const caption = timestamp !== undefined ? `Frame bei ${timestamp.toFixed(1)}s` : `Frame ${idx + 1}`
+    const caption = timestamp !== undefined ? `Spieler-Frame bei ${timestamp.toFixed(1)}s` : `Spieler-Frame ${idx + 1}`
     return [
       {
         type: 'text',
@@ -392,7 +437,8 @@ Antworte IMMER auf Deutsch und im folgenden JSON-Format:
   },
   "strengths": ["<Stärke 1>", "<Stärke 2>", "<Stärke 3>"],
   "improvements": ["<Verbesserung 1>", "<Verbesserung 2>", "<Verbesserung 3>"],
-  "drill_suggestions": ["<konkrete Übung 1>", "<konkrete Übung 2>"]
+  "drill_suggestions": ["<konkrete Übung 1>", "<konkrete Übung 2>"],
+  "reference_comparison": "<NUR wenn Muster-Frames vorhanden: 3-5 Sätze konkreter visueller Vergleich zwischen Spieler und Muster. Was macht das Muster anders/besser? Welche Bewegungsphase weicht am meisten ab? Sonst null>"
 }
 
 ## Wichtige Regeln
@@ -402,6 +448,7 @@ Antworte IMMER auf Deutsch und im folgenden JSON-Format:
 - Berücksichtige dass es sich um Vereinsspieler handelt, nicht Profis
 - Wenn du etwas nicht erkennen kannst (z.B. bei schlechter Auflösung), sage das ehrlich statt zu raten
 - Wenn ein Pose-Vergleich mit einem Musterbeispiel vorliegt, beziehe die Abweichungen in dein Feedback ein
+- Wenn MUSTER-FRAMES (Referenzbilder) mitgeliefert werden: Vergleiche die Technik des Spielers VISUELL mit den Musterbildern. Benenne KONKRET welche Unterschiede du siehst (z.B. "Im Muster ist der Ellbogen näher am Körper, bei dir steht er zu weit ab"). Das ist der wertvollste Teil deiner Analyse!
 - Die overall_rating soll der gewichtete Durchschnitt sein — NUTZE DIE GEWICHTUNG AUS DEM TRAININGSFORM-ABSCHNITT OBEN
 - Nutze die volle Skala 1-10 realistisch: 5 = solide Grundlagen aber deutliche Fehler, 7 = gute Vereinsebene, 9-10 = nahezu fehlerfreie Technik
 - Antworte NUR mit dem JSON, kein Text davor oder danach`
@@ -425,10 +472,13 @@ Antworte IMMER auf Deutsch und im folgenden JSON-Format:
               type: 'text',
               text: contextText,
             },
+            ...referenceBlocks,
             ...imageBlocks,
             {
               type: 'text',
-              text: 'Bitte analysiere die Tischtennis-Technik in diesen Frames und gib dein Feedback als JSON.',
+              text: referenceBlocks.length > 0
+                ? 'Bitte analysiere die Tischtennis-Technik in den SPIELER-Frames. Vergleiche die Technik des Spielers VISUELL mit den MUSTER-Frames und benenne konkrete Unterschiede. Gib dein Feedback als JSON.'
+                : 'Bitte analysiere die Tischtennis-Technik in diesen Frames und gib dein Feedback als JSON.',
             },
           ],
         },
