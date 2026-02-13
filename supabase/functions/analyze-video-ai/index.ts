@@ -448,7 +448,8 @@ Antworte IMMER auf Deutsch und im folgenden JSON-Format:
 - Berücksichtige dass es sich um Vereinsspieler handelt, nicht Profis
 - Wenn du etwas nicht erkennen kannst (z.B. bei schlechter Auflösung), sage das ehrlich statt zu raten
 - Wenn ein Pose-Vergleich mit einem Musterbeispiel vorliegt, beziehe die Abweichungen in dein Feedback ein
-- Wenn MUSTER-FRAMES (Referenzbilder) mitgeliefert werden: Vergleiche die Technik des Spielers VISUELL mit den Musterbildern. Benenne KONKRET welche Unterschiede du siehst (z.B. "Im Muster ist der Ellbogen näher am Körper, bei dir steht er zu weit ab"). Das ist der wertvollste Teil deiner Analyse!
+- Wenn MUSTER-FRAMES (Referenzbilder) mitgeliefert werden: Vergleiche die Technik des Spielers VISUELL mit den Musterbildern. Benenne KONKRET welche Unterschiede du siehst (z.B. "Im Muster ist der Ellbogen näher am Körper, bei dir steht er zu weit ab"). Lies auch Textannotationen auf den Musterbildern — diese sind wertvolle Hinweise (z.B. "Füße zeigen Richtung Tisch"). Das ist der wertvollste Teil deiner Analyse!
+- Wenn ein Muster-Frame als "Linkshänder" markiert ist: Die Muster zeigen Rechtshänder. Vergleiche GESPIEGELT — links/rechts tauschen. Ein Linkshänder macht seine Vorhand auf der LINKEN Seite, die Rückhand auf der RECHTEN. Die Biomechanik und Phasen sind identisch, nur seitenverkehrt.
 - Die overall_rating soll der gewichtete Durchschnitt sein — NUTZE DIE GEWICHTUNG AUS DEM TRAININGSFORM-ABSCHNITT OBEN
 - Nutze die volle Skala 1-10 realistisch: 5 = solide Grundlagen aber deutliche Fehler, 7 = gute Vereinsebene, 9-10 = nahezu fehlerfreie Technik
 - Antworte NUR mit dem JSON, kein Text davor oder danach`

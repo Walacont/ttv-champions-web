@@ -1081,10 +1081,12 @@ const TECHNIQUE_MAP = {
 };
 
 /**
- * Lädt Referenz-Frames (Muster-Technik-Bilder) aus Supabase Storage.
+ * Lädt Referenz-Frames (Muster-Technik-Bilder) aus Cloudflare R2 Storage.
  * Erkennt automatisch welche Techniken im Video vorkommen und lädt passende Muster.
+ * Unterstützt Linkshänder: DTTB-Muster zeigen Rechtshänder, Claude wird informiert
+ * wenn der Spieler Linkshänder ist und soll gespiegelt vergleichen.
  *
- * Storage-Struktur:
+ * R2-Storage-Struktur:
  *   reference-techniques/
  *     forehand_topspin/
  *       1_ausholphase.jpg
@@ -1094,9 +1096,9 @@ const TECHNIQUE_MAP = {
  *       1_ausholphase.jpg
  *       ...
  *
- * @param {Object} db - Supabase client
+ * @param {Object} db - Supabase client (für Auth-Token)
  * @param {Array} shotLabels - Erkannte Schläge [{type: 'forehand_topspin', ...}]
- * @param {Object} context - Analysis context
+ * @param {Object} context - Analysis context (playerName, exerciseName, isLeftHanded, etc.)
  * @returns {Promise<Array|null>} - Reference frames for Claude API
  */
 async function loadReferenceFramesForAnalysis(db, shotLabels, context) {
@@ -1122,13 +1124,41 @@ async function loadReferenceFramesForAnalysis(db, shotLabels, context) {
             techniques.add('backhand_push');
         }
         if (name.includes('aufschlag')) techniques.add('forehand_serve');
-        if (name.includes('block')) techniques.add('forehand_block');
+        if (name.includes('block')) {
+            techniques.add('forehand_block');
+            techniques.add('backhand_block');
+        }
         if (name.includes('flip')) techniques.add('forehand_flip');
+        if (name.includes('rht') || (name.includes('rh') && name.includes('topspin'))) techniques.add('backhand_topspin');
+        if (name.includes('rhk') || (name.includes('rh') && name.includes('konter'))) techniques.add('backhand_topspin');
+        if (name.includes('vhk') || (name.includes('vh') && name.includes('konter'))) techniques.add('forehand_topspin');
     }
 
-    // Maximal 2 Techniken laden (sonst zu viele Bilder für API)
-    const selectedTechniques = [...techniques].slice(0, 2);
+    // Bei gemischten Übungen: bis zu 3 Techniken (je 3 Frames = 9 Referenzbilder)
+    // Limit: max 3 Techniken x 3 Frames = 9 Bilder + 8 Spieler-Frames = 17 Bilder total
+    const maxTechniques = techniques.size <= 3 ? 3 : 3;
+    const selectedTechniques = [...techniques].slice(0, maxTechniques);
     if (selectedTechniques.length === 0) return null;
+
+    // R2 Worker URL
+    const { getR2PublicUrl } = await import('./r2-storage.js');
+
+    // Linkshänder-Info aus Spielerprofil laden
+    let isLeftHanded = context.isLeftHanded || false;
+    if (!isLeftHanded && context.playerId && db) {
+        try {
+            const { data: player } = await db
+                .from('profiles')
+                .select('playing_hand')
+                .eq('id', context.playerId)
+                .maybeSingle();
+            if (player?.playing_hand === 'left') {
+                isLeftHanded = true;
+            }
+        } catch (e) {
+            // Ignorieren - wir nehmen Rechtshänder an
+        }
+    }
 
     const referenceFrames = [];
 
@@ -1137,51 +1167,53 @@ async function loadReferenceFramesForAnalysis(db, shotLabels, context) {
         if (!techInfo) continue;
 
         try {
-            // Referenz-Frames aus Storage laden
-            const { data: files, error: listError } = await db.storage
-                .from('reference-techniques')
-                .list(techKey, { limit: 5, sortBy: { column: 'name', order: 'asc' } });
-
-            if (listError || !files || files.length === 0) {
-                console.log(`[AI Toolbar] No reference frames for ${techKey}`);
-                continue;
-            }
-
-            // Nur JPG/PNG Dateien
-            const imageFiles = files.filter(f =>
-                f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') || f.name.endsWith('.png')
-            ).slice(0, 3); // Max 3 Frames pro Technik
-
-            if (imageFiles.length === 0) continue;
+            // Referenz-Frames aus R2 laden
+            // Bekannte Dateinamen: 1_ausholphase.jpg, 2_treffpunkt.jpg, 3_ausschwung.jpg
+            const frameFileNames = techInfo.phases.map((phase, i) => {
+                const cleanPhase = phase.toLowerCase()
+                    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+                    .replace(/ß/g, 'ss').replace(/\s+/g, '_');
+                return `${i + 1}_${cleanPhase}.jpg`;
+            });
 
             const frames = [];
             const frameLabels = [];
 
-            for (let i = 0; i < imageFiles.length; i++) {
-                const file = imageFiles[i];
-                const { data: urlData } = db.storage
-                    .from('reference-techniques')
-                    .getPublicUrl(`${techKey}/${file.name}`);
+            for (let i = 0; i < frameFileNames.length; i++) {
+                const fileName = frameFileNames[i];
+                const r2Key = `reference-techniques/${techKey}/${fileName}`;
+                const publicUrl = getR2PublicUrl(r2Key);
 
-                if (!urlData?.publicUrl) continue;
-
-                // Bild als Base64 laden
                 try {
-                    const imgResp = await fetch(urlData.publicUrl);
-                    if (!imgResp.ok) continue;
-                    const blob = await imgResp.blob();
-                    const base64 = await blobToBase64(blob);
-                    frames.push(base64);
+                    const imgResp = await fetch(publicUrl);
+                    if (!imgResp.ok) {
+                        // Fallback: versuche einfach nummeriert (1.jpg, 2.jpg, 3.jpg)
+                        const fallbackUrl = getR2PublicUrl(`reference-techniques/${techKey}/${i + 1}.jpg`);
+                        const fallbackResp = await fetch(fallbackUrl);
+                        if (!fallbackResp.ok) continue;
+                        const blob = await fallbackResp.blob();
+                        const base64 = await blobToBase64(blob);
+                        frames.push(base64);
+                    } else {
+                        const blob = await imgResp.blob();
+                        const base64 = await blobToBase64(blob);
+                        frames.push(base64);
+                    }
                     frameLabels.push(techInfo.phases[i] || `Phase ${i + 1}`);
                 } catch (fetchErr) {
-                    console.warn(`[AI Toolbar] Failed to fetch reference frame: ${file.name}`, fetchErr);
+                    console.warn(`[AI Toolbar] Failed to fetch reference frame: ${fileName}`, fetchErr);
                 }
             }
 
             if (frames.length > 0) {
+                // Linkshänder-Hinweis im Label
+                const handednessNote = isLeftHanded
+                    ? ' (Muster zeigt Rechtshänder - Spieler ist Linkshänder, bitte gespiegelt vergleichen!)'
+                    : ' (Muster)';
+
                 referenceFrames.push({
                     technique: techKey,
-                    technique_label: `${techInfo.label} (Muster)`,
+                    technique_label: `${techInfo.label}${handednessNote}`,
                     frames,
                     frame_labels: frameLabels,
                 });
