@@ -820,13 +820,12 @@ export async function handleAttendanceSave(
             feedbackEl.textContent = '';
             renderCalendarCallback(currentCalendarDate);
 
-            // Quick Points Dialog öffnen wenn Spieler anwesend waren
-            if (presentPlayerIds.length > 0 && typeof window.openQuickPointsModal === 'function') {
+            // Auswahl-Dialog öffnen wenn Spieler anwesend waren
+            if (presentPlayerIds.length > 0 && typeof window.openPostAttendanceChoice === 'function') {
                 const playersInSubgroup = clubPlayers.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId)
                 );
-                // Datum und Event-ID übergeben für Training-Zusammenfassung
-                window.openQuickPointsModal(presentPlayerIds, playersInSubgroup, currentUserData, date, sessionId);
+                window.openPostAttendanceChoice(presentPlayerIds, playersInSubgroup, currentUserData, date, sessionId);
             }
         }, 1000);
     } catch (error) {

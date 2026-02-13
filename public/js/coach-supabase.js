@@ -113,7 +113,8 @@ import {
     setupManualPartnerSystem,
 } from './points-management-supabase.js';
 import { loadLeaguesForSelector, checkAndResetClubSeason } from './season-supabase.js';
-import { initQuickPointsDialog } from './quick-points-supabase.js';
+import { initQuickPointsDialog, openQuickPointsModal, setQuickPointsTransitionMode } from './quick-points-supabase.js';
+import { initTrainingMatchesModal, openTrainingMatchesModal, closeTrainingMatchesModal } from './training-matches-modal-supabase.js';
 import { initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics, initEventsNavigation } from './coach-statistics-supabase.js';
 import {
@@ -699,6 +700,12 @@ async function initializeCoachPage(userData) {
     // Quick Points Dialog nach Anwesenheit
     initQuickPointsDialog();
 
+    // Training Matches Modal
+    initTrainingMatchesModal();
+
+    // Post-Attendance Choice Modal (Punkte / Wettkämpfe / Schließen)
+    initPostAttendanceChoice();
+
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();
         handleGeneratePairings(clubPlayers, currentSubgroupFilter, sessionId);
@@ -1192,6 +1199,124 @@ function handleGenderFilterChange(userData) {
     renderPlayerChips(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true);
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 }
+
+// ============================================================
+// Post-Attendance Choice Flow (Punkte / Wettkämpfe / Schließen)
+// ============================================================
+
+let postAttendanceData = null; // Cached data from attendance save
+
+function initPostAttendanceChoice() {
+    const choiceModal = document.getElementById('post-attendance-choice-modal');
+    if (!choiceModal) return;
+
+    document.getElementById('post-attendance-points-btn')?.addEventListener('click', () => {
+        // Transition nur zeigen wenn "Wettkämpfe"-Button noch sichtbar ist (= noch nicht gemacht)
+        const matchesBtn = document.getElementById('post-attendance-matches-btn');
+        const matchesStillAvailable = matchesBtn && !matchesBtn.classList.contains('hidden');
+        choiceModal.classList.add('hidden');
+        if (postAttendanceData) {
+            setQuickPointsTransitionMode(matchesStillAvailable);
+            openQuickPointsModal(
+                postAttendanceData.presentPlayerIds,
+                postAttendanceData.playersInSubgroup,
+                postAttendanceData.userData,
+                postAttendanceData.date,
+                postAttendanceData.sessionId
+            );
+        }
+    });
+
+    document.getElementById('post-attendance-matches-btn')?.addEventListener('click', () => {
+        // Check ob Punkte-Button noch sichtbar ist (= noch nicht gemacht)
+        const pointsBtn = document.getElementById('post-attendance-points-btn');
+        const pointsStillAvailable = pointsBtn && !pointsBtn.classList.contains('hidden');
+        choiceModal.classList.add('hidden');
+        if (postAttendanceData) {
+            openTrainingMatchesModal(
+                postAttendanceData.presentPlayerIds,
+                postAttendanceData.playersInSubgroup,
+                postAttendanceData.userData,
+                postAttendanceData.date,
+                postAttendanceData.sessionId,
+                {
+                    onDone: () => {},
+                    // Nur Punkte-Option anbieten wenn noch nicht gemacht
+                    onPoints: pointsStillAvailable ? () => {
+                        setQuickPointsTransitionMode(false);
+                        openQuickPointsModal(
+                            postAttendanceData.presentPlayerIds,
+                            postAttendanceData.playersInSubgroup,
+                            postAttendanceData.userData,
+                            postAttendanceData.date,
+                            postAttendanceData.sessionId
+                        );
+                    } : null
+                }
+            );
+        }
+    });
+
+    document.getElementById('post-attendance-close-btn')?.addEventListener('click', () => {
+        choiceModal.classList.add('hidden');
+        postAttendanceData = null;
+    });
+}
+
+// Called from attendance-supabase.js after successful attendance save
+window.openPostAttendanceChoice = function(presentPlayerIds, playersInSubgroup, userData, date, sessionId) {
+    postAttendanceData = { presentPlayerIds, playersInSubgroup, userData, date, sessionId };
+
+    const choiceModal = document.getElementById('post-attendance-choice-modal');
+    if (!choiceModal) return;
+
+    // Reset modal to initial state
+    const title = choiceModal.querySelector('h3');
+    const subtitle = choiceModal.querySelector('p.text-sm');
+    const iconEl = choiceModal.querySelector('.w-12 i');
+
+    if (title) title.textContent = 'Anwesenheit gespeichert!';
+    if (subtitle) subtitle.textContent = 'Was möchtest du als nächstes tun?';
+    if (iconEl) {
+        iconEl.className = 'fas fa-check text-green-600 text-xl';
+        iconEl.parentElement.className = 'w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3';
+    }
+
+    // Show both buttons
+    const pointsBtn = document.getElementById('post-attendance-points-btn');
+    const matchesBtn = document.getElementById('post-attendance-matches-btn');
+    if (pointsBtn) pointsBtn.classList.remove('hidden');
+    if (matchesBtn) matchesBtn.classList.remove('hidden');
+
+    choiceModal.classList.remove('hidden');
+};
+
+// Called from quick-points-supabase.js after "Speichern & Schließen" to show matches option
+window.showPostPointsChoice = function() {
+    if (!postAttendanceData) return;
+
+    const choiceModal = document.getElementById('post-attendance-choice-modal');
+    if (!choiceModal) return;
+
+    const title = choiceModal.querySelector('h3');
+    const subtitle = choiceModal.querySelector('p.text-sm');
+    const iconEl = choiceModal.querySelector('.w-12 i');
+
+    if (title) title.textContent = 'Punkte vergeben!';
+    if (subtitle) subtitle.textContent = 'Möchtest du noch Trainingswettkämpfe eintragen?';
+    if (iconEl) {
+        iconEl.className = 'fas fa-star text-indigo-600 text-xl';
+        iconEl.parentElement.className = 'w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3';
+    }
+
+    // Show only matches button, hide points button
+    const pointsBtn = document.getElementById('post-attendance-points-btn');
+    const matchesBtn = document.getElementById('post-attendance-matches-btn');
+    if (pointsBtn) pointsBtn.classList.add('hidden');
+    if (matchesBtn) matchesBtn.classList.remove('hidden');
+
+    choiceModal.classList.remove('hidden');
+};
 
 // Global verfügbar (aufgerufen via onclick in HTML)
 let currentChallengeId = null;

@@ -17,6 +17,7 @@ let exercisesData = [];
 let challengesData = [];
 let selectedPlayMode = null; // 'solo' oder 'pair'
 let selectedExerciseData = null; // Aktuell ausgewählte Übung
+let onCloseShowTransition = false; // Flag: Zeige Übergangs-Dialog nach Schließen
 
 /**
  * Initialisiert den Quick Points Dialog
@@ -118,7 +119,19 @@ export function closeQuickPointsModal() {
     if (modal) {
         modal.classList.add('hidden');
     }
+
+    const shouldShowTransition = onCloseShowTransition;
+    onCloseShowTransition = false; // Reset flag
     resetQuickPointsUI();
+
+    // Nach Schließen: Übergangs-Dialog zeigen (Wettkämpfe eintragen?)
+    if (shouldShowTransition && typeof window.showPostPointsChoice === 'function') {
+        window.showPostPointsChoice();
+    }
+}
+
+export function setQuickPointsTransitionMode(enabled) {
+    onCloseShowTransition = enabled;
 }
 
 /**
@@ -129,6 +142,7 @@ function resetQuickPointsUI() {
     selectedPlayerIds.clear();
     selectedPlayMode = null;
     selectedExerciseData = null;
+    // Note: onCloseShowTransition is NOT reset here - it's managed by setQuickPointsTransitionMode() and closeQuickPointsModal()
 
     // Reset type buttons
     document.querySelectorAll('.quick-points-type-btn').forEach(btn => {

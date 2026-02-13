@@ -3505,6 +3505,173 @@
             </div>
         </div>
 
+        <!-- Modal: Post-Attendance Choice (Punkte / Wettkämpfe / Schließen) -->
+        <div
+            id="post-attendance-choice-modal"
+            class="modal fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white">
+                <div class="text-center mb-4">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-check text-green-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900">Anwesenheit gespeichert!</h3>
+                    <p class="text-sm text-gray-500 mt-1">Was möchtest du als nächstes tun?</p>
+                </div>
+                <div class="space-y-2">
+                    <button
+                        type="button"
+                        id="post-attendance-points-btn"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 border-2 border-indigo-200 rounded-lg transition-colors"
+                    >
+                        <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-star text-indigo-600"></i>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-sm font-bold text-indigo-800">Punkte vergeben</span>
+                            <p class="text-xs text-indigo-600">Übungen, Challenges oder manuell</p>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        id="post-attendance-matches-btn"
+                        class="w-full flex items-center gap-3 px-4 py-3 bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-lg transition-colors"
+                    >
+                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-table-tennis-paddle-ball text-green-600"></i>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-sm font-bold text-green-800">Trainingswettkämpfe</span>
+                            <p class="text-xs text-green-600">Matches zwischen anwesenden Spielern</p>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        id="post-attendance-close-btn"
+                        class="w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Training Matches (Trainingswettkämpfe nach Anwesenheit) -->
+        <div
+            id="training-matches-modal"
+            class="modal fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-900">
+                        <i class="fas fa-table-tennis-paddle-ball text-green-600 mr-2"></i>Trainingswettkämpfe
+                    </h3>
+                    <button
+                        id="close-training-matches-modal"
+                        type="button"
+                        class="text-gray-400 hover:text-gray-600"
+                    >
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Player Quick-Select Chips -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">Spieler antippen</label>
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> A</span>
+                                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> B</span>
+                            </div>
+                        </div>
+                        <div class="relative mb-2">
+                            <input type="text" id="tm-player-search" placeholder="Spieler suchen..."
+                                class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                autocomplete="off">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <button type="button" id="tm-player-search-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                                <i class="fas fa-times text-sm"></i>
+                            </button>
+                        </div>
+                        <div id="tm-player-chips" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-lg bg-gray-50"></div>
+                    </div>
+
+                    <!-- Selected Players Display -->
+                    <div id="tm-selected-players" class="grid grid-cols-2 gap-3">
+                        <div class="border-2 border-blue-200 bg-blue-50 rounded-lg p-2.5 text-center">
+                            <span class="text-xs text-blue-600 font-medium">Spieler A</span>
+                            <span id="tm-player-a-name" class="block text-sm font-bold text-blue-800 mt-0.5">-- antippen --</span>
+                        </div>
+                        <div class="border-2 border-red-200 bg-red-50 rounded-lg p-2.5 text-center">
+                            <span class="text-xs text-red-600 font-medium">Spieler B</span>
+                            <span id="tm-player-b-name" class="block text-sm font-bold text-red-800 mt-0.5">-- antippen --</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button type="button" id="tm-swap-players" class="text-xs text-gray-500 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                            <i class="fas fa-exchange-alt"></i> Spieler tauschen
+                        </button>
+                    </div>
+
+                    <!-- Match Mode + Score -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Modus</label>
+                            <select id="tm-match-mode" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <option value="single-set">1 Satz</option>
+                                <option value="best-of-3">Best of 3</option>
+                                <option value="best-of-5" selected>Best of 5</option>
+                                <option value="best-of-7">Best of 7</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Ergebnis (Sätze)</label>
+                            <div class="flex items-center justify-center gap-2">
+                                <input type="number" id="tm-sets-a" min="0" max="4" placeholder="0"
+                                    class="w-14 h-10 text-center text-lg font-bold border-2 border-blue-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                                <span class="text-lg font-bold text-gray-400">:</span>
+                                <input type="number" id="tm-sets-b" min="0" max="4" placeholder="0"
+                                    class="w-14 h-10 text-center text-lg font-bold border-2 border-red-300 rounded-lg focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Winner Display -->
+                    <div id="tm-winner-info" class="hidden bg-green-50 border border-green-200 rounded-lg p-2.5 text-center">
+                        <span class="text-sm text-green-800 font-medium"><i class="fas fa-trophy text-yellow-500 mr-1"></i> Gewinner: </span>
+                        <span id="tm-winner-name" class="font-bold text-green-700"></span>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2">
+                        <button type="button" id="tm-save-next-btn"
+                            class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                            disabled>
+                            <i class="fas fa-save mr-1"></i> Speichern & Weiter
+                        </button>
+                        <button type="button" id="tm-done-btn"
+                            class="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                            Fertig
+                        </button>
+                    </div>
+
+                    <p id="tm-feedback" class="text-sm font-medium text-center"></p>
+
+                    <!-- Entered Matches List -->
+                    <div id="tm-matches-list-container" class="hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-semibold text-gray-700">Eingetragene Matches</h4>
+                            <span id="tm-matches-count" class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">0</span>
+                        </div>
+                        <div id="tm-matches-list" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal: Recurring Training Template -->
         <div
             id="recurring-training-modal"
