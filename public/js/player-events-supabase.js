@@ -646,6 +646,7 @@ async function respondToEvent(invitationId, status, reason = null) {
             .select(`
                 id,
                 event_id,
+                occurrence_date,
                 events (
                     id,
                     title,
@@ -689,9 +690,10 @@ async function respondToEvent(invitationId, status, reason = null) {
         if (error) throw error;
 
         // Benachrichtigung an Event-Organisator senden
+        const actualDate = invitation.occurrence_date || invitation.events?.start_date;
         if (invitation.events?.organizer_id && invitation.events.organizer_id !== currentUserId) {
             const event = invitation.events;
-            const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+            const formattedDate = new Date(actualDate + 'T12:00:00').toLocaleDateString('de-DE', {
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short'
@@ -711,7 +713,8 @@ async function respondToEvent(invitationId, status, reason = null) {
                 data: {
                     event_id: event.id,
                     event_title: event.title,
-                    event_date: event.start_date,
+                    event_date: actualDate,
+                    occurrence_date: invitation.occurrence_date,
                     responder_id: currentUserId,
                     responder_name: userName,
                     response_status: status,
@@ -735,7 +738,7 @@ async function respondToEvent(invitationId, status, reason = null) {
 
             if (coaches && coaches.length > 0) {
                 const event = invitation.events;
-                const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+                const formattedDate = new Date(actualDate + 'T12:00:00').toLocaleDateString('de-DE', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'short'
@@ -751,7 +754,8 @@ async function respondToEvent(invitationId, status, reason = null) {
                     data: {
                         event_id: event.id,
                         event_title: event.title,
-                        event_date: event.start_date,
+                        event_date: actualDate,
+                        occurrence_date: invitation.occurrence_date,
                         responder_id: currentUserId,
                         responder_name: userName,
                         response_status: status

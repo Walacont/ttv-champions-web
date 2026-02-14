@@ -1426,7 +1426,7 @@ async function submitEvent() {
                 const { error: invError } = await supabase
                     .from('event_invitations')
                     .upsert(invitations, {
-                        onConflict: 'event_id,user_id',
+                        onConflict: 'event_id,user_id,occurrence_date',
                         ignoreDuplicates: true
                     });
                 if (invError) throw invError;
@@ -1483,7 +1483,7 @@ async function submitEvent() {
                 const { error: invError } = await supabase
                     .from('event_invitations')
                     .upsert(invitations, {
-                        onConflict: 'event_id,user_id',
+                        onConflict: 'event_id,user_id,occurrence_date',
                         ignoreDuplicates: true
                     });
                 if (invError) throw invError;
