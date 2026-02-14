@@ -48,6 +48,7 @@ import {
 } from './attendance-export-supabase.js';
 import { initClubRequestsManager } from './club-requests-manager-supabase.js';
 import { initEventsModule, openEventDayModal, loadUpcomingEventsForCoach } from './events-supabase.js';
+import { loadEventListView, cleanupListSubscriptions } from './event-list-supabase.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -154,6 +155,7 @@ let clubPlayers = [];
 let currentSubgroupFilter = 'all';
 let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
+let currentAttendanceView = 'calendar'; // 'calendar' | 'list'
 
 // --- Initialisierung ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -751,6 +753,71 @@ async function initializeCoachPage(userData) {
             calendarUnsubscribe();
         }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
+    });
+
+    // --- Kalender/Listen-Ansicht Toggle ---
+    function switchAttendanceView(view) {
+        currentAttendanceView = view;
+        const calendarContainer = document.getElementById('calendar-view-container');
+        const listContainer = document.getElementById('list-view-container');
+        const filterBar = document.getElementById('event-list-filter-bar');
+        const filterSpacer = document.getElementById('event-list-filter-spacer');
+        const calBtn = document.getElementById('view-calendar-btn');
+        const listBtn = document.getElementById('view-list-btn');
+
+        const activeClasses = 'bg-indigo-600 text-white shadow-sm';
+        const inactiveClasses = 'text-gray-600 hover:text-gray-800';
+
+        if (view === 'list') {
+            calendarContainer.classList.add('hidden');
+            listContainer.classList.remove('hidden');
+            filterBar.classList.remove('hidden');
+            if (filterSpacer) filterSpacer.classList.add('hidden');
+
+            calBtn.className = `event-view-toggle px-3 py-1.5 rounded-md text-sm font-medium transition-all ${inactiveClasses}`;
+            listBtn.className = `event-view-toggle px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClasses}`;
+
+            // Liste laden
+            const currentFilter = document.querySelector('.event-time-filter.bg-indigo-600')?.dataset.filter || 'upcoming';
+            loadEventListView('event-list-content', userData, currentFilter);
+        } else {
+            calendarContainer.classList.remove('hidden');
+            listContainer.classList.add('hidden');
+            filterBar.classList.add('hidden');
+            if (filterSpacer) filterSpacer.classList.remove('hidden');
+
+            listBtn.className = `event-view-toggle px-3 py-1.5 rounded-md text-sm font-medium transition-all ${inactiveClasses}`;
+            calBtn.className = `event-view-toggle px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClasses}`;
+
+            cleanupListSubscriptions();
+        }
+    }
+
+    document.getElementById('view-calendar-btn').addEventListener('click', () => switchAttendanceView('calendar'));
+    document.getElementById('view-list-btn').addEventListener('click', () => switchAttendanceView('list'));
+
+    // Zeit-Filter (Anstehend / Vergangen)
+    document.querySelectorAll('.event-time-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filter = btn.dataset.filter;
+            const activeClasses = 'bg-indigo-600 text-white shadow-sm';
+            const inactiveClasses = 'text-gray-600 hover:text-gray-800';
+
+            document.querySelectorAll('.event-time-filter').forEach(b => {
+                b.className = `event-time-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all ${inactiveClasses}`;
+            });
+            btn.className = `event-time-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClasses}`;
+
+            loadEventListView('event-list-content', userData, filter);
+        });
+    });
+
+    // Liste neu laden bei Event-Änderungen (wenn Listenansicht aktiv)
+    window.addEventListener('event-changed', () => {
+        if (currentAttendanceView === 'list') {
+            const currentFilter = document.querySelector('.event-time-filter.bg-indigo-600')?.dataset.filter || 'upcoming';
+            loadEventListView('event-list-content', userData, currentFilter);
+        }
     });
 
     // Anwesenheits-Export
