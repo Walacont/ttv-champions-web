@@ -1049,6 +1049,9 @@ async function showEventDetails(eventId) {
                         ` : ''}
                     </div>
 
+                    <!-- Past Event Extras (points & matches) - loaded async -->
+                    <div id="past-event-extras"></div>
+
                     ${event.comments_enabled ? `
                     <!-- Comments Section -->
                     <div class="border-t pt-4">
@@ -1084,6 +1087,9 @@ async function showEventDetails(eventId) {
                 modal.remove();
             }
         });
+
+        // Load past event extras (points & matches) for past events
+        loadPastEventExtras(event);
 
         // Load and setup comments if enabled
         if (event.comments_enabled) {
@@ -1121,6 +1127,129 @@ async function showEventDetails(eventId) {
     } catch (error) {
         console.error('[PlayerEvents] Error loading event details:', error);
         alert('Fehler beim Laden der Details: ' + error.message);
+    }
+}
+
+/**
+ * Load training points and matches for past events
+ */
+async function loadPastEventExtras(event) {
+    const container = document.getElementById('past-event-extras');
+    if (!container || !currentUserId) return;
+
+    // Check if event is in the past
+    const eventDate = event.start_date;
+    const today = new Date().toISOString().split('T')[0];
+    if (eventDate >= today) return;
+
+    let html = '';
+
+    try {
+        // 1. Load training summary (points) for this user + event
+        const { data: summaryPosts } = await supabase
+            .from('community_posts')
+            .select('content')
+            .eq('user_id', currentUserId)
+            .ilike('content', 'TRAINING_SUMMARY|%')
+            .is('deleted_at', null);
+
+        if (summaryPosts) {
+            const summary = summaryPosts.find(post => {
+                try {
+                    const json = JSON.parse(post.content.substring('TRAINING_SUMMARY|'.length));
+                    return json.event_id === event.id;
+                } catch { return false; }
+            });
+
+            if (summary) {
+                const data = JSON.parse(summary.content.substring('TRAINING_SUMMARY|'.length));
+                if (data.points && data.points.length > 0) {
+                    html += `
+                        <div class="border-t pt-4">
+                            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                                <i class="fas fa-star text-yellow-500 mr-1"></i>Punkte erhalten
+                            </h3>
+                            <div class="space-y-2">
+                                ${data.points.map(p => {
+                                    const sign = p.amount >= 0 ? '+' : '';
+                                    const colorClass = p.amount >= 0 ? 'text-green-600' : 'text-red-600';
+                                    const label = p.exercise_name || p.reason || 'Punkte';
+                                    return `<div class="flex items-center justify-between text-sm">
+                                        <span class="text-gray-700">${escapeHtml(label)}</span>
+                                        <span class="${colorClass} font-semibold">${sign}${p.amount}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">Gesamt</span>
+                                <span class="text-base font-bold ${data.total_points >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                    ${data.total_points >= 0 ? '+' : ''}${data.total_points} Punkte
+                                </span>
+                            </div>
+                        </div>`;
+                }
+            }
+        }
+
+        // 2. Load matches played on the event date by this user
+        const dayStart = eventDate + 'T00:00:00';
+        const dayEnd = eventDate + 'T23:59:59';
+        const { data: matches } = await supabase
+            .from('matches')
+            .select(`
+                id, sets, player_a_sets_won, player_b_sets_won,
+                player_a_elo_before, player_a_elo_after,
+                player_b_elo_before, player_b_elo_after,
+                player_a_id, player_b_id, winner_id,
+                player_a:player_a_id(first_name, last_name),
+                player_b:player_b_id(first_name, last_name)
+            `)
+            .or(`player_a_id.eq.${currentUserId},player_b_id.eq.${currentUserId}`)
+            .gte('played_at', dayStart)
+            .lte('played_at', dayEnd)
+            .order('played_at', { ascending: true });
+
+        if (matches && matches.length > 0) {
+            html += `
+                <div class="border-t pt-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        <i class="fas fa-table-tennis-paddle-ball text-indigo-500 mr-1"></i>Wettkämpfe (${matches.length})
+                    </h3>
+                    <div class="space-y-2">
+                        ${matches.map(m => {
+                            const isPlayerA = m.player_a_id === currentUserId;
+                            const opponent = isPlayerA ? m.player_b : m.player_a;
+                            const won = m.winner_id === currentUserId;
+                            const mySets = isPlayerA ? m.player_a_sets_won : m.player_b_sets_won;
+                            const oppSets = isPlayerA ? m.player_b_sets_won : m.player_a_sets_won;
+                            const opponentName = opponent ? `${opponent.first_name} ${opponent.last_name}` : 'Unbekannt';
+                            const resultClass = won ? 'text-green-600' : 'text-red-600';
+                            const resultIcon = won ? 'fa-trophy' : 'fa-times';
+                            const eloBefore = isPlayerA ? m.player_a_elo_before : m.player_b_elo_before;
+                            const eloAfter = isPlayerA ? m.player_a_elo_after : m.player_b_elo_after;
+                            const eloDiff = (eloBefore != null && eloAfter != null) ? eloAfter - eloBefore : null;
+                            const eloText = eloDiff != null ? ` (${eloDiff > 0 ? '+' : ''}${eloDiff} Elo)` : '';
+
+                            return `<div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas ${resultIcon} ${resultClass} text-xs"></i>
+                                    <span class="text-sm text-gray-800">vs. ${escapeHtml(opponentName)}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-semibold ${resultClass}">${mySets}:${oppSets}</span>
+                                    ${eloText ? `<span class="text-xs text-gray-500">${eloText}</span>` : ''}
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+    } catch (err) {
+        console.error('[PlayerEvents] Error loading past event extras:', err);
+    }
+
+    if (html) {
+        container.innerHTML = html;
     }
 }
 
