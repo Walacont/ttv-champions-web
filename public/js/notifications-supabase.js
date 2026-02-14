@@ -1056,35 +1056,19 @@ function handleNotificationClick(notification) {
         }
     }
 
-    if (type === 'club_join_request' || type === 'club_leave_request') {
-        const isLeaveRequest = type === 'club_leave_request';
-
-        if (isLeaveRequest) {
-            const statisticsTab = document.querySelector('[data-tab="statistics"]');
-            if (statisticsTab) {
-                statisticsTab.click();
-                setTimeout(() => {
-                    const requestsSection = document.getElementById('leave-requests-list');
-                    if (requestsSection) {
-                        requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 100);
-                return;
-            }
-        } else {
-            const vereinTab = document.querySelector('[data-tab="club"]') ||
-                              document.querySelector('[data-tab="verein"]') ||
-                              document.querySelector('button[onclick*="club"]');
-            if (vereinTab) {
-                vereinTab.click();
-                setTimeout(() => {
-                    const requestsSection = document.getElementById('club-join-requests-list');
-                    if (requestsSection) {
-                        requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 100);
-                return;
-            }
+    if (type === 'club_join_request') {
+        const vereinTab = document.querySelector('[data-tab="club"]') ||
+                          document.querySelector('[data-tab="verein"]') ||
+                          document.querySelector('button[onclick*="club"]');
+        if (vereinTab) {
+            vereinTab.click();
+            setTimeout(() => {
+                const requestsSection = document.getElementById('club-join-requests-list');
+                if (requestsSection) {
+                    requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+            return;
         }
 
         if (!window.location.pathname.includes('dashboard')) {

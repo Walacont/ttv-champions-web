@@ -759,13 +759,11 @@ const leaveClubBtn = document.getElementById('leave-club-btn');
 const clubManagementFeedback = document.getElementById('club-management-feedback');
 
 let clubRequestsSubscription = null;
-let leaveRequestsSubscription = null;
 
 async function initializeClubManagement() {
     if (!currentUser || !currentUserData) return;
 
     listenToClubRequests();
-    listenToLeaveRequests();
     await updateClubManagementUI();
 }
 
@@ -785,8 +783,7 @@ async function showRejectionNotification(type, requestData) {
         console.error('Error loading club name:', error);
     }
 
-    const messageType = type === 'join' ? 'Beitrittsanfrage' : 'Austrittsanfrage';
-    const message = `Deine ${messageType} an "${clubName}" wurde leider abgelehnt.`;
+    const message = `Deine Beitrittsanfrage an "${clubName}" wurde leider abgelehnt.`;
 
     clubManagementFeedback.innerHTML = `
         <div class="bg-red-50 border border-red-300 p-3 rounded-lg">
@@ -813,8 +810,7 @@ async function showRejectionNotification(type, requestData) {
 
     // Abgelehnte Anfrage nach Benachrichtigung löschen
     try {
-        const tableName = type === 'join' ? 'club_requests' : 'leave_club_requests';
-        await supabase.from(tableName).delete().eq('id', requestData.id);
+        await supabase.from('club_requests').delete().eq('id', requestData.id);
     } catch (error) {
         console.error('Error deleting rejected request:', error);
     }
@@ -841,27 +837,6 @@ function listenToClubRequests() {
         .subscribe();
 }
 
-function listenToLeaveRequests() {
-    if (leaveRequestsSubscription) {
-        leaveRequestsSubscription.unsubscribe();
-    }
-
-    leaveRequestsSubscription = supabase
-        .channel('leave-requests-changes')
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'leave_club_requests',
-            filter: `player_id=eq.${currentUser.id}`
-        }, async (payload) => {
-            if (payload.new?.status === 'rejected') {
-                await showRejectionNotification('leave', payload.new);
-            }
-            await updateClubManagementUI();
-        })
-        .subscribe();
-}
-
 async function updateClubManagementUI() {
     if (!currentUser || !currentUserData) return;
 
@@ -882,14 +857,6 @@ async function updateClubManagementUI() {
         .eq('status', 'pending');
 
     const hasPendingJoinRequest = joinRequests && joinRequests.length > 0;
-
-    const { data: leaveRequests } = await supabase
-        .from('leave_club_requests')
-        .select('id')
-        .eq('player_id', currentUser.id)
-        .eq('status', 'pending');
-
-    const hasPendingLeaveRequest = leaveRequests && leaveRequests.length > 0;
 
     if (currentUserData.clubId) {
         let clubName = currentUserData.clubId;
@@ -971,51 +938,6 @@ async function updateClubManagementUI() {
             const requestId = e.target.closest('button').dataset.requestId;
             await withdrawJoinRequest(requestId);
         });
-    } else if (hasPendingLeaveRequest) {
-        const leaveRequestData = leaveRequests[0];
-
-        let clubName = leaveRequestData.club_id;
-        try {
-            const { data: clubData } = await supabase
-                .from('clubs')
-                .select('name')
-                .eq('id', leaveRequestData.club_id)
-                .single();
-
-            if (clubData) {
-                clubName = clubData.name || clubName;
-            }
-        } catch (error) {
-            console.error('Error loading club name:', error);
-        }
-
-        pendingRequestStatus.innerHTML = `
-            <div class="bg-orange-50 border border-orange-300 p-3 rounded-lg">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm text-orange-800 mb-1">
-                            <i class="fas fa-clock mr-2"></i>
-                            <strong>Ausstehende Austrittsanfrage</strong>
-                        </p>
-                        <p class="text-xs text-orange-700">
-                            Verein: <strong>${clubName}</strong>
-                        </p>
-                    </div>
-                    <button
-                        class="withdraw-leave-request-btn bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition"
-                        data-request-id="${leaveRequestData.id}"
-                    >
-                        <i class="fas fa-times mr-1"></i>
-                        Zurückziehen
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.querySelector('.withdraw-leave-request-btn').addEventListener('click', async (e) => {
-            const requestId = e.target.closest('button').dataset.requestId;
-            await withdrawLeaveRequest(requestId);
-        });
     } else {
         pendingRequestStatus.innerHTML = '';
     }
@@ -1026,7 +948,7 @@ async function updateClubManagementUI() {
         clubSearchSection.classList.add('hidden');
     }
 
-    if (currentUserData.clubId && !hasPendingLeaveRequest) {
+    if (currentUserData.clubId) {
         leaveClubSection.classList.remove('hidden');
     } else {
         leaveClubSection.classList.add('hidden');
@@ -1153,7 +1075,7 @@ clubSearchBtn?.addEventListener('click', async () => {
     }
 });
 
-/** Benachrichtigt alle Trainer über Beitritts-/Austrittsanfragen */
+/** Benachrichtigt alle Trainer über Beitrittsanfragen */
 async function notifyClubCoaches(clubId, type, playerName) {
     try {
         const { data: coaches, error: coachError } = await supabase
@@ -1172,14 +1094,11 @@ async function notifyClubCoaches(clubId, type, playerName) {
             return;
         }
 
-        // player_id in Daten speichern damit Spieler die Benachrichtigung beim Zurückziehen löschen kann
         const notifications = coaches.map(coach => ({
             user_id: coach.id,
-            type: type === 'join' ? 'club_join_request' : 'club_leave_request',
-            title: type === 'join' ? 'Neue Beitrittsanfrage' : 'Neue Austrittsanfrage',
-            message: type === 'join'
-                ? `${playerName} möchte dem Verein beitreten.`
-                : `${playerName} möchte den Verein verlassen.`,
+            type: 'club_join_request',
+            title: 'Neue Beitrittsanfrage',
+            message: `${playerName} möchte dem Verein beitreten.`,
             data: { player_name: playerName, player_id: currentUser.id },
             is_read: false
         }));
@@ -1191,7 +1110,7 @@ async function notifyClubCoaches(clubId, type, playerName) {
         if (notifyError) {
             console.error('Error creating coach notifications:', notifyError);
         } else {
-            console.log(`[Settings] Notified ${coaches.length} coach(es) about ${type} request`);
+            console.log(`[Settings] Notified ${coaches.length} coach(es) about join request`);
         }
     } catch (error) {
         console.error('Error notifying coaches:', error);
@@ -1253,14 +1172,13 @@ leaveClubBtn?.addEventListener('click', async () => {
         console.error('Error loading club name:', error);
     }
 
-    // Warnung für Trainer - sie verlieren ihre Trainer-Rechte
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
-    let confirmMessage = `Möchtest du wirklich eine Austrittsanfrage für "${clubName}" senden?`;
+    let confirmMessage = `Möchtest du wirklich den Verein "${clubName}" verlassen?\n\nDu verlierst den Zugang zu allen Veranstaltungen und Gruppen.`;
 
     if (isCoach) {
         confirmMessage = `⚠️ ACHTUNG: Du bist ${currentUserData.role === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'}!\n\n` +
             `Wenn du den Verein "${clubName}" verlässt, verlierst du deine Trainer-Rechte und wirst zu einem normalen Spieler herabgestuft.\n\n` +
-            `Möchtest du trotzdem eine Austrittsanfrage senden?`;
+            `Möchtest du trotzdem den Verein verlassen?`;
     }
 
     if (!confirm(confirmMessage)) {
@@ -1269,34 +1187,50 @@ leaveClubBtn?.addEventListener('click', async () => {
 
     try {
         leaveClubBtn.disabled = true;
-        leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende Anfrage...';
+        leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Verein wird verlassen...';
         clubManagementFeedback.textContent = '';
 
-        const { error } = await supabase.from('leave_club_requests').insert({
-            player_id: currentUser.id,
-            club_id: currentUserData.clubId,
-            status: 'pending'
+        const clubId = currentUserData.clubId;
+
+        // Directly leave the club via RPC
+        const { data, error } = await supabase.rpc('leave_club_directly', {
+            p_player_id: currentUser.id
         });
 
         if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Unbekannter Fehler');
 
+        // Notify only the head coach
         const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
-        await notifyClubCoaches(currentUserData.clubId, 'leave', playerName);
+        try {
+            await supabase.rpc('notify_head_coach_leave', {
+                p_club_id: clubId,
+                p_player_name: playerName,
+                p_player_id: currentUser.id
+            });
+        } catch (notifyErr) {
+            console.error('Error notifying head coach:', notifyErr);
+        }
 
-        clubManagementFeedback.textContent = `✓ Austrittsanfrage gesendet!`;
+        clubManagementFeedback.textContent = `Du hast den Verein "${clubName}" verlassen.`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        currentUserData.clubId = null;
+        if (isCoach) {
+            currentUserData.role = 'player';
+        }
 
         await updateClubManagementUI();
 
         leaveClubBtn.disabled = false;
-        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Austrittsanfrage senden';
+        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Verein verlassen';
     } catch (error) {
-        console.error('Error requesting to leave club:', error);
+        console.error('Error leaving club:', error);
         clubManagementFeedback.textContent = `Fehler: ${error.message}`;
         clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
 
         leaveClubBtn.disabled = false;
-        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Austrittsanfrage senden';
+        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Verein verlassen';
     }
 });
 
@@ -1349,32 +1283,5 @@ async function withdrawJoinRequest(requestId) {
     }
 }
 
-async function withdrawLeaveRequest(requestId) {
-    if (!confirm('Möchtest du deine Austrittsanfrage wirklich zurückziehen?')) {
-        return;
-    }
-
-    try {
-        clubManagementFeedback.textContent = 'Ziehe Anfrage zurück...';
-        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
-
-        const { error } = await supabase
-            .from('leave_club_requests')
-            .delete()
-            .eq('id', requestId);
-
-        if (error) throw error;
-
-        // Benachrichtigungen an Trainer ebenfalls entfernen
-        await removePlayerNotifications(currentUser.id, 'club_leave_request');
-
-        clubManagementFeedback.textContent = '✓ Austrittsanfrage zurückgezogen';
-        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
-
-        await updateClubManagementUI();
-    } catch (error) {
-        console.error('Error withdrawing leave request:', error);
-        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
-        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
-    }
+// withdrawLeaveRequest removed - players can now leave directly
 }

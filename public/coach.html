@@ -2351,25 +2351,21 @@
                             </div>
                         </div>
 
-                        <!-- Club Join/Leave Requests Section (compact) -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div class="bg-white rounded-xl shadow-sm p-4">
-                                <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                                    <i class="fas fa-user-plus text-indigo-600 mr-2 text-xs"></i>
-                                    Beitrittsanfragen
-                                </h3>
-                                <div id="club-join-requests-list">
-                                    <p class="text-gray-500 text-sm text-center py-2">Lade...</p>
-                                </div>
+                        <!-- Club Join Requests Section -->
+                        <div class="bg-white rounded-xl shadow-sm p-4">
+                            <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-user-plus text-indigo-600 mr-2 text-xs"></i>
+                                Beitrittsanfragen
+                            </h3>
+                            <div id="club-join-requests-list">
+                                <p class="text-gray-500 text-sm text-center py-2">Lade...</p>
                             </div>
-                            <div class="bg-white rounded-xl shadow-sm p-4">
-                                <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                                    <i class="fas fa-sign-out-alt text-orange-600 mr-2 text-xs"></i>
-                                    Austrittsanfragen
-                                </h3>
-                                <div id="leave-requests-list">
-                                    <p class="text-gray-500 text-sm text-center py-2">Lade...</p>
-                                </div>
+                        </div>
+
+                        <!-- Subgroup Assignment Modal (shown after approving join request) -->
+                        <div id="subgroup-assignment-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+                            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                                <div id="subgroup-assignment-content"></div>
                             </div>
                         </div>
 

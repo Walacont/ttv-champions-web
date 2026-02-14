@@ -1,4 +1,5 @@
 // ===== Verein-Anfragen Manager für Trainer (Supabase-Version) =====
+// Handles join requests with subgroup assignment + events display flow
 
 import { formatDate } from './ui-utils-supabase.js';
 
@@ -6,7 +7,16 @@ let currentUserData = null;
 let supabaseClient = null;
 let subscriptions = [];
 let reloadJoinRequests = null;
-let reloadLeaveRequests = null;
+
+const DAY_NAMES_DE = {
+    0: 'Sonntag',
+    1: 'Montag',
+    2: 'Dienstag',
+    3: 'Mittwoch',
+    4: 'Donnerstag',
+    5: 'Freitag',
+    6: 'Samstag'
+};
 
 /** Konvertiert Supabase Format (snake_case) zu App Format (camelCase) */
 function mapClubRequestFromSupabase(request) {
@@ -21,28 +31,6 @@ function mapClubRequestFromSupabase(request) {
         playerId: request.player_id,
         playerName: playerName || playerEmail,
         playerEmail: playerEmail,
-        status: request.status,
-        createdAt: request.created_at,
-        updatedAt: request.updated_at
-    };
-}
-
-/** Konvertiert Austrittsanfrage von Supabase Format zu App Format */
-function mapLeaveRequestFromSupabase(request) {
-    const playerName = request.player
-        ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
-        : 'Unbekannt';
-    const playerEmail = request.player?.email || 'Keine E-Mail';
-    const playerRole = request.player?.role || 'player';
-
-    return {
-        id: request.id,
-        clubId: request.club_id,
-        playerId: request.player_id,
-        playerName: playerName || playerEmail,
-        playerEmail: playerEmail,
-        playerRole: playerRole,
-        isCoach: playerRole === 'coach' || playerRole === 'head_coach',
         status: request.status,
         createdAt: request.created_at,
         updatedAt: request.updated_at
@@ -66,59 +54,20 @@ export async function initClubRequestsManager(userData, supabase) {
         console.error('[ClubRequests] Join requests container not found!');
     }
 
-    const leaveRequestsContainer = document.getElementById('leave-requests-list');
-    if (leaveRequestsContainer) {
-        console.log('[ClubRequests] Setting up event delegation for leave requests container');
-        leaveRequestsContainer.addEventListener('click', handleLeaveRequestClick);
-    } else {
-        console.error('[ClubRequests] Leave requests container not found!');
-    }
-
     loadClubJoinRequests();
-    loadLeaveRequests();
 }
 
 async function handleJoinRequestClick(e) {
-    console.log('[ClubRequests] Click detected on container, target:', e.target.tagName, e.target.className);
-
     const button = e.target.closest('button[data-action]');
-    if (!button) {
-        console.log('[ClubRequests] No button with data-action found');
-        return;
-    }
+    if (!button) return;
 
     const action = button.dataset.action;
     const requestId = button.dataset.requestId;
-
-    console.log('[ClubRequests] Button clicked:', action, requestId);
 
     if (action === 'approve-join') {
-        await approveClubRequest(requestId);
+        await startApprovalFlow(requestId);
     } else if (action === 'reject-join') {
         await rejectClubRequest(requestId);
-    }
-}
-
-async function handleLeaveRequestClick(e) {
-    console.log('[ClubRequests] Click detected on leave container, target:', e.target.tagName, e.target.className);
-
-    const button = e.target.closest('button[data-action]');
-    if (!button) {
-        console.log('[ClubRequests] No button with data-action found');
-        return;
-    }
-
-    const action = button.dataset.action;
-    const requestId = button.dataset.requestId;
-    const isCoach = button.dataset.isCoach === 'true';
-    const playerName = button.dataset.playerName || 'Spieler';
-
-    console.log('[ClubRequests] Button clicked:', action, requestId, 'isCoach:', isCoach);
-
-    if (action === 'approve-leave') {
-        await approveLeaveRequest(requestId, isCoach, playerName);
-    } else if (action === 'reject-leave') {
-        await rejectLeaveRequest(requestId);
     }
 }
 
@@ -193,69 +142,6 @@ async function loadClubJoinRequests() {
     subscriptions.push(subscription);
 }
 
-async function loadLeaveRequests() {
-    if (!supabaseClient || !currentUserData) return;
-
-    async function fetchRequests() {
-        try {
-            console.log('[ClubRequests] Fetching leave requests for club:', currentUserData.clubId);
-            const { data, error } = await supabaseClient
-                .from('leave_club_requests')
-                .select('*')
-                .eq('club_id', currentUserData.clubId)
-                .eq('status', 'pending');
-
-            if (error) throw error;
-
-            console.log('[ClubRequests] Found', data?.length || 0, 'pending leave requests');
-
-            // Spielerdaten inkl. Rolle für jede Anfrage laden
-            const requestsWithPlayerData = await Promise.all(
-                (data || []).map(async (request) => {
-                    const { data: playerData } = await supabaseClient
-                        .from('profiles')
-                        .select('first_name, last_name, email, role')
-                        .eq('id', request.player_id)
-                        .single();
-
-                    return {
-                        ...request,
-                        player: playerData
-                    };
-                })
-            );
-
-            const requests = requestsWithPlayerData.map(r => mapLeaveRequestFromSupabase(r));
-            displayLeaveRequests(requests);
-        } catch (error) {
-            console.error('Error loading leave requests:', error);
-        }
-    }
-
-    // Referenz für manuelles Neuladen speichern
-    reloadLeaveRequests = fetchRequests;
-
-    fetchRequests();
-
-    const subscription = supabaseClient
-        .channel('leave-club-requests')
-        .on(
-            'postgres_changes',
-            {
-                event: '*',
-                schema: 'public',
-                table: 'leave_club_requests',
-                filter: `club_id=eq.${currentUserData.clubId}`
-            },
-            () => {
-                fetchRequests();
-            }
-        )
-        .subscribe();
-
-    subscriptions.push(subscription);
-}
-
 function displayClubJoinRequests(requests) {
     const container = document.getElementById('club-join-requests-list');
     if (!container) return;
@@ -300,120 +186,442 @@ function displayClubJoinRequests(requests) {
         .join('');
 }
 
-function displayLeaveRequests(requests) {
-    const container = document.getElementById('leave-requests-list');
-    if (!container) return;
+// ===================================================================
+// APPROVAL FLOW: Approve → Subgroup Assignment → Events Display
+// ===================================================================
 
-    if (requests.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Keine offenen Austrittsanfragen</p>';
-        return;
-    }
-
-    container.innerHTML = requests
-        .map(
-            request => {
-                // Warnung anzeigen, wenn der austretende Spieler ein Trainer ist
-                const coachWarning = request.isCoach ? `
-                    <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-                        <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <strong>Achtung:</strong> ${request.playerRole === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'} -
-                        wird bei Genehmigung zum Spieler herabgestuft!
-                    </div>
-                ` : '';
-
-                const roleLabel = request.isCoach
-                    ? `<span class="ml-2 px-2 py-0.5 text-xs rounded ${request.playerRole === 'head_coach' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">${request.playerRole === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'}</span>`
-                    : '';
-
-                return `
-        <div class="bg-white rounded-lg border ${request.isCoach ? 'border-yellow-300' : 'border-gray-200'} p-4 hover:shadow-md transition-shadow">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div class="flex-1 min-w-0">
-                    <h4 class="font-medium text-gray-900">${request.playerName}${roleLabel}</h4>
-                    <p class="text-sm text-gray-600 truncate">${request.playerEmail}</p>
-                    <p class="text-xs text-gray-400 mt-1">
-                        Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
-                    </p>
-                    ${coachWarning}
-                </div>
-                <div class="flex gap-2 flex-shrink-0">
-                    <button
-                        data-action="approve-leave"
-                        data-request-id="${request.id}"
-                        data-is-coach="${request.isCoach}"
-                        data-player-name="${request.playerName}"
-                        class="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
-                    >
-                        Genehmigen
-                    </button>
-                    <button
-                        data-action="reject-leave"
-                        data-request-id="${request.id}"
-                        class="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium flex-1 sm:flex-none"
-                    >
-                        Ablehnen
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-            }
-        )
-        .join('');
-}
-
-async function approveClubRequest(requestId) {
-    if (!confirm('Möchtest du diese Beitrittsanfrage wirklich genehmigen?')) return;
+async function startApprovalFlow(requestId) {
+    if (!confirm('Möchtest du diese Beitrittsanfrage genehmigen?')) return;
 
     try {
-        console.log('[ClubRequests] Approving join request via RPC:', requestId);
-
-        // Spieler-ID für Benachrichtigung abrufen
+        // Get request data
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('club_requests')
-            .select('player_id')
+            .select('player_id, club_id')
             .eq('id', requestId)
             .single();
 
-        if (fetchError) {
-            console.error('Error fetching request data:', fetchError);
+        if (fetchError || !requestData) {
+            alert('Anfrage nicht gefunden.');
+            return;
         }
 
-        // RPC-Funktion aufrufen (umgeht RLS-Policies)
-        const { data, error } = await supabaseClient.rpc('approve_club_join_request', {
+        // Get player data
+        const { data: playerData } = await supabaseClient
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('id', requestData.player_id)
+            .single();
+
+        const playerName = playerData
+            ? `${playerData.first_name || ''} ${playerData.last_name || ''}`.trim() || playerData.email
+            : 'Spieler';
+
+        // Approve the request via RPC (sets club_id)
+        const { data: rpcResult, error: rpcError } = await supabaseClient.rpc('approve_club_join_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
         });
 
-        if (error) {
-            console.error('Error calling approve_club_join_request RPC:', error);
-            throw error;
-        }
+        if (rpcError) throw rpcError;
+        if (!rpcResult.success) throw new Error(rpcResult.error);
 
-        console.log('[ClubRequests] RPC result:', data);
+        // Notify player
+        await notifyPlayer(requestData.player_id, 'club_join_approved',
+            'Beitrittsanfrage genehmigt',
+            'Deine Beitrittsanfrage wurde genehmigt. Willkommen im Verein!');
+        await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
 
-        if (!data.success) {
-            throw new Error(data.error || 'Unbekannter Fehler');
-        }
+        // Reload join requests list
+        if (reloadJoinRequests) await reloadJoinRequests();
 
-        if (requestData?.player_id) {
-            await notifyPlayer(requestData.player_id, 'club_join_approved',
-                'Beitrittsanfrage genehmigt',
-                'Deine Beitrittsanfrage wurde genehmigt. Willkommen im Verein!');
-            await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
-        }
+        // Now show the subgroup assignment modal
+        await showSubgroupAssignmentModal(requestData.player_id, requestData.club_id, playerName);
 
-        if (reloadJoinRequests) {
-            console.log('[ClubRequests] Reloading join requests list...');
-            await reloadJoinRequests();
-        }
-
-        alert('Spieler wurde erfolgreich genehmigt!');
     } catch (error) {
-        console.error('Error approving club request:', error);
+        console.error('Error in approval flow:', error);
         alert('Fehler beim Genehmigen: ' + error.message);
     }
 }
+
+/**
+ * Show subgroup assignment modal after approving a join request
+ */
+async function showSubgroupAssignmentModal(playerId, clubId, playerName) {
+    const modal = document.getElementById('subgroup-assignment-modal');
+    const content = document.getElementById('subgroup-assignment-content');
+    if (!modal || !content) {
+        console.error('[ClubRequests] Subgroup assignment modal not found');
+        return;
+    }
+
+    // Load all subgroups for this club
+    const { data: subgroups, error } = await supabaseClient
+        .from('subgroups')
+        .select('id, name, color, is_default, training_days, sport_id')
+        .eq('club_id', clubId)
+        .order('is_default', { ascending: false })
+        .order('name');
+
+    if (error) {
+        console.error('Error loading subgroups:', error);
+        alert('Fehler beim Laden der Untergruppen.');
+        return;
+    }
+
+    const hauptgruppe = subgroups.find(sg => sg.is_default);
+    const untergruppen = subgroups.filter(sg => !sg.is_default);
+
+    content.innerHTML = `
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Zu Untergruppen hinzufügen</h2>
+            <p class="text-sm text-gray-600 mb-5">${playerName} wurde zum Verein hinzugefügt. Weise jetzt die Untergruppen zu.</p>
+
+            <div class="space-y-3 mb-6">
+                ${hauptgruppe ? `
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 border border-indigo-200 cursor-not-allowed">
+                        <input type="checkbox" checked disabled
+                            class="w-5 h-5 rounded text-indigo-600"
+                            value="${hauptgruppe.id}" />
+                        <div class="flex-1">
+                            <span class="font-medium text-gray-900">${hauptgruppe.name}</span>
+                            <span class="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">Automatisch</span>
+                        </div>
+                        ${hauptgruppe.color ? `<span class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: ${hauptgruppe.color}"></span>` : ''}
+                    </label>
+                ` : ''}
+
+                ${untergruppen.length > 0 ? untergruppen.map(sg => `
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 cursor-pointer transition">
+                        <input type="checkbox"
+                            class="subgroup-checkbox w-5 h-5 rounded text-indigo-600 cursor-pointer"
+                            value="${sg.id}" />
+                        <div class="flex-1">
+                            <span class="font-medium text-gray-900">${sg.name}</span>
+                            ${sg.training_days && sg.training_days.length > 0
+                                ? `<span class="ml-2 text-xs text-gray-500">${formatTrainingDays(sg.training_days)}</span>`
+                                : ''}
+                        </div>
+                        ${sg.color ? `<span class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: ${sg.color}"></span>` : ''}
+                    </label>
+                `).join('') : '<p class="text-sm text-gray-500 text-center py-2">Keine weiteren Untergruppen vorhanden</p>'}
+            </div>
+
+            <div class="flex gap-3">
+                <button id="subgroup-assign-btn"
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition">
+                    Weiter
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Show modal
+    modal.classList.remove('hidden');
+
+    // Handle assign button
+    document.getElementById('subgroup-assign-btn').addEventListener('click', async () => {
+        const selectedSubgroupIds = [];
+
+        // Always include Hauptgruppe
+        if (hauptgruppe) {
+            selectedSubgroupIds.push(hauptgruppe.id);
+        }
+
+        // Add selected subgroups
+        content.querySelectorAll('.subgroup-checkbox:checked').forEach(cb => {
+            selectedSubgroupIds.push(cb.value);
+        });
+
+        // Assign subgroups to player
+        const btn = document.getElementById('subgroup-assign-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird zugewiesen...';
+
+        try {
+            // Update player's subgroup_ids
+            const { error: updateError } = await supabaseClient
+                .from('profiles')
+                .update({
+                    subgroup_ids: selectedSubgroupIds,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', playerId);
+
+            if (updateError) throw updateError;
+
+            console.log('[ClubRequests] Assigned player to subgroups:', selectedSubgroupIds);
+
+            // Show events step
+            await showEventsForSubgroups(playerId, clubId, playerName, selectedSubgroupIds, subgroups);
+
+        } catch (err) {
+            console.error('Error assigning subgroups:', err);
+            alert('Fehler beim Zuweisen der Untergruppen: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = 'Weiter';
+        }
+    });
+}
+
+/**
+ * Show events related to the assigned subgroups
+ */
+async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds, allSubgroups) {
+    const content = document.getElementById('subgroup-assignment-content');
+    if (!content) return;
+
+    // Load events for the assigned subgroups
+    const { data: events, error } = await supabaseClient
+        .from('events')
+        .select('id, title, start_date, start_time, event_type, repeat_type, repeat_end_date, target_type, target_subgroup_ids, reminder_sent_at, cancelled')
+        .eq('club_id', clubId)
+        .eq('cancelled', false);
+
+    if (error) {
+        console.error('Error loading events:', error);
+    }
+
+    // Filter events that match the player's assigned subgroups
+    const relevantEvents = (events || []).filter(event => {
+        if (event.target_type === 'club' || !event.target_type) return true;
+        if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+            return subgroupIds.some(sgId => event.target_subgroup_ids.includes(sgId));
+        }
+        return false;
+    });
+
+    // Separate active events (reminder sent = happening soon) from regular
+    const activeEvents = relevantEvents.filter(e => e.reminder_sent_at);
+    const futureEvents = relevantEvents.filter(e => !e.reminder_sent_at);
+
+    // Build subgroup name map
+    const subgroupMap = {};
+    allSubgroups.forEach(sg => { subgroupMap[sg.id] = sg; });
+
+    // Build events HTML
+    let eventsHtml = '';
+
+    if (relevantEvents.length === 0) {
+        eventsHtml = '<p class="text-sm text-gray-500 text-center py-4">Keine Veranstaltungen für die zugewiesenen Gruppen.</p>';
+    } else {
+        eventsHtml = relevantEvents.map(event => {
+            const isRecurring = event.event_type === 'recurring' || event.repeat_type;
+            const isActive = !!event.reminder_sent_at;
+
+            // Get subgroup names for this event
+            let eventSubgroups = '';
+            if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+                const sgNames = event.target_subgroup_ids
+                    .map(id => subgroupMap[id]?.name)
+                    .filter(Boolean);
+                eventSubgroups = sgNames.join(', ');
+            } else {
+                eventSubgroups = 'Ganzer Verein';
+            }
+
+            if (isRecurring) {
+                // Recurring: show title + repeat day
+                const repeatDay = getRepeatDayText(event);
+                return `
+                    <div class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-sync-alt text-indigo-600 text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 text-sm">${event.title}</p>
+                            <p class="text-xs text-gray-500">${repeatDay}</p>
+                            <p class="text-xs text-gray-400">${eventSubgroups}</p>
+                        </div>
+                        ${isActive ? '<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full flex-shrink-0">Aktiv</span>' : ''}
+                    </div>
+                `;
+            } else {
+                // Single event: show title + date
+                const eventDate = formatEventDate(event.start_date);
+                return `
+                    <div class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200">
+                        <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-calendar text-blue-600 text-sm"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 text-sm">${event.title}</p>
+                            <p class="text-xs text-gray-500">${eventDate}${event.start_time ? ' um ' + event.start_time.substring(0, 5) : ''}</p>
+                            <p class="text-xs text-gray-400">${eventSubgroups}</p>
+                        </div>
+                        ${isActive ? '<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full flex-shrink-0">Aktiv</span>' : ''}
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    content.innerHTML = `
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Veranstaltungen</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                ${playerName} wird zu ${relevantEvents.length} Veranstaltung${relevantEvents.length !== 1 ? 'en' : ''} hinzugefügt.
+                ${activeEvents.length > 0 ? `<br><span class="text-green-700 font-medium">${activeEvents.length} aktive Einladung${activeEvents.length !== 1 ? 'en' : ''} ${activeEvents.length !== 1 ? 'werden' : 'wird'} direkt verschickt.</span>` : ''}
+            </p>
+
+            <div class="space-y-2 mb-6 max-h-80 overflow-y-auto">
+                ${eventsHtml}
+            </div>
+
+            <button id="finish-assignment-btn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition">
+                Fertig
+            </button>
+        </div>
+    `;
+
+    // Send invitations for active events
+    if (activeEvents.length > 0) {
+        await sendInvitationsForActiveEvents(playerId, activeEvents);
+    }
+
+    // Handle finish button
+    document.getElementById('finish-assignment-btn').addEventListener('click', () => {
+        const modal = document.getElementById('subgroup-assignment-modal');
+        if (modal) modal.classList.add('hidden');
+    });
+}
+
+/**
+ * Send invitations to the new player for active events (where reminder was already sent)
+ */
+async function sendInvitationsForActiveEvents(playerId, activeEvents) {
+    for (const event of activeEvents) {
+        try {
+            const isRecurring = event.event_type === 'recurring' || event.repeat_type;
+            let occurrenceDate = event.start_date;
+
+            if (isRecurring) {
+                // For recurring events, find the next upcoming occurrence
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+                const occurrences = generateOccurrences(event.start_date, event.repeat_type, event.repeat_end_date, 2);
+                occurrenceDate = occurrences.find(d => d >= todayStr) || occurrences[0] || event.start_date;
+            }
+
+            // Create invitation
+            const { error } = await supabaseClient
+                .from('event_invitations')
+                .upsert({
+                    event_id: event.id,
+                    user_id: playerId,
+                    occurrence_date: occurrenceDate,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                }, {
+                    onConflict: 'event_id,user_id,occurrence_date',
+                    ignoreDuplicates: true
+                });
+
+            if (error) {
+                console.warn('[ClubRequests] Error creating invitation for event:', event.id, error);
+            } else {
+                console.log('[ClubRequests] Sent invitation for active event:', event.title);
+            }
+
+            // Also send a notification for the invitation
+            await notifyPlayer(playerId, 'event_invitation',
+                'Neue Veranstaltung',
+                `Du wurdest zu "${event.title}" eingeladen.`);
+        } catch (err) {
+            console.warn('[ClubRequests] Error sending invitation:', err);
+        }
+    }
+}
+
+/**
+ * Generate upcoming occurrences for a recurring event (simplified version)
+ */
+function generateOccurrences(startDate, repeatType, repeatEndDate, weeksAhead = 4) {
+    const occurrences = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eventStart = new Date(startDate + 'T12:00:00');
+    const endDate = repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null;
+
+    const windowEnd = new Date(today);
+    windowEnd.setDate(windowEnd.getDate() + (weeksAhead * 7));
+
+    let currentDate = new Date(eventStart);
+    if (currentDate < today) {
+        while (currentDate < today) {
+            switch (repeatType) {
+                case 'daily': currentDate.setDate(currentDate.getDate() + 1); break;
+                case 'weekly': currentDate.setDate(currentDate.getDate() + 7); break;
+                case 'biweekly': currentDate.setDate(currentDate.getDate() + 14); break;
+                case 'monthly': currentDate.setMonth(currentDate.getMonth() + 1); break;
+            }
+        }
+    }
+
+    let maxIterations = 50;
+    while (currentDate <= windowEnd && maxIterations > 0) {
+        if (endDate && currentDate > endDate) break;
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        occurrences.push(dateStr);
+
+        switch (repeatType) {
+            case 'daily': currentDate.setDate(currentDate.getDate() + 1); break;
+            case 'weekly': currentDate.setDate(currentDate.getDate() + 7); break;
+            case 'biweekly': currentDate.setDate(currentDate.getDate() + 14); break;
+            case 'monthly': currentDate.setMonth(currentDate.getMonth() + 1); break;
+        }
+        maxIterations--;
+    }
+
+    return occurrences;
+}
+
+/**
+ * Get the repeat day text for a recurring event (e.g., "Jeden Montag")
+ */
+function getRepeatDayText(event) {
+    if (!event.repeat_type) return '';
+
+    if (event.repeat_type === 'daily') return 'Täglich';
+    if (event.repeat_type === 'monthly') return 'Monatlich';
+
+    // For weekly/biweekly, determine the day from the start_date
+    const startDate = new Date(event.start_date + 'T12:00:00');
+    const dayName = DAY_NAMES_DE[startDate.getDay()];
+
+    if (event.repeat_type === 'weekly') return `Jeden ${dayName}`;
+    if (event.repeat_type === 'biweekly') return `Alle 2 Wochen ${dayName}`;
+
+    return event.repeat_type;
+}
+
+/**
+ * Format event date for display
+ */
+function formatEventDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T12:00:00');
+    return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/**
+ * Format training days array for display
+ */
+function formatTrainingDays(days) {
+    if (!days || days.length === 0) return '';
+    const dayMap = {
+        'monday': 'Mo', 'tuesday': 'Di', 'wednesday': 'Mi',
+        'thursday': 'Do', 'friday': 'Fr', 'saturday': 'Sa', 'sunday': 'So'
+    };
+    return days.map(d => dayMap[d] || d).join(', ');
+}
+
+// ===================================================================
+// REJECT FLOW
+// ===================================================================
 
 async function rejectClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich ablehnen?')) return;
@@ -421,7 +629,6 @@ async function rejectClubRequest(requestId) {
     try {
         console.log('[ClubRequests] Rejecting join request via RPC:', requestId);
 
-        // Spieler-ID für Benachrichtigung abrufen
         const { data: requestData, error: fetchError } = await supabaseClient
             .from('club_requests')
             .select('player_id')
@@ -432,22 +639,13 @@ async function rejectClubRequest(requestId) {
             console.error('Error fetching request data:', fetchError);
         }
 
-        // RPC-Funktion aufrufen (umgeht RLS-Policies)
         const { data, error } = await supabaseClient.rpc('reject_club_join_request', {
             p_request_id: requestId,
             p_coach_id: currentUserData.id
         });
 
-        if (error) {
-            console.error('Error calling reject_club_join_request RPC:', error);
-            throw error;
-        }
-
-        console.log('[ClubRequests] RPC result:', data);
-
-        if (!data.success) {
-            throw new Error(data.error || 'Unbekannter Fehler');
-        }
+        if (error) throw error;
+        if (!data.success) throw new Error(data.error || 'Unbekannter Fehler');
 
         if (requestData?.player_id) {
             await notifyPlayer(requestData.player_id, 'club_join_rejected',
@@ -456,10 +654,7 @@ async function rejectClubRequest(requestId) {
             await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
         }
 
-        if (reloadJoinRequests) {
-            console.log('[ClubRequests] Reloading join requests list...');
-            await reloadJoinRequests();
-        }
+        if (reloadJoinRequests) await reloadJoinRequests();
 
         alert('Anfrage wurde abgelehnt.');
     } catch (error) {
@@ -467,6 +662,10 @@ async function rejectClubRequest(requestId) {
         alert('Fehler beim Ablehnen: ' + error.message);
     }
 }
+
+// ===================================================================
+// NOTIFICATION HELPERS
+// ===================================================================
 
 async function notifyPlayer(playerId, type, title, message) {
     try {
@@ -483,15 +682,12 @@ async function notifyPlayer(playerId, type, title, message) {
 
         if (error) {
             console.error('Error creating player notification:', error);
-        } else {
-            console.log(`[ClubRequests] Notified player ${playerId} about ${type}`);
         }
     } catch (error) {
         console.error('Error notifying player:', error);
     }
 }
 
-// Trainer-Benachrichtigungen als gelesen markieren, wenn die Anfrage bearbeitet wurde
 async function markCoachNotificationsAsRead(playerId, notificationType) {
     try {
         const { error } = await supabaseClient
@@ -503,130 +699,8 @@ async function markCoachNotificationsAsRead(playerId, notificationType) {
 
         if (error) {
             console.error('Error marking coach notifications as read:', error);
-        } else {
-            console.log(`[ClubRequests] Marked ${notificationType} notifications for player ${playerId} as read`);
         }
     } catch (error) {
         console.error('Error marking coach notifications as read:', error);
-    }
-}
-
-async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spieler') {
-    // Spezielle Bestätigung für Trainer, da diese herabgestuft werden
-    let confirmMessage = 'Möchtest du diese Austrittsanfrage wirklich genehmigen?';
-    if (isCoach) {
-        confirmMessage = `⚠️ ACHTUNG: ${playerName} ist ein Trainer!\n\n` +
-            `Wenn du diese Anfrage genehmigst, wird ${playerName}:\n` +
-            `• Den Verein verlassen\n` +
-            `• Zum normalen Spieler herabgestuft\n\n` +
-            `Möchtest du fortfahren?`;
-    }
-
-    if (!confirm(confirmMessage)) return;
-
-    try {
-        console.log('[ClubRequests] Approving leave request via RPC:', requestId, 'isCoach:', isCoach);
-
-        // Spieler-ID für Benachrichtigung abrufen
-        const { data: requestData, error: fetchError } = await supabaseClient
-            .from('leave_club_requests')
-            .select('player_id')
-            .eq('id', requestId)
-            .single();
-
-        if (fetchError) {
-            console.error('Error fetching request data:', fetchError);
-        }
-
-        // RPC-Funktion aufrufen (umgeht RLS-Policies)
-        const { data, error } = await supabaseClient.rpc('approve_club_leave_request', {
-            p_request_id: requestId,
-            p_coach_id: currentUserData.id
-        });
-
-        if (error) {
-            console.error('Error calling approve_club_leave_request RPC:', error);
-            throw error;
-        }
-
-        console.log('[ClubRequests] RPC result:', data);
-
-        if (!data.success) {
-            throw new Error(data.error || 'Unbekannter Fehler');
-        }
-
-        if (requestData?.player_id) {
-            await notifyPlayer(requestData.player_id, 'club_leave_approved',
-                'Austrittsanfrage genehmigt',
-                'Deine Austrittsanfrage wurde genehmigt. Du hast den Verein verlassen.');
-            await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
-        }
-
-        if (reloadLeaveRequests) {
-            console.log('[ClubRequests] Reloading leave requests list...');
-            await reloadLeaveRequests();
-        }
-
-        if (isCoach) {
-            alert(`${playerName} hat den Verein verlassen und wurde zum Spieler herabgestuft.`);
-        } else {
-            alert('Spieler hat den Verein verlassen.');
-        }
-    } catch (error) {
-        console.error('Error approving leave request:', error);
-        alert('Fehler beim Genehmigen: ' + error.message);
-    }
-}
-
-async function rejectLeaveRequest(requestId) {
-    if (!confirm('Möchtest du diese Austrittsanfrage wirklich ablehnen?')) return;
-
-    try {
-        console.log('[ClubRequests] Rejecting leave request via RPC:', requestId);
-
-        // Spieler-ID für Benachrichtigung abrufen
-        const { data: requestData, error: fetchError } = await supabaseClient
-            .from('leave_club_requests')
-            .select('player_id')
-            .eq('id', requestId)
-            .single();
-
-        if (fetchError) {
-            console.error('Error fetching request data:', fetchError);
-        }
-
-        // RPC-Funktion aufrufen (umgeht RLS-Policies)
-        const { data, error } = await supabaseClient.rpc('reject_club_leave_request', {
-            p_request_id: requestId,
-            p_coach_id: currentUserData.id
-        });
-
-        if (error) {
-            console.error('Error calling reject_club_leave_request RPC:', error);
-            throw error;
-        }
-
-        console.log('[ClubRequests] RPC result:', data);
-
-        if (!data.success) {
-            throw new Error(data.error || 'Unbekannter Fehler');
-        }
-
-        if (requestData?.player_id) {
-            await notifyPlayer(requestData.player_id, 'club_leave_rejected',
-                'Austrittsanfrage abgelehnt',
-                'Deine Austrittsanfrage wurde abgelehnt. Du bleibst Mitglied im Verein.');
-            await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
-        }
-
-        if (reloadLeaveRequests) {
-            console.log('[ClubRequests] Reloading leave requests list...');
-            await reloadLeaveRequests();
-        }
-
-        alert('Austrittsanfrage wurde abgelehnt.');
-    } catch (error) {
-        console.error('Error rejecting leave request:', error);
-        alert('Fehler beim Ablehnen: ' + error.message);
     }
 }
