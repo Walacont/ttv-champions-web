@@ -54,7 +54,7 @@ BEGIN
     WHERE user_id = p_player_id AND club_id = v_club_id;
 
     -- Create activity event
-    INSERT INTO activity_events (user_id, club_id, event_type, data, created_at)
+    INSERT INTO activity_events (user_id, club_id, event_type, event_data, created_at)
     VALUES (
         p_player_id,
         v_club_id,
