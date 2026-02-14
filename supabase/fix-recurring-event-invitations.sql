@@ -9,21 +9,23 @@
 -- The constraint name varies, so we use a dynamic approach
 DO $$
 DECLARE
-    constraint_name TEXT;
+    r RECORD;
 BEGIN
     -- Find unique constraints on event_invitations that are on (event_id, user_id) only
-    FOR constraint_name IN
-        SELECT tc.constraint_name
+    FOR r IN
+        SELECT tc.constraint_name::text AS cname
         FROM information_schema.table_constraints tc
         JOIN information_schema.constraint_column_usage ccu
             ON tc.constraint_name = ccu.constraint_name
+            AND tc.table_schema = ccu.table_schema
         WHERE tc.table_name = 'event_invitations'
             AND tc.constraint_type = 'UNIQUE'
+            AND tc.table_schema = 'public'
         GROUP BY tc.constraint_name
-        HAVING array_agg(ccu.column_name ORDER BY ccu.column_name) = ARRAY['event_id', 'user_id']
+        HAVING array_agg(ccu.column_name::text ORDER BY ccu.column_name::text) = ARRAY['event_id', 'user_id']
     LOOP
-        EXECUTE format('ALTER TABLE event_invitations DROP CONSTRAINT IF EXISTS %I', constraint_name);
-        RAISE NOTICE 'Dropped old constraint: %', constraint_name;
+        EXECUTE format('ALTER TABLE event_invitations DROP CONSTRAINT IF EXISTS %I', r.cname);
+        RAISE NOTICE 'Dropped old constraint: %', r.cname;
     END LOOP;
 END
 $$;
