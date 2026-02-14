@@ -7,13 +7,23 @@
 -- ========================================================================
 
 -- ========================================================================
--- 1. Drop ALL existing versions of create_offline_player
+-- 1. Drop ALL existing versions of create_offline_player dynamically
 -- ========================================================================
-DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID);
-DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[]);
-DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT);
-DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT, TEXT);
-DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT, TEXT, UUID);
+DO $$
+DECLARE
+    func_oid oid;
+BEGIN
+    FOR func_oid IN
+        SELECT p.oid
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE p.proname = 'create_offline_player'
+          AND n.nspname = 'public'
+    LOOP
+        EXECUTE 'DROP FUNCTION IF EXISTS ' || func_oid::regprocedure || ' CASCADE';
+    END LOOP;
+END;
+$$;
 
 -- ========================================================================
 -- 2. Re-deploy create_offline_player (without is_match_ready)
