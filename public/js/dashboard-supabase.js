@@ -952,30 +952,27 @@ function setupProfileLink() {
     }
 }
 
-// --- Setup Coach Indicator ---
+// --- Setup Coach Header Icon ---
 function setupCoachIndicator() {
-    const indicator = document.getElementById('coach-player-indicator');
-    if (!indicator || !currentUserData) return;
+    const btn = document.getElementById('switch-to-coach-btn');
+    if (!btn || !currentUserData) return;
 
-    // Indikator anzeigen wenn Benutzer Trainer ist
     const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
     if (isCoach) {
-        indicator.classList.remove('hidden');
+        btn.classList.remove('hidden');
     }
 }
 
-// --- Setup Guardian Indicator ---
+// --- Setup Guardian Header Icon ---
 async function setupGuardianIndicator() {
-    const indicator = document.getElementById('guardian-indicator');
-    if (!indicator || !currentUserData) return;
+    const btn = document.getElementById('switch-to-guardian-btn');
+    if (!btn || !currentUserData) return;
 
-    // Nur prüfen wenn Benutzer ein Vormund ist
     if (!(currentUserData.account_type === 'guardian' || currentUserData.is_guardian)) {
         return;
     }
 
     try {
-        // Kinder laden und prüfen ob mindestens eines unter 18 ist
         const { data, error } = await supabase.rpc('get_my_children');
 
         if (error) {
@@ -984,13 +981,11 @@ async function setupGuardianIndicator() {
         }
 
         if (!data?.success || !data.children || data.children.length === 0) {
-            // Keine Kinder verknüpft - Indikator nicht anzeigen
             return;
         }
 
-        // Prüfen ob mindestens ein Kind unter 18 ist
         const hasChildUnder18 = data.children.some(child => {
-            if (!child.birthdate) return true; // Wenn kein Geburtsdatum, vorsichtshalber anzeigen
+            if (!child.birthdate) return true;
             const birth = new Date(child.birthdate);
             const today = new Date();
             let age = today.getFullYear() - birth.getFullYear();
@@ -1001,9 +996,8 @@ async function setupGuardianIndicator() {
             return age < 18;
         });
 
-        // Indikator nur anzeigen wenn mindestens ein Kind unter 18 ist
         if (hasChildUnder18) {
-            indicator.classList.remove('hidden');
+            btn.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error in setupGuardianIndicator:', error);

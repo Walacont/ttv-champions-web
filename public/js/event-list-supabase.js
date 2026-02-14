@@ -318,7 +318,10 @@ function renderPlayerEventCard(event, todayStr) {
     }
 
     let actionHtml = '';
-    if (status === 'pending') {
+    const isPastFilter = listViewState.filter === 'past';
+    if (isPastFilter) {
+        // No action buttons for past events
+    } else if (status === 'pending') {
         actionHtml = `
             <div class="flex gap-2 mt-2">
                 <button class="event-list-accept-btn flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition-colors" data-invitation-id="${invitationId}">
