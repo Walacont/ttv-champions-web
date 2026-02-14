@@ -1235,3 +1235,6 @@ function setupEventSubscription() {
 
 // Export
 export { loadUpcomingEvents };
+
+// Make showEventDetails available globally for event-list-supabase.js
+window.showEventDetails = showEventDetails;
