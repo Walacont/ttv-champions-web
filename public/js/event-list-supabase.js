@@ -8,22 +8,16 @@ const supabase = getSupabase();
 
 let listViewState = {
     filter: 'upcoming', // 'upcoming' | 'past'
-    events: [],
-    subscriptions: [],
     userData: null,
     containerId: null,
+    subscriptions: [],
+    subscriptionsActive: false,
+    reloadTimer: null,
 };
 
 /**
- * Initialisiert die Listenansicht
- */
-export function initEventListView(containerId, userData) {
-    listViewState.userData = userData;
-    listViewState.containerId = containerId;
-}
-
-/**
- * Lädt und rendert die Event-Liste
+ * Lädt und rendert die Event-Liste.
+ * Subscriptions werden nur einmal erstellt und wiederverwendet.
  */
 export async function loadEventListView(containerId, userData, filter = 'upcoming') {
     const container = document.getElementById(containerId);
@@ -41,112 +35,15 @@ export async function loadEventListView(containerId, userData, filter = 'upcomin
 
     try {
         const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const todayStr = formatDateStr(now);
         const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         let allOccurrences = [];
 
         if (filter === 'upcoming') {
-            // Nächste 8 Wochen laden
-            const futureDate = new Date(now);
-            futureDate.setDate(futureDate.getDate() + 56);
-            const futureDateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
-
-            // Einzelne Events
-            const { data: singleEvents } = await supabase
-                .from('events')
-                .select('*')
-                .eq('club_id', userData.clubId)
-                .or('event_type.eq.single,event_type.is.null')
-                .gte('start_date', todayStr)
-                .lte('start_date', futureDateStr)
-                .or('cancelled.eq.false,cancelled.is.null')
-                .order('start_date', { ascending: true });
-
-            // Einzelne Events von heute, deren Endzeit noch nicht vorbei ist
-            (singleEvents || []).forEach(event => {
-                if (event.start_date === todayStr && event.end_time) {
-                    if (event.end_time <= currentTimeStr) return; // Endzeit vorbei
-                }
-                allOccurrences.push({
-                    ...event,
-                    occurrence_date: event.start_date,
-                });
-            });
-
-            // Wiederkehrende Events
-            const { data: recurringEvents } = await supabase
-                .from('events')
-                .select('*')
-                .eq('club_id', userData.clubId)
-                .eq('event_type', 'recurring')
-                .lte('start_date', futureDateStr)
-                .or(`repeat_end_date.gte.${todayStr},repeat_end_date.is.null`)
-                .or('cancelled.eq.false,cancelled.is.null');
-
-            (recurringEvents || []).forEach(event => {
-                const occurrences = expandRecurringEvent(event, todayStr, futureDateStr);
-                occurrences.forEach(dateStr => {
-                    // Heute-Filter: Endzeit prüfen
-                    if (dateStr === todayStr && event.end_time) {
-                        if (event.end_time <= currentTimeStr) return;
-                    }
-                    allOccurrences.push({
-                        ...event,
-                        occurrence_date: dateStr,
-                    });
-                });
-            });
-
+            allOccurrences = await fetchUpcomingEvents(userData, todayStr, currentTimeStr);
         } else {
-            // Vergangene Events: letzte 8 Wochen
-            const pastDate = new Date(now);
-            pastDate.setDate(pastDate.getDate() - 56);
-            const pastDateStr = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`;
-
-            // Einzelne Events
-            const { data: singleEvents } = await supabase
-                .from('events')
-                .select('*')
-                .eq('club_id', userData.clubId)
-                .or('event_type.eq.single,event_type.is.null')
-                .gte('start_date', pastDateStr)
-                .lte('start_date', todayStr)
-                .or('cancelled.eq.false,cancelled.is.null')
-                .order('start_date', { ascending: false });
-
-            (singleEvents || []).forEach(event => {
-                // Heute: nur wenn Endzeit vorbei ist
-                if (event.start_date === todayStr) {
-                    if (!event.end_time || event.end_time > currentTimeStr) return;
-                }
-                allOccurrences.push({
-                    ...event,
-                    occurrence_date: event.start_date,
-                });
-            });
-
-            // Wiederkehrende Events
-            const { data: recurringEvents } = await supabase
-                .from('events')
-                .select('*')
-                .eq('club_id', userData.clubId)
-                .eq('event_type', 'recurring')
-                .lte('start_date', todayStr)
-                .or('cancelled.eq.false,cancelled.is.null');
-
-            (recurringEvents || []).forEach(event => {
-                const occurrences = expandRecurringEvent(event, pastDateStr, todayStr);
-                occurrences.forEach(dateStr => {
-                    if (dateStr === todayStr) {
-                        if (!event.end_time || event.end_time > currentTimeStr) return;
-                    }
-                    allOccurrences.push({
-                        ...event,
-                        occurrence_date: dateStr,
-                    });
-                });
-            });
+            allOccurrences = await fetchPastEvents(userData, todayStr, currentTimeStr);
         }
 
         // Sortieren
@@ -166,58 +63,16 @@ export async function loadEventListView(containerId, userData, filter = 'upcomin
 
         // Rückmeldungen laden
         const eventIds = [...new Set(allOccurrences.map(e => e.id))];
-        let invitationsByKey = {};
-
-        if (eventIds.length > 0) {
-            const { data: allInvitations } = await supabase
-                .from('event_invitations')
-                .select('event_id, occurrence_date, status, user_id, decline_comment, profiles:user_id(first_name, last_name)')
-                .in('event_id', eventIds);
-
-            (allInvitations || []).forEach(inv => {
-                const key = `${inv.event_id}_${inv.occurrence_date || 'single'}`;
-                if (!invitationsByKey[key]) {
-                    invitationsByKey[key] = { accepted: [], rejected: [], pending: [] };
-                }
-                const group = inv.status === 'accepted' ? 'accepted'
-                    : (inv.status === 'rejected' || inv.status === 'declined') ? 'rejected'
-                    : 'pending';
-                invitationsByKey[key][group].push(inv);
-            });
-        }
+        const invitationsByKey = await fetchInvitations(eventIds);
 
         // Untergruppen laden
-        const { data: subgroupsData } = await supabase
-            .from('subgroups')
-            .select('id, name, color')
-            .eq('club_id', userData.clubId);
-
-        const subgroupsMap = new Map();
-        (subgroupsData || []).forEach(sg => {
-            subgroupsMap.set(sg.id, { name: sg.name, color: sg.color || '#6366f1' });
-        });
+        const subgroupsMap = await fetchSubgroups(userData.clubId);
 
         // Rendern
         renderEventList(container, allOccurrences, invitationsByKey, subgroupsMap, filter, todayStr);
 
-        // Realtime Subscription
-        cleanupListSubscriptions();
-
-        const invChannel = supabase
-            .channel('event-list-invitations')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_invitations' },
-                () => loadEventListView(containerId, userData, filter))
-            .subscribe();
-
-        const evtChannel = supabase
-            .channel('event-list-events')
-            .on('postgres_changes', {
-                event: '*', schema: 'public', table: 'events',
-                filter: `club_id=eq.${userData.clubId}`
-            }, () => loadEventListView(containerId, userData, filter))
-            .subscribe();
-
-        listViewState.subscriptions.push(invChannel, evtChannel);
+        // Realtime Subscriptions nur einmal aufsetzen
+        setupSubscriptions(containerId, userData);
 
     } catch (error) {
         console.error('[EventList] Error loading events:', error);
@@ -228,6 +83,182 @@ export async function loadEventListView(containerId, userData, filter = 'upcomin
             </div>
         `;
     }
+}
+
+/**
+ * Lädt anstehende Events (6 Monate voraus)
+ */
+async function fetchUpcomingEvents(userData, todayStr, currentTimeStr) {
+    const now = new Date();
+    const futureDate = new Date(now);
+    futureDate.setMonth(futureDate.getMonth() + 6);
+    const futureDateStr = formatDateStr(futureDate);
+
+    const occurrences = [];
+
+    // Einzelne Events
+    const { data: singleEvents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('club_id', userData.clubId)
+        .or('event_type.eq.single,event_type.is.null')
+        .gte('start_date', todayStr)
+        .lte('start_date', futureDateStr)
+        .or('cancelled.eq.false,cancelled.is.null')
+        .order('start_date', { ascending: true });
+
+    (singleEvents || []).forEach(event => {
+        if (event.start_date === todayStr && event.end_time && event.end_time <= currentTimeStr) return;
+        occurrences.push({ ...event, occurrence_date: event.start_date });
+    });
+
+    // Wiederkehrende Events
+    const { data: recurringEvents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('club_id', userData.clubId)
+        .eq('event_type', 'recurring')
+        .lte('start_date', futureDateStr)
+        .or(`repeat_end_date.gte.${todayStr},repeat_end_date.is.null`)
+        .or('cancelled.eq.false,cancelled.is.null');
+
+    (recurringEvents || []).forEach(event => {
+        const dates = expandRecurringEvent(event, todayStr, futureDateStr);
+        dates.forEach(dateStr => {
+            if (dateStr === todayStr && event.end_time && event.end_time <= currentTimeStr) return;
+            occurrences.push({ ...event, occurrence_date: dateStr });
+        });
+    });
+
+    return occurrences;
+}
+
+/**
+ * Lädt vergangene Events (3 Monate zurück)
+ */
+async function fetchPastEvents(userData, todayStr, currentTimeStr) {
+    const now = new Date();
+    const pastDate = new Date(now);
+    pastDate.setMonth(pastDate.getMonth() - 3);
+    const pastDateStr = formatDateStr(pastDate);
+
+    const occurrences = [];
+
+    // Einzelne Events
+    const { data: singleEvents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('club_id', userData.clubId)
+        .or('event_type.eq.single,event_type.is.null')
+        .gte('start_date', pastDateStr)
+        .lte('start_date', todayStr)
+        .or('cancelled.eq.false,cancelled.is.null')
+        .order('start_date', { ascending: false });
+
+    (singleEvents || []).forEach(event => {
+        if (event.start_date === todayStr) {
+            if (!event.end_time || event.end_time > currentTimeStr) return;
+        }
+        occurrences.push({ ...event, occurrence_date: event.start_date });
+    });
+
+    // Wiederkehrende Events
+    const { data: recurringEvents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('club_id', userData.clubId)
+        .eq('event_type', 'recurring')
+        .lte('start_date', todayStr)
+        .or('cancelled.eq.false,cancelled.is.null');
+
+    (recurringEvents || []).forEach(event => {
+        const dates = expandRecurringEvent(event, pastDateStr, todayStr);
+        dates.forEach(dateStr => {
+            if (dateStr === todayStr) {
+                if (!event.end_time || event.end_time > currentTimeStr) return;
+            }
+            occurrences.push({ ...event, occurrence_date: dateStr });
+        });
+    });
+
+    return occurrences;
+}
+
+/**
+ * Lädt Rückmeldungen für gegebene Event-IDs
+ */
+async function fetchInvitations(eventIds) {
+    const invitationsByKey = {};
+    if (eventIds.length === 0) return invitationsByKey;
+
+    const { data: allInvitations } = await supabase
+        .from('event_invitations')
+        .select('event_id, occurrence_date, status, user_id, decline_comment, profiles:user_id(first_name, last_name)')
+        .in('event_id', eventIds);
+
+    (allInvitations || []).forEach(inv => {
+        const key = `${inv.event_id}_${inv.occurrence_date || 'single'}`;
+        if (!invitationsByKey[key]) {
+            invitationsByKey[key] = { accepted: [], rejected: [], pending: [] };
+        }
+        const group = inv.status === 'accepted' ? 'accepted'
+            : (inv.status === 'rejected' || inv.status === 'declined') ? 'rejected'
+            : 'pending';
+        invitationsByKey[key][group].push(inv);
+    });
+
+    return invitationsByKey;
+}
+
+/**
+ * Lädt Untergruppen
+ */
+async function fetchSubgroups(clubId) {
+    const { data: subgroupsData } = await supabase
+        .from('subgroups')
+        .select('id, name, color')
+        .eq('club_id', clubId);
+
+    const map = new Map();
+    (subgroupsData || []).forEach(sg => {
+        map.set(sg.id, { name: sg.name, color: sg.color || '#6366f1' });
+    });
+    return map;
+}
+
+/**
+ * Setzt Realtime-Subscriptions nur einmal auf.
+ * Bei Änderungen wird ein Debounced-Reload ausgelöst (kein Subscription-Neuaufbau).
+ */
+function setupSubscriptions(containerId, userData) {
+    if (listViewState.subscriptionsActive) return;
+
+    const debouncedReload = () => {
+        if (listViewState.reloadTimer) clearTimeout(listViewState.reloadTimer);
+        listViewState.reloadTimer = setTimeout(() => {
+            loadEventListView(
+                listViewState.containerId,
+                listViewState.userData,
+                listViewState.filter
+            );
+        }, 800);
+    };
+
+    const invChannel = supabase
+        .channel('event-list-invitations')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'event_invitations' }, debouncedReload)
+        .subscribe();
+
+    const evtChannel = supabase
+        .channel('event-list-events')
+        .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'events',
+            filter: `club_id=eq.${userData.clubId}`
+        }, debouncedReload)
+        .subscribe();
+
+    listViewState.subscriptions.push(invChannel, evtChannel);
+    listViewState.subscriptionsActive = true;
 }
 
 /**
@@ -244,17 +275,15 @@ function expandRecurringEvent(event, fromDateStr, toDateStr) {
     let current = new Date(eventStart);
 
     // Vorspulen zum Startfenster
-    if (current < from) {
-        while (current < from) {
-            advanceDate(current, event.repeat_type);
-        }
+    while (current < from) {
+        advanceDate(current, event.repeat_type);
     }
 
-    let maxIterations = 200;
+    let maxIterations = 500;
     while (current <= to && maxIterations > 0) {
         if (repeatEnd && current > repeatEnd) break;
 
-        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+        const dateStr = formatDateStr(current);
 
         if (!excluded.includes(dateStr) && current >= from) {
             occurrences.push(dateStr);
@@ -274,6 +303,10 @@ function advanceDate(date, repeatType) {
         case 'biweekly': date.setDate(date.getDate() + 14); break;
         case 'monthly': date.setMonth(date.getMonth() + 1); break;
     }
+}
+
+function formatDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -312,25 +345,17 @@ function renderEventList(container, occurrences, invitationsByKey, subgroupsMap,
             const monthShort = dateObj.toLocaleDateString('de-DE', { month: 'short' });
             const isToday = event.occurrence_date === todayStr;
 
-            // Kategorie-Farbe
-            let categoryColor = '#6366f1'; // Default indigo
-            let categoryLabel = '';
-            if (event.event_category === 'training') {
-                categoryColor = '#10b981'; categoryLabel = 'Training';
-            } else if (event.event_category === 'competition') {
-                categoryColor = '#ef4444'; categoryLabel = 'Wettkampf';
-            } else if (event.event_category === 'meeting') {
-                categoryColor = '#f59e0b'; categoryLabel = 'Besprechung';
-            } else if (event.event_category === 'other') {
-                categoryColor = '#8b5cf6'; categoryLabel = 'Sonstiges';
-            }
+            // Untergruppe-Farbe (Fallback: Kategorie-Farbe)
+            let accentColor = '#6366f1';
+            if (event.event_category === 'training') accentColor = '#10b981';
+            else if (event.event_category === 'competition') accentColor = '#ef4444';
+            else if (event.event_category === 'meeting') accentColor = '#f59e0b';
+            else if (event.event_category === 'other') accentColor = '#8b5cf6';
 
-            // Untergruppe
-            let subgroupColor = categoryColor;
             let subgroupNames = [];
             if (event.target_type === 'subgroups' && event.target_subgroup_ids?.length > 0) {
                 const first = subgroupsMap.get(event.target_subgroup_ids[0]);
-                if (first) subgroupColor = first.color;
+                if (first) accentColor = first.color;
                 event.target_subgroup_ids.forEach(id => {
                     const sg = subgroupsMap.get(id);
                     if (sg) subgroupNames.push(sg.name);
@@ -339,7 +364,6 @@ function renderEventList(container, occurrences, invitationsByKey, subgroupsMap,
 
             // Rückmeldungen
             const invKey = `${event.id}_${event.occurrence_date || 'single'}`;
-            // Fallback auf Event-ID ohne Datum (für single events)
             const responses = invitationsByKey[invKey]
                 || invitationsByKey[`${event.id}_single`]
                 || invitationsByKey[`${event.id}_null`]
@@ -352,7 +376,7 @@ function renderEventList(container, occurrences, invitationsByKey, subgroupsMap,
                      onclick="window.openEventDetails('${event.id}', '${event.occurrence_date}')">
                     <div class="flex">
                         <!-- Datum-Badge -->
-                        <div class="flex-shrink-0 w-16 flex flex-col items-center justify-center py-3 ${isToday ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-700'}" style="${!isToday ? `border-left: 3px solid ${subgroupColor}` : `background-color: #4f46e5`}">
+                        <div class="flex-shrink-0 w-16 flex flex-col items-center justify-center py-3 ${isToday ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-700'}" style="${!isToday ? `border-left: 3px solid ${accentColor}` : ''}">
                             <span class="text-xs font-medium ${isToday ? 'text-indigo-200' : 'text-gray-500'}">${dayName}</span>
                             <span class="text-xl font-bold leading-tight">${dayNum}</span>
                             <span class="text-xs ${isToday ? 'text-indigo-200' : 'text-gray-500'}">${monthShort}</span>
@@ -360,44 +384,38 @@ function renderEventList(container, occurrences, invitationsByKey, subgroupsMap,
 
                         <!-- Event-Info -->
                         <div class="flex-1 p-3 min-w-0">
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <h4 class="font-semibold text-gray-900 truncate">${event.title}</h4>
-                                        ${isToday ? '<span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium flex-shrink-0">Heute</span>' : ''}
-                                        ${event.event_type === 'recurring' ? '<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full flex-shrink-0"><i class="fas fa-repeat text-[10px]"></i></span>' : ''}
-                                    </div>
-
-                                    <!-- Zeit & Ort -->
-                                    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-gray-500">
-                                        ${event.start_time ? `
-                                            <span class="flex items-center gap-1">
-                                                <i class="far fa-clock text-xs"></i>
-                                                ${event.start_time.slice(0, 5)}${event.end_time ? ' - ' + event.end_time.slice(0, 5) : ''}
-                                            </span>
-                                        ` : ''}
-                                        ${event.meeting_time ? `
-                                            <span class="flex items-center gap-1 text-xs text-gray-400">
-                                                <i class="fas fa-walking text-[10px]"></i>
-                                                Treff ${event.meeting_time.slice(0, 5)}
-                                            </span>
-                                        ` : ''}
-                                        ${event.location ? `
-                                            <span class="flex items-center gap-1">
-                                                <i class="fas fa-map-marker-alt text-xs"></i>
-                                                <span class="truncate max-w-[150px]">${event.location}</span>
-                                            </span>
-                                        ` : ''}
-                                    </div>
-
-                                    <!-- Untergruppen -->
-                                    ${subgroupNames.length > 0 ? `
-                                        <div class="mt-1 text-xs text-gray-400">
-                                            ${subgroupNames.join(', ')}
-                                        </div>
-                                    ` : ''}
-                                </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="font-semibold text-gray-900 truncate">${event.title}</h4>
+                                ${isToday ? '<span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium flex-shrink-0">Heute</span>' : ''}
+                                ${event.event_type === 'recurring' ? '<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full flex-shrink-0"><i class="fas fa-repeat text-[10px]"></i></span>' : ''}
                             </div>
+
+                            <!-- Zeit & Ort -->
+                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-gray-500">
+                                ${event.start_time ? `
+                                    <span class="flex items-center gap-1">
+                                        <i class="far fa-clock text-xs"></i>
+                                        ${event.start_time.slice(0, 5)}${event.end_time ? ' - ' + event.end_time.slice(0, 5) : ''}
+                                    </span>
+                                ` : ''}
+                                ${event.meeting_time ? `
+                                    <span class="flex items-center gap-1 text-xs text-gray-400">
+                                        <i class="fas fa-walking text-[10px]"></i>
+                                        Treff ${event.meeting_time.slice(0, 5)}
+                                    </span>
+                                ` : ''}
+                                ${event.location ? `
+                                    <span class="flex items-center gap-1">
+                                        <i class="fas fa-map-marker-alt text-xs"></i>
+                                        <span class="truncate max-w-[150px]">${event.location}</span>
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Untergruppen -->
+                            ${subgroupNames.length > 0 ? `
+                                <div class="mt-1 text-xs text-gray-400">${subgroupNames.join(', ')}</div>
+                            ` : ''}
 
                             <!-- Rückmeldungen -->
                             ${totalResponses > 0 ? `
@@ -458,7 +476,6 @@ function getWeekLabel(eventDate, today, filter) {
         if (diffDays === 0) return 'Heute';
         if (diffDays === 1) return 'Morgen';
 
-        // Diese Woche (gleiche KW)
         const todayWeek = getISOWeek(today);
         const eventWeek = getISOWeek(eventDate);
         const todayYear = today.getFullYear();
@@ -470,7 +487,6 @@ function getWeekLabel(eventDate, today, filter) {
             return 'Nächste Woche';
         }
 
-        // Monat + Jahr
         return eventDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
     } else {
         if (diffDays === 0) return 'Heute';
@@ -503,10 +519,15 @@ function getISOWeek(date) {
  * Cleanup Subscriptions
  */
 export function cleanupListSubscriptions() {
+    if (listViewState.reloadTimer) {
+        clearTimeout(listViewState.reloadTimer);
+        listViewState.reloadTimer = null;
+    }
     listViewState.subscriptions.forEach(ch => {
         try { supabase.removeChannel(ch); } catch (e) { /* ignore */ }
     });
     listViewState.subscriptions = [];
+    listViewState.subscriptionsActive = false;
 }
 
 /**

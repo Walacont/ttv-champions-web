@@ -693,6 +693,19 @@ function openEventTypeModal() {
 }
 
 /**
+ * Öffnet die Event-Erstellung mit vorbelegtem Datum (z.B. aus Listenansicht)
+ */
+window.openCreateEventWithDate = function(dateStr) {
+    if (dateStr) {
+        currentEventData.selectedDate = dateStr;
+    } else {
+        const now = new Date();
+        currentEventData.selectedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+    openEventTypeModal();
+};
+
+/**
  * Wählt Event-Typ und fährt fort
  * @param {string} type - 'single' oder 'recurring'
  */

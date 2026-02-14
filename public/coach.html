@@ -386,8 +386,16 @@
                         </div>
 
                         <!-- Listenansicht -->
-                        <div id="list-view-container" class="hidden">
+                        <div id="list-view-container" class="hidden relative">
                             <div id="event-list-content"></div>
+                            <!-- FAB: Neue Veranstaltung -->
+                            <button
+                                onclick="window.openCreateEventWithDate()"
+                                class="fixed bottom-20 right-4 z-30 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105"
+                                title="Neue Veranstaltung erstellen"
+                            >
+                                <i class="fas fa-plus text-xl"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
