@@ -1191,9 +1191,11 @@ async function loadPastEventExtras(event) {
             }
         }
 
-        // 2. Load matches played on the event date by this user
-        const dayStart = eventDate + 'T00:00:00';
-        const dayEnd = eventDate + 'T23:59:59';
+        // 2. Load matches played during the event time window by this user
+        const timeStart = event.start_time ? event.start_time.slice(0, 5) : '00:00';
+        const timeEnd = event.end_time ? event.end_time.slice(0, 5) : '23:59';
+        const rangeStart = eventDate + 'T' + timeStart + ':00';
+        const rangeEnd = eventDate + 'T' + timeEnd + ':59';
         const { data: matches } = await supabase
             .from('matches')
             .select(`
@@ -1205,8 +1207,8 @@ async function loadPastEventExtras(event) {
                 player_b:player_b_id(first_name, last_name)
             `)
             .or(`player_a_id.eq.${currentUserId},player_b_id.eq.${currentUserId}`)
-            .gte('played_at', dayStart)
-            .lte('played_at', dayEnd)
+            .gte('played_at', rangeStart)
+            .lte('played_at', rangeEnd)
             .order('played_at', { ascending: true });
 
         if (matches && matches.length > 0) {
