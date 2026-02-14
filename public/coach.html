@@ -5538,9 +5538,17 @@
                                     <option value="monthly">Monatlich</option>
                                 </select>
                             </div>
-                            <div class="flex items-center justify-between border-t pt-4">
-                                <span class="text-gray-700">Wiederholung stoppen</span>
-                                <input type="date" id="event-repeat-end" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                            <div class="border-t pt-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Wiederholung stoppen</span>
+                                    <select id="event-repeat-end-mode" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                        <option value="never">Niemals</option>
+                                        <option value="date">Am Datum</option>
+                                    </select>
+                                </div>
+                                <div id="event-repeat-end-date-wrapper" class="flex items-center justify-end hidden">
+                                    <input type="date" id="event-repeat-end" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                </div>
                             </div>
                         </div>
 

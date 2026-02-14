@@ -543,10 +543,24 @@ window.requestJoinClub = async function(clubId, clubName) {
             .insert({
                 player_id: currentUser.id,
                 club_id: clubId,
-                status: 'pending'
+                status: 'pending',
+                request_type: 'member'
             });
 
         if (error) throw error;
+
+        // Notify coaches about the join request
+        try {
+            const playerName = `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Spieler';
+            await supabase.rpc('notify_club_coaches', {
+                p_club_id: clubId,
+                p_request_type: 'join',
+                p_player_name: playerName,
+                p_player_id: currentUser.id
+            });
+        } catch (notifyErr) {
+            console.warn('[Community] Error notifying coaches:', notifyErr);
+        }
 
         alert(`Beitrittsanfrage an "${clubName}" gesendet!`);
         await loadCurrentClubStatus();

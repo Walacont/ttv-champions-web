@@ -117,6 +117,12 @@ class VideoDrawingTool {
         const rect = this.video.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
+        // Skip resize if video has no dimensions yet
+        if (rect.width === 0 || rect.height === 0) {
+            this.video.addEventListener('loadedmetadata', () => this.resizeCanvas(), { once: true });
+            return;
+        }
+
         this.canvas.width = rect.width * dpr;
         this.canvas.height = rect.height * dpr;
         this.canvas.style.width = rect.width + 'px';

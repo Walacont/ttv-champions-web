@@ -290,6 +290,21 @@ function setupEventListeners() {
     // === NEW: Event type change → show/hide points toggle ===
     document.getElementById('event-type')?.addEventListener('change', handleEventTypeChange);
 
+    // Repeat end mode dropdown → show/hide date picker
+    document.getElementById('event-repeat-end-mode')?.addEventListener('change', (e) => {
+        const dateWrapper = document.getElementById('event-repeat-end-date-wrapper');
+        if (dateWrapper) {
+            if (e.target.value === 'date') {
+                dateWrapper.classList.remove('hidden');
+            } else {
+                dateWrapper.classList.add('hidden');
+                // Clear date when switching to "never"
+                const dateInput = document.getElementById('event-repeat-end');
+                if (dateInput) dateInput.value = '';
+            }
+        }
+    });
+
     // === NEW: More Settings toggle (collapsible) ===
     document.getElementById('event-more-settings-toggle')?.addEventListener('click', () => {
         const content = document.getElementById('event-more-settings-content');
@@ -1288,7 +1303,10 @@ async function submitEvent() {
     let repeatEnd = null;
     if (currentEventData.eventType === 'recurring') {
         repeatType = document.getElementById('event-repeat-type')?.value || null;
-        repeatEnd = document.getElementById('event-repeat-end')?.value || null;
+        const repeatEndMode = document.getElementById('event-repeat-end-mode')?.value || 'never';
+        repeatEnd = repeatEndMode === 'date'
+            ? (document.getElementById('event-repeat-end')?.value || null)
+            : null;
     }
 
     let invitationSendAt = new Date().toISOString();

@@ -1451,20 +1451,33 @@ function initializeDrawingTool() {
     // Pausiere das Video beim Start des Zeichnens
     videoPlayer.pause();
 
-    drawingTool = new VideoDrawingTool(videoPlayer, {
-        strokeWidth: 3,
-        color: '#FF0000',
-        onSave: handleDrawingSave,
-        onDeactivate: () => {
-            const drawBtn = document.getElementById('draw-on-video-btn');
-            if (drawBtn) {
-                drawBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
-                drawBtn.classList.remove('bg-orange-700', 'ring-2', 'ring-orange-300');
+    const createAndActivate = () => {
+        drawingTool = new VideoDrawingTool(videoPlayer, {
+            strokeWidth: 3,
+            color: '#FF0000',
+            onSave: handleDrawingSave,
+            onDeactivate: () => {
+                const drawBtn = document.getElementById('draw-on-video-btn');
+                if (drawBtn) {
+                    drawBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+                    drawBtn.classList.remove('bg-orange-700', 'ring-2', 'ring-orange-300');
+                }
             }
-        }
-    });
+        });
 
-    drawingTool.activate();
+        drawingTool.activate();
+    };
+
+    // Ensure video has dimensions before creating the canvas overlay
+    if (videoPlayer.readyState >= 1 && videoPlayer.videoWidth > 0) {
+        createAndActivate();
+    } else {
+        videoPlayer.addEventListener('loadedmetadata', () => createAndActivate(), { once: true });
+        // Fallback: if metadata already loaded but videoWidth is 0 (e.g. audio-only), try after a short delay
+        setTimeout(() => {
+            if (!drawingTool) createAndActivate();
+        }, 500);
+    }
 }
 
 /**
