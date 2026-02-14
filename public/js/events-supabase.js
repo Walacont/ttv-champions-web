@@ -2641,11 +2641,16 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
         document.getElementById('event-details-modal')?.remove();
         document.getElementById('event-day-modal')?.classList.add('hidden');
 
-        // Spieler-Daten laden
-        const { data: playersData } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, email, subgroup_ids')
-            .in('id', presentUserIds);
+        // Spieler-Daten und Event-Daten parallel laden
+        const [{ data: playersData }, { data: event }] = await Promise.all([
+            supabase.from('profiles')
+                .select('id, first_name, last_name, email, subgroup_ids')
+                .in('id', presentUserIds),
+            supabase.from('events')
+                .select('club_id, title, start_date')
+                .eq('id', eventId)
+                .single()
+        ]);
 
         const players = (playersData || []).map(p => ({
             id: p.id,
@@ -2655,32 +2660,25 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             subgroupIDs: p.subgroup_ids || []
         }));
 
-        // Event-Daten laden für Training-Summary
-        const { data: event } = await supabase
-            .from('events')
-            .select('club_id, title, start_date')
-            .eq('id', eventId)
-            .single();
-
-        // Training-Summaries erstellen falls sie nicht existieren
-        if (event && presentUserIds.length > 0) {
-            const eventDate = occurrenceDate || event.start_date;
-            console.log('[Events] Ensuring training summaries exist for', presentUserIds.length, 'players, eventId:', eventId);
-            await createTrainingSummariesForAttendees(
-                event.club_id,
-                eventId,
-                eventDate,
-                event.title,
-                presentUserIds
-            );
-        }
-
-        // Auswahl-Dialog öffnen (Punkte / Wettkämpfe / Schließen)
+        // Auswahl-Dialog sofort öffnen (Punkte / Wettkämpfe / Schließen)
         if (typeof window.openPostAttendanceChoice === 'function') {
             window.openPostAttendanceChoice(presentUserIds, players, currentUserData, occurrenceDate, eventId);
         } else if (typeof window.openQuickPointsModal === 'function') {
             // Fallback falls Choice-Modal nicht verfügbar (z.B. auf Player-Seite)
             window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate, eventId);
+        }
+
+        // Training-Summaries im Hintergrund erstellen (blockiert nicht das UI)
+        if (event && presentUserIds.length > 0) {
+            const eventDate = occurrenceDate || event.start_date;
+            console.log('[Events] Ensuring training summaries exist for', presentUserIds.length, 'players, eventId:', eventId);
+            createTrainingSummariesForAttendees(
+                event.club_id,
+                eventId,
+                eventDate,
+                event.title,
+                presentUserIds
+            ).catch(err => console.warn('[Events] Training summaries background error:', err));
         }
     } catch (error) {
         console.error('[Events] Error opening quick points:', error);
