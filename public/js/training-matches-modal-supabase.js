@@ -408,7 +408,7 @@ async function handleSaveAndNext() {
         }
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Speichern & Weiter';
+        btn.textContent = 'Speichern';
         updateSaveButton();
     }
 }
