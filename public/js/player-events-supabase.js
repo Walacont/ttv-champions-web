@@ -917,6 +917,28 @@ async function showEventDetails(eventId) {
         const rejected = (participants || []).filter(p => p.status === 'rejected');
         const pending = (participants || []).filter(p => p.status === 'pending');
 
+        // Check if event is in the past
+        const today = new Date().toISOString().split('T')[0];
+        const isPast = event.start_date < today;
+
+        // Load attendance for past events
+        let presentUsers = [];
+        if (isPast) {
+            const { data: attendance } = await supabase
+                .from('event_attendance')
+                .select('present_user_ids')
+                .eq('event_id', eventId)
+                .single();
+
+            if (attendance?.present_user_ids?.length > 0) {
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, avatar_url')
+                    .in('id', attendance.present_user_ids);
+                presentUsers = profiles || [];
+            }
+        }
+
         // Datum formatieren
         const [year, month, day] = event.start_date.split('-');
         const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
@@ -996,6 +1018,47 @@ async function showEventDetails(eventId) {
 
                     <!-- Participants -->
                     <div>
+                        ${isPast ? `
+                        <!-- Past event: show attendance -->
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                            Teilnehmer
+                        </h3>
+
+                        <!-- Present -->
+                        ${presentUsers.length > 0 ? `
+                            <div class="mb-4">
+                                <p class="text-xs font-medium text-green-600 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-user-check"></i> Anwesend (${presentUsers.length})
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${presentUsers.map(u => `
+                                        <span class="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">
+                                            ${u.first_name || ''} ${u.last_name || ''}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <p class="text-sm text-gray-400 italic mb-4">Keine Anwesenheit erfasst</p>
+                        `}
+
+                        <!-- Rejected -->
+                        ${rejected.length > 0 ? `
+                            <div>
+                                <p class="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-times"></i> Abgesagt (${rejected.length})
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${rejected.map(p => `
+                                        <span class="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm">
+                                            ${p.user?.first_name || ''} ${p.user?.last_name || ''}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ` : `
+                        <!-- Future event: show RSVPs -->
                         <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                             Teilnehmer (${accepted.length}${event.max_participants ? `/${event.max_participants}` : ''})
                         </h3>
@@ -1047,6 +1110,7 @@ async function showEventDetails(eventId) {
                                 </div>
                             </div>
                         ` : ''}
+                        `}
                     </div>
 
                     <!-- Past Event Extras (points & matches) - loaded async -->
