@@ -2053,17 +2053,17 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         <!-- Erfolgs-Banner (versteckt) -->
                         <div id="attendance-success-banner" class="hidden bg-green-50 border border-green-200 rounded-xl p-4">
                             <p class="text-green-800 font-medium text-center mb-3">Anwesenheit gespeichert!</p>
-                            <p class="text-green-700 text-sm text-center mb-3">Möchtest du jetzt Punkte vergeben?</p>
+                            <p class="text-green-700 text-sm text-center mb-3">Punkte vergeben oder Wettkämpfe eintragen?</p>
                             <div class="flex gap-2">
                                 <button
                                     onclick="window.openQuickPointsForEvent('${eventId}', '${displayDate}')"
                                     class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors">
-                                    Ja
+                                    Weiter
                                 </button>
                                 <button
                                     onclick="document.getElementById('event-details-modal')?.remove()"
                                     class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-lg transition-colors">
-                                    Nein
+                                    Schließen
                                 </button>
                             </div>
                         </div>
@@ -2675,8 +2675,13 @@ window.openQuickPointsForEvent = async function(eventId, occurrenceDate = null) 
             );
         }
 
-        // Datum und Event-ID für Training-Zusammenfassung übergeben
-        window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate, eventId);
+        // Auswahl-Dialog öffnen (Punkte / Wettkämpfe / Schließen)
+        if (typeof window.openPostAttendanceChoice === 'function') {
+            window.openPostAttendanceChoice(presentUserIds, players, currentUserData, occurrenceDate, eventId);
+        } else if (typeof window.openQuickPointsModal === 'function') {
+            // Fallback falls Choice-Modal nicht verfügbar (z.B. auf Player-Seite)
+            window.openQuickPointsModal(presentUserIds, players, currentUserData, occurrenceDate, eventId);
+        }
     } catch (error) {
         console.error('[Events] Error opening quick points:', error);
         alert('Fehler: ' + error.message);
