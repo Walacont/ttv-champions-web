@@ -159,6 +159,10 @@ export function initSupabase() {
         });
     }
 
+    // Session-Refresh bei Sichtbarkeitswechsel für ALLE Plattformen
+    // Verhindert Auto-Logout wenn App/Tab länger im Hintergrund war
+    setupVisibilityRefresh();
+
     console.log('[Supabase] Initialization complete');
     return supabaseInstance;
 }
@@ -239,6 +243,60 @@ async function setupAppStateListener() {
     } catch (e) {
         console.log('[Supabase] Could not set up app state listener:', e.message);
     }
+}
+
+// Session-Refresh für alle Plattformen (Web, Android, iOS)
+// Supabase autoRefreshToken funktioniert nur im aktiven Tab.
+// Wenn der Tab/die App länger im Hintergrund war, ist das Token abgelaufen.
+function setupVisibilityRefresh() {
+    let lastVisibleTime = Date.now();
+
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible' || !supabaseInstance) {
+            if (document.visibilityState === 'hidden') {
+                lastVisibleTime = Date.now();
+            }
+            return;
+        }
+
+        const awaySeconds = (Date.now() - lastVisibleTime) / 1000;
+        console.log(`[Supabase] Page visible again after ${Math.round(awaySeconds)}s`);
+
+        // Nur refreshen wenn mindestens 2 Minuten weg
+        if (awaySeconds < 120) return;
+
+        try {
+            const { data, error } = await supabaseInstance.auth.getSession();
+
+            if (data?.session) {
+                const expiresAt = data.session.expires_at;
+                const now = Math.floor(Date.now() / 1000);
+                const timeLeft = expiresAt - now;
+
+                if (timeLeft < 600) {
+                    // Token läuft in weniger als 10 Minuten ab -> refresh
+                    console.log('[Supabase] Token expiring soon, refreshing...');
+                    const { error: refreshError } = await supabaseInstance.auth.refreshSession();
+                    if (refreshError) {
+                        console.warn('[Supabase] Token refresh failed:', refreshError.message);
+                    } else {
+                        console.log('[Supabase] Token refreshed successfully');
+                    }
+                }
+            } else if (!data?.session && !error) {
+                // Kein Session -> versuche mit refresh_token wiederherzustellen
+                console.log('[Supabase] No session found, attempting refresh...');
+                const { data: refreshData, error: refreshError } = await supabaseInstance.auth.refreshSession();
+                if (refreshError) {
+                    console.warn('[Supabase] Session recovery failed:', refreshError.message);
+                } else if (refreshData?.session) {
+                    console.log('[Supabase] Session recovered successfully');
+                }
+            }
+        } catch (e) {
+            console.warn('[Supabase] Visibility refresh error:', e.message);
+        }
+    });
 }
 
 export function getSupabase() {

@@ -4639,7 +4639,7 @@ window.openCoachParticipantList = function(initialTab) {
 
     const overlay = document.createElement('div');
     overlay.id = 'participant-list-modal';
-    overlay.className = 'fixed inset-0 bg-gray-800/75 flex items-start justify-center z-[100002] p-4 pt-12';
+    overlay.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100002] p-4';
 
     const colorMap = {
         green: { tab: 'border-green-500 text-green-700', bg: 'bg-green-500', text: 'text-green-700' },

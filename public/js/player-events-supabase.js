@@ -957,7 +957,7 @@ async function showEventDetails(eventId) {
         // Modal erstellen
         const modal = document.createElement('div');
         modal.id = 'event-details-modal';
-        modal.className = 'fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full flex items-start justify-center z-50 p-4 pt-16';
+        modal.className = 'fixed inset-0 bg-gray-800/75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4';
         modal.innerHTML = `
             <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
                 <!-- Header -->
@@ -1433,7 +1433,7 @@ window.openParticipantList = function(initialTab) {
 
     const overlay = document.createElement('div');
     overlay.id = 'participant-list-modal';
-    overlay.className = 'fixed inset-0 bg-gray-800/75 flex items-start justify-center z-[60] p-4 pt-12';
+    overlay.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[60] p-4';
 
     const colorMap = {
         green: { tab: 'border-green-500 text-green-700', bg: 'bg-green-500', text: 'text-green-700' },
