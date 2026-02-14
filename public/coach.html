@@ -223,9 +223,12 @@
         <header id="top-nav">
             <div class="flex items-center justify-between h-12 px-3 max-w-7xl mx-auto">
                 <div class="flex items-center gap-2 min-w-0">
+                    <button id="header-back-btn" class="hidden text-gray-500 hover:text-indigo-600 transition-colors flex-shrink-0" onclick="navigateToStartOverview()" title="Zurück zur Startseite">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
                     <img id="header-profile-pic" src="" alt="Profilbild"
                          class="h-8 w-8 rounded-full object-cover border-2 border-indigo-200 flex-shrink-0">
-                    <span id="header-title" class="text-lg font-bold text-gray-900 truncate">Coach Dashboard</span>
+                    <span id="header-title" class="text-lg font-bold text-gray-900 truncate cursor-pointer" onclick="navigateToStartOverview()">Coach Dashboard</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <button id="filter-toggle-btn" class="relative text-gray-500 hover:text-gray-800 transition-colors" title="Filter" onclick="toggleFilterDrawer()">
@@ -5898,6 +5901,15 @@
                 var headerTitle = document.getElementById('header-title');
                 if (headerTitle) headerTitle.textContent = tabTitle;
 
+                // Reset back button (hide when switching main tabs)
+                var backBtn = document.getElementById('header-back-btn');
+                if (backBtn) backBtn.classList.add('hidden');
+
+                // Reset start subtab to overview when navigating back to Start tab
+                if (tabId === 'start') {
+                    currentSubtabs['start'] = 'overview';
+                }
+
                 // Scroll to top
                 window.scrollTo(0, 0);
 
@@ -5954,10 +5966,32 @@
                 // Switch to the subview panel
                 handleCoachSubTab('start', subview);
 
+                // Update header title and back button
+                var headerTitle = document.getElementById('header-title');
+                var backBtn = document.getElementById('header-back-btn');
+                if (subview === 'stats') {
+                    if (headerTitle) headerTitle.textContent = 'Statistiken';
+                    if (backBtn) backBtn.classList.remove('hidden');
+                } else if (subview === 'leaderboard') {
+                    if (headerTitle) headerTitle.textContent = 'Rangliste';
+                    if (backBtn) backBtn.classList.remove('hidden');
+                } else {
+                    if (headerTitle) headerTitle.textContent = 'Start';
+                    if (backBtn) backBtn.classList.add('hidden');
+                }
+
                 // Dispatch events so JS modules load data
                 window.dispatchEvent(new CustomEvent('coachSubtabChanged', {
                     detail: { tab: 'start', subtab: subview }
                 }));
+            }
+
+            // Navigate back to Start overview from any subview
+            function navigateToStartOverview() {
+                // Only act if we're on a subview (stats/leaderboard), not already on overview
+                if (currentCoachTab === 'start' && currentSubtabs['start'] !== 'overview') {
+                    navigateToStartSubview('overview');
+                }
             }
 
             // Filter Drawer Toggle
