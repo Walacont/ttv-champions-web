@@ -583,9 +583,19 @@ async function initializeDashboard() {
     // Collapsible box toggle and hash-based scrolling
     setupInvitationsBox();
 
-    // Event-Listenansicht laden (Spond-Style)
+    // Event-Listenansicht — Lazy Loading beim Tab-Wechsel
     const playerUserData = { id: currentUser.id, clubId: currentUserData.club_id };
-    loadEventListView('player-event-list-content', playerUserData, 'upcoming', 'player');
+    let eventsTabLoaded = false;
+
+    // Listen for tab changes to lazy-load events
+    const origHandleBottomTab = window.handleBottomTabClick;
+    window.handleBottomTabClick = function(tabId, tabTitle) {
+        origHandleBottomTab(tabId, tabTitle);
+        if (tabId === 'events' && !eventsTabLoaded) {
+            eventsTabLoaded = true;
+            loadEventListView('player-event-list-content', playerUserData, 'upcoming', 'player');
+        }
+    };
 
     // Player Event-Filter (Anstehend / Vergangen)
     document.querySelectorAll('.player-event-filter').forEach(btn => {
