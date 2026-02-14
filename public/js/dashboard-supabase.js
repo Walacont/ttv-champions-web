@@ -18,6 +18,7 @@ import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
 import { initPlayerEvents } from './player-events-supabase.js';
+import { loadEventListView, cleanupListSubscriptions } from './event-list-supabase.js';
 import { initComments } from './activity-comments.js';
 
 import { initMatchMedia } from './match-media.js';
@@ -581,6 +582,22 @@ async function initializeDashboard() {
 
     // Collapsible box toggle and hash-based scrolling
     setupInvitationsBox();
+
+    // Event-Listenansicht laden (Spond-Style)
+    const playerUserData = { id: currentUser.id, clubId: currentUserData.club_id };
+    loadEventListView('player-event-list-content', playerUserData, 'upcoming', 'player');
+
+    // Player Event-Filter (Anstehend / Vergangen)
+    document.querySelectorAll('.player-event-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filter = btn.dataset.filter;
+            document.querySelectorAll('.player-event-filter').forEach(b => {
+                b.className = 'player-event-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-800';
+            });
+            btn.className = 'player-event-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm';
+            loadEventListView('player-event-list-content', playerUserData, filter, 'player');
+        });
+    });
 
     // Video-Analyse für Spieler initialisieren (Upload-Funktion)
     initPlayerVideoUpload(supabase, currentUserData);

@@ -779,7 +779,7 @@ async function initializeCoachPage(userData) {
 
             // Liste laden
             const currentFilter = document.querySelector('.event-time-filter.bg-indigo-600')?.dataset.filter || 'upcoming';
-            loadEventListView('event-list-content', userData, currentFilter);
+            loadEventListView('event-list-content', userData, currentFilter, 'coach');
         } else {
             calendarContainer.classList.remove('hidden');
             listContainer.classList.add('hidden');
@@ -808,7 +808,7 @@ async function initializeCoachPage(userData) {
             });
             btn.className = `event-time-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClasses}`;
 
-            loadEventListView('event-list-content', userData, filter);
+            loadEventListView('event-list-content', userData, filter, 'coach');
         });
     });
 

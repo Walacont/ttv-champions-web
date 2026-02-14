@@ -554,6 +554,29 @@
                         </div>
                     </div>
 
+                    <!-- Event-Listenansicht (Spond-Style) -->
+                    <div class="max-w-2xl mx-auto mb-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <i class="fas fa-calendar-alt text-indigo-600"></i>
+                                Veranstaltungen
+                            </h2>
+                            <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-0.5">
+                                <button type="button" id="player-filter-upcoming-btn"
+                                    class="player-event-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm"
+                                    data-filter="upcoming">
+                                    Anstehend
+                                </button>
+                                <button type="button" id="player-filter-past-btn"
+                                    class="player-event-filter px-3 py-1.5 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-800"
+                                    data-filter="past">
+                                    Vergangen
+                                </button>
+                            </div>
+                        </div>
+                        <div id="player-event-list-content"></div>
+                    </div>
+
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
                         <!-- Filter and Create Post Button -->
