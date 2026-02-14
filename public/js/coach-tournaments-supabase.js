@@ -1688,6 +1688,18 @@ function openQuickMatchEntryModal(tournament, preSelectedMatchId = null) {
                     reason: `Niederlage im Einzel gegen ${playerNameMap[winnerId] || 'Gegner'} (${setsDisplay})`,
                     timestamp: playedAt, awarded_by: 'System (Wettkampf)'
                 });
+
+                // Update profiles with points and XP
+                await supabase.rpc('add_player_points', {
+                    p_user_id: winnerId,
+                    p_points: winnerPoints,
+                    p_xp: winnerPoints
+                });
+                await supabase.rpc('add_player_points', {
+                    p_user_id: loserId,
+                    p_points: 0,
+                    p_xp: 0
+                });
             } catch (historyErr) {
                 console.warn('[Coach Tournaments] Error creating points history:', historyErr);
             }

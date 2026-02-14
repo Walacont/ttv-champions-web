@@ -2580,6 +2580,22 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                         console.warn('[Matches] Error creating loser points history:', loserHistoryError);
                     }
 
+                    // Update profiles with points and XP
+                    if (!winnerHistoryError) {
+                        await supabase.rpc('add_player_points', {
+                            p_user_id: winnerId,
+                            p_points: winnerPoints,
+                            p_xp: winnerPoints
+                        });
+                    }
+                    if (!loserHistoryError) {
+                        await supabase.rpc('add_player_points', {
+                            p_user_id: loserId,
+                            p_points: loserPoints,
+                            p_xp: loserPoints
+                        });
+                    }
+
                     console.log('[Matches] Points history entries created for confirmed match');
                 } catch (historyError) {
                     console.warn('[Matches] Error creating points history entries:', historyError);
