@@ -1871,6 +1871,27 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             }
         }
 
+        // Store participant data for the list modal
+        const attendedUsers = attendeeList.filter(i => presentIds.includes(i.user_id));
+        window._coachParticipantData = {
+            isPast: isPastOrToday,
+            attended: attendedUsers.map(i => ({
+                name: i.profiles ? `${i.profiles.first_name} ${i.profiles.last_name}` : 'Unbekannt',
+                eventRole: i.eventRole
+            })),
+            accepted: accepted.map(i => ({
+                name: i.profiles ? `${i.profiles.first_name} ${i.profiles.last_name}` : 'Unbekannt',
+                eventRole: i.eventRole
+            })),
+            declined: declined.map(i => ({
+                name: i.profiles ? `${i.profiles.first_name} ${i.profiles.last_name}` : 'Unbekannt',
+                decline_comment: i.decline_comment
+            })),
+            pending: pending.map(i => ({
+                name: i.profiles ? `${i.profiles.first_name} ${i.profiles.last_name}` : 'Unbekannt'
+            }))
+        };
+
         const existingModal = document.getElementById('event-details-modal');
         if (existingModal) existingModal.remove();
 
@@ -1944,20 +1965,63 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                         ` : ''}
                     </div>
 
-                    <!-- Attendance Status Summary -->
-                    <div class="flex gap-4 mb-6">
-                        <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-green-600">${accepted.length}</p>
-                            <p class="text-sm text-green-700">Zusagen</p>
-                        </div>
-                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-red-600">${declined.length}</p>
-                            <p class="text-sm text-red-700">Absagen</p>
-                        </div>
-                        <div class="flex-1 bg-gray-50 rounded-xl p-4 text-center">
-                            <p class="text-2xl font-bold text-gray-600">${pending.length}</p>
-                            <p class="text-sm text-gray-700">Ausstehend</p>
-                        </div>
+                    <!-- Attendance Status Summary (Spond-Style) -->
+                    <div class="space-y-2 mb-6">
+                        ${isPastOrToday ? `
+                        <!-- Past: Teilgenommen + Abgesagt -->
+                        <button onclick="window.openCoachParticipantList('attended')" class="w-full flex items-center justify-between p-3 rounded-xl bg-green-50 hover:bg-green-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                <span class="font-medium text-green-800">Teilgenommen</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-green-700">${presentIds.length}</span>
+                                <svg class="w-4 h-4 text-green-400 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                        </button>
+                        <button onclick="window.openCoachParticipantList('rejected')" class="w-full flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                                <span class="font-medium text-red-800">Abgesagt</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-red-700">${declined.length}</span>
+                                <svg class="w-4 h-4 text-red-400 group-hover:text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                        </button>
+                        ` : `
+                        <!-- Future: Teilnehmend + Abgesagt + Ausstehend -->
+                        <button onclick="window.openCoachParticipantList('accepted')" class="w-full flex items-center justify-between p-3 rounded-xl bg-green-50 hover:bg-green-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                <span class="font-medium text-green-800">Teilnehmend</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-green-700">${accepted.length}</span>
+                                <svg class="w-4 h-4 text-green-400 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                        </button>
+                        <button onclick="window.openCoachParticipantList('rejected')" class="w-full flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                                <span class="font-medium text-red-800">Abgesagt</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-red-700">${declined.length}</span>
+                                <svg class="w-4 h-4 text-red-400 group-hover:text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                        </button>
+                        <button onclick="window.openCoachParticipantList('pending')" class="w-full flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-gray-400"></span>
+                                <span class="font-medium text-gray-700">Ausstehend</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-gray-600">${pending.length}</span>
+                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                        </button>
+                        `}
                     </div>
 
                     ${isPastOrToday && isCoach && !hasEventStarted ? `
@@ -2090,107 +2154,17 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                     </div>
                     ` : ''}
 
-                    ${isCoach ? `
-                    <!-- Coach: Always show participant responses -->
-                    <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Antworten</h3>
-                        ${accepted.length > 0 ? `
-                        <div class="mb-4">
-                            <p class="text-sm font-medium text-green-700 mb-2">Zugesagt (${accepted.length})</p>
-                            <div class="space-y-1">
-                                ${accepted.map(inv => {
-                                    const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
-                                    const isOrganizer = inv.eventRole === 'organizer';
-                                    return `
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                                            ${name}
-                                        </span>
-                                        ${isOrganizer ? '<span class="text-xs text-indigo-600 font-medium">Veranstalter</span>' : ''}
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        ${declined.length > 0 ? `
-                        <div class="mb-4">
-                            <p class="text-sm font-medium text-red-700 mb-2">Abgesagt (${declined.length})</p>
-                            <div class="space-y-1">
-                                ${declined.map(inv => {
-                                    const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
-                                    return `
-                                    <div>
-                                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm inline-block">
-                                            ${name}
-                                        </span>
-                                        ${inv.decline_comment ? `
-                                        <p class="text-xs text-gray-500 ml-3 mt-1 italic">"${inv.decline_comment}"</p>
-                                        ` : ''}
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        ${pending.length > 0 ? `
-                        <div class="mb-4">
-                            <p class="text-sm font-medium text-gray-700 mb-2">Ausstehend (${pending.length})</p>
-                            <div class="flex flex-wrap gap-2">
-                                ${pending.map(inv => `
-                                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
-                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
-                                    </span>
-                                `).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        ${accepted.length === 0 && declined.length === 0 && pending.length === 0 ? `
-                        <p class="text-sm text-gray-400 text-center py-2">Noch keine Einladungen</p>
-                        ` : ''}
-
-                        ${!isPastOrToday && pending.length > 0 ? `
-                        <!-- Reminder button for coaches (only future events) -->
-                        <div class="mt-4">
-                            <button onclick="window.sendEventReminder('${eventId}', '${displayDate}')" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-sm font-medium transition-colors">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                                </svg>
-                                Erinnerung an ${pending.length} Unbeantwortete senden
-                            </button>
-                        </div>
-                        ` : ''}
-                    </div>
-                    ` : `
-                    ${!isPastOrToday ? `
-                    <!-- Player: show participant list for future events -->
-                    <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teilnehmer</h3>
-                        ${accepted.length > 0 ? `
-                        <div class="mb-4">
-                            <p class="text-sm font-medium text-green-700 mb-2">Zugesagt (${accepted.length})</p>
-                            <div class="flex flex-wrap gap-2">
-                                ${accepted.map(inv => `
-                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                                        ${inv.profiles ? inv.profiles.first_name + ' ' + inv.profiles.last_name : 'Unbekannt'}
-                                    </span>
-                                `).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
-                        ${pending.length > 0 ? `
-                        <div>
-                            <p class="text-sm font-medium text-gray-700 mb-2">Ausstehend (${pending.length})</p>
-                            <div class="flex flex-wrap gap-2">
-                                ${pending.map(inv => `
-                                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
-                                        ${inv.profiles ? inv.profiles.first_name + ' ' + inv.profiles.last_name : 'Unbekannt'}
-                                    </span>
-                                `).join('')}
-                            </div>
-                        </div>
-                        ` : ''}
+                    ${isCoach && !isPastOrToday && pending.length > 0 ? `
+                    <!-- Reminder button for coaches (only future events) -->
+                    <div class="mb-6">
+                        <button onclick="window.sendEventReminder('${eventId}', '${displayDate}')" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                            Erinnerung an ${pending.length} Unbeantwortete senden
+                        </button>
                     </div>
                     ` : ''}
-                    `}
 
                     <!-- Comments Section (always visible for coaches, for others only when enabled) -->
                     ${isCoach || event.comments_enabled !== false ? `
@@ -4640,6 +4614,101 @@ window.recalculateStreaksRetroactively = async function(clubId) {
         console.error('[Streaks] Error recalculating streaks:', error);
         alert('Fehler bei der Streak-Berechnung: ' + error.message);
     }
+};
+
+// Spond-style participant list modal for coach view
+window.openCoachParticipantList = function(initialTab) {
+    const data = window._coachParticipantData;
+    if (!data) return;
+
+    const tabs = data.isPast
+        ? [
+            { key: 'attended', label: 'Teilgenommen', color: 'green', items: data.attended },
+            { key: 'rejected', label: 'Abgesagt', color: 'red', items: data.declined }
+          ]
+        : [
+            { key: 'accepted', label: 'Zugesagt', color: 'green', items: data.accepted },
+            { key: 'rejected', label: 'Abgesagt', color: 'red', items: data.declined },
+            { key: 'pending', label: 'Ausstehend', color: 'gray', items: data.pending }
+          ];
+
+    const activeTab = initialTab === 'attended' ? 'attended' : initialTab;
+
+    const existing = document.getElementById('participant-list-modal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'participant-list-modal';
+    overlay.className = 'fixed inset-0 bg-gray-800/75 flex items-start justify-center z-[100002] p-4 pt-12';
+
+    const colorMap = {
+        green: { tab: 'border-green-500 text-green-700', bg: 'bg-green-500', text: 'text-green-700' },
+        red: { tab: 'border-red-500 text-red-700', bg: 'bg-red-500', text: 'text-red-700' },
+        gray: { tab: 'border-gray-400 text-gray-700', bg: 'bg-gray-400', text: 'text-gray-700' }
+    };
+
+    function renderModal(activeKey) {
+        const activeTabData = tabs.find(t => t.key === activeKey) || tabs[0];
+
+        overlay.innerHTML = `
+            <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-gray-900">Teilnehmer</h3>
+                    <button id="close-participant-list" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200">
+                    ${tabs.map(tab => `
+                        <button data-tab="${tab.key}"
+                            class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 transition-colors
+                            ${tab.key === activeKey
+                                ? colorMap[tab.color].tab + ' border-b-2'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'}">
+                            ${tab.label} (${tab.items.length})
+                        </button>
+                    `).join('')}
+                </div>
+
+                <!-- List -->
+                <div class="flex-1 overflow-y-auto p-4">
+                    ${activeTabData.items.length > 0 ? `
+                        <div class="space-y-2">
+                            ${activeTabData.items.map(p => `
+                                <div class="flex items-center gap-3 p-2">
+                                    <div class="w-9 h-9 rounded-full ${colorMap[activeTabData.color].bg} bg-opacity-20 flex items-center justify-center flex-shrink-0">
+                                        <span class="${colorMap[activeTabData.color].text} text-sm font-bold">${(p.name || '?')[0].toUpperCase()}</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <span class="text-gray-900 font-medium">${p.name || 'Unbekannt'}</span>
+                                        ${p.eventRole === 'organizer' ? '<span class="text-xs text-indigo-600 font-medium ml-2">Veranstalter</span>' : ''}
+                                    </div>
+                                    ${p.decline_comment ? `<p class="text-xs text-gray-400 italic">"${p.decline_comment}"</p>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <p class="text-gray-400 text-sm text-center py-8">Keine Teilnehmer</p>
+                    `}
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('#close-participant-list').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        overlay.querySelectorAll('[data-tab]').forEach(btn => {
+            btn.addEventListener('click', () => renderModal(btn.dataset.tab));
+        });
+    }
+
+    renderModal(activeTab);
+    document.body.appendChild(overlay);
 };
 
 export { closeAllModals };
