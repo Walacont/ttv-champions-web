@@ -35,6 +35,7 @@ BEGIN
     END IF;
 
     -- Update the player's club_id and add to Hauptgruppe
+    -- Reset season points (points are club-bound)
     UPDATE profiles
     SET
         club_id = request_data.club_id,
@@ -42,8 +43,14 @@ BEGIN
             WHEN v_hauptgruppe_id IS NOT NULL THEN ARRAY[v_hauptgruppe_id::text]
             ELSE '{}'
         END,
+        points = 0,
         updated_at = NOW()
     WHERE id = request_data.player_id;
+
+    -- Reset sport-specific season points
+    UPDATE user_sport_stats
+    SET points = 0
+    WHERE user_id = request_data.player_id;
 
     GET DIAGNOSTICS player_update_count = ROW_COUNT;
 

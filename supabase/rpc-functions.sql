@@ -127,9 +127,11 @@ BEGIN
     END IF;
 
     -- Update the player's club_id
+    -- Reset season points (points are club-bound)
     UPDATE profiles
     SET
         club_id = request_data.club_id,
+        points = 0,
         updated_at = NOW()
     WHERE id = request_data.player_id;
 
@@ -138,6 +140,11 @@ BEGIN
     IF player_update_count = 0 THEN
         RETURN jsonb_build_object('success', false, 'error', 'Spieler nicht gefunden');
     END IF;
+
+    -- Reset sport-specific season points
+    UPDATE user_sport_stats
+    SET points = 0
+    WHERE user_id = request_data.player_id;
 
     -- Update the request status
     UPDATE club_requests
@@ -236,9 +243,11 @@ BEGIN
     END IF;
 
     -- Remove the player from the club
+    -- Reset season points (points are club-bound)
     UPDATE profiles
     SET
         club_id = NULL,
+        points = 0,
         updated_at = NOW()
     WHERE id = request_data.player_id;
 
@@ -247,6 +256,11 @@ BEGIN
     IF player_update_count = 0 THEN
         RETURN jsonb_build_object('success', false, 'error', 'Spieler nicht gefunden');
     END IF;
+
+    -- Reset sport-specific season points
+    UPDATE user_sport_stats
+    SET points = 0
+    WHERE user_id = request_data.player_id;
 
     -- Update the request status
     UPDATE leave_club_requests

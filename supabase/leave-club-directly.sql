@@ -33,16 +33,23 @@ BEGIN
     v_club_id := v_player.club_id;
 
     -- Remove player from club, clear subgroups, downgrade role if coach
+    -- Reset season points (points are club-bound)
     UPDATE profiles
     SET
         club_id = NULL,
         subgroup_ids = '{}',
+        points = 0,
         role = CASE
             WHEN role IN ('coach', 'head_coach') THEN 'player'
             ELSE role
         END,
         updated_at = NOW()
     WHERE id = p_player_id;
+
+    -- Reset sport-specific season points
+    UPDATE user_sport_stats
+    SET points = 0
+    WHERE user_id = p_player_id;
 
     -- Remove from subgroup_members table if it exists
     DELETE FROM subgroup_members
