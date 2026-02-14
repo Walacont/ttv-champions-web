@@ -5603,21 +5603,58 @@
                                     </div>
                                 </div>
 
-                                <!-- Automatic Reminder -->
-                                <div class="flex items-center justify-between border-t pt-4">
+                                <!-- Automatic Reminder (single events) -->
+                                <div id="event-reminder-single" class="border-t pt-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                            </svg>
+                                            <span class="text-gray-700">Automatische Erinnerung</span>
+                                        </div>
+                                        <button type="button" id="event-auto-reminder-btn" class="px-3 py-1 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-100 transition">
+                                            Deaktiviert
+                                        </button>
+                                    </div>
+                                    <div id="event-reminder-info" class="hidden text-xs text-amber-600 bg-amber-50 p-2 rounded-lg mt-2">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Die automatische Erinnerung ist deaktiviert, wenn alle Personen standardmäßig als anwesend markiert sind oder wenn von der Versandzeit der Einladungen bis zur Startzeit weniger als 48 Stunden vergangen sind.
+                                    </div>
+                                </div>
+
+                                <!-- Automatic Reminder (recurring events) -->
+                                <div id="event-reminder-recurring" class="hidden border-t pt-4 space-y-3">
                                     <div class="flex items-center gap-2">
                                         <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                                         </svg>
-                                        <span class="text-gray-700">Automatische Erinnerung</span>
+                                        <span class="text-gray-700">Erinnerung vor jedem Termin</span>
                                     </div>
-                                    <button type="button" id="event-auto-reminder-btn" class="px-3 py-1 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-100 transition">
-                                        Deaktiviert
-                                    </button>
-                                </div>
-                                <div id="event-reminder-info" class="hidden text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Die automatische Erinnerung ist deaktiviert, wenn alle Personen standardmäßig als anwesend markiert sind oder wenn von der Versandzeit der Einladungen bis zur Startzeit weniger als 48 Stunden vergangen sind.
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Vor jedem wiederkehrenden Termin wird automatisch eine Erinnerung verschickt.
+                                    </p>
+                                    <div class="flex items-center gap-2">
+                                        <select id="event-reminder-days-before" class="flex-1 px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                            <option value="0">Am gleichen Tag</option>
+                                            <option value="1" selected>1 Tag vorher</option>
+                                            <option value="2">2 Tage vorher</option>
+                                            <option value="3">3 Tage vorher</option>
+                                            <option value="4">4 Tage vorher</option>
+                                            <option value="5">5 Tage vorher</option>
+                                            <option value="6">6 Tage vorher</option>
+                                            <option value="7">7 Tage vorher</option>
+                                            <option value="8">8 Tage vorher</option>
+                                            <option value="9">9 Tage vorher</option>
+                                            <option value="10">10 Tage vorher</option>
+                                            <option value="11">11 Tage vorher</option>
+                                            <option value="12">12 Tage vorher</option>
+                                            <option value="13">13 Tage vorher</option>
+                                            <option value="14">14 Tage vorher</option>
+                                        </select>
+                                        <span class="text-gray-500 text-sm">um</span>
+                                        <input type="time" id="event-reminder-time" value="09:00" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                    </div>
                                 </div>
 
                                 <!-- Default Participation Status -->

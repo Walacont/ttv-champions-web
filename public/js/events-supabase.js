@@ -737,6 +737,17 @@ function selectEventType(type) {
     // Vorlaufzeit-Option nur für wiederkehrende Events anzeigen
     updateSendInvitationOptions(type);
 
+    // Erinnerungs-UI umschalten: Button für einmalige, Dropdown für wiederkehrende
+    const reminderSingle = document.getElementById('event-reminder-single');
+    const reminderRecurring = document.getElementById('event-reminder-recurring');
+    if (type === 'recurring') {
+        reminderSingle?.classList.add('hidden');
+        reminderRecurring?.classList.remove('hidden');
+    } else {
+        reminderSingle?.classList.remove('hidden');
+        reminderRecurring?.classList.add('hidden');
+    }
+
     showModal('event-target-modal');
 }
 
@@ -1365,7 +1376,20 @@ async function submitEvent() {
 
     // === NEW: Read new form fields ===
     const awardPoints = getAwardPointsValue(eventCategory);
-    const autoReminder = document.getElementById('event-auto-reminder-btn')?.dataset?.value || 'disabled';
+    let autoReminder = 'disabled';
+    let reminderDaysBefore = null;
+    let reminderTime = null;
+
+    if (currentEventData.eventType === 'recurring') {
+        // Wiederkehrende Events: immer Erinnerung mit Dropdown-Werten
+        autoReminder = 'recurring_custom';
+        reminderDaysBefore = parseInt(document.getElementById('event-reminder-days-before')?.value) || 0;
+        reminderTime = document.getElementById('event-reminder-time')?.value || '09:00';
+    } else {
+        // Einmalige Events: bisheriges Button-System
+        autoReminder = document.getElementById('event-auto-reminder-btn')?.dataset?.value || 'disabled';
+    }
+
     const defaultStatus = document.getElementById('event-default-status')?.value || 'pending';
     const organizerIds = currentEventData.selectedOrganizers || [currentUserData.id];
 
@@ -1402,6 +1426,8 @@ async function submitEvent() {
         award_points: awardPoints,
         organizer_ids: organizerIds,
         auto_reminder: autoReminder,
+        reminder_days_before: reminderDaysBefore,
+        reminder_time: reminderTime,
         default_participation_status: defaultStatus,
         invite_mode: isGuardianMode ? 'guardians' : 'members',
         created_at: new Date().toISOString()
@@ -1592,7 +1618,7 @@ function resetEventData() {
     const attachmentCount = document.getElementById('event-attachment-count');
     if (attachmentCount) attachmentCount.textContent = '';
 
-    // Reset auto reminder button
+    // Reset auto reminder button (single events)
     const reminderBtn = document.getElementById('event-auto-reminder-btn');
     if (reminderBtn) {
         reminderBtn.dataset.value = 'disabled';
@@ -1600,6 +1626,16 @@ function resetEventData() {
         reminderBtn.classList.remove('text-indigo-600');
         reminderBtn.classList.add('text-gray-500');
     }
+
+    // Reset recurring reminder fields
+    const reminderDaysBefore = document.getElementById('event-reminder-days-before');
+    if (reminderDaysBefore) reminderDaysBefore.value = '1';
+    const reminderTime = document.getElementById('event-reminder-time');
+    if (reminderTime) reminderTime.value = '09:00';
+
+    // Show single reminder, hide recurring
+    document.getElementById('event-reminder-single')?.classList.remove('hidden');
+    document.getElementById('event-reminder-recurring')?.classList.add('hidden');
 
     // Reset points toggle visibility
     const pointsToggle = document.getElementById('event-points-toggle');

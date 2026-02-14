@@ -191,6 +191,142 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
+-- 2b. Erinnerungen für wiederkehrende Veranstaltungen (reminder_days_before / reminder_time)
+-- ============================================
+CREATE OR REPLACE FUNCTION check_and_send_recurring_reminders()
+RETURNS jsonb AS $$
+DECLARE
+    v_event RECORD;
+    v_occurrence_date DATE;
+    v_reminder_date DATE;
+    v_reminder_timestamp TIMESTAMPTZ;
+    v_member RECORD;
+    v_existing_inv RECORD;
+    v_event_date_formatted TEXT;
+    v_notifications_sent INTEGER := 0;
+    v_now TIMESTAMPTZ := NOW();
+    v_today DATE := CURRENT_DATE;
+    v_window_end DATE := CURRENT_DATE + INTERVAL '8 weeks';
+BEGIN
+    -- Alle wiederkehrenden Events mit Erinnerungs-Einstellung finden
+    FOR v_event IN
+        SELECT e.id, e.title, e.start_date, e.start_time, e.repeat_type,
+               e.repeat_end_date, e.excluded_dates, e.club_id,
+               e.target_type, e.target_subgroup_ids,
+               e.reminder_days_before, e.reminder_time,
+               e.event_type
+        FROM events e
+        WHERE e.event_type = 'recurring'
+          AND e.auto_reminder = 'recurring_custom'
+          AND e.reminder_days_before IS NOT NULL
+          AND e.repeat_type IS NOT NULL
+          AND e.repeat_type != 'none'
+          AND (e.repeat_end_date IS NULL OR e.repeat_end_date >= v_today)
+    LOOP
+        -- Für jedes Event: Nächste Termine berechnen
+        v_occurrence_date := v_event.start_date;
+
+        -- Zum ersten Termin ab heute vorspulen (minus max Vorlaufzeit)
+        WHILE v_occurrence_date < (v_today - v_event.reminder_days_before * INTERVAL '1 day') LOOP
+            v_occurrence_date := CASE v_event.repeat_type
+                WHEN 'daily' THEN v_occurrence_date + INTERVAL '1 day'
+                WHEN 'weekly' THEN v_occurrence_date + INTERVAL '7 days'
+                WHEN 'biweekly' THEN v_occurrence_date + INTERVAL '14 days'
+                WHEN 'monthly' THEN v_occurrence_date + INTERVAL '1 month'
+                ELSE v_occurrence_date + INTERVAL '7 days'
+            END;
+        END LOOP;
+
+        -- Termine innerhalb des Fensters durchgehen
+        WHILE v_occurrence_date <= v_window_end LOOP
+            -- Prüfen ob Datum nicht ausgeschlossen ist
+            IF v_event.excluded_dates IS NULL
+               OR NOT (v_occurrence_date::text = ANY(v_event.excluded_dates)) THEN
+
+                -- Erinnerungsdatum berechnen
+                v_reminder_date := v_occurrence_date - (v_event.reminder_days_before * INTERVAL '1 day');
+
+                -- Erinnerungs-Zeitstempel berechnen (Datum + Uhrzeit)
+                v_reminder_timestamp := (v_reminder_date::text || ' ' || COALESCE(v_event.reminder_time, '09:00') || ':00')::TIMESTAMPTZ;
+
+                -- Nur verarbeiten wenn der Erinnerungszeitpunkt erreicht ist und der Termin noch in der Zukunft liegt
+                IF v_now >= v_reminder_timestamp AND v_occurrence_date >= v_today THEN
+
+                    v_event_date_formatted := to_char(v_occurrence_date, 'DD.MM.YYYY');
+
+                    -- Relevante Club-Mitglieder finden
+                    FOR v_member IN
+                        SELECT p.id AS user_id
+                        FROM profiles p
+                        WHERE p.club_id = v_event.club_id
+                          AND p.role = 'player'
+                          AND (
+                              v_event.target_type != 'subgroups'
+                              OR v_event.target_subgroup_ids IS NULL
+                              OR p.subgroup_ids::text[] && v_event.target_subgroup_ids::text[]
+                          )
+                    LOOP
+                        -- Prüfen ob Einladung existiert und ob Erinnerung schon gesendet wurde
+                        SELECT id, status, reminder_notified_at
+                        INTO v_existing_inv
+                        FROM event_invitations
+                        WHERE event_id = v_event.id
+                          AND user_id = v_member.user_id
+                          AND (occurrence_date = v_occurrence_date OR occurrence_date IS NULL)
+                        LIMIT 1;
+
+                        -- Nur senden wenn Einladung existiert, noch nicht erinnert und Status pending
+                        IF v_existing_inv IS NOT NULL
+                           AND v_existing_inv.reminder_notified_at IS NULL
+                           AND v_existing_inv.status = 'pending' THEN
+
+                            -- Erinnerung erstellen
+                            INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at)
+                            VALUES (
+                                v_member.user_id,
+                                'event_reminder',
+                                'Erinnerung: ' || v_event.title,
+                                'Erinnerung: "' || v_event.title || '" am ' || v_event_date_formatted || ' um ' || v_event.start_time || '. Bitte sage zu oder ab.',
+                                jsonb_build_object('event_id', v_event.id, 'occurrence_date', v_occurrence_date::text),
+                                false,
+                                NOW()
+                            );
+
+                            -- Tracking-Spalte setzen
+                            UPDATE event_invitations
+                            SET reminder_notified_at = NOW()
+                            WHERE id = v_existing_inv.id;
+
+                            v_notifications_sent := v_notifications_sent + 1;
+                        END IF;
+
+                    END LOOP; -- v_member
+                END IF; -- Erinnerungszeitpunkt erreicht
+            END IF; -- nicht ausgeschlossen
+
+            -- Zum nächsten Termin
+            v_occurrence_date := CASE v_event.repeat_type
+                WHEN 'daily' THEN v_occurrence_date + INTERVAL '1 day'
+                WHEN 'weekly' THEN v_occurrence_date + INTERVAL '7 days'
+                WHEN 'biweekly' THEN v_occurrence_date + INTERVAL '14 days'
+                WHEN 'monthly' THEN v_occurrence_date + INTERVAL '1 month'
+                ELSE v_occurrence_date + INTERVAL '7 days'
+            END;
+
+            IF v_event.repeat_end_date IS NOT NULL AND v_occurrence_date > v_event.repeat_end_date THEN
+                EXIT;
+            END IF;
+        END LOOP; -- v_occurrence_date
+    END LOOP; -- v_event
+
+    RETURN jsonb_build_object(
+        'reminders_sent', v_notifications_sent,
+        'checked_at', NOW()::text
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
 -- 3. pg_cron Schedule: Jede Stunde prüfen
 -- ============================================
 -- WICHTIG: pg_cron muss aktiviert sein!
@@ -202,7 +338,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 SELECT cron.schedule(
     'check-event-lead-time-notifications',
     '0 * * * *',
-    $$SELECT check_and_send_lead_time_notifications()$$
+    $$SELECT check_and_send_lead_time_notifications(); SELECT check_and_send_recurring_reminders();$$
 );
 
 -- ============================================
