@@ -816,7 +816,7 @@ async function initializeCoachPage(userData) {
     window.addEventListener('event-changed', () => {
         if (currentAttendanceView === 'list') {
             const currentFilter = document.querySelector('.event-time-filter.bg-indigo-600')?.dataset.filter || 'upcoming';
-            loadEventListView('event-list-content', userData, currentFilter);
+            loadEventListView('event-list-content', userData, currentFilter, 'coach');
         }
     });
 
