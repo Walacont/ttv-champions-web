@@ -957,7 +957,8 @@ function setupCoachIndicator() {
     const btn = document.getElementById('switch-to-coach-btn');
     if (!btn || !currentUserData) return;
 
-    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach'
+        || currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
     if (isCoach) {
         btn.classList.remove('hidden');
     }
@@ -1016,7 +1017,8 @@ function setupRoleSwitcher() {
 
     if (!roleSwitcherBtn || !roleDropdown || !currentUserData) return;
 
-    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach'
+        || currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
     // Show guardian option only if user is guardian AND also a player (has dual role)
     const isGuardianPlayer = (currentUserData.is_guardian || currentUserData.account_type === 'guardian') && currentUserData.is_player;
 
