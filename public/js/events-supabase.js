@@ -1871,6 +1871,16 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
             }
         }
 
+        const existingModal = document.getElementById('event-details-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'event-details-modal';
+        modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100001] p-4';
+
+        const presentIds = attendanceData?.present_user_ids || [];
+        const coachHours = attendanceData?.coach_hours || {};
+
         // Store participant data for the list modal
         const attendedUsers = attendeeList.filter(i => presentIds.includes(i.user_id));
         window._coachParticipantData = {
@@ -1891,16 +1901,6 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
                 name: i.profiles ? `${i.profiles.first_name} ${i.profiles.last_name}` : 'Unbekannt'
             }))
         };
-
-        const existingModal = document.getElementById('event-details-modal');
-        if (existingModal) existingModal.remove();
-
-        const modal = document.createElement('div');
-        modal.id = 'event-details-modal';
-        modal.className = 'fixed inset-0 bg-gray-800/75 flex items-center justify-center z-[100001] p-4';
-
-        const presentIds = attendanceData?.present_user_ids || [];
-        const coachHours = attendanceData?.coach_hours || {};
 
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
