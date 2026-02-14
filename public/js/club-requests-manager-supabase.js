@@ -383,12 +383,27 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
     }
 
     // Filter events that match the player's assigned subgroups
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     const relevantEvents = (events || []).filter(event => {
-        if (event.target_type === 'club' || !event.target_type) return true;
+        // Check subgroup relevance
         if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
-            return subgroupIds.some(sgId => event.target_subgroup_ids.includes(sgId));
+            if (!subgroupIds.some(sgId => event.target_subgroup_ids.includes(sgId))) return false;
+        } else if (event.target_type !== 'club' && event.target_type) {
+            return false;
         }
-        return false;
+
+        // Only show future events (no past events)
+        const isRecurring = event.event_type === 'recurring' || event.repeat_type;
+        if (isRecurring) {
+            // Recurring: show if no end date or end date is in the future
+            if (event.repeat_end_date && event.repeat_end_date < todayStr) return false;
+            return true;
+        } else {
+            // Single event: only show if start_date is today or in the future
+            return event.start_date >= todayStr;
+        }
     });
 
     // Separate active events (reminder sent = happening soon) from regular
@@ -424,7 +439,8 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
                 // Recurring: show title + repeat day
                 const repeatDay = getRepeatDayText(event);
                 return `
-                    <div class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200">
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 cursor-pointer transition">
+                        <input type="checkbox" class="event-checkbox w-5 h-5 rounded text-indigo-600 cursor-pointer" value="${event.id}" checked />
                         <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-sync-alt text-indigo-600 text-sm"></i>
                         </div>
@@ -434,13 +450,14 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
                             <p class="text-xs text-gray-400">${eventSubgroups}</p>
                         </div>
                         ${isActive ? '<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full flex-shrink-0">Aktiv</span>' : ''}
-                    </div>
+                    </label>
                 `;
             } else {
                 // Single event: show title + date
                 const eventDate = formatEventDate(event.start_date);
                 return `
-                    <div class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200">
+                    <label class="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 cursor-pointer transition">
+                        <input type="checkbox" class="event-checkbox w-5 h-5 rounded text-indigo-600 cursor-pointer" value="${event.id}" checked />
                         <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                             <i class="fas fa-calendar text-blue-600 text-sm"></i>
                         </div>
@@ -450,7 +467,7 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
                             <p class="text-xs text-gray-400">${eventSubgroups}</p>
                         </div>
                         ${isActive ? '<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full flex-shrink-0">Aktiv</span>' : ''}
-                    </div>
+                    </label>
                 `;
             }
         }).join('');
@@ -460,8 +477,8 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
         <div class="p-6">
             <h2 class="text-lg font-bold text-gray-900 mb-1">Veranstaltungen</h2>
             <p class="text-sm text-gray-600 mb-4">
-                ${playerName} wird zu ${relevantEvents.length} Veranstaltung${relevantEvents.length !== 1 ? 'en' : ''} hinzugefügt.
-                ${activeEvents.length > 0 ? `<br><span class="text-green-700 font-medium">${activeEvents.length} aktive Einladung${activeEvents.length !== 1 ? 'en' : ''} ${activeEvents.length !== 1 ? 'werden' : 'wird'} direkt verschickt.</span>` : ''}
+                Wähle die Veranstaltungen aus, zu denen ${playerName} eingeladen werden soll.
+                ${activeEvents.length > 0 ? `<br><span class="text-green-700 font-medium">Aktive Einladungen werden direkt verschickt.</span>` : ''}
             </p>
 
             <div class="space-y-2 mb-6 max-h-80 overflow-y-auto">
@@ -475,13 +492,24 @@ async function showEventsForSubgroups(playerId, clubId, playerName, subgroupIds,
         </div>
     `;
 
-    // Send invitations for active events
-    if (activeEvents.length > 0) {
-        await sendInvitationsForActiveEvents(playerId, activeEvents);
-    }
+    // Handle finish button - send invitations only for selected events
+    document.getElementById('finish-assignment-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('finish-assignment-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Einladungen werden verschickt...';
 
-    // Handle finish button
-    document.getElementById('finish-assignment-btn').addEventListener('click', () => {
+        // Get selected event IDs from checkboxes
+        const selectedEventIds = new Set();
+        content.querySelectorAll('.event-checkbox:checked').forEach(cb => {
+            selectedEventIds.add(cb.value);
+        });
+
+        // Only send invitations for selected active events
+        const selectedActiveEvents = activeEvents.filter(e => selectedEventIds.has(e.id));
+        if (selectedActiveEvents.length > 0) {
+            await sendInvitationsForActiveEvents(playerId, selectedActiveEvents);
+        }
+
         const modal = document.getElementById('subgroup-assignment-modal');
         if (modal) modal.classList.add('hidden');
     });
