@@ -7,7 +7,16 @@
 -- ========================================================================
 
 -- ========================================================================
--- 1. Re-deploy create_offline_player (without is_match_ready)
+-- 1. Drop ALL existing versions of create_offline_player
+-- ========================================================================
+DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID);
+DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[]);
+DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT);
+DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT, TEXT);
+DROP FUNCTION IF EXISTS create_offline_player(TEXT, TEXT, UUID, UUID[], TEXT, TEXT, UUID);
+
+-- ========================================================================
+-- 2. Re-deploy create_offline_player (without is_match_ready)
 -- ========================================================================
 CREATE OR REPLACE FUNCTION create_offline_player(
     p_first_name TEXT,
@@ -156,7 +165,7 @@ $$;
 GRANT EXECUTE ON FUNCTION create_offline_player TO authenticated;
 
 -- ========================================================================
--- 2. Safety check: Drop is_match_ready column if it still exists
+-- 3. Safety check: Drop is_match_ready column if it still exists
 -- ========================================================================
 ALTER TABLE profiles DROP COLUMN IF EXISTS is_match_ready;
 ALTER TABLE profiles DROP COLUMN IF EXISTS grundlagen_completed;
