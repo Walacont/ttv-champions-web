@@ -37,7 +37,7 @@ ADD COLUMN IF NOT EXISTS corrected_by_match_id UUID REFERENCES matches(id) ON DE
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_pending_correction
 ON match_requests(corrects_match_id)
 WHERE corrects_match_id IS NOT NULL
-AND status IN ('pending_player', 'pending_coach');
+AND status IN ('pending_player', 'pending_coach', 'approved');
 
 -- =====================================================
 -- STEP 4: reverse_match_effects() function
@@ -68,6 +68,13 @@ BEGIN
 
     IF NOT FOUND THEN
         RETURN jsonb_build_object('success', false, 'error', 'Match not found');
+    END IF;
+
+    -- 1b. Verify caller is a participant (skip for internal/service calls)
+    IF auth.uid() IS NOT NULL
+       AND auth.uid() != v_match.player_a_id
+       AND auth.uid() != v_match.player_b_id THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Unauthorized: not a match participant');
     END IF;
 
     -- 2. Check not already corrected
@@ -153,7 +160,8 @@ BEGIN
             WHEN v_match.winner_id = player_b_id THEN GREATEST(0, player_b_wins - 1)
             ELSE player_b_wins
         END,
-        -- Reset streak (recalculating from history is too expensive for MVP)
+        -- TODO: Streak reset to 0 for MVP. Full recalculation from match history
+        -- would be more accurate but expensive. Track as tech debt.
         consecutive_wins = 0,
         current_streak_winner_id = NULL,
         suggested_handicap = 0,
@@ -186,6 +194,136 @@ CREATE INDEX IF NOT EXISTS idx_match_requests_corrects
 ON match_requests(corrects_match_id) WHERE corrects_match_id IS NOT NULL;
 
 -- =====================================================
+-- STEP 6: accept_match_correction() - atomic correction
+-- =====================================================
+-- Single RPC that handles the entire accept flow in one transaction:
+-- validates request, updates status, reverses old match, creates new match.
+-- If any step fails, everything is rolled back.
+
+CREATE OR REPLACE FUNCTION accept_match_correction(p_request_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_request RECORD;
+    v_original_match RECORD;
+    v_new_match_id UUID;
+    v_reverse_result JSONB;
+BEGIN
+    -- 1. Fetch and validate the correction request
+    SELECT * INTO v_request
+    FROM match_requests
+    WHERE id = p_request_id;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Correction request not found');
+    END IF;
+
+    IF v_request.corrects_match_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Not a correction request');
+    END IF;
+
+    IF v_request.status NOT IN ('pending_player', 'pending_coach') THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Request already processed');
+    END IF;
+
+    -- 2. Verify caller is the opponent (player_b accepts)
+    IF auth.uid() != v_request.player_b_id THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Only the opponent can accept a correction');
+    END IF;
+
+    -- 3. Update request status to approved
+    UPDATE match_requests
+    SET status = 'approved',
+        approvals = jsonb_set(
+            COALESCE(approvals::jsonb, '{}'::jsonb),
+            '{player_b}',
+            'true'::jsonb
+        ),
+        updated_at = NOW()
+    WHERE id = p_request_id;
+
+    -- 4. Reverse old match effects
+    v_reverse_result := reverse_match_effects(v_request.corrects_match_id);
+
+    IF NOT (v_reverse_result->>'success')::boolean THEN
+        RAISE EXCEPTION 'Reversal failed: %', v_reverse_result->>'error';
+    END IF;
+
+    -- 5. Get original match's played_at for the new match
+    SELECT played_at INTO v_original_match
+    FROM matches
+    WHERE id = v_request.corrects_match_id;
+
+    -- 6. Insert the corrected match
+    INSERT INTO matches (
+        player_a_id, player_b_id, sport_id, club_id,
+        winner_id, loser_id, sets,
+        player_a_sets_won, player_b_sets_won,
+        handicap_used, match_mode, played_at
+    ) VALUES (
+        v_request.player_a_id, v_request.player_b_id,
+        v_request.sport_id, v_request.club_id,
+        v_request.winner_id, v_request.loser_id,
+        v_request.sets,
+        COALESCE(v_request.player_a_sets_won, 0),
+        COALESCE(v_request.player_b_sets_won, 0),
+        COALESCE(v_request.handicap_used, false),
+        COALESCE(v_request.match_mode, 'best-of-5'),
+        COALESCE(v_original_match.played_at, v_request.created_at)
+    ) RETURNING id INTO v_new_match_id;
+
+    -- 7. Link old match to new match
+    UPDATE matches
+    SET corrected_by_match_id = v_new_match_id
+    WHERE id = v_request.corrects_match_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'new_match_id', v_new_match_id
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Entire transaction rolls back on any failure
+        RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+-- =====================================================
+-- STEP 7: Trigger to validate correction participant
+-- =====================================================
+-- Ensures correction requests can only be created by participants
+-- of the original match. Prevents bypassing client-side checks.
+
+CREATE OR REPLACE FUNCTION validate_correction_participant()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    IF NEW.corrects_match_id IS NOT NULL THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM matches
+            WHERE id = NEW.corrects_match_id
+            AND (player_a_id = auth.uid() OR player_b_id = auth.uid())
+        ) THEN
+            RAISE EXCEPTION 'You must be a participant of the original match to request a correction';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_validate_correction_participant ON match_requests;
+CREATE TRIGGER trg_validate_correction_participant
+BEFORE INSERT ON match_requests
+FOR EACH ROW
+EXECUTE FUNCTION validate_correction_participant();
+
+-- =====================================================
 -- Verification
 -- =====================================================
 DO $$
@@ -193,6 +331,8 @@ BEGIN
     RAISE NOTICE 'Match Corrections migration applied:';
     RAISE NOTICE '- match_requests.corrects_match_id, correction_reason columns added';
     RAISE NOTICE '- matches.is_corrected, corrected_by_match_id columns added';
-    RAISE NOTICE '- Unique partial index prevents concurrent corrections';
+    RAISE NOTICE '- Unique partial index prevents concurrent corrections (incl. approved)';
     RAISE NOTICE '- reverse_match_effects() reverses Elo/XP/points/wins/losses/H2H';
+    RAISE NOTICE '- accept_match_correction() atomic accept flow (status + reversal + new match)';
+    RAISE NOTICE '- Trigger validates correction requester is a match participant';
 END $$;

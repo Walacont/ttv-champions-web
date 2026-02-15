@@ -291,6 +291,7 @@
     "correctionRequest": "更正请求",
     "correctionRequestTitle": "更正结果",
     "correctionReason": "更正原因",
+    "correctionReasonMissing": "请提供更正原因",
     "correctionReasonPlaceholder": "为什么需要更正结果？",
     "correctionOriginalResult": "原始结果",
     "correctionNewResult": "更正后结果",

@@ -2,6 +2,7 @@
 // Verwaltet Anzeige der Wettkampf-Historie, Rendering und Detail-Modals
 
 import { getSupabase } from './supabase-init.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -224,7 +225,8 @@ function renderSinglesMatchCard(match, profileMap) {
         (match.player_a_id === currentUser.id || match.player_b_id === currentUser.id);
 
     const oppName = opponentDeleted ? 'Gelöschter Spieler' : (opponent.first_name || opponent.display_name || 'Gegner');
-    const oppNameDisplay = oppName.length > 12 ? oppName.substring(0, 12) + '.' : oppName;
+    const oppNameTruncated = oppName.length > 12 ? oppName.substring(0, 12) + '.' : oppName;
+    const oppNameDisplay = escapeHtml(oppNameTruncated);
 
     return `
         <div class="${isCorrected ? 'opacity-60' : ''} bg-white rounded-xl shadow-sm border-l-4 ${isCorrected ? 'border-l-gray-300' : (isWinner ? 'border-l-green-500' : 'border-l-red-500')} p-4 mb-4">
@@ -335,9 +337,9 @@ function renderDoublesMatchCard(match, profileMap) {
     const opp1Avatar = oppTeamPlayer1?.avatar_url || DEFAULT_AVATAR;
     const opp2Avatar = oppTeamPlayer2?.avatar_url || DEFAULT_AVATAR;
 
-    const partnerName = partnerDeleted ? 'Gelöscht' : (partner.first_name || partner.display_name || 'Partner');
-    const opp1Name = opp1Deleted ? 'Gelöscht' : (oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner');
-    const opp2Name = opp2Deleted ? 'Gelöscht' : (oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner');
+    const partnerName = escapeHtml(partnerDeleted ? 'Gelöscht' : (partner.first_name || partner.display_name || 'Partner'));
+    const opp1Name = escapeHtml(opp1Deleted ? 'Gelöscht' : (oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner'));
+    const opp2Name = escapeHtml(opp2Deleted ? 'Gelöscht' : (oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner'));
 
     const handicapBadge = match.handicap_used
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'

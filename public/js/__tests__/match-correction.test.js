@@ -12,6 +12,8 @@ import { describe, test, expect, beforeEach } from 'vitest';
 
 // ============================================================================
 // Extracted eligibility logic (mirrors match-correction-supabase.js)
+// Duplicated here because the module has side effects (getSupabase() call at
+// import time) that require a full Supabase mock. Keep in sync with the source.
 // ============================================================================
 
 function isCorrectionEligible(match, currentSeason, currentUserId) {

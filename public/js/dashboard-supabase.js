@@ -4017,28 +4017,9 @@ window.respondToMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Automatisch genehmigen wenn Spieler B bestätigt (keine Trainer-Genehmigung nötig)
-        let newStatus = 'approved';
-        let approvals = request.approvals || {};
-        if (typeof approvals === 'string') {
-            approvals = JSON.parse(approvals);
-        }
-        approvals.player_b = true;
-
-        console.log('[Match] Auto-approved: Player B confirmed');
-
-        // Anfrage aktualisieren
-        const { error: updateError } = await supabase
-            .from('match_requests')
-            .update({
-                status: newStatus,
-                approvals: approvals
-            })
-            .eq('id', requestId);
-
-        if (updateError) throw updateError;
-
         // --- Correction Flow ---
+        // Uses atomic server-side RPC that handles status update + reversal + new match
+        // in a single transaction. No premature status update needed.
         if (request.corrects_match_id) {
             console.log('[Match] Processing correction for match:', request.corrects_match_id);
             const correctionResult = await acceptCorrection(request);
@@ -4062,20 +4043,32 @@ window.respondToMatchRequest = async (requestId, accept) => {
             alert(t('dashboard.correctionAccepted'));
         } else {
             // --- Normal Match Flow ---
-            // Das eigentliche Match erstellen (jetzt immer auto-genehmigt)
+            // Automatisch genehmigen wenn Spieler B bestätigt
+            let approvals = request.approvals || {};
+            if (typeof approvals === 'string') {
+                approvals = JSON.parse(approvals);
+            }
+            approvals.player_b = true;
+
+            console.log('[Match] Auto-approved: Player B confirmed');
+
+            const { error: updateError } = await supabase
+                .from('match_requests')
+                .update({
+                    status: 'approved',
+                    approvals: approvals
+                })
+                .eq('id', requestId);
+
+            if (updateError) throw updateError;
+
             await createMatchFromRequest(request);
 
-            // loadMatchRequests() nicht sofort aufrufen - optimistisches UI-Update bereits
-            // removed the card, and calling loadMatchRequests() too soon can cause a race
-            // condition where the card reappears briefly before the animation completes.
-            // Die Echtzeit-Subscription behandelt weitere Updates.
-            // Verzögertes Neuladen als Sicherheitsnetz für verpasste Echtzeit-Events
             setTimeout(() => {
                 loadMatchRequests();
                 loadPendingRequests();
             }, 800);
 
-            // Feedback anzeigen
             alert(t('dashboard.matchConfirmed'));
         }
 
@@ -4547,7 +4540,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const badgeText = isCorrection ? t('dashboard.correctionBadge') : statusText;
 
     const correctionReasonHtml = isCorrection && req.correction_reason
-        ? `<p class="text-xs text-amber-700 mt-1"><i class="fas fa-info-circle mr-1"></i>${req.correction_reason}</p>`
+        ? `<p class="text-xs text-amber-700 mt-1"><i class="fas fa-info-circle mr-1"></i>${escapeHtml(req.correction_reason)}</p>`
         : '';
 
     return `

@@ -291,6 +291,7 @@
     "correctionRequest": "Correction request",
     "correctionRequestTitle": "Correct result",
     "correctionReason": "Reason for correction",
+    "correctionReasonMissing": "Please provide a reason for the correction",
     "correctionReasonPlaceholder": "Why does the result need to be corrected?",
     "correctionOriginalResult": "Original result",
     "correctionNewResult": "Corrected result",

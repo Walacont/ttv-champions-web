@@ -157,6 +157,14 @@ export function closeCorrectionModal() {
     if (modal) {
         modal.classList.add('hidden');
         correctionScoreHandler = null;
+        // Clear stale data attributes
+        delete modal.dataset.matchId;
+        delete modal.dataset.playerAId;
+        delete modal.dataset.playerBId;
+        delete modal.dataset.sportId;
+        delete modal.dataset.clubId;
+        delete modal.dataset.matchMode;
+        delete modal.dataset.handicapUsed;
     }
 }
 
@@ -176,7 +184,7 @@ export async function submitCorrectionRequest() {
     const reason = document.getElementById('correction-reason')?.value?.trim() || '';
 
     if (!reason) {
-        showCorrectionFeedback(feedbackEl, t('dashboard.correctionReason') + ' fehlt', 'error');
+        showCorrectionFeedback(feedbackEl, t('dashboard.correctionReasonMissing'), 'error');
         return;
     }
 
@@ -191,6 +199,16 @@ export async function submitCorrectionRequest() {
     const winnerId = validation.winnerId === 'A' ? playerAId : playerBId;
     const loserId = validation.winnerId === 'A' ? playerBId : playerAId;
 
+    // Calculate sets won per player
+    let playerASetsWon = 0;
+    let playerBSetsWon = 0;
+    sets.forEach((s) => {
+        const scoreA = s.playerA ?? 0;
+        const scoreB = s.playerB ?? 0;
+        if (scoreA > scoreB) playerASetsWon++;
+        else if (scoreB > scoreA) playerBSetsWon++;
+    });
+
     // Requester is always player_a in the correction request
     const requestPlayerBId = currentUser.id === playerAId ? playerBId : playerAId;
 
@@ -201,6 +219,8 @@ export async function submitCorrectionRequest() {
             club_id: clubId || null,
             sport_id: sportId || null,
             sets: sets,
+            player_a_sets_won: playerASetsWon,
+            player_b_sets_won: playerBSetsWon,
             match_mode: matchMode,
             handicap_used: handicapUsed,
             winner_id: winnerId,
@@ -242,60 +262,27 @@ export async function submitCorrectionRequest() {
 }
 
 /**
- * Handle correction acceptance: reverse old match, create new match
+ * Handle correction acceptance via atomic server-side RPC.
+ * The accept_match_correction function handles status update, reversal,
+ * new match creation, and linking in a single transaction.
  * @param {Object} request - The match request with corrects_match_id
  * @returns {Promise<{success: boolean, newMatchId?: string, error?: string}>}
  */
 export async function acceptCorrection(request) {
     try {
-        // 1. Reverse old match effects
-        const { data: result, error: rpcError } = await supabase.rpc('reverse_match_effects', {
-            p_match_id: request.corrects_match_id,
-        });
+        const { data: result, error: rpcError } = await supabase.rpc(
+            'accept_match_correction',
+            { p_request_id: request.id }
+        );
 
         if (rpcError) throw rpcError;
 
         const parsed = typeof result === 'string' ? JSON.parse(result) : result;
         if (!parsed?.success) {
-            return { success: false, error: parsed?.error || 'Reversal failed' };
+            return { success: false, error: parsed?.error || 'Correction failed' };
         }
 
-        // 2. Create new match (trigger handles Elo processing)
-        const matchData = {
-            player_a_id: request.player_a_id,
-            player_b_id: request.player_b_id,
-            sport_id: request.sport_id,
-            winner_id: request.winner_id,
-            loser_id: request.loser_id,
-            sets: request.sets,
-            player_a_sets_won: request.player_a_sets_won || 0,
-            player_b_sets_won: request.player_b_sets_won || 0,
-            handicap_used: request.handicap_used || false,
-            match_mode: request.match_mode || 'best-of-5',
-            played_at: request.created_at || new Date().toISOString(),
-        };
-
-        if (request.club_id) {
-            matchData.club_id = request.club_id;
-        }
-
-        const { data: newMatch, error: matchError } = await supabase
-            .from('matches')
-            .insert(matchData)
-            .select('id')
-            .single();
-
-        if (matchError) throw matchError;
-
-        // 3. Link old match to new match
-        if (newMatch?.id) {
-            await supabase
-                .from('matches')
-                .update({ corrected_by_match_id: newMatch.id })
-                .eq('id', request.corrects_match_id);
-        }
-
-        return { success: true, newMatchId: newMatch?.id };
+        return { success: true, newMatchId: parsed.new_match_id };
     } catch (error) {
         console.error('Error accepting correction:', error);
         return { success: false, error: error.message };
