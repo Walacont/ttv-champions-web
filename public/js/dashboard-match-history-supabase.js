@@ -2,6 +2,7 @@
 // Verwaltet Anzeige der Wettkampf-Historie, Rendering und Detail-Modals
 
 import { getSupabase } from './supabase-init.js';
+import { escapeHtml } from './utils/security.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -33,7 +34,7 @@ export async function loadMatchHistory() {
     try {
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
-            .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used')
+            .select('id, player_a_id, player_b_id, winner_id, loser_id, sets, player_a_sets_won, player_b_sets_won, elo_change, winner_elo_change, loser_elo_change, player_a_elo_before, player_b_elo_before, season_points_awarded, played_at, created_at, sport_id, club_id, match_mode, handicap_used, is_corrected, corrected_by_match_id, tournament_match_id')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
             .limit(50);
@@ -214,29 +215,42 @@ function renderSinglesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
+    const isCorrected = match.is_corrected === true;
+    const correctedBadge = isCorrected
+        ? '<span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 text-gray-500 rounded-full line-through">Korrigiert</span>'
+        : '';
+
+    // Show correction button if: not corrected, not tournament, user is participant
+    const canRequestCorrection = !isCorrected && !match.tournament_match_id &&
+        (match.player_a_id === currentUser.id || match.player_b_id === currentUser.id);
+
     const oppName = opponentDeleted ? 'Gelöschter Spieler' : (opponent.first_name || opponent.display_name || 'Gegner');
-    const oppNameDisplay = oppName.length > 12 ? oppName.substring(0, 12) + '.' : oppName;
+    const oppNameTruncated = oppName.length > 12 ? oppName.substring(0, 12) + '.' : oppName;
+    const oppNameDisplay = escapeHtml(oppNameTruncated);
 
     return `
-        <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
+        <div class="${isCorrected ? 'opacity-60' : ''} bg-white rounded-xl shadow-sm border-l-4 ${isCorrected ? 'border-l-gray-300' : (isWinner ? 'border-l-green-500' : 'border-l-red-500')} p-4 mb-4">
             <!-- Kopfzeile -->
             <div class="flex justify-between items-center mb-3">
                 <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
-                <span class="px-2 py-1 rounded-full text-xs font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                    ${isWinner ? 'Sieg' : 'Niederlage'}
-                </span>
+                <div class="flex items-center gap-1">
+                    ${isCorrected ? '<span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Korrigiert</span>' : ''}
+                    <span class="px-2 py-1 rounded-full text-xs font-medium ${isCorrected ? 'bg-gray-100 text-gray-400' : (isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}">
+                        ${isCorrected ? (isWinner ? 'Sieg' : 'Niederlage') : (isWinner ? 'Sieg' : 'Niederlage')}
+                    </span>
+                </div>
             </div>
 
             <!-- Ergebnis -->
             <div class="text-center mb-3">
-                <p class="text-3xl font-bold">${mySetWins} : ${oppSetWins}</p>
+                <p class="text-3xl font-bold ${isCorrected ? 'text-gray-400 line-through' : ''}">${mySetWins} : ${oppSetWins}</p>
             </div>
 
             <!-- Spieler -->
             <div class="flex items-center justify-center gap-4 mb-3">
                 <div class="flex items-center">
                     <img src="${myAvatar}" alt="Du"
-                        class="w-8 h-8 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}"
+                        class="w-8 h-8 rounded-full object-cover border-2 ${isCorrected ? 'border-gray-300' : (isWinner ? 'border-green-500' : 'border-red-500')}"
                         onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="ml-2">
                         <p class="text-sm font-medium">Du</p>
@@ -248,7 +262,7 @@ function renderSinglesMatchCard(match, profileMap) {
 
                 <div class="flex items-center">
                     <img src="${oppAvatar}" alt="Gegner"
-                        class="w-8 h-8 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}"
+                        class="w-8 h-8 rounded-full object-cover border-2 ${isCorrected ? 'border-gray-300' : (!isWinner ? 'border-green-500' : 'border-red-500')}"
                         onerror="this.src='${DEFAULT_AVATAR}'">
                     <div class="ml-2">
                         <p class="text-sm font-medium">${oppNameDisplay}</p>
@@ -260,11 +274,18 @@ function renderSinglesMatchCard(match, profileMap) {
             <!-- Fußzeile -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                 <div class="flex items-center">
-                    ${statsHtml}${handicapBadge}
+                    ${isCorrected ? '<span class="text-gray-400 font-medium text-sm">Korrigiert</span>' : statsHtml}${handicapBadge}${correctedBadge}
                 </div>
-                <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                    Details
-                </button>
+                <div class="flex items-center gap-2">
+                    ${canRequestCorrection ? `
+                        <button onclick="requestMatchCorrection('${match.id}')" class="text-amber-600 hover:text-amber-800 text-sm font-medium" title="Korrektur anfragen">
+                            <i class="fas fa-pen-to-square"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                        Details
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -316,9 +337,9 @@ function renderDoublesMatchCard(match, profileMap) {
     const opp1Avatar = oppTeamPlayer1?.avatar_url || DEFAULT_AVATAR;
     const opp2Avatar = oppTeamPlayer2?.avatar_url || DEFAULT_AVATAR;
 
-    const partnerName = partnerDeleted ? 'Gelöscht' : (partner.first_name || partner.display_name || 'Partner');
-    const opp1Name = opp1Deleted ? 'Gelöscht' : (oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner');
-    const opp2Name = opp2Deleted ? 'Gelöscht' : (oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner');
+    const partnerName = escapeHtml(partnerDeleted ? 'Gelöscht' : (partner.first_name || partner.display_name || 'Partner'));
+    const opp1Name = escapeHtml(opp1Deleted ? 'Gelöscht' : (oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner'));
+    const opp2Name = escapeHtml(opp2Deleted ? 'Gelöscht' : (oppTeamPlayer2?.first_name || oppTeamPlayer2?.display_name || 'Gegner'));
 
     const handicapBadge = match.handicap_used
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
@@ -869,3 +890,16 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
 // Funktionen global verfügbar machen für onclick-Handler
 window.showMatchDetails = showMatchDetails;
 window.deleteMatchRequest = deleteMatchRequest;
+
+/** Opens correction modal for a match from history */
+window.requestMatchCorrection = function(matchId) {
+    const { matches, profileMap } = window.matchHistoryData || {};
+    if (!matches || !profileMap) return;
+
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    if (typeof window.openCorrectionModal === 'function') {
+        window.openCorrectionModal(match, profileMap);
+    }
+};

@@ -41,6 +41,13 @@ import {
 } from './dashboard-match-history-supabase.js';
 import { initPlayerVideoUpload, setCurrentExerciseId } from './video-analysis-player-supabase.js';
 import { createNotification as createNotificationWithPush } from './notifications-supabase.js';
+import {
+    initMatchCorrectionModule,
+    acceptCorrection,
+    openCorrectionModal,
+    closeCorrectionModal,
+    submitCorrectionRequest
+} from './match-correction-supabase.js';
 
 suppressConsoleLogs();
 
@@ -558,6 +565,7 @@ async function initializeDashboard() {
     // Match-Module mit aktuellen Benutzerdaten initialisieren (MUSS vor loadMatchHistory und setupMatchForm sein)
     initMatchFormModule(currentUser, currentUserData, currentSportContext);
     initMatchHistoryModule(currentUser, currentUserData);
+    initMatchCorrectionModule(currentUser, currentUserData, currentSportContext);
 
     // Aktivitäts-Feed-Modul initialisieren
     initActivityFeedModule(currentUser, currentUserData);
@@ -3994,7 +4002,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // Angenommen - Match-Anfrage-Details abrufen
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, approvals, sets, created_at, winner_id, loser_id, sport_id, handicap_used, handicap, match_mode, club_id, player_a_sets_won, player_b_sets_won')
+            .select('id, player_a_id, player_b_id, status, approvals, sets, created_at, winner_id, loser_id, sport_id, handicap_used, handicap, match_mode, club_id, player_a_sets_won, player_b_sets_won, corrects_match_id, correction_reason')
             .eq('id', requestId)
             .single();
 
@@ -4009,42 +4017,60 @@ window.respondToMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Automatisch genehmigen wenn Spieler B bestätigt (keine Trainer-Genehmigung nötig)
-        let newStatus = 'approved';
-        let approvals = request.approvals || {};
-        if (typeof approvals === 'string') {
-            approvals = JSON.parse(approvals);
+        // --- Correction Flow ---
+        // Uses atomic server-side RPC that handles status update + reversal + new match
+        // in a single transaction. No premature status update needed.
+        if (request.corrects_match_id) {
+            console.log('[Match] Processing correction for match:', request.corrects_match_id);
+            const correctionResult = await acceptCorrection(request);
+
+            if (!correctionResult.success) {
+                console.error('[Match] Correction failed:', correctionResult.error);
+                alert(t('dashboard.correctionReversalError') + ': ' + correctionResult.error);
+                setTimeout(() => {
+                    loadMatchRequests();
+                    loadPendingRequests();
+                }, 800);
+                return;
+            }
+
+            setTimeout(() => {
+                loadMatchRequests();
+                loadPendingRequests();
+                loadMatchHistory();
+            }, 800);
+
+            alert(t('dashboard.correctionAccepted'));
+        } else {
+            // --- Normal Match Flow ---
+            // Automatisch genehmigen wenn Spieler B bestätigt
+            let approvals = request.approvals || {};
+            if (typeof approvals === 'string') {
+                approvals = JSON.parse(approvals);
+            }
+            approvals.player_b = true;
+
+            console.log('[Match] Auto-approved: Player B confirmed');
+
+            const { error: updateError } = await supabase
+                .from('match_requests')
+                .update({
+                    status: 'approved',
+                    approvals: approvals
+                })
+                .eq('id', requestId);
+
+            if (updateError) throw updateError;
+
+            await createMatchFromRequest(request);
+
+            setTimeout(() => {
+                loadMatchRequests();
+                loadPendingRequests();
+            }, 800);
+
+            alert(t('dashboard.matchConfirmed'));
         }
-        approvals.player_b = true;
-
-        console.log('[Match] Auto-approved: Player B confirmed');
-
-        // Anfrage aktualisieren
-        const { error: updateError } = await supabase
-            .from('match_requests')
-            .update({
-                status: newStatus,
-                approvals: approvals
-            })
-            .eq('id', requestId);
-
-        if (updateError) throw updateError;
-
-        // Das eigentliche Match erstellen (jetzt immer auto-genehmigt)
-        await createMatchFromRequest(request);
-
-        // loadMatchRequests() nicht sofort aufrufen - optimistisches UI-Update bereits
-        // removed the card, and calling loadMatchRequests() too soon can cause a race
-        // condition where the card reappears briefly before the animation completes.
-        // Die Echtzeit-Subscription behandelt weitere Updates.
-        // Verzögertes Neuladen als Sicherheitsnetz für verpasste Echtzeit-Events
-        setTimeout(() => {
-            loadMatchRequests();
-            loadPendingRequests();
-        }, 800);
-
-        // Feedback anzeigen
-        alert(t('dashboard.matchConfirmed'));
 
     } catch (error) {
         console.error('Error responding to match request:', error);
@@ -4293,6 +4319,17 @@ window.deleteDoublesMatchRequest = async (requestId) => {
 window.loadMatchRequests = loadMatchRequests;
 window.loadPendingRequests = loadPendingRequests;
 
+// --- Match Correction Modal Handlers ---
+window.openCorrectionModal = openCorrectionModal;
+window.closeCorrectionModal = closeCorrectionModal;
+
+// Correction modal button listeners (deferred to avoid null elements before DOM ready)
+setTimeout(() => {
+    document.getElementById('close-correction-modal')?.addEventListener('click', closeCorrectionModal);
+    document.getElementById('cancel-correction-btn')?.addEventListener('click', closeCorrectionModal);
+    document.getElementById('submit-correction-btn')?.addEventListener('click', submitCorrectionRequest);
+}, 0);
+
 /**
  * Create actual match from approved request
  * Includes duplicate protection to prevent double-creation
@@ -4369,7 +4406,7 @@ async function loadPendingRequests() {
         // Einzel-Anfragen laden
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
-            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals, player_a_sets_won, player_b_sets_won, winner_id, handicap_used, match_mode')
+            .select('id, player_a_id, player_b_id, status, created_at, sets, approvals, player_a_sets_won, player_b_sets_won, winner_id, handicap_used, match_mode, corrects_match_id, correction_reason')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false });
@@ -4489,11 +4526,25 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
     const handicapText = req.handicap_used ? ` ${t('dashboard.withHandicap')}` : '';
 
+    const isCorrection = !!req.corrects_match_id;
     const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
     const needsResponse = !isPlayerA && req.status === 'pending_player';
 
+    // Correction-specific styling
+    const borderClass = isCorrection
+        ? (needsResponse ? 'border-amber-400' : 'border-amber-200')
+        : (needsResponse ? 'border-indigo-300' : 'border-gray-200');
+    const badgeClass = isCorrection
+        ? 'bg-amber-100 text-amber-800'
+        : (req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800');
+    const badgeText = isCorrection ? t('dashboard.correctionBadge') : statusText;
+
+    const correctionReasonHtml = isCorrection && req.correction_reason
+        ? `<p class="text-xs text-amber-700 mt-1"><i class="fas fa-info-circle mr-1"></i>${escapeHtml(req.correction_reason)}</p>`
+        : '';
+
     return `
-        <div id="pending-match-request-${req.id}" class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
+        <div id="pending-match-request-${req.id}" class="bg-white border ${borderClass} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-3">
                     <img loading="lazy" src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
@@ -4502,19 +4553,20 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
                         ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
                     </div>
                 </div>
-                <span class="text-xs ${req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full">${statusText}</span>
+                <span class="text-xs ${badgeClass} px-2 py-1 rounded-full">${badgeText}</span>
             </div>
-            <div class="bg-gray-50 rounded-lg p-3 mb-3">
-                <p class="text-sm font-medium text-gray-700 mb-1">${t('dashboard.resultLabel')}: ${setsDisplay}</p>
+            <div class="${isCorrection ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'} rounded-lg p-3 mb-3 ${isCorrection ? 'border' : ''}">
+                <p class="text-sm font-medium text-gray-700 mb-1">${isCorrection ? t('dashboard.correctionNewResult') : t('dashboard.resultLabel')}: ${setsDisplay}</p>
                 <p class="text-sm text-green-700">${t('common.winner')}: ${winnerName}${handicapText}</p>
+                ${correctionReasonHtml}
             </div>
             ${needsResponse ? `
                 <div class="flex gap-2">
-                    <button onclick="respondToMatchRequest('${req.id}', true)" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md">
-                        Akzeptieren
+                    <button onclick="respondToMatchRequest('${req.id}', true)" class="flex-1 ${isCorrection ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600'} text-white text-sm py-2 px-3 rounded-md">
+                        ${isCorrection ? t('dashboard.correctionAccept') : 'Akzeptieren'}
                     </button>
                     <button onclick="respondToMatchRequest('${req.id}', false)" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
-                        Ablehnen
+                        ${isCorrection ? t('dashboard.correctionReject') : 'Ablehnen'}
                     </button>
                 </div>
             ` : isPlayerA ? `
