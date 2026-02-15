@@ -184,6 +184,11 @@ scripts/firebase-service-account.json
 android/.gradle/
 android/build/
 
+# Supabase local development
+.supabase/
+supabase/.branches/
+.temp/
+
 # Sensitive files - NEVER commit these
 android/app/google-services.json
 android/app/*.keystore
